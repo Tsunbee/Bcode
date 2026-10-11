@@ -164,7 +164,8 @@ for n, sz in (('Heading 1', 17), ('Heading 2', 13), ('Heading 3', 11)):
     s.element.rPr.rFonts.set(qn('w:eastAsia'), 'Segoe UI')
 
 t = doc.add_paragraph(); r = t.add_run('Cấu trúc Bcode & BcodeViewer'); r.bold = True; r.font.size = Pt(24); r.font.color.rgb = RGBColor(0x1F, 0x3A, 0x6E)
-para(doc, f'Bản v3 · cập nhật {TODAY} · @Bee · thay thế bản v2 (02/10/2026)', 10)
+FULL = os.environ.get('FULL') == '1'
+para(doc, ('BẢN ĐẦY ĐỦ (dành cho người đọc tài liệu) · ' if FULL else 'BẢN TÓM TẮT (tra cứu nhanh) · ') + f'v3 · cập nhật {TODAY} · @Bee · thay thế bản v2 (02/10/2026)', 10)
 para(doc, 'Mục đích: tài liệu tra cứu nhanh để sửa code mà không phải dò lại cả dự án — "muốn sửa X thì mở file Y". Bản tóm tắt dạng text cho AI/grep nằm ở STRUCTURE.md (cùng nội dung bảng).', 10)
 doc.add_paragraph('Mục lục', style='Heading 2')
 toc(doc)
@@ -268,13 +269,20 @@ for s in [
     'Mới ở Bcode.App: Command Palette, tab switcher, nhóm công cụ, khôi phục phiên + ngủ đông, Chế độ hiệu năng, Template giao diện/UiScale/UiOverrides/ShortcutRegistry, WebFrameHost (giảm RAM), SQL history + Lịch sử SQL + So sánh object + Ai đang dùng, gợi ý code SQL, debug từng bước, Check Include, Check LCTT/CĐKT, Biên bản Word, Tạo nhanh danh mục, Tạo báo cáo (Bcode.ReportBuilder), Create RPT & XML, Excel → FRX, Check Mail, Setup eInvoice dạng tab, Báo cáo yêu cầu FSG, Cấp source/Copy to nhiều file, key bản quyền (+Bcode.KeyGen), Claude/Gemini nhúng, API chuẩn LT3.',
     'Project mới: Bcode.ScreenDesigner, Bcode.ReportBuilder, Bcode.KeyGen, Shared/, tools/lt3-api-docs.',
     'BcodeViewer: giao diện chuyển sang web shell (shell.js, ui.js, keys.js, quickopen.js, tabswitcher.js, mailpreview.js); thêm CaptionTranslator, IncludeTree, VsCodeThemeImporter, FcodeFieldDictionary; QuickOpenForm.cs (WinForms) đã bỏ — thay bằng quickopen.js.',
-    'Sửa nhận định cũ: pipe Bcode.Control.<session> NAY ĐANG DÙNG ("Debug trong Bcode", F5 qua Bcode); trước đây ghi là chưa ai gọi.',
+    'Sửa nhận định cũ: pipe Bcode.Control.<session> NAY ĐANG DÙNG cho lệnh "sql|" ("Debug trong Bcode"); lệnh "fsg|" vẫn còn handler nhưng F5 của Viewer đi thẳng MenuLauncher (mở trình duyệt). v2 ghi là chưa ai gọi.',
 ]:
     bullet(doc, s, 9.5)
 
-out = os.path.join(ROOT, 'Cấu trúc Bcode  BcodeViewer (v3).docx')
+if FULL:
+    import full_extra
+    full_extra.add(doc, globals())
+    out = os.path.join(ROOT, 'Cấu trúc Bcode  BcodeViewer (v3 - Đầy đủ).docx')
+else:
+    out = os.path.join(ROOT, 'Cấu trúc Bcode  BcodeViewer (v3 - Tóm tắt).docx')
 doc.save(out)
 print('saved', out)
+if FULL:
+    sys.exit(0)
 
 # ------------------------------------------------------------ STRUCTURE.md
 md = []

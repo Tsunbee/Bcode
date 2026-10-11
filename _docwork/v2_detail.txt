@@ -1,0 +1,304 @@
+[Heading1] Cấu trúc Bcode & BcodeViewer
+[-] Oct 2, 2026 · @Bee
+[-] Mục lục
+[-] 
+[Heading2] Ngữ cảnh
+[ListParagraph] Cả hai app đều xoay quanh FastBusiness ERP và định dạng file điều khiển "FCode" (controller XML kiểu Dir/Grid/Filter/Report, kèm SQL và JavaScript nhúng bên trong) — nhưng phục vụ hai vai trò khác nhau, chạy như hai tiến trình WinForms .NET 8 độc lập, không tham chiếu project lẫn nhau, mỗi app có file settings JSON riêng trong %AppData%\Bcode.
+[ListParagraph] Bcode.App là bản dựng lại đầy đủ bộ công cụ FCode gốc của FastBusiness: quản trị SQL (query, table edit, schema compare, backup DB, SQL Profiler), cây lệnh WCommand (menu ERP), sinh gói update/insert (Gen Update, Advance Note + Gen All), cấp source chuẩn từ kho (Add Source) và nhân bản danh mục (Clone danh mục), thư viện snippet, đối chiếu file, giải mã đối tượng SQL, xuất báo cáo/XLSX, khai báo & sinh đặc tả API, tự động đăng nhập/tra cứu dự án FSG… Từ bản cập nhật gần nhất app mở bằng màn hình Projects (chọn project, có thể mở nhiều cửa sổ Bcode song song, mỗi cửa sổ một dự án), có AI (Claude/Gemini) gợi ý code ngay trong SQL Query, và phần lớn hộp thoại mới được vẽ bằng một trang WebView2 — hướng tới người quản trị/triển khai hệ thống ERP tại khách hàng.
+[ListParagraph] BcodeViewer.App ra đời sau, là một trình xem/soạn file nhẹ hơn, xây trên Monaco Editor (lõi của VS Code) thay vì các control WinForms tự viết — tập trung vào trải nghiệm gõ code hiện đại: IntelliSense nhiều lớp cho đúng cú pháp FCode (kèm bộ snippet gốc của FCodeViewer), F12/Peek xuyên file cho entity include, Ctrl+G nhảy nhanh tới tag, xem trước màn hình Dir (Alt+P), dịch caption v→e, clone file, chạy SQL nhanh, F5 mở menu của file trên trình duyệt, và một lớp AI (Claude hoặc Gemini) hỗ trợ gợi ý code theo kiểu Copilot. BcodeViewer dùng lại đúng danh sách workspace/kết nối CSDL mà Bcode.App đã lưu (SqlSchemaService đọc chung %AppData%\Bcode\settings.json), nên người dùng không phải khai kết nối riêng lần nữa — nhưng không có các công cụ quản trị ERP nặng ký (backup DB, WCommand, gen update, SQL Profiler…) mà Bcode.App có.
+[ListParagraph] Hai app nói chuyện với nhau: Bcode.App mở BcodeViewer.exe từ File Lookup (nút Edit / nhấp đúp, kèm tên project để BcodeViewer nhóm file đúng dự án); 
+[ListParagraph] BcodeViewer chạy một bản duy nhất cho mỗi phiên Windows (Mutex + named pipe BcodeViewer.SingleInstance.<session>), nên file mở thêm sẽ rơi vào cửa sổ đang chạy.
+[ListParagraph] Ngược lại Bcode.App vẫn lắng nghe pipe Bcode.Control.<session> (Services/ViewerControlServer.cs) nhưng hiện BcodeViewer không còn gửi lệnh vào đó — F5 trong BcodeViewer tự mở menu bằng trình duyệt mặc định (Host/MenuLauncher.cs). Cả hai dùng chung một bản sao y hệt của BcodePaths.cs để cùng chọn đúng thư mục %AppData%\Bcode kể cả khi %AppData% không ghi được trên máy đó.
+[-] So sánh nhanh hai ứng dụng
+<TABLE>
+Tiêu chí | Bcode.App | BcodeViewer.App
+Vai trò | Bộ công cụ quản trị / triển khai ERP — bản dựng lại của FCode | Trình xem / soạn file controller FCode, gõ code hiện đại
+Dành cho | Người quản trị, triển khai tại khách hàng | Lập trình viên sửa source Dir / Grid / Filter / Report
+Công nghệ | WinForms .NET 8 + nhiều trang WebView2 (HTML/JS) | WinForms .NET 8 + Monaco Editor (WebView2)
+Host ↔ JS | postMessage JSON; mỗi control tự nhận và xử lý message | Host object COM (EditorBridge): Begin* + hostCallResult bất đồng bộ
+Điểm mạnh | SQL (query, table, profiler), WCommand, Gen Update / Advance Note, Add Source, File Lookup, API | IntelliSense nhiều lớp, F12/Peek entity, Alt+P xem Dir, Ctrl+G, AI ghost text, F5 mở menu
+Không có | Không dùng Monaco (editor tự viết bằng RichTextBox) | Backup DB, WCommand, Gen Update, SQL Profiler…
+Dùng chung | Cùng đọc / ghi %AppData%\Bcode\settings.json (workspace, kết nối CSDL) — khai một lần dùng cho cả hai
+</TABLE>
+[-] 
+[Heading2] Sơ đồ kiến trúc
+[ListParagraph] Cả hai app đều là WinForms + WebView2 lai: khung native (WinForms) lồng các vùng render bằng HTML/JS cục bộ qua WebView2, nhưng cơ chế host↔JS khác hẳn nhau. Ở Bcode.App ngày càng nhiều màn hình là một trang WebView2 nguyên khối (searchbox, advnote, addsource, editproject, changeowner, filereference, aihistory, wcommandedit, quickaccess, findbar…) — C# chỉ giữ phần đụng tới dữ liệu và nhận/gửi message {action, data}.
+[-] 
+[ListParagraph] Điểm khác biệt chính: Bcode.App dùng postMessage qua WebMessageReceived (bất đồng bộ, JSON thô, mỗi control WebView2 — topbar, iconrail, statusbar, sqleditor… — tự nhận và xử lý message riêng, không có điểm bridge chung), còn BcodeViewer dùng host object COM (EditorBridge, [ComVisible(true)]) với quy ước Begin<Ten>(requestId,...) + web message hostCallResult để trả kết quả không chặn luồng UI — vì BcodeViewer cần gọi mạng (Anthropic/Gemini API) trên đường gõ phím, thời gian thực, nên kiểu đồng bộ cũ sẽ treo cửa sổ.
+[ListParagraph] EditorBridge có 2 kiểu phương thức: các Notify* (ví dụ NotifyCursorChanged, NotifyFileOpened, NotifyFileClosed, NotifyDirtyChanged) chạy đồng bộ ngay trên luồng UI vì chỉ cập nhật state trong bộ nhớ (không đụng file/mạng/CSDL); còn mọi thứ đụng tới filesystem, SQL Server hay API AI bắt buộc đi qua Begin* — xếp hàng qua Host/AsyncHostCall.cs trên luồng thread-pool, có nhóm CompletionGroup để tự hủy request ghost text cũ khi có request mới (gõ nhanh không dồn cục các cuộc gọi). Ngoài ra có vài hàm Get* trả JSON đồng bộ MỘT lần cho trang (GetSnippets, GetFcodeHints, GetTheme, GetEditorConfig, GetSettings…) để gõ phím không phải gọi host liên tục. Hiện EditorBridge có hơn 50 phương thức public — xem chi tiết ở mục "Cầu nối host ↔ JS" cuối phần BcodeViewer.App.
+[Heading2] Ví dụ một vòng đời gọi AI ghost text (BcodeViewer.App)
+[-] 
+[-] 
+[Heading1] Cây cấu trúc thư mục
+[ListParagraph] Chỉ liệt kê thư mục src/ (đã bỏ bin/, obj/, và thư mục vendor Web/vs/ của Monaco Editor — xem ghi chú riêng). Số file trong ngoặc là số file mã nguồn thực tế (.cs/.js/.html/.css) trong thư mục đó tại thời điểm cập nhật (Oct 2, 2026).
+[Heading2] Bcode.App/
+[-] ├── Program.cs                              → Application.Run(new MainForm())
+[-] ├── BcodePaths.cs                           Gốc %AppData%\Bcode (chọn nơi ghi được)
+[-] ├── Controls/  (23 file) — control nhúng trong tab của MainForm
+[-] │   ├── RawSqlControl.cs                    SQL Query (+ AI Claude/Gemini, Ctrl+I, lịch sử AI)
+[-] │   ├── LookupControl.cs                    Lookup
+[-] │   ├── TableEditControl.cs                 Table
+[-] │   ├── SqlQueryControl.cs                  Command
+[-] │   ├── FileLookupControl.cs                File Lookup (+ SearchBox WebView2, Cancel)
+[-] │   ├── GenUpdatePackageControl.cs          Gen Update Package
+[-] │   ├── AdvanceNoteControl.cs               Note (New) = Advance Note  [mới]
+[-] │   ├── FileReferenceControl.cs             File Reference (trang WebView2)
+[-] │   ├── NoteControl.cs                      Note
+[-] │   ├── SqlObjectTreeControl.cs             Cây SQL Object (icon trái)
+[-] │   ├── WCommandTreeControl.cs              Cây WCommand (icon trái)
+[-] │   ├── SqlProfilerControl.cs               SQL Profiler
+[-] │   ├── ScriptEditorControl.cs              Editor script dùng chung (giỏ script, preview, Ctrl+F)
+[-] │   ├── MultiResultView.cs                  Hiện nhiều result set 1 lần chạy
+[-] │   ├── ResultGridMenu.cs                   Menu chuột phải trên kết quả query
+[-] │   ├── SqlSyntaxHighlighter.cs             Tô màu cú pháp SQL nền cho RichTextBox
+[-] │   ├── SuggestPopup.cs                     Popup gợi ý autocomplete dùng chung
+[-] │   ├── UndoRedoTracker.cs                  Undo/Redo tự viết (RichTextBox tô màu)
+[-] │   ├── IconRailControl.cs                  Host HTML cột icon trái
+[-] │   └── WebActionBar.cs, WebBarHost.cs, WebMenu.cs, PillButton.cs  Hạ tầng thanh HTML & nút
+[-] ├── Forms/  (29 file) — dialog/cửa sổ độc lập
+[-] │   ├── MainForm.cs                         Cửa sổ chính — dựng service, phím tắt toàn cục
+[-] │   ├── ProjectPickerForm.cs                Màn hình Projects (lọc, Last Access)  [mới]
+[-] │   ├── ConnectionSettingsForm.cs           Choose Server + đồng bộ dự án FSG (Synchronize)
+[-] │   ├── EditProjectForm.cs                  Edit Project (trang WebView2 editproject.html)
+[-] │   ├── QuickAccessForm.cs                  Ẩn/hiện + sắp xếp nút toolbar (quickaccess.html)
+[-] │   ├── AddSourceForm.cs                    Cấp source từ kho chuẩn (addsource.html)  [mới]
+[-] │   ├── CatalogCloneForm.cs                 Clone danh mục (sinh Dir/Grid/Lookup/Main.aspx)  [mới]
+[-] │   ├── AiHistoryForm.cs                    Lịch sử gợi ý AI (aihistory.html)  [mới]
+[-] │   ├── ChangeOwnerForm.cs                  (trang WebView2 changeowner.html)
+[-] │   ├── CompareStructureForm.cs, LibrarySnippetForm.cs
+[-] │   ├── StringBeautyForm.cs                 (dùng Services/SqlFormatterService.cs)
+[-] │   ├── DecryptSqlObjectForm.cs             (engine giải mã thật, DAC)
+[-] │   ├── SetupEInvoiceForm.cs, CreateRptXlsxForm.cs
+[-] │   ├── CompareTextForm.cs
+[-] │   ├── ApiDeclarationForm.cs               Khai báo & test API
+[-] │   ├── ApiSchemaBuilderForm.cs             Sinh đặc tả API ra Word
+[-] │   ├── CopySourceStandardForm.cs           Nhân bản file (mở từ menu WCommand)
+[-] │   ├── CopyFileToForm.cs                   Copy file sang project khác (mở từ menu File Lookup)
+[-] │   ├── QuickLaunchLoginForm.cs             Auto-login FSG FBO (+ thanh địa chỉ, chụp FormTable)
+[-] │   ├── FsgRequirementCrawlerForm.cs  FSG Yêu cầu
+[-] │   ├── ChooseDebugTargetForm.cs            Chọn store/function để debug
+[-] │   ├── SimplePromptForm.cs                 Dialog nhập nhanh 1 dòng — tái dùng khắp app
+[-] │   ├── StubForm.cs                         Khung chung cho 3 tool CHƯA LÀM
+[-] │   ├── WCommandEditForm.cs                 (trang WebView2 wcommandedit.html)
+[-] │   └── WCommandDuplicateForm.cs, WCommandScriptForm.cs, LookupForm.cs
+[-] ├── Services/  (35 file) — logic nghiệp vụ, không đụng UI trực tiếp
+[-] │   ├── DbConnectionService.cs, RawSqlService.cs, TableDataService.cs
+[-] │   ├── SqlQueryService.cs, LookupService.cs
+[-] │   ├── GenInsertService.cs, GenUpdateService.cs
+[-] │   ├── FileLookupService.cs                dựng cây file theo menu + content-search
+[-] │   ├── FileParseCache.cs                   cache phân tích file theo dự án  [mới]
+[-] │   ├── EntityCheckService.cs               kiểm thiếu entity/include cho File Lookup  [mới]
+[-] │   ├── GenAllService.cs                    dựng danh sách mục gói update cho Advance Note  [mới]
+[-] │   ├── AdvanceNoteService.cs               lưu Request theo workspace  [mới]
+[-] │   ├── CatalogCloneService.cs              sinh file từ Templates\Catalog  [mới]
+[-] │   ├── AiHistoryStore.cs                   lưu lịch sử gợi ý AI (ai-history.json)  [mới]
+[-] │   ├── ProfilerTemplateService.cs          tự sinh Trace Template .tdf cho SQL Profiler  [mới]
+[-] │   ├── ViewerControlServer.cs              pipe Bcode.Control.<session> (hiện chưa ai gọi)  [mới]
+[-] │   ├── FileReferenceService.cs, ScriptFileService.cs
+[-] │   ├── SqlObjectBrowserService.cs, WCommandService.cs, SchemaCompareService.cs
+[-] │   ├── ChangeOwnerService.cs, NoteService.cs, SnippetLibraryService.cs
+[-] │   ├── XlsxExportService.cs, FCodeConfigImportService.cs
+[-] │   ├── SqlFormatterService.cs              format SQL/JSON/XML/JS
+[-] │   ├── DataScriptService.cs                sinh DELETE + bulk INSERT
+[-] │   ├── PeriodTableQueryService.cs          auto-UNION bảng $000000
+[-] │   ├── SqlLineAnalyzer.cs                  tìm dòng an toàn để debug
+[-] │   ├── DiffService.cs                      LCS diff cho Compare Text
+[-] │   ├── DebugTargetScanner.cs               quét EXEC/hàm trong script
+[-] │   ├── FsgProjectLookupService.cs          tra cứu/đồng bộ dự án FSG (WebView2 ẩn), Create Menu
+[-] │   ├── DecryptSqlObjectConfigService.cs    đọc config giải mã cũ  [orphaned]
+[-] │   └── IDecryptionProvider.cs
+[-] ├── Models/  (9 file) AppSettings, Workspace, SqlObjectInfo, WCommandItem, ApiDeclarationModel, DiffLine, PeriodTableInfo, DebugCandidate, Snippet
+[-] ├── UI/  (11 file) ThemeManager, ColorPalette, AppIcons, IconGlyphs, FlatToolStripRenderer, GridDisplayHelper, LineNumberGutter, NativeAppLauncher, ThemedForm, ControlPerf, WebViewEnvironment
+[-] ├── Libs/                                   FastBusiness.Crypto.dll, SqlDecryptor.Core.dll (+.xml) — engine giải mã thật
+[-] ├── Templates/Catalog/                      Dir.xml, Grid.xml, Lookup.xml, Main.aspx — mẫu cho Clone danh mục  [mới]
+[-] ├── Web/Shell/  (28 file HTML/CSS) — shell topbar/iconrail/statusbar + trang riêng theo từng tool/dialog
+[-] │   ├── topbar.html, iconrail.html, statusbar.html, shell.css, actionbar.html, contextmenu.html
+[-] │   ├── sqleditor.html, sqlquerybar.html, sqlobjectbar.html, tablebar.html, wcommandbar.html, comparebar.html
+[-] │   ├── filelookupbar.html, filelookuppreview.html, searchbox.html [mới], scriptviewbar.html, findbar.html [mới]
+[-] │   ├── sqlprofilerbar.html, apideclaration.html, apischema.html
+[-] │   ├── advnote.html, addsource.html, aihistory.html, changeowner.html [mới]
+[-] │   └── editproject.html, filereference.html, quickaccess.html, wcommandedit.html [mới]
+[-] └── Assets/                                 app.ico, app.png, bee.ico, bee_16.png, bee_master.png
+[Heading2] BcodeViewer.App/
+[-] ├── Program.cs                              → single-instance (Mutex + pipe), rồi Application.Run(MainForm)
+[-] ├── BcodePaths.cs                           Gốc %AppData%\Bcode — bản sao y hệt Bcode.App
+[-] ├── MainForm.cs                             Cửa sổ chính — menu/toolbar, cây Project, sidebar AI
+[-] ├── HintCodeForm.cs                         Hint Code (WinForms dự phòng; chính ở templates.js)
+[-] ├── Forms/
+[-] │   └── QuickOpenForm.cs                    [orphaned — đã code, chưa gắn vào UI]
+[-] ├── Host/  (8 file) — cầu nối WinForms ↔ WebView2
+[-] │   ├── EditorBridge.cs                     Hậu đài duy nhất — mọi Begin*/Notify*/Get*
+[-] │   ├── AsyncHostCall.cs                    Hàng đợi/hủy request bất đồng bộ
+[-] │   ├── WorkspaceConnection.cs Suy ra project/workspace từ đường dẫn file
+[-] │   ├── WorkspaceSearchService.cs           Tìm kiếm toàn project
+[-] │   ├── SqlRunnerService.cs                 Chạy SQL nhúng trong file
+[-] │   ├── SqlSchemaService.cs                 Cache schema (đọc chung settings Bcode.App)
+[-] │   ├── MenuLauncher.cs                     F5: tra menu wcommand, mở trình duyệt  [mới]
+[-] │   └── ClaudeChatService.cs                Gọi Anthropic API + Gemini cho ghost text/chat/Ctrl+I
+[-] ├── Settings/  (9 file) — lưu trữ cấu hình cục bộ
+[-] │   ├── ViewerSettings.cs, SettingsForm.cs (WinForms dự phòng)
+[-] │   ├── HintSnippetStore.cs, RecentFilesStore.cs, LocalHistoryStore.cs
+[-] │   ├── FileTemplateStore.cs, TemplatePickerForm.cs
+[-] │   ├── FcodeXmlSnippets.cs                 snippet gốc FCodeViewer → Monaco  [mới]
+[-] │   └── CompletionPromptConfig.cs           system prompt AI dạng file Config/*.txt
+[-] ├── UI/  (5 file)
+[-] │   ├── ThemeCatalog.cs, AppTheme.cs
+[-] │   ├── PillButton.cs, WaitCursorScope.cs
+[-] │   └── CodeHighlighter.cs                  [orphaned — chưa nơi nào gọi]
+[-] ├── Assets/snippets/                        6 file *.xml snippet gốc FCodeViewer  [mới]
+[-] └── Web/  (24 file) Monaco Editor + JS thuần
+[-]     ├── index.html, style.css, editor.js, tabs.js, theme.js, hostcall.js
+[-]     ├── fcode-language.js                   Cú pháp FCode XML cho Monaco
+[-]     ├── completion.js                       4 lớp IntelliSense
+[-]     ├── entity.js                           F12/Peek cho &Entity; xuyên nhiều lớp thư mục
+[-]     ├── problems.js, problems-worker.js     Kiểm tra lỗi (XML, biến, entity) — Web Worker  [mới]
+[-]     ├── outline.js                          Outline + Go to Definition/Find References
+[-]     ├── goto.js                             Ctrl+G: Go to tag của controller  [mới]
+[-]     ├── dirpreview.js, dirview.js           Xem trước màn hình Dir (Alt+P)  [mới]
+[-]     ├── search.js                           Tìm kiếm + Replace toàn project
+[-]     ├── history.js                          Lịch sử sửa file
+[-]     ├── dock.js                             Chia khung panel
+[-]     ├── sqlrun.js                           Chạy SQL trong file
+[-]     ├── contextmenu.js                      Menu chuột phải, Ctrl+I, Dịch caption, Clone
+[-]     ├── settings.js, templates.js           Settings / Hint Code / Template  [mới]
+[-]     ├── chat.js                             Chat panel AI (đang gỡ khỏi index.html)
+[-]     ├── hint-editor.html                    Cửa sổ soạn Hint Code
+[-]     └── vs/                                 (vendor) Monaco Editor bundle — không audit chi tiết
+[Heading1] Bcode.App — tính năng & file
+[ListParagraph] Program.cs chỉ gọi Application.Run(new MainForm()) — toàn bộ việc dựng service nằm ngay trong constructor của Forms/MainForm.cs (không dùng DI container, mỗi service được new trực tiếp). Dữ liệu cục bộ (settings.json, snippet, ghi chú, AdvanceNotes, ai-history.json, FileLookupCache…) nằm dưới %AppData%\Bcode — BcodePaths.cs tự thử Roaming → Local → UserProfile → thư mục .exe và nhớ nơi đầu tiên ghi được. Khi mở app, màn hình Projects hiện ra để chọn project (Ctrl+Shift+N mở thêm cửa sổ mới chạy song song).
+[Heading2] Thanh trên cùng (WebView2 — Web/Shell/topbar.html)
+<TABLE>
+Tính năng | File thực thi | Mô tả
+Projects / Chọn Server | Forms/ProjectPickerForm.cs / Forms/ConnectionSettingsForm.cs / Forms/EditProjectForm.cs / Web/Shell/editproject.html / Services/DbConnectionService.cs | Màn hình Projects hiện khi mới mở Bcode (và qua Actions > Projects / Choose Server, Ctrl+Shift+P / Ctrl+O): ô lọc, dải "Last Access" cho các project dùng gần nhất, Enter/nhấp đúp để chọn; New/Edit/Delete dùng EditProjectForm (một trang WebView2) và ghi thẳng vào AppSettings. Danh sách Workspace lưu trong AppSettings chính là danh sách mà BcodeViewer đọc lại để gợi ý SQL. / Khi mở từ màn Projects còn có khối FSG "Synchronize (Ctrl+F5)": đồng bộ project từ database FSG_A với 3 chế độ — thêm 1 mã dự án / chỉ thêm dự án mới / ghi đè tất cả (xem FsgProjectLookupService).
+Backup Database | MainForm.BackupDatabaseAsync() | Chạy thẳng BACKUP DATABASE ... TO DISK qua Microsoft.Data.SqlClient trên workspace đang chọn.
+Restore / Attach Database | — | Chưa làm: chỉ hiện MessageBox gợi ý câu T-SQL cần chạy tay, chưa thao tác file .bak/.mdf thật.
+Quick Access (ẩn/hiện công cụ) | Forms/QuickAccessForm.cs / Web/Shell/quickaccess.html | Dialog (một trang WebView2) ẩn/hiện và kéo thả sắp xếp thứ tự các nút toolbar, lưu vào AppSettings.HiddenToolKeys / ToolOrder. Toolbar native khi cửa sổ hẹp thì xuống dòng thay vì giấu bớt nút vào mũi tên ">>".
+Đổi theme | UI/ThemeManager.cs | Chuyển bộ màu sáng/tối, áp cho toàn bộ form và control tự vẽ.
+Giỏ script | Services/ScriptFileService.cs / Controls/ScriptEditorControl.cs | Gom nhiều đoạn script đang mở vào một "giỏ" (Cart trong bộ nhớ), lưu/copy hàng loạt ra file.
+Chọn database (App / Sys) | MainForm.SelectWorkspace() / Models/AppSettings.cs | Ô chọn ở topbar không còn là danh sách project: chỉ liệt kê 2 database (App, Sys) của project đang vào để chuyển nhanh khi chạy SQL Query. Muốn sang project khác dùng Projects / Choose Server.
+Cửa sổ Bcode mới (Ctrl+Shift+N) | MainForm.HandleGlobalShortcut() | Mở thêm một cửa sổ Bcode chạy song song — mỗi cửa sổ làm một dự án (lúc mở có màn hình Projects để chọn).
+Create Menu | MainForm.CreateMenuAsync() / Services/FsgProjectLookupService.cs | Actions > Create Menu: chạy NGAY exec ns_createCommand N'mã dự án' trên FSG_A cho project đang chọn (không hỏi lại); thành công thì im lặng, lỗi mới hiện thông báo.
+Clear Structure App / Refresh Web.config | MainForm.ClearStructureApp() / RefreshWebConfig() | Clear Structure App xóa file trong App_Data\Controllers\Structure\App của Source Path (có xác nhận); Refresh Web.config thêm một khoảng trắng vào web.config để IIS nhận ra file đổi và khởi động lại ứng dụng. BcodeViewer có cùng hai lệnh này.
+</TABLE>
+[Heading2] Cột icon trái (chuyển panel nội dung)
+<TABLE>
+Tính năng | File thực thi | Mô tả
+SQL Object (cây bảng/proc/view) | Controls/SqlObjectTreeControl.cs / Services/SqlObjectBrowserService.cs | Duyệt cây đối tượng SQL của workspace đang chọn, click để mở query/xem cấu trúc. Nay chặn tự tải toàn bộ schema khi ô lọc rỗng — chỉ query khi gõ từ khóa và Enter, tránh quét hết database mỗi lần mở tab.
+WCommand (cây menu FCode) | Controls/WCommandTreeControl.cs / Services/WCommandService.cs | Hiện cây menu-lệnh giống hệt menu FastBusiness gốc, lazy-load từng nhánh (chỉ vật chất hoá node con khi BeforeExpand) để không treo UI với cây lớn; chỉ lần tải MỚI NHẤT được đổ vào cây (đổi workspace nhanh không còn nhân đôi menu); các phân hệ được tô màu riêng và tô lại khi đổi theme; ô lọc tìm trên cả cây. / CRUD đầy đủ qua menu chuột phải/phím tắt: New F4 (tự gợi ý wmenu_id / menu_id chưa dùng — SuggestNextWMenuIdAsync, SuggestNextMenuIdAsync), Edit F3 (WCommandEditForm, một trang WebView2 đọc/ghi 18 cột wcommand), Delete F8 có xác nhận, Copy Source Standard, Cấp source (Add Source) với tên controller của menu điền sẵn, Gen Script Menu F12 (sinh DELETE/INSERT cho wcommand + command), Check WCommand phát hiện menu trùng/lệch, Refresh F5.
+Mobile | — | Chưa làm — chỉ placeholder (Label mô tả), dự tính dùng lại FileLookupControl sau khi định xong quy ước thư mục mobile (khái niệm MobilePath đã có sẵn trong Models/Workspace.cs, dùng bởi Copy File(s) To, nhưng chưa có UI Mobile riêng).
+</TABLE>
+[Heading2] Toolbar chính (native, _toolSpecs trong MainForm.cs, mỗi nút có phím tắt Ctrl+Shift+<chữ>)
+<TABLE>
+Tính năng | File thực thi | Mô tả
+SQL Query | Controls/RawSqlControl.cs / Services/RawSqlService.cs / Services/SqlLineAnalyzer.cs / Forms/ChooseDebugTargetForm.cs / Services/DebugTargetScanner.cs / Forms/AiHistoryForm.cs / Services/AiHistoryStore.cs / Web/Shell/sqleditor.html | Soạn SQL tự do kiểu Query Analyzer, chạy trực tiếp lên CSDL workspace đang chọn. / Panel "Message" phía dưới LUÔN hiện kết quả/lỗi dạng TextBox chọn-copy-được (không còn MessageBox.Show); lỗi SqlException được bắt riêng và liệt kê từng dòng T-SQL kèm số dòng lỗi. / Nút "Debug": PickDebugTargetAsync() quét script tìm EXEC/lời gọi hàm (DebugTargetScanner, loại trừ hàm built-in), xác nhận từng ứng viên là SP/Function thật qua SqlObjectBrowserService rồi cho chọn để debug từng bước từ SqlLineAnalyzer.FindSafeLines (heuristic xác định dòng an toàn để step, chạy trong transaction rollback nên không ảnh hưởng dữ liệu thật). / AI trong editor: gợi ý ghost text lúc gõ (Gemini hoặc Claude, chọn Engine ở menu ⚙, cần API key) — gửi cả code trước và sau con trỏ kèm cấu trúc (cột, kiểu, khoá chính) của tối đa 8 bảng đang dùng trong script, cắt phần gợi ý trùng với chữ đã có phía sau con trỏ; Ctrl+I mở hộp "AI sửa/sinh SQL" (Claude). Mọi gợi ý/kết quả AI được lưu lại (tối đa MaxEntries mục) để lấy lại ở ⚙ > "Lịch sử gợi ý AI": xem, lọc, Copy hoặc chèn thẳng vào vị trí con trỏ. / Kéo thả file vào editor để chèn nội dung (sqleditor.html).
+Lookup | Controls/LookupControl.cs / Services/LookupService.cs / Services/TableDataService.cs | Tra cứu nhanh 1 bảng theo điều kiện, chọn 1 dòng để dùng tiếp.
+Table | Controls/TableEditControl.cs / Services/TableDataService.cs / Services/DataScriptService.cs | Xem/sửa trực tiếp dữ liệu 1 bảng kiểu Excel, lưu ngược về CSDL. / Kết quả có menu chuột phải đầy đủ (Controls/ResultGridMenu.cs: Goto Column, Filter theo DataView.RowFilter, Generate Design Fields suy đoán kiểu SQL từ dữ liệu thật, Compare Column Content, Set Color Cell...) và có thể đóng gói toàn bộ dữ liệu đang xem thành script DELETE + bulk INSERT (Services/DataScriptService.cs, ghi ra file khi trên 2000 dòng) để mang sang môi trường khác. / Khi đổi workspace/database (App ↔ Sys) giữa chừng, bảng đang mở được đối chiếu lại với workspace hiện tại trước khi tải/AutoSave, tránh ghi dữ liệu của WS này vào DB của WS khác.
+Command | Controls/SqlQueryControl.cs / Services/SqlQueryService.cs, GenInsertService, GenUpdateService / Services/PeriodTableQueryService.cs | Soạn câu lệnh có tham số, sinh sẵn khung INSERT/UPDATE từ kết quả query; cùng menu chuột phải ResultGridMenu như Table. / Tự động UNION các bảng phân kỳ dạng <bảng>$000000 (placeholder FastBusiness cho "mọi kỳ") thành 1 subquery khi phát hiện trong câu lệnh, tra sys.tables theo pattern để tìm hết các bảng vật lý theo tháng thay vì phải viết tay UNION ALL (Services/PeriodTableQueryService.cs).
+File Lookup | Controls/FileLookupControl.cs / Services/FileLookupService.cs / Services/FileParseCache.cs / Services/EntityCheckService.cs / Forms/AddSourceForm.cs / Forms/CopyFileToForm.cs / Web/Shell/filelookupbar.html / filelookuppreview.html / searchbox.html | Duyệt cây file nguồn của project: thanh lọc phía trên là WebView2 (filelookupbar.html), cây file dựng từ FileIndex trong bộ nhớ (hết hạn 2 phút hoặc bấm Load để quét lại) nên lọc theo đuôi/từ khóa không phải quét lại UNC mỗi lần gõ. / Click một menu WCommand: cây dựng đúng theo cách FastBusiness nối source (FileLookupService.BuildTreeForMenuItem) — Main\<link> cùng mọi file cùng sysid trong App_Data\Controllers, lần theo controller=, showForm(...), entity Identity/GridController, gom file Report/Templates và include của Upload. / Kết quả phân tích từng file được cache THEO DỰ ÁN (Services/FileParseCache.cs → %AppData%\Bcode\FileLookupCache\<Tên>.json, đường dẫn tương đối nên đổi IP/ổ đĩa server vẫn dùng lại được). Mỗi mục nhớ dấu vân tay kích thước:mtime của mọi file nó đã đọc (kể cả include/file chưa tồn tại); file đổi, thêm hoặc xoá thì chỉ mục đó tính lại; mục quá 60 ngày tự bị dọn; ghi gộp ở nền, mở nhiều Bcode cùng lúc thì gộp qua mutex. Thanh trạng thái hiện "cache: N hit / M miss". AppSettings.FileLookupCacheMode = On (mặc định) hoặc Off (đọc lại mọi file như cũ); Load xoá cache của dự án. / Services/EntityCheckService.cs kiểm entity ngay khi mở menu: file thiếu &Entity; / %Entity; hoặc có <!ENTITY SYSTEM> trỏ tới file không tồn tại được tô đỏ (kèm tooltip), thư mục chứa nó cũng đỏ. / Panel xem trước là preview đọc-only (Ctrl+F tìm chữ trong file đang xem; banner cảnh báo khi file đổi từ máy khác); nút "Edit in BcodeViewer" / nhấp đúp mở BcodeViewer.exe (Process.Start) kèm tên project. / Menu chuột phải: Go to File/Folder (mở Explorer), Copy File(s) to... (Forms/CopyFileToForm.cs — copy sang project khác giữ nguyên đường dẫn tương đối, có tuỳ chọn Mobile Path), Copy path, Get Hash Source (SHA-256 + ngày sửa của file/nhóm file đang hiện để so bản cũ với mới), Cấp source (Add Source)..., Clone files... (nhân bản cả nhóm file cùng tên gốc, hỏi trước khi ghi đè), Delete file. / Thanh "SearchBox ▾" là content-search thật trên nội dung file, nay là một trang WebView2 (searchbox.html): File Type / Search in / String search / Match Case / Show Pattern (wildcard *?). Nút Search đổi thành Cancel khi đang tìm (Esc cũng huỷ, trả giao diện ngay) và file khớp hiện dần lên cây. Tối ưu: tìm thẳng trên byte UTF-8 (có vector hoá), 16 luồng đọc song song; với File Type "*.*" bỏ qua file nhị phân (.rpt, .xlsx, .dll, ảnh...), file >20 MB và .htm. Khi Search in là site gốc / App_Data / Controllers thì chỉ quét Dir, Filter, Grid, Include, List, Lookup, Options, Templates của Controllers (trong Dir/Filter/Grid bỏ file .f vì chỉ là bản biên dịch của .xml).
+Gen Update (Result) | MainForm.GenUpdateFromLastResult() / Services/GenUpdateService.cs | Sinh sẵn câu UPDATE hàng loạt dựa trên DataTable kết quả query vừa chạy, so khớp theo khóa.
+Gen Update Package | Controls/GenUpdatePackageControl.cs / Services/GenAllService.cs | Tab đóng gói FILE NGUỒN thành 1 gói update (khác với "Gen Update (Result)" ở trên — cái đó sinh câu SQL, cái này đóng gói file). / Cây "Source File" nạp theo node WCommand (chỉ giữ .f đã biên dịch trong Grid/Filter/Dir) hoặc theo thanh lọc tự suy ra thư mục Controllers con thật, có autocomplete; tick/bỏ tick một thư mục thì tự tick/bỏ tick mọi file con. / "Gen nhanh Store (Procedure)": gõ tên SP, tự lấy định nghĩa qua SqlObjectBrowserService (tự đổi CREATE→ALTER) và ghi thẳng nội dung vào gói tại app\script hoặc sys\script — không cần có sẵn file. / "Create Update File" copy toàn bộ mục đã chọn vào thư mục đích, kèm description.txt, có nút Copy link. Cấu trúc gói (Script\app|sys\*.sql + Web\App_Data\..., Web\Main\...) dùng chung với Advance Note qua GenAllService nên hai nơi ra cùng một dạng.
+File Reference | Controls/FileReferenceControl.cs / Services/FileReferenceService.cs / Web/Shell/filereference.html | Tìm theo NỘI DUNG (khác File Lookup tìm theo tên file): ô Root + ô tìm, liệt kê mọi file/dòng dưới App_Data chứa từ khoá, gom theo file với từ khoá tô sáng, nhấp đúp mở file tại dòng đó. Giao diện là một trang WebView2 tự co giãn, việc quét file qua UNC chạy ở luồng nền nên không treo cửa sổ như bản ListView cũ.
+Cấp source (Add Source) | Forms/AddSourceForm.cs / Web/Shell/addsource.html (mở từ menu chuột phải File Lookup và WCommand) | Lấy file source chuẩn của 1 PHIÊN BẢN trong kho (AppSettings.SourceCollectionPath, vd \\server\SourceCollection\FBO-FBI) bỏ vào Source Path của dự án, như màn Add Source của FCode: Name (mẫu tên, nhiều mẫu cách nhau ";", hỗ trợ * và ?) → chọn Version (sắp theo giá trị số, FBOR2SP9 < FBOR2SP22.6) → liệt kê file khớp trong App_Data\Controllers và Main → tick, sửa New Name nếu cần → copy giữ nguyên đường dẫn tương đối. Chỉ ĐỌC kho; file đích đã có thì hỏi trước khi ghi đè. Một trang WebView2 tự co giãn.
+Change Owner | Forms/ChangeOwnerForm.cs / Services/ChangeOwnerService.cs / Web/Shell/changeowner.html | Đổi người sở hữu (owner) 1 đối tượng SQL (bảng/proc/view). Hộp thoại là một trang WebView2 tự co giãn theo cửa sổ.
+Note | Controls/NoteControl.cs / Services/NoteService.cs | Ghi chú gắn kèm 1 đối tượng, lưu lại để lần sau còn thấy.
+Note (New) = Advance Note (Ctrl+Shift+4) | Controls/AdvanceNoteControl.cs / Services/AdvanceNoteService.cs / Services/GenAllService.cs / Web/Shell/advnote.html | Danh sách Request (ghi chú một yêu cầu đã chỉnh sửa) lưu theo workspace tại %AppData%\Bcode\AdvanceNotes\<workspace>.json; giao diện là một trang WebView2. / Mỗi Request khai báo những gì đưa vào gói update: Gen All <controller> (mọi file liên quan như File Lookup + include/entity mà controller tham chiếu + procedure được gọi trong Filter + script menu wcommand/command), File Path, SQL Object (script ALTER lấy từ DB App/Sys), SQL Top Script (00_top.sql). "Generate Update" tạo thư mục gói theo cùng cơ chế tab Gen Update và nhớ các lần gen gần nhất. / "Sync yêu cầu": kéo yêu cầu của lập trình viên (ma_lt1) trong project đang vào từ bảng nvphyc và tạo Request mới cho mỗi mã yêu cầu chưa có (trùng tên thì giữ nguyên, không ghi đè).
+Compare Text | Forms/CompareTextForm.cs / Services/DiffService.cs | So sánh 2 đoạn text kiểu diff, xem khác nhau dòng nào; tách được ra cửa sổ nổi. (Đổi tên từ Controls/CompareTextControl.cs.) Thuật toán LCS tự viết (bảng DP + backtrack) trong DiffService.cs sinh danh sách dòng Equal/Added/Removed, đủ dùng cho file vài nghìn dòng.
+Compare Structure | Forms/CompareStructureForm.cs / Services/SchemaCompareService.cs | So sánh cấu trúc 2 CSDL/schema, liệt kê chỗ lệch.
+String Beauty | Forms/StringBeautyForm.cs / Services/SqlFormatterService.cs | Định dạng lại chuỗi cho dễ đọc — logic tách hẳn ra SqlFormatterService (form chỉ còn UI). SQL: che chuỗi literal trước khi tách dòng theo từ khóa, thụt lề theo cặp BEGIN/END cân bằng, có kiểu Expanded/Compact + chuyển hoa/thường từ khóa, kết quả còn được tô màu cú pháp. JSON dùng System.Text.Json, XML dùng XDocument. JavaScript dùng bộ đếm ngoặc {} tự viết (không phải parser thật, không xử lý hoàn hảo mọi cú pháp).
+Library... | Forms/LibrarySnippetForm.cs / Services/SnippetLibraryService.cs | Quản lý thư viện snippet dùng chung (lưu JSON, không có trường Prefix như Hint Code bên BcodeViewer), chèn nhanh vào editor.
+Decrypt SQL Object | Forms/DecryptSqlObjectForm.cs / Libs/SqlDecryptor.Core.dll | Giải mã định nghĩa 1 đối tượng SQL WITH ENCRYPTION — nay dùng engine THẬT (SqlDecryptor.Core), kỹ thuật known-plaintext hợp lệ trên object của chính bạn qua DAC (Dedicated Admin Connection) + bảng hệ thống sys.sysobjvalues. / Chạy ALTER giả trong transaction rồi luôn rollback nên không đổi object thật; kết quả format lại được qua SqlFormatterService. Yêu cầu quyền sysadmin; "Giải mã tất cả" chạy tuần tự vì DAC chỉ cho 1 kết nối/instance. / Ghi chú: Services/DecryptSqlObjectConfigService.cs (đọc file cấu hình giải mã cũ dạng UTF-16LE của FCode) hiện chưa được gọi ở đâu trong UI — không liên quan tới engine thật ở trên.
+Setup eInvoice (FE) | Forms/SetupEInvoiceForm.cs | Cấu hình tích hợp hóa đơn điện tử.
+Create *.rpt, *.xlsx | Forms/CreateRptXlsxForm.cs / Services/XlsxExportService.cs | Xuất kết quả query cuối cùng ra file báo cáo .rpt hoặc Excel.
+SQL Profiler | Controls/SqlProfilerControl.cs / Services/ProfilerTemplateService.cs / Web/Shell/sqlprofilerbar.html | Không phải bắt sự kiện SQL tự viết — launch Profiler.exe (SQL Server Profiler ngoài) rồi tự động hoá UI của nó và nhúng cửa sổ Win32 thật vào panel Bcode (SetParent + đổi style bỏ WS_POPUP/WS_CAPTION, thêm WS_CHILD). Ctrl+3 mở tab này, kể cả khi con trỏ đang ở trang WebView2. / Dialog "Connect to Server" được dò/điền theo nhãn hoặc, khi class control khác (hậu tố WindowsForms10.* đổi theo process), theo VỊ TRÍ các ComboBox/Edit xếp từ trên xuống; tên class được chuẩn hoá ở một chỗ để mọi phép so khớp không trượt. Có chế độ ghi báo cáo dò ô khi không dò được. / Trace Template (.tdf) nay tự sinh bằng Services/ProfilerTemplateService.cs (file nhị phân UTF-16LE: event SQL:BatchStarting + filter DatabaseName LIKE %mã% và ApplicationName theo u_id) thay vì bấm chuột theo toạ độ vào lưới Events Selection; có template sẵn thì Profiler nạp thẳng. / "Tra u_id" (gợi ý filter ApplicationName), "Mở trace đã lưu" (Profiler.exe -f file.trc) và "Copy SQL Command": chép TextData của dòng đang chọn (đọc ô chữ khung dưới bằng WM_GETTEXT, dự phòng Ctrl+C) để dán sang SQL Query chạy.
+API Declaration | Forms/ApiDeclarationForm.cs / Web/Shell/apideclaration.html | Mới. Khai báo & test API: gửi request qua HttpClient (kèm Bearer token), lưu/nạp profile JSON trong %AppData%\Bcode\ApiProfiles, xuất thẳng ra Postman Collection v2.1.0 (.postman_collection.json).
+API Schema Builder | Forms/ApiSchemaBuilderForm.cs / Web/Shell/apischema.html | Mới. Dựng đặc tả API từ schema CSDL thật (SqlObjectBrowserService + TableDataService liệt kê bảng/cột), xuất ra file .doc (Word mở được nhờ HTML có namespace office/word — không dùng thư viện Word thật).
+Quick Launch Login ("FSG FBO") | Forms/QuickLaunchLoginForm.cs | Mở WebView2 tới Workspace.LoginWLink, tự động điền & bấm đăng nhập FastBusiness bằng JS injection, tự bấm "Có" nếu gặp modal "đang đăng nhập nơi khác". User/Pass web lưu riêng trong Workspace.WebLoginUser/WebLoginPassword (tách biệt tài khoản SQL Server). Yêu cầu Workspace có khai LoginWLink. / Có thanh địa chỉ như trình duyệt (Back / Forward / Reload + ô URL, gõ thiếu giao thức thì tự thêm http://), nhận URL menu cần mở sau khi đăng nhập xong, và chức năng chụp form đang mở (outerHTML các table.FormTable, computed style, luật CSS Form/Tab/Required) ra JSON + HTML để đối chiếu khi dựng màn "Xem trước Dir" của BcodeViewer.
+FSG Requirement Crawler ("FSG Yêu cầu") | Forms/FsgRequirementCrawlerForm.cs / Services/FsgProjectLookupService.cs | Mới. FsgRequirementCrawlerForm: WebView2 toàn màn hình điều hướng tới hệ thống FSG nội bộ, tự đăng nhập, hỗ trợ lọc theo dự án/mã yêu cầu (điền popup lọc hoặc gõ thẳng vào ô lọc cột grid). / FsgProjectLookupService: chạy 1 WebView2 ẩn (Form 1×1px ngoài màn hình, UserDataFolder riêng để tách cookie) để tự tra & đồng bộ thông tin kết nối 1 dự án theo mã (LookupAsync), hoặc crawl toàn bộ danh sách dự án theo trang rồi cache ra file JSON (CrawlProjectListAsync) — dùng bởi Ctrl+F5 (đồng bộ nhanh theo mã) và ConnectionSettingsForm (tìm/thêm dự án mới).
+View Rpt in FEC / Create Processing / Check Mail | Forms/StubForm.cs (lớp cơ sở của ViewRptInFecForm, CreateProcessingForm, CheckMailForm) | Chưa làm — 3 tool này giờ dùng chung 1 khung StubForm: hiện rõ "trong FCode làm gì" + checklist các bước cần code thật (ví dụ SMTP cho Check Mail, TemplateEngine cho Create Processing, Process.Start mở app ngoài cho View Rpt in FEC) thay vì chỉ là MessageBox trơn như trước.
+Clone danh mục | Forms/CatalogCloneForm.cs / Services/CatalogCloneService.cs / Templates/Catalog/* | Khai báo một danh mục mới (bảng, khoá, tiêu đề, cột nào hiện ở Grid / form — danh sách cột lấy từ bảng thật của workspace) rồi sinh bộ file Dir / Grid / (Lookup) / Main.aspx từ thư mục mẫu Templates\Catalog. Mẫu là file thường có placeholder {{Ten}}, thay bằng string.Replace thuần nên sửa mẫu là đổi ngay kết quả; mẫu mặc định cố ý tối giản (field + view + toolbar). Hỏi xác nhận trước khi ghi đè.
+</TABLE>
+[Heading2] Phím tắt ẩn (không có trên menu/toolbar)
+<TABLE>
+Phím | Tính năng | File thực thi
+Ctrl+F5 | Chọn nhanh project theo mã, đồng bộ workspace mới từ Config.xml của FCode cũ — hoặc nếu cần, tự tra & đồng bộ luôn thông tin kết nối qua FSG (WebView2 ẩn) theo mã dự án. Trên màn Projects còn có nút Synchronize (Ctrl+F5) với 3 chế độ. | MainForm.QuickSelectProjectByCode() / Services/FCodeConfigImportService.cs / Forms/EditProjectForm.cs / Services/FsgProjectLookupService.cs
+Ctrl+Shift+F5 | Đọc/giải mã HKCU\SOFTWARE\FCoder\ConnectStr — công cụ debug nội bộ, code ghi chú rõ "chỉ để kiểm tra, chưa dùng thật". | MainForm.DebugDecryptConnectStr()
+Ctrl+Shift+N | Mở thêm một cửa sổ Bcode mới chạy song song (mỗi cửa sổ một dự án, có màn hình Projects để chọn). | MainForm.HandleGlobalShortcut()
+Ctrl+Shift+Q / L / T / C / W / F / R / O / U / G / E / 4 / P | Mở nhanh tool: Q = SQL Query, L = Lookup, T = Table, C = Command, W = WCommand, F = File Lookup, R = File Reference, O = Change Owner, U = Gen Update (Result), G = Gen Update Package, E = Note, 4 = Note (New), P = Projects. | MainForm.HandleGlobalShortcut()
+Ctrl+O / Ctrl+3 / Ctrl+5 | Ctrl+O = Choose Server (màn Projects), Ctrl+3 = SQL Profiler, Ctrl+5 = Open Program Path. Phím bấm khi con trỏ đang nằm trong một trang WebView2 (editor SQL, thanh công cụ...) được chuyển về cửa sổ chính qua WebViewEnvironment.GlobalShortcut. | MainForm.HandleGlobalShortcut() / UI/WebViewEnvironment.cs
+</TABLE>
+[-] Right-click vùng tab trống còn có menu "Mở nhanh" liệt kê mọi công cụ kèm phím tắt (MainForm.BuildQuickAccessMenu()).
+[-] 
+[Heading1] BcodeViewer.App — tính năng & file
+[ListParagraph] Không có Controls/ hay Services/ riêng như Bcode.App — logic native gọn trong Host/ (cầu nối + service), Settings/ (lưu trữ) và MainForm.cs (menu/toolbar, cây file theo Project, sidebar Claude/Gemini nhúng trang web, single-instance qua named pipe), còn toàn bộ trải nghiệm soạn thảo nằm trong Web/ (Monaco). Hộp thoại Settings, Hint Code và New from Template nay được vẽ ngay trong trang (Web/settings.js, Web/templates.js); bản WinForms (SettingsForm, HintCodeForm, TemplatePickerForm) chỉ còn là dự phòng khi trang chưa sẵn sàng. Riêng Forms/ chỉ có 1 file (QuickOpenForm.cs) — xem ghi chú "code mồ côi" cuối phần này.
+[Heading2] Soạn thảo lõi
+<TABLE>
+Tính năng | File thực thi
+Editor Monaco nhiều tab, mở/lưu file | Web/editor.js, Web/tabs.js, Web/index.html, MainForm.cs
+Cú pháp riêng cho FCode XML | Web/fcode-language.js
+Đóng khung panel (chia đôi màn hình...) | Web/dock.js
+Outline (cây cấu trúc file) + Go to Definition/Find References TRONG file | Web/outline.js — Ctrl+click/F12 tới khai báo entity/hàm trong cùng file, Shift+F12 tìm mọi nơi dùng trong project.
+Đi tới định nghĩa / Peek cho &Entity; XUYÊN NHIỀU LỚP THƯ MỤC (F12) | Web/entity.js — xem mô tả chi tiết ngay bên dưới, đây là tính năng mới quan trọng nhất của đợt cập nhật này.
+Xem trước màn hình Dir (Alt+P, nút "Xem Dir") | Web/dirpreview.js + Web/dirview.js — dựng lại form nhập liệu của một controller Dir (bảng FormTable: dòng bề rộng, mặt nạ 1/0/- của dòng design, view split/anchor, category thành tab, entity được khai triển trước khi dựng) ngay từ source đang mở; sửa file là form đổi theo. Kéo thả để đổi vị trí/cột. Chỉ mô phỏng cấu trúc (nhãn, ô nhập, checkbox, lookup/ngày), không chạy script, không có dữ liệu thật. dirview.js tô màu riêng từng thành phần của dòng design và hover vào một biến để xem bề rộng thật của nó.
+Problems (lỗi cú pháp XML, kiểm tra số lượng biến trong [item] có khớp khai báo field, thiếu entity/include) | Web/problems.js + Web/problems-worker.js — các kiểm tra chạy trong một Web Worker (importScripts chính problems.js / entity.js; đọc file và tìm project qua RPC về trang) để gõ phím không khựng khi file include lớn.
+Tìm kiếm toàn project + Replace hàng loạt trên các file đã chọn từ kết quả tìm | Web/search.js + Host/WorkspaceSearchService.cs, EditorBridge.BeginReplaceInWorkspace
+Lịch sử sửa file cục bộ (kèm tự giữ nguyên encoding gốc theo BOM khi đọc/ghi, và phát hiện file bị sửa từ máy khác) | Web/history.js + Settings/LocalHistoryStore.cs, EditorBridge.BeginReadFile/BeginWriteFile/BeginGetFileWriteTimeUtc
+Danh sách file gần đây | Settings/RecentFilesStore.cs
+New from Template | Settings/FileTemplateStore.cs + Settings/TemplatePickerForm.cs
+Theme sáng/tối, theo Windows | UI/ThemeCatalog.cs, UI/AppTheme.cs, Web/theme.js
+Chạy SQL ngay trong file | Web/sqlrun.js + Host/SqlRunnerService.cs
+Gợi ý tên bảng/cột trong vùng SQL | Host/SqlSchemaService.cs (đọc chung workspace của Bcode.App) — bật/tắt và cấu hình thẻ SQL trong Settings.
+Save As / mở nhanh thư mục chứa file / liệt kê thư mục qua host bridge | EditorBridge.BeginChooseSaveAsPath, OpenFolder, OpenHistoryFolder, BeginListDirectory
+Go to tag (Ctrl+G) | Web/goto.js — hộp liệt kê tag của controller (fields, command, script, response, css, ENTITY) và chi tiết của tag đang chọn; nhấp đúp hoặc Enter để nhảy tới đúng chỗ code. Chọn sẵn tag đang chứa con trỏ; các mục hay dùng (command Inserted/Updated, các function script quan trọng) được tô màu cả trong hộp lẫn ngay trong editor.
+Menu chuột phải (Web/contextmenu.js) | Goto Response Tag / Command / Function (F11); Xem trước ENTITY/file (F12) và Đi tới (Ctrl+F12); Open File Config (Aggregation, Extender.ent, Notify, Message.xml, Comment.xml, Filter Config…) và Open Folder (Images, Options, Lookup, Templates); Chạy SQL tại con trỏ (Ctrl+Enter); Create Function; Lookup Regex; Convert to XML; Dịch caption v → e (Ctrl+Alt+T: điền e="..." cho mọi <header v="..." e=""> còn trống, trong phần bôi đen hoặc cả file); Clone file...; Get Hash Source (SHA-256 + ngày sửa của file đang mở và các file cùng tên gốc trong site); Refresh.
+F5 — chạy menu của file | Host/MenuLauncher.cs + EditorBridge.BeginRunMenu — lưu file rồi tự tra menu wcommand của file và mở URL bằng trình duyệt mặc định của máy (tra menu cần workspace + mật khẩu SQL; thiếu/lỗi thì vẫn mở trang đăng nhập của project). Không còn đi qua Bcode.App / FSG FBO.
+Clone file | EditorBridge.BeginCloneFiles + Web/contextmenu.js (cloneFile) — nhân bản file của controller (cả nhóm cùng tên gốc) sang tên mới rồi hỏi đổi luôn controller="..." trong file đang mở (Ctrl+Z hoàn tác được).
+Settings, Hint Code, New from Template ngay trong trang | Web/settings.js + Web/templates.js + EditorBridge.GetSettings/BeginSaveSettings/BeginLoadHintSnippets/BeginSaveHintSnippet/BeginListFileTemplates/BeginCreateFromTemplate… (WinForms SettingsForm, HintCodeForm, TemplatePickerForm giữ làm dự phòng) — cùng theme, cùng kiểu với mọi hộp thoại khác; ô code Hint Code là một Monaco nữa ngay trong trang.
+Cây file theo Project, toolbar, sidebar AI | MainForm.cs — cây TreeView nhóm file đang mở theo Project (suy ra từ đường dẫn qua WorkspaceConnection; bung/thu gọn nhớ trong ViewerSettings.CollapsedTreeNodes; chuột phải: Remove from list, Open containing folder); toolbar có ⚙ Quick Access để ẩn/hiện nút (HiddenToolbarItems); 🤖 Claude Sidebar / ✨ Gemini Sidebar nhúng trang web thật và "📎 Đính kèm file" dán file đang mở vào ô chat; menu Actions có Clear Structure App và Refresh Web.config; một bản duy nhất mỗi phiên Windows (Mutex + named pipe), file mở thêm rơi vào cửa sổ đang chạy.
+</TABLE>
+[ListParagraph] Web/entity.js — Go to Definition / Peek cho &Entity; (tính năng mới)
+[ListParagraph] Ctrl+click hoặc F12 trên &Entity; (hoặc entity tham số %Entity;) nhảy tới khai báo <!ENTITY> của nó, kể cả khi phải đi qua một chuỗi include SYSTEM sâu — độ sâu tối đa được nâng từ 4 lên 64 (ENTITY_INCLUDE_DEPTH), vì Set chống-lặp (seen) đã tự đủ để chặn vòng lặp vô hạn nên giới hạn sâu 4 trước đây chỉ gây hại cho các chuỗi include hợp lệ nhưng sâu.
+[ListParagraph] Nếu file đang mở không tự có chuỗi include riêng (ví dụ đang đứng trong 1 file "Include" lẻ nằm sâu trong nhiều lớp thư mục con, như trường hợp ESG.Fields/PaymentRequestFields của Bee), tự động fallback sang tìm kiếm toàn project (BeginSearchWorkspace, cùng cơ chế "Find References"/"Search" đã có) rồi xác thực lại bằng cách parse thật khai báo <!ENTITY> trong từng file khớp tên thay vì tin mù kết quả tìm text thô (một tên có thể là tiền tố/chuỗi con của tên khác). Có cache theo tên entity trong phiên làm việc (kể cả cache "không tìm thấy") để F12 lặp lại không phải quét project lần nữa.
+[ListParagraph] Việc quét entity và các kiểm tra của Problems chạy trong Web Worker (Web/problems-worker.js): worker nạp lại đúng problems.js / entity.js nên luật kiểm tra chỉ có MỘT bản; vì worker không có DOM/Monaco/cầu nối host, mọi lần đọc file hay tìm project đi qua RPC về trang rồi mới gọi bcodeHost.
+[Heading2] IntelliSense — 4 lớp gợi ý xếp chồng trong Web/completion.js
+<TABLE>
+Lớp | Nội dung | File liên quan | Chi tiết cơ chế
+1. Hint Code | Thư viện snippet tự lưu, gõ theo prefix, miễn phí — quản lý qua nút "Hint"; nạp sẵn cả bộ snippet gốc của FCodeViewer (sqlsnippet.xml, jssnippet.xml, htmlsnippet.xml, csssnippet.xml và các bản viewsrc*). | Settings/HintSnippetStore.cs / Settings/FcodeXmlSnippets.cs / Assets/snippets/*.xml / HintCodeForm.cs / Web/templates.js | Khớp theo prefix vừa gõ với danh sách snippet đã lưu (cá nhân + thư mục dùng chung), lọc thêm theo pathScope nếu snippet có khai vùng file áp dụng. Đồng bộ, không debounce, không gọi mạng. / FcodeXmlSnippets đọc hai phần của file gốc — <Snippet><Item keyword=...> (gõ keyword ra đoạn code) và <Hint><HintItem object=...> (gợi ý sau "f." hoặc sau attr=") — rồi đổi tabstop {{N}} / {{N-tên}} / {{-}} sang cú pháp Monaco (${k:tên}); vùng áp dụng suy từ tên file (sql / css / html→XML / còn lại JS); thư mục người dùng chỉ định (ViewerSettings.FcodeSnippetFolder, khai trong settings) thắng bản đóng gói kèm app.
+2. Cấu trúc XML FCode | Gợi ý tên thuộc tính, giá trị thuộc tính, entity &...;, [field] trong <view>, snippet nguyên khối (<field, <items...) | Web/completion.js (provideXml) / Web/fcode-language.js | provideXml thử lần lượt 4 regex trên đoạn từ đầu dòng tới con trỏ: entityMatch, bracketMatch, valueMatch, openTagMatch. Đồng bộ, miễn phí — nhưng lưu ý: dropdown này vẫn tự bật, có thể đè lên ghost text AI ở cùng vị trí (đề xuất chặn dropdown khi AI đang bật đã đưa cho Bee, chưa áp dụng vào code).
+2b. Structural ghost (miễn phí, không qua AI) | Mẫu viết tắt riêng cho FastBusiness: <items, <item, <handle, <category, <script (XML) và f.get/f.set/g.get/g.set/f.req/$a. (JS) | Web/completion.js (structuralGhost) | So khớp mẫu mở đầu cố định (regex tĩnh), trả ngay ~0ms, không qua mạng.
+3. SQL schema | Tên bảng/cột trong vùng SQL nhúng trong file .xml | Web/completion.js (provideSql) / Host/SqlSchemaService.cs | Chỉ chạy khi regionAt() xác định con trỏ đang ở vùng SQL; đọc schema đã cache sẵn trong SqlSchemaService. Bật/tắt và khai thêm thẻ SQL qua Settings ("Gợi ý SQL").
+4. AI ghost text (tốn token) | Gọi AI (Claude hoặc Gemini, chọn trong Settings) khi không khớp 3 lớp trên, debounce 400ms | Web/completion.js (provideInline) / Host/EditorBridge.BeginInlineCompletion / Host/ClaudeChatService.CompleteAsync/CompleteWithGeminiAsync / Settings/CompletionPromptConfig.cs | Vẫn gọi cả khi chỉ bấm phím cách — đề xuất bỏ guard này đã đưa cho Bee nhưng chưa áp dụng vào code. System prompt (theo vùng xml/sql/js/css + phần chung) nay đọc từ 5 file .txt trong thư mục Config/ cạnh exe (CompletionPromptConfig — tự sinh mặc định lần đầu chạy) thay vì hard-code, sửa file là có hiệu lực ngay không cần khởi động lại app. Cache theo 400 ký tự cuối trước con trỏ làm khóa; ghi cache TRƯỚC khi xét huỷ, và nếu Monaco huỷ request thì tự gọi lại editor.action.inlineSuggest.trigger để lần hỏi kế tiếp trúng cache ngay.
+</TABLE>
+[Heading2] AI (Claude / Gemini) — các điểm gọi ra API
+<TABLE>
+Tính năng | Model dùng | File thực thi | Ghi chú
+Ghost text khi gõ (bật/tắt, chọn Engine ở Settings) | CompletionModel — Claude Haiku 4.5 (mặc định) hoặc Gemini nếu chọn Engine = Gemini | Host/ClaudeChatService.CompleteAsync / CompleteWithGeminiAsync / Web/completion.js / Settings/CompletionPromptConfig.cs | Haiku 4.5 ≈ $1/$5 mỗi triệu token (input/output). max_tokens=96, temperature=0, ngữ cảnh quanh con trỏ giới hạn 6000 ký tự trước + 2000 ký tự sau.
+Ctrl+I — sinh code theo yêu cầu, gửi cả file làm context | Model (mặc định Sonnet 5) | Web/contextmenu.js (showInlineGenerate) / Host/ClaudeChatService.AskAsync | Sonnet 5 ≈ $2/$10 mỗi triệu token. max_tokens=2048, gửi nguyên nội dung file đang mở làm system prompt nên phí tỉ lệ thuận theo độ dài file.
+Chat panel hỏi đáp về file đang mở | cùng AskAsync | Web/chat.js (BcodeChat) — UI đang bị gỡ khỏi index.html, code vẫn hoạt động nếu nối lại | Dùng chung AskAsync với Ctrl+I (cùng model, cùng phí như trên). UI đang bị gỡ khỏi index.html nên hiện chưa bật lại được từ giao diện.
+Lưu gợi ý AI vừa dùng thành Hint Code | — | Web/completion.js (checkAiGhostAccepted) / Host/EditorBridge.BeginSaveAiSuggestionAsHint / HintCodeForm.cs | Không gọi thêm API — chỉ mở sẵn form Hint Code với nội dung gợi ý AI vừa dùng, vẫn cần bấm Save thủ công.
+Nhập API key, chọn model, bật/tắt AI, cấu hình gợi ý SQL | — | Web/settings.js (trang Settings vẽ ngay trong editor, cùng theme) + Settings/ViewerSettings.cs; Settings/SettingsForm.cs (WinForms) chỉ còn là dự phòng khi trang chưa sẵn sàng | Trang Settings có: API key Claude, API key Gemini, Model (chat), Model (ghost text), dropdown chọn Engine ghost-text (Claude/Gemini), thư mục Hint Code dùng chung. / Khối "Gợi ý SQL": bật/tắt gợi ý bảng/cột (kèm nút Test kết nối schema), checkbox cho phép chạy SQL ghi INSERT/UPDATE/DELETE/EXEC (mặc định TẮT), ô khai thêm tên thẻ XML chứa SQL ngoài các thẻ tự nhận diện. / Vẫn CHƯA có ô Workspace ID riêng — key loại multi-workspace (cần header anthropic-workspace-id) vẫn phải tạo sẵn scope theo 1 workspace cụ thể trong Console thay vì nhập ở đây. Việc chỉnh system prompt AI KHÔNG nằm trong Settings — sửa trực tiếp file .txt trong thư mục Config/ (xem CompletionPromptConfig ở bảng IntelliSense).
+Sidebar Claude / Gemini (web) + Đính kèm file | Trang claude.ai / gemini thật nhúng trong WebView2 (profile riêng ClaudeWebProfile / GeminiWebProfile trong %AppData%\Bcode); không dùng API key của BcodeViewer | MainForm.cs (AttachActiveFileToVisibleAiAsync, InjectFileContextIntoClaudeAsync) | Nút "📎 Đính kèm file" dán nội dung file đang mở vào ô chat của sidebar đang hiện bằng Ctrl+V thật (ghi đè clipboard vài giây rồi trả lại). Dùng tài khoản người dùng đăng nhập trên chính trang web, tách hẳn với các điểm gọi API ở trên.
+</TABLE>
+[Heading2] Cầu nối host ↔ JS
+[ListParagraph] Host/EditorBridge.cs là hậu đài duy nhất: mọi thao tác đụng đến file/mạng/CSDL đi qua Begin<Ten>(requestId, ...) — hàng đợi không chặn UI — trả kết quả qua web message hostCallResult; Web/hostcall.js bọc lại thành Promise (window.bcodeHost.call(...)). Host/AsyncHostCall.cs là cơ chế hàng đợi/hủy đó.
+[ListParagraph] Ngoài nhóm đã biết từ đầu (BeginInlineCompletion, BeginSaveAiSuggestionAsHint, BeginSearchWorkspace, NotifyCursorChanged, NotifyFileOpened), EditorBridge có thêm nhiều Begin*/Notify*/Get* — các nhóm chính:
+[ListParagraph] BeginReadFile / BeginWriteFile — tự dò và giữ nguyên encoding gốc theo BOM (UTF-8/UTF-16 LE/BE/UTF-32), khắc phục lỗi ghi đè file .f UTF-16 thành UTF-8 khiến FastBusiness Online báo lỗi XML khi nạp lại.
+[ListParagraph] BeginSaveWithHistory — lưu file kèm chụp snapshot nội dung cũ vào local history TRƯỚC khi ghi đè, có khóa theo từng đường dẫn.
+[ListParagraph] BeginGetFileHistory / BeginGetHistorySnapshot / OpenHistoryFolder — liệt kê, đọc lại và mở thư mục chứa các phiên bản lịch sử.
+[ListParagraph] BeginChooseSaveAsPath — mở hộp thoại "Save As" gốc Windows chạy nền (tránh modal đè lên lời gọi WebView2 đang chờ).
+[ListParagraph] OpenFolder / BeginListDirectory — mở Explorer tại thư mục, liệt kê nội dung 1 cấp thư mục dạng JSON.
+[ListParagraph] BeginPathsExist — kiểm tra tồn tại hàng loạt đường dẫn cùng lúc (dùng để validate <!ENTITY SYSTEM> trong problems.js).
+[ListParagraph] BeginGetFileWriteTimeUtc — trả thời điểm ghi cuối của file, để trang phát hiện "file đã đổi ở máy khác".
+[ListParagraph] BeginReplaceInWorkspace — Replace-all trên danh sách file đã chọn từ kết quả Find in Files.
+[ListParagraph] NotifyFileClosed / NotifyDirtyChanged — báo trạng thái đóng file / thay đổi chưa lưu để MainForm cập nhật tiêu đề cửa sổ và xử lý đóng an toàn.
+[ListParagraph] BeginCloneFiles / BeginGetHashSource / BeginRunMenu — nhân bản nhóm file cùng tên gốc; băm SHA-256 + ngày sửa của file và các file cùng tên gốc trong Controllers/Main của site; F5 lưu rồi mở menu của file bằng trình duyệt mặc định (MenuLauncher).
+[ListParagraph] GetSettings / BeginSaveSettings / BeginChooseFolder / BeginChooseFile — trang Settings (Web/settings.js) đọc/ghi cấu hình; các hộp chọn thư mục/file vẫn là của Windows chạy nền.
+[ListParagraph] BeginLoadHintSnippets / BeginSaveHintSnippet / BeginDeleteHintSnippet / BeginExportHintSnippets / BeginListFileTemplates / BeginReadFileTemplate / BeginCreateFromTemplate — Hint Code và File > New from Template vẽ trong trang (Web/templates.js).
+[ListParagraph] BeginAskAI — hỏi AI kèm ngữ cảnh file đang mở (nội dung + đường dẫn), dùng cho Ctrl+I / chat.
+[ListParagraph] GetSnippets / GetFcodeHints / GetTheme / GetEditorConfig / GetWorkspaceRoot / BeginGetSqlTables / BeginGetSqlColumns — dữ liệu đẩy cho trang một lần (snippet, gợi ý FCode, theme, cấu hình editor, gốc workspace, schema SQL) để gợi ý chạy hoàn toàn trong bộ nhớ trang.
+[ListParagraph] Nguyên tắc Notify* (đồng bộ, chỉ cập nhật state trong bộ nhớ) vs Begin* (bất đồng bộ, đụng file/mạng/CSDL) vẫn không đổi.
+[Heading2] Code đã viết nhưng chưa gắn vào UI (orphaned)
+[ListParagraph] Forms/QuickOpenForm.cs (BcodeViewer.App) — class đầy đủ, biên dịch được, nhưng grep toàn bộ project không thấy nơi nào gọi new QuickOpenForm(...) ngoài chính file định nghĩa nó.
+[ListParagraph] UI/CodeHighlighter.cs (BcodeViewer.App) — doc comment nói dùng để tô màu code box trong panel chi tiết Hint Code, nhưng không có nơi nào gọi CodeHighlighter.Highlight(...).
+[ListParagraph] Services/DecryptSqlObjectConfigService.cs (Bcode.App) — tiện ích đọc file cấu hình giải mã cũ (UTF-16LE) của FCode; chưa được gọi ở đâu trong UI hiện tại, không liên quan tới engine giải mã thật (SqlDecryptor.Core) mà Decrypt SQL Object đang dùng.
+[ListParagraph] Services/ViewerControlServer.cs (Bcode.App) — vẫn mở named pipe Bcode.Control.<session> (MainForm tạo instance) nhưng BcodeViewer hiện không còn gửi lệnh nào vào đó (F5 đi thẳng Host/MenuLauncher.cs), nên pipe này chưa có người gọi.
+[ListParagraph] UI/PillButton.cs (nút bo góc tự vẽ, dùng cho hàng nút của HintCodeForm) và UI/WaitCursorScope.cs (IDisposable đổi con trỏ chuột sang hourglass trong khối await, tự khôi phục kể cả khi form đã đóng) là 2 helper UI nhỏ dùng nội bộ, không phải tính năng riêng.

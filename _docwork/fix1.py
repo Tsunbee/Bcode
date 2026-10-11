@@ -1,0 +1,11 @@
+import re
+s=open('content.py',encoding='utf-8').read()
+s=s.replace('Viewer → Bcode qua named pipe Bcode.Control.<session> với 2 lệnh "fsg|<file>|<project>" (chạy menu của file) và "sql|<b64 script>|<b64 tiêu đề>" ("Debug trong Bcode" mở tab SQL Query)','Viewer → Bcode qua named pipe Bcode.Control.<session> bằng lệnh "sql|<b64 script>|<b64 tiêu đề>" ("Debug trong Bcode" mở tab SQL Query); Bcode còn xử lý lệnh "fsg|<file>|<project>" nhưng Viewer hiện KHÔNG gửi (F5 của Viewer mở trình duyệt qua Host/MenuLauncher)')
+s=s.replace("'Pipe Bcode.Control.<session>: \"fsg|...\" và \"sql|...\"'","'Pipe Bcode.Control.<session>: \"sql|...\" đang dùng; \"fsg|...\" còn handler nhưng Viewer không gửi nữa'")
+open('content.py','w',encoding='utf-8').write(s)
+d=open('diagrams.py',encoding='utf-8').read()
+d=d.replace("fsg| / sql|","sql|").replace("fsg| · sql|","sql|")
+open('diagrams.py','w',encoding='utf-8').write(d)
+b=open('build.py',encoding='utf-8').read()
+b=b.replace('pipe Bcode.Control.<session> NAY ĐANG DÙNG ("Debug trong Bcode", F5 qua Bcode); trước đây ghi là chưa ai gọi.','pipe Bcode.Control.<session> NAY ĐANG DÙNG cho lệnh "sql|" ("Debug trong Bcode"); lệnh "fsg|" vẫn còn handler nhưng F5 của Viewer đi thẳng MenuLauncher (mở trình duyệt). v2 ghi là chưa ai gọi.')
+open('build.py','w',encoding='utf-8').write(b)

@@ -82,7 +82,7 @@ def diag_overview():
 
     # arrows
     arrow(ax, (46, 20), (54, 20), 'Process.Start\nfile + project', both=False, color='#B8860B', loff=(0, -2.6))
-    arrow(ax, (54, 24), (46, 24), 'pipe Bcode.Control.<session>\nfsg| / sql|', color='#C0392B', loff=(0, 2.8))
+    arrow(ax, (54, 24), (46, 24), 'pipe Bcode.Control.<session>\nsql|', color='#C0392B', loff=(0, 2.8))
     arrow(ax, (14, 40), (14, 43), None, color='#B8860B')
     ax.text(15.5, 41.6, 'Process.Start --source --project --controller', fontsize=7.8, color='#B8860B', va='center')
     arrow(ax, (50, 40), (50, 43), None, color='#2E8B57')

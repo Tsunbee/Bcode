@@ -1,6 +1,6 @@
 # Bản đồ cấu trúc Bcode & BcodeViewer (11/10/2026)
 
-Đọc file này TRƯỚC khi tìm code. Tài liệu đầy đủ kèm sơ đồ: `Cấu trúc Bcode  BcodeViewer (v3).docx`. Đường dẫn bên dưới tính từ `src/<project>/`.
+Đọc file này TRƯỚC khi tìm code. Tài liệu đầy đủ kèm sơ đồ: `Cấu trúc Bcode  BcodeViewer (v3 - Tóm tắt).docx, bản đầy đủ cho người khác: (v3 - Đầy đủ).docx`. Đường dẫn bên dưới tính từ `src/<project>/`.
 
 ## Quan hệ
 
@@ -9,7 +9,7 @@
 - BcodeViewer.App (BcodeViewer.exe) — trình soạn file controller FCode xây trên Monaco: IntelliSense nhiều lớp, F12/Peek entity, xem trước Dir/mail, chạy SQL, AI ghost text. Từ bản này cả menu/toolbar/cây file cũng vẽ trong trang (Web/shell.js) — WinForms chỉ còn là vỏ.
 - Bcode.ScreenDesigner (BcodeScreenDesigner.exe) — thiết kế/xem trước màn hình Dir có dữ liệu mẫu; Bcode mở từ menu "Triển khai" hoặc chuột phải cây WCommand. Bcode.KeyGen — công cụ riêng của người phát hành, cấp key bản quyền gắn theo máy. Bcode.ReportBuilder — thư viện (DLL) "Tạo báo cáo" Bcode tham chiếu.
 - Chia sẻ giữa các chương trình: (1) %AppData%\Bcode\settings.json (workspace, kết nối CSDL) do Bcode ghi, BcodeViewer/ScreenDesigner đọc; BcodePaths.cs là bản sao giống hệt ở mỗi app để chọn đúng thư mục ghi được. (2) Code link bằng <Compile Include> chứ không chép: Shared/AiWebHelper.cs (Bcode + Viewer), Shared/LicenseCodec.cs (Bcode + KeyGen), Host/IncludeTree.cs (Viewer + ScreenDesigner), Monaco/theme.js/fcode-language.js của Viewer (Bcode dùng cho preview File Lookup).
-- Liên lạc giữa tiến trình: Bcode → Viewer bằng Process.Start (file + tên project); Viewer → Bcode qua named pipe Bcode.Control.<session> với 2 lệnh "fsg|<file>|<project>" (chạy menu của file) và "sql|<b64 script>|<b64 tiêu đề>" ("Debug trong Bcode" mở tab SQL Query) — Services/ViewerControlServer.cs; Bcode → ScreenDesigner bằng Process.Start --source --project --controller; Viewer chạy 1 bản mỗi phiên Windows (Mutex + pipe BcodeViewer.SingleInstance.<session>).
+- Liên lạc giữa tiến trình: Bcode → Viewer bằng Process.Start (file + tên project); Viewer → Bcode qua named pipe Bcode.Control.<session> bằng lệnh "sql|<b64 script>|<b64 tiêu đề>" ("Debug trong Bcode" mở tab SQL Query); Bcode còn xử lý lệnh "fsg|<file>|<project>" nhưng Viewer hiện KHÔNG gửi (F5 của Viewer mở trình duyệt qua Host/MenuLauncher) — Services/ViewerControlServer.cs; Bcode → ScreenDesigner bằng Process.Start --source --project --controller; Viewer chạy 1 bản mỗi phiên Windows (Mutex + pipe BcodeViewer.SingleInstance.<session>).
 
 ## Projects
 
@@ -67,7 +67,7 @@
 - **Thiết kế màn hình** — MainForm.LaunchScreenDesigner; src/Bcode.ScreenDesigner/* — _Exe riêng: tham số --source --project --controller._
 - **FSG: báo cáo yêu cầu / FSG Yêu cầu / FSG FBO** — Controls/FsgRequirementReportControl.cs; Forms/FsgRequirementCrawlerForm.cs, QuickLaunchLoginForm.cs; Web/Shell/fsgreq.html — _Bung web đăng nhập Workspace.LoginWLink, tự điền user/pass bằng JS injection._
 - **Claude / Gemini nhúng** — Controls/AiWebPanel.cs; Shared/AiWebHelper.cs — _Tab web claude.ai / gemini, profile riêng._
-- **Giao tiếp với BcodeViewer** — Services/ViewerControlServer.cs; FileLookupControl (mở Viewer); MainForm.RunMenuForFileAsync, OpenViewerScriptTab — _Pipe Bcode.Control.<session>: "fsg|..." và "sql|..."_
+- **Giao tiếp với BcodeViewer** — Services/ViewerControlServer.cs; FileLookupControl (mở Viewer); MainForm.RunMenuForFileAsync, OpenViewerScriptTab — _Pipe Bcode.Control.<session>: "sql|..." đang dùng; "fsg|..." còn handler nhưng Viewer không gửi nữa_
 ### 8. Control/helper nền (ít khi phải sửa)
 - **Khung xem/sửa script (RichTextBox)** — Controls/ScriptEditorControl.cs, SqlSyntaxHighlighter.cs, UndoRedoTracker.cs, SuggestPopup.cs; UI/LineNumberGutter.cs — _Dùng cho script SQL Object, WCommand script popup; Undo tự viết vì RichTextBox tô màu._
 - **Lưới & hiển thị** — UI/GridDisplayHelper.cs, GridDragScroll.cs, ControlPerf.cs, FlatToolStripRenderer.cs, ThemedForm.cs — _Autosize 1 lần, kéo chọn tự cuộn, double buffer._

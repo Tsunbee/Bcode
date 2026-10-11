@@ -1,265 +1,163 @@
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
+using System.Diagnostics;
 using System.Text.Json;
 using Bcode.App.Models;
-using Bcode.App.UI;
-using Microsoft.Web.WebView2.Core;
-using Microsoft.Web.WebView2.WinForms;
+using Bcode.App.Services.Api;
 
 namespace Bcode.App.Forms;
 
-public class ApiDeclarationForm : ThemedForm
+/// <summary>
+/// "Khai báo &amp; quản lý API" theo chuẩn phòng LT3 (trang Web/Shell/apideclaration.html, nền <see cref="WebDialogForm"/> — WebView2 dùng chung, ăn Template, tự co giãn).
+/// Dự án = địa chỉ gốc + tài khoản (mật khẩu mã hoá DPAPI) + danh sách form; tạo từ mẫu chuẩn LT3 (Templates/Api/lt3-standard.json — 31 form của tài liệu
+/// http://172.168.5.14/developers/docs/), nhập / xuất Postman, lấy token (nhớ tới khi hết hạn), gửi thử từng form, kiểm tra body theo bảng trường chuẩn,
+/// xem response dạng bảng. Hồ sơ lưu riêng trên máy từng người (<see cref="ApiProjectStore"/>). Mọi thông báo hiện trong trang.
+/// </summary>
+public sealed class ApiDeclarationForm : WebDialogForm
 {
-    private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
-    private static string ProfileDir =>
-        Path.Combine(BcodePaths.AppData, "Bcode", "ApiProfiles");
+    private static readonly JsonSerializerOptions ReadOpts = new() { PropertyNameCaseInsensitive = true };
 
-    public ApiDeclarationForm()
+    public ApiDeclarationForm() : base("Khai báo & quản lý API (chuẩn LT3)", "apideclaration.html", 1200, 780, 760, 480) { }
+
+    protected override void OnReady() => PushInit();
+
+    private void PushInit() => Js($"window.api && api.init({J(new
     {
-        Text = "Khai báo & Quản lý API";
-        Width = 840;
-        Height = 650;
-        StartPosition = FormStartPosition.CenterParent;
-        Controls.Add(_web);
-        
-        FormBorderStyle = FormBorderStyle.Sizable;
-        MaximizeBox = true;
-        MinimizeBox = true;
+        projects = ApiProjectStore.List(),
+        folder = ApiProjectStore.Folder,
+        oldProfiles = ApiProjectStore.OldProfiles().Count,
+        catalog = Lt3Templates.Catalog().Select(f => new { f.Form, f.Kind, f.Title }),
+        errors = Lt3Templates.ErrorCodes(),
+        docUrl = "http://172.168.5.14/developers/docs/intro/",
+    })})");
 
-        Load += async (_, _) =>
-        {
-            var shellDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Web", "Shell");
-            var env = await CoreWebView2Environment.CreateAsync();
-            await _web.EnsureCoreWebView2Async(env);
-            Bcode.App.UI.UiScale.BindZoom(_web);
-
-            _web.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                "app.bcode",
-                shellDir,
-                CoreWebView2HostResourceAccessKind.Allow);
-
-            _web.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
-            _web.CoreWebView2.Navigate("https://app.bcode/apideclaration.html");
-        };
-    }
-
-    private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    protected override async Task OnActionAsync(string action, JsonElement msg)
     {
         try
         {
-            var rawJson = e.WebMessageAsJson;
-            if (rawJson.StartsWith("\"") && rawJson.EndsWith("\""))
-            {
-                using var jsonDoc = JsonDocument.Parse(rawJson);
-                if (jsonDoc.RootElement.ValueKind == JsonValueKind.String)
-                {
-                    rawJson = jsonDoc.RootElement.GetString() ?? rawJson;
-                }
-            }
-
-            using var doc = JsonDocument.Parse(rawJson);
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return;
-
-            if (!root.TryGetProperty("action", out var actionProp)) return;
-            var action = actionProp.GetString();
-
             switch (action)
             {
-                case "get-token":
-                    await HandleGetTokenAsync(root.GetProperty("data"));
-                    break;
-                case "test-api":
-                    await HandleTestApiAsync(root.GetProperty("data"));
-                    break;
-                case "browse-file":
-                    using (var ofd = new OpenFileDialog { Filter = "Schema (*.json;*.xml;*.docx)|*.json;*.xml;*.docx|All files (*.*)|*.*" })
-                    {
-                        if (ofd.ShowDialog(this) == DialogResult.OK)
-                            await _web.CoreWebView2.ExecuteScriptAsync($"window.setSchemaPath({JsonSerializer.Serialize(ofd.FileName)})");
-                    }
-                    break;
-                case "save-profile":
-                    SaveProfile(root.GetProperty("data"));
-                    break;
-                case "load-profile":
-                    LoadProfile();
-                    break;
-                case "export-postman":
-                    ExportPostman(root.GetProperty("data"));
-                    break;
-                case "close":
-                    Close();
-                    break;
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, "Lỗi: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    private async Task HandleGetTokenAsync(JsonElement data)
-    {
-        var tokenUrl = data.TryGetProperty("tokenUrl", out var tu) ? tu.GetString() ?? "" : "";
-        var body = data.TryGetProperty("tokenBody", out var tb) ? tb.GetString() ?? "" : "";
-        var path = data.TryGetProperty("tokenPath", out var tp) ? tp.GetString() ?? "data.token" : "data.token";
-
-        if (string.IsNullOrWhiteSpace(tokenUrl))
-        {
-            MessageBox.Show(this, "Vui lòng nhập Link lấy Token.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-
-        try
-        {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-            var content = new StringContent(body, Encoding.UTF8, "application/json");
-            var res = await client.PostAsync(tokenUrl, content);
-            var resStr = await res.Content.ReadAsStringAsync();
-
-            if (!res.IsSuccessStatusCode)
-            {
-                MessageBox.Show(this, $"Lỗi ({res.StatusCode}):\n{resStr}", "API Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-
-            var token = ExtractToken(resStr, path);
-            await _web.CoreWebView2.ExecuteScriptAsync($"window.setToken({JsonSerializer.Serialize(token)})");
-            MessageBox.Show(this, "Lấy Token thành công!", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, "Lỗi kết nối: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    private static string ExtractToken(string json, string path)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var current = doc.RootElement;
-            foreach (var seg in path.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                if (current.ValueKind == JsonValueKind.Object && current.TryGetProperty(seg, out var next))
-                    current = next;
-                else
+                case "open": PushProject(ApiProjectStore.Load(Str(msg, "name")) ?? throw new InvalidOperationException("Không đọc được dự án.")); break;
+                case "save":
                 {
-                    if (doc.RootElement.TryGetProperty("token", out var t1)) return t1.GetString() ?? t1.ToString();
-                    if (doc.RootElement.TryGetProperty("access_token", out var t2)) return t2.GetString() ?? t2.ToString();
-                    return json;
+                    var p = ReadProject(msg);
+                    var old = Str(msg, "originalName");
+                    ApiProjectStore.Save(p);
+                    if (old.Length > 0 && !string.Equals(old, p.Name, StringComparison.CurrentCultureIgnoreCase)) ApiProjectStore.Delete(old);
+                    PushInit(); PushProject(p);
+                    Status("Đã lưu dự án \"" + p.Name + "\" (" + ApiProjectStore.Folder + ").", "ok");
+                    break;
                 }
+                case "delete": ApiProjectStore.Delete(Str(msg, "name")); PushInit(); Js("api.cleared()"); Status("Đã xoá dự án.", "ok"); break;
+                case "new-template":
+                {
+                    var forms = msg.TryGetProperty("forms", out var fa) && fa.ValueKind == JsonValueKind.Array ? fa.EnumerateArray().Select(x => x.GetString() ?? "").ToList() : null;
+                    PushProject(Lt3Templates.Create(Str(msg, "name"), Str(msg, "projectId"), Str(msg, "baseUrl"), forms), dirty: true);
+                    Status("Đã tạo dự án từ mẫu chuẩn LT3 — nhập tài khoản rồi Lưu.", "ok");
+                    break;
+                }
+                case "add-forms":
+                {
+                    var forms = msg.GetProperty("forms").EnumerateArray().Select(x => Lt3Templates.Find(x.GetString() ?? "")).OfType<Lt3Templates.FormDoc>().Select(Lt3Templates.ToForm);
+                    Js($"api.addForms({P(forms)})");
+                    break;
+                }
+                case "import-postman": ImportPostman(); break;
+                case "import-old":
+                {
+                    var n = 0;
+                    foreach (var f in ApiProjectStore.OldProfiles()) { try { ApiProjectStore.Save(ApiProjectStore.ConvertOld(f)); n++; } catch { /* hồ sơ hỏng */ } }
+                    PushInit(); Status($"Đã chuyển {n} hồ sơ cũ (mật khẩu chuyển sang mã hoá). Hồ sơ cũ vẫn giữ ở thư mục ApiProfiles.", "ok");
+                    break;
+                }
+                case "export-postman": ExportPostman(ReadProject(msg)); break;
+                case "token":
+                {
+                    var p = ReadProject(msg);
+                    Status("Đang lấy token…", "");
+                    var t = await ApiClient.GetTokenAsync(p, force: true);
+                    Js($"api.token({J(new { masked = Mask(t.Token), full = t.Token, expires = t.ExpiresUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") })})");
+                    Status("Lấy token thành công — hết hạn " + t.ExpiresUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm") + ".", "ok");
+                    break;
+                }
+                case "send":
+                {
+                    var p = ReadProject(msg);
+                    var f = p.Forms.ElementAtOrDefault(msg.TryGetProperty("index", out var ix) ? ix.GetInt32() : -1) ?? throw new InvalidOperationException("Chưa chọn form.");
+                    if (f.Kind is "SyncData" or "SyncVoucher" && !(msg.TryGetProperty("confirmWrite", out var cw) && cw.ValueKind == JsonValueKind.True))
+                    { Js($"api.confirmWrite({J(f.Name)})"); break; }   // form GHI dữ liệu vào Fast: trang hỏi xác nhận trước
+                    Status("Đang gửi " + f.Name + "…", "");
+                    var r = await ApiClient.SendAsync(p, f, f.Body);
+                    Js($"api.result({J(r)})");
+                    Status($"{f.Name}: HTTP {r.Status} · {r.Ms} ms" + (r.Message is null ? "" : " · " + r.Message), r.Ok ? "ok" : "err");
+                    break;
+                }
+                case "validate":
+                {
+                    var f = new ApiForm { Name = Str(msg, "name"), Body = Str(msg, "body") };
+                    Js($"api.issues({J(ApiClient.Validate(f, f.Body))})");
+                    break;
+                }
+                case "form-doc": Js($"api.formDoc({J(Lt3Templates.Find(Str(msg, "form")))})"); break;
+                case "browse-doc":
+                {
+                    using var ofd = new OpenFileDialog { Filter = "Tài liệu (*.docx;*.pdf;*.json;*.xml;*.xlsx)|*.docx;*.pdf;*.json;*.xml;*.xlsx|Tất cả|*.*" };
+                    if (ofd.ShowDialog(this) == DialogResult.OK) Js($"api.docPath({J(ofd.FileName)})");
+                    break;
+                }
+                case "open-path":
+                {
+                    var path = Str(msg, "path");
+                    if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || File.Exists(path) || Directory.Exists(path))
+                        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                    else Status("Không thấy: " + path, "err");
+                    break;
+                }
+                case "copy": Clipboard.SetText(Str(msg, "text")); Status("Đã chép.", "ok"); break;
             }
-            return current.GetString() ?? current.ToString();
         }
-        catch { return json; }
+        catch (Exception ex) { Status(ex.Message, "err"); Js("api.busy(false)"); }
     }
 
-    private async Task HandleTestApiAsync(JsonElement data)
+    /// <summary>Dự án / form gửi xuống trang giữ tên thuộc tính PascalCase (trang đọc S.p.Name, S.p.Forms…) — không qua J() (camelCase).</summary>
+    private static string P(object value) => JsonSerializer.Serialize(value);
+
+    private void PushProject(ApiProject p, bool dirty = false) =>
+        Js($"api.project({{\"project\":{P(NoSecret(p))},\"hasPassword\":{(p.PasswordProtected.Length > 0 && ApiProjectStore.Unprotect(p.PasswordProtected).Length > 0 ? "true" : "false")},\"dirty\":{(dirty ? "true" : "false")}}})");
+
+    /// <summary>Gửi xuống trang KHÔNG kèm mật khẩu (kể cả bản mã hoá).</summary>
+    private static object NoSecret(ApiProject p) => new
     {
-        var url = data.TryGetProperty("apiUrl", out var au) ? au.GetString() ?? "" : "";
-        var token = data.TryGetProperty("token", out var tk) ? tk.GetString() ?? "" : "";
+        p.Name, p.ProjectId, p.Department, p.BaseUrl, p.TokenPath, p.Username, p.TokenBody, p.TokenField, p.ExpiresField, p.AuthScheme, p.DocPath, p.Note, p.Forms,
+    };
 
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            MessageBox.Show(this, "Vui lòng nhập Link API Chính.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-
-        try
-        {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-            if (!string.IsNullOrWhiteSpace(token))
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            var res = await client.PostAsync(url, new StringContent("{}", Encoding.UTF8, "application/json"));
-            var resStr = await res.Content.ReadAsStringAsync();
-            MessageBox.Show(this, $"Status: {(int)res.StatusCode} ({res.StatusCode})\nBody:\n{(resStr.Length > 250 ? resStr[..247] + "..." : resStr)}",
-                "Kết quả Test", MessageBoxButtons.OK, res.IsSuccessStatusCode ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, "Lỗi Test API: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+    /// <summary>Dự án từ trang: giữ mật khẩu mã hoá đã lưu, nhập mới thì mã hoá lại.</summary>
+    private static ApiProject ReadProject(JsonElement msg)
+    {
+        var p = msg.GetProperty("project").Deserialize<ApiProject>(ReadOpts) ?? new ApiProject();
+        var saved = ApiProjectStore.Load(Str(msg, "originalName").Length > 0 ? Str(msg, "originalName") : p.Name);
+        var typed = Str(msg, "password");
+        p.PasswordProtected = typed.Length > 0 ? ApiProjectStore.Protect(typed) : saved?.PasswordProtected ?? p.PasswordProtected;
+        return p;
     }
 
-    private void SaveProfile(JsonElement data)
+    private void ImportPostman()
     {
-        var proj = data.TryGetProperty("project", out var pj) ? pj.GetString() ?? "" : "";
-        if (string.IsNullOrWhiteSpace(proj))
-        {
-            MessageBox.Show(this, "Vui lòng nhập Mã dự án.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-
-        Directory.CreateDirectory(ProfileDir);
-        var item = new ApiConfigItem
-        {
-            ProjectId = proj,
-            Department = data.TryGetProperty("dept", out var dp) ? dp.GetString() ?? "" : "",
-            SyncType = data.TryGetProperty("syncType", out var st) ? st.GetString() ?? "" : "",
-            BaseApiUrl = data.TryGetProperty("apiUrl", out var au) ? au.GetString() ?? "" : "",
-            TokenEndpoint = data.TryGetProperty("tokenUrl", out var tu) ? tu.GetString() ?? "" : "",
-            TokenRequestBody = data.TryGetProperty("tokenBody", out var tb) ? tb.GetString() ?? "" : "",
-            CurrentToken = data.TryGetProperty("token", out var tk) ? tk.GetString() ?? "" : "",
-            SchemaFilePath = data.TryGetProperty("schemaPath", out var sp) ? sp.GetString() ?? "" : ""
-        };
-
-        File.WriteAllText(Path.Combine(ProfileDir, $"{proj}.json"), JsonSerializer.Serialize(item, new JsonSerializerOptions { WriteIndented = true }));
-        MessageBox.Show(this, $"Đã lưu cấu hình dự án '{proj}'!", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-    }
-
-    private async void LoadProfile()
-    {
-        Directory.CreateDirectory(ProfileDir);
-        using var ofd = new OpenFileDialog { InitialDirectory = ProfileDir, Filter = "API Profiles (*.json)|*.json" };
+        using var ofd = new OpenFileDialog { Filter = "Postman collection (*.json)|*.json|Tất cả|*.*", Multiselect = false };
         if (ofd.ShowDialog(this) != DialogResult.OK) return;
-
-        var json = File.ReadAllText(ofd.FileName);
-        await _web.CoreWebView2.ExecuteScriptAsync($"window.setProfileData({json})");
+        var r = PostmanConverter.Import(File.ReadAllText(ofd.FileName), Path.GetFileNameWithoutExtension(ofd.FileName));
+        PushProject(r.Project, dirty: true);
+        Js($"api.notes({J(r.Notes)})");
+        Status($"Đã nhập {r.Project.Forms.Count} form từ Postman — kiểm tra rồi Lưu.", "ok");
     }
 
-    private void ExportPostman(JsonElement data)
+    private void ExportPostman(ApiProject p)
     {
-        var proj = data.TryGetProperty("project", out var pj) ? pj.GetString() ?? "API" : "API";
-        using var sfd = new SaveFileDialog
-        {
-            Filter = "Postman Collection (*.postman_collection.json)|*.postman_collection.json",
-            FileName = $"{proj}_Collection.json"
-        };
+        using var sfd = new SaveFileDialog { Filter = "Postman collection (*.postman_collection.json)|*.postman_collection.json", FileName = (string.IsNullOrWhiteSpace(p.ProjectId) ? p.Name : p.ProjectId) + "_API.postman_collection.json" };
         if (sfd.ShowDialog(this) != DialogResult.OK) return;
-
-        var collection = new
-        {
-            info = new { name = proj, schema = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
-            variable = new object[]
-            {
-                new { key = "base_url", value = data.TryGetProperty("apiUrl", out var au) ? au.GetString() ?? "" : "" },
-                new { key = "token", value = data.TryGetProperty("token", out var tk) ? tk.GetString() ?? "" : "" }
-            },
-            item = new object[]
-            {
-                new
-                {
-                    name = "Call API",
-                    request = new
-                    {
-                        method = "POST",
-                        header = new[]
-                        {
-                            new { key = "Content-Type", value = "application/json" },
-                            new { key = "Authorization", value = "Bearer {{token}}" }
-                        },
-                        body = new { mode = "raw", raw = "{}" },
-                        url = new { raw = "{{base_url}}", host = new[] { "{{base_url}}" } }
-                    }
-                }
-            }
-        };
-
-        File.WriteAllText(sfd.FileName, JsonSerializer.Serialize(collection, new JsonSerializerOptions { WriteIndented = true }));
-        MessageBox.Show(this, "Đã xuất file Postman thành công!", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        File.WriteAllText(sfd.FileName, PostmanConverter.Export(p), new System.Text.UTF8Encoding(false));
+        Status("Đã xuất Postman: " + sfd.FileName + " (không kèm mật khẩu — nhập ở biến password của collection).", "ok");
     }
+
+    private void Status(string text, string kind) => Js($"api.status({J(text)}, {J(kind)})");
+    private static string Mask(string t) => t.Length <= 16 ? t : t[..10] + "…" + t[^6..];
+    private static string Str(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 }

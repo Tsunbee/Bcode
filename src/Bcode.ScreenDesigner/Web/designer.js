@@ -20,7 +20,7 @@
   function toast(t, err) { const el = $('toast'); el.textContent = t; el.className = err ? 'err' : ''; el.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.style.display = 'none'; }, err ? 8000 : 3500); }
   const status = (t) => { $('status').textContent = t || ''; };
   const getText = () => (bcode.currentModel ? bcode.currentModel.getValue() : '');
-  const saveState = () => call('BeginSaveState', JSON.stringify({ source: S.source, useMirror: !!S.useMirror, recent: S.state.recent || [], custom: (S.custom || []).map(({ id, name, src }) => ({ id, name, src })), last: S.current ? { k: S.current.k, n: S.current.n } : null, zoom: $('zoom').value, vars: $('optVar').checked, tests: S.tests || {}, mineDir: S.state.mineDir || '', lastPack: S.state.lastPack || '' })).catch(() => {});
+  const saveState = () => call('BeginSaveState', JSON.stringify({ source: S.source, useMirror: !!S.useMirror, recent: S.state.recent || [], custom: (S.custom || []).map(({ id, name, src }) => ({ id, name, src })), last: S.current ? { k: S.current.k, n: S.current.n } : null, zoom: $('zoom').value, vars: $('optVar').checked, fbo: $('optFbo').checked, tests: S.tests || {}, sample: S.state.sample || null, mineDir: S.state.mineDir || '', lastPack: S.state.lastPack || '' })).catch(() => {});
 
   // ------------------------------------------------------------------ nguồn / project
   function renderProjects() {
@@ -148,6 +148,7 @@
   const applyZoom = () => { $('dpRoot').style.zoom = (+$('zoom').value / 100); saveState(); };
   $('zoom').onchange = applyZoom;
   $('optVar').onchange = () => { $('dpRoot').classList.toggle('noVar', !$('optVar').checked); saveState(); };
+  $('optFbo').onchange = () => { $('dpRoot').classList.toggle('fbo', $('optFbo').checked); fboDecorate(); saveState(); };
   $('bCode').onclick = () => {
     const r = $('right'); const show = r.style.display === 'none';
     r.style.display = show ? 'flex' : 'none';
@@ -276,7 +277,7 @@
     const name = slug($('fName').value || $('fVn').value);
     if (!name) { toast('Nhập tên biến hoặc nhãn.', true); return; }
     const text = getText();
-    if (new RegExp('<field\b[^>]*\bname="' + name + '"').test(text)) { toast('Đã có trường tên "' + name + '".', true); return; }
+    if (new RegExp('<field\\b[^>]*\\bname="' + name + '"').test(text)) { toast('Đã có trường tên "' + name + '".', true); return; }
     try {
       const r = insertField(text, { name, type: $('fType').value, vn: $('fVn').value || name, en: $('fEn').value, ctl: $('fCtl').value.trim() || 'Customer', req: $('fReq').checked, ro: $('fRo').checked, cat: $('fCat').value }, $('fPlace').checked);
       bcode.replaceAll(r.text);
@@ -869,9 +870,65 @@
         });
       });
     });
+    fboTotals();
   }
   const origDraw = preview.draw.bind(preview);
-  preview.draw = function (a) { const r = origDraw(a); applyTest(); return r; };
+  preview.draw = function (a) { const r = origDraw(a); fboDecorate(); applyTest(); return r; };
+
+  // ---- "Kiểu FBO": thêm phần khung giống màn hình FastBusiness (chỉ là hình — không ghi vào source). Tắt ở ô "kiểu FBO".
+  // Chỉ chèn thêm phần tử có class fbo* + CSS trong dp.css (.fbo …); dirpreview.js (dùng chung với BcodeViewer) không đổi.
+  function fboDecorate() {
+    const root = $('dpRoot'); if (!root) return;
+    root.querySelectorAll('.fboAdd').forEach((n) => n.remove());
+    root.querySelectorAll('[data-fbo-orig]').forEach((n) => { n.innerHTML = n.dataset.fboOrig; delete n.dataset.fboOrig; });   // trả lại đúng như dirpreview vẽ
+    if (!$('optFbo').checked) return;
+    const win = root.querySelector('.dpWindow'); if (!win) return;
+    const isVoucher = /<dir\b[^>]*\btype="Voucher"/i.test(getText());
+    // Thanh tiêu đề: "Xem …" + biểu tượng bên phải
+    const tb = win.querySelector('.dpTitleBar');
+    if (tb) {
+      tb.dataset.fboOrig = tb.innerHTML;
+      tb.textContent = tb.textContent.replace(/^Thêm\s+/, 'Xem ');
+      const ico = document.createElement('span'); ico.className = 'fboAdd fboTbIcons'; ico.innerHTML = '<i>⎙</i><i>⧉</i><i>ⓘ</i><b>▲</b><b>▼</b>';
+      tb.appendChild(ico);
+    }
+    // Lưới chi tiết: thanh công cụ như FBO (thay dòng "d81 — SVDetail")
+    win.querySelectorAll('.dpGridReal').forEach((g) => {
+      const bar = document.createElement('div'); bar.className = 'fboAdd fboGridTools';
+      bar.innerHTML = ['<i class="g">＋</i>Thêm', '<i class="b">⬆</i>Chuyển lên', '<i class="b">⬇</i>Chuyển xuống', '<i class="b">⧉</i>Nhân dòng', '<i class="r">✕</i>Xóa', '<i class="b">▤</i>Xem phiếu nhập', '<i class="b">⇩</i>Lấy dữ liệu ▾']
+        .map((x) => '<span>' + x + '</span>').join('') + '<span class="sep"></span><span><i class="b">▦</i>▾</span>';
+      const head = g.querySelector('.dpGridBar'); if (head) head.after(bar); else g.prepend(bar);
+    });
+    // Dòng tổng (chứng từ có lưới): tính từ dữ liệu test của lưới
+    const grid = win.querySelector('.dpGridReal');
+    if (isVoucher && grid) {
+      const box = document.createElement('div'); box.className = 'fboAdd fboTotals';
+      box.innerHTML = '<div class="l"></div><div class="r">' +
+        '<div><span>Tổng cộng</span><b data-t="sl"></b><b data-t="tien"></b></div>' +
+        '<div><span>Tiền thuế</span><b data-t="thue"></b></div>' +
+        '<div><span>Tổng thanh toán</span><b data-t="tt"></b></div></div>';
+      const tabBody = grid.closest('.dpTabBody'); (tabBody || grid).after(box);
+    }
+    // Nút như FBO
+    const btns = win.querySelector('.dpButtons');
+    if (btns) {
+      btns.dataset.fboOrig = btns.innerHTML;
+      btns.innerHTML = '<span class="dpBtnFake"><u>M</u>ới</span><span class="dpBtnFake"><u>S</u>ửa</span><span class="dpBtnFake"><u>Đ</u>óng</span>';
+    }
+  }
+  function fboTotals() {
+    const box = $('dpRoot').querySelector('.fboTotals'); if (!box) return;
+    const g = $('dpRoot').querySelector('.dpGridReal'); if (!g) return;
+    const gv = g.dataset.field, cols = [...g.querySelectorAll('thead th')].map((th) => th.title || '');
+    const num = (v) => { const n = parseFloat(String(v || '').replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+    const sum = (re) => { const c = cols.find((x) => re.test(x)); if (!c) return null; let t = 0; for (let r = 0; r < 50; r++) t += num(S.test[gv + '#' + r + '#' + c]); return t; };
+    const sl = sum(/^so_luong$/i), tien = sum(/^tien_nt2$|^tien2$/i) ?? sum(/^tien_nt$|^tien$/i), thue = sum(/^thue_nt$|^thue$/i);
+    const f = (n) => (n == null || !S.showTest ? '' : n.toLocaleString('en-US', { maximumFractionDigits: 2 }));
+    box.querySelector('[data-t=sl]').textContent = f(sl);
+    box.querySelector('[data-t=tien]').textContent = f(tien);
+    box.querySelector('[data-t=thue]').textContent = f(thue);
+    box.querySelector('[data-t=tt]').textContent = f(tien == null && thue == null ? null : (tien || 0) + (thue || 0));
+  }
   async function editTest(name) {
     const fc = [...$('dpRoot').querySelectorAll('.dpFC[data-field]')].find((x) => x.dataset.field === name);
     if (fc && fc.querySelector('.dpChk')) { S.test[name] = /^(1|true|x)$/i.test(String(S.test[name] || '')) ? '0' : '1'; keepTest(); return; }
@@ -898,6 +955,14 @@
   }, true);
   function sampleOf(name, fc) {
     const n = name.toLowerCase();
+    // Ô danh sách chọn (DropDownList): lấy mục mặc định (clientDefault / defaultValue), không có thì mục đầu — vd status → "2. Chuyển sổ cái".
+    const fm = new RegExp('<field\\b([^>]*\\bname="' + reEsc(name) + '"[^>]*)>([\\s\\S]*?)</field>').exec(getText());
+    if (fm && /style="DropDownList"/.test(fm[2])) {
+      const def = /\b(?:clientDefault|defaultValue)="([^"]*)"/.exec(fm[1]);
+      const items = [...fm[2].matchAll(/<item\b[^>]*\bvalue="([^"]*)"[^>]*>\s*<text\b[^>]*\bv="([^"]*)"/g)];
+      const it = (def && items.find((x) => x[1] === def[1])) || items[0];
+      if (it) return decode(it[2]);
+    }
     if (fc.querySelector('.dpChk')) return '1';
     if (fc.querySelector('.dpBox.num')) return /ty_gia|rate/.test(n) ? '1.0000' : /so_luong|^sl|qty/.test(n) ? '10' : /thue_suat|ts_/.test(n) ? '10' : '15,000,000';
     if (fc.querySelector('.cal')) return new Date().toLocaleDateString('vi-VN');
@@ -918,7 +983,7 @@
     if (fc.querySelector('.look')) return 'M001';
     return 'Nội dung mẫu';
   }
-  function autoFillTest() {
+  function autoFillTest(quiet) {
     $('dpRoot').querySelectorAll('.dpFC[data-field]').forEach((fc) => { const nm = fc.dataset.field; if (S.test[nm] === undefined) S.test[nm] = sampleOf(nm, fc); });
     const fmt = (n) => Number(n).toLocaleString('en-US');
     $('dpRoot').querySelectorAll('.dpGridReal[data-field]').forEach((g) => {
@@ -949,12 +1014,80 @@
         if (v !== '') S.test[k] = v;
       }
     });
-    S.showTest = true; keepTest(); toast('Đã điền dữ liệu mẫu (kể cả lưới chi tiết) — bấm đúp vào từng ô để sửa; chụp ảnh sẽ kèm dữ liệu này.');
+    S.showTest = true; keepTest(); if (!quiet) toast('Đã điền dữ liệu mẫu (kể cả lưới chi tiết) — bấm đúp vào từng ô để sửa; chụp ảnh sẽ kèm dữ liệu này.');
   }
-  $('bTest').onclick = (e) => {
+
+  // ---- Dữ liệu mẫu từ DB FastBusiness trên máy (C#: SampleData/*): DB → danh mục mẫu → quy tắc nghiệp vụ; ô nào C# không trả thì đoán theo tên biến như trên.
+  const sampleOpt = () => (S.state.sample = Object.assign({ db: '', anon: true, voucher: true }, S.state.sample || {}));
+  let sampleSources = null;
+  async function loadSampleSources() {
+    if (sampleSources) return sampleSources;
+    try { sampleSources = JSON.parse(await call('BeginSampleSources')); } catch { sampleSources = []; }
+    const o = sampleOpt();
+    if (!o.db && sampleSources.length) {   // lần đầu: ưu tiên DB chuẩn (Release_*) — không có dữ liệu khách
+      const std = sampleSources.find((x) => x.Standard) || sampleSources[0];
+      o.db = std.Id; o.anon = !std.Standard; saveState();
+    }
+    return sampleSources;
+  }
+  function fieldMeta(text, name) {
+    const m = new RegExp('<field\\b[^>]*\\bname="' + reEsc(name) + '"[^>]*?(?:/>|>([\\s\\S]*?)</field>)').exec(text);
+    const body = m ? (m[1] || '') : '';
+    const ctl = /controller="([^"]+)"/.exec(body), ref = /reference="([^"]+)"/.exec(body);
+    return { ctl: ctl ? ctl[1] : null, ref: ref ? ref[1] : null };
+  }
+  async function fillFromDb(useVoucher) {
+    const o = sampleOpt(), text = getText();
+    const dir = /<(?:dir|grid)\b[^>]*>/i.exec(text), attr = (n) => { const m = dir && new RegExp('\\b' + n + '="([^"&]+)"').exec(dir[0]); return m ? m[1] : null; };
+    const fields = [...$('dpRoot').querySelectorAll('.dpFC[data-field]')].map((fc) => {
+      const name = fc.dataset.field, meta = fieldMeta(text, name);
+      const kind = fc.querySelector('.dpChk') ? 'check' : fc.querySelector('.dpBox.num') ? 'num' : fc.querySelector('.cal') ? 'date' : fc.querySelector('.look') ? 'lookup' : 'text';
+      return { name, kind, ctl: meta.ctl, ref: meta.ref };
+    });
+    const grids = [...$('dpRoot').querySelectorAll('.dpGridReal[data-field]')];
+    const g = grids[0], ths = g ? [...g.querySelectorAll('thead th')].slice(1) : [];
+    const gridCols = ths.map((th, i) => ({ name: th.title, label: th.textContent, kind: g.querySelector('tbody tr td.num:nth-child(' + (i + 2) + ')') ? 'num' : 'text' })).filter((c) => c.name);
+    const rows = g ? Math.min(Math.max(1, g.querySelectorAll('tbody tr').length - 1), 5) : 3;
+    const req = { db: o.db || null, anonymize: !!o.anon, useVoucher: !!useVoucher, masterTable: attr('table'), voucherId: attr('id'), fields, gridCols, rows };
+    toast('Đang lấy dữ liệu mẫu…');
+    let res;
+    try { res = JSON.parse(await call('BeginSampleData', JSON.stringify(req))); }
+    catch (e) { toast('Không lấy được dữ liệu mẫu: ' + (e && e.message || e) + ' — điền theo tên biến.', true); autoFillTest(); return; }
+    // Ghi đè dữ liệu test cũ của các ô được trả về; lưới: xoá dòng cũ của lưới đầu rồi ghi các dòng mới
+    Object.entries(res.values || {}).forEach(([k, v]) => { S.test[k] = v; });
+    if (g) {
+      const gv = g.dataset.field;
+      Object.keys(S.test).filter((k) => k.startsWith(gv + '#')).forEach((k) => delete S.test[k]);
+      (res.rows || []).forEach((row, r) => Object.entries(row).forEach(([col, v]) => { S.test[gv + '#' + r + '#' + col] = v; }));
+    }
+    // Giá trị giữ chỗ do bản đoán-theo-tên cũ tự sinh ("Nội dung mẫu", "M001"…) thì cho điền lại; giá trị người dùng tự nhập vẫn giữ.
+    const PLACEHOLDER = new Set(['Nội dung mẫu', 'M001', 'Công ty TNHH ABC', 'Ghi chú mẫu', 'HD0001', 'KH001', 'VT001', 'Nguyễn Văn A', 'Vật tư mẫu', 'Kho thành phẩm', 'Đồng Việt Nam']);
+    Object.keys(S.test).forEach((k) => { if (!k.includes('#') && !(k in (res.values || {})) && PLACEHOLDER.has(String(S.test[k]))) delete S.test[k]; });
+    autoFillTest(true);   // ô còn trống: đoán theo tên biến
+    toast('Đã điền dữ liệu mẫu — ' + res.source + ((res.notes || []).length ? ' · ' + res.notes.join(' · ') : '') + '. Bấm đúp vào ô để sửa.');
+  }
+  async function pickSampleSource(x, y) {
+    const list = await loadSampleSources(), o = sampleOpt();
+    const items = list.map((src) => ({
+      label: (o.db === src.Id ? '● ' : '○ ') + src.Database + (src.Server !== '.' ? ' (' + src.Server + ')' : '') + (src.Standard ? ' — DB chuẩn' : ' — có dữ liệu: ' + src.Items + ' vật tư, ' + src.Customers + ' khách'),
+      fn: () => { o.db = src.Id; o.anon = !src.Standard; saveState(); toast('Nguồn dữ liệu mẫu: ' + src.Database + (o.anon ? ' — đã bật ẩn danh đối tác' : '')); },
+    }));
+    items.push({ label: (o.db ? '○ ' : '● ') + 'Không dùng DB (danh mục mẫu + quy tắc)', fn: () => { o.db = ''; saveState(); } });
+    if (!list.length) items.unshift({ label: 'Không thấy DB FastBusiness nào trên SQL Server của máy này', off: true });
+    showMenu(x, y, items);
+  }
+  $('bTest').onclick = async (e) => {
     const r = e.currentTarget.getBoundingClientRect();
+    await loadSampleSources();
+    const o = sampleOpt(), src = (sampleSources || []).find((x) => x.Id === o.db);
+    const isVoucher = /<dir\b[^>]*\btype="Voucher"/i.test(getText());
     showMenu(r.left, r.bottom + 2, [
-      { label: 'Điền dữ liệu mẫu tự động', fn: autoFillTest },
+      { label: 'Điền dữ liệu mẫu tự động' + (src ? ' (từ ' + src.Database + ')' : ''), fn: () => fillFromDb(false) },
+      { label: 'Điền từ 1 chứng từ có thật trong DB', off: !src || !src.HasData || !isVoucher, fn: () => fillFromDb(true) },
+      { label: 'Điền theo tên biến (không dùng DB)', fn: () => autoFillTest() },
+      { label: 'Nguồn dữ liệu: ' + (src ? src.Database : 'không dùng DB') + ' ▸', fn: () => pickSampleSource(r.left + 40, r.bottom + 2) },
+      { label: (o.anon ? '☑' : '☐') + ' Ẩn danh đối tác (tên, MST, địa chỉ, điện thoại, email)', fn: () => { o.anon = !o.anon; saveState(); } },
+      '-',
       { label: S.showTest ? 'Ẩn dữ liệu test (về ô trắng + tên biến)' : 'Hiện dữ liệu test', fn: () => { S.showTest = !S.showTest; applyTest(); } },
       '-',
       { label: 'Xoá toàn bộ dữ liệu test', danger: true, off: !Object.keys(S.test).length, fn: () => { S.test = {}; keepTest(); } },
@@ -1125,6 +1258,8 @@
   S.custom = (S.state.custom || []).map((c) => Object.assign(parseMine(c.name, c.src || ''), { id: c.id })); renderComps();
   if (S.state.vars === false) $('optVar').checked = false;
   $('dpRoot').classList.toggle('noVar', !$('optVar').checked);
+  if (S.state.fbo === false) $('optFbo').checked = false;
+  $('dpRoot').classList.toggle('fbo', $('optFbo').checked);
   renderProjects();
   await refreshMirror();
   S.useMirror = S.state.useMirror !== false;

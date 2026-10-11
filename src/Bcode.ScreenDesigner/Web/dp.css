@@ -97,3 +97,39 @@
 .dpPalOpt select { font: 11px Tahoma, sans-serif; border: 1px solid #b8c6dc; background: #fff; }
 .dpChip.lbl { background: #eef4ff; border-color: #9db8e0; color: #1d4a8a; }
 .dpChip.lbl:hover { border-color: #e8782a; background: #fff6ee; }
+
+/* ================= "Kiểu FBO" (ô "kiểu FBO" trên thanh) — giống màn hình FastBusiness (theme xanh cổ điển) ================= */
+.fbo .dpWindow { border: 1px solid #7f9db9; font: 12px Tahoma, 'Segoe UI', sans-serif; box-shadow: 0 2px 8px rgba(30,60,110,.18); }
+.fbo .dpTitleBar { display: flex; align-items: center; padding: 4px 8px; font-weight: normal; color: #15428b; background: linear-gradient(#f3f8fe, #d6e4f6 55%, #c6d9f1); border-bottom: 1px solid #99bbe8; }
+.fbo .fboTbIcons { margin-left: auto; display: flex; gap: 6px; color: #3b6aa8; font-style: normal; }
+.fbo .fboTbIcons i { font-style: normal; } .fbo .fboTbIcons b { font-weight: normal; padding: 0 3px; border: 1px solid #99bbe8; border-radius: 2px; background: #eaf2fc; font-size: 9px; }
+.fbo .dpFormArea { padding: 6px 8px 2px; }
+.fbo .dpLbl { color: #000; font: 12px Tahoma, sans-serif; max-height: 15px; }
+.fbo .dpBox { background: #fff; border: 0; border-bottom: 1px solid #b5b8c8; font: 12px Tahoma, sans-serif; height: 15px; line-height: 15px; }
+.fbo .dpBox.multi { border: 1px solid #b5b8c8; }
+.fbo .dpIco { display: none; }
+.fbo .dpTabs { padding: 6px 4px 0; gap: 2px; border-top: 0; border-bottom: 1px solid #99bbe8; }
+.fbo .dpTab { max-width: 120px; border-radius: 0; padding: 3px 9px; border-color: #8db2e3; background: linear-gradient(#f6f9fd, #dde8f6); color: #15428b; }
+.fbo .dpTab.active { background: #fff; color: #15428b; font-weight: normal; border-bottom: 1px solid #fff; margin-bottom: -1px; }
+.fbo .dpTabBody { margin: 0 4px 6px; border-color: #99bbe8; border-top: 0; padding: 0; }
+.fbo .dpGrid { border: 0; }
+.fbo .dpGridReal > .dpGridBar { display: none; }
+.fbo .fboGridTools { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; padding: 4px 6px; background: linear-gradient(#fbfdff, #e5edf8); border-bottom: 1px solid #c3d4ea; font: 12px Tahoma, sans-serif; color: #000; }
+.fbo .fboGridTools span { white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
+.fbo .fboGridTools i { font-style: normal; font-weight: bold; width: 14px; text-align: center; }
+.fbo .fboGridTools i.g { color: #2e8b2e; } .fbo .fboGridTools i.b { color: #2f6fb8; } .fbo .fboGridTools i.r { color: #c62828; }
+.fbo .fboGridTools .sep { width: 1px; height: 16px; background: #b6c6dd; }
+.fbo .dpGridTbl { font: 12px Tahoma, sans-serif; }
+.fbo .dpGridTbl th { text-align: center; background: linear-gradient(#ffffff, #e9eef5); border-color: #d0d7e5; color: #000; }
+.fbo .dpGridTbl td { border-color: #ededed; }
+.fbo .dpGridTbl tbody tr:first-child td { background: #dfe8f6; }
+.fbo .dpGridNote { display: none; }
+.fbo .fboTotals { display: flex; justify-content: flex-end; padding: 8px 12px 4px; font: 12px Tahoma, sans-serif; }
+.fbo .fboTotals .r { display: grid; gap: 4px; }
+.fbo .fboTotals .r div { display: grid; grid-template-columns: 110px 90px 110px; align-items: center; gap: 8px; }
+.fbo .fboTotals .r div span { text-align: left; }
+.fbo .fboTotals .r div:not(:first-child) b:first-of-type { grid-column: 3; }
+.fbo .fboTotals b { font-weight: normal; text-align: right; border-bottom: 1px solid #b5b8c8; min-height: 15px; }
+.fbo .dpButtons { gap: 10px; padding: 10px 12px; border-top: 1px solid #c5d5ea; background: #f4f7fb; }
+.fbo .dpBtnFake { min-width: 70px; text-align: center; padding: 4px 10px; border: 1px solid #7f9db9; border-radius: 3px; background: linear-gradient(#ffffff, #e3ebf6); font: 12px Tahoma, sans-serif; }
+.fbo .dpBtnFake u { text-decoration: underline; }

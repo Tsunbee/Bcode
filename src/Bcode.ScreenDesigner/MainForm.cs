@@ -38,6 +38,9 @@ public sealed class MainForm : Form
             var core = _web.CoreWebView2;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
+            // Trang chỉ nạp từ thư mục Web cục bộ: tắt kiểm tra SmartScreen. Đo 2026-10-11: các file của trang chỉ bắt đầu tải ở ~2.010ms sau điều hướng
+            // (dựng màn hình chỉ ~400ms) — đúng độ trễ BcodeViewer đã gặp và sửa cùng cách.
+            core.Settings.IsReputationCheckingRequired = false;
             core.SetVirtualHostNameToFolderMapping(VirtualHost, Path.Combine(AppContext.BaseDirectory, "Web"), CoreWebView2HostResourceAccessKind.Allow);
 
             _bridge = new DesignerBridge(this, json => { if (!IsDisposed) BeginInvoke(() => { try { core.PostWebMessageAsJson(json); } catch { /* trang đã đóng */ } }); }, _opts);

@@ -10,44 +10,67 @@
   header { padding: 12px 16px 8px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
   header h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
   header p { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.4; }
-  .tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--border); }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px; border-bottom: 1px solid var(--border); align-items: center; }
   .btn-border { border-color: var(--border); }
-  .count { margin-left: auto; align-self: center; font-size: 12px; color: var(--text-muted); }
+  .count { margin-left: auto; font-size: 12px; color: var(--text-muted); }
 
-  main { flex: 1; overflow-y: auto; padding: 8px 16px; }
-  .row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; margin-bottom: 4px; border: 1px solid var(--border); border-radius: 8px;
-         background: var(--panel-alt); cursor: grab; transition: background-color 100ms; }
+  /* Xem trước thanh công cụ */
+  .preview { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .preview .cap { color: var(--text-muted); margin-right: 4px; }
+  .preview .chip { padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-alt); white-space: nowrap; }
+  .preview .chip.grp { border-color: var(--accent); }
+  .preview .sep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+
+  main { flex: 1; overflow-y: auto; padding: 10px 16px; }
+  .zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 10px; align-items: start; }
+  .zone { border: 1px solid var(--border); border-radius: 10px; background: var(--panel-alt); display: flex; flex-direction: column; min-height: 6rem; }
+  .zone.drop { box-shadow: 0 0 0 2px var(--accent); }
+  .zone.pinned { border-color: var(--accent); }
+  .zhead { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .zhead .title { font-weight: 600; font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .zhead input { flex: 1; min-width: 0; font-weight: 600; }
+  .kbd { font-size: 11px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+  .zbody { padding: 6px; flex: 1; display: flex; flex-direction: column; gap: 4px; min-height: 3rem; }
+  .empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px 4px; border: 1px dashed var(--border); border-radius: 6px; }
+  .warn { font-size: 11.5px; color: var(--accent); padding: 0 8px 6px; }
+
+  .row { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 7px;
+         background: var(--panel); cursor: grab; font-size: 13px; }
   .row:hover { background: var(--button-back); }
-  .row.hidden-tool .label { opacity: .5; text-decoration: line-through; }
   .row.dragging { opacity: .4; }
   .row.over-top { box-shadow: 0 -2px 0 var(--accent); }
   .row.over-bottom { box-shadow: 0 2px 0 var(--accent); }
-  .grip { color: var(--text-muted); font-size: 14px; letter-spacing: -2px; user-select: none; cursor: grab; width: 16px; text-align: center; }
-  .row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex: none; }
-  .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-  .pos { font-size: 11px; color: var(--text-muted); width: 24px; text-align: right; flex: none; }
-  .mv { padding: 2px 7px; border-radius: 6px; font-size: 12px; flex: none; }
+  .zone.hidden .row .label { opacity: .55; text-decoration: line-through; }
+  .grip { color: var(--text-muted); letter-spacing: -2px; user-select: none; width: 12px; text-align: center; }
+  .label { flex: 1; min-width: 5.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mv { padding: 1px 6px; border-radius: 5px; font-size: 11px; flex: none; }
+  .row select { width: 2.2em; font-size: 11.5px; padding: 1px 0; flex: none; }
+  .row .mv { visibility: hidden; }
+  .row:hover .mv, .row:focus-within .mv { visibility: visible; }
 
   footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: var(--panel-alt); border-top: 1px solid var(--border); }
   footer .hint { flex: 1 1 200px; font-size: 12px; color: var(--text-muted); }
   footer .actions { display: flex; gap: 8px; margin-left: auto; }
-  @media (max-width: 420px) { .pos { display: none; } header, .tools, main, footer { padding-left: 10px; padding-right: 10px; } }
+  @media (max-width: 480px) { header, .tools, .preview, main, footer { padding-left: 10px; padding-right: 10px; } .row select { display: none; } }
 </style>
 </head>
 <body>
 <header>
-  <h2>Quick Access</h2>
-  <p>Tick để hiện nút trên thanh công cụ. <b>Kéo thả</b> dòng (hoặc bấm ▲ ▼) để đổi vị trí — thứ tự từ trên xuống dưới là thứ tự các nút từ trái sang phải.</p>
+  <h2 id="title">Quick Access</h2>
+  <p id="intro"><b>Kéo thả</b> công cụ giữa các vùng: <b>Ghim</b> = nút riêng trên thanh (nên 4–6 cái hay dùng nhất), <b>nhóm</b> = gom vào 1 nút "Tên ▾" bấm ra menu
+    (Alt+1…Alt+5 mở nhóm thứ 1…5, đổi phím ở Template → Phím tắt), <b>Ẩn</b> = không hiện trên thanh. Mọi công cụ vẫn tìm được bằng ⌕ / Ctrl+P và phím tắt riêng.</p>
 </header>
 <div class="tools">
-  <button class="btn btn-border" id="bAll">Hiện tất cả</button>
-  <button class="btn btn-border" id="bNone">Ẩn tất cả</button>
-  <button class="btn btn-border" id="bReset" title="Trả về thứ tự và hiển thị mặc định">Mặc định</button>
+  <button class="btn btn-primary" id="bNewGroup">+ Nhóm mới</button>
+  <button class="btn btn-border" id="bSuggest" title="Chia sẵn theo vùng chức năng: SQL, Đối tượng, Gói & báo cáo, Văn bản, Dự án / FSG; ghim SQL Query, Table, Lookup, Command">Gợi ý nhóm</button>
+  <button class="btn btn-border" id="bUngroup" title="Bỏ mọi nhóm, công cụ trong nhóm về lại Ghim">Bỏ hết nhóm</button>
+  <button class="btn btn-border" id="bReset" title="Trả về thanh mặc định: không nhóm, hiện tất cả, thứ tự gốc">Mặc định</button>
   <span class="count" id="count"></span>
 </div>
-<main><div id="list"></div></main>
+<div class="preview" id="preview"></div>
+<main><div class="zones" id="zones"></div></main>
 <footer>
-  <span class="hint" id="hint"></span>
+  <span class="hint" id="hint">Thứ tự trong vùng Ghim = thứ tự nút từ trái sang phải; thứ tự trong nhóm = thứ tự trong menu.</span>
   <div class="actions">
     <button class="btn btn-border" id="bCancel">Cancel</button>
     <button class="btn btn-primary" id="bOk">OK</button>
@@ -55,81 +78,165 @@
 </footer>
 
 <script>
-  let items = [];      // { key, label, visible }
-  let defaults = [];   // thứ tự mặc định (mảng key) để nút "Mặc định"
-  let dragKey = null;
+  // Vùng: 'pin' (ghim), 'g0'…'gN' (nhóm), 'hid' (ẩn). Mỗi vùng giữ mảng key theo thứ tự.
+  let tools = {};        // key → { label, shortcut }
+  let defaults = [];
+  let pinned = [], hidden = [], groups = [];   // groups: [{ name, keys }]
+  let suggested = [], groupKeys = [];
+  let drag = null;       // { key }
   const $ = (id) => document.getElementById(id);
-  function post(action, data) { window.chrome.webview.postMessage(JSON.stringify({ action, data })); }
+  const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
 
-  function move(from, to) {
-    if (from === to || to < 0 || to >= items.length) return;
-    const [it] = items.splice(from, 1);
-    items.splice(to, 0, it);
+  const zoneList = (z) => z === 'pin' ? pinned : z === 'hid' ? hidden : groups[+z.slice(1)].keys;
+  const zoneOf = (key) => pinned.includes(key) ? 'pin' : hidden.includes(key) ? 'hid' : 'g' + groups.findIndex((g) => g.keys.includes(key));
+  const zoneName = (z) => z === 'pin' ? 'Ghim' : z === 'hid' ? 'Ẩn' : (groups[+z.slice(1)].name || 'Nhóm ' + (+z.slice(1) + 1));
+
+  function moveKey(key, toZone, index) {
+    const from = zoneList(zoneOf(key));
+    const fi = from.indexOf(key);
+    if (fi >= 0) from.splice(fi, 1);
+    const to = zoneList(toZone);
+    if (index == null || index > to.length) index = to.length;
+    to.splice(index, 0, key);
     render();
+  }
+
+  function row(key, zone, i, list) {
+    const t = tools[key] || { label: key, shortcut: '' };
+    const r = document.createElement('div');
+    r.className = 'row'; r.draggable = true; r.dataset.key = key;
+    const grip = document.createElement('span'); grip.className = 'grip'; grip.textContent = '⋮⋮';
+    const label = document.createElement('span'); label.className = 'label'; label.textContent = t.label; label.title = t.label + (t.shortcut ? ' (' + t.shortcut + ')' : '');
+    const up = document.createElement('button'); up.className = 'mv'; up.textContent = '▲'; up.title = 'Lên'; up.disabled = i === 0; up.onclick = () => moveKey(key, zone, i - 1);
+    const dn = document.createElement('button'); dn.className = 'mv'; dn.textContent = '▼'; dn.title = 'Xuống'; dn.disabled = i === list.length - 1; dn.onclick = () => moveKey(key, zone, i + 1);
+    const sel = document.createElement('select'); sel.title = 'Chuyển tới vùng khác';
+    const zones = ['pin', ...groups.map((_, gi) => 'g' + gi), 'hid'];
+    zones.forEach((z) => { const o = document.createElement('option'); o.value = z; o.textContent = (z === zone ? '• ' : '→ ') + zoneName(z); o.selected = z === zone; sel.appendChild(o); });
+    sel.onchange = () => moveKey(key, sel.value, null);
+    r.append(grip, label, up, dn, sel);
+
+    r.addEventListener('dragstart', (e) => { drag = { key }; r.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', key); });
+    r.addEventListener('dragend', () => { drag = null; document.querySelectorAll('.dragging,.over-top,.over-bottom,.drop').forEach((x) => x.classList.remove('dragging', 'over-top', 'over-bottom', 'drop')); });
+    r.addEventListener('dragover', (e) => {
+      if (!drag || drag.key === key) return;
+      e.preventDefault(); e.stopPropagation();
+      const b = r.getBoundingClientRect(), before = e.clientY < b.top + b.height / 2;
+      r.classList.toggle('over-top', before); r.classList.toggle('over-bottom', !before);
+    });
+    r.addEventListener('dragleave', () => r.classList.remove('over-top', 'over-bottom'));
+    r.addEventListener('drop', (e) => {
+      if (!drag || drag.key === key) return;
+      e.preventDefault(); e.stopPropagation();
+      const b = r.getBoundingClientRect(), before = e.clientY < b.top + b.height / 2;
+      const dk = drag.key, sameZone = zoneOf(dk) === zone;
+      let to = list.indexOf(key) + (before ? 0 : 1);
+      if (sameZone && list.indexOf(dk) < to) to--;
+      moveKey(dk, zone, to);
+    });
+    return r;
+  }
+
+  function zoneCard(zone) {
+    const list = zoneList(zone);
+    const card = document.createElement('section');
+    card.className = 'zone' + (zone === 'pin' ? ' pinned' : zone === 'hid' ? ' hidden' : '');
+    const head = document.createElement('div'); head.className = 'zhead';
+    if (zone === 'pin' || zone === 'hid') {
+      const t = document.createElement('span'); t.className = 'title';
+      t.textContent = (zone === 'pin' ? '📌 Ghim trên thanh' : '🚫 Ẩn') + ` (${list.length})`;
+      head.appendChild(t);
+    } else {
+      const gi = +zone.slice(1);
+      const name = document.createElement('input'); name.type = 'text'; name.value = groups[gi].name; name.placeholder = 'Tên nhóm'; name.spellcheck = false;
+      name.oninput = () => { groups[gi].name = name.value; renderPreview(); };
+      name.onchange = () => render();
+      const k = document.createElement('span'); k.className = 'kbd'; k.textContent = groupKeys[gi] || '—'; k.title = 'Phím mở nhóm (đổi ở Template → Phím tắt)';
+      const up = document.createElement('button'); up.className = 'mv'; up.textContent = '◀'; up.title = 'Đưa nhóm sang trái'; up.disabled = gi === 0;
+      up.onclick = () => { [groups[gi - 1], groups[gi]] = [groups[gi], groups[gi - 1]]; render(); };
+      const dn = document.createElement('button'); dn.className = 'mv'; dn.textContent = '▶'; dn.title = 'Đưa nhóm sang phải'; dn.disabled = gi === groups.length - 1;
+      dn.onclick = () => { [groups[gi + 1], groups[gi]] = [groups[gi], groups[gi + 1]]; render(); };
+      const del = document.createElement('button'); del.className = 'mv'; del.textContent = '✕'; del.title = 'Xoá nhóm (công cụ về lại Ghim)';
+      del.onclick = () => { pinned.push(...groups[gi].keys); groups.splice(gi, 1); render(); };
+      head.append(name, k, up, dn, del);
+    }
+    card.appendChild(head);
+    if (zone === 'pin' && list.length > 6) {
+      const w = document.createElement('div'); w.className = 'warn'; w.textContent = `Đang ghim ${list.length} công cụ — nên 4–6 để thanh ngắn; kéo bớt vào nhóm.`;
+      card.appendChild(w);
+    }
+    const body = document.createElement('div'); body.className = 'zbody';
+    list.forEach((key, i) => body.appendChild(row(key, zone, i, list)));
+    if (list.length === 0) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Kéo công cụ vào đây'; body.appendChild(e); }
+    card.appendChild(body);
+    // Thả vào chỗ trống của vùng = thêm vào cuối vùng
+    card.addEventListener('dragover', (e) => { if (!drag) return; e.preventDefault(); card.classList.add('drop'); });
+    card.addEventListener('dragleave', (e) => { if (!card.contains(e.relatedTarget)) card.classList.remove('drop'); });
+    card.addEventListener('drop', (e) => { if (!drag) return; e.preventDefault(); card.classList.remove('drop'); moveKey(drag.key, zone, null); });
+    return card;
+  }
+
+  function renderPreview() {
+    const p = $('preview'); p.textContent = '';
+    const cap = document.createElement('span'); cap.className = 'cap'; cap.textContent = 'Thanh công cụ:'; p.appendChild(cap);
+    const chip = (text, cls) => { const c = document.createElement('span'); c.className = 'chip' + (cls ? ' ' + cls : ''); c.textContent = text; p.appendChild(c); };
+    pinned.forEach((k) => chip((tools[k] || {}).label || k));
+    const named = groups.filter((g) => (g.name || '').trim());
+    if (named.length) {
+      if (pinned.length) { const s = document.createElement('span'); s.className = 'sep'; p.appendChild(s); }
+      named.forEach((g) => chip(g.name.trim() + ' ▾', 'grp'));
+      chip('⌕');
+    }
+    const n = pinned.length + (named.length ? named.length + 1 : 0);
+    $('count').textContent = `${n} nút trên thanh · ${hidden.length} ẩn · ${Object.keys(tools).length} công cụ`;
   }
 
   function render() {
-    const host = $('list');
-    host.textContent = '';
-    items.forEach((it, i) => {
-      const row = document.createElement('div');
-      row.className = 'row' + (it.visible ? '' : ' hidden-tool');
-      row.draggable = true;
-      row.dataset.key = it.key;
-
-      const grip = document.createElement('span'); grip.className = 'grip'; grip.textContent = '⋮⋮';
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = it.visible;
-      cb.onchange = () => { it.visible = cb.checked; row.classList.toggle('hidden-tool', !it.visible); count(); };
-      const label = document.createElement('span'); label.className = 'label'; label.textContent = it.label;
-      label.onclick = () => { cb.checked = !cb.checked; cb.onchange(); };
-      const pos = document.createElement('span'); pos.className = 'pos'; pos.textContent = i + 1;
-      const up = document.createElement('button'); up.className = 'mv'; up.textContent = '▲'; up.title = 'Lên'; up.onclick = () => move(i, i - 1);
-      const dn = document.createElement('button'); dn.className = 'mv'; dn.textContent = '▼'; dn.title = 'Xuống'; dn.onclick = () => move(i, i + 1);
-      row.append(grip, cb, label, pos, up, dn);
-
-      row.addEventListener('dragstart', (e) => { dragKey = it.key; row.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.key); });
-      row.addEventListener('dragend', () => { dragKey = null; document.querySelectorAll('.row').forEach((r) => r.classList.remove('dragging', 'over-top', 'over-bottom')); });
-      row.addEventListener('dragover', (e) => {
-        if (!dragKey || dragKey === it.key) return;
-        e.preventDefault();
-        const r = row.getBoundingClientRect();
-        const before = e.clientY < r.top + r.height / 2;
-        row.classList.toggle('over-top', before); row.classList.toggle('over-bottom', !before);
-      });
-      row.addEventListener('dragleave', () => row.classList.remove('over-top', 'over-bottom'));
-      row.addEventListener('drop', (e) => {
-        e.preventDefault();
-        if (!dragKey || dragKey === it.key) return;
-        const r = row.getBoundingClientRect();
-        const before = e.clientY < r.top + r.height / 2;
-        const from = items.findIndex((x) => x.key === dragKey);
-        let to = items.findIndex((x) => x.key === it.key) + (before ? 0 : 1);
-        if (from < to) to--;
-        move(from, to);
-      });
-      host.appendChild(row);
-    });
-    count();
+    const host = $('zones'); host.textContent = '';
+    host.appendChild(zoneCard('pin'));
+    groups.forEach((_, gi) => host.appendChild(zoneCard('g' + gi)));
+    host.appendChild(zoneCard('hid'));
+    renderPreview();
   }
 
-  function count() { const v = items.filter((x) => x.visible).length; $('count').textContent = `${v}/${items.length} nút đang hiện`; }
-
-  $('bAll').onclick = () => { items.forEach((x) => x.visible = true); render(); };
-  $('bNone').onclick = () => { items.forEach((x) => x.visible = false); render(); };
-  $('bReset').onclick = () => {
-    const order = new Map(defaults.map((k, i) => [k, i]));
-    items.sort((a, b) => (order.get(a.key) ?? 1e9) - (order.get(b.key) ?? 1e9));
-    items.forEach((x) => x.visible = true);
+  $('bNewGroup').onclick = () => {
+    groups.push({ name: 'Nhóm ' + (groups.length + 1), keys: [] });
+    render();
+    const inputs = document.querySelectorAll('.zhead input'); const last = inputs[inputs.length - 1];
+    if (last) { last.focus(); last.select(); last.scrollIntoView({ block: 'nearest' }); }
+  };
+  $('bSuggest').onclick = () => {
+    const inGroup = new Set(suggested.flatMap((g) => g.keys));
+    groups = suggested.map((g) => ({ name: g.name, keys: g.keys.filter((k) => tools[k] && !hidden.includes(k)) }));
+    pinned = Object.keys(tools).filter((k) => !inGroup.has(k) && !hidden.includes(k)).sort((a, b) => defaults.indexOf(a) - defaults.indexOf(b));
     render();
   };
-  $('bOk').onclick = () => post('ok', { items: items.map((x) => ({ key: x.key, visible: x.visible })) });
+  $('bUngroup').onclick = () => { groups.forEach((g) => pinned.push(...g.keys)); groups = []; render(); };
+  $('bReset').onclick = () => { groups = []; hidden = []; pinned = defaults.filter((k) => tools[k]).concat(Object.keys(tools).filter((k) => !defaults.includes(k))); render(); };
+  $('bOk').onclick = () => {
+    const named = groups.filter((g) => (g.name || '').trim());
+    const unnamedKeys = groups.filter((g) => !(g.name || '').trim()).flatMap((g) => g.keys);   // nhóm không tên: công cụ về Ghim
+    const pin = pinned.concat(unnamedKeys);
+    const items = pin.map((key) => ({ key, visible: true }))
+      .concat(named.flatMap((g) => g.keys.map((key) => ({ key, visible: true }))))
+      .concat(hidden.map((key) => ({ key, visible: false })));
+    post('ok', { items, groups: named.map((g) => ({ name: g.name.trim(), keys: g.keys })) });
+  };
   $('bCancel').onclick = () => post('cancel');
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); });
 
   window.setTheme = (isDark) => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   window.init = (state) => {
-    items = state.items.map((x) => ({ key: x.key, label: x.label, visible: !!x.visible }));
-    defaults = state.defaults || items.map((x) => x.key);
+    tools = {};
+    state.items.forEach((x) => tools[x.key] = { label: x.label, shortcut: x.shortcut || '' });
+    defaults = state.defaults || state.items.map((x) => x.key);
+    suggested = state.suggested || [];
+    groupKeys = state.groupShortcuts || [];
+    if (state.title) { $('title').textContent = state.title; document.title = state.title; }
+    if (state.intro) $('intro').innerHTML = state.intro;   // chuỗi do C# soạn sẵn (không phải dữ liệu người dùng)
+    hidden = state.items.filter((x) => !x.visible).map((x) => x.key);
+    const used = new Set(hidden);
+    groups = (state.groups || []).map((g) => ({ name: g.name, keys: g.keys.filter((k) => tools[k] && !used.has(k) && (used.add(k), true)) }));
+    pinned = state.items.filter((x) => x.visible && !used.has(x.key)).map((x) => x.key);
     render();
   };
 

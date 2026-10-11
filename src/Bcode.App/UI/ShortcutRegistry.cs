@@ -53,6 +53,8 @@ public static class ShortcutRegistry
             new("tab.closeAll", "Đóng tất cả tab (Close All Tabs)", "Tab", ShortcutScope.App, ""),
         };
         for (var i = 1; i <= 9; i++) l.Add(new($"tab.goto{i}", $"Chuyển tới tab thứ {i}", "Tab", ShortcutScope.App, ""));
+        // Nhóm công cụ trên thanh công cụ (Quick Access → nhóm): Alt+1…Alt+5 thả menu nhóm thứ 1…5 (nhóm 6–9 tự gán phím ở đây).
+        for (var i = 1; i <= 9; i++) l.Add(new($"bar.group{i}", $"Mở nhóm công cụ thứ {i} trên thanh công cụ", "Cửa sổ", ShortcutScope.App, i <= 5 ? $"Alt+{i}" : ""));
 
         l.AddRange(new ShortcutDef[]
         {
@@ -104,6 +106,21 @@ public static class ShortcutRegistry
             new("editor.toggleSuggest", "Bật / tắt Suggest Param/Caret", "Editor SQL", ShortcutScope.Editor, ""),
             new("editor.toggleResetConn", "Bật / tắt Reset Connection", "Editor SQL", ShortcutScope.Editor, ""),
             new("editor.toggleResultTab", "Bật / tắt Result Tab (kết quả ra tab mới)", "Editor SQL", ShortcutScope.Editor, ""),
+            // ---- Khai báo API (chỉ khi đang ở màn hình Khai báo API) ----
+            new("api.send", "Khai báo API: gửi form đang chọn", "Khai báo API", ShortcutScope.Editor, "Ctrl+Shift+Enter"),
+            new("api.save", "Khai báo API: lưu dự án", "Khai báo API", ShortcutScope.Editor, "Ctrl+S"),
+            new("api.token", "Khai báo API: lấy token mới", "Khai báo API", ShortcutScope.Editor, "Ctrl+Shift+T"),
+            new("api.format", "Khai báo API: định dạng lại body JSON", "Khai báo API", ShortcutScope.Editor, "Ctrl+Shift+F"),
+            new("api.validate", "Khai báo API: kiểm tra body theo chuẩn LT3", "Khai báo API", ShortcutScope.Editor, "Ctrl+Shift+K"),
+            new("editor.barGroup1", "Mở nhóm thứ 1 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup2", "Mở nhóm thứ 2 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup3", "Mở nhóm thứ 3 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup4", "Mở nhóm thứ 4 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup5", "Mở nhóm thứ 5 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup6", "Mở nhóm thứ 6 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup7", "Mở nhóm thứ 7 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup8", "Mở nhóm thứ 8 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.barGroup9", "Mở nhóm thứ 9 trên thanh SQL Query", "Editor SQL", ShortcutScope.Editor, ""),
 
             // ---- Cây menu WCommand ----
             new("wcommand.run", "Cây menu: chạy menu đang chọn (mở web của project, vào đúng menu đó)", "Cây menu WCommand", ShortcutScope.Tree, "Ctrl+F5"),

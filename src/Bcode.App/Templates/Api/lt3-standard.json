@@ -1,0 +1,2479 @@
+{
+  "source": "http://172.168.5.14/developers/docs/intro/",
+  "generated": "2026-10-11",
+  "auth": {
+    "tokenPath": "api/getToken",
+    "body": {
+      "username": "{{username}}",
+      "password": "{{password}}"
+    },
+    "tokenField": "token.accesstoken",
+    "expiresField": "token.expires",
+    "header": "Authorization: <token> (không \"Bearer\")"
+  },
+  "errorCodes": {
+    "200": "Thành công",
+    "201": "Form không tồn tại",
+    "202": "Dữ liệu trống",
+    "400": "Request không hợp lệ",
+    "401": "Lỗi xác thực (token sai / hết hạn)",
+    "403": "Không có quyền truy cập",
+    "500": "Lỗi server",
+    "601": "Lỗi cấu trúc dữ liệu"
+  },
+  "forms": [
+    {
+      "form": "setContract",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục hợp đồng",
+      "description": "Form setContract được sử dụng để đồng bộ thông tin hợp đồng từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ContractName",
+              "type": "String(256)",
+              "required": true,
+              "description": "Tên hợp đồng"
+            },
+            {
+              "name": "OtherName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên khác (Tên tiếng Anh)"
+            },
+            {
+              "name": "ContractNo",
+              "type": "String(64)",
+              "required": false,
+              "description": "Số hợp đồng"
+            },
+            {
+              "name": "SignedDate",
+              "type": "Date",
+              "required": false,
+              "description": "Ngày ký"
+            },
+            {
+              "name": "FromDate",
+              "type": "Date",
+              "required": false,
+              "description": "Ngày bắt đầu hiệu lực"
+            },
+            {
+              "name": "ToDate",
+              "type": "Date",
+              "required": false,
+              "description": "Ngày kết thúc hiệu lực"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": false,
+              "description": "Giá trị hợp đồng"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "Note",
+              "type": "String(512)",
+              "required": false,
+              "description": "Ghi chú"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setContract\",\n    \"data\": [\n        {\n            \"ContractCode\": \"HD001\",\n            \"ContractName\": \"Hợp đồng cung cấp thiết bị văn phòng\",\n            \"OtherName\": \"Office Equipment Supply Contract\",\n            \"ContractNo\": \"HDNT/2023/001\",\n            \"SignedDate\": \"2023-01-15\",\n            \"FromDate\": \"2023-02-01\",\n            \"ToDate\": \"2024-01-31\",\n            \"TotalAmount\": 1500000000,\n            \"Currency\": \"VND\",\n            \"Note\": \"Ghi chú hợp đồng\",\n            \"Status\": \"1\"\n        },\n        {\n            \"ContractCode\": \"HD002\",\n            \"ContractName\": \"Hợp đồng bảo trì phần mềm kế toán\",\n            \"ContractNo\": \"HDBT/2023/015\",\n            \"SignedDate\": \"2023-03-10\",\n            \"FromDate\": \"2023-04-01\",\n            \"ToDate\": \"2024-03-31\",\n            \"TotalAmount\": 50000000,\n            \"Currency\": \"VND\",\n            \"Note\": \"Ghi chú hợp đồng\",\n            \"Status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setcontract/"
+    },
+    {
+      "form": "setCustomer",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục khách hàng",
+      "description": "Form setCustomer được sử dụng để đồng bộ thông tin khách hàng từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "CustomerCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã khách hàng"
+            },
+            {
+              "name": "CustomerName",
+              "type": "String(256)",
+              "required": true,
+              "description": "Tên khách hàng"
+            },
+            {
+              "name": "OtherName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên khác (Tên tiếng Anh)"
+            },
+            {
+              "name": "SaleCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã nhân viên bán hàng"
+            },
+            {
+              "name": "Address",
+              "type": "String(256)",
+              "required": false,
+              "description": "Địa chỉ"
+            },
+            {
+              "name": "Partner",
+              "type": "String(256)",
+              "required": false,
+              "description": "Đối tác (Tên người đại diện)"
+            },
+            {
+              "name": "GroupCode1",
+              "type": "String(32)",
+              "required": false,
+              "description": "Nhóm khách hàng 1"
+            },
+            {
+              "name": "GroupCode2",
+              "type": "String(32)",
+              "required": false,
+              "description": "Nhóm khách hàng 2"
+            },
+            {
+              "name": "GroupCode3",
+              "type": "String(32)",
+              "required": false,
+              "description": "Nhóm khách hàng 3"
+            },
+            {
+              "name": "PhoneNumber",
+              "type": "String(32)",
+              "required": false,
+              "description": "Điện thoại"
+            },
+            {
+              "name": "TaxCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã số thuế"
+            },
+            {
+              "name": "Fax",
+              "type": "String(32)",
+              "required": false,
+              "description": "Số fax"
+            },
+            {
+              "name": "Email",
+              "type": "String(128)",
+              "required": false,
+              "description": "Email"
+            },
+            {
+              "name": "BankAccount",
+              "type": "String(30)",
+              "required": false,
+              "description": "Số tài khoản ngân hàng"
+            },
+            {
+              "name": "BankName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên ngân hàng"
+            },
+            {
+              "name": "BranchName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Chi nhánh/Tỉnh thành"
+            },
+            {
+              "name": "AccountName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên chủ tài khoản ngân hàng"
+            },
+            {
+              "name": "PaymentTerm",
+              "type": "String(2)",
+              "required": false,
+              "description": "Mã thanh toán"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            },
+            {
+              "name": "SuplierYN",
+              "type": "Byte",
+              "required": false,
+              "description": "Là nhà cung cấp  1 : Có 0 : Không"
+            },
+            {
+              "name": "EmployeeYN",
+              "type": "Byte",
+              "required": false,
+              "description": "Là nhân viên  1 : Có 0 : Không"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Ghi chú"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setCustomer\",\n    \"data\": [\n        {\n            \"CustomerCode\": \"KH001\",\n            \"CustomerName\": \"Công ty TNHH ABC\",\n            \"Address\": \"123 Đường XYZ, Quận 1, TP.HCM\",\n            \"PhoneNumber\": \"0901234567\",\n            \"TaxCode\": \"0123456789\",\n            \"Email\": \"contact@abc.com\",\n            \"status\": \"1\"\n        },\n        {\n            \"CustomerCode\": \"KH002\",\n            \"CustomerName\": \"Công ty TNHH XYZ\",\n            \"Address\": \"456 Đường ABC, Quận 2, TP.HCM\",\n            \"PhoneNumber\": \"0909876543\",\n            \"TaxCode\": \"9876543210\",\n            \"Email\": \"contact@xyz.com\",\n            \"status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setcustomer/"
+    },
+    {
+      "form": "setDepartment",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục bộ phận",
+      "description": "Form setDepartment được sử dụng để đồng bộ thông tin bộ phận từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "DeptName",
+              "type": "String(256)",
+              "required": true,
+              "description": "Tên bộ phận"
+            },
+            {
+              "name": "OtherName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên khác (Tên tiếng Anh)"
+            },
+            {
+              "name": "Address",
+              "type": "String(256)",
+              "required": false,
+              "description": "Địa chỉ"
+            },
+            {
+              "name": "PhoneNumber",
+              "type": "String(32)",
+              "required": false,
+              "description": "Số điện thoại"
+            },
+            {
+              "name": "Note",
+              "type": "String(512)",
+              "required": false,
+              "description": "Ghi chú"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setDepartment\",\n    \"data\": [\n        {\n            \"DeptCode\": \"BP001\",\n            \"DeptName\": \"Phòng Kế toán\",\n            \"OtherName\": \"Accounting Department\",\n            \"Address\": \"Tầng 3, Tòa nhà ABC, Hà Nội\",\n            \"PhoneNumber\": \"024.1234.5678\",\n            \"Note\": \"Ghi chú bộ phận 1\",\n            \"Status\": \"1\"\n        },\n        {\n            \"DeptCode\": \"BP002\",\n            \"DeptName\": \"Phòng Nhân sự\",\n            \"Address\": \"Tầng 4, Tòa nhà ABC, Hà Nội\",\n            \"PhoneNumber\": \"024.8765.4321\",\n            \"Note\": \"Ghi chú bộ phận 2\",\n            \"Status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setdepartment/"
+    },
+    {
+      "form": "setExpense",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục phí",
+      "description": "Form setExpense được sử dụng để đồng bộ thông tin phí từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã phí"
+            },
+            {
+              "name": "ExpenseName",
+              "type": "String(256)",
+              "required": true,
+              "description": "Tên phí"
+            },
+            {
+              "name": "OtherName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên khác (Tên tiếng Anh)"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "Note",
+              "type": "String(512)",
+              "required": false,
+              "description": "Ghi chú"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setExpense\",\n    \"data\": [\n        {\n            \"ExpenseCode\": \"CP001\",\n            \"ExpenseName\": \"Chi phí vận chuyển\",\n            \"OtherName\": \"Transportation Fee\",\n            \"DeptCode\": \"LOGISTICS\",\n            \"Note\": \"Áp dụng cho các đơn hàng giao trong nội thành\",\n            \"Status\": \"1\"\n        },\n        {\n            \"ExpenseCode\": \"CP002\",\n            \"ExpenseName\": \"Chi phí lưu kho\",\n            \"OtherName\": \"Storage Fee\",\n            \"DeptCode\": \"WAREHOUSE\",\n            \"Note\": \"Áp dụng cho hàng hóa lưu kho quá 30 ngày\",\n            \"Status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setexpense/"
+    },
+    {
+      "form": "setItem",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục vật tư",
+      "description": "Form setItem được sử dụng để đồng bộ thông tin vật tư/hàng hóa từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "ItemCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã vật tư"
+            },
+            {
+              "name": "ItemName",
+              "type": "String(256)",
+              "required": true,
+              "description": "Tên vật tư"
+            },
+            {
+              "name": "OtherName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên khác (Tên tiếng Anh)"
+            },
+            {
+              "name": "Uom",
+              "type": "String(32)",
+              "required": false,
+              "description": "Đơn vị tính"
+            },
+            {
+              "name": "ItemType",
+              "type": "String(2)",
+              "required": true,
+              "description": "Loại vật tư"
+            },
+            {
+              "name": "ItemGroup1",
+              "type": "String(32)",
+              "required": false,
+              "description": "Nhóm vật tư 1"
+            },
+            {
+              "name": "ItemGroup2",
+              "type": "String(32)",
+              "required": false,
+              "description": "Nhóm vật tư 2"
+            },
+            {
+              "name": "ItemGroup3",
+              "type": "String(32)",
+              "required": false,
+              "description": "Nhóm vật tư 3"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setItem\",\n    \"data\": [\n        {\n            \"ItemCode\": \"VT001\",\n            \"ItemName\": \"Máy tính xách tay\",\n            \"Uom\": \"Cái\",\n            \"ItemType\": \"HH\",\n            \"ItemGroup1\": \"TB\",\n            \"Status\": \"1\"\n        },\n        {\n            \"ItemCode\": \"VT002\",\n            \"ItemName\": \"Màn hình máy tính\",\n            \"Uom\": \"Cái\",\n            \"ItemType\": \"HH\",\n            \"ItemGroup1\": \"TB\",\n            \"Status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setitem/"
+    },
+    {
+      "form": "setJob",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục vụ việc",
+      "description": "Form setJob được sử dụng để đồng bộ thông tin vụ việc từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "JobName",
+              "type": "String(256)",
+              "required": true,
+              "description": "Tên vụ việc"
+            },
+            {
+              "name": "OtherName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên khác (Tên tiếng Anh)"
+            },
+            {
+              "name": "Note",
+              "type": "String(512)",
+              "required": false,
+              "description": "Ghi chú"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setJob\",\n    \"data\": [\n        {\n            \"JobCode\": \"VV001\",\n            \"JobName\": \"Dự án phát triển phần mềm\",\n            \"Note\": \"Ghi chú dự án 1\",\n            \"Status\": \"1\"\n        },\n        {\n            \"JobCode\": \"VV002\",\n            \"JobName\": \"Dự án triển khai hệ thống\",\n            \"Note\": \"Ghi chú dự án 2\",\n            \"Status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setjob/"
+    },
+    {
+      "form": "setSite",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục kho",
+      "description": "Form setSite được sử dụng để đồng bộ thông tin kho từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "SiteCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã kho"
+            },
+            {
+              "name": "SiteName",
+              "type": "String(256)",
+              "required": true,
+              "description": "Tên kho"
+            },
+            {
+              "name": "OtherName",
+              "type": "String(256)",
+              "required": false,
+              "description": "Tên khác (Tên tiếng Anh)"
+            },
+            {
+              "name": "Address",
+              "type": "String(256)",
+              "required": false,
+              "description": "Địa chỉ"
+            },
+            {
+              "name": "GroupCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Nhóm kho"
+            },
+            {
+              "name": "AgentYN",
+              "type": "Byte",
+              "required": false,
+              "description": "Kho đại lý  1 : Có 0 : Không"
+            },
+            {
+              "name": "Note",
+              "type": "String(512)",
+              "required": false,
+              "description": "Ghi chú"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setSite\",\n    \"data\": [\n        {\n            \"SiteCode\": \"KHO001\",\n            \"SiteName\": \"Kho Hà Nội\",\n            \"OtherName\": \"Hanoi Warehouse\",\n            \"Address\": \"Số 123 Đường Láng, Đống Đa, Hà Nội\",\n            \"GroupCode\": \"MIEN_BAC\",\n            \"AgentYN\": 0,\n            \"Note\": \"Ghi chú 1\",\n            \"Status\": \"1\"\n        },\n        {\n            \"SiteCode\": \"KHO002\",\n            \"SiteName\": \"Kho Hồ Chí Minh\",\n            \"Address\": \"Số 456 Lê Lợi, Quận 1, TP.HCM\",\n            \"GroupCode\": \"MIEN_NAM\",\n            \"AgentYN\": 0,\n            \"Note\": \"Ghi chú 2\",\n            \"Status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setsite/"
+    },
+    {
+      "form": "UnitConversion",
+      "kind": "SyncData",
+      "endpoint": "api/SyncData",
+      "title": "Danh mục quy đổi đơn vị tính",
+      "description": "Form UnitConversion được sử dụng để đồng bộ thông tin quy đổi đơn vị tính của vật tư/hàng hóa từ hệ thống của đối tác vào hệ thống Fast thông qua API Đồng bộ danh mục.",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Các trường dữ liệu",
+          "fields": [
+            {
+              "name": "ItemCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã vật tư"
+            },
+            {
+              "name": "Uom",
+              "type": "String(32)",
+              "required": true,
+              "description": "Đơn vị tính"
+            },
+            {
+              "name": "Coefficient",
+              "type": "Decimal(19,8)",
+              "required": true,
+              "description": "Hệ số quy đổi so với đơn vị tính gốc"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Đang hoạt động \"0\" : Ngưng hoạt động Default: \"1\""
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"UnitConversion\",\n    \"data\": [\n        {\n            \"ItemCode\": \"VT001\",\n            \"Uom\": \"Thùng\",\n            \"Coefficient\": 24,\n            \"Status\": \"1\"\n        },\n        {\n            \"ItemCode\": \"VT002\",\n            \"Uom\": \"Hộp\",\n            \"Coefficient\": 12,\n            \"Status\": \"1\"\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-data/setuomconversion/"
+    },
+    {
+      "form": "setCashDisbursement",
+      "kind": "SyncVoucher",
+      "endpoint": "api/SyncVoucher",
+      "title": "Phiếu chi tiền",
+      "description": "Form setCashDisbursement được sử dụng để đồng bộ thông tin phiếu chi tiền vào hệ thống Fast thông qua API Đồng bộ chứng từ.",
+      "sections": [
+        {
+          "name": "header",
+          "label": "Header (Thông tin chung)",
+          "fields": [
+            {
+              "name": "VoucherId",
+              "type": "String(64)",
+              "required": true,
+              "description": "Mã chứng từ của đối tác : là mã duy nhất và định danh cho giao dịch của đối tác khi gửi qua Fast để yêu cầu tạo chứng từ"
+            },
+            {
+              "name": "VoucherDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày chứng từ"
+            },
+            {
+              "name": "VoucherNumber",
+              "type": "String(12)",
+              "required": false,
+              "description": "Số chứng từ, nếu bằng rỗng thi hệ thống Fast sẽ cấp theo quyển chứng từ được khai báo, nếu không khai báo quyển thì sẽ cấp tự tăng"
+            },
+            {
+              "name": "CustomerCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã khách hàng"
+            },
+            {
+              "name": "Recipient",
+              "type": "String(128)",
+              "required": false,
+              "description": "Tên người nhận tiền"
+            },
+            {
+              "name": "Address",
+              "type": "String(128)",
+              "required": false,
+              "description": "Địa chỉ người nhận tiền"
+            },
+            {
+              "name": "CreditAccount",
+              "type": "String(32)",
+              "required": true,
+              "description": "Tài khoản có (Tài khoản kế toán)"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Diễn giải"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "ExchangeRate",
+              "type": "Long",
+              "required": false,
+              "description": "Tỷ giá Default: 1"
+            },
+            {
+              "name": "detail",
+              "type": "List[Object]",
+              "required": true,
+              "description": "Danh sách chi tiết chi tiền"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng số tiền chi của detail"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Thêm mới \"0\" : Xóa/Hủy chứng từ Default: \"1\""
+            }
+          ]
+        },
+        {
+          "name": "detail",
+          "label": "Nội dung của detail",
+          "fields": [
+            {
+              "name": "RefNumber",
+              "type": "Long",
+              "required": true,
+              "description": "Số thứ tự"
+            },
+            {
+              "name": "DebitAccount",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã tài khoản nợ (Tài khoản kế toán)"
+            },
+            {
+              "name": "Amount",
+              "type": "Long",
+              "required": true,
+              "description": "Số tiền"
+            },
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã phí"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setCashDisbursement\",\n    \"data\": [\n        {\n            \"VoucherId\": \"PC20230001\",\n            \"VoucherDate\": \"2023-04-15\",\n            \"VoucherNumber\": \"PC0001\",\n            \"CustomerCode\": \"KH001\",\n            \"Recipient\": \"Nguyễn Văn A\",\n            \"Address\": \"Số 123 Đường ABC, Quận 1, TP.HCM\",\n            \"CreditAccount\": \"111\",\n            \"Description\": \"Chi tiền cho nhà cung cấp\",\n            \"Currency\": \"VND\",\n            \"ExchangeRate\": 1,\n            \"TotalAmount\": 11000000,\n            \"Status\": \"1\",\n            \"detail\": [\n                {\n                    \"RefNumber\": 1,\n                    \"DebitAccount\": \"331\",\n                    \"Amount\": 8000000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI001\"\n                },\n                {\n                    \"RefNumber\": 2,\n                    \"DebitAccount\": \"641\",\n                    \"Amount\": 3000000,\n                    \"JobCode\": \"VV002\",\n                    \"DeptCode\": \"BP002\",\n                    \"ContractCode\": \"HD002\",\n                    \"ExpenseCode\": \"PHI002\"\n                }\n            ]\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-voucher/setcashdisbursement/"
+    },
+    {
+      "form": "setCashReceipt",
+      "kind": "SyncVoucher",
+      "endpoint": "api/SyncVoucher",
+      "title": "Phiếu thu tiền",
+      "description": "Form setCashReceipt được sử dụng để đồng bộ thông tin phiếu thu tiền vào hệ thống Fast thông qua API Đồng bộ chứng từ.",
+      "sections": [
+        {
+          "name": "header",
+          "label": "Header (Thông tin chung)",
+          "fields": [
+            {
+              "name": "VoucherId",
+              "type": "String(64)",
+              "required": true,
+              "description": "Mã chứng từ của đối tác : là mã duy nhất và định danh cho giao dịch của đối tác khi gửi qua Fast để yêu cầu tạo chứng từ"
+            },
+            {
+              "name": "VoucherDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày chứng từ"
+            },
+            {
+              "name": "VoucherNumber",
+              "type": "String(12)",
+              "required": false,
+              "description": "Số chứng từ, nếu bằng rỗng thi hệ thống Fast sẽ cấp theo quyển chứng từ được khai báo, nếu không khai báo quyển thì sẽ cấp tự tăng"
+            },
+            {
+              "name": "CustomerCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã khách hàng"
+            },
+            {
+              "name": "Payer",
+              "type": "String(128)",
+              "required": false,
+              "description": "Người nộp tiền"
+            },
+            {
+              "name": "Address",
+              "type": "String(128)",
+              "required": false,
+              "description": "Địa chỉ người nộp tiền"
+            },
+            {
+              "name": "DebitAccount",
+              "type": "String(32)",
+              "required": true,
+              "description": "Tài khoản nợ (Tài khoản kế toán)"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Diễn giải"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "ExchangeRate",
+              "type": "Long",
+              "required": false,
+              "description": "Tỷ giá Default: 1"
+            },
+            {
+              "name": "detail",
+              "type": "List[Object]",
+              "required": true,
+              "description": "Danh sách chi tiết thu tiền"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng số tiền thu của detail"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Thêm mới \"0\" : Xóa/Hủy chứng từ Default: \"1\""
+            }
+          ]
+        },
+        {
+          "name": "detail",
+          "label": "Nội dung của detail",
+          "fields": [
+            {
+              "name": "RefNumber",
+              "type": "Long",
+              "required": true,
+              "description": "Số thứ tự"
+            },
+            {
+              "name": "CreditAccount",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã tài khoản có (Tài khoản kế toán)"
+            },
+            {
+              "name": "Amount",
+              "type": "Long",
+              "required": true,
+              "description": "Số tiền"
+            },
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã phí"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setCashReceipt\",\n    \"data\": [\n        {\n            \"VoucherId\": \"PT20230001\",\n            \"VoucherDate\": \"2023-04-15\",\n            \"VoucherNumber\": \"PT0001\",\n            \"CustomerCode\": \"KH001\",\n            \"Payer\": \"Nguyễn Văn A\",\n            \"Address\": \"Số 123 Đường ABC, Quận 1, TP.HCM\",\n            \"DebitAccount\": \"111\",\n            \"Description\": \"Thu tiền khách hàng\",\n            \"Currency\": \"VND\",\n            \"ExchangeRate\": 1,\n            \"TotalAmount\": 15000000,\n            \"Status\": \"1\",\n            \"detail\": [\n                {\n                    \"RefNumber\": 1,\n                    \"CreditAccount\": \"131\",\n                    \"Amount\": 10000000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI001\"\n                },\n                {\n                    \"RefNumber\": 2,\n                    \"CreditAccount\": \"511\",\n                    \"Amount\": 5000000,\n                    \"JobCode\": \"VV002\",\n                    \"DeptCode\": \"BP002\",\n                    \"ContractCode\": \"HD002\",\n                    \"ExpenseCode\": \"PHI002\"\n                }\n            ]\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-voucher/setcashreceipt/"
+    },
+    {
+      "form": "setIssue",
+      "kind": "SyncVoucher",
+      "endpoint": "api/SyncVoucher",
+      "title": "Phiếu xuất kho",
+      "description": "Form setIssue được sử dụng để đồng bộ thông tin phiếu xuất kho vào hệ thống Fast thông qua API Đồng bộ chứng từ.",
+      "sections": [
+        {
+          "name": "header",
+          "label": "Header (Thông tin chung)",
+          "fields": [
+            {
+              "name": "VoucherId",
+              "type": "String(64)",
+              "required": true,
+              "description": "Mã chứng từ của đối tác : là mã duy nhất và định danh cho giao dịch của đối tác khi gửi qua Fast để yêu cầu tạo chứng từ"
+            },
+            {
+              "name": "CustomerCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã khách hàng"
+            },
+            {
+              "name": "VoucherDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày chứng từ"
+            },
+            {
+              "name": "VoucherNumber",
+              "type": "String(12)",
+              "required": true,
+              "description": "Số chứng từ, nếu bằng rỗng thi hệ thống Fast sẽ cấp theo quyển chứng từ được khai báo, nếu không khai báo quyển thì sẽ cấp tự tăng"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Diễn giải"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "ExchangeRate",
+              "type": "Long",
+              "required": false,
+              "description": "Tỷ giá Default: 1"
+            },
+            {
+              "name": "detail",
+              "type": "List[Object]",
+              "required": true,
+              "description": "Danh sách chi tiết hàng hoá"
+            },
+            {
+              "name": "TotalQuantity",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng số lượng hàng hoá của detail"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền của detail"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Thêm mới \"0\" : Xóa/Hủy chứng từ Default: \"1\""
+            }
+          ]
+        },
+        {
+          "name": "detail",
+          "label": "Nội dung của detail",
+          "fields": [
+            {
+              "name": "RefNumber",
+              "type": "Long",
+              "required": true,
+              "description": "Số thứ tự"
+            },
+            {
+              "name": "ItemCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã hàng"
+            },
+            {
+              "name": "Uom",
+              "type": "String(32)",
+              "required": true,
+              "description": "Đơn vị tính"
+            },
+            {
+              "name": "SiteCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã kho"
+            },
+            {
+              "name": "Quantity",
+              "type": "Long",
+              "required": true,
+              "description": "Số lượng"
+            },
+            {
+              "name": "UnitPrice",
+              "type": "Long",
+              "required": true,
+              "description": "Đơn giá"
+            },
+            {
+              "name": "Amount",
+              "type": "Long",
+              "required": true,
+              "description": "Thành tiền"
+            },
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã phí"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setIssue\",\n    \"data\": [\n        {\n            \"VoucherId\": \"IS20230001\",\n            \"CustomerCode\": \"KH001\",\n            \"VoucherDate\": \"2023-04-15\",\n            \"VoucherNumber\": \"XK0001\",\n            \"Description\": \"Xuất kho hàng cho khách hàng ABC\",\n            \"Currency\": \"VND\",\n            \"ExchangeRate\": 1,\n            \"TotalQuantity\": 5,\n            \"TotalAmount\": 28000000,\n            \"Status\": \"1\",\n            \"detail\": [\n                {\n                    \"RefNumber\": 1,\n                    \"ItemCode\": \"VT001\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Quantity\": 2,\n                    \"UnitPrice\": 6000000,\n                    \"Amount\": 12000000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI001\"\n                },\n                {\n                    \"RefNumber\": 2,\n                    \"ItemCode\": \"VT002\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Quantity\": 3,\n                    \"UnitPrice\": 5333333,\n                    \"Amount\": 16000000,\n                    \"JobCode\": \"VV002\",\n                    \"DeptCode\": \"BP002\",\n                    \"ContractCode\": \"HD002\",\n                    \"ExpenseCode\": \"PHI002\"\n                }\n            ]\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-voucher/setissue/"
+    },
+    {
+      "form": "setPurchaseInvoice",
+      "kind": "SyncVoucher",
+      "endpoint": "api/SyncVoucher",
+      "title": "Hóa đơn mua hàng",
+      "description": "Form setPurchaseInvoice được sử dụng để đồng bộ thông tin hóa đơn mua hàng vào hệ thống Fast thông qua API Đồng bộ chứng từ.",
+      "sections": [
+        {
+          "name": "header",
+          "label": "Header (Thông tin chung)",
+          "fields": [
+            {
+              "name": "VoucherId",
+              "type": "String(64)",
+              "required": true,
+              "description": "Mã chứng từ của đối tác : là mã duy nhất và định danh cho giao dịch của đối tác khi gửi qua Fast để yêu cầu tạo chứng từ."
+            },
+            {
+              "name": "SupplierCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã nhà cung cấp, chính là mã khách hàng trong Danh mục khách hàng"
+            },
+            {
+              "name": "VoucherDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày chứng từ"
+            },
+            {
+              "name": "VoucherNumber",
+              "type": "String(12)",
+              "required": false,
+              "description": "Số chứng từ, nếu bằng rỗng thi hệ thống Fast sẽ cấp theo quyển chứng từ được khai báo, nếu không khai báo quyển thì sẽ cấp tự tăng"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Diễn giải"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "ExchangeRate",
+              "type": "Long",
+              "required": false,
+              "description": "Tỷ giá Default: 1"
+            },
+            {
+              "name": "detail",
+              "type": "List[Object]",
+              "required": true,
+              "description": "Danh sách chi tiết hàng hoá"
+            },
+            {
+              "name": "tax",
+              "type": "List[Object]",
+              "required": false,
+              "description": "Danh sách thông tin thuế"
+            },
+            {
+              "name": "TotalQuantity",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng số lượng hàng hoá của detail"
+            },
+            {
+              "name": "TotalNetAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền hàng trước thuế của detail"
+            },
+            {
+              "name": "TotalTaxAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền thuế của tax"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền sau thuế"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Thêm mới \"0\" : Xóa/Hủy chứng từ Default: \"1\""
+            }
+          ]
+        },
+        {
+          "name": "detail",
+          "label": "Nội dung của detail",
+          "fields": [
+            {
+              "name": "RefNumber",
+              "type": "Long",
+              "required": true,
+              "description": "Số thứ tự"
+            },
+            {
+              "name": "ItemCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã hàng"
+            },
+            {
+              "name": "Uom",
+              "type": "String(32)",
+              "required": true,
+              "description": "Đơn vị tính"
+            },
+            {
+              "name": "SiteCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã kho"
+            },
+            {
+              "name": "Quantity",
+              "type": "Long",
+              "required": true,
+              "description": "Số lượng"
+            },
+            {
+              "name": "UnitPrice",
+              "type": "Long",
+              "required": true,
+              "description": "Đơn giá"
+            },
+            {
+              "name": "Amount",
+              "type": "Long",
+              "required": true,
+              "description": "Thành tiền"
+            },
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã phí"
+            }
+          ]
+        },
+        {
+          "name": "tax",
+          "label": "Nội dung của tax",
+          "fields": [
+            {
+              "name": "VatInvoiceNumber",
+              "type": "String(32)",
+              "required": true,
+              "description": "Số hóa đơn VAT"
+            },
+            {
+              "name": "VatInvoiceDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày hóa đơn VAT"
+            },
+            {
+              "name": "VatInvoiceSymbol",
+              "type": "String(32)",
+              "required": false,
+              "description": "Ký hiệu hóa đơn"
+            },
+            {
+              "name": "TotalNetAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tiền trước thuế"
+            },
+            {
+              "name": "TaxRate",
+              "type": "String(8)",
+              "required": true,
+              "description": "Thuế suất"
+            },
+            {
+              "name": "TaxAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tiền thuế"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setPurchaseInvoice\",\n    \"data\": [\n        {\n            \"VoucherId\": \"PI20230001\",\n            \"SupplierCode\": \"NCC001\",\n            \"VoucherDate\": \"2023-04-15\",\n            \"VoucherNumber\": \"ABC0001\",\n            \"Description\": \"Mua hàng hóa từ nhà cung cấp ABC\",\n            \"Currency\": \"VND\",\n            \"ExchangeRate\": 1,\n            \"TotalQuantity\": 5,\n            \"TotalNetAmount\": 35000000,\n            \"TotalTaxAmount\": 3500000,\n            \"TotalAmount\": 38500000,\n            \"Status\": \"1\",\n            \"detail\": [\n                {\n                    \"RefNumber\": 1,\n                    \"ItemCode\": \"VT001\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Quantity\": 2,\n                    \"UnitPrice\": 10000000,\n                    \"Amount\": 20000000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI001\"\n                },\n                {\n                    \"RefNumber\": 2,\n                    \"ItemCode\": \"VT002\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Quantity\": 3,\n                    \"UnitPrice\": 5000000,\n                    \"Amount\": 15000000,\n                    \"JobCode\": \"VV002\",\n                    \"DeptCode\": \"BP002\",\n                    \"ContractCode\": \"HD002\",\n                    \"ExpenseCode\": \"PHI002\"\n                }\n            ],\n            \"tax\": [\n                {\n                    \"VatInvoiceNumber\": \"0000123\",\n                    \"VatInvoiceDate\": \"2023-04-15\",\n                    \"VatInvoiceSymbol\": \"AA/20E\",\n                    \"TotalNetAmount\": 35000000,\n                    \"TaxRate\": \"10\",\n                    \"TaxAmount\": 3500000\n                }\n            ]\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-voucher/setpurchaseinvoice/"
+    },
+    {
+      "form": "setReceipt",
+      "kind": "SyncVoucher",
+      "endpoint": "api/SyncVoucher",
+      "title": "Phiếu nhập kho",
+      "description": "Form setReceipt được sử dụng để đồng bộ thông tin phiếu nhập kho vào hệ thống Fast thông qua API Đồng bộ chứng từ.",
+      "sections": [
+        {
+          "name": "header",
+          "label": "Header (Thông tin chung)",
+          "fields": [
+            {
+              "name": "VoucherId",
+              "type": "String(64)",
+              "required": true,
+              "description": "Mã chứng từ của đối tác : là mã duy nhất và định danh cho giao dịch của đối tác khi gửi qua Fast để yêu cầu tạo chứng từ"
+            },
+            {
+              "name": "CustomerCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã nhà cung cấp, chính là mã khách hàng trong Danh mục khách hàng"
+            },
+            {
+              "name": "VoucherDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày chứng từ"
+            },
+            {
+              "name": "VoucherNumber",
+              "type": "String(12)",
+              "required": false,
+              "description": "Số chứng từ, nếu bằng rỗng thi hệ thống Fast sẽ cấp theo quyển chứng từ được khai báo, nếu không khai báo quyển thì sẽ cấp tự tăng"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Diễn giải"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "ExchangeRate",
+              "type": "Long",
+              "required": false,
+              "description": "Tỷ giá Default: 1"
+            },
+            {
+              "name": "detail",
+              "type": "List[Object]",
+              "required": true,
+              "description": "Danh sách chi tiết hàng hoá"
+            },
+            {
+              "name": "TotalQuantity",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng số lượng hàng hoá của detail"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền sau thuế của detail"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Thêm mới \"0\" : Xóa/Hủy chứng từ Default: \"1\""
+            }
+          ]
+        },
+        {
+          "name": "detail",
+          "label": "Nội dung của detail",
+          "fields": [
+            {
+              "name": "RefNumber",
+              "type": "Long",
+              "required": true,
+              "description": "Số thứ tự"
+            },
+            {
+              "name": "ItemCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã hàng"
+            },
+            {
+              "name": "Uom",
+              "type": "String(32)",
+              "required": true,
+              "description": "Đơn vị tính"
+            },
+            {
+              "name": "SiteCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã kho"
+            },
+            {
+              "name": "Quantity",
+              "type": "Long",
+              "required": true,
+              "description": "Số lượng"
+            },
+            {
+              "name": "UnitPrice",
+              "type": "Long",
+              "required": true,
+              "description": "Đơn giá"
+            },
+            {
+              "name": "Amount",
+              "type": "Long",
+              "required": true,
+              "description": "Thành tiền"
+            },
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã phí"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setReceipt\",\n    \"data\": [\n        {\n            \"VoucherId\": \"RC20230001\",\n            \"CustomerCode\": \"KH001\",\n            \"VoucherDate\": \"2023-04-15\",\n            \"VoucherNumber\": \"NK0001\",\n            \"Description\": \"Nhập kho hàng từ nhà cung cấp XYZ\",\n            \"Currency\": \"VND\",\n            \"ExchangeRate\": 1,\n            \"TotalQuantity\": 4,\n            \"TotalAmount\": 24000000,\n            \"Status\": \"1\",\n            \"detail\": [\n                {\n                    \"RefNumber\": 1,\n                    \"ItemCode\": \"VT001\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Quantity\": 2,\n                    \"UnitPrice\": 6000000,\n                    \"Amount\": 12000000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI001\"\n                },\n                {\n                    \"RefNumber\": 2,\n                    \"ItemCode\": \"VT002\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Quantity\": 2,\n                    \"UnitPrice\": 6000000,\n                    \"Amount\": 12000000,\n                    \"JobCode\": \"VV002\",\n                    \"DeptCode\": \"BP002\",\n                    \"ContractCode\": \"HD002\",\n                    \"ExpenseCode\": \"PHI002\"\n                }\n            ]\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-voucher/setreceipt/"
+    },
+    {
+      "form": "setSaleInvoice",
+      "kind": "SyncVoucher",
+      "endpoint": "api/SyncVoucher",
+      "title": "Hóa đơn bán hàng",
+      "description": "Form setSaleInvoice được sử dụng để đồng bộ thông tin hóa đơn bán hàng vào hệ thống Fast thông qua API Đồng bộ chứng từ.",
+      "sections": [
+        {
+          "name": "header",
+          "label": "Header (Thông tin chung)",
+          "fields": [
+            {
+              "name": "VoucherId",
+              "type": "String(64)",
+              "required": true,
+              "description": "Mã chứng từ của đối tác : là mã duy nhất và định danh cho giao dịch của đối tác khi gửi qua Fast để yêu cầu tạo chứng từ"
+            },
+            {
+              "name": "CustomerCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã khách hàng"
+            },
+            {
+              "name": "VoucherDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày chứng từ"
+            },
+            {
+              "name": "VoucherNumber",
+              "type": "String(12)",
+              "required": false,
+              "description": "Số chứng từ, nếu bằng rỗng thi hệ thống Fast sẽ cấp theo quyển chứng từ được khai báo, nếu không khai báo quyển thì sẽ cấp tự tăng"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Diễn giải"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "ExchangeRate",
+              "type": "Long",
+              "required": false,
+              "description": "Tỷ giá Default: 1"
+            },
+            {
+              "name": "detail",
+              "type": "List[Object]",
+              "required": true,
+              "description": "Danh sách chi tiết hàng hoá"
+            },
+            {
+              "name": "TotalQuantity",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng số lượng của detail"
+            },
+            {
+              "name": "TotalNetAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền hàng trước thuế của detail"
+            },
+            {
+              "name": "TotalDiscountAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền chiết khấu của detail"
+            },
+            {
+              "name": "TotalTaxAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền thuế của detail"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền sau thuế detail"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Thêm mới \"0\" : Xóa/Hủy chứng từ Default: \"1\""
+            }
+          ]
+        },
+        {
+          "name": "detail",
+          "label": "Nội dung của detail",
+          "fields": [
+            {
+              "name": "RefNumber",
+              "type": "Long",
+              "required": true,
+              "description": "Số thứ tự"
+            },
+            {
+              "name": "ItemCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã hàng"
+            },
+            {
+              "name": "Uom",
+              "type": "String(32)",
+              "required": true,
+              "description": "Đơn vị tính"
+            },
+            {
+              "name": "SiteCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã kho"
+            },
+            {
+              "name": "Quantity",
+              "type": "Long",
+              "required": true,
+              "description": "Số lượng"
+            },
+            {
+              "name": "Promotion",
+              "type": "Byte",
+              "required": false,
+              "description": "Khuyến mãi  0 : Hàng bán 1 : Hàng khuyến mãi Default: 0"
+            },
+            {
+              "name": "UnitPrice",
+              "type": "Long",
+              "required": true,
+              "description": "Đơn giá"
+            },
+            {
+              "name": "Amount",
+              "type": "Long",
+              "required": true,
+              "description": "Thành tiền trước thuế"
+            },
+            {
+              "name": "Discount",
+              "type": "Long",
+              "required": false,
+              "description": "Tiền chiết khấu"
+            },
+            {
+              "name": "TaxRate",
+              "type": "Long",
+              "required": true,
+              "description": "Thuế suất. Nhận các giá trị số:* 0 : Thuế suất 0%* 5 : Thuế suất 5%* 8 : Thuế suất 8%* 10 : Thuế suất 10%* -1 : Không chịu thuế.* -2 : Không kê khai tính thuế."
+            },
+            {
+              "name": "TaxAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tiền thuế. Công thức: (Amount - Discount) × (TaxRate/100)"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền sau thuế"
+            },
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã phí"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setSaleInvoice\",\n    \"data\": [\n        {\n            \"VoucherId\": \"SI20230001\",\n            \"CustomerCode\": \"KH001\",\n            \"VoucherDate\": \"2023-04-15\",\n            \"VoucherNumber\": \"HD0001\",\n            \"Description\": \"Bán hàng cho khách hàng ABC\",\n            \"Currency\": \"VND\",\n            \"ExchangeRate\": 1,\n            \"TotalQuantity\": 3,\n            \"TotalNetAmount\": 24000000,\n            \"TotalDiscountAmount\": 1000000,\n            \"TotalTaxAmount\": 2300000,\n            \"TotalAmount\": 25300000,\n            \"Status\": \"1\",\n            \"detail\": [\n                {\n                    \"RefNumber\": 1,\n                    \"ItemCode\": \"VT001\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Promotion\": 0,\n                    \"Quantity\": 1,\n                    \"UnitPrice\": 12000000,\n                    \"Amount\": 12000000,\n                    \"Discount\": 500000,\n                    \"TaxRate\": 10,\n                    \"TaxAmount\": 1150000,\n                    \"TotalAmount\": 12650000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI001\"\n                },\n                {\n                    \"RefNumber\": 2,\n                    \"ItemCode\": \"VT002\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Promotion\": 0,\n                    \"Quantity\": 2,\n                    \"UnitPrice\": 6000000,\n                    \"Amount\": 12000000,\n                    \"Discount\": 500000,\n                    \"TaxRate\": 10,\n                    \"TaxAmount\": 1150000,\n                    \"TotalAmount\": 12650000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI002\"\n                }\n            ]\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-voucher/setsaleinvoice/"
+    },
+    {
+      "form": "setSaleReturn",
+      "kind": "SyncVoucher",
+      "endpoint": "api/SyncVoucher",
+      "title": "Phiếu nhập hàng bán trả lại",
+      "description": "Form setSaleReturn được sử dụng để đồng bộ thông tin phiếu nhập hàng bán trả lại vào hệ thống Fast thông qua API Đồng bộ chứng từ.",
+      "sections": [
+        {
+          "name": "header",
+          "label": "Header (Thông tin chung)",
+          "fields": [
+            {
+              "name": "VoucherId",
+              "type": "String(64)",
+              "required": true,
+              "description": "Mã chứng từ của đối tác : là mã duy nhất và định danh cho giao dịch của đối tác khi gửi qua Fast để yêu cầu tạo chứng từ"
+            },
+            {
+              "name": "CustomerCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã khách hàng"
+            },
+            {
+              "name": "VoucherDate",
+              "type": "Date",
+              "required": true,
+              "description": "Ngày chứng từ"
+            },
+            {
+              "name": "VoucherNumber",
+              "type": "String(12)",
+              "required": false,
+              "description": "Số chứng từ, nếu bằng rỗng thi hệ thống Fast sẽ cấp theo quyển chứng từ được khai báo, nếu không khai báo quyển thì sẽ cấp tự tăng"
+            },
+            {
+              "name": "Description",
+              "type": "String(512)",
+              "required": false,
+              "description": "Diễn giải"
+            },
+            {
+              "name": "Currency",
+              "type": "String(3)",
+              "required": false,
+              "description": "Loại tiền (\"VND\",\"USD\",\"EUR\"...).Default: \"VND\""
+            },
+            {
+              "name": "ExchangeRate",
+              "type": "Long",
+              "required": false,
+              "description": "Tỷ giá Default: 1"
+            },
+            {
+              "name": "detail",
+              "type": "List[Object]",
+              "required": true,
+              "description": "Danh sách chi tiết hàng hoá"
+            },
+            {
+              "name": "TotalQuantity",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng số lượng của detail"
+            },
+            {
+              "name": "TotalNetAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền hàng trước thuế của detail"
+            },
+            {
+              "name": "TotalDiscountAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền chiết khấu của detail"
+            },
+            {
+              "name": "TotalTaxAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền thuế của detail"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền sau thuế detail"
+            },
+            {
+              "name": "Status",
+              "type": "String(1)",
+              "required": false,
+              "description": "Trạng thái \"1\" : Thêm mới \"0\" : Xóa/Hủy chứng từ Default: \"1\""
+            }
+          ]
+        },
+        {
+          "name": "detail",
+          "label": "Nội dung của detail",
+          "fields": [
+            {
+              "name": "RefNumber",
+              "type": "Long",
+              "required": true,
+              "description": "Số thứ tự"
+            },
+            {
+              "name": "ItemCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã hàng"
+            },
+            {
+              "name": "Uom",
+              "type": "String(32)",
+              "required": true,
+              "description": "Đơn vị tính"
+            },
+            {
+              "name": "SiteCode",
+              "type": "String(32)",
+              "required": true,
+              "description": "Mã kho"
+            },
+            {
+              "name": "Quantity",
+              "type": "Long",
+              "required": true,
+              "description": "Số lượng"
+            },
+            {
+              "name": "Promotion",
+              "type": "Byte",
+              "required": false,
+              "description": "Khuyến mãi  0 : Hàng bán 1 : Hàng khuyến mãi Default: 0"
+            },
+            {
+              "name": "UnitPrice",
+              "type": "Long",
+              "required": true,
+              "description": "Đơn giá"
+            },
+            {
+              "name": "Amount",
+              "type": "Long",
+              "required": true,
+              "description": "Thành tiền trước thuế"
+            },
+            {
+              "name": "Discount",
+              "type": "Long",
+              "required": false,
+              "description": "Tiền chiết khấu"
+            },
+            {
+              "name": "TaxRate",
+              "type": "Long",
+              "required": true,
+              "description": "Thuế suất. Nhận các giá trị số:* 0 : Thuế suất 0%* 5 : Thuế suất 5%* 8 : Thuế suất 8%* 10 : Thuế suất 10%* -1 : Không chịu thuế.* -2 : Không kê khai tính thuế."
+            },
+            {
+              "name": "TaxAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tiền thuế. Công thức: (Amount - Discount) × (TaxRate/100)"
+            },
+            {
+              "name": "TotalAmount",
+              "type": "Long",
+              "required": true,
+              "description": "Tổng tiền sau thuế"
+            },
+            {
+              "name": "JobCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã vụ việc"
+            },
+            {
+              "name": "DeptCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã bộ phận"
+            },
+            {
+              "name": "ContractCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã hợp đồng"
+            },
+            {
+              "name": "ExpenseCode",
+              "type": "String(32)",
+              "required": false,
+              "description": "Mã phí"
+            },
+            {
+              "name": "SaleInvId",
+              "type": "Varchar(64)",
+              "required": false,
+              "description": "VouhcherId của hóa đơn bán hàng"
+            },
+            {
+              "name": "SaleInvRefNumber",
+              "type": "Long",
+              "required": false,
+              "description": "RefNumber của hóa đơn bán hàng"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"setSaleReturn\",\n    \"data\": [\n        {\n            \"VoucherId\": \"SR20230001\",\n            \"CustomerCode\": \"KH001\",\n            \"VoucherDate\": \"2023-04-20\",\n            \"VoucherNumber\": \"PNTL0001\",\n            \"Description\": \"Nhập lại hàng khách trả lại\",\n            \"Currency\": \"VND\",\n            \"ExchangeRate\": 1,\n            \"TotalQuantity\": 2,\n            \"TotalNetAmount\": 18000000,\n            \"TotalDiscountAmount\": 800000,\n            \"TotalTaxAmount\": 1720000,\n            \"TotalAmount\": 18920000,\n            \"Status\": \"1\",\n            \"detail\": [\n                {\n                    \"RefNumber\": 1,\n                    \"ItemCode\": \"VT001\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Promotion\": 0,\n                    \"Quantity\": 1,\n                    \"UnitPrice\": 12000000,\n                    \"Amount\": 12000000,\n                    \"Discount\": 500000,\n                    \"TaxRate\": 10,\n                    \"TaxAmount\": 1150000,\n                    \"TotalAmount\": 12650000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI001\",\n                    \"SaleInvId\": \"SI20230001\",\n                    \"SaleInvRefNumber\": 1\n                },\n                {\n                    \"RefNumber\": 2,\n                    \"ItemCode\": \"VT002\",\n                    \"Uom\": \"Cái\",\n                    \"SiteCode\": \"KHOHANG\",\n                    \"Promotion\": 0,\n                    \"Quantity\": 1,\n                    \"UnitPrice\": 6000000,\n                    \"Amount\": 6000000,\n                    \"Discount\": 300000,\n                    \"TaxRate\": 10,\n                    \"TaxAmount\": 570000,\n                    \"TotalAmount\": 6270000,\n                    \"JobCode\": \"VV001\",\n                    \"DeptCode\": \"BP001\",\n                    \"ContractCode\": \"HD001\",\n                    \"ExpenseCode\": \"PHI002\",\n                    \"SaleInvId\": \"SI20230001\",\n                    \"SaleInvRefNumber\": 2\n                }\n            ]\n        }\n    ]\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/sync-voucher/setsalereturn/"
+    },
+    {
+      "form": "getCustomer",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Danh mục khách hàng/nhà cung cấp",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getCustomer\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getItem",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Danh mục vật tư",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getItem\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getSite",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Danh mục kho",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getSite\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getDepartment",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Danh mục bộ phận",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getDepartment\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getJob",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Danh mục vụ việc",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getJob\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getContract",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Danh mục hợp đồng",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getContract\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getExpense",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Danh mục phí",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getExpense\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getPurchaseInvoice",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Hóa đơn mua hàng",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getPurchaseInvoice\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getSaleInvoice",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Hóa đơn bán hàng",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getSaleInvoice\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getSaleReturn",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Phiếu nhập hàng bán trả lại",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getSaleReturn\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getReceipt",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Phiếu nhập kho",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getReceipt\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getIssue",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Phiếu xuất kho",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getIssue\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getCashReceipt",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Phiếu thu tiền mặt",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getCashReceipt\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getCashDisbursement",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Phiếu chi tiền mặt",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getCashDisbursement\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getStock",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Lấy tồn kho tức thời của vật tư",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getStock\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    },
+    {
+      "form": "getBalance",
+      "kind": "GetData",
+      "endpoint": "api/GetData",
+      "title": "Lấy số dư công nợ khách hàng",
+      "description": "Lấy dữ liệu từ Fast: Id = mã khoá chính đối tác đã đồng bộ (CustomerCode / JobCode / VoucherId…), hoặc khoảng ngày cập nhật (dateFrom–dateTo, yyyy-MM-dd).",
+      "sections": [
+        {
+          "name": "data",
+          "label": "Tham số",
+          "fields": [
+            {
+              "name": "form",
+              "type": "String",
+              "required": true,
+              "description": "Tên form"
+            },
+            {
+              "name": "Id",
+              "type": "String",
+              "required": false,
+              "description": "Mã khoá chính của danh mục / chứng từ đã đồng bộ sang Fast"
+            },
+            {
+              "name": "dateFrom",
+              "type": "Date",
+              "required": false,
+              "description": "Từ ngày cập nhật (Modified) trên Fast"
+            },
+            {
+              "name": "dateTo",
+              "type": "Date",
+              "required": false,
+              "description": "Đến ngày cập nhật (Modified) trên Fast"
+            }
+          ]
+        }
+      ],
+      "sample": "{\n    \"form\": \"getBalance\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}",
+      "doc": "http://172.168.5.14/developers/docs/api/get-data/"
+    }
+  ]
+}

@@ -770,9 +770,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolsBar.Padding = new Padding(4, Bcode.App.UI.UiTemplate.Dens(2), 4, Bcode.App.UI.UiTemplate.Dens(2));
 
         var prevGroup = -1;
+        var groups = ActiveToolGroups();
+        var grouped = new HashSet<string>(groups.SelectMany(g => g.Keys));
         foreach (var (key, label, shortcut, action) in OrderedToolSpecs())
         {
-            if (_settings.HiddenToolKeys.Contains(key)) continue;
+            if (_settings.HiddenToolKeys.Contains(key) || grouped.Contains(key)) continue;   // đã vào nhóm: chỉ hiện trong menu của nhóm
             var grp = ToolGroupOf(key);
             if (prevGroup >= 0 && grp != prevGroup) _toolsBar.Items.Add(new ToolStripSeparator { Margin = new Padding(6, 2, 6, 2) });   // vạch | giữa hai vùng chức năng
             prevGroup = grp;
@@ -790,6 +792,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _toolsBar.Items.Add(button);
         }
 
+        if (groups.Count > 0) AddToolGroupButtons(groups, prevGroup >= 0);
         Bcode.App.UI.ThemeManager.Apply(_toolsBar);
     }
 
@@ -866,7 +869,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         foreach (var d in Bcode.App.UI.ShortcutRegistry.All.Where(d => d.Scope == Bcode.App.UI.ShortcutScope.App))
         {
-            if (d.Id is "app.palette" || d.Id.StartsWith("tab.goto", StringComparison.Ordinal)) continue;
+            if (d.Id is "app.palette" || d.Id.StartsWith("tab.goto", StringComparison.Ordinal) || d.Id.StartsWith("bar.group", StringComparison.Ordinal)) continue;
             var isTool = d.Id.StartsWith("tool:", StringComparison.Ordinal);
             items.Add(new { kind = isTool ? "tool" : "cmd", id = d.Id, title = d.Text, sub = isTool ? "" : d.Group, key = Bcode.App.UI.ShortcutRegistry.Display(d.Id) });
         }
@@ -1069,10 +1072,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void OpenQuickAccess()
     {
         var allTools = OrderedToolSpecs().Select(t => (t.key, t.label));
-        using var form = new QuickAccessForm(allTools, new HashSet<string>(_settings.HiddenToolKeys), BarToolKeys());
+        using var form = new QuickAccessForm(allTools, new HashSet<string>(_settings.HiddenToolKeys), BarToolKeys(), ActiveToolGroups(), SuggestedToolGroups());
         if (form.ShowDialog(this) != DialogResult.OK) return;
 
         _settings.HiddenToolKeys = form.HiddenKeys.ToList();
+        _settings.ToolBarGroups = form.Groups;
         // Thứ tự trùng mặc định thì lưu rỗng (để nút/vạch ngăn nhóm mặc định hoạt động như cũ).
         _settings.ToolOrder = form.OrderedKeys.SequenceEqual(BarToolKeys()) ? new List<string>() : form.OrderedKeys;
         _settings.Save();
@@ -2375,6 +2379,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab?.Focus();
             return true;
         }
+
+        if (id.StartsWith("bar.group", StringComparison.Ordinal) && int.TryParse(id["bar.group".Length..], out var groupNo))
+            return ShowToolGroupMenu(groupNo - 1);
 
         if (id.StartsWith("tool:", StringComparison.Ordinal))
         {

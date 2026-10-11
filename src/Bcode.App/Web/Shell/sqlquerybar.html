@@ -27,6 +27,15 @@
   input.table-input { flex: 1; min-width: 120px; }
   input.where-input { flex: 1.5; min-width: 150px; }
   input.order-input { flex: 1; min-width: 100px; }
+  /* Bố cục nhóm (Tùy chỉnh thanh…): các nút gốc được chuyển vào #layout theo SqlBarLayout; nút không ghim nằm ở #stash (ẩn) và mở qua menu nhóm.
+     Hẹp quá thì xuống dòng (không thu nhỏ chữ). */
+  #bar.grouped { flex-wrap: wrap; overflow: visible; white-space: normal; row-gap: 4px; }
+  #bar.grouped > .row, #bar.grouped > .rowsep { display: none; }
+  #layout { display: contents; }
+  #stash { display: none; }
+  .gbtn { flex: 0 0 auto; }
+  .chip { flex: 0 0 auto; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); background: transparent; cursor: pointer; white-space: nowrap; }
+  .chip.warn { border-color: #e5a50a; color: #e5a50a; }
 </style>
 </head>
 <body data-area="editor">
@@ -83,7 +92,9 @@
     </div>
     <div class="spacer"></div>
     </div>
+    <div id="layout"></div>
   </div>
+  <div id="stash"></div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
@@ -95,6 +106,7 @@
     // Tỉ lệ = bề ngang có sẵn / bề ngang cần của thanh ở cỡ gốc (tính lại mỗi khi cửa sổ đổi kích thước, kể cả đổi màn hình / UiScale).
     function fit() {
       bar.classList.remove('two'); bar.style.zoom = '';
+      if (bar.classList.contains('grouped')) return;     // bố cục nhóm: xuống dòng tự nhiên, không thu nhỏ
       var have = bar.clientWidth;
       if (bar.scrollWidth <= have + 1) return;           // vừa trên một hàng
       bar.classList.add('two');                           // không vừa → 2 hàng
@@ -113,6 +125,7 @@
       }
       }
     }
+    window.__barResize = function () { send(); };
     function send() {
       fit();
       var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
@@ -160,17 +173,20 @@
 
   // Every checkable button shares one handler keyed by data-toggle — optimistic local
   // toggle for instant feedback, C# then confirms/corrects via window.setToggle.
-  document.getElementById('bar').addEventListener('click', function (e) {
+  // Lắng nghe ở document (không phải #bar): ở bố cục nhóm, nút bật/tắt không ghim nằm trong #stash và được bấm hộ từ menu nhóm.
+  document.addEventListener('click', function (e) {
     var btn = e.target.closest('[data-toggle]');
     if (!btn) return;
     btn.classList.toggle('active');
     post({ action: 'toggle', which: btn.getAttribute('data-toggle') });
+    if (window.__barChips) window.__barChips();
   });
 
   // ---- Called from C# (RawSqlControl) ----
   window.setToggle = function (key, on) {
     var btn = document.querySelector('[data-toggle="' + key + '"]');
     if (btn) btn.classList.toggle('active', !!on);
+    if (window.__barChips) window.__barChips();
   };
 
   window.setDatabase = function (index) {
@@ -191,6 +207,160 @@
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   };
+
+  // ---- Bố cục nhóm (C#: RawSqlControl.PushBarLayout / SqlBarLayout) ----
+  // Mỗi nút gốc giữ nguyên id + sự kiện; ở đây chỉ chuyển chỗ: ghim → #layout, còn lại → #stash và mở qua menu nhóm (WebMenu của C#).
+  (function () {
+    var $ = function (id) { return document.getElementById(id); };
+    // key: { el, label, kind: 'button' | 'toggle' | 'check' | 'select', key: id phím tắt editor (Template → Phím tắt) }
+    var ITEMS = {
+      'run': { el: 'btnRun', label: '▶ Execute', kb: 'editor.run' },
+      'db': { el: 'dbSelect', label: 'Database', kind: 'select', kbs: ['editor.dbApp', 'editor.dbSys'] },
+      'beauty': { el: 'btnBeauty', label: '✨ Beauty', kb: 'editor.beauty' },
+      'debug-target': { el: 'btnDebugTarget', label: 'Debug store/function', kb: 'editor.debugTarget' },
+      'debug-step': { el: 'btnDebugStep', label: 'Debug từng bước', kind: 'toggle', kb: 'editor.debugStep' },
+      'comment': { el: 'btnComment', label: 'Comment', kb: 'editor.comment' },
+      'uncomment': { el: 'btnUncomment', label: 'Uncomment', kb: 'editor.uncomment' },
+      'default-type': { el: 'defaultTypeSelect', label: 'Default Type (chữ HOA / thường)', kind: 'select' },
+      'write-schema': { el: 'btnWriteSchema', label: 'Write Schema', kb: 'editor.writeSchema' },
+      'check-fields': { el: 'btnCheckFields', label: 'Check Fields', kb: 'editor.checkFields' },
+      'save-history': { el: 'btnSaveHistory', label: '💾 Lưu lịch sử', kb: 'editor.saveHistory' },
+      'history': { el: 'btnHistory', label: 'Lịch sử sửa procedure / function' },
+      'ask-claude': { el: 'btnAskClaude', label: '→ Claude' },
+      'ask-gemini': { el: 'btnAskGemini', label: '→ Gemini' },
+      'open': { el: 'btnOpen', label: 'Open', kb: 'editor.open' },
+      'save': { el: 'btnSave', label: 'Save', kb: 'editor.save' },
+      'suggest': { el: 'btnSuggest', label: 'Suggest Param/Caret', kind: 'toggle', kb: 'editor.toggleSuggest' },
+      'reset-conn': { el: 'btnResetConn', label: 'Reset Connection', kind: 'toggle', kb: 'editor.toggleResetConn' },
+      'result-tab': { el: 'btnResultTab', label: 'Result Tab', kind: 'toggle', kb: 'editor.toggleResultTab' },
+      'wrap': { el: 'chkWordWrap', label: 'Wrap (tự xuống dòng)', kind: 'check', kb: 'editor.wrap' },
+      'options': { el: 'btnOptions', label: 'Options…', kb: 'editor.options' }
+    };
+    var DEFAULT = {
+      pinned: ['run', 'db', 'beauty'],
+      groups: [
+        { name: '🐞 Debug', keys: ['debug-target', 'debug-step'] },
+        { name: '✎ Script', keys: ['comment', 'uncomment', 'default-type', 'write-schema', 'check-fields'] },
+        { name: '🕘 Lịch sử', keys: ['save-history', 'history'] },
+        { name: '🤖 AI', keys: ['ask-claude', 'ask-gemini'] },
+        { name: '📂 File', keys: ['open', 'save'] },
+        { name: '⚙ Tùy chọn', keys: ['suggest', 'reset-conn', 'result-tab', 'wrap', 'options'] }
+      ],
+      hidden: []
+    };
+    // Trạng thái khác mặc định của nút bật/tắt đang KHÔNG ghim → hiện nhãn trên thanh (bấm để tắt/bật lại).
+    var CHIPS = [
+      { key: 'reset-conn', when: false, text: '⚠ Giữ kết nối', tip: 'Reset Connection đang TẮT: các lần chạy dùng chung 1 kết nối (transaction / bảng tạm còn giữ). Bấm để bật lại.', warn: true },
+      { key: 'debug-step', when: true, text: '🐞 Debug từng bước', tip: 'Đang bật Debug từng bước. Bấm để tắt.' },
+      { key: 'result-tab', when: true, text: 'Result Tab', tip: 'Kết quả mở ra tab mới. Bấm để tắt.' },
+      { key: 'suggest', when: false, text: 'Suggest: tắt', tip: 'Suggest Param/Caret đang tắt. Bấm để bật.' }
+    ];
+    var layout = null, groupBtns = [];
+
+    function node(key) {   // phần tử để chuyển chỗ (ô Wrap: cả nhãn bọc checkbox)
+      var it = ITEMS[key]; var el = it && $(it.el);
+      return el && it.kind === 'check' ? el.parentElement : el;
+    }
+    function isOn(key) {
+      var it = ITEMS[key], el = $(it.el);
+      return it.kind === 'check' ? !!el.checked : el.classList.contains('active');
+    }
+    function combo(id) { var m = window.__bcodeEditorKeys || {}; return id && Object.prototype.hasOwnProperty.call(m, id) ? m[id] : ''; }
+
+    function normalize(l) {
+      l = l || DEFAULT;
+      var seen = {}, keep = function (k) { return ITEMS[k] && !seen[k] && (seen[k] = true); };
+      var r = {
+        pinned: (l.pinned || []).filter(keep),
+        groups: (l.groups || []).filter(function (g) { return String(g.name || '').trim(); })   // nhóm không tên: nút của nó về Ghim (ở dưới)
+          .map(function (g) { return { name: String(g.name).trim(), keys: (g.keys || []).filter(keep) }; }),
+        hidden: (l.hidden || []).filter(keep)
+      };
+      Object.keys(ITEMS).forEach(function (k) { if (!seen[k]) r.pinned.push(k); });   // nút mới (chưa có trong bố cục đã lưu) → ghim
+      return r;
+    }
+
+    function chips() {
+      var host = $('layout'); if (!host) return;
+      host.querySelectorAll('.chip').forEach(function (c) { c.remove(); });
+      if (!layout) return;
+      CHIPS.forEach(function (c) {
+        if (layout.pinned.indexOf(c.key) >= 0 || isOn(c.key) !== c.when) return;
+        var b = document.createElement('button');
+        b.className = 'chip' + (c.warn ? ' warn' : ''); b.textContent = c.text; b.title = c.tip;
+        b.onclick = function () { invoke(c.key); };
+        host.appendChild(b);
+      });
+      if (window.__barResize) window.__barResize();
+    }
+    window.__barChips = chips;
+
+    function apply() {
+      var bar = $('bar'), host = $('layout'), stash = $('stash');
+      bar.classList.add('grouped');
+      // Chuyển nút gốc ra #stash TRƯỚC rồi mới xoá #layout (xoá trước thì nút đang ghim bị xoá khỏi trang luôn).
+      Object.keys(ITEMS).forEach(function (k) { var n = node(k); if (n) stash.appendChild(n); });
+      host.textContent = ''; groupBtns = [];
+      layout.pinned.forEach(function (k) { var n = node(k); if (n) host.appendChild(n); });
+      if (layout.groups.length) {
+        if (layout.pinned.length) { var sep = document.createElement('div'); sep.className = 'sep'; host.appendChild(sep); }
+        layout.groups.forEach(function (g, i) {
+          var b = document.createElement('button');
+          b.className = 'btn gbtn'; b.textContent = g.name + ' ▾';
+          var kb = combo('editor.barGroup' + (i + 1));
+          b.title = g.keys.map(function (k) { return ITEMS[k].label; }).join(', ') + (kb ? '  (' + kb + ')' : '');
+          b.onclick = function () { openGroup(i); };
+          host.appendChild(b); groupBtns.push(b);
+        });
+      }
+      chips();
+      if (window.__barResize) window.__barResize();
+    }
+
+    function menuItem(key) {
+      var it = ITEMS[key], el = $(it.el), e = { key: key, label: it.label, kind: it.kind || 'button', shortcut: combo(it.kb) };
+      if (it.kind === 'toggle' || it.kind === 'check') e.checked = isOn(key);
+      if (it.kind === 'select') e.options = Array.prototype.map.call(el.options, function (o, i) {
+        return { value: o.value, label: o.textContent, checked: o.value === el.value, shortcut: it.kbs ? combo(it.kbs[i]) : '' };
+      });
+      return e;
+    }
+
+    function openGroup(i) {
+      var g = layout && layout.groups[i]; if (!g) return false;
+      var b = groupBtns[i], r = b.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      post({ action: 'bar-group-menu', name: g.name, x: Math.round(r.left * dpr), y: Math.round(r.bottom * dpr), items: g.keys.map(menuItem) });
+      return true;
+    }
+    window.openGroup = openGroup;
+
+    // Chạy 1 mục từ menu nhóm (C# gọi lại): bấm đúng nút gốc / đổi đúng ô chọn → cùng đường xử lý như bấm trên thanh.
+    function invoke(key, value) {
+      var it = ITEMS[key]; if (!it) return;
+      var el = $(it.el);
+      if (it.kind === 'select') { el.value = String(value); el.dispatchEvent(new Event('change')); }
+      else if (it.kind === 'check') { el.checked = !el.checked; el.dispatchEvent(new Event('change')); }
+      else el.click();
+      chips();
+    }
+    window.barInvoke = invoke;
+
+    window.setLayout = function (l) { layout = normalize(l); apply(); };
+    // Cho "Tùy chỉnh thanh…": danh sách nút + bố cục đang dùng + mặc định.
+    function customize() {
+      post({ action: 'customize-bar',
+        items: Object.keys(ITEMS).map(function (k) { return { key: k, label: ITEMS[k].label, shortcut: combo(ITEMS[k].kb) }; }),
+        layout: layout || normalize(null), defaults: normalize(null) });
+    }
+    window.customizeBar = customize;
+    document.addEventListener('contextmenu', function (e) {
+      if (e.target.closest('input, select')) return;
+      e.preventDefault(); customize();
+    });
+    // Đổi phím tắt trong Template: cập nhật chú thích nút nhóm.
+    var oldKeymap = window.applyKeymap;
+    window.applyKeymap = function () { if (oldKeymap) oldKeymap(); if (layout) apply(); };
+  })();
 </script>
 </body>
 </html>

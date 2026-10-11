@@ -114,6 +114,9 @@ public class AppSettings
     /// Nút mới (key chưa có trong danh sách này, vd sau khi cập nhật Bcode) được thêm vào cuối theo thứ tự mặc định.</summary>
     public List<string> ToolOrder { get; set; } = new();
 
+    /// <summary>Nhóm công cụ của thanh công cụ (Quick Access → tạo nhóm, kéo thả công cụ vào nhóm) — rỗng = thanh như cũ. Xem <see cref="ToolBarGroup"/>.</summary>
+    public List<ToolBarGroup> ToolBarGroups { get; set; } = new();
+
     /// <summary>Tên lập trình (cột ma_lt1 của bảng yêu cầu) mà Note (New) dùng khi bấm "Sync yêu cầu" — mỗi máy khai 1 lần.</summary>
     public string NoteProgrammer { get; set; } = "";
 

@@ -122,14 +122,40 @@ public class DesignerBridge
         catch { /* không ghi được cache — lần sau đọc lại nguồn */ }
     }
 
-    public void BeginReadFile(string requestId, string path) => Begin(requestId, () =>
+    // ------------------------------------------------------------------------------------------ dữ liệu mẫu (SampleData/*)
+    /// <summary>Các DB FastBusiness trên SQL Server của máy này (nguồn cho "Điền dữ liệu mẫu").</summary>
+    public void BeginSampleSources(string requestId) => Begin(requestId, () => JsonSerializer.Serialize(SampleData.SampleDb.ListLocal()));
+
+    /// <summary>Dựng dữ liệu mẫu cho màn hình đang xem — JSON <see cref="SampleData.SampleRequest"/> → <see cref="SampleData.SampleResult"/>.</summary>
+    public void BeginSampleData(string requestId, string json) => Begin(requestId, () =>
+    {
+        var req = JsonSerializer.Deserialize<SampleData.SampleRequest>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
+        using var db = SampleData.SampleDb.TryOpen(req.Db);
+        var res = new SampleData.SampleDataBuilder(req, db).Build();
+        if (!string.IsNullOrEmpty(req.Db) && db is null) res.Notes.Insert(0, "Không mở được DB " + req.Db + " — dùng danh mục mẫu + quy tắc.");
+        return JsonSerializer.Serialize(res, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+    });
+
+    public void BeginReadFile(string requestId, string path) => Begin(requestId, () => ReadCached(path));
+
+    /// <summary>Đọc 1 file: ưu tiên bộ nhớ đệm trên máy, chưa có thì đọc nguồn rồi chép về đệm.</summary>
+    private static string ReadCached(string path)
     {
         var cp = CachePathOf(path);
         if (cp != null && File.Exists(cp)) { try { return ReadText(cp); } catch { /* cache hỏng — đọc nguồn */ } }
         var text = ReadText(path);
         CopyToCache(path, cp);
         return text;
-    });
+    }
+    private static string? ReadCachedOrNull(string path) => File.Exists(CachePathOf(path) ?? "") || File.Exists(path) ? ReadCached(path) : null;
+
+    /// <summary>Đọc nhiều include trong 1 lần gọi (entity.js prefetchIncludes) — trước đây Designer thiếu lệnh này nên mỗi file 1 lượt gọi.</summary>
+    public void BeginReadFiles(string requestId, string pathsJson) => Begin(requestId, () =>
+        JsonSerializer.Serialize(BcodeViewer.App.Host.IncludeTree.ReadMany(JsonSerializer.Deserialize<string[]>(pathsJson) ?? Array.Empty<string>(), ReadCachedOrNull)));
+
+    /// <summary>Đọc cả cây include của màn hình trong 1 lần gọi (entity.js prefetchTree).</summary>
+    public void BeginReadIncludeTree(string requestId, string rootPath, string rootText) => Begin(requestId, () =>
+        JsonSerializer.Serialize(BcodeViewer.App.Host.IncludeTree.ReadTree(rootPath, rootText, ReadCachedOrNull)));
 
     public void BeginPathsExist(string requestId, string json) => Begin(requestId, () =>
     {
@@ -252,6 +278,45 @@ public class DesignerBridge
                     catch { /* 1 file không chép được (đang bị khoá...) — bỏ qua */ }
                     Interlocked.Increment(ref _mirrorDone);
                 });
+                // Nạp nhanh: chép luôn CẢ CÂY include của các mẫu (SVTran cần ~584 file ..\Include\*) — trước đây chỉ chép 58 file mẫu nên lần đầu mở
+                // mẫu vẫn đọc hàng trăm file qua ổ mạng. Dùng chung IncludeTree với BcodeViewer; file đã có và không đổi thì bỏ qua.
+                if (mode != "full")
+                {
+                    var roots = files.Where(f => f.EndsWith(".f", StringComparison.OrdinalIgnoreCase) || !File.Exists(Path.ChangeExtension(f, ".f"))).ToList();
+                    var copied = new System.Collections.Concurrent.ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+                    string? CopyInclude(string inc)
+                    {
+                        if (!File.Exists(inc)) return null;
+                        if (inc.StartsWith(ctrl, StringComparison.OrdinalIgnoreCase) && copied.TryAdd(inc, 0))
+                        {
+                            Interlocked.Increment(ref _mirrorTotal);
+                            try
+                            {
+                                var dest = Path.Combine(target, Path.GetRelativePath(ctrl, inc));
+                                var fi = new FileInfo(inc); var di = new FileInfo(dest);
+                                if (!di.Exists || di.Length != fi.Length || di.LastWriteTimeUtc != fi.LastWriteTimeUtc)
+                                {
+                                    Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                                    File.Copy(inc, dest, true);
+                                    File.SetLastWriteTimeUtc(dest, fi.LastWriteTimeUtc);
+                                }
+                                Interlocked.Increment(ref _mirrorDone);
+                                return ReadText(dest);
+                            }
+                            catch { Interlocked.Increment(ref _mirrorDone); }
+                        }
+                        // Đã chép ở mẫu trước: đọc bản trên máy, không đọc lại qua ổ mạng cho từng mẫu.
+                        var local = inc.StartsWith(ctrl, StringComparison.OrdinalIgnoreCase) ? Path.Combine(target, Path.GetRelativePath(ctrl, inc)) : null;
+                        try { if (local != null && File.Exists(local)) return ReadText(local); } catch { /* đọc nguồn */ }
+                        return ReadText(inc);
+                    }
+                    Parallel.ForEach(roots, new ParallelOptions { MaxDegreeOfParallelism = 4 }, f =>
+                    {
+                        try { BcodeViewer.App.Host.IncludeTree.ReadTree(f, ReadText(f), CopyInclude); }
+                        catch { /* 1 mẫu lỗi — các mẫu khác vẫn nạp */ }
+                    });
+                    files.AddRange(copied.Keys);
+                }
                 File.WriteAllText(Path.Combine(root, "mirror.json"), JsonSerializer.Serialize(new { stamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm"), files = files.Count, from = source }), new UTF8Encoding(false));
                 try { File.Delete(IndexPath(root)); } catch { /* chưa có cache */ }
             }

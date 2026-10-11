@@ -40,6 +40,21 @@ public sealed class WebMenu
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    /// <summary>Cửa sổ đang ở phía trước vẫn là của Bcode (form chính / hộp thoại; WebView2 là cửa sổ con của form nên foreground vẫn là form).</summary>
+    private static bool ForegroundIsOurs()
+    {
+        var fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero) return true;   // đang chuyển cửa sổ — coi như của mình, timer bấm-ra-ngoài vẫn lo việc đóng
+        GetWindowThreadProcessId(fg, out var pid);
+        return pid == (uint)Environment.ProcessId;
+    }
+
     private static DateTime _dismissedAt = DateTime.MinValue;
 
     /// <summary>True nếu menu vừa bị đóng do bấm chuột RA NGOÀI nó (trong ~0,5s). Nút mở menu dùng để coi cú bấm đó là
@@ -55,6 +70,14 @@ public sealed class WebMenu
     public static void Track(ContextMenuStrip menu)
     {
         _activeMenu = menu;
+        // Lỗi "bấm 2–3 lần menu mới hiện" (đo 2026-10-11, log lý do đóng): bấm nút trên trang WebView2 (Triển khai, Tool mở rộng, Actions…) khi focus
+        // đang ở chỗ khác → menu hiện ra rồi ~0,4s sau WebView2 (process trình duyệt riêng) mới nhận focus xong → ToolStripDropDown tưởng là đổi
+        // sang ứng dụng khác (CloseReason.AppFocusChange) và tự đóng. Focus vẫn trong Bcode thì giữ menu; bấm ra ngoài vẫn đóng nhờ timer dưới,
+        // Esc / chọn mục / chuyển sang ứng dụng khác (foreground không còn là Bcode) vẫn đóng như thường.
+        menu.Closing += (_, e) =>
+        {
+            if (e.CloseReason == ToolStripDropDownCloseReason.AppFocusChange && ForegroundIsOurs()) e.Cancel = true;
+        };
         var wasDown = true; // menu mở ra do 1 cú bấm: chờ nhả chuột rồi mới tính cú bấm "ra ngoài"
         var timer = new System.Windows.Forms.Timer { Interval = 40 };
         timer.Tick += (_, _) =>

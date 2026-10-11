@@ -16,6 +16,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
+    <!-- Dữ liệu mẫu từ DB FastBusiness trên máy (chỉ SELECT) — cùng phiên bản với Bcode.App. -->
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
   </ItemGroup>
   <ItemGroup>
     <!-- Trang giao diện riêng của Designer. -->
@@ -24,5 +26,9 @@
     <None Include="..\BcodeViewer.App\Web\dirpreview.js" Link="Web\shared\dirpreview.js" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\BcodeViewer.App\Web\entity.js" Link="Web\shared\entity.js" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\BcodeViewer.App\Web\hostcall.js" Link="Web\shared\hostcall.js" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Đọc include theo lô / cả cây (entity.js BeginReadFiles / BeginReadIncludeTree) — dùng LẠI code của BcodeViewer. -->
+    <Compile Include="..\BcodeViewer.App\Host\IncludeTree.cs" Link="Shared\IncludeTree.cs" />
   </ItemGroup>
 </Project>

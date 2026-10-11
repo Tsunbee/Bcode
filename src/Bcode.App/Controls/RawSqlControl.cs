@@ -154,6 +154,7 @@ public class RawSqlControl : UserControl
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToAll;
         EditorFontSizeChanged += OnEditorFontSizeChanged;
+        SqlBarLayout.Changed += OnBarLayoutChanged;
 
         _ = InitBarWebAsync();
         _ = InitEditorWebAsync();
@@ -163,6 +164,7 @@ public class RawSqlControl : UserControl
             DisposePersistentConnection();
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToAll;
             EditorFontSizeChanged -= OnEditorFontSizeChanged;
+            SqlBarLayout.Changed -= OnBarLayoutChanged;
         };
 
         async Task InitBarWebAsync()
@@ -207,6 +209,8 @@ public class RawSqlControl : UserControl
                         case "toggle":
                             ToggleOption(root2.GetProperty("which").GetString() ?? "");
                             break;
+                        case "bar-group-menu": ShowBarGroupMenu(root2.Clone()); break;
+                        case "customize-bar": { var req = root2.Clone(); BeginInvoke(new Action(() => CustomizeBar(req))); break; }
                     }
                 };
 
@@ -216,6 +220,7 @@ public class RawSqlControl : UserControl
                     PushThemeToAll();
                     PushDatabaseToBar();
                     if (_pushTogglesOnBarReady) PushTogglesToBar();
+                    PushBarLayout(SqlBarLayout.Load());
                 };
 
                 _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlquerybar.html"));
@@ -1313,6 +1318,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             case "font-down": if (_editorWeb.CoreWebView2 is not null) _ = _editorWeb.CoreWebView2.ExecuteScriptAsync("window.setFontSize(-1)"); break;
             case "options": BuildOptionsMenu().Show(_barWeb, 10, _barWeb.Height); break;
             case "db-app": SetDatabase(false); break;
+            case var g when g.StartsWith("bar-group-", StringComparison.Ordinal) && int.TryParse(g["bar-group-".Length..], out var gi):
+                if (_barWeb.CoreWebView2 is not null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.openGroup && window.openGroup({gi - 1})");
+                break;
             case "db-sys": SetDatabase(true); break;
         }
     }
@@ -1372,6 +1380,86 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _statusLabel.ForeColor = AppColors.Success;
         _statusLabel.Text = $"Debug từng bước{(name is null ? "" : " — " + name)}: {plan.SafeLines.Count} điểm dừng. F10 bước kế · F5 chạy tiếp · Ctrl+F10 chạy tới con trỏ · Shift+F5 dừng.";
         PushDebugState();
+    }
+
+    // ---------------- Bố cục nhóm của thanh Execute (SqlBarLayout) ----------------
+
+    private void OnBarLayoutChanged(SqlBarLayout? layout)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(new Action(() => PushBarLayout(layout)));
+    }
+
+    private void PushBarLayout(SqlBarLayout? layout)
+    {
+        if (!_barReady || _barWeb.CoreWebView2 is null) return;
+        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setLayout && window.setLayout({(layout is null ? "null" : layout.ToJson())})");
+    }
+
+    /// <summary>Menu của 1 nhóm trên thanh (trang gửi danh sách mục + toạ độ nút): bấm mục nào thì trang bấm hộ đúng nút gốc (window.barInvoke).</summary>
+    private void ShowBarGroupMenu(System.Text.Json.JsonElement req)
+    {
+        if (WebMenu.JustDismissed) return;   // bấm lại nút nhóm khi menu đang mở = đóng
+        void Invoke(string key, string? value) =>
+            _ = _barWeb.CoreWebView2?.ExecuteScriptAsync($"window.barInvoke({System.Text.Json.JsonSerializer.Serialize(key)}, {System.Text.Json.JsonSerializer.Serialize(value)})");
+        static string? Str(System.Text.Json.JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+        static bool Bool(System.Text.Json.JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == System.Text.Json.JsonValueKind.True;
+
+        var menu = new WebMenu().AddCaption(Str(req, "name") ?? "");
+        if (req.TryGetProperty("items", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+            foreach (var it in items.EnumerateArray())
+            {
+                var key = Str(it, "key") ?? "";
+                var label = Str(it, "label") ?? key;
+                var sc = Str(it, "shortcut");
+                if (Str(it, "kind") == "select" && it.TryGetProperty("options", out var opts))
+                {
+                    var options = opts.EnumerateArray().Select(o => (Value: Str(o, "value") ?? "", Label: Str(o, "label") ?? "", Checked: Bool(o, "checked"), Shortcut: Str(o, "shortcut"))).ToList();
+                    menu.AddSub(label, sub =>
+                    {
+                        foreach (var o in options) { var v = o.Value; sub.Add(o.Label, () => Invoke(key, v), shortcut: string.IsNullOrEmpty(o.Shortcut) ? null : o.Shortcut, @checked: o.Checked); }
+                    });
+                }
+                else menu.Add(label, () => Invoke(key, null), shortcut: string.IsNullOrEmpty(sc) ? null : sc, @checked: Bool(it, "checked"));
+            }
+        menu.AddSeparator().Add("Tùy chỉnh thanh… (chuột phải lên thanh)", () => _ = _barWeb.CoreWebView2?.ExecuteScriptAsync("window.customizeBar && window.customizeBar()"));
+        var x = req.TryGetProperty("x", out var xe) && xe.TryGetInt32(out var xi) ? xi : 10;
+        var y = req.TryGetProperty("y", out var ye) && ye.TryGetInt32(out var yi) ? yi : _barWeb.Height;
+        menu.Show(_barWeb, x, y);
+    }
+
+    /// <summary>"Tùy chỉnh thanh…": dùng lại màn Quick Access (Ghim / Nhóm / Ẩn, kéo thả) cho các nút của thanh Execute; lưu SqlBarLayout → mọi tab SQL áp ngay.</summary>
+    private void CustomizeBar(System.Text.Json.JsonElement req)
+    {
+        static List<string> Keys(System.Text.Json.JsonElement l, string n) => l.TryGetProperty(n, out var a) && a.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? a.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList() : new List<string>();
+        static List<ToolBarGroup> Groups(System.Text.Json.JsonElement l) => l.TryGetProperty("groups", out var a) && a.ValueKind == System.Text.Json.JsonValueKind.Array
+            ? a.EnumerateArray().Select(g => new ToolBarGroup { Name = g.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "", Keys = Keys(g, "keys") }).ToList() : new List<ToolBarGroup>();
+        if (IsDisposed || !req.TryGetProperty("items", out var itemsEl) || !req.TryGetProperty("layout", out var cur) || !req.TryGetProperty("defaults", out var def)) return;
+
+        var labels = itemsEl.EnumerateArray().ToDictionary(i => i.GetProperty("key").GetString() ?? "", i => (Label: i.GetProperty("label").GetString() ?? "", Shortcut: i.TryGetProperty("shortcut", out var s) ? s.GetString() ?? "" : ""));
+        var curGroups = Groups(cur);
+        var order = Keys(cur, "pinned").Concat(curGroups.SelectMany(g => g.Keys)).Concat(Keys(cur, "hidden")).Where(labels.ContainsKey).Distinct().ToList();
+        order.AddRange(labels.Keys.Where(k => !order.Contains(k)));
+        var defGroups = Groups(def);
+        var defOrder = Keys(def, "pinned").Concat(defGroups.SelectMany(g => g.Keys)).ToList();
+
+        using var form = new Bcode.App.Forms.QuickAccessForm(order.Select(k => (k, labels[k].Label)), new HashSet<string>(Keys(cur, "hidden")), defOrder,
+            curGroups, defGroups,
+            title: "Tùy chỉnh thanh SQL Query",
+            intro: "<b>Kéo thả</b> nút giữa các vùng: <b>Ghim</b> = nút riêng trên thanh, <b>nhóm</b> = gom vào 1 nút “Tên ▾” bấm ra menu, <b>Ẩn</b> = không hiện. "
+                 + "Áp cho mọi tab SQL Query. Phím mở nhóm thứ 1…9: Template → Phím tắt → “Mở nhóm thứ N trên thanh SQL Query”. Phím tắt riêng của từng nút (F5, F7, Alt+Z…) không đổi. "
+                 + "“Gợi ý nhóm” = bố cục mặc định; “Mặc định” = hiện mọi nút, không nhóm.",
+            toolShortcut: k => labels.TryGetValue(k, out var v) ? v.Shortcut : "",
+            groupShortcut: i => Bcode.App.UI.ShortcutRegistry.Display($"editor.barGroup{i}"));
+        if (form.ShowDialog(FindForm()) != DialogResult.OK) return;
+        var grouped = new HashSet<string>(form.Groups.SelectMany(g => g.Keys));
+        SqlBarLayout.Save(new SqlBarLayout
+        {
+            Pinned = form.OrderedKeys.Where(k => !form.HiddenKeys.Contains(k) && !grouped.Contains(k)).ToList(),
+            Groups = form.Groups,
+            Hidden = form.HiddenKeys.ToList(),
+        });
     }
 
     private void PushTogglesToBar()

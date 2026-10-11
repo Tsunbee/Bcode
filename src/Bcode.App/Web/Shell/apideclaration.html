@@ -1,200 +1,376 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Khai báo API</title>
 <link rel="stylesheet" href="shell.css" />
-<script src="autoscale.js"></script>
+<link rel="stylesheet" href="dialog.css" />
 <style>
-body {
-  padding: 16px 20px;
-  background: var(--panel);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow-y: auto;
-  box-sizing: border-box;
-  gap: 12px;
-}
-.form-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-}
-.label-col {
-  width: 190px; /* Tăng nhẹ độ rộng để không bị rớt chữ tiếng Việt */
-  flex-shrink: 0;
-  font-size: 13px;
-  color: var(--text-muted);
-  padding-top: 6px;
-}
-.input-col {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex-wrap: wrap; /* Cho phép các nút nằm cạnh input tự rớt xuống nếu màn hình quá hẹp */
-}
-input[type="text"], select, textarea {
-  width: 100%;
-  box-sizing: border-box;
-  flex: 1; /* Cho phép ô input tự co giãn full không gian còn lại */
-}
-textarea {
-  font-family: Consolas, monospace;
-  font-size: 12.5px;
-  background: var(--input);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-
-  padding: 8px;
-  height: 130px;
-  resize: vertical; /* Cho phép người dùng kéo giãn chiều cao textarea khi cần */
-}
-@media (max-width: 750px) {
-  .form-row {
-    flex-direction: column; /* Chuyển từ dạng ngang sang dọc khi màn hình hẹp */
-    gap: 4px;
-  }
-  .label-col {
-    width: 100%; /* Nhãn chiếm trọn hàng trên */
-    padding-top: 0;
-  }
-  .input-col {
-    width: 100%; /* Ô input chiếm trọn hàng dưới */
-  }
-}
+  /* Khai báo & quản lý API theo chuẩn LT3 — host: Forms/ApiDeclarationForm.cs. Tự co giãn (dialog.css), màn hẹp xếp dọc. */
+  .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(17rem, 24rem) minmax(0, 1fr); gap: .7rem; padding: .7rem; overflow: hidden; }
+  .col { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: .7rem; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg, var(--r)); background: var(--panel); padding: .6rem .7rem; display: flex; flex-direction: column; gap: .45rem; }
+  .card h3 { margin: 0; font-size: .95rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+  .card h3 .sp { flex: 1; }
+  .g2 { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .35rem .5rem; align-items: center; }
+  .g2 > label { color: var(--text-muted); font-size: .9rem; }
+  .g2 input, .g2 select, .g2 textarea { width: 100%; box-sizing: border-box; }
+  details summary { cursor: pointer; color: var(--text-muted); font-size: .9rem; }
+  .mono, textarea.code { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; }
+  textarea.code { width: 100%; box-sizing: border-box; min-height: 14rem; resize: vertical; white-space: pre; tab-size: 2; }
+  .tok { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+  .tok .val { flex: 1; min-width: 6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  .flist { display: flex; flex-direction: column; gap: 2px; max-height: 22rem; overflow: auto; }
+  .fi { display: flex; align-items: center; gap: .45rem; padding: .3rem .45rem; border-radius: var(--r-sm, var(--r)); cursor: pointer; border: var(--bw) solid transparent; }
+  .fi:hover { background: var(--button-back); }
+  .fi.sel { border-color: var(--accent); background: var(--panel-alt); }
+  .fi .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: .72rem; padding: 0 .4rem; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; }
+  .badge.SyncData { border-color: #3b82f6; color: #3b82f6; } .badge.SyncVoucher { border-color: #d97706; color: #d97706; } .badge.GetData { border-color: #16a34a; color: #16a34a; }
+  .btns { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .issues { margin: 0; padding-left: 1.1rem; color: var(--danger); font-size: .9rem; }
+  .issues.ok { color: var(--success); list-style: none; padding-left: 0; }
+  .res-head { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+  .pill { padding: .05rem .55rem; border-radius: 999px; font-weight: 600; font-size: .85rem; border: 1px solid var(--border); }
+  .pill.ok { color: var(--success); border-color: var(--success); } .pill.err { color: var(--danger); border-color: var(--danger); }
+  .rtabs { display: flex; gap: .3rem; border-bottom: var(--bw) solid var(--border); }
+  .rtabs button { border-radius: var(--r) var(--r) 0 0; border-bottom: 0; }
+  .rtabs button.on { background: var(--panel-alt); color: var(--accent); font-weight: 600; }
+  pre.out { margin: 0; max-height: 22rem; overflow: auto; background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .5rem; white-space: pre-wrap; word-break: break-word; }
+  .tbl { overflow: auto; max-height: 22rem; border: var(--bw) solid var(--border); border-radius: var(--r); }
+  .tbl table { border-collapse: collapse; font-size: .88rem; }
+  .tbl th, .tbl td { border: 1px solid var(--border); padding: .15rem .45rem; white-space: nowrap; text-align: left; }
+  .tbl th { position: sticky; top: 0; background: var(--panel-alt); }
+  .tname { font-weight: 600; margin: .4rem 0 .2rem; }
+  .doc table { border-collapse: collapse; font-size: .86rem; width: 100%; }
+  .doc th, .doc td { border: 1px solid var(--border); padding: .15rem .4rem; text-align: left; vertical-align: top; }
+  .doc td.req { color: var(--danger); text-align: center; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 20; }
+  .modal.on { display: flex; }
+  .modal .box { background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r-lg, var(--r)); width: min(46rem, 94vw); max-height: 88vh; display: flex; flex-direction: column; }
+  .modal .bd { padding: .8rem; overflow: auto; display: flex; flex-direction: column; gap: .6rem; }
+  .modal .ft { padding: .6rem .8rem; border-top: var(--bw) solid var(--border); display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+  .pick { columns: 2 16rem; column-gap: 1rem; }
+  .pick .grp { break-inside: avoid; margin-bottom: .5rem; }
+  .pick label { display: flex; gap: .4rem; align-items: center; padding: .1rem 0; cursor: pointer; }
+  .dirty { color: var(--warning); font-size: .85rem; }
+  .notes { margin: 0; padding-left: 1.1rem; color: var(--text-muted); font-size: .9rem; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; overflow: auto; } .col { overflow: visible; } }
 </style>
 </head>
 <body>
-  <div class="form-row">
-    <div class="label-col">Mã dự án:</div>
-    <div class="input-col">
-      <input type="text" id="txtProject" placeholder="Nhập mã dự án..." />
-      <button class="btn" id="btnLoadProfile">Tải</button>
-      <button class="btn" id="btnSaveProfile">Lưu</button>
+<div class="dlg-top">
+  <div class="fld"><label>Dự án</label><select id="selProject" style="min-width:14rem"></select></div>
+  <div class="btns">
+    <button class="primary" id="bNewTpl" title="Tạo dự án mới từ mẫu chuẩn phòng LT3 (31 form của tài liệu API)">＋ Mới từ mẫu LT3</button>
+    <button id="bImport" title="Nhập collection Postman (tự nhận địa chỉ gốc, getToken, các form; bỏ token cũ)">Nhập Postman…</button>
+    <button id="bOld" style="display:none" title="Chuyển hồ sơ kiểu cũ (mật khẩu chữ thường) sang dạng mới, mật khẩu mã hoá">Chuyển hồ sơ cũ</button>
+    <button id="bSave" title="Lưu dự án">Lưu</button>
+    <button id="bExport" title="Xuất Postman theo chuẩn LT3 (getToken tự lưu {{token}}, không kèm mật khẩu)">Xuất Postman…</button>
+    <button class="danger" id="bDelete">Xoá</button>
+  </div>
+  <span class="dirty" id="dirty"></span>
+  <span class="grow"></span>
+  <a href="#" id="lnkDoc" title="Mở tài liệu API chuẩn LT3">Tài liệu API LT3 ↗</a>
+</div>
+
+<div class="wrap">
+  <div class="col">
+    <div class="card">
+      <h3>Kết nối <span class="sp"></span><span class="muted" id="kbHint"></span></h3>
+      <div class="g2">
+        <label>Tên dự án</label><input type="text" id="pName" placeholder="vd NISSHIN_FBO" />
+        <label>Mã dự án</label><input type="text" id="pId" placeholder="vd NISSHIN" />
+        <label>Bộ phận</label><input type="text" id="pDept" placeholder="LT3" />
+        <label>Địa chỉ gốc</label><input type="text" id="pBase" class="mono" placeholder="http://172.168.5.14/<DU_AN>_API" />
+        <label>Tài khoản</label><input type="text" id="pUser" autocomplete="off" />
+        <label>Mật khẩu</label><input type="password" id="pPass" autocomplete="new-password" placeholder="(chưa lưu)" />
+        <label>Header</label><select id="pAuth"><option value="raw">Authorization: &lt;token&gt; (chuẩn LT3)</option><option value="bearer">Authorization: Bearer &lt;token&gt;</option></select>
+      </div>
+      <details><summary>Lấy token (nâng cao)</summary>
+        <div class="g2" style="margin-top:.4rem">
+          <label>Đường dẫn</label><input type="text" id="pTokPath" class="mono" />
+          <label>Trường token</label><input type="text" id="pTokField" class="mono" />
+          <label>Trường hạn</label><input type="text" id="pExpField" class="mono" />
+          <label>Body</label><textarea id="pTokBody" class="code" style="min-height:5rem"></textarea>
+        </div>
+        <div class="hint">{{username}} / {{password}} được thay lúc gửi. Response chuẩn LT3: token.accesstoken, token.expires.</div>
+      </details>
+      <div class="tok"><button id="bToken" title="Lấy token mới">Lấy token</button><span class="val mono" id="tokVal">(chưa lấy)</span><button id="bCopyTok" title="Chép token đầy đủ" disabled>Chép</button></div>
+      <div class="g2">
+        <label>Tài liệu</label><div class="row"><input type="text" id="pDoc" class="grow" placeholder="File đặc tả (docx/pdf…)" /><button id="bDoc">…</button><button id="bOpenDoc">Mở</button></div>
+        <label>Ghi chú</label><textarea id="pNote" style="min-height:3rem"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Form <span class="muted" id="fCount"></span><span class="sp"></span></h3>
+      <input type="text" id="fFilter" placeholder="Lọc theo tên form…" />
+      <div class="flist" id="fList"></div>
+      <div class="btns">
+        <button id="bAddTpl" title="Thêm form từ mẫu chuẩn LT3">＋ Từ mẫu LT3</button>
+        <button id="bAddBlank">＋ Form trống</button>
+        <button id="bDup">Nhân bản</button>
+        <button id="bUp" title="Lên">▲</button><button id="bDown" title="Xuống">▼</button>
+        <button class="danger" id="bDelForm">Xoá form</button>
+      </div>
     </div>
   </div>
 
-  <div class="form-row">
-    <div class="label-col">Phòng xử lý:</div>
-    <div class="input-col">
-      <input type="text" id="txtDept" placeholder="Bộ phận xử lý API..." />
+  <div class="col">
+    <div class="card">
+      <h3>Form đang chọn <span class="sp"></span><button id="bFormDoc" title="Bảng trường theo tài liệu chuẩn LT3">Tài liệu form</button></h3>
+      <div class="g2">
+        <label>Tên</label><input type="text" id="fName" />
+        <label>Loại</label><select id="fKind"><option value="SyncData">SyncData — đồng bộ danh mục</option><option value="SyncVoucher">SyncVoucher — đồng bộ chứng từ</option><option value="GetData">GetData — lấy dữ liệu</option><option value="custom">Khác</option></select>
+        <label>Endpoint</label><input type="text" id="fEndpoint" class="mono" placeholder="api/GetData" />
+        <label>Mô tả</label><input type="text" id="fDesc" />
+      </div>
+      <div class="row">
+        <span class="lbl">Body (JSON)</span><span class="grow"></span>
+        <button id="bFormat">Định dạng</button><button id="bValidate">Kiểm tra (LT3)</button><button class="primary" id="bSend">Gửi ▶</button>
+      </div>
+      <textarea id="fBody" class="code" spellcheck="false"></textarea>
+      <div class="hint">Biến: <code>{{today}}</code> (yyyy-MM-dd) · <code>{{now}}</code> · <code>{{key}}</code> (khoá duy nhất mỗi lần gửi — dùng cho VoucherId) · <code>{{year}}</code> · <code>{{month}}</code> · <code>{{monthStart}}</code></div>
+      <ul class="issues" id="issues"></ul>
+      <ul class="notes" id="notes"></ul>
+    </div>
+
+    <div class="card" id="resCard" style="display:none">
+      <div class="res-head"><span class="pill" id="rPill"></span><span id="rMeta" class="muted"></span><span class="grow"></span><button id="bCopyRes">Chép response</button></div>
+      <div class="rtabs"><button data-t="tables" class="on">Bảng</button><button data-t="resp">Response</button><button data-t="req">Request</button></div>
+      <div id="rTables"></div>
+      <pre class="out mono" id="rResp" style="display:none"></pre>
+      <pre class="out mono" id="rReq" style="display:none"></pre>
     </div>
   </div>
+</div>
 
-  <div class="form-row">
-    <div class="label-col">Loại đồng bộ:</div>
-    <div class="input-col">
-      <select id="cboSyncType">
-        <option value="Sync Danh mục">Sync Danh mục</option>
-        <option value="Sync Chứng từ">Sync Chứng từ</option>
-      </select>
+<div class="dlg-bar"><span class="status" id="status">Sẵn sàng.</span><button id="bClose">Đóng</button></div>
+
+<!-- chọn form từ mẫu chuẩn LT3 (tạo dự án mới / thêm form) -->
+<div class="modal" id="mTpl"><div class="box">
+  <div class="bd">
+    <h3 style="margin:0" id="mTplTitle">Mẫu chuẩn LT3</h3>
+    <div class="g2" id="mTplNew">
+      <label>Tên dự án</label><input type="text" id="tName" placeholder="vd NISSHIN_FBO" />
+      <label>Mã dự án</label><input type="text" id="tId" placeholder="vd NISSHIN" />
+      <label>Địa chỉ gốc</label><input type="text" id="tBase" class="mono" placeholder="http://172.168.5.14/NISSHIN_API" />
     </div>
+    <div class="row"><label class="chk"><input type="checkbox" id="tAll" /> Chọn tất cả</label><span class="muted" id="tCount"></span></div>
+    <div class="pick" id="tList"></div>
   </div>
+  <div class="ft"><button id="tCancel">Huỷ</button><button class="primary" id="tOk">Tạo</button></div>
+</div></div>
 
-  <div class="form-row">
-    <div class="label-col">Link API Chính:</div>
-    <div class="input-col">
-      <input type="text" id="txtApiUrl" placeholder="https://api.domain.com/v1/sync..." />
-      <button class="btn" id="btnTestApi">Test API</button>
-    </div>
-  </div>
+<!-- tài liệu 1 form -->
+<div class="modal" id="mDoc"><div class="box">
+  <div class="bd doc" id="docBody"></div>
+  <div class="ft"><button id="docOpen">Mở trang tài liệu ↗</button><button class="primary" id="docClose">Đóng</button></div>
+</div></div>
 
-  <div class="form-row">
-    <div class="label-col">Link lấy Token:</div>
-    <div class="input-col">
-      <input type="text" id="txtTokenUrl" placeholder="https://api.domain.com/oauth/token..." />
-    </div>
-  </div>
-
-  <div class="form-row">
-    <div class="label-col">Đường dẫn Token (JSON Path):</div>
-    <div class="input-col">
-      <input type="text" id="txtTokenPath" value="data.token" />
-    </div>
-  </div>
-
-  <div class="form-row">
-    <div class="label-col">Payload Token (JSON):</div>
-    <div class="input-col">
-      <textarea id="txtTokenBody">{\n  "username": "admin",\n  "password": "123"\n}</textarea>
-    </div>
-  </div>
-
-  <div class="form-row">
-    <div class="label-col">Access Token:</div>
-    <div class="input-col">
-      <input type="text" id="txtToken" readonly placeholder="(Chưa lấy token)" />
-      <button class="btn btn-primary" id="btnGetToken">Get Token</button>
-    </div>
-  </div>
-
-  <div class="form-row">
-    <div class="label-col">File cấu trúc đính kèm:</div>
-    <div class="input-col">
-      <input type="text" id="txtSchemaPath" readonly placeholder="Chọn file tài liệu..." />
-      <button class="btn" id="btnBrowseFile">Chọn...</button>
-    </div>
-  </div>
-
-  <div class="bottom-bar">
-    <button class="btn btn-primary" id="btnExportPostman">Xuất file Import Postman</button>
-    <button class="btn" id="btnClose">Đóng</button>
-  </div>
+<!-- xác nhận gửi form ghi dữ liệu -->
+<div class="modal" id="mWrite"><div class="box">
+  <div class="bd"><h3 style="margin:0" id="wTitle">Xác nhận</h3><div id="wText"></div></div>
+  <div class="ft"><button id="wCancel">Huỷ</button><button class="primary" id="wOk">Gửi</button></div>
+</div></div>
 
 <script>
-  function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const S = { projects: [], catalog: [], errors: {}, docUrl: '', p: null, original: '', sel: -1, dirty: false, hasPassword: false, token: '', mode: 'new', lastTab: 'tables', result: null };
 
-  function getFormData() {
-    return {
-      project: document.getElementById('txtProject').value,
-      dept: document.getElementById('txtDept').value,
-      syncType: document.getElementById('cboSyncType').value,
-      apiUrl: document.getElementById('txtApiUrl').value,
-      tokenUrl: document.getElementById('txtTokenUrl').value,
-      tokenPath: document.getElementById('txtTokenPath').value,
-      tokenBody: document.getElementById('txtTokenBody').value,
-      token: document.getElementById('txtToken').value,
-      schemaPath: document.getElementById('txtSchemaPath').value
-    };
+  // ---------------------------------------------------------------- dự án
+  const pf = { Name: 'pName', ProjectId: 'pId', Department: 'pDept', BaseUrl: 'pBase', Username: 'pUser', AuthScheme: 'pAuth', TokenPath: 'pTokPath', TokenField: 'pTokField', ExpiresField: 'pExpField', TokenBody: 'pTokBody', DocPath: 'pDoc', Note: 'pNote' };
+  function fill() {
+    const p = S.p;
+    Object.entries(pf).forEach(([k, id]) => { $(id).value = p ? (p[k] ?? '') : ''; });
+    $('pPass').value = ''; $('pPass').placeholder = S.hasPassword ? '•••••• (đã lưu, mã hoá)' : '(chưa lưu)';
+    $('tokVal').textContent = '(chưa lấy)'; $('bCopyTok').disabled = true; S.token = '';
+    renderForms(); select(p && p.Forms.length ? Math.min(Math.max(S.sel, 0), p.Forms.length - 1) : -1);
+    setDirty(S.dirty);
+  }
+  function collect() {
+    if (!S.p) return null;
+    Object.entries(pf).forEach(([k, id]) => { S.p[k] = $(id).value; });
+    saveForm();
+    return S.p;
+  }
+  function payload(extra) { return Object.assign({ project: collect(), originalName: S.original, password: $('pPass').value }, extra || {}); }
+  function setDirty(d) { S.dirty = d; $('dirty').textContent = d ? '● chưa lưu' : ''; }
+  document.querySelectorAll('.col input, .col textarea, .col select').forEach((el) => el.addEventListener('input', () => { if (S.p) setDirty(true); }));
+
+  // ---------------------------------------------------------------- form
+  function renderForms() {
+    const host = $('fList'); host.textContent = '';
+    const forms = S.p ? S.p.Forms : [];
+    const q = $('fFilter').value.trim().toLowerCase();
+    forms.forEach((f, i) => {
+      if (q && !(f.Name || '').toLowerCase().includes(q)) return;
+      const d = document.createElement('div'); d.className = 'fi' + (i === S.sel ? ' sel' : '');
+      d.innerHTML = '<span class="nm" title="' + esc(f.Description) + '">' + esc(f.Name || '(chưa đặt tên)') + '</span><span class="badge ' + esc(f.Kind) + '">' + esc(f.Kind) + '</span>';
+      d.onclick = () => { saveForm(); select(i); };
+      host.appendChild(d);
+    });
+    $('fCount').textContent = forms.length ? '(' + forms.length + ')' : '';
+  }
+  function select(i) {
+    S.sel = i; const f = S.p && S.p.Forms[i];
+    $('fName').value = f ? f.Name : ''; $('fKind').value = f ? f.Kind : 'GetData'; $('fEndpoint').value = f ? f.Endpoint : ''; $('fDesc').value = f ? f.Description : ''; $('fBody').value = f ? f.Body : '';
+    ['fName', 'fKind', 'fEndpoint', 'fDesc', 'fBody', 'bSend', 'bValidate', 'bFormat', 'bFormDoc'].forEach((id) => { $(id).disabled = !f; });
+    $('issues').textContent = ''; $('issues').className = 'issues';
+    renderForms();
+  }
+  function saveForm() {
+    const f = S.p && S.p.Forms[S.sel]; if (!f) return;
+    f.Name = $('fName').value; f.Kind = $('fKind').value; f.Endpoint = $('fEndpoint').value; f.Description = $('fDesc').value; f.Body = $('fBody').value;
+  }
+  ['fName', 'fKind'].forEach((id) => $(id).addEventListener('change', () => { saveForm(); renderForms(); }));
+  $('fKind').addEventListener('change', () => { const ep = { SyncData: 'api/SyncData', SyncVoucher: 'api/SyncVoucher', GetData: 'api/GetData' }[$('fKind').value]; if (ep && !$('fEndpoint').value) $('fEndpoint').value = ep; });
+  $('fFilter').oninput = renderForms;
+  $('bAddBlank').onclick = () => { if (!S.p) return; saveForm(); S.p.Forms.push({ Name: 'formMoi', Kind: 'GetData', Endpoint: 'api/GetData', Method: 'POST', Body: '{\n    "form": "",\n    "Id": "",\n    "dateFrom": "{{monthStart}}",\n    "dateTo": "{{today}}"\n}', Description: '' }); select(S.p.Forms.length - 1); setDirty(true); $('fName').focus(); $('fName').select(); };
+  $('bDup').onclick = () => { if (!S.p || S.sel < 0) return; saveForm(); const c = JSON.parse(JSON.stringify(S.p.Forms[S.sel])); c.Name += ' (2)'; S.p.Forms.splice(S.sel + 1, 0, c); select(S.sel + 1); setDirty(true); };
+  $('bDelForm').onclick = () => { if (!S.p || S.sel < 0) return; S.p.Forms.splice(S.sel, 1); select(Math.min(S.sel, S.p.Forms.length - 1)); setDirty(true); };
+  const move = (d) => { if (!S.p || S.sel < 0) return; saveForm(); const j = S.sel + d; if (j < 0 || j >= S.p.Forms.length) return; const a = S.p.Forms; [a[S.sel], a[j]] = [a[j], a[S.sel]]; select(j); setDirty(true); };
+  $('bUp').onclick = () => move(-1); $('bDown').onclick = () => move(1);
+  $('fBody').addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); const t = e.target, s = t.selectionStart; t.setRangeText('  ', s, t.selectionEnd, 'end'); setDirty(true); } });
+
+  function format() { try { $('fBody').value = JSON.stringify(JSON.parse($('fBody').value), null, 4); saveForm(); setDirty(true); api.status('Đã định dạng body.', 'ok'); } catch (e) { api.status('Body không phải JSON hợp lệ: ' + e.message, 'err'); } }
+  function validate() { saveForm(); post('validate', { name: $('fName').value, body: $('fBody').value }); }
+  function send(confirmWrite) { if (!S.p || S.sel < 0) return; saveForm(); api.busy(true); post('send', payload({ index: S.sel, confirmWrite: !!confirmWrite })); }
+  $('bFormat').onclick = format; $('bValidate').onclick = validate; $('bSend').onclick = () => send(false);
+  $('bFormDoc').onclick = () => { let form = $('fName').value; try { form = JSON.parse($('fBody').value).form || form; } catch { } post('form-doc', { form }); };
+
+  // ---------------------------------------------------------------- thanh trên
+  $('selProject').onchange = () => { const n = $('selProject').value; if (n) post('open', { name: n }); };
+  $('bSave').onclick = () => { if (S.p) post('save', payload()); };
+  $('bDelete').onclick = () => { if (S.original) ask('Xoá dự án?', 'Xoá dự án <b>' + esc(S.original) + '</b> khỏi máy này (file trong thư mục ApiProjects)?', 'Xoá', () => post('delete', { name: S.original })); };
+  $('bExport').onclick = () => { if (S.p) post('export-postman', payload()); };
+  $('bImport').onclick = () => post('import-postman');
+  $('bOld').onclick = () => post('import-old');
+  $('bToken').onclick = () => { if (S.p) { api.busy(true); post('token', payload()); } };
+  $('bCopyTok').onclick = () => post('copy', { text: S.token });
+  $('bDoc').onclick = () => post('browse-doc');
+  $('bOpenDoc').onclick = () => post('open-path', { path: $('pDoc').value });
+  $('lnkDoc').onclick = (e) => { e.preventDefault(); post('open-path', { path: S.docUrl }); };
+  $('bClose').onclick = () => post('close');
+  $('bCopyRes').onclick = () => S.result && post('copy', { text: S.result.responseText });
+
+  // ---------------------------------------------------------------- chọn form từ mẫu LT3
+  function openPicker(mode) {
+    S.mode = mode;
+    $('mTplTitle').textContent = mode === 'new' ? 'Dự án mới từ mẫu chuẩn LT3' : 'Thêm form từ mẫu chuẩn LT3';
+    $('mTplNew').style.display = mode === 'new' ? '' : 'none'; $('tOk').textContent = mode === 'new' ? 'Tạo' : 'Thêm';
+    const have = new Set(mode === 'add' && S.p ? S.p.Forms.map((f) => (f.Name || '').toLowerCase()) : []);
+    const groups = { SyncData: 'Đồng bộ danh mục (SyncData)', SyncVoucher: 'Đồng bộ chứng từ (SyncVoucher)', GetData: 'Lấy dữ liệu (GetData)' };
+    $('tList').innerHTML = Object.entries(groups).map(([k, label]) => '<div class="grp"><div class="tname">' + label + '</div>' +
+      S.catalog.filter((f) => f.kind === k).map((f) => '<label title="' + esc(f.title) + '"><input type="checkbox" value="' + esc(f.form) + '"' + (have.has(f.form.toLowerCase()) ? ' disabled' : mode === 'new' ? ' checked' : '') + '> ' + esc(f.form) + ' <span class="muted">— ' + esc(f.title) + '</span></label>').join('') + '</div>').join('');
+    $('tAll').checked = mode === 'new'; countPick();
+    $('mTpl').classList.add('on');
+    if (mode === 'new') $('tName').focus();
+  }
+  function countPick() { $('tCount').textContent = $('tList').querySelectorAll('input:checked:not(:disabled)').length + ' / ' + S.catalog.length + ' form'; }
+  $('tList').addEventListener('change', countPick);
+  $('tAll').onchange = () => { $('tList').querySelectorAll('input:not(:disabled)').forEach((c) => { c.checked = $('tAll').checked; }); countPick(); };
+  $('bNewTpl').onclick = () => openPicker('new');
+  $('bAddTpl').onclick = () => { if (S.p) openPicker('add'); };
+  $('tCancel').onclick = () => $('mTpl').classList.remove('on');
+  $('tOk').onclick = () => {
+    const forms = [...$('tList').querySelectorAll('input:checked:not(:disabled)')].map((c) => c.value);
+    $('mTpl').classList.remove('on');
+    if (S.mode === 'new') post('new-template', { name: $('tName').value.trim(), projectId: $('tId').value.trim(), baseUrl: $('tBase').value.trim(), forms });
+    else if (forms.length) { saveForm(); post('add-forms', { forms }); }
+  };
+  $('docClose').onclick = () => $('mDoc').classList.remove('on');
+  // Hộp xác nhận trong trang (thay confirm của trình duyệt): ask(tiêu đề, nội dung html, chữ nút, việc làm khi đồng ý)
+  let askOk = null;
+  function ask(title, html, okText, onOk) { $('wTitle').textContent = title; $('wText').innerHTML = html; $('wOk').textContent = okText; askOk = onOk; $('mWrite').classList.add('on'); $('wOk').focus(); }
+  $('wCancel').onclick = () => { $('mWrite').classList.remove('on'); askOk = null; api.busy(false); };
+  $('wOk').onclick = () => { $('mWrite').classList.remove('on'); const f = askOk; askOk = null; if (f) f(); };
+
+  // ---------------------------------------------------------------- kết quả
+  document.querySelectorAll('.rtabs button').forEach((b) => b.onclick = () => showTab(b.dataset.t));
+  function showTab(t) {
+    S.lastTab = t;
+    document.querySelectorAll('.rtabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+    $('rTables').style.display = t === 'tables' ? '' : 'none'; $('rResp').style.display = t === 'resp' ? '' : 'none'; $('rReq').style.display = t === 'req' ? '' : 'none';
+  }
+  const pretty = (s) => { try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } };
+
+  // ---------------------------------------------------------------- phím tắt (Template → Phím tắt → "Khai báo API")
+  const KEYS = { 'api.send': () => send(false), 'api.save': () => S.p && post('save', payload()), 'api.token': () => $('bToken').click(), 'api.format': format, 'api.validate': validate };
+  const DEF = { 'api.send': 'Ctrl+Shift+Enter', 'api.save': 'Ctrl+S', 'api.token': 'Ctrl+Shift+T', 'api.format': 'Ctrl+Shift+F', 'api.validate': 'Ctrl+Shift+K' };
+  const comboOf = (id) => { const m = window.__bcodeEditorKeys || {}; return Object.prototype.hasOwnProperty.call(m, id) ? m[id] : DEF[id]; };
+  document.addEventListener('keydown', (e) => {
+    if (document.querySelector('.modal.on')) { if (e.key === 'Escape') document.querySelectorAll('.modal.on').forEach((m) => m.classList.remove('on')); return; }
+    const c = window.__bcodeCombo ? window.__bcodeCombo(e) : null; if (!c) return;
+    const id = Object.keys(KEYS).find((k) => comboOf(k) === c);
+    if (id) { e.preventDefault(); e.stopPropagation(); KEYS[id](); }
+  }, true);
+  function keyHints() {
+    $('bSend').title = 'Gửi (' + comboOf('api.send') + ')'; $('bSave').title = 'Lưu dự án (' + comboOf('api.save') + ')'; $('bToken').title = 'Lấy token mới (' + comboOf('api.token') + ')';
+    $('bFormat').title = 'Định dạng JSON (' + comboOf('api.format') + ')'; $('bValidate').title = 'Kiểm tra theo bảng trường chuẩn LT3 (' + comboOf('api.validate') + ')';
+    $('kbHint').textContent = comboOf('api.send') ? 'Gửi: ' + comboOf('api.send') : '';
   }
 
-  document.getElementById('btnLoadProfile').onclick = () => post({ action: 'load-profile' });
-  document.getElementById('btnSaveProfile').onclick = () => post({ action: 'save-profile', data: getFormData() });
-  document.getElementById('btnTestApi').onclick = () => post({ action: 'test-api', data: getFormData() });
-  document.getElementById('btnGetToken').onclick = () => post({ action: 'get-token', data: getFormData() });
-  document.getElementById('btnBrowseFile').onclick = () => post({ action: 'browse-file' });
-  document.getElementById('btnExportPostman').onclick = () => post({ action: 'export-postman', data: getFormData() });
-  document.getElementById('btnClose').onclick = () => post({ action: 'close' });
-
-  // Gọi từ C#
-  window.setProfileData = function(data) {
-    if (!data) return;
-    document.getElementById('txtProject').value = data.projectId || '';
-    document.getElementById('txtDept').value = data.department || '';
-    document.getElementById('cboSyncType').value = data.syncType || 'Sync Danh mục';
-    document.getElementById('txtApiUrl').value = data.baseApiUrl || '';
-    document.getElementById('txtTokenUrl').value = data.tokenEndpoint || '';
-    document.getElementById('txtTokenBody').value = data.tokenRequestBody || '';
-    document.getElementById('txtToken').value = data.currentToken || '';
-    document.getElementById('txtSchemaPath').value = data.schemaFilePath || '';
+  // ---------------------------------------------------------------- C# gọi
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  window.api = {
+    init(st) {
+      S.projects = st.projects || []; S.catalog = st.catalog || []; S.errors = st.errors || {}; S.docUrl = st.docUrl || '';
+      $('selProject').innerHTML = '<option value="">— chọn dự án (' + S.projects.length + ') —</option>' + S.projects.map((n) => '<option' + (n === S.original ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
+      $('bOld').style.display = st.oldProfiles ? '' : 'none'; $('bOld').textContent = 'Chuyển ' + st.oldProfiles + ' hồ sơ cũ';
+      if (!S.p) { fill(); api.status(S.projects.length ? 'Chọn dự án, hoặc "＋ Mới từ mẫu LT3" / "Nhập Postman…". Hồ sơ lưu riêng trên máy này: ' + st.folder : 'Chưa có dự án — bấm "＋ Mới từ mẫu LT3" (31 form chuẩn) hoặc "Nhập Postman…".', ''); }
+      keyHints();
+    },
+    project(o) {
+      S.p = o.project; S.p.Forms = S.p.Forms || []; S.hasPassword = !!o.hasPassword; S.sel = 0;
+      S.original = o.dirty ? '' : S.p.Name;
+      if (!o.dirty) $('selProject').value = S.p.Name;
+      $('notes').textContent = ''; $('resCard').style.display = 'none';
+      fill(); setDirty(!!o.dirty);
+    },
+    addForms(forms) { forms.forEach((f) => S.p.Forms.push(f)); select(S.p.Forms.length - 1); setDirty(true); api.status('Đã thêm ' + forms.length + ' form từ mẫu LT3.', 'ok'); },
+    cleared() { S.p = null; S.original = ''; S.sel = -1; fill(); setDirty(false); },
+    token(t) { S.token = t.full; $('tokVal').textContent = t.masked + ' · hết hạn ' + t.expires; $('tokVal').title = 'Hết hạn ' + t.expires; $('bCopyTok').disabled = false; api.busy(false); },
+    result(r) {
+      S.result = r; api.busy(false);
+      $('resCard').style.display = '';
+      $('rPill').textContent = 'HTTP ' + r.status + (r.ok ? ' · OK' : ' · Lỗi'); $('rPill').className = 'pill ' + (r.ok ? 'ok' : 'err');
+      $('rMeta').textContent = r.ms + ' ms' + (r.message ? ' · ' + r.message : '') + ' · ' + r.url;
+      $('rResp').textContent = pretty(r.responseText); $('rReq').textContent = 'POST ' + r.url + '\n\n' + pretty(r.requestBody);
+      const host = $('rTables');
+      host.innerHTML = (r.tables || []).length ? r.tables.map((t) => '<div class="tname">' + esc(t.name) + ' <span class="muted">(' + t.rows.length + ' dòng)</span></div><div class="tbl"><table><thead><tr><th>#</th>' + t.columns.map((c) => '<th>' + esc(c) + '</th>').join('') +
+        '</tr></thead><tbody>' + t.rows.slice(0, 500).map((row, i) => '<tr><td class="muted">' + (i + 1) + '</td>' + row.map((v) => '<td>' + (v == null ? '<span class="muted">null</span>' : esc(v)) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>').join('')
+        : '<div class="muted">Response không có dữ liệu dạng bảng — xem tab Response.</div>';
+      showTab((r.tables || []).length ? 'tables' : 'resp');
+    },
+    issues(list) {
+      const ul = $('issues'); ul.className = 'issues' + (list.length ? '' : ' ok');
+      ul.innerHTML = list.length ? list.map((x) => '<li>' + esc(x) + '</li>').join('') : '<li>✓ Body khớp bảng trường chuẩn LT3 (hoặc form riêng của dự án — không có bảng để so).</li>';
+    },
+    notes(list) { $('notes').innerHTML = (list || []).map((x) => '<li>' + esc(x) + '</li>').join(''); },
+    formDoc(d) {
+      if (!d) { api.status('Form này không có trong tài liệu chuẩn LT3 (form riêng của dự án).', 'warn'); return; }
+      $('docBody').innerHTML = '<h3 style="margin:0">' + esc(d.form) + ' <span class="badge ' + esc(d.kind) + '">' + esc(d.kind) + '</span></h3><div class="muted">' + esc(d.title) + ' · POST ' + esc(d.endpoint) + '</div><div class="hint">' + esc(d.description) + '</div>' +
+        d.sections.map((s) => '<div class="tname">' + esc(s.label || s.name) + '</div><table><thead><tr><th>Trường</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead><tbody>' +
+          s.fields.map((f) => '<tr><td class="mono">' + esc(f.name) + '</td><td>' + esc(f.type) + '</td><td class="req">' + (f.required ? '✔' : '') + '</td><td>' + esc(f.description) + '</td></tr>').join('') + '</tbody></table>').join('');
+      $('docOpen').onclick = () => post('open-path', { path: d.doc });
+      $('mDoc').classList.add('on');
+    },
+    confirmWrite(name) {
+      ask('Gửi form ghi dữ liệu?', 'Form <b>' + esc(name) + '</b> là <b>' + esc($('fKind').value) + '</b> — sẽ <b>GHI dữ liệu</b> vào hệ thống Fast của dự án (' + esc($('pBase').value) + '). Chỉ gửi lên môi trường test / khi chắc chắn.', 'Gửi', () => send(true));
+    },
+    docPath(p) { $('pDoc').value = p; setDirty(true); },
+    busy(on) { ['bSend', 'bToken'].forEach((id) => { $(id).disabled = !!on || (id === 'bSend' && S.sel < 0); }); },
+    status(text, kind) { const s = $('status'); s.textContent = text; s.title = text; s.className = 'status' + (kind ? ' ' + kind : ''); },
   };
-
-  window.setToken = function(token) {
-    document.getElementById('txtToken').value = token;
-  };
-
-  window.setSchemaPath = function(path) {
-    document.getElementById('txtSchemaPath').value = path;
-  };
-
-  window.setTheme = function(isDark) {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-  };
+  window.applyKeymap = keyHints;
+  fill();
+})();
 </script>
 </body>
 </html>

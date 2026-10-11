@@ -1,0 +1,6 @@
+# Bcode — hướng dẫn cho Claude
+
+- Trước khi tìm/sửa code: đọc `STRUCTURE.md` (bản đồ tính năng → file, công thức thêm tool, bẫy). Cây thư mục chi tiết ở `STRUCTURE-TREE.md`. Tài liệu Word kèm sơ đồ: `Cấu trúc Bcode  BcodeViewer (v3).docx`.
+- Chỉ mở rộng đọc code khi bản đồ không đủ. Bỏ qua `src/BcodeViewer.App/Web/vs/` (Monaco vendor) và `src/Bcode.App/Templates/fileSource/` (hàng nghìn file mẫu).
+- Sau khi thêm/xoá/đổi chức năng lớn: sửa `_docwork/content.py` (bảng tính năng) rồi chạy `python _docwork/build.py` để sinh lại docx + STRUCTURE*.md (sơ đồ: `python _docwork/diagrams.py`).
+- Script có đường dẫn Windows (dấu \) phải ghi bằng Write, không dùng heredoc trong Bash.

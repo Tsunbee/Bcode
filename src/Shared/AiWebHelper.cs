@@ -51,11 +51,11 @@ internal static class AiWebHelper
     /// <summary>Như <see cref="InitAsync"/> nhưng KHÔNG BAO GIỜ ném lỗi: thất bại (vd COMException 0x8007139F "group or resource is not in the correct state" khi thư mục profile đang được
     /// tiến trình WebView2 khác — hoặc lần khởi động trước còn treo — giữ ở trạng thái không khớp) thì thử lại vài lần, vẫn lỗi thì bỏ qua và để khung AI trống. Trước đây lỗi này nằm trong
     /// MainForm_Load (async void) nên làm sập cả cửa sổ BcodeViewer. Trả về true nếu khởi tạo được.</summary>
-    public static async Task<bool> InitSafeAsync(WebView2 web, AiSite site, string appDataRoot)
+    public static async Task<bool> InitSafeAsync(WebView2 web, AiSite site, string appDataRoot, string? startUrl = null, bool waitLoaded = false)
     {
         for (var attempt = 0; attempt < 3; attempt++)
         {
-            try { await InitAsync(web, site, appDataRoot); return true; }
+            try { await InitAsync(web, site, appDataRoot, startUrl, waitLoaded); return true; }
             catch (Exception) when (attempt < 2) { try { await Task.Delay(700 * (attempt + 1)); } catch { } }
             catch (Exception) { return false; }
         }
@@ -65,7 +65,7 @@ internal static class AiWebHelper
     /// <summary>Khởi tạo <paramref name="web"/> với profile riêng của trang, User-Agent Chrome, bỏ header Client Hints (Sec-CH-UA*) cho khớp User-Agent
     /// (UA nói Chrome 126 mà Client Hints nói WebView2 khiến claude.ai/Google âm thầm tắt tính năng — ô chat không hiện), rồi mở trang chủ.
     /// Không chặn popup accounts.google.com: đăng nhập Google cần popup thật (window.opener/window.close).</summary>
-    public static async Task InitAsync(WebView2 web, AiSite site, string appDataRoot)
+    public static async Task InitAsync(WebView2 web, AiSite site, string appDataRoot, string? startUrl = null, bool waitLoaded = false)
     {
         var env = await CoreWebView2Environment.CreateAsync(userDataFolder: ProfileDir(appDataRoot, site));
         await web.EnsureCoreWebView2Async(env);
@@ -106,7 +106,14 @@ internal static class AiWebHelper
                 }
             };
         }
-        core.Navigate(site == AiSite.Claude ? ClaudeUrl : GeminiUrl);
+        TaskCompletionSource? loaded = null;
+        if (waitLoaded)
+        {
+            loaded = new TaskCompletionSource();
+            core.NavigationCompleted += (_, _) => loaded.TrySetResult();
+        }
+        core.Navigate(!string.IsNullOrWhiteSpace(startUrl) ? startUrl : site == AiSite.Claude ? ClaudeUrl : GeminiUrl);
+        if (loaded is not null) await Task.WhenAny(loaded.Task, Task.Delay(20000));   // đợi trang tải xong (tối đa 20 giây) để dán nội dung file được ngay
     }
 
     /// <summary>Chụp lại clipboard hiện tại (text / danh sách file / ảnh) và trả về hàm khôi phục — đính kèm file phải ghi đè clipboard để Ctrl+V thật dán được file.</summary>

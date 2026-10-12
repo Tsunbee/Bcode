@@ -35,8 +35,8 @@ public class MainForm : Form
     private const string WebVirtualHost = "bcodeviewer.local";
 
     private readonly WebView2 _webView = new() { Dock = DockStyle.Fill };
-    private readonly WebView2 _claudeWebView = new() { Dock = DockStyle.Fill }; 
-    private readonly WebView2 _geminiWebView = new() { Dock = DockStyle.Fill };
+    private WebView2 _claudeWebView = new() { Dock = DockStyle.Fill }; 
+    private WebView2 _geminiWebView = new() { Dock = DockStyle.Fill };
     private readonly TreeView _tree = new() { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true };
     private readonly Label _projectsHeader = new()
     {
@@ -514,11 +514,13 @@ public class MainForm : Form
         _toggleClaude = () => {
             SetAiCollapsed(!AiCollapsed());
             if (!AiCollapsed()) SetDefaultDistance();
+            else ReleaseAiViews(true, true);   // tắt khung AI = tắt luôn trang web (giải phóng RAM); mở lại thì tự nạp lại, đăng nhập / cuộc trò chuyện cuối vẫn còn
 
             // Focus vào ô chat Claude nếu vừa mở ra
             if (!AiCollapsed())
             {
-                _geminiWebView.Visible = false;   // đóng Gemini lại nếu đang mở, tránh đè 2 sidebar
+                ReleaseAiViews(false, true);      // đóng Gemini lại nếu đang mở, tránh đè 2 sidebar (và giải phóng RAM của nó)
+                _geminiWebView.Visible = false;
                 _claudeWebView.Visible = true;
                 _claudeWebView.Focus();
 
@@ -529,12 +531,14 @@ public class MainForm : Form
                 // cần gõ câu hỏi rồi gửi — xem InjectFileContextIntoClaudeAsync.
                 // BeginInvoke: đợi panel vừa hiện ra được layout xong rồi mới focus + dán, để
                 // WebView thật sự nhận focus (cần cho claude.ai gói nội dung thành thẻ PASTED).
-                if (_activePath is { } pathToInject)
-                    BeginInvoke(() =>
-                    {
-                        _claudeWebView.Focus();
-                        _ = InjectFileContextIntoClaudeAsync(pathToInject);
-                    });
+                var injectPath = _activePath;
+                BeginInvoke(async () =>
+                {
+                    var freshly = await EnsureAiViewAsync(Bcode.Shared.AiSite.Claude);   // lần đầu (hoặc sau khi đã tắt) mới nạp trang, đợi tải xong
+                    if (AiCollapsed() || !_claudeWebView.Visible) return;
+                    _claudeWebView.Focus();
+                    if (injectPath is not null) _ = InjectFileContextIntoClaudeAsync(injectPath);
+                });
             }
         };
         _toggleGemini = () => {
@@ -542,10 +546,15 @@ public class MainForm : Form
             var wasHidden = AiCollapsed();
             SetAiCollapsed(false);
             if (wasHidden) SetDefaultDistance();
+            ReleaseAiViews(true, !willShow);   // Claude đang ẩn đi → giải phóng; Gemini chỉ giải phóng khi tắt
             _claudeWebView.Visible = false;
             _geminiWebView.Visible = willShow;
             if (!willShow) SetAiCollapsed(true);
-            else _geminiWebView.Focus();
+            else
+            {
+                _geminiWebView.Focus();
+                _ = EnsureAiViewAsync(Bcode.Shared.AiSite.Gemini);
+            }
         };
         // 👇 Thêm khối này ngay bên dưới, KHÔNG nằm trong toggleClaudeBtn.Click ở trên
         toggleClaudeBtn.Click += (_, _) => _toggleClaude();
@@ -1044,7 +1053,7 @@ public class MainForm : Form
         _webView.CoreWebView2.SetVirtualHostNameToFolderMapping(
             WebVirtualHost, webFolder, CoreWebView2HostResourceAccessKind.Allow);
         _webView.CoreWebView2.Navigate($"https://{WebVirtualHost}/index.html");
-        _ = InitAiPanelsAsync();   // Claude / Gemini nhúng: nền, không chặn việc mở file
+        // Claude / Gemini nhúng: KHÔNG nạp sẵn nữa (mỗi trang chiếm vài trăm MB RAM dù chưa mở) — nạp lúc bấm nút, xem EnsureAiViewAsync / ReleaseAiViews.
 
         // Driven by the page telling us the editor object exists (see EditorBridge.PageReady
         // for why NavigationCompleted is the wrong signal). Host object calls arrive on this
@@ -1273,10 +1282,72 @@ public class MainForm : Form
 
     /// <summary>Khởi tạo khung Claude / Gemini nhúng (dùng chung với Bcode.App — xem Shared/AiWebHelper.cs) ở nền. Lỗi hay treo ở đây (profile đang bị tiến trình WebView2 khác giữ...)
     /// chỉ làm khung AI trống, không còn chặn hay làm sập editor.</summary>
-    private async Task InitAiPanelsAsync()
+    private readonly Dictionary<Bcode.Shared.AiSite, string> _aiLastUrl = new();
+    private readonly HashSet<Bcode.Shared.AiSite> _aiIniting = new();
+
+    private static string AiUrlFile() => Path.Combine(BcodePaths.AppData, "Bcode", "ai-last-urls.txt");
+
+    /// <summary>Địa chỉ trang AI lần cuối (nhớ giữa các lần bật tắt và giữa các lần mở app) để mở lại đúng cuộc trò chuyện đang dở. Đăng nhập thì nằm trong profile WebView2 trên đĩa nên luôn còn.</summary>
+    private string? AiLastUrl(Bcode.Shared.AiSite site)
     {
-        try { await Bcode.Shared.AiWebHelper.InitSafeAsync(_claudeWebView, Bcode.Shared.AiSite.Claude, BcodePaths.AppData); } catch { /* khung AI trống */ }
-        try { await Bcode.Shared.AiWebHelper.InitSafeAsync(_geminiWebView, Bcode.Shared.AiSite.Gemini, BcodePaths.AppData); } catch { /* khung AI trống */ }
+        if (_aiLastUrl.Count == 0)
+            try
+            {
+                foreach (var line in File.ReadAllLines(AiUrlFile()))
+                {
+                    var i = line.IndexOf('=');
+                    if (i > 0 && Enum.TryParse<Bcode.Shared.AiSite>(line[..i], out var s)) _aiLastUrl[s] = line[(i + 1)..];
+                }
+            }
+            catch { /* chưa có file */ }
+        return _aiLastUrl.TryGetValue(site, out var u) && u.StartsWith("https://") ? u : null;
+    }
+
+    private void SaveAiLastUrls()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(AiUrlFile())!);
+            File.WriteAllLines(AiUrlFile(), _aiLastUrl.Select(kv => kv.Key + "=" + kv.Value));
+        }
+        catch { /* không ghi được thì thôi */ }
+    }
+
+    /// <summary>Nạp trang AI nếu chưa nạp (lần đầu, hoặc sau khi tắt khung đã giải phóng). Trả về true nếu vừa nạp mới.</summary>
+    private async Task<bool> EnsureAiViewAsync(Bcode.Shared.AiSite site)
+    {
+        var view = site == Bcode.Shared.AiSite.Claude ? _claudeWebView : _geminiWebView;
+        if (view.CoreWebView2 is not null || !_aiIniting.Add(site)) return false;
+        try
+        {
+            await Bcode.Shared.AiWebHelper.InitSafeAsync(view, site, BcodePaths.AppData, AiLastUrl(site), waitLoaded: true);
+            return true;
+        }
+        catch { return false; /* khung AI trống */ }
+        finally { _aiIniting.Remove(site); }
+    }
+
+    /// <summary>Tắt hẳn trang web của khung AI đang ẩn: nhớ địa chỉ hiện tại, huỷ WebView2 (kéo theo các tiến trình trình duyệt của nó, trả RAM) rồi đặt một WebView2 trống thay vào chỗ cũ để lần mở sau nạp lại.</summary>
+    private void ReleaseAiViews(bool claude, bool gemini)
+    {
+        if (claude) _claudeWebView = ReleaseAiView(_claudeWebView, Bcode.Shared.AiSite.Claude);
+        if (gemini) _geminiWebView = ReleaseAiView(_geminiWebView, Bcode.Shared.AiSite.Gemini);
+    }
+
+    private WebView2 ReleaseAiView(WebView2 old, Bcode.Shared.AiSite site)
+    {
+        if (old.CoreWebView2 is null) return old;   // chưa nạp thì không có gì để giải phóng
+        try
+        {
+            var src = old.CoreWebView2.Source;
+            if (!string.IsNullOrEmpty(src) && src.StartsWith("https://")) { _aiLastUrl[site] = src; SaveAiLastUrls(); }
+        }
+        catch { /* trang đã đóng */ }
+        var parent = old.Parent;
+        var fresh = new WebView2 { Dock = DockStyle.Fill, Visible = false };
+        if (parent is not null) { parent.Controls.Remove(old); parent.Controls.Add(fresh); }
+        try { old.Dispose(); } catch { /* đang huỷ dở */ }
+        return fresh;
     }
 
     /// <summary>Actions &gt; Clear Structure App — same as Bcode.App: deletes the files directly

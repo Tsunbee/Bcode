@@ -24,6 +24,8 @@
             border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
   input[type="number"]:focus { outline: none; border-color: var(--accent); }
   input.invalid { border-color: var(--danger) !important; }
+  .ctl select { flex: 0 0 auto; width: 108px; font-family: inherit; font-size: 12px; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: 4px; padding: 6px 4px; }
+  .ctl #btnTr { white-space: nowrap; }
   .hint { font-size: 11.5px; margin-top: 3px; min-height: 14px; color: var(--text-muted); }
   .hint.err { color: var(--danger); } .hint.warn { color: var(--warning); } .hint.ok { color: var(--success); }
   footer { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--panel-alt); border-top: 1px solid var(--border); }
@@ -67,7 +69,13 @@
     <h3>Tên menu</h3>
     <div class="grid">
       <div><label for="bar">Bar (tên tiếng Việt)</label><div class="ctl"><input type="text" id="bar" /></div></div>
-      <div><label for="bar2">Bar2 (English name)</label><div class="ctl"><input type="text" id="bar2" /></div></div>
+      <div><label for="bar2">Bar2 (English name)</label><div class="ctl"><input type="text" id="bar2" />
+        <select id="trLang" title="Ngôn ngữ dịch từ Bar (tiếng Việt)">
+          <option value="en">English</option><option value="zh-CN">中文 (giản thể)</option><option value="zh-TW">中文 (phồn thể)</option>
+          <option value="ja">日本語</option><option value="ko">한국어</option><option value="th">ไทย</option><option value="fr">Français</option>
+          <option value="de">Deutsch</option><option value="es">Español</option><option value="id">Indonesia</option><option value="ru">Русский</option>
+        </select>
+        <button class="btn btn-border" id="btnTr" title="Dịch Bar (tiếng Việt) sang ngôn ngữ chọn bằng Google Dịch rồi điền vào Bar2">🌐 Dịch</button></div></div>
     </div>
   </section>
 
@@ -151,6 +159,20 @@
     if (f === 'wmenuId') window.setHint('w', '');
     if (f === 'menuId') window.setHint('m', '');
   }));
+
+  try { const l = localStorage.getItem('wcmdTrLang'); if (l) $('trLang').value = l; } catch (e) { }
+  $('trLang').onchange = () => { try { localStorage.setItem('wcmdTrLang', $('trLang').value); } catch (e) { } };
+  $('btnTr').onclick = () => {
+    const text = $('bar').value.trim();
+    if (!text) { window.setStatus('Nhập Bar (tiếng Việt) trước rồi mới dịch.', 'err'); $('bar').focus(); return; }
+    $('btnTr').disabled = true; window.setStatus('Đang dịch…');
+    post('translate', { text, lang: $('trLang').value });
+  };
+  window.setTranslated = (text, err) => {
+    $('btnTr').disabled = false;
+    if (err) { window.setStatus(err, 'err'); return; }
+    $('bar2').value = text; $('bar2').classList.remove('invalid'); window.setStatus('Đã dịch — kiểm tra lại Bar2 rồi Save.', 'ok');
+  };
 
   $('sugW').onclick = () => post('suggest-wmenu', collect());
   $('sugM').onclick = () => post('suggest-menu', collect());

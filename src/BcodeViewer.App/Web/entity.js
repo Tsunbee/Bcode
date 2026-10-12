@@ -78,7 +78,7 @@ class BcodeEntity {
   /// mới là cái có hiệu lực. Thiếu bước này thì luôn lấy khai báo đầu tiên (trong khối) và sai
   /// ngược với FastBusiness. Khối bị bỏ được thay bằng khoảng trắng GIỮ NGUYÊN độ dài và xuống dòng,
   /// để offset của các khai báo còn lại (dùng cho F12/hover) không lệch.
-  async applyConditionals(text, path) {
+  async applyConditionals(text, path, ctx) {
     if (!text || text.indexOf('<![') < 0) return text;
     const startRe = /<!\[\s*(?:%([A-Za-z_][\w.:$-]*);|(INCLUDE|IGNORE))\s*\[/g;
     const params = this.parseDeclarations(text).filter((d) => d.isParam);
@@ -105,8 +105,15 @@ class BcodeEntity {
         else if (decl && decl.kind === 'system') {
           const file = await this.readFile(resolvePath(dir, decl.systemPath.replace(/\//g, '\\')));
           value = file || '';
+        } else if (!decl && !(ctx && ctx.noGlobal)) {
+          // Tham số công tắc khai báo Ở FILE KHÁC (vd Unit.Customer dùng %Conditional.Control.Unit.Customer; do Unit.ent khai báo): tra theo chuỗi include của file đang mở.
+          // Không có bước này thì luôn coi là IGNORE → mất khai báo trong khối (vd <!ENTITY j "5"> → anchor sai → cột nhãn bị giãn rộng).
+          if (ctx) ctx.used = true;
+          value = await this.lookupParamValue(m[1]);
         }
-        mode = /^\s*\uFEFF?\s*INCLUDE\s*$/i.test(value) ? 'INCLUDE' : 'IGNORE';
+        // Chỉ cần file BẮT ĐẦU bằng INCLUDE: nhiều file công tắc (vd Include\Unit.txt) có thêm rác / ký tự UTF-16 phía sau ("INCLUDE" + NULL...) mà FBO vẫn hiểu là INCLUDE —
+        // so khớp cả file thì nhầm thành IGNORE, làm mất khai báo như <!ENTITY j "5"> (cột co giãn của view bị lệch → nhãn bị giãn rộng).
+        mode = /^[\s\uFEFF\u0000]*INCLUDE(?![A-Za-z0-9_])/i.test(value) ? 'INCLUDE' : 'IGNORE';
       }
 
       if (mode === 'IGNORE') {
@@ -119,12 +126,53 @@ class BcodeEntity {
     return out;
   }
 
+  /// Giá trị (chữ INCLUDE / IGNORE...) của tham số %Tên; khai báo ở FILE KHÁC, tra theo chuỗi include của file đang mở ('' nếu không thấy).
+  /// Duyệt RIÊNG (không qua resolve / declInfo): mỗi file chỉ đánh giá công tắc bằng khai báo ngay trong nó (noGlobal) nên không đệ quy, không va chạm khi nhiều lần vẽ chạy song song.
+  async lookupParamValue(name) {
+    const bcode = this.bcode;
+    if (!bcode.activePath || !bcode.currentModel) return '';
+    const ctxKey = this.docCtxKey();
+    if (!this._paramMemo || this._paramMemoKey !== ctxKey) { this._paramMemo = new Map(); this._paramMemoKey = ctxKey; }
+    if (this._paramMemo.has(name)) return this._paramMemo.get(name);
+    const seen = new Set();
+    const walk = async (path, text, depth) => {
+      if (!text || depth < 0 || seen.has(path.toLowerCase())) return null;
+      seen.add(path.toLowerCase());
+      const decls = this.parseDeclarations(await this.applyConditionals(text, path, { noGlobal: true }));
+      const hit = decls.find((d) => d.isParam && d.name === name);
+      if (hit) {
+        if (hit.kind === 'value') return hit.value || '';
+        if (hit.kind === 'system') return (await this.readFile(resolvePath(dirNameOf(path), hit.systemPath.replace(/\//g, '\\')))) || '';
+        return '';
+      }
+      for (const inc of decls.filter((d) => d.kind === 'system')) {
+        const full = resolvePath(dirNameOf(path), inc.systemPath.replace(/\//g, '\\'));
+        if (seen.has(full.toLowerCase())) continue;
+        const sub = await this.readFile(full);
+        const r = sub ? await walk(full, sub, depth - 1) : null;
+        if (r !== null) return r;
+      }
+      return null;
+    };
+    const value = (await walk(bcode.activePath, bcode.currentModel.getValue(), 8)) || '';
+    this._paramMemo.set(name, value);
+    return value;
+  }
+
+  /// Khoá "ngữ cảnh tài liệu" (file đang mở + phần DOCTYPE): kết quả công tắc tra theo file khác chỉ đúng trong ngữ cảnh này.
+  docCtxKey() {
+    const b = this.bcode;
+    if (!b.activePath || !b.currentModel) return '';
+    return b.activePath.toLowerCase() + '|' + ((/<!DOCTYPE[\s\S]*?\]>/i.exec(b.currentModel.getValue()) || [''])[0]);
+  }
+
   async declInfo(text, path) {
     const key = (path || '').toLowerCase();
     const hit = this.declCache.get(key);
     // text === text: cùng tham chiếu chuỗi (file include lấy từ fileCache) thì so sánh O(1).
-    if (hit && hit.text === text) return hit;
-    const decls = this.parseDeclarations(await this.applyConditionals(text, path));
+    if (hit && hit.text === text && (!hit.ctxKey || hit.ctxKey === this.docCtxKey())) return hit;
+    const cctx = { used: false };
+    const decls = this.parseDeclarations(await this.applyConditionals(text, path, cctx));
     const byName = new Map();
     for (const d of decls) if (!byName.has(d.name)) byName.set(d.name, d); // trùng tên: khai báo đầu thắng
     // Trong XML entity tham số (<!ENTITY % X ...>, dùng %X;) và entity thường (<!ENTITY X ...>, dùng &X;) là HAI không gian tên riêng: cùng tên được.
@@ -132,7 +180,7 @@ class BcodeEntity {
     // tra &TabHeightFomula; bằng byName (khai báo đầu thắng) sẽ ra nhầm khai báo tham số và nhét CẢ file .ent vào giá trị (xem trước Dir báo lỗi '<' trong thuộc tính).
     const byNameGeneral = new Map();
     for (const d of decls) if (!d.isParam && !byNameGeneral.has(d.name)) byNameGeneral.set(d.name, d);
-    const info = { text, decls, byName, byNameGeneral };
+    const info = { text, decls, byName, byNameGeneral, ctxKey: cctx.used ? this.docCtxKey() : null };
     this.declCache.set(key, info);
     return info;
   }

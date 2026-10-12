@@ -45,9 +45,14 @@
   th:hover { color: var(--accent); }
   td { padding: .22rem .5rem; border: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); vertical-align: top; }
   td.nd { max-width: 34rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-  #dtModal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #split { flex: 1; min-height: 0; display: flex; }
+  #split #wrap { flex: 1; min-width: 0; }
+  #dtModal { position: relative; flex: none; width: 36rem; min-width: 18rem; max-width: 75vw; display: none; border-left: var(--bw) solid var(--accent); background: var(--panel, #222); }
   #dtModal.show { display: flex; }
-  #dtBox { width: min(60rem, 92vw); max-height: 86vh; display: flex; flex-direction: column; background: var(--panel, #222); color: var(--text, #ddd); border: 1px solid var(--border, #555); border-radius: .5rem; padding: .8rem 1rem; gap: .5rem; }
+  #dtResizer { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 2; }
+  #dtResizer:hover, #dtResizer.drag { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+  tr.sel td { background: color-mix(in srgb, var(--accent) 22%, transparent) !important; }
+  #dtBox { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--panel, #222); color: var(--text, #ddd); border: 0; border-radius: 0; padding: .8rem 1rem; gap: .5rem; }
   #dtBox .dtHead { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: 1.05rem; }
   #dtBox .dtBtns button { margin-left: .4rem; }
   #dtMeta { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: .92rem; opacity: .85; }
@@ -122,12 +127,14 @@
 <div id="msg"></div>
 <div id="dash"></div>
 <div id="prio"></div>
-<div id="dtModal"><div id="dtBox">
+<div id="split">
+<div id="wrap"><div class="empty" id="empty">Nhập điều kiện rồi bấm “Kéo về”.</div><table id="tbl" hidden></table></div>
+<div id="dtModal"><div id="dtResizer" title="Kéo để đổi độ rộng khung"></div><div id="dtBox">
   <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
   <div id="dtMeta"></div>
   <div id="dtBody"></div>
 </div></div>
-<div id="wrap"><div class="empty" id="empty">Nhập điều kiện rồi bấm “Kéo về”.</div><table id="tbl" hidden></table></div>
+</div>
 
 <script src="richreq.js"></script>
 <script>
@@ -143,7 +150,7 @@
     ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai'], ['ngayHt', 'Hạn hoàn thành'], ['trangThai', 'Trạng thái']];
 
   let prioShown = [];
-  let vfil = { maDa: '', maLt1: '', maNv1: '' }, fetchedAt = '', dimF = [], tlksF = '', view = 'list', timer = 0, rows = [], today = '', on = new Set(GROUPS.map((g) => g[0]).concat(['other'])), onlyLate = false, sortKey = '', sortDir = 1;
+  let vfil = { maDa: '', maLt1: '', maNv1: '', trangThai: '' }, fetchedAt = '', dimF = [], tlksF = '', view = 'list', timer = 0, rows = [], today = '', on = new Set(GROUPS.map((g) => g[0]).concat(['other'])), onlyLate = false, sortKey = '', sortDir = 1;
   const stOf = (r) => { const k = String(r.trangThai || '').trim().toUpperCase(); return STATUS[k] ? { code: k, label: STATUS[k][0], group: STATUS[k][1] } : { code: k, label: k || '(trống)', group: 'other' }; };
   // Tới hạn mà chưa hoàn thành = nhóm “Chưa làm” (DD, TH) có hạn <= hôm nay: quá hạn (đỏ) hoặc đến hạn hôm nay (vàng).
   const dueOf = (r) => { if (stOf(r).group !== 'undone' || !r.ngayHt || !today) return ''; return r.ngayHt < today ? 'late' : r.ngayHt === today ? 'due' : ''; };
@@ -161,14 +168,14 @@
   const vfOk = (r) => Object.keys(vfil).every((k) => !vfil[k] || String(r[k] || '') === vfil[k]);
   // Lọc nhanh trên dữ liệu đã kéo: dự án / lập trình / triển khai (chọn trong danh sách các giá trị có trong dữ liệu, kèm số yêu cầu)
   const renderVf = () => {
-    const defs = [['maDa', 'Dự án'], ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai']];
+    const defs = [['maDa', 'Dự án'], ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai'], ['trangThai', 'Trạng thái']];
     defs.forEach(([k]) => { if (vfil[k] && !rows.some((r) => String(r[k] || '') === vfil[k])) vfil[k] = ''; });
     const opts = (k) => { const m = new Map(); rows.forEach((r) => { const v = String(r[k] || ''); m.set(v, (m.get(v) || 0) + 1); }); return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
-    $('vf').innerHTML = defs.map(([k, t]) => `<label>${t} <select data-vf="${k}"><option value="">Tất cả</option>${opts(k).map(([v, n]) => `<option value="${esc(v)}"${vfil[k] === v ? ' selected' : ''}>${esc(v || '(trống)')} (${n})</option>`).join('')}</select></label>`).join('')
-      + (Object.values(vfil).some(Boolean) ? '<button id="vfClear" title="Bỏ các lọc dự án / lập trình / triển khai">✕ Bỏ lọc</button>' : '');
+    $('vf').innerHTML = defs.map(([k, t]) => `<label>${t} <select data-vf="${k}"><option value="">Tất cả</option>${opts(k).map(([v, n]) => `<option value="${esc(v)}"${vfil[k] === v ? ' selected' : ''}>${k === 'trangThai' ? esc(stOf({ trangThai: v }).label + (v && stOf({ trangThai: v }).label.toUpperCase() !== v.toUpperCase() ? ' [' + v + ']' : '')) : esc(v || '(trống)')} (${n})</option>`).join('')}</select></label>`).join('')
+      + (Object.values(vfil).some(Boolean) ? '<button id="vfClear" title="Bỏ các lọc dự án / lập trình / triển khai / trạng thái">✕ Bỏ lọc</button>' : '');
   };
   $('vf').addEventListener('change', (e) => { const k = e.target.dataset.vf; if (k) { vfil[k] = e.target.value; render(); } });
-  $('vf').addEventListener('click', (e) => { if (e.target.id === 'vfClear') { vfil = { maDa: '', maLt1: '', maNv1: '' }; render(); } });
+  $('vf').addEventListener('click', (e) => { if (e.target.id === 'vfClear') { vfil = { maDa: '', maLt1: '', maNv1: '', trangThai: '' }; render(); } });
   const visible = () => {
     let v = rows.filter((r) => dimF.every((f) => String(r[f.k] || '') === f.v) && vfOk(r) && (!tlksF || tlksOf(r) === tlksF) && on.has(stOf(r).group) && (!onlyLate || dueOf(r) === 'late' || dueOf(r) === 'due')
       && qOk(r));
@@ -329,13 +336,23 @@
       ? window.RichReq.build({ menu: '[' + (r.maDa || '') + '] ' + (r.tenMenuNgan || r.menuId || '') + ' [' + (r.fcode1 || '') + '] [' + (r.maNv1 || '') + ']', body: String(r.noiDung == null ? '' : r.noiDung), notes: r.ghiChu || '' })
       : esc(plain);
     $('dtModal').classList.add('show');
+    document.querySelectorAll('#tbl tr.sel').forEach((x) => x.classList.remove('sel'));
+    const ix = shown.indexOf(r); if (ix >= 0) { const tr = document.querySelector('#tbl tr[data-i="' + ix + '"]'); if (tr) tr.classList.add('sel'); }
   };
   $('tbl').addEventListener('click', (e) => { const td = e.target.closest('td.nd'); if (!td) return; const tr = td.closest('tr[data-i]'); if (tr && shown[+tr.dataset.i]) openDetail(shown[+tr.dataset.i]); });
   $('tbl').addEventListener('dblclick', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr && shown[+tr.dataset.i]) openDetail(shown[+tr.dataset.i]); });
-  $('dtClose').onclick = () => $('dtModal').classList.remove('show');
-  $('dtModal').addEventListener('click', (e) => { if (e.target.id === 'dtModal') $('dtModal').classList.remove('show'); });
+  const closeDetail = () => { $('dtModal').classList.remove('show'); document.querySelectorAll('#tbl tr.sel').forEach((x) => x.classList.remove('sel')); };
+  $('dtClose').onclick = closeDetail;
+  // kéo cạnh trái của khung để đổi độ rộng
+  $('dtResizer').addEventListener('mousedown', (e) => {
+    e.preventDefault(); const rz = $('dtResizer'); rz.classList.add('drag');
+    const startX = e.clientX, startW = $('dtModal').getBoundingClientRect().width;
+    const mv = (ev) => { $('dtModal').style.width = Math.max(240, Math.min(window.innerWidth * 0.75, startW + (startX - ev.clientX))) + 'px'; };
+    const up = () => { rz.classList.remove('drag'); document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+  });
   $('dtCopy').onclick = () => { const t = $('dtBody').dataset.plain || $('dtBody').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }); $('dtCopy').textContent = 'Đã copy'; setTimeout(() => { $('dtCopy').textContent = 'Copy nội dung'; }, 1200); };
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('dtModal').classList.remove('show'); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
   $('tbl').addEventListener('click', (e) => { const th = e.target.closest('th[data-k]'); if (!th) return; if (sortKey === th.dataset.k) sortDir = -sortDir; else { sortKey = th.dataset.k; sortDir = 1; } render(); });
   $('q').addEventListener('input', render);
   const fetchNow = () => post('fetch', { maDa: $('maDa').value, bpLt: $('bpLt').value, person: $('person').value, fcode: $('fcode').value, content: $('content').value, programmer: $('lt').value, deployer: $('nv').value });

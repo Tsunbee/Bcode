@@ -69,7 +69,7 @@
   .seg button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
   select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .4rem; color: var(--text); font: inherit; }
   #dash { flex: 1; min-height: 0; overflow: auto; padding: .8rem; display: none; flex-direction: column; gap: .9rem; }
-  body.dash #dash { display: flex; } body.dash #wrap, body.dash #chips { display: none; }
+  body.dash #dash { display: flex; } body.dash #split, body.dash #chips { display: none; }
   .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .6rem; }
   .kpi { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); padding: .55rem .8rem; cursor: pointer; }
   .kpi:hover { border-color: var(--accent); }
@@ -83,7 +83,7 @@
   .stack i { display: block; height: 100%; } .s-undone { background: #e0a800; } .s-done { background: #2e9a5b; } .s-up { background: #3b7dd8; } .s-wait { background: #8e8e8e; } .s-cancel { background: #8e5cc9; } .s-other { background: #555; }
   .dh { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; } .dh h3 { margin: 0; font-size: 1.05rem; }
   #prio { flex: 1; min-height: 0; overflow: auto; padding: .8rem; display: none; flex-direction: column; gap: .8rem; }
-  body.prio #prio { display: flex; } body.prio #wrap, body.prio #chips, body.prio #dash { display: none; }
+  body.prio #prio { display: flex; } body.prio #split, body.prio #chips, body.prio #dash { display: none; }
   .pnote { color: var(--text-muted); font-size: .9rem; line-height: 1.45; border: var(--bw) dashed var(--border); border-radius: var(--r); padding: .45rem .7rem; }
   .ptabs { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
   .pt { width: 100%; border-collapse: collapse; font-size: .92rem; } .pt th { position: sticky; top: 0; background: var(--panel-alt); text-align: left; padding: .3rem .5rem; border: var(--bw) solid var(--border); white-space: nowrap; }

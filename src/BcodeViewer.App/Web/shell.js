@@ -9,6 +9,7 @@
 const SHELL_TOOLBAR = [
   { text: 'Save', run: (b) => b.saveActive(), title: 'Lưu (Ctrl+S)' },
   { text: 'Save As', run: (b) => b.saveActiveAs() },
+  { text: '⚠ Check', run: () => window.bcodeCheckField && window.bcodeCheckField.toggle(), title: 'Check Field — đối chiếu khai báo <fields> với <views> của Grid / Dir (thiếu, trùng), copy XML của view' },
   { sep: true },
   { text: 'Undo', run: (b) => b.undo(), title: 'Hoàn tác (Ctrl+Z)' },
   { text: 'Redo', run: (b) => b.redo(), title: 'Làm lại (Ctrl+Y)' },

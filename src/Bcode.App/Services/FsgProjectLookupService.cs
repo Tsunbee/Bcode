@@ -190,7 +190,20 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
     }
 
     /// <summary>1 dòng yêu cầu lấy từ bảng nvphyc: mã dự án, bộ phận lập trình, mã nhân viên, tên lập trình, mã yêu cầu.</summary>
-    public sealed record RequestRow(string MaDa, string BpLt, string MaNv1, string MaLt1, string Fcode1, string NoiDung);
+    public sealed record RequestRow(string MaDa, string BpLt, string MaNv1, string MaLt1, string Fcode1, string NoiDung, string GhiChu = "", string TenMenu = "");
+
+    /// <summary>Chữ thuần từ chuỗi HTML của ns_getContentInfo: &lt;br/&gt; → xuống dòng, bỏ thẻ (span, style...), giải mã &amp;nbsp; &amp;lt;...</summary>
+    internal static string HtmlToText(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return "";
+        var s = System.Text.RegularExpressions.Regex.Replace(html, @"<\s*br\s*/?\s*>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"<[^>]+>", "");
+        s = System.Net.WebUtility.HtmlDecode(s).Replace("\u00A0", " ").Replace("\r", "");
+        var lines = s.Split('\n').Select(l => l.TrimEnd()).ToList();
+        while (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+        while (lines.Count > 0 && lines[0].Length == 0) lines.RemoveAt(0);
+        return string.Join("\r\n", lines);
+    }
 
     /// <summary>
     /// Note (New) → "Sync yêu cầu": kéo danh sách yêu cầu của <paramref name="programmer"/> (cột ma_lt1) trong dự án
@@ -208,18 +221,52 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             await using var conn = new SqlConnection(BuildConnectionString());
             await conn.OpenAsync();
             await using var cmd = new SqlCommand(
-                "SELECT ma_da, bp_lt, ma_nv1, ma_lt1, fcode1, noi_dung FROM nvphyc " +
+                "SELECT stt_rec, ma_da, bp_lt, ma_nv1, ma_lt1, fcode1, noi_dung FROM nvphyc " +
                 "WHERE ma_da = @ma_da AND ma_lt1 = @lt AND ISNULL(fcode1, '') <> '' ORDER BY xorder, stt_rec", conn)
             { CommandTimeout = 60 };
             cmd.Parameters.Add("@ma_da", System.Data.SqlDbType.NVarChar, 100).Value = maDa;
             cmd.Parameters.Add("@lt", System.Data.SqlDbType.NVarChar, 100).Value = programmer;
 
-            var rows = new List<RequestRow>();
-            await using var r = await cmd.ExecuteReaderAsync();
-            while (await r.ReadAsync())
+            var basics = new List<(string Stt, RequestRow Row)>();
+            await using (var r = await cmd.ExecuteReaderAsync())
+                while (await r.ReadAsync())
+                {
+                    string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
+                    basics.Add((S("stt_rec"), new RequestRow(S("ma_da"), S("bp_lt"), S("ma_nv1"), S("ma_lt1"), S("fcode1"), S("noi_dung"))));
+                }
+
+            // Tên menu + ghi chú (tester / lỗi) lấy từ thủ tục ns_getContentInfo(@cID = stt_rec) — cùng nguồn với màn hình xem yêu cầu. Thủ tục lỗi / không có
+            // thì bỏ trống 2 phần này chứ không làm hỏng cả lần Sync. Gọi song song tối đa 4 kết nối.
+            var extra = new (string Menu, string Note, string Content)[basics.Count];
+            Array.Fill(extra, ("", "", ""));
+            Array.Fill(extra, ("", "", ""));
+            using var gate = new SemaphoreSlim(4);
+            await Task.WhenAll(basics.Select(async (b0, i) =>
             {
-                string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
-                rows.Add(new RequestRow(S("ma_da"), S("bp_lt"), S("ma_nv1"), S("ma_lt1"), S("fcode1"), S("noi_dung")));
+                if (b0.Stt.Length == 0) return;
+                await gate.WaitAsync();
+                try
+                {
+                    await using var c2 = new SqlConnection(BuildConnectionString());
+                    await c2.OpenAsync();
+                    await using var pc = new SqlCommand("ns_getContentInfo", c2) { CommandType = System.Data.CommandType.StoredProcedure, CommandTimeout = 30 };
+                    pc.Parameters.Add("@cID", System.Data.SqlDbType.Char, 13).Value = b0.Stt;
+                    await using var pr = await pc.ExecuteReaderAsync();
+                    if (await pr.ReadAsync())
+                    {
+                        string G(string col) { try { var o = pr.GetOrdinal(col); return pr.IsDBNull(o) ? "" : Convert.ToString(pr.GetValue(o)) ?? ""; } catch { return ""; } }
+                        extra[i] = (HtmlToText(G("ten_menu")), HtmlToText(G("ghi_chu")), HtmlToText(G("noi_dung")));
+                    }
+                }
+                catch { /* thủ tục không chạy được cho y/c này — bỏ trống tên menu / ghi chú */ }
+                finally { gate.Release(); }
+            }));
+
+            var rows = new List<RequestRow>();
+            for (var i = 0; i < basics.Count; i++)
+            {
+                var row = basics[i].Row;
+                rows.Add(row with { NoiDung = string.IsNullOrWhiteSpace(row.NoiDung) ? extra[i].Content : row.NoiDung, GhiChu = extra[i].Note, TenMenu = extra[i].Menu });
             }
             return (rows, null);
         }

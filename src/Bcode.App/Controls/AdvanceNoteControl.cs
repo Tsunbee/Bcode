@@ -301,8 +301,18 @@ public class AdvanceNoteControl : UserControl
         static string BuildContent(FsgProjectLookupService.RequestRow r)
         {
             var info = $"Bộ phận: {r.BpLt} | Nhân viên: {r.MaNv1} | Lập trình: {r.MaLt1}";
-            return string.IsNullOrWhiteSpace(r.NoiDung) ? info : r.NoiDung.Trim() + "\r\n\r\n---\r\n" + info;
+            // Thứ tự: Menu (ten_menu) → noi_dung → Ghi chú (ghi_chu) → dòng thông tin bộ phận / nhân viên / lập trình.
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(r.TenMenu)) parts.Add("Menu: " + r.TenMenu.Trim());
+            if (!string.IsNullOrWhiteSpace(r.NoiDung)) parts.Add(r.NoiDung.Trim());
+            if (!string.IsNullOrWhiteSpace(r.GhiChu)) parts.Add("Ghi chú: " + r.GhiChu.Trim());
+            return parts.Count == 0 ? info : string.Join("\r\n\r\n", parts) + "\r\n\r\n---\r\n" + info;
         }
+
+        // Nội dung chỉ gồm phần tự sinh (Menu: / dòng "Bộ phận: …" / gạch ngang) — chưa có nội dung người dùng viết.
+        static bool IsAutoOnly(string c) =>
+            c.Length == 0 || c.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0 && l != "---")
+                .All(l => l.StartsWith("Bộ phận:", StringComparison.Ordinal) || l.StartsWith("Menu:", StringComparison.Ordinal));
 
         var byName = _requests.GroupBy(r => r.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         int added = 0, skipped = 0, filled = 0;
@@ -311,12 +321,25 @@ public class AdvanceNoteControl : UserControl
             if (byName.TryGetValue(row.Fcode1, out var existingReq))
             {
                 skipped++;
-                // y/c đã có: chỉ điền nội dung khi còn trống hoặc mới là dòng thông tin tự sinh ở lần sync trước (chưa có noi_dung) —
-                // tuyệt đối không ghi đè nội dung người dùng đã tự viết/sửa.
+                // y/c đã có: CHỈ cập nhật lại ô nội dung (Content) từ hệ thống; mọi thứ khác (Gen All, đường dẫn file, SQL Object, table, Top/Bottom script,
+                // lịch sử Generate, Done...) giữ nguyên. Phần người dùng tự viết thêm SAU dòng "---/Bộ phận: …" cũng được giữ lại; nội dung tự viết không theo
+                // khuôn tự sinh (không có dòng "---/Bộ phận") thì không đụng tới.
                 var c = (existingReq.Content ?? "").Trim();
-                if (!string.IsNullOrWhiteSpace(row.NoiDung) && (c.Length == 0 || c.StartsWith("Bộ phận:", StringComparison.Ordinal) && !c.Contains('\n')))
+                var fresh = BuildContent(row);
+                string? updated = null;
+                if (IsAutoOnly(c)) updated = fresh;
+                else
                 {
-                    existingReq.Content = BuildContent(row);
+                    var mInfo = System.Text.RegularExpressions.Regex.Match(c, @"(?:^|\r?\n)---\r?\nBộ phận:[^\r\n]*");
+                    if (mInfo.Success)
+                    {
+                        var tail = c[(mInfo.Index + mInfo.Length)..].Trim();   // phần người dùng tự viết thêm sau dòng thông tin
+                        updated = tail.Length > 0 ? fresh + "\r\n\r\n" + tail : fresh;
+                    }
+                }
+                if (updated is not null && updated.Trim() != c)
+                {
+                    existingReq.Content = updated.TrimEnd();
                     filled++;
                 }
                 continue;
@@ -331,7 +354,7 @@ public class AdvanceNoteControl : UserControl
         SendList(null);
         var message = rows.Count == 0
             ? $"Không có yêu cầu nào của \"{programmer}\" trong dự án {code}."
-            : $"Đã thêm {added} y/c mới" + (skipped > 0 ? $", {skipped} y/c đã có" : "") + (filled > 0 ? $" (điền nội dung cho {filled})" : "") + $" — tổng {rows.Count} yêu cầu của {programmer}.";
+            : $"Đã thêm {added} y/c mới" + (skipped > 0 ? $", {skipped} y/c đã có" : "") + (filled > 0 ? $" (cập nhật lại nội dung cho {filled})" : "") + $" — tổng {rows.Count} yêu cầu của {programmer}.";
         Js($"advNote.setBusy(false); advNote.onSynced({J(new { ok = true, message })})");
     }
 

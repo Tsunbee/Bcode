@@ -77,7 +77,8 @@ internal sealed class FileParseCache
     // và thông báo có thêm "include từ: ...". Cache cũ (v2) chứa kết quả sai nên phải bỏ.
     // 4: ShowFormRegex bắt thêm show$Form(g, 'X') — kết quả "rel" cũ thiếu form mở qua hàm bọc.
     // 5: thêm form=X trong query string và <!ENTITY TransferID2 "X"> vào "rel" — kết quả cũ thiếu các file upload.
-    private const int SchemaVersion = 5;
+    // 6: "rel" quét thêm nội dung các file include (SYSTEM entity: CompactMode.ent, ImportXmlScript.txt...) — kết quả cũ thiếu form như SRInvoiceFilter, SRBillFilter.
+    private const int SchemaVersion = 6;
     private const int MaxEntries = 100_000;
     public const int PruneDays = 60;
     private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(3);

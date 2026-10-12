@@ -567,16 +567,39 @@ public class FileLookupService
         // unreadable/locked — just skip discovering related controllers from it
         if (read(filePath) is not { } content) return found;
 
-        foreach (Match tag in GridItemsTagRegex.Matches(content))
+        void ScanRefs(string text)
         {
-            if (!StyleGridRegex.IsMatch(tag.Value)) continue;
-            var controllerMatch = ControllerAttrRegex.Match(tag.Value);
-            if (controllerMatch.Success)
-                found.Add(controllerMatch.Groups[1].Value);
+            foreach (Match tag in GridItemsTagRegex.Matches(text))
+            {
+                if (!StyleGridRegex.IsMatch(tag.Value)) continue;
+                var controllerMatch = ControllerAttrRegex.Match(tag.Value);
+                if (controllerMatch.Success)
+                    found.Add(controllerMatch.Groups[1].Value);
+            }
+            foreach (Match m in ShowFormRegex.Matches(text))
+                found.Add(m.Groups[1].Value);
         }
+        ScanRefs(content);
 
-        foreach (Match m in ShowFormRegex.Matches(content))
-            found.Add(m.Groups[1].Value);
+        // File dùng chung qua SYSTEM entity (Include*.ent, *.txt, *.xml — vd CompactMode.ent chứa g.showForm('SRInvoiceFilter')) cũng là một phần của form:
+        // FCode theo cả các file này nên tìm ra cả SRBill*/SRInvoice*/... — lần theo include (tối đa 3 tầng) rồi quét cùng luật.
+        var visitedInc = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { filePath };
+        void ScanIncludes(string path, string text, int depth)
+        {
+            if (depth > 3) return;
+            var dir = Path.GetDirectoryName(path) ?? "";
+            foreach (Match m in NamedSystemEntityRegex.Matches(text))
+            {
+                string inc;
+                try { inc = Path.GetFullPath(Path.Combine(dir, m.Groups[3].Value)); } catch (Exception) { continue; }
+                var ext = Path.GetExtension(inc);
+                if (!ScannableExtensions.Contains(ext) && !ext.Equals(".ent", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!visitedInc.Add(inc) || read(inc) is not { } incText) continue;
+                ScanRefs(incText);
+                ScanIncludes(inc, incText, depth + 1);
+            }
+        }
+        ScanIncludes(filePath, content, 0);
 
         // Form upload mở bằng query string: '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateInfo' (trong .f/.xml của Grid/Filter/Dir)
         // → Templates\Upload\zContract1UpdateInfo.xml. Tên upload này không trùng tên menu và không tự khai TransferID nên các luật trên không thấy.

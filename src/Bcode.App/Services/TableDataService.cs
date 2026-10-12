@@ -278,6 +278,51 @@ ORDER BY c.column_id;";
         }
     }
 
+    /// <summary>Tự động lưu theo TỪNG dòng (mỗi dòng 1 transaction): dòng nào lỗi (trùng khoá, NOT NULL…) được gắn RowError (lưới hiện dấu ! đỏ)
+    /// và vẫn nằm chờ trong lưới — Bee sửa lại giá trị rồi rời dòng thì lưu lại; không sửa thì coi như chưa insert (Load lại là mất).
+    /// Dòng đã lưu được thì AcceptChanges riêng từng dòng, không bị dòng lỗi kéo theo.</summary>
+    public async Task<(int Saved, List<(DataRow Row, DataRowState State, string Error)> Failed)> SaveChangesTolerantAsync(bool useSysDatabase, string schema, string table, List<string> keyColumns, DataTable data, string? expectedStamp = null)
+    {
+        if (expectedStamp != null && expectedStamp != _connections.CurrentStamp(useSysDatabase))
+            throw new InvalidOperationException("Workspace/Database đã đổi so với lúc tải dữ liệu — từ chối ghi để tránh ghi nhầm. Hãy Load lại.");
+        if (keyColumns.Count == 0)
+            throw new InvalidOperationException("Bảng này không có Primary Key — chọn cột khoá thủ công trước khi lưu (mục Change Key Columns).");
+
+        var pending = data.Rows.Cast<DataRow>().Where(r => r.RowState is DataRowState.Added or DataRowState.Modified or DataRowState.Deleted).ToList();
+        var failed = new List<(DataRow, DataRowState, string)>();
+        if (pending.Count == 0) return (0, failed);
+
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        var saved = 0;
+        foreach (var row in pending)
+        {
+            var state = row.RowState;
+            await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
+            try
+            {
+                switch (state)
+                {
+                    case DataRowState.Added: await ExecuteInsertAsync(conn, tx, schema, table, row); break;
+                    case DataRowState.Modified: await ExecuteUpdateAsync(conn, tx, schema, table, keyColumns, row); break;
+                    case DataRowState.Deleted: await ExecuteDeleteAsync(conn, tx, schema, table, keyColumns, row); break;
+                }
+                await tx.CommitAsync();
+                row.AcceptChanges();
+                saved++;
+            }
+            catch (Exception ex)
+            {
+                try { await tx.RollbackAsync(); } catch { /* đã rollback */ }
+                var msg = ex.Message.Replace("\r", " ").Replace("\n", " ");
+                if (state != DataRowState.Deleted) row.RowError = msg;
+                else row.RejectChanges();   // xoá lỗi → dòng hiện lại trong lưới, không thử xoá lại mãi
+                failed.Add((row, state, msg));
+            }
+        }
+        return (saved, failed);
+    }
+
     private static async Task ExecuteInsertAsync(SqlConnection conn, SqlTransaction tx, string schema, string table, DataRow row)
     {
         var columns = row.Table.Columns.Cast<DataColumn>().ToList();

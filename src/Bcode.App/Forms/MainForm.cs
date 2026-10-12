@@ -2299,6 +2299,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "project.picker": ShowProjectPicker(); return true;
             case "debug.decrypt": DebugDecryptConnectStr(); return true;
             case "app.chooseServer": OpenConnectionSettings(); return true;
+            case "app.toggleDb": ApplyActiveDatabase(!_topDbSys); return true;
             case "app.programPath": OpenProgramPath(); return true;
             case "project.openSource": OpenProjectFolder(_connections.Current?.SourcePath ?? ""); return true;
             case "project.openWorking": OpenProjectFolder(_connections.Current?.WorkingPath ?? ""); return true;
@@ -3012,7 +3013,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripMenuItem("Choose Server", null, (_, _) => OpenConnectionSettings()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.chooseServer") });
         menu.Items.Add(new ToolStripMenuItem("Projects...", null, (_, _) => ShowProjectPicker()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("project.picker") });
         menu.Items.Add(new ToolStripMenuItem("New Bcode window", null, (_, _) => RunAppShortcut("window.new")) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("window.new") });
-        menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => { /* Chức năng chưa rõ */ }) { ShortcutKeyDisplayString = "Ctrl+1" });
+        menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => ApplyActiveDatabase(!_topDbSys)) { ShortcutKeyDisplayString = "Ctrl+1" });
         menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tool:sql_profiler") });
         menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }) { ShortcutKeyDisplayString = "Ctrl+4" });
         menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => OpenProgramPath()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.programPath") });

@@ -71,6 +71,7 @@ public static class ShortcutRegistry
             new("project.picker", "Chọn project (màn hình Projects)", "Project & kết nối", ShortcutScope.App, "Ctrl+Shift+P"),
             new("project.quick", "Synchronize project (Edit Project + hộp đồng bộ FSG)", "Project & kết nối", ShortcutScope.App, "Ctrl+F5"),
             new("app.chooseServer", "Choose Server (kết nối)", "Project & kết nối", ShortcutScope.App, "Ctrl+O"),
+            new("app.toggleDb", "Chuyển database App ↔ Sys (Switch Database)", "Project & kết nối", ShortcutScope.App, "Ctrl+1"),
             new("app.programPath", "Mở thư mục Program Path", "Project & kết nối", ShortcutScope.App, "Ctrl+5"),
             new("project.openSource", "Mở thư mục Source Path của project", "Project & kết nối", ShortcutScope.App, ""),
             new("project.openWorking", "Mở thư mục Working Path (Update) của project", "Project & kết nối", ShortcutScope.App, ""),

@@ -36,10 +36,14 @@ class BcodeCheckField {
 #cfBody td { border: 1px solid color-mix(in srgb, var(--bc-border) 70%, transparent); padding: 2px 8px; white-space: nowrap; }
 #cfBody td.c, #cfBody th.c { text-align: center; }
 #cfBody td.n { color: var(--bc-text-muted); text-align: right; width: 34px; background: var(--bc-panel-alt); }
-#cfBody td.x { font-family: Consolas, monospace; color: #9cdcfe; }
+#cfBody td { user-select: none; -webkit-user-select: none; }   /* bôi đen theo DÒNG (kéo chuột qua nhiều dòng), không chọn chữ lẻ từng ô */
+#cfBody.drag { cursor: default; }
+#cfBody td.x { font-family: Consolas, monospace; color: #9cdcfe; cursor: text; }
 #cfBody tr:hover td { background: color-mix(in srgb, var(--bc-selection) 50%, transparent); }
-#cfBody tr.sel td { background: color-mix(in srgb, #e8a05a 55%, var(--bc-bg)); color: #111; }
-#cfBody tr.sel td.x { color: #123; }
+#cfBody tr.sel td { background: color-mix(in srgb, #e8a05a 20%, var(--bc-bg)); }
+#cfBody tr.sel td.act { background: #e8a05a !important; color: #111; font-weight: 600; outline: 1px solid #b86d1a; outline-offset: -1px; }
+#cfBody tr.sel td.act.x { color: #123; }
+#cfBody th.act { background: #b86d1a; color: #fff; }
 #cfBody td.hl { background: #c47f17 !important; }
 #cfBody tr.bad td.f { color: #ff6b6b; font-weight: 600; } #cfBody tr.dup td.f { color: #e0a800; font-weight: 600; }
 #cfBody input[type=checkbox] { accent-color: var(--bc-accent-hover); }
@@ -82,7 +86,9 @@ class BcodeCheckField {
     p.querySelectorAll('#cfTabs .t').forEach((t) => { t.onclick = () => { this.tab = t.dataset.t; p.querySelectorAll('#cfTabs .t').forEach((x) => x.classList.toggle('on', x === t)); this.render(); }; });
     p.querySelector('#cfFilter').onchange = (e) => { this.filter = e.target.value; this.render(); };
     p.querySelector('#cfBarCopy').onclick = () => { this.copy(p.querySelector('#cfBarText').value, 'Đã copy vào clipboard.'); };
-    this.body.addEventListener('click', (e) => this.onClick(e));
+    this.body.addEventListener('mousedown', (e) => this.onDown(e));
+    this.body.addEventListener('mouseover', (e) => this.onOver(e));
+    document.addEventListener('mouseup', () => { if (this._drag) { this._drag = null; this.body.classList.remove('drag'); } });
     this.body.addEventListener('dblclick', (e) => { const tr = e.target.closest('tr[data-n]'); if (tr && !e.target.closest('input')) this.gotoName(tr.dataset.n); });
     this.body.addEventListener('contextmenu', (e) => this.onMenu(e));
     this.body.addEventListener('change', (e) => this.onToggle(e));
@@ -190,7 +196,7 @@ class BcodeCheckField {
       const r = rows.get(n);
       const re = new RegExp('<field\\b[^>]*\\bname\\s*=\\s*"' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"', 'i');
       re.lastIndex = 0; const m = re.exec(masked.slice(fStart)); r.line = m ? model.getPositionAt(fStart + m.index).lineNumber : 0;
-      r.xml = xmlStyle === 'dir' ? '[' + n + '].Label, [' + n + ']' : '<field name="' + n + '"/>';
+      r.xml = '<field name="' + n + '"/>';   // luôn dạng <field name="x"/> (dán thẳng vào view của Grid), kể cả khi mở từ Dir
       return r;
     });
     return { kind, xmlStyle, rows: out, unresolved: fx.unresolved + vx.unresolved, hasViews: !!viewsM, hasFields: !!fieldsM, editableView: fieldMode || (kind === 'grid' && !!viewsM) };
@@ -235,30 +241,55 @@ class BcodeCheckField {
         rows.map((r, i) => {
           const bad = r.decl === 0 && r.view > 0, dup = r.decl > 1 || r.view > 1;
           return '<tr data-n="' + this.esc(r.name) + '" class="' + (this.sel.has(r.name) ? 'sel ' : '') + (bad ? 'bad ' : dup ? 'dup' : '') + '">' +
-            '<td class="n">' + (i + 1) + '</td><td class="f">' + this.esc(r.name) + '</td><td>' + this.esc(r.type) + '</td><td title="' + this.esc(r.format) + '">' + this.esc(r.format.length > 18 ? r.format.slice(0, 18) + '…' : r.format) + '</td>' +
-            '<td class="c">' + chk(r.decl > 0, r.decl > 0 || !d.hasFields, ' data-k="decl"') + '</td><td class="c' + (r.decl > 1 ? ' hl' : '') + '" title="' + (r.decl > 1 ? 'Khai báo ' + r.decl + ' lần trong &lt;fields&gt; — xoá bớt' : '') + '">' + chk(r.decl > 1, true) + '</td><td class="c">' + chk(r.allowContain, true) + '</td>' +
-            '<td class="c">' + chk(r.view > 0, !editView, ' data-k="view"') + '</td><td class="c' + (r.view > 1 ? ' hl' : '') + '" title="' + (r.view > 1 ? 'Có ' + r.view + ' lần trong view — xoá bớt' : '') + '">' + chk(r.view > 1, true) + '</td><td class="x">' + this.esc(r.xml) + '</td></tr>';
+            '<td class="n">' + (i + 1) + '</td><td class="f" data-c="name">' + this.esc(r.name) + '</td><td data-c="type">' + this.esc(r.type) + '</td><td data-c="format" title="' + this.esc(r.format) + '">' + this.esc(r.format.length > 18 ? r.format.slice(0, 18) + '…' : r.format) + '</td>' +
+            '<td class="c" data-c="declare">' + chk(r.decl > 0, r.decl > 0 || !d.hasFields, ' data-k="decl"') + '</td><td data-c="dupdecl" class="c' + (r.decl > 1 ? ' hl' : '') + '" title="' + (r.decl > 1 ? 'Khai báo ' + r.decl + ' lần trong &lt;fields&gt; — xoá bớt' : '') + '">' + chk(r.decl > 1, true) + '</td><td class="c" data-c="allow">' + chk(r.allowContain, true) + '</td>' +
+            '<td class="c" data-c="view">' + chk(r.view > 0, !editView, ' data-k="view"') + '</td><td data-c="dupview" class="c' + (r.view > 1 ? ' hl' : '') + '" title="' + (r.view > 1 ? 'Có ' + r.view + ' lần trong view — xoá bớt' : '') + '">' + chk(r.view > 1, true) + '</td><td class="x" data-c="xml">' + this.esc(r.xml) + '</td></tr>';
         }).join('') + '</tbody></table>';
     }
+    this.paintSel();
     const miss = d.rows.filter((r) => r.decl === 0 && r.view > 0).length, nov = d.rows.filter((r) => r.decl > 0 && r.view === 0).length;
     const dd = d.rows.filter((r) => r.decl > 1).length, dv = d.rows.filter((r) => r.view > 1).length;
     this.status((d.kind === 'grid' ? 'Grid' : d.kind === 'dir' ? 'Dir' : 'File') + ' · ' + d.rows.length + ' trường · thiếu khai báo: ' + miss + ' · chưa có trong View: ' + nov + ' · khai báo trùng: ' + dd + ' · View trùng: ' + dv +
       (d.unresolved ? ' · ' + d.unresolved + ' entity không đọc được' : '') + (d.editableView && d.xmlStyle === 'grid' ? ' · tick cột View để thêm / bớt field trong view' : '') +
-      ' · Ctrl+bấm chọn nhiều · chuột phải: Goto / Copy · F6 copy XML · Ctrl+G tới field');
+      ' · kéo chuột qua nhiều dòng để bôi đen (Ctrl+bấm: thêm / bớt, Shift+bấm: dải) · Ctrl+C: copy giá trị cột đang tô đậm · F6 / Ctrl+Shift+C: copy XML <field …/> · Ctrl+G: tới field · chuột phải: Goto / Copy');
   }
 
   // ---- chọn dòng / menu / phím -------------------------------------------------------------------
 
-  onClick(e) {
-    if (e.target.closest('input[type=checkbox]')) return;
+  rowNames() { return [...this.body.querySelectorAll('tr[data-n]')].map((x) => x.dataset.n); }
+  paintSel() {
+    const col = this._col || 'xml';
+    this.body.querySelectorAll('tr[data-n]').forEach((x) => {
+      const on = this.sel.has(x.dataset.n); x.classList.toggle('sel', on);
+      x.querySelectorAll('td').forEach((td) => td.classList.toggle('act', on && (td.dataset.c || 'xml') === col && !td.classList.contains('n')));
+    });
+    this.body.querySelectorAll('th').forEach((th, i) => th.classList.toggle('act', this.tab === 'design' && this.sel.size > 0 && this._colIdx(col) === i));
+    if (this.sel.size) this.status('Đã chọn ' + this.sel.size + ' dòng · cột đang tô đậm: "' + this.colLabel(col) + '" — Ctrl+C: copy giá trị cột này · F6 / Ctrl+Shift+C: copy XML <field …/>');
+  }
+  colLabel(c) { return { name: 'Field Name', type: 'Type', format: 'Format', declare: 'Declare', dupdecl: 'Duplicate Declare', allow: 'Allow Contain', view: 'View', dupview: 'Duplicate View', xml: 'XML' }[c] || 'XML'; }
+  _colIdx(c) { return { name: 1, type: 2, format: 3, declare: 4, dupdecl: 5, allow: 6, view: 7, dupview: 8, xml: 9 }[c] || 0; }
+
+  onDown(e) {
+    if (e.button !== 0 || e.target.closest('input[type=checkbox]')) return;
     const tr = e.target.closest('tr[data-n]'); if (!tr) return;
-    const n = tr.dataset.n, rows = [...this.body.querySelectorAll('tr[data-n]')].map((x) => x.dataset.n);
+    const n = tr.dataset.n, rows = this.rowNames();
+    const td = e.target.closest('td'); this._col = (td && td.dataset.c) || 'xml';     // cột đang bôi đen → Ctrl+C copy đúng cột này
     if (e.shiftKey && this._anchor) {
       const a = rows.indexOf(this._anchor), b = rows.indexOf(n); const [s, t] = a < b ? [a, b] : [b, a];
       this.sel = new Set(rows.slice(s, t + 1));
     } else if (e.ctrlKey || e.metaKey) { this.sel.has(n) ? this.sel.delete(n) : this.sel.add(n); this._anchor = n; }
-    else { this.sel = new Set([n]); this._anchor = n; }
-    this.body.querySelectorAll('tr[data-n]').forEach((x) => x.classList.toggle('sel', this.sel.has(x.dataset.n)));
+    else { this.sel = new Set([n]); this._anchor = n; this._drag = { base: new Set() }; this.body.classList.add('drag'); }
+    this.paintSel();
+    e.preventDefault();
+    try { this.body.tabIndex = -1; this.body.focus({ preventScroll: true }); } catch { /* không lấy được focus — phím vẫn bắt ở document */ }
+  }
+
+  onOver(e) {
+    if (!this._drag) return;
+    const tr = e.target.closest('tr[data-n]'); if (!tr) return;
+    const rows = this.rowNames(), a = rows.indexOf(this._anchor), b = rows.indexOf(tr.dataset.n); if (a < 0 || b < 0) return;
+    const [s, t] = a < b ? [a, b] : [b, a];
+    this.sel = new Set(rows.slice(s, t + 1)); this.paintSel();
   }
 
   closeMenu() { const m = document.getElementById('cfMenu'); if (m) m.remove(); }
@@ -269,20 +300,24 @@ class BcodeCheckField {
     if (!this.sel.has(tr.dataset.n)) { this.sel = new Set([tr.dataset.n]); this._anchor = tr.dataset.n; this.body.querySelectorAll('tr[data-n]').forEach((x) => x.classList.toggle('sel', this.sel.has(x.dataset.n))); }
     this.closeMenu();
     const m = document.createElement('div'); m.id = 'cfMenu';
-    const items = [['Goto Column …', 'Ctrl+G', () => this.gotoSelected()], ['Copy selected Column Name …', '', () => this.showNames(true)], ['Copy All Column Name …', '', () => this.showNames(false)], null, ['Copy Xml Column', 'F6', () => this.copyXml()]];
+    const items = [['Goto Column …', 'Ctrl+G', () => this.gotoSelected()], ['Copy selected Column Name …', '', () => this.showNames(true)], ['Copy All Column Name …', '', () => this.showNames(false)], ['Copy giá trị cột đang tô đậm', 'Ctrl+C', () => this.copyColumn()], null, ['Copy Xml Column', 'F6 / Ctrl+Shift+C', () => this.copyXml()]];
     m.innerHTML = items.map((it, i) => it ? '<div class="mi" data-i="' + i + '"><span>' + this.esc(it[0]) + '</span><kbd>' + this.esc(it[1]) + '</kbd></div>' : '<div class="sp"></div>').join('');
     m.addEventListener('click', (ev) => { const mi = ev.target.closest('.mi'); if (mi) { this.closeMenu(); items[+mi.dataset.i][2](); } });
     document.body.appendChild(m);
     m.style.left = Math.min(e.clientX, innerWidth - 250) + 'px'; m.style.top = Math.min(e.clientY, innerHeight - 140) + 'px';
   }
 
+  /// Ô nhập của CHÍNH bảng Check (ô Goto, thanh copy tên): ở đó Ctrl+C / Ctrl+A là của ô nhập. Còn textarea ẩn của Monaco (vẫn giữ focus sau khi bấm bảng) thì không tính.
+  inOwnInput(el) { return !!(el && /INPUT|TEXTAREA/.test(el.tagName || '') && el.closest && el.closest('#cfPanel')); }
+
   onKey(e) {
     if (!this.open) return;
     if (e.key === 'Escape') { if (document.getElementById('cfGoto')) this.closeGoto(); else if (document.getElementById('cfMenu')) this.closeMenu(); else this.close(); e.preventDefault(); e.stopPropagation(); return; }
     if (document.getElementById('cfGoto')) return;     // đang gõ trong hộp Goto: các phím còn lại để hộp tự xử lý
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !this.inOwnInput(e.target)) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) this.copyXml(); else this.copyColumn(); return; }   // Ctrl+C = copy giá trị của CỘT đang tô đậm (tên / kiểu / format / XML...); Ctrl+Shift+C và F6 = copy XML <field name="x"/>
     if (e.key === 'F6') { e.preventDefault(); e.stopPropagation(); this.copyXml(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); e.stopPropagation(); this.gotoSelected(); }
-    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !/INPUT|TEXTAREA/.test((e.target || {}).tagName || '')) { e.preventDefault(); e.stopPropagation(); this.sel = new Set(this.visibleRows().map((r) => r.name)); this.render(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !this.inOwnInput(e.target)) { e.preventDefault(); e.stopPropagation(); this.sel = new Set(this.visibleRows().map((r) => r.name)); this.render(); }
   }
 
   selectedRows() { const v = this.visibleRows(); const s = v.filter((r) => this.sel.has(r.name)); return s; }
@@ -300,11 +335,21 @@ class BcodeCheckField {
     const inp = bar.querySelector('#cfBarText'); inp.value = rows.map((r) => r.name).join(', '); inp.select();
   }
 
+  /// Copy cột vừa bôi đen (tên field / Type / Format / XML) của các dòng đang chọn, mỗi dòng một dòng chữ — dán ra chỗ khác.
+  copyColumn() {
+    let rows = this.selectedRows(); if (!rows.length) rows = this.visibleRows();
+    if (!rows.length) return;
+    const col = this._col || 'xml';
+    const val = (r) => ({ name: r.name, type: r.type, format: r.format, declare: r.decl > 0 ? 'True' : 'False', dupdecl: r.decl > 1 ? 'True' : 'False', allow: r.allowContain ? 'True' : 'False', view: r.view > 0 ? 'True' : 'False', dupview: r.view > 1 ? 'True' : 'False', xml: r.xml }[col] ?? r.xml);
+    const label = this.colLabel(col);
+    this.copy(rows.map(val).join('\r\n'), 'Đã copy ' + label + ' của ' + rows.length + ' dòng.');
+  }
+
   copyXml() {
     let rows = this.selectedRows(); if (!rows.length) rows = this.visibleRows();
     if (!rows.length) return;
     const eol = '\r\n';
-    this.copy(this.data.xmlStyle === 'dir' ? rows.map((r) => r.xml).join(', ') : rows.map((r) => r.xml).join(eol), 'Đã copy XML của ' + rows.length + ' field' + (this.data.xmlStyle === 'dir' ? ' (dạng [biến].Label, [biến])' : '') + '.');
+    this.copy(rows.map((r) => r.xml).join(eol), 'Đã copy XML của ' + rows.length + ' field'  + '.');
   }
 
   gotoSelected() { this.showGoto(); }

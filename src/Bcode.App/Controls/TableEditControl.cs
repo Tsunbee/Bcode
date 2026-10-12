@@ -19,7 +19,7 @@ public class TableEditControl : UserControl
     private string _fieldsInputText = "*";
     private string _whereInputText = "";
     private string _orderInputText = "";
-    private int _topValue = 500;
+    private int _topValue = 0;
 
     // Gợi ý tên bảng cho ô "Table" (giống gợi ý bảng bên SQL Query): danh sách bảng/view của
     // từng DB (0 = App, 1 = Sys) nạp 1 lần rồi cache, lọc ngay trong bộ nhớ theo từng phím gõ.
@@ -33,6 +33,8 @@ public class TableEditControl : UserControl
     private readonly Label _rowLabel;
     private int _hiRow = -1;
     private readonly DataGridView _grid;
+    private bool _editingCell;
+    private Font? _nullFont;
     /// <summary>Khung trái Structure / Fields — trang WebView2 Web/Shell/tablestruct.html (đồng bộ giao diện với thanh trên).</summary>
     private readonly WebBarHost _structWeb;
     /// <summary>Cột của bảng đang mở theo đúng thứ tự (tên, kiểu SQL thật, khoá chính) — nguồn cho khung Structure / Fields, gợi ý cột, Gen script.</summary>
@@ -156,7 +158,8 @@ public class TableEditControl : UserControl
             AllowUserToDeleteRows = true,
             ReadOnly = false,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-            SelectionMode = DataGridViewSelectionMode.CellSelect
+            SelectionMode = DataGridViewSelectionMode.RowHeaderSelect,   // bấm số thứ tự = chọn cả dòng (Ctrl+C copy / Ctrl+V dán / Clone), bấm ô vẫn sửa bình thường
+            ClipboardCopyMode = DataGridViewClipboardCopyMode.Disable
         };
 
         // ---- Cho biết đang xử lý ở dòng nào: tô cả dòng + vạch màu nhấn bên trái + nhãn ở đáy lưới ----
@@ -176,7 +179,29 @@ public class TableEditControl : UserControl
             if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.RowIndex >= _grid.Rows.Count || e.Value is not (null or DBNull)) return;
             if (_grid.Rows[e.RowIndex].IsNewRow || _grid.Columns[e.ColumnIndex] is DataGridViewCheckBoxColumn) return;
             e.CellStyle.BackColor = Bcode.App.UI.AppColors.IsDark ? Color.FromArgb(140, 90, 14) : Color.FromArgb(255, 220, 160);
+            // Hiện chữ "Null" cho ô NULL (không áp khi đang sửa ô đó để khỏi dính chữ "Null" vào editor).
+            if (!_editingCell || e.RowIndex != _grid.CurrentCell?.RowIndex || e.ColumnIndex != _grid.CurrentCell?.ColumnIndex)
+            {
+                e.Value = "Null"; e.FormattingApplied = true;
+                e.CellStyle.ForeColor = Bcode.App.UI.AppColors.IsDark ? Color.FromArgb(235, 200, 140) : Color.FromArgb(120, 80, 10);
+                _nullFont ??= new Font(_grid.Font, FontStyle.Italic);
+                e.CellStyle.Font = _nullFont;
+            }
         };
+        // Cột char(n) trả về chuỗi đã đệm khoảng trắng đủ n ký tự (VIB + 13 dấu cách): gõ thêm "_k" vào cuối là vượt MaxLength → lỗi. Bỏ khoảng trắng thừa khi vào sửa ô.
+        _grid.EditingControlShowing += (_, e) =>
+        {
+            if (e.Control is TextBox tb && tb.Text.Length > 0 && tb.Text.TrimEnd().Length != tb.Text.Length)
+            { tb.Text = tb.Text.TrimEnd(); tb.SelectionStart = tb.Text.Length; }
+        };
+        // Giá trị gõ vào không hợp lệ (quá dài, sai kiểu…): báo ở thanh trạng thái thay vì hộp thoại lỗi mặc định của DataGridView.
+        _grid.DataError += (_, e) =>
+        {
+            e.ThrowException = false;
+            _statusLabel.Text = "Giá trị không hợp lệ: " + (e.Exception?.Message ?? "sai kiểu dữ liệu") + " — nhấn Esc để huỷ ô đang sửa.";
+        };
+        _grid.CellBeginEdit += (_, _) => _editingCell = true;
+        _grid.CellEndEdit += (_, _) => _editingCell = false;
         _grid.CurrentCellChanged += (_, _) => UpdateRowHighlight();
         _grid.CellValueChanged += (_, _) => UpdateRowLabel();
         _grid.DataBindingComplete += (_, _) => UpdateRowHighlight();
@@ -219,6 +244,8 @@ public class TableEditControl : UserControl
         _grid.KeyDown += async (_, e) =>
         {
             if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
+            else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.C && !_grid.IsCurrentCellInEditMode && _grid.DataSource is DataTable)
+            { e.Handled = true; e.SuppressKeyPress = true; CopySelection(); }
             else if (e.KeyCode == Keys.F5 && !e.Control && !e.Shift && !e.Alt) { e.Handled = true; e.SuppressKeyPress = true; ReloadFromBar(); }
             else if (e.Control && e.KeyCode == Keys.V && ClipboardLooksLikeTable())
             {
@@ -414,10 +441,56 @@ public class TableEditControl : UserControl
         var idx = SelectedRowIndexes();
         if (idx.Count == 0) return;
         var cols = _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex).ToList();
-        var sb = new StringBuilder();
-        foreach (var i in idx)
-            sb.AppendLine(string.Join("\t", cols.Select(c => Convert.ToString(_grid.Rows[i].Cells[c.Index].FormattedValue)?.Replace("\t", " ").Replace("\r", " ").Replace("\n", " ") ?? "")));
-        try { Clipboard.SetText(sb.ToString()); _statusLabel.Text = $"Đã copy {idx.Count} dòng."; } catch { /* clipboard bận */ }
+        var sb = new StringBuilder(); var nulls = new HashSet<(int, int)>();
+        for (var ri = 0; ri < idx.Count; ri++)
+        {
+            var cells = cols.Select(c => _grid.Rows[idx[ri]].Cells[c.Index]).ToList();
+            for (var ci = 0; ci < cells.Count; ci++) if (cells[ci].Value is null or DBNull) nulls.Add((ri, ci));
+            sb.AppendLine(string.Join("\t", cells.Select(CellText)));
+        }
+        SetClip(sb.ToString(), nulls); _statusLabel.Text = $"Đã copy {idx.Count} dòng.";
+    }
+
+    // Excel không phân biệt NULL với chuỗi trống, nên ngoài văn bản còn nhớ ô nào là NULL (trong phiên Bcode này) — dán lại vào Table thì NULL vẫn NULL, trống vẫn trống.
+    private string? _clipText; private HashSet<(int, int)> _clipNulls = new();
+    private void SetClip(string text, HashSet<(int, int)> nulls)
+    {
+        try { Clipboard.SetText(text.Length > 0 ? text : " "); _clipText = Clipboard.GetText(); _clipNulls = nulls; } catch { /* clipboard bận */ }
+    }
+
+    /// <summary>Giá trị thật của ô (NULL → trống; không lấy chữ "Null" chỉ để hiển thị), bỏ Tab / xuống dòng để dán Excel không lệch ô.</summary>
+    private static string CellText(DataGridViewCell c)
+    {
+        var v = c.Value;
+        if (v is null or DBNull) return "";
+        var s = v is bool b ? (b ? "1" : "0") : Convert.ToString(v, System.Globalization.CultureInfo.CurrentCulture) ?? "";
+        return s.Replace("\t", " ").Replace("\r", " ").Replace("\n", " ");
+    }
+
+    /// <summary>Ctrl+C: đã chọn cả dòng (bấm số thứ tự) → copy các dòng; chọn vùng ô → copy vùng đó theo dạng lưới (dán thẳng vào Excel).</summary>
+    private void CopySelection()
+    {
+        if (_grid.SelectedRows.Count > 0) { CopySelectedRows(); return; }
+        var cells = _grid.SelectedCells.Cast<DataGridViewCell>().Where(c => c.RowIndex >= 0 && c.Visible).ToList();
+        if (cells.Count == 0) return;
+        var rows = cells.Select(c => c.RowIndex).Distinct().OrderBy(i => i).ToList();
+        var cols = cells.Select(c => c.ColumnIndex).Distinct().OrderBy(i => _grid.Columns[i].DisplayIndex).ToList();
+        var sb = new StringBuilder(); var nulls = new HashSet<(int, int)>();
+        for (var ri = 0; ri < rows.Count; ri++)
+        {
+            var parts = new List<string>();
+            for (var ci = 0; ci < cols.Count; ci++)
+            {
+                var has = cells.Any(c => c.RowIndex == rows[ri] && c.ColumnIndex == cols[ci]);
+                var cell = _grid.Rows[rows[ri]].Cells[cols[ci]];
+                if (has && cell.Value is null or DBNull) nulls.Add((ri, ci));
+                parts.Add(has ? CellText(cell) : "");
+            }
+            sb.AppendLine(string.Join("\t", parts));
+        }
+        var text = sb.ToString();
+        if (rows.Count == 1 && cols.Count == 1) text = text.TrimEnd('\r', '\n');
+        SetClip(text, nulls); _statusLabel.Text = $"Đã copy {rows.Count} dòng × {cols.Count} cột.";
     }
 
     /// <summary>Copy One Value — chỉ giá trị của ô đang đứng (không tiêu đề, không các ô khác).</summary>
@@ -751,15 +824,19 @@ public class TableEditControl : UserControl
         if (_loading) return;
         if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
         if (_grid.CurrentCell is null) { _statusLabel.Text = "Chọn ô bắt đầu rồi dán."; return; }
+        // Đứng ở dòng "thêm mới" trống cuối lưới: huỷ dòng nháp của lưới trước, để dòng dán vào là dòng thật duy nhất (không sinh thêm 1 dòng NULL thừa).
+        var curRow0 = _grid.CurrentCell.RowIndex; var curCol0 = _grid.CurrentCell.ColumnIndex;
+        if (curRow0 >= 0 && _grid.Rows[curRow0].IsNewRow) _grid.CancelEdit();
 
         List<List<string>> table;
         try { table = ParseClipboardTable(Clipboard.GetText()); }
         catch (Exception ex) { _statusLabel.Text = "Không đọc được clipboard: " + ex.Message; return; }
         if (table.Count == 0) return;
+        var knownNulls = _clipText is not null && Clipboard.GetText() == _clipText ? _clipNulls : null;   // clipboard vẫn là bản vừa copy từ Table → biết ô nào NULL
 
         var visibleCols = _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex).ToList();
-        var startCol = visibleCols.FindIndex(c => c.Index == _grid.CurrentCell.ColumnIndex);
-        var startRow = _grid.CurrentCell.RowIndex;
+        var startCol = visibleCols.FindIndex(c => c.Index == curCol0);
+        var startRow = curRow0;
         if (startCol < 0) return;
         var cols = table.Max(r => r.Count);
         if (startCol + cols > visibleCols.Count) cols = visibleCols.Count - startCol; // thừa cột thì bỏ phần dư bên phải
@@ -777,24 +854,33 @@ public class TableEditControl : UserControl
         for (var r = 0; r < table.Count; r++)
         {
             var gridRow = startRow + r;
-            DataRow? dataRow = null;
-            if (gridRow < _grid.Rows.Count && _grid.Rows[gridRow].DataBoundItem is DataRowView drv) dataRow = drv.Row;
+            DataRow? dataRow = null; var newRow = false;
+            if (gridRow < _grid.Rows.Count && _grid.Rows[gridRow].DataBoundItem is DataRowView drv) { dataRow = drv.Row; if (dataRow.RowState == DataRowState.Detached) newRow = true; }
             else
             {
                 dataRow = data.NewRow(); // vượt quá cuối bảng (hoặc dòng "thêm mới" trống): tạo dòng mới
-                added++;
-                data.Rows.Add(dataRow);
+                newRow = true; // chỉ Add vào bảng SAU khi đã điền giá trị (khoá NOT NULL)
             }
             for (var c = 0; c < cols && c < table[r].Count; c++)
             {
                 var dc = data.Columns[visibleCols[startCol + c].DataPropertyName.Length > 0 ? visibleCols[startCol + c].DataPropertyName : visibleCols[startCol + c].Name];
                 if (dc is null || dc.ReadOnly) continue;
-                if (!TryConvertCell(table[r][c], dc, out var val)) { errors++; continue; }
+                object val;
+                if (knownNulls is not null && knownNulls.Contains((r, c)) && dc.AllowDBNull) val = DBNull.Value;
+                else if (!TryConvertCell(table[r][c], dc, out val!)) { errors++; continue; }
                 dataRow[dc] = val;
                 cells++;
             }
+            if (newRow)
+            {
+                foreach (DataColumn dc in data.Columns) if (!dc.AllowDBNull && dataRow.IsNull(dc) && !dc.AutoIncrement) dataRow[dc] = DefaultFor(dc);
+                try { data.Rows.Add(dataRow); added++; }
+                catch (Exception ex) { errors++; _statusLabel.Text = "Không thêm được dòng: " + ex.Message; }
+            }
         }
         _grid.Refresh();
+        if (_grid.CurrentCell is { RowIndex: >= 0 } cur && _grid.Rows[cur.RowIndex].IsNewRow && _grid.NewRowIndex > 0)
+            try { _grid.CurrentCell = _grid.Rows[_grid.NewRowIndex - 1].Cells[cur.ColumnIndex]; } catch { /* ô ẩn */ }
         _statusLabel.Text = $"Đã dán {cells} ô ({table.Count} dòng × {cols} cột" + (added > 0 ? $", thêm {added} dòng mới" : "") + (errors > 0 ? $", {errors} ô không đổi được kiểu dữ liệu nên bỏ qua" : "") + ").";
         await AutoSaveRowAsync();
     }
@@ -1485,7 +1571,18 @@ public class TableEditControl : UserControl
                 if (!WorkspaceStillMatches(out mismatch)) { _statusLabel.Text = mismatch; break; }
 
                 UpdateRowLabel("💾 Đang lưu thay đổi của dòng " + ((_grid.CurrentCell?.RowIndex ?? 0) + 1) + "…");
-                var count = await _service.SaveChangesAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp);
+                foreach (DataRow pr in data.Rows) if (pr.RowState != DataRowState.Deleted && pr.HasErrors) pr.ClearErrors();
+                var (count, failed) = await _service.SaveChangesTolerantAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp);
+                if (failed.Count > 0)
+                {
+                    // Dòng lỗi (trùng khoá, NOT NULL…) giữ nguyên trong lưới với dấu ! đỏ — sửa lại giá trị (vd. ma_kh) rồi rời dòng để lưu lại; không sửa = chưa insert, Load lại là mất.
+                    _statusLabel.Text = (count > 0 ? $"Đã lưu {count} dòng · " : "") + $"{failed.Count} dòng CHƯA lưu (dấu ! đỏ — rê chuột xem lỗi): " + failed[0].Error + " — sửa lại giá trị rồi rời dòng để lưu lại.";
+                    var del = failed.FirstOrDefault(f => f.State == DataRowState.Deleted);
+                    if (del.Row is not null)
+                        MessageBox.Show(this, "Không xoá được dòng:\n" + del.Error, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    _grid.Invalidate();
+                    break;   // dòng lỗi còn chờ sửa — không lặp lại vô hạn
+                }
                 if (count > 0)
                     _statusLabel.Text = $"Đã tự động lưu {count} thay đổi lúc {DateTime.Now:HH:mm:ss} ({DescribeStamp(_loadedStamp)}).";
                 UpdateRowLabel();

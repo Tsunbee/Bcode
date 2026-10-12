@@ -167,6 +167,13 @@
     // Khởi động: theme và tuỳ chọn người dùng chỉ cần host (không cần Monaco) nên hỏi NGAY, chạy song song với việc tải/chạy editor.main.js (3,6MB).
     window.bcodeTheme.prefetch();
     var bcodePrefsLoading = window.bcodePrefs.load();
+    // Worker của Monaco (JS/TS/JSON/CSS/HTML...) khi chạy từ blob không tự ghép được đường dẫn tương đối ("../../../vs/language/typescript/tsWorker.js" → lỗi
+    // "Failed to parse URL"): tự cung cấp worker nhỏ có baseUrl tuyệt đối trỏ về gốc trang. Gặp khi peek / mở nội dung JavaScript (vd Include/Javascript/ReportInit.txt).
+    window.MonacoEnvironment = {
+      getWorkerUrl: function () {
+        return 'data:text/javascript;charset=utf-8,' + encodeURIComponent("self.MonacoEnvironment = { baseUrl: '" + location.origin + "/' }; importScripts('" + location.origin + "/vs/base/worker/workerMain.js');");
+      }
+    };
     require.config({ paths: { vs: 'vs' } });
     require(['vs/editor/editor.main'], async function () {
       performance.mark('bc-monaco-loaded');

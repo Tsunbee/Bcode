@@ -39,7 +39,7 @@ public class FsgRequirementReportControl : UserControl
     }
 
     // ---- Dữ liệu đã lưu theo từng dự án (%AppData%\Bcode\fsg-requirements.json) ----
-    private sealed record Req(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1, string NoiDung, string MaLt1, string MaNv1, string TrangThai, string? NgayHt);
+    private sealed record Req(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1, string NoiDung, string MaLt1, string MaNv1, string TrangThai, string? NgayHt, string GhiChu = "");
 
     private sealed class ProjectData
     {
@@ -145,7 +145,7 @@ public class FsgRequirementReportControl : UserControl
             if (error is null)
             {
                 var now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
-                var data = rows.Select(r => new Req(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"))).ToList();
+                var data = rows.Select(r => new Req(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu)).ToList();
                 // Chỉ thay dữ liệu của các dự án vừa kéo (có trong kết quả hoặc nằm trong ô Mã dự án); dự án khác đã lưu giữ nguyên.
                 foreach (var code in maDa.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) st.Projects.Remove(code);
                 foreach (var g in data.GroupBy(r => r.MaDa, StringComparer.OrdinalIgnoreCase))

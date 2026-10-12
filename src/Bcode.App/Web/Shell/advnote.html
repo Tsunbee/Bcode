@@ -84,6 +84,7 @@
   #cModal .box { height: 100%; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; overflow: hidden; box-shadow: 0 10px 34px rgba(0,0,0,.5); }
   #cModal .mh { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; background: var(--panel-alt); border-bottom: 1px solid var(--border); }
   #cModal .mh .t { font-weight: 600; flex: 1 1 200px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #cRich { flex: 1; overflow: auto; padding: 14px 18px; background: var(--input); user-select: text; cursor: text; }
   #cModal textarea { flex: 1; width: 100%; resize: none; border: none; border-radius: 0; padding: 12px 16px; font: 14px/1.55 'Segoe UI', sans-serif; background: var(--input); color: var(--text); outline: none; user-select: text; -webkit-user-select: text; }
   #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 10; }
   #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 14px 22px; }
@@ -216,14 +217,17 @@
   <div class="box">
     <div class="mh">
       <span class="t" id="cTitle">Request Content</span>
+      <button id="cEdit" title="Chuyển giữa xem định dạng (màu menu / ghi chú) và sửa chữ thuần">✏ Sửa</button>
       <button id="cCopy" title="Copy toàn bộ nội dung">Copy</button>
       <button id="cClose" class="primary" title="Đóng (Esc)">Đóng</button>
     </div>
-    <textarea id="cText" spellcheck="false" placeholder="Nội dung yêu cầu..."></textarea>
+    <div id="cRich" class="rr"></div>
+    <textarea id="cText" spellcheck="false" placeholder="Nội dung yêu cầu..." style="display:none"></textarea>
   </div>
 </div>
 <div id="busy"><div id="busyMsg">Đang xử lý...</div></div>
 
+<script src="richreq.js"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -497,10 +501,18 @@
     $('cTitle').textContent = 'Request Content — ' + (r.name || '');
     $('cText').value = $('fContent').value;
     $('cModal').style.display = 'block';
-    $('cText').focus();
-    $('cText').setSelectionRange(0, 0);
-    $('cText').scrollTop = 0;
+    // Có nội dung → mở ở chế độ XEM định dạng (menu / ghi chú tô màu); nội dung trống thì vào luôn chế độ sửa.
+    setEditMode(!$('cText').value.trim());
   }
+  function renderRich() { $('cRich').innerHTML = window.RichReq ? window.RichReq.build(window.RichReq.parse($('cText').value)) : ''; }
+  function setEditMode(edit) {
+    $('cText').style.display = edit ? '' : 'none';
+    $('cRich').style.display = edit ? 'none' : '';
+    $('cEdit').textContent = edit ? '👁 Xem đẹp' : '✏ Sửa';
+    if (edit) { $('cText').focus(); $('cText').setSelectionRange(0, 0); $('cText').scrollTop = 0; }
+    else { renderRich(); $('cRich').scrollTop = 0; }
+  }
+  $('cEdit').onclick = () => setEditMode($('cText').style.display === 'none');
   function closeContent() {
     if ($('cModal').style.display !== 'block') return;
     $('cModal').style.display = 'none';

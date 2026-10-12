@@ -190,7 +190,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
     }
 
     /// <summary>1 dòng yêu cầu lấy từ bảng nvphyc: mã dự án, bộ phận lập trình, mã nhân viên, tên lập trình, mã yêu cầu.</summary>
-    public sealed record RequestRow(string MaDa, string BpLt, string MaNv1, string MaLt1, string Fcode1, string NoiDung, string GhiChu = "", string TenMenu = "");
+    public sealed record RequestRow(string MaDa, string BpLt, string MaNv1, string MaLt1, string Fcode1, string NoiDung, string GhiChu = "", string TenMenu = "", string MaXlyc = "");
 
     /// <summary>Chữ thuần từ chuỗi HTML của ns_getContentInfo: &lt;br/&gt; → xuống dòng, bỏ thẻ (span, style...), giải mã &amp;nbsp; &amp;lt;...</summary>
     internal static string HtmlToText(string? html)
@@ -237,9 +237,8 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
 
             // Tên menu + ghi chú (tester / lỗi) lấy từ thủ tục ns_getContentInfo(@cID = stt_rec) — cùng nguồn với màn hình xem yêu cầu. Thủ tục lỗi / không có
             // thì bỏ trống 2 phần này chứ không làm hỏng cả lần Sync. Gọi song song tối đa 4 kết nối.
-            var extra = new (string Menu, string Note, string Content)[basics.Count];
-            Array.Fill(extra, ("", "", ""));
-            Array.Fill(extra, ("", "", ""));
+            var extra = new (string Menu, string Note, string Content, string Status)[basics.Count];
+            Array.Fill(extra, ("", "", "", ""));
             using var gate = new SemaphoreSlim(4);
             await Task.WhenAll(basics.Select(async (b0, i) =>
             {
@@ -255,7 +254,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
                     if (await pr.ReadAsync())
                     {
                         string G(string col) { try { var o = pr.GetOrdinal(col); return pr.IsDBNull(o) ? "" : Convert.ToString(pr.GetValue(o)) ?? ""; } catch { return ""; } }
-                        extra[i] = (HtmlToText(G("ten_menu")), HtmlToText(G("ghi_chu")), HtmlToText(G("noi_dung")));
+                        extra[i] = (HtmlToText(G("ten_menu")), HtmlToText(G("ghi_chu")), HtmlToText(G("noi_dung")), HtmlToText(G("ma_xlyc")).Replace("\r\n", " "));
                     }
                 }
                 catch { /* thủ tục không chạy được cho y/c này — bỏ trống tên menu / ghi chú */ }
@@ -266,7 +265,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             for (var i = 0; i < basics.Count; i++)
             {
                 var row = basics[i].Row;
-                rows.Add(row with { NoiDung = string.IsNullOrWhiteSpace(row.NoiDung) ? extra[i].Content : row.NoiDung, GhiChu = extra[i].Note, TenMenu = extra[i].Menu });
+                rows.Add(row with { NoiDung = string.IsNullOrWhiteSpace(row.NoiDung) ? extra[i].Content : row.NoiDung, GhiChu = extra[i].Note, TenMenu = extra[i].Menu, MaXlyc = extra[i].Status });
             }
             return (rows, null);
         }
@@ -278,7 +277,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
 
     /// <summary>1 dòng của "Báo cáo yêu cầu FSG" (bảng nvphyc + hạn hoàn thành từ vnbcnhanhtda).</summary>
     public sealed record RequirementRow(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1,
-        string NoiDung, string MaLt1, string MaNv1, DateTime? NgayHt, string TrangThai);
+        string NoiDung, string MaLt1, string MaNv1, DateTime? NgayHt, string TrangThai, string GhiChu = "");
 
     /// <summary>
     /// Báo cáo yêu cầu FSG: đọc nvphyc (ma_da, menu_id, ten_menu_ngan, trang_tlks, tlks_yn, bp_lt, fcode1, noi_dung, ma_lt1, ma_nv1, trang_thai) và JOIN
@@ -316,21 +315,55 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             // "Người" = lập trình HOẶC triển khai (một ô để kéo theo người, không cần biết họ đứng ở cột nào)
             var pv = In("a.ma_lt1", person); if (pv.Length > 0) { var pn = In("a.ma_nv1", person); where.Add("(" + pv + " OR " + pn + ")"); }
             cmd.CommandText = $@"
-SELECT a.ma_da, a.menu_id, a.ten_menu_ngan, a.trang_tlks, a.tlks_yn, a.bp_lt, a.fcode1, a.noi_dung, a.ma_lt1, a.ma_nv1, b.ngay_ht, a.trang_thai
+SELECT a.stt_rec, a.ma_da, a.menu_id, a.ten_menu_ngan, a.trang_tlks, a.tlks_yn, a.bp_lt, a.fcode1, a.noi_dung, a.ma_lt1, a.ma_nv1, b.ngay_ht, a.trang_thai
 FROM nvphyc a
-	LEFT JOIN vnbcnhanhtda b ON a.ma_da = b.ma_da AND a.giai_doan_da = b.giai_doan_da
+	-- vnbcnhanhtda có thể có NHIỀU dòng cho cùng (ma_da, giai_doan_da) → JOIN thường làm 1 yêu cầu hiện lặp nhiều lần; chỉ lấy 1 dòng (hạn muộn nhất).
+	OUTER APPLY (SELECT TOP 1 x.ngay_ht FROM vnbcnhanhtda x WHERE x.ma_da = a.ma_da AND x.giai_doan_da = a.giai_doan_da ORDER BY x.ngay_ht DESC) b
 WHERE {string.Join(" AND ", where)}
 ORDER BY a.ma_da, a.xorder, a.stt_rec";
 
             var rows = new List<RequirementRow>();
-            await using var r = await cmd.ExecuteReaderAsync();
-            while (await r.ReadAsync())
+            var stts = new List<string>();
+            await using (var r = await cmd.ExecuteReaderAsync())
+                while (await r.ReadAsync())
+                {
+                    string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
+                    DateTime? d = r.IsDBNull(r.GetOrdinal("ngay_ht")) ? null : Convert.ToDateTime(r.GetValue(r.GetOrdinal("ngay_ht")));
+                    stts.Add(S("stt_rec"));
+                    rows.Add(new RequirementRow(S("ma_da"), S("menu_id"), S("ten_menu_ngan"), S("trang_tlks"), S("tlks_yn"), S("bp_lt"), S("fcode1"),
+                        S("noi_dung"), S("ma_lt1"), S("ma_nv1"), d, S("trang_thai")));
+                }
+
+            // Ghi chú của y/c: dựng giống ns_getContentInfo (bảng nbctyc: xtype 1 = ghi chú tester, xtype 2 = lỗi tester ghi nhận). Đọc theo lô cho cả báo cáo (không gọi thủ tục từng dòng).
+            // Lỗi / thiếu bảng thì bỏ trống cột ghi chú, không làm hỏng báo cáo.
+            try
             {
-                string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
-                DateTime? d = r.IsDBNull(r.GetOrdinal("ngay_ht")) ? null : Convert.ToDateTime(r.GetValue(r.GetOrdinal("ngay_ht")));
-                rows.Add(new RequirementRow(S("ma_da"), S("menu_id"), S("ten_menu_ngan"), S("trang_tlks"), S("tlks_yn"), S("bp_lt"), S("fcode1"),
-                    S("noi_dung"), S("ma_lt1"), S("ma_nv1"), d, S("trang_thai")));
+                var notes = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+                var keys = stts.Where(x => x.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                for (var off = 0; off < keys.Count; off += 800)
+                {
+                    var batch = keys.Skip(off).Take(800).ToList();
+                    await using var nc = new SqlCommand { Connection = conn, CommandTimeout = 60 };
+                    var names = batch.Select((k, i) => { nc.Parameters.Add("@s" + i, System.Data.SqlDbType.Char, 13).Value = k; return "@s" + i; });
+                    nc.CommandText = "SELECT stt_rec, xtype, RTRIM(ISNULL(ma_tester, '')) AS ma_tester, RTRIM(ISNULL(noi_dung, '')) AS noi_dung, RTRIM(ISNULL(ghi_chu_lt, '')) AS ghi_chu_lt, RTRIM(ISNULL(trang_thai, '')) AS trang_thai " +
+                                     "FROM nbctyc WHERE noi_dung <> '' AND stt_rec IN (" + string.Join(", ", names) + ") ORDER BY stt_rec";
+                    await using var nr = await nc.ExecuteReaderAsync();
+                    while (await nr.ReadAsync())
+                    {
+                        string N(int i) => nr.IsDBNull(i) ? "" : Convert.ToString(nr.GetValue(i))?.Trim() ?? "";
+                        var key = N(0); var xtype = N(1); var tester = N(2); var text = N(3); var lt = N(4); var tt = N(5);
+                        string line;
+                        if (xtype == "1") line = "[" + tester + "]:" + text;
+                        else if (xtype == "2") line = "[" + tester + "][" + tt + "]:" + text + (lt.Length > 0 ? " [LT:" + lt + "]" : "");
+                        else continue;
+                        if (!notes.TryGetValue(key, out var l)) notes[key] = l = new List<string>();
+                        l.Add(line);
+                    }
+                }
+                for (var i = 0; i < rows.Count; i++)
+                    if (stts[i].Length > 0 && notes.TryGetValue(stts[i], out var l)) rows[i] = rows[i] with { GhiChu = string.Join("\r\n", l) };
             }
+            catch { /* không đọc được ghi chú — báo cáo vẫn đủ các cột còn lại */ }
             return (rows, null);
         }
         catch (Exception ex)

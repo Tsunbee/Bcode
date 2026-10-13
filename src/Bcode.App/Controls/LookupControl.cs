@@ -23,6 +23,9 @@ public class LookupControl : UserControl
 
     private readonly List<SqlObjectInfo> _results = new();   // danh sách đang hiện (trang tham chiếu bằng chỉ số)
     private readonly List<SqlObjectInfo> _history = new();
+    private readonly List<SqlObjectInfo> _textResults = new();   // kết quả tìm theo nội dung
+    private static SqlDefinitionIndex? _defIndex;               // dùng chung giữa các tab Lookup — cache nội dung procedure/function/view/trigger
+    private int _textVersion;
     private SqlObjectInfo? _currentObj;
     private string _mode = "";                                  // "", "search", "data", "history"
     private int _searchVersion;
@@ -62,8 +65,10 @@ public class LookupControl : UserControl
             switch (m.TryGetProperty("action", out var a) ? a.GetString() : "")
             {
                 case "search": await SearchAsync(m); break;
+                case "textsearch": await TextSearchAsync(m); break;
                 case "select":
                     if (m.GetProperty("list").GetString() == "history") { if (Valid(_history, m, out var h)) await LoadObjectAsync(h); }
+                    else if (m.GetProperty("list").GetString() == "text") { if (Valid(_textResults, m, out var tr)) await LoadObjectAsync(tr); }
                     else if (Valid(_results, m, out var r)) await LoadObjectAsync(r);
                     break;
                 case "mode": _mode = m.GetProperty("mode").GetString() ?? ""; await RefreshBottomAsync(); break;
@@ -115,6 +120,49 @@ public class LookupControl : UserControl
         catch (Exception)
         {
             Js("lookup.onStatus('Lỗi (chưa kết nối?).', 'err')");   // không popup khi gõ tìm liên tục
+        }
+    }
+
+    /// <summary>Khu "tìm theo nội dung": đồng bộ cache định nghĩa (chỉ nạp lại object mới / vừa sửa — lần đầu mới nạp cả database), rồi tìm trong bộ nhớ.</summary>
+    private async Task TextSearchAsync(JsonElement m)
+    {
+        var version = ++_textVersion;
+        var term = (m.GetProperty("term").GetString() ?? "").Trim();
+        if (term.Length < 2) return;
+        var db = m.GetProperty("db").GetInt32();
+        var kinds = new HashSet<SqlObjectKind>();
+        foreach (var k in m.GetProperty("kinds").EnumerateArray())
+            switch (k.GetString())
+            {
+                case "fn": kinds.Add(SqlObjectKind.Function); break;
+                case "proc": kinds.Add(SqlObjectKind.StoredProcedure); break;
+                case "view": kinds.Add(SqlObjectKind.View); break;
+                case "trigger": kinds.Add(SqlObjectKind.Trigger); break;
+            }
+        var index = _defIndex ??= new SqlDefinitionIndex(_sqlObjectService.Connections);
+        try
+        {
+            var dbChoices = db switch { 0 => new[] { false }, 1 => new[] { true }, _ => new[] { false, true } };
+            var hits = new List<SqlDefinitionIndex.Hit>();
+            var progress = new Progress<string>(s => { if (version == _textVersion) Js($"lookup.onTextStatus({J(s)})"); });
+            var reloaded = 0;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            foreach (var useSys in dbChoices)
+            {
+                var (n, _) = await index.SyncAsync(useSys, progress);
+                reloaded += n;
+                hits.AddRange(index.Search(useSys, term, kinds));
+            }
+            if (version != _textVersion || IsDisposed) return;
+            hits = hits.OrderBy(h => h.Info.Kind).ThenBy(h => h.Info.QualifiedName, StringComparer.OrdinalIgnoreCase).ToList();
+            _textResults.Clear();
+            _textResults.AddRange(hits.Select(h => h.Info));
+            var note = $"{hits.Count} object chứa \"{term}\" · {sw.ElapsedMilliseconds} ms" + (reloaded > 0 ? $" · vừa cập nhật {reloaded} object" : " · từ cache");
+            Js($"lookup.onTextList({J(hits.Select((h, i) => new { i, sys = h.Info.FromSysDatabase, name = h.Info.QualifiedName, kind = KindLabel(h.Info.Kind), n = h.Matches }))}, {J(note)})");
+        }
+        catch (Exception ex)
+        {
+            if (version == _textVersion) Js($"lookup.onTextStatus({J("Lỗi: " + ex.Message)})");
         }
     }
 

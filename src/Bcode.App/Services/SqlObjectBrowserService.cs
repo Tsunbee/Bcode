@@ -430,17 +430,18 @@ ORDER BY ORDINAL_POSITION;";
     {
         const string sql = @"
 SELECT i.name AS IndexName, i.is_primary_key, i.is_unique, i.type_desc,
-       c.name AS ColumnName, ic.is_descending_key
+       c.name AS ColumnName, ic.is_descending_key, ds.name AS FileGroupName
 FROM sys.indexes i
+LEFT JOIN sys.data_spaces ds ON ds.data_space_id = i.data_space_id
 JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.is_included_column = 0
 JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
 WHERE i.object_id = OBJECT_ID(@qualified) AND i.type IN (1, 2)
-ORDER BY i.name, ic.key_ordinal;";
+ORDER BY CASE WHEN i.is_primary_key = 1 THEN 0 ELSE 1 END, i.name, ic.key_ordinal;";
 
         await using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@qualified", $"[{table.Schema}].[{table.Name}]");
 
-        var byIndex = new List<(string Name, bool IsPk, bool IsUnique, string TypeDesc, List<string> Cols)>();
+        var byIndex = new List<(string Name, bool IsPk, bool IsUnique, string TypeDesc, List<string> Cols, string FileGroup)>();
         await using (var reader = await cmd.ExecuteReaderAsync())
         {
             while (await reader.ReadAsync())
@@ -449,12 +450,13 @@ ORDER BY i.name, ic.key_ordinal;";
                 var isPk = reader.GetBoolean(1);
                 var isUnique = reader.GetBoolean(2);
                 var typeDesc = reader.GetString(3);
-                var col = reader.GetString(4) + (reader.GetBoolean(5) ? " DESC" : " ASC");
+                var col = reader.GetString(4) + (reader.GetBoolean(5) ? " DESC" : "");
+                var fileGroup = reader.IsDBNull(6) ? "PRIMARY" : reader.GetString(6);
 
                 var existing = byIndex.FirstOrDefault(x => x.Name == name);
                 if (existing.Name is null)
                 {
-                    existing = (name, isPk, isUnique, typeDesc, new List<string>());
+                    existing = (name, isPk, isUnique, typeDesc, new List<string>(), fileGroup);
                     byIndex.Add(existing);
                 }
                 existing.Cols.Add(col);
@@ -463,16 +465,19 @@ ORDER BY i.name, ic.key_ordinal;";
 
         if (byIndex.Count == 0) return "";
 
+        // Cùng kiểu với "Write Schema" của FCode: khoá chính trước (ALTER TABLE ... PRIMARY KEY), rồi từng CREATE INDEX — mỗi lệnh kết thúc bằng GO, kèm filegroup.
         var lines = new List<string> { "-- Indexes" };
+        var tbl = table.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? "dbo." + table.Name : "[" + table.Schema + "]." + table.Name;
         foreach (var idx in byIndex)
         {
-            var cols = string.Join(", ", idx.Cols);
+            var clustered = idx.TypeDesc.StartsWith("CLUSTERED", StringComparison.OrdinalIgnoreCase) ? "CLUSTERED " : "";
             if (idx.IsPk)
-                lines.Add($"ALTER TABLE [{table.Schema}].[{table.Name}] ADD CONSTRAINT [{idx.Name}] PRIMARY KEY {idx.TypeDesc.Replace("_", " ")} ({cols});");
-            else if (idx.IsUnique)
-                lines.Add($"CREATE UNIQUE {idx.TypeDesc.Replace("_", " ")} INDEX [{idx.Name}] ON [{table.Schema}].[{table.Name}] ({cols});");
-            else
-                lines.Add($"CREATE {idx.TypeDesc.Replace("_", " ")} INDEX [{idx.Name}] ON [{table.Schema}].[{table.Name}] ({cols});");
+            {
+                lines.Add($"ALTER TABLE {tbl} ADD CONSTRAINT [{idx.Name}] PRIMARY KEY {clustered}\n(\n\t{string.Join(",\n\t", idx.Cols)}\n) ON [{idx.FileGroup}]\n\nGO\n");
+                continue;
+            }
+            var cols = string.Join(", ", idx.Cols.Select(c => c.Contains(' ') ? "[" + c.Split(' ')[0] + "] " + c.Split(' ')[1] : "[" + c + "]"));
+            lines.Add($"CREATE {(idx.IsUnique ? "UNIQUE " : "")}{clustered}INDEX [{idx.Name}] ON {tbl}({cols}) ON [{idx.FileGroup}]\nGO\n");
         }
         return string.Join("\n", lines);
     }

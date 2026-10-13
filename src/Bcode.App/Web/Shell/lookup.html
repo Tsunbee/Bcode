@@ -14,6 +14,10 @@
   .filters input[type=text], .filters select { width: 100%; box-sizing: border-box; }
   .kinds { display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
   .list { flex: 1; min-height: 0; overflow: auto; background: var(--input); }
+  .tsec { flex: 0 0 40%; min-height: 6rem; display: flex; flex-direction: column; border-top: var(--bw) solid var(--accent); }
+  .tsec .tq { flex: none; padding: .4rem .6rem; background: var(--panel-alt); display: flex; flex-direction: column; gap: .3rem; }
+  .tsec .tq input { width: 100%; box-sizing: border-box; }
+  .it .cnt { color: var(--accent); margin-left: .5rem; font-size: .88rem; } .it.sel .cnt { color: inherit; }
   .it { padding: calc(.2rem * var(--dens)) .6rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .it:hover { background: var(--selection); } .it.sel { background: var(--accent); color: var(--on-accent); }
   .it .t { color: var(--text-muted); margin-left: .5rem; font-size: .88rem; } .it.sel .t { color: inherit; opacity: .8; }
@@ -37,6 +41,10 @@
       <div class="kinds"><label class="chk"><input type="checkbox" class="kd" value="fn" checked> Function</label><label class="chk"><input type="checkbox" class="kd" value="proc" checked> Store</label><label class="chk"><input type="checkbox" class="kd" value="table" checked> Table</label><label class="chk"><input type="checkbox" class="kd" value="view" checked> View</label><label class="chk"><input type="checkbox" class="kd" value="trigger" checked> Trigger</label></div>
     </div>
     <div class="list" id="list"></div>
+    <div class="tsec">
+      <div class="tq"><input type="text" id="tq" placeholder="Search nội dung trong Function / Store / View / Trigger…" spellcheck="false" autocomplete="off"><span class="muted" id="tst">Gõ ≥ 2 ký tự — tìm trong cache nội dung (tự cập nhật khi object đổi).</span></div>
+      <div class="list" id="tlist"></div>
+    </div>
   </div>
   <div class="right">
     <div class="tools">
@@ -80,8 +88,20 @@
   document.querySelectorAll('.kd').forEach((c) => c.addEventListener('change', search));
   $('bTab').onclick = () => post('openInTab');
 
+  // ---- khu 2: tìm theo NỘI DUNG (cache định nghĩa ở C#) ----
+  let ttimer = 0, fromText = false, tsel = null;
+  function textSearch() {
+    clearTimeout(ttimer);
+    const term = $('tq').value.trim();
+    if (term.length < 2) { $('tlist').innerHTML = ''; $('tst').textContent = 'Gõ ≥ 2 ký tự — tìm trong cache nội dung (tự cập nhật khi object đổi).'; return; }
+    ttimer = setTimeout(() => post('textsearch', { db: parseInt($('db').value, 10), term, kinds: [...document.querySelectorAll('.kd:checked')].map((c) => c.value) }), 350);
+  }
+  $('tq').addEventListener('input', textSearch);
+  $('tq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(ttimer); const term = $('tq').value.trim(); if (term.length >= 2) post('textsearch', { db: parseInt($('db').value, 10), term, kinds: [...document.querySelectorAll('.kd:checked')].map((c) => c.value) }); } });
+  $('tlist').addEventListener('click', (e) => { const el = e.target.closest('.it'); if (!el) return; if (tsel) tsel.classList.remove('sel'); tsel = el; el.classList.add('sel'); fromText = true; post('select', { list: 'text', i: parseInt(el.dataset.i, 10) }); });
+
   function item(o, listName) { return '<div class="it" data-i="' + o.i + '" data-list="' + listName + '" title="' + esc(o.name) + '"><span class="db">' + (o.sys ? '[Sys]' : '[App]') + '</span>' + esc(o.name) + '<span class="t">(' + esc(o.kind) + ')</span></div>'; }
-  $('list').addEventListener('click', (e) => { const el = e.target.closest('.it'); if (!el) return; if (selEl) selEl.classList.remove('sel'); selEl = el; el.classList.add('sel'); post('select', { list: 'results', i: parseInt(el.dataset.i, 10) }); });
+  $('list').addEventListener('click', (e) => { const el = e.target.closest('.it'); if (!el) return; fromText = false; if (selEl) selEl.classList.remove('sel'); selEl = el; el.classList.add('sel'); post('select', { list: 'results', i: parseInt(el.dataset.i, 10) }); });
 
   // ---- 3 ô Show ... = chọn một trong ba ----
   document.querySelectorAll('.md').forEach((c) => c.addEventListener('change', () => {
@@ -92,7 +112,7 @@
     const b = $('bottom');
     b.style.display = mode ? 'flex' : 'none';
     if (mode === 'search') {
-      const term = $('q').value.trim().toLowerCase(); if (!term) { b.innerHTML = '<div class="hint" style="padding:.5rem">Nhập từ khoá ở ô Search Text để xem các dòng khớp.</div>'; return; }
+      const term = ($('tq').value.trim() || $('q').value.trim()).toLowerCase(); if (!term) { b.innerHTML = '<div class="hint" style="padding:.5rem">Nhập từ khoá ở ô Search để xem các dòng khớp.</div>'; return; }
       const lines = defText.split('\n'), out = [];
       lines.forEach((l, i) => { if (l.toLowerCase().includes(term)) out.push('<div class="it" data-line="' + i + '">Dòng ' + (i + 1) + ': ' + esc(l.trim()) + '</div>'); });
       b.innerHTML = out.join('') || '<div class="hint" style="padding:.5rem">Không có dòng nào khớp.</div>';
@@ -118,7 +138,13 @@
 
   window.lookup = {
     onList(list) { $('list').innerHTML = list.map((o) => item(o, 'results')).join(''); selEl = null; },
-    onDefinition(d) { defText = d.text; $('nm').textContent = d.name; $('preview').innerHTML = highlight(d.text); $('preview').scrollTop = 0; if (mode === 'search') renderBottom(); },
+    onDefinition(d) {
+      defText = d.text; $('nm').textContent = d.name; $('preview').innerHTML = highlight(d.text); $('preview').scrollTop = 0; if (mode === 'search') renderBottom();
+      const tt = $('tq').value.trim().toLowerCase();
+      if (fromText && tt && !d.text.startsWith('-- Đang tải')) { const n = d.text.split('\n').findIndex((l) => l.toLowerCase().includes(tt)); if (n >= 0) jumpToLine(n); }   // chọn từ khu tìm nội dung: nhảy tới dòng khớp đầu tiên
+    },
+    onTextList(list, note) { $('tlist').innerHTML = list.map((o) => '<div class="it" data-i="' + o.i + '" title="' + esc(o.name) + '"><span class="db">' + (o.sys ? '[Sys]' : '[App]') + '</span>' + esc(o.name) + '<span class="t">(' + esc(o.kind) + ')</span><span class="cnt">' + o.n + '×</span></div>').join(''); tsel = null; $('tst').textContent = note || ''; },
+    onTextStatus(t) { $('tst').textContent = t || ''; },
     onHistory(list) { hist = list; if (mode === 'history') renderBottom(); },
     onData(d) { renderBottom(d); },
     onStatus: say,

@@ -168,6 +168,84 @@ ORDER BY ORDINAL_POSITION;";
         return d;
     }
 
+    /// <summary>Index (không phải khoá chính / unique constraint) có dùng một trong các cột <paramref name="columns"/> của bảng — ALTER COLUMN bị chặn ("The index ... is dependent on column")
+    /// khi đổi kiểu / thu nhỏ độ dài cột đang nằm trong index. Trả (DROP, CREATE) của từng index để drop → alter → tạo lại.</summary>
+    public async Task<List<(string Name, string DropSql, string CreateSql)>> GetDependentIndexesAsync(bool useSysDatabase, string schema, string table, IReadOnlyList<string> columns)
+    {
+        var result = new List<(string, string, string)>();
+        if (columns.Count == 0) return result;
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        var inList = string.Join(", ", columns.Select((_, i) => "@c" + i));
+        var sql = @"
+SELECT i.name, i.is_unique, i.type_desc, i.has_filter, i.filter_definition, ic.key_ordinal, ic.is_descending_key, ic.is_included_column, c.name,
+       i.fill_factor, i.ignore_dup_key, i.is_padded, ds.name
+FROM sys.indexes i
+LEFT JOIN sys.data_spaces ds ON ds.data_space_id = i.data_space_id
+JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+WHERE i.object_id = OBJECT_ID(@full) AND i.index_id > 0 AND i.is_primary_key = 0 AND i.is_unique_constraint = 0
+  AND EXISTS (SELECT 1 FROM sys.index_columns x JOIN sys.columns xc ON xc.object_id = x.object_id AND xc.column_id = x.column_id
+              WHERE x.object_id = i.object_id AND x.index_id = i.index_id AND xc.name IN (" + inList + @"))
+ORDER BY i.index_id, ic.is_included_column, ic.key_ordinal;";
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@full", "[" + schema + "].[" + table + "]");
+        for (var i = 0; i < columns.Count; i++) cmd.Parameters.AddWithValue("@c" + i, columns[i]);
+        var idx = new Dictionary<string, (bool Unique, string Type, string? Filter, List<string> Keys, List<string> Incl, string Opts, string? Fg)>(StringComparer.OrdinalIgnoreCase);
+        var order = new List<string>();
+        await using (var rd = await cmd.ExecuteReaderAsync())
+            while (await rd.ReadAsync())
+            {
+                var name = rd.GetString(0);
+                if (!idx.TryGetValue(name, out var e))
+                {
+                    var opts = new List<string>();
+                    var ff = Convert.ToInt32(rd.GetValue(9)); if (ff > 0 && ff < 100) opts.Add("FILLFACTOR = " + ff);
+                    if (rd.GetBoolean(10)) opts.Add("IGNORE_DUP_KEY = ON");
+                    if (rd.GetBoolean(11)) opts.Add("PAD_INDEX = ON");
+                    e = (rd.GetBoolean(1), rd.GetString(2), rd.GetBoolean(3) && !rd.IsDBNull(4) ? rd.GetString(4) : null, new(), new(), opts.Count > 0 ? " WITH (" + string.Join(", ", opts) + ")" : "", rd.IsDBNull(12) ? null : rd.GetString(12));
+                    idx[name] = e; order.Add(name);
+                }
+                var col = "[" + rd.GetString(8) + "]";
+                if (rd.GetBoolean(7)) e.Incl.Add(col); else e.Keys.Add(col + (rd.GetBoolean(6) ? " DESC" : ""));
+            }
+        var full = "[" + schema + "].[" + table + "]";
+        foreach (var name in order)
+        {
+            var e = idx[name];
+            var create = "CREATE " + (e.Unique ? "UNIQUE " : "") + (e.Type.StartsWith("CLUSTERED", StringComparison.OrdinalIgnoreCase) ? "CLUSTERED" : "NONCLUSTERED") + " INDEX [" + name + "] ON " + full + " (" + string.Join(", ", e.Keys) + ")"
+                + (e.Incl.Count > 0 ? " INCLUDE (" + string.Join(", ", e.Incl) + ")" : "") + (e.Filter is not null ? " WHERE " + e.Filter : "") + e.Opts + (e.Fg is not null ? " ON [" + e.Fg + "]" : "");
+            result.Add((name, "DROP INDEX [" + name + "] ON " + full, create));
+        }
+        return result;
+    }
+
+    /// <summary>Chạy tất cả câu lệnh trong MỘT transaction: câu nào lỗi thì rollback hết (DDL của SQL Server cũng rollback được) — dùng cho drop index → alter → tạo lại index để lỗi giữa chừng không làm mất index.
+    /// Trả null nếu thành công, hoặc thông báo lỗi (kèm câu lệnh gây lỗi).</summary>
+    public async Task<string?> ExecuteInTransactionAsync(bool useSysDatabase, IEnumerable<string> statements)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
+        var current = "";
+        try
+        {
+            foreach (var sql in statements)
+            {
+                current = sql;
+                await using var cmd = new SqlCommand(sql, conn, tx) { CommandTimeout = 600 };
+                await cmd.ExecuteNonQueryAsync();
+            }
+            await tx.CommitAsync();
+            return null;
+        }
+        catch (Exception ex)
+        {
+            try { await tx.RollbackAsync(); } catch { /* đã rollback */ }
+            return current + Environment.NewLine + "→ " + ex.Message + Environment.NewLine + "(đã hoàn tác toàn bộ — index và cột giữ nguyên như cũ)";
+        }
+    }
+
     /// <summary>Chạy từng câu lệnh (vd các ALTER COLUMN) trên database đã chọn; câu lỗi không chặn các câu sau. Trả danh sách thông báo lỗi (rỗng = tất cả OK).</summary>
     public async Task<List<string>> ExecuteEachAsync(bool useSysDatabase, IEnumerable<string> statements)
     {

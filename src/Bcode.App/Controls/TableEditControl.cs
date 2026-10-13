@@ -1257,12 +1257,13 @@ public class TableEditControl : UserControl
         if (form.ShowDialog(this) != DialogResult.OK || form.Result.Count == 0) return;
         var cols = form.Result.Select(c => (c.Name, Type: c.Type + (c.NotNull ? " NOT NULL" + (add ? DefaultClause(c.Type) : "") : ""))).ToList();
         var script = BuildColumnScript(_schema, _table, _logTable, cols, add ? "ADD" : "ALTER COLUMN");
-        _ = RunColumnScriptAsync(script, add ? "Add" : "Alter", cols.Count);
+        _ = RunColumnScriptAsync(script, add ? "Add" : "Alter", cols.Select(c => c.Name).ToList());
     }
 
     /// <summary>Chạy luôn script Add / Alter Column của hộp Design xuống database đang mở (tách theo dòng GO, mỗi lô chạy riêng), sau khi hỏi xác nhận. Xong thì tải lại bảng để thấy cấu trúc mới.</summary>
-    private async Task RunColumnScriptAsync(string script, string verb, int count)
+    private async Task RunColumnScriptAsync(string script, string verb, List<string> colNames)
     {
+        var count = colNames.Count;
         if (!WorkspaceStillMatches(out var mismatch)) { _statusLabel.Text = mismatch; MessageBox.Show(this, mismatch, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
         var ask = MessageBox.Show(this, $"{verb} {count} cột trên [{_schema}].[{_table}] và chạy NGAY xuống database?\n\nNơi chạy: {DescribeStamp(_loadedStamp)}\n\n" +
             (script.Length > 700 ? script[..700] + "…" : script), "Bcode — Table: " + verb + " Column", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
@@ -1273,6 +1274,24 @@ public class TableEditControl : UserControl
         try
         {
             var errors = await _service.ExecuteEachAsync(_loadedUseSys, batches);
+            // ALTER COLUMN bị chặn vì cột đang nằm trong index ("The index ... is dependent on column"): đề nghị drop index → alter → tạo lại index.
+            if (errors.Count > 0 && verb == "Alter" && errors.Any(e => e.Contains("is dependent on column", StringComparison.OrdinalIgnoreCase)))
+            {
+                var tables = new List<string> { _table }; if (_logTable is not null) tables.Add(_logTable);
+                var deps = new List<(string Table, string Name, string Drop, string Create)>();
+                foreach (var tb in tables)
+                    foreach (var d in await _service.GetDependentIndexesAsync(_loadedUseSys, _schema, tb, colNames)) deps.Add((tb, d.Name, d.DropSql, d.CreateSql));
+                if (deps.Count > 0)
+                {
+                    // Tự drop index → alter → tạo lại index (như FCode), không hỏi thêm — thao tác Alter đã được xác nhận ở trên.
+                    {
+                        var all = deps.Select(d => d.Drop).Concat(batches).Concat(deps.Select(d => d.Create)).ToList();
+                        // Một transaction: drop index → alter → tạo lại; lỗi ở đâu thì hoàn tác hết, không để mất index.
+                        var fail = await _service.ExecuteInTransactionAsync(_loadedUseSys, all);
+                        errors = fail is null ? new List<string>() : new List<string> { fail };
+                    }
+                }
+            }
             if (errors.Count > 0)
             {
                 _statusLabel.Text = $"{verb} cột: {errors.Count}/{batches.Count} lô lỗi.";

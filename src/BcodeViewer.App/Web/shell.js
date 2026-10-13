@@ -402,8 +402,22 @@ class BcodeShell {
     this.sidebar.innerHTML = '<div class="shTreeHeader"></div><div class="shTree" tabindex="0"></div>';
     this.treeHeader = this.sidebar.querySelector('.shTreeHeader');
     this.treeEl = this.sidebar.querySelector('.shTree');
+    this.selKeys = new Set();   // các file đang được chọn bằng Ctrl+bấm (để Ctrl+C copy đường dẫn nhiều file)
+    if (!document.getElementById('shSelCss')) {
+      const st = document.createElement('style'); st.id = 'shSelCss';
+      st.textContent = '.shRow.file.sel { background: color-mix(in srgb, var(--bc-accent) 45%, var(--bc-bg)) !important; color: var(--bc-text) !important; box-shadow: inset 4px 0 0 var(--bc-accent), inset 0 0 0 1px var(--bc-accent) !important; font-weight: 600; }' +
+        '.shRow.file.sel .shRowLabel::before { content: "\\2713  "; color: var(--bc-accent); font-weight: 700; }' +
+        '.shTreeHeader.shSelInfo { color: var(--bc-accent-text, #fff); background: var(--bc-accent); }';
+      document.head.appendChild(st);
+    }
     this.treeEl.addEventListener('keydown', (e) => {
       if (e.key === 'Delete' && this.focusedKey) { e.preventDefault(); this.cmd('tree.remove', this.focusedKey); }
+      // Ctrl+C: copy đường dẫn các file đã chọn (Ctrl+bấm); chưa chọn file nào thì copy dòng đang đứng (file / cả thư mục / cả dự án).
+      else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') {
+        const keys = this.selKeys.size ? this.selectedKeysInOrder() : (this.focusedKey ? [this.focusedKey] : []);
+        if (keys.length) { e.preventDefault(); e.stopPropagation(); this.cmd('tree.copyMany', keys.join('\n')); }
+      }
+      else if (e.key === 'Escape' && this.selKeys.size) { e.preventDefault(); this.clearTreeSelection(); }
     });
 
     this.resizer.addEventListener('mousedown', (e) => {
@@ -434,9 +448,35 @@ class BcodeShell {
     if (window.bcodeTabs) window.bcodeTabs.render();
   }
 
+  /// Khoá các file đang chọn, theo đúng thứ tự hiện trong cây (không theo thứ tự bấm).
+  selectedKeysInOrder() {
+    const out = [];
+    const walk = (nodes) => { for (const n of nodes || []) { if (n.kind === 'file') { if (this.selKeys.has(n.key)) out.push(n.key); } else walk(n.children); } };
+    walk((this.tree && this.tree.nodes) || []);
+    return out;
+  }
+  clearTreeSelection() {
+    this.selKeys.clear();
+    this.treeEl.querySelectorAll('.shRow.sel').forEach((r) => r.classList.remove('sel'));
+    this.paintTreeSelection();
+  }
+  /// Dòng đầu cây: đang chọn bao nhiêu file (để biết chắc Ctrl+bấm đã ăn) — không chọn gì thì hiện lại tiêu đề thường.
+  paintTreeSelection() {
+    const n = this.selKeys.size;
+    this.treeHeader.textContent = n ? 'Đã chọn ' + n + ' file — Ctrl+C: copy đường dẫn · Esc: bỏ chọn' : ((this.tree && this.tree.header) || '');
+    this.treeHeader.classList.toggle('shSelInfo', n > 0);
+  }
+
   setTree(data) {
     this.tree = data;
-    this.treeHeader.textContent = data.header || '';
+    // File đã bị bỏ khỏi cây thì bỏ luôn khỏi vùng chọn.
+    if (this.selKeys && this.selKeys.size) {
+      const alive = new Set();
+      const mark = (nodes) => { for (const n of nodes || []) { if (n.kind === 'file') alive.add(n.key); else mark(n.children); } };
+      mark(data.nodes);
+      [...this.selKeys].forEach((k) => { if (!alive.has(k)) this.selKeys.delete(k); });
+    }
+    this.paintTreeSelection();
     this.renderBreadcrumb(data.activePath);
     const scroll = this.treeEl.scrollTop;
     this.treeEl.textContent = '';
@@ -476,7 +516,7 @@ class BcodeShell {
 
   renderRow(n, depth) {
     const row = document.createElement('div');
-    row.className = 'shRow ' + n.kind + (n.dirty ? ' dirty' : '');
+    row.className = 'shRow ' + n.kind + (n.dirty ? ' dirty' : '') + (n.kind === 'file' && this.selKeys && this.selKeys.has(n.key) ? ' sel' : '');
     row.style.paddingLeft = (6 + depth * 14) + 'px';
     if (n.path) row.title = n.path;
     if (n.kind === 'group') {
@@ -504,8 +544,21 @@ class BcodeShell {
       row.appendChild(icons);
     }
 
-    row.addEventListener('mousedown', () => { this.focusedKey = n.key; });
-    row.addEventListener('click', () => {
+    row.addEventListener('mousedown', (e) => {
+      this.focusedKey = n.key;
+      // Ctrl+bấm vào file: chọn / bỏ chọn (không mở file) — rồi Ctrl+C để copy đường dẫn các file đã chọn.
+      // Làm ngay ở mousedown: cây có thể bị vẽ lại giữa lúc nhấn và nhả chuột (host đẩy cây mới khi editor mất focus), khi đó sự kiện click không tới được dòng này nữa.
+      if (n.kind === 'file' && e.button === 0 && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        if (this.selKeys.has(n.key)) this.selKeys.delete(n.key); else this.selKeys.add(n.key);
+        row.classList.toggle('sel', this.selKeys.has(n.key));
+        this.treeEl.focus();
+        this.paintTreeSelection();
+      }
+    });
+    row.addEventListener('click', (e) => {
+      if (n.kind === 'file' && (e.ctrlKey || e.metaKey)) return;   // đã xử lý ở mousedown
+      if (this.selKeys.size) this.clearTreeSelection();
       if (n.kind === 'file') this.cmd('tree.open', n.path);
       else this.cmd('tree.toggle', n.key);
     });
@@ -522,6 +575,8 @@ class BcodeShell {
       { label: 'Mở', run: () => this.cmd('tree.open', n.path) },
       { label: 'Mở thư mục chứa file', run: () => this.cmd('tree.openFolder', n.path) },
       { label: 'Copy đường dẫn (.f nếu có)', run: () => this.cmd('tree.copy', n.key) },
+      ...(this.selKeys.size > 1 || (this.selKeys.size === 1 && !this.selKeys.has(n.key))
+        ? [{ label: 'Copy đường dẫn ' + this.selKeys.size + ' file đã chọn', shortcut: 'Ctrl+C', run: () => this.cmd('tree.copyMany', this.selectedKeysInOrder().join('\n')) }] : []),
       { sep: true },
       { label: 'Bỏ khỏi danh sách', shortcut: 'Delete', run: () => this.cmd('tree.remove', n.key) },
     ] : n.kind === 'group' ? [
@@ -529,9 +584,11 @@ class BcodeShell {
       { label: 'Ẩn file của TẤT CẢ dự án', run: () => this.cmd('tree.collapseAll') },
       { label: 'Hiện file của tất cả dự án', run: () => this.cmd('tree.expandAll') },
       { sep: true },
+      { label: 'Copy đường dẫn TẤT CẢ file của dự án này (.f nếu có)', run: () => this.cmd('tree.copyMany', n.key) },
       { label: `Bỏ tất cả file của "${n.text.replace(/\s*\(\d+\)$/, '')}" khỏi danh sách`, run: () => this.cmd('tree.remove', n.key) },
     ] : [
       { label: n.expanded ? 'Ẩn file thư mục này' : 'Hiện file thư mục này', run: () => this.cmd('tree.toggle', n.key) },
+      { label: 'Copy đường dẫn các file của thư mục này (.f nếu có)', run: () => this.cmd('tree.copyMany', n.key) },
     ];
     this.closeMenu();
     const menu = this.renderMenu(items);

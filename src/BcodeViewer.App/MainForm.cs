@@ -1595,6 +1595,26 @@ public class MainForm : Form
                     _ = ExecJsAsync($"showToast({JsonSerializer.Serialize("Đã copy: " + copyPath)}, 3000)");
                 }
                 break;
+            // Copy đường dẫn của NHIỀU file: arg = các khoá node cách nhau bằng xuống dòng. Khoá là file → file đó; là dự án / thư mục → mọi file bên trong.
+            // Mỗi file một dòng, theo thứ tự trong cây, không trùng; cùng quy tắc với copy 1 file (lấy file .f nếu có).
+            case "tree.copyMany":
+            {
+                var paths = new List<string>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                void Collect(TreeNode node)
+                {
+                    if (node.Tag is string fp) { var cp = ResolveCopyPath(fp); if (seen.Add(cp)) paths.Add(cp); }
+                    foreach (TreeNode child in node.Nodes) Collect(child);
+                }
+                var asked = 0;
+                foreach (var key in arg.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+                    if (NodeOf(key.Trim()) is { } picked) { if (picked.Tag is string) asked++; Collect(picked); }
+                if (paths.Count == 0) { _ = ExecJsAsync($"showToast({JsonSerializer.Serialize("Không có file nào để copy đường dẫn.")}, 2500)"); break; }
+                try { Clipboard.SetText(string.Join("\r\n", paths)); } catch { break; }
+                _ = ExecJsAsync($"showToast({JsonSerializer.Serialize(paths.Count == 1 && asked <= 1 ? "Đã copy: " + paths[0]
+                    : "Đã copy " + paths.Count + " đường dẫn." + (asked > paths.Count ? " (" + asked + " file chọn, có file trùng cùng một file .f nên gộp lại)" : ""))}, 3000)");
+                break;
+            }
             case "tree.openFolder":
                 _bridge?.OpenFolder(arg);
                 break;

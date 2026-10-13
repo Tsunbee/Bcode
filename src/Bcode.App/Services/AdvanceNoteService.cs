@@ -49,8 +49,15 @@ public class AdvanceRequest
     /// <summary>File Path: mỗi dòng 1 đường dẫn file muốn đưa vào gói update.</summary>
     public string FilePaths { get; set; } = "";
 
-    /// <summary>SQL Object: tên procedure (hoặc function/view/trigger), mỗi dòng 1 tên.</summary>
+    /// <summary>SQL Object của database APP: tên procedure (hoặc function/view/trigger/table), mỗi dòng 1 tên. Sys có danh sách riêng: <see cref="ProceduresSys"/>.</summary>
     public string Procedures { get; set; } = "";
+
+    /// <summary>SQL Object của database SYS, mỗi dòng 1 tên.</summary>
+    public string ProceduresSys { get; set; } = "";
+
+    /// <summary>true = danh sách SQL Object đã tách riêng App / Sys (chuyển bằng nút App | Sys). false = y/c lưu từ bản cũ: một danh sách dùng chung, tìm trong các
+    /// database đang tick <see cref="UseApp"/> / <see cref="UseSys"/> — GenAll vẫn xử lý theo cách cũ cho tới khi y/c được mở ra sửa.</summary>
+    public bool ObjectsSplit { get; set; }
 
     /// <summary>Tìm SQL Object trong database App / Sys (mặc định App như màn FCode).</summary>
     public bool UseApp { get; set; } = true;
@@ -59,11 +66,34 @@ public class AdvanceRequest
     /// <summary>Table liên quan (từ Gen All) được chọn đưa vào gói update.</summary>
     public List<TableSelection> Tables { get; set; } = new();
 
-    /// <summary>SQL Top Script — ghi vào đầu gói update (đầu file APP_Script.sql) cho các database đã chọn.</summary>
+    /// <summary>SQL Top Script của database APP — ghi vào đầu gói update của App (đầu file APP_Script.sql). Sys có bản riêng: <see cref="TopScriptSys"/>.</summary>
     public string TopScript { get; set; } = "";
 
-    /// <summary>SQL Bottom Script — ghi vào cuối gói update (cuối file APP_Script.sql) cho các database đã chọn, chạy SAU các script khác.</summary>
+    /// <summary>SQL Bottom Script của database APP — ghi vào cuối gói update của App, chạy SAU các script khác. Sys có bản riêng: <see cref="BottomScriptSys"/>.</summary>
     public string BottomScript { get; set; } = "";
+
+    /// <summary>SQL Top Script của database SYS — vào thư mục / file script của Sys.</summary>
+    public string TopScriptSys { get; set; } = "";
+
+    /// <summary>SQL Bottom Script của database SYS.</summary>
+    public string BottomScriptSys { get; set; } = "";
+
+    /// <summary>true = Top / Bottom Script đã tách riêng App và Sys. false = y/c lưu từ bản cũ (một script dùng chung cho các database đã tick) — xem <see cref="MigrateScripts"/>.</summary>
+    public bool ScriptsSplit { get; set; }
+
+    /// <summary>Chuyển y/c kiểu cũ (một Top/Bottom Script dùng chung, đi vào database nào đang tick App / Sys) sang kiểu tách riêng, giữ đúng kết quả gói như trước:
+    /// chỉ tick Sys → script thuộc về Sys; tick cả hai → mỗi bên một bản; còn lại → thuộc về App.</summary>
+    public void MigrateScripts()
+    {
+        if (ScriptsSplit) return;
+        ScriptsSplit = true;
+        if (UseSys)
+        {
+            if (string.IsNullOrWhiteSpace(TopScriptSys)) TopScriptSys = TopScript;
+            if (string.IsNullOrWhiteSpace(BottomScriptSys)) BottomScriptSys = BottomScript;
+            if (!UseApp) { TopScript = ""; BottomScript = ""; }
+        }
+    }
 }
 
 /// <summary>

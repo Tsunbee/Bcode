@@ -85,7 +85,7 @@ public class CatalogCloneForm : WebDialogForm
             var list = cols.Select(c =>
             {
                 types.TryGetValue(c.Name, out var sqlType);
-                return new { name = c.Name, headerV = c.Name, headerE = c.Name, isKey = c.IsPrimaryKey, type = CatalogCloneService.GuessFieldType(sqlType ?? "") };
+                return new { name = c.Name, headerV = c.Name, headerE = c.Name, isKey = c.IsPrimaryKey, type = CatalogCloneService.GuessFieldType(sqlType ?? ""), sqlType = sqlType ?? "" };
             });
             Js($"catalog.onColumns({J(new { table, key = cols.FirstOrDefault(c => c.IsPrimaryKey).Name ?? cols[0].Name, columns = list })})");
             Js($"catalog.onStatus({J($"Đã nạp {cols.Count} cột của '{table}'.")}, 'ok')");
@@ -99,6 +99,7 @@ public class CatalogCloneForm : WebDialogForm
         var spec = new CatalogSpec
         {
             Id = S("id"), Table = S("table"), Key = S("key"), Order = S("order"),
+            SourceTable = s.TryGetProperty("sourceTable", out var st) ? (st.GetString() ?? "").Trim() : "",
             TitleV = S("titleV"), TitleE = S("titleE"), SubTitleV = S("subV"), SubTitleE = S("subE"), MainName = S("main"),
             CreateLookup = s.GetProperty("lookup").GetBoolean(), LookupTable = S("lookupTable"),
             ToolbarCommands = s.GetProperty("toolbar").EnumerateArray().Select(e => e.GetString() ?? "").Where(x => x.Length > 0).ToList(),
@@ -108,6 +109,8 @@ public class CatalogCloneForm : WebDialogForm
                 Name = c.GetProperty("name").GetString() ?? "", HeaderV = c.GetProperty("headerV").GetString() ?? "", HeaderE = c.GetProperty("headerE").GetString() ?? "",
                 Width = int.TryParse(c.GetProperty("width").GetString(), out var w) ? w : 150, Type = c.GetProperty("type").GetString() ?? "",
                 AllowNulls = c.GetProperty("allowNulls").GetBoolean(), ReadOnly = c.GetProperty("readOnly").GetBoolean(),
+                SourceName = c.TryGetProperty("src", out var sn) ? sn.GetString() ?? "" : "",
+                SqlType = c.TryGetProperty("sqlType", out var sq) ? sq.GetString() ?? "" : "",
             }).ToList(),
         };
         foreach (var c in spec.Columns) c.IsKey = c.Name.Equals(spec.Key, StringComparison.OrdinalIgnoreCase);
@@ -123,8 +126,17 @@ public class CatalogCloneForm : WebDialogForm
         try
         {
             var written = _service.Generate(spec, template, output);
-            Js($"catalog.onStatus({J($"Đã tạo {written.Count} file.")}, 'ok')");
+            var needTable = CatalogCloneService.NeedsTableScript(spec);
+            Js($"catalog.onStatus({J($"Đã tạo {written.Count} file." + (needTable ? " Script bảng mới đã copy vào clipboard." : ""))}, 'ok')");
             MessageBox.Show(this, "Đã tạo:\n\n" + string.Join("\n", written), "Clone danh mục", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (needTable)
+            {
+                // Tên bảng / tên cột khác bảng nguồn: đưa ra script tạo bảng theo tên đã sửa (không tự chạy xuống database).
+                var script = CatalogCloneService.BuildTableScript(spec);
+                try { Clipboard.SetText(script); } catch { /* clipboard bận */ }
+                using var view = new WCommandScriptForm(script, "Script bảng cho danh mục " + spec.Id);
+                view.ShowDialog(this);
+            }
         }
         catch (Exception ex)
         {

@@ -106,10 +106,24 @@ public class GenAllService
         foreach (var path in SplitLines(req.FilePaths))
             AddFilePath(ws, path, result);
 
-        foreach (var proc in SplitNames(req.Procedures))
+        if (!req.ObjectsSplit)
         {
-            var found = await AddSqlObjectAsync(proc, req.UseApp, req.UseSys, "SQL Object", result);
-            if (!found) result.Warnings.Add($"SQL Object \"{proc}\": không tìm thấy trong {DbLabel(req.UseApp, req.UseSys)}.");
+            // Y/c lưu từ bản cũ: một danh sách dùng chung, tìm trong các database đang tick — giữ nguyên cách cũ.
+            foreach (var proc in SplitNames(req.Procedures))
+            {
+                var found = await AddSqlObjectAsync(proc, req.UseApp, req.UseSys, "SQL Object", result);
+                if (!found) result.Warnings.Add($"SQL Object \"{proc}\": không tìm thấy trong {DbLabel(req.UseApp, req.UseSys)}.");
+            }
+        }
+        else
+        {
+            // Đã tách: danh sách của App chỉ tìm trong App, của Sys chỉ tìm trong Sys — object vào đúng thư mục script của database đó.
+            foreach (var useSys in new[] { false, true })
+                foreach (var proc in SplitNames(useSys ? req.ProceduresSys : req.Procedures))
+                {
+                    var found = await AddSqlObjectAsync(proc, !useSys, useSys, "SQL Object (" + (useSys ? "Sys" : "App") + ")", result);
+                    if (!found) result.Warnings.Add($"SQL Object \"{proc}\": không tìm thấy trong database {(useSys ? "Sys" : "App")}.");
+                }
         }
 
         foreach (var t in req.Tables.Where(t => t.Structure || t.Data))
@@ -134,38 +148,27 @@ public class GenAllService
             catch (Exception ex) { result.Warnings.Add("Tự dò table liên quan lỗi: " + ex.Message); }
         }
 
-        if (!string.IsNullOrWhiteSpace(req.TopScript))
+        // SQL Top / Bottom Script: App và Sys mỗi bên một bản RIÊNG — bản của database nào thì vào đúng thư mục / file script của database đó (để chạy đúng database).
+        // Có nội dung là đưa vào gói, không phụ thuộc ô tick App / Sys của SQL Object.
+        req.MigrateScripts();   // y/c lưu từ bản cũ (một script dùng chung): tách theo đúng database đang tick, kết quả gói như trước
+        foreach (var useSys in new[] { false, true })
         {
-            var any = false;
-            foreach (var useSys in new[] { false, true })
-            {
-                if (useSys ? !req.UseSys : !req.UseApp) continue;
+            var top = useSys ? req.TopScriptSys : req.TopScript;
+            if (!string.IsNullOrWhiteSpace(top))
                 result.Add(new PackageItem
                 {
-                    Origin = "SQL Top Script",
+                    Origin = "SQL Top Script (" + (useSys ? "Sys" : "App") + ")",
                     RelativeDestPath = PackageLayout.Script(useSys, "01_script_top.sql"),
-                    GeneratedContent = req.TopScript,
+                    GeneratedContent = top,
                 });
-                any = true;
-            }
-            if (!any) result.Warnings.Add("SQL Top Script có nội dung nhưng chưa chọn database App/Sys nào nên không được đưa vào gói.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(req.BottomScript))
-        {
-            var any = false;
-            foreach (var useSys in new[] { false, true })
-            {
-                if (useSys ? !req.UseSys : !req.UseApp) continue;
+            var bottom = useSys ? req.BottomScriptSys : req.BottomScript;
+            if (!string.IsNullOrWhiteSpace(bottom))
                 result.Add(new PackageItem
                 {
-                    Origin = "SQL Bottom Script",
+                    Origin = "SQL Bottom Script (" + (useSys ? "Sys" : "App") + ")",
                     RelativeDestPath = PackageLayout.Script(useSys, "03_script_bottom.sql"),
-                    GeneratedContent = req.BottomScript,
+                    GeneratedContent = bottom,
                 });
-                any = true;
-            }
-            if (!any) result.Warnings.Add("SQL Bottom Script có nội dung nhưng chưa chọn database App/Sys nào nên không được đưa vào gói.");
         }
 
         if (combine) CombineScripts(result);

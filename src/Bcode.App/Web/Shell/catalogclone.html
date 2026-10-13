@@ -6,36 +6,73 @@
 <link rel="stylesheet" href="shell.css" />
 <link rel="stylesheet" href="dialog.css" />
 <style>
-  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .55rem .9rem; }
-  .form .fld input, .form .fld select { width: 100%; box-sizing: border-box; }
-  .form .wide { grid-column: 1 / -1; }
-  .pick { display: flex; gap: .4rem; } .pick input { flex: 1; }
-  .tb { display: flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; }
+  /* Bố cục: 2 thẻ trên cùng (1. Nguồn + nơi lưu · 2. Danh mục mới), rồi thanh công cụ của bảng cột, rồi bảng cột chiếm hết phần còn lại. */
+  .cards { flex: none; display: grid; grid-template-columns: minmax(20rem, 1fr) minmax(28rem, 1.7fr); gap: .7rem; }
+  @media (max-width: 980px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+  .card { background: var(--panel-alt); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .55rem .8rem .7rem; min-width: 0; }
+  .card h4 { margin: 0 0 .45rem; font-size: .86rem; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .g { display: grid; gap: .45rem .7rem; }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 620px) { .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .span2 { grid-column: span 2; } .span4 { grid-column: 1 / -1; }
+  .fld input[type=text], .fld select { width: 100%; box-sizing: border-box; }
+  .pick { display: flex; gap: .4rem; } .pick input { flex: 1; min-width: 0; }
+  .req > label::after { content: ' *'; color: var(--danger); }
+  .tools { flex: none; display: flex; flex-wrap: wrap; gap: .45rem .9rem; align-items: center; }
+  .tools .grp { display: inline-flex; align-items: center; gap: .35rem; }
+  .tools input[type=text] { width: 9rem; }
+  .tools button { padding: calc(.2rem * var(--dens)) .6rem; }
+  .tb { display: inline-flex; flex-wrap: wrap; gap: .3rem .9rem; align-items: center; }
   .tbl input[type=text], .tbl select { width: 100%; box-sizing: border-box; background: transparent; border-color: transparent; padding: .1rem .3rem; }
+  .tbl input[type=text]:hover { border-color: var(--border); }
   .tbl input[type=text]:focus, .tbl select:focus { background: var(--input); border-color: var(--accent); }
-  .tbl td { max-width: none; } .tbl td.c, .tbl th.c { text-align: center; width: 4.2rem; }
-  .tbl td.ro { color: var(--text-muted); }
+  .tbl td { max-width: none; } .tbl td.c, .tbl th.c { text-align: center; width: 4.4rem; }
+  .tbl td.src { color: var(--text-muted); white-space: nowrap; }
+  .tbl input.ren { color: var(--accent); font-weight: 600; }      /* tên đã đổi so với cột nguồn */
+  .tbl input.bad { border-color: var(--danger) !important; }
+  .tbl tr.key td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .tbl tr.hide { display: none; }
 </style>
 </head>
 <body>
 <div class="dlg-main">
-  <div class="form">
-    <div class="fld"><label>Id (tên file)</label><input type="text" id="id" spellcheck="false"></div>
-    <div class="fld"><label>File Main (.aspx)</label><input type="text" id="main" spellcheck="false"></div>
-    <div class="fld"><label>Table</label><input type="text" id="table" list="tables" spellcheck="false"><datalist id="tables"></datalist></div>
-    <div class="fld"><label>Key</label><div class="pick"><input type="text" id="key" list="keys" spellcheck="false"><datalist id="keys"></datalist><button id="bLoad" class="primary">Nạp cột</button></div></div>
-    <div class="fld"><label>Order</label><input type="text" id="order" spellcheck="false"></div>
-    <div class="fld"></div>
-    <div class="fld"><label>Title (v)</label><input type="text" id="titleV"></div>
-    <div class="fld"><label>Title (e)</label><input type="text" id="titleE"></div>
-    <div class="fld"><label>Subtitle (v)</label><input type="text" id="subV"></div>
-    <div class="fld"><label>Subtitle (e)</label><input type="text" id="subE"></div>
-    <div class="fld"><label class="chk"><input type="checkbox" id="lookup"> Tạo Lookup</label><input type="text" id="lookupTable" placeholder="Lookup table" disabled></div>
-    <div class="fld wide"><label>Thư mục mẫu</label><div class="pick"><input type="text" id="template" spellcheck="false"><button data-pick="template">...</button></div></div>
-    <div class="fld wide"><label>Lưu vào</label><div class="pick"><input type="text" id="output" spellcheck="false"><button data-pick="output">...</button></div></div>
+  <div class="cards">
+    <div class="card">
+      <h4>1 · Nguồn &amp; nơi lưu</h4>
+      <div class="g">
+        <div class="fld req"><label>Bảng nguồn (lấy danh sách cột)</label><div class="pick"><input type="text" id="src" list="tables" spellcheck="false" placeholder="vd dmkh"><datalist id="tables"></datalist><button id="bLoad" class="primary">Nạp cột</button></div></div>
+        <div class="fld"><label>Thư mục mẫu</label><div class="pick"><input type="text" id="template" spellcheck="false"><button data-pick="template" title="Chọn thư mục">...</button></div></div>
+        <div class="fld req"><label>Lưu vào (App_Data\Controllers)</label><div class="pick"><input type="text" id="output" spellcheck="false"><button data-pick="output" title="Chọn thư mục">...</button></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h4>2 · Danh mục mới</h4>
+      <div class="g g4">
+        <div class="fld req"><label>Id (tên file Dir / Grid)</label><input type="text" id="id" spellcheck="false" placeholder="vd Supplier"></div>
+        <div class="fld req"><label>File Main (.aspx)</label><input type="text" id="main" spellcheck="false" placeholder="vd apncc"></div>
+        <div class="fld req"><label>Bảng của danh mục mới</label><input type="text" id="table" spellcheck="false" title="Trùng bảng nguồn = dùng lại bảng cũ. Khác tên (hoặc có đổi tên cột) = sinh thêm script CREATE TABLE."></div>
+        <div class="fld req"><label>Key</label><input type="text" id="key" list="keys" spellcheck="false"><datalist id="keys"></datalist></div>
+        <div class="fld span2"><label>Title (v)</label><input type="text" id="titleV"></div>
+        <div class="fld span2"><label>Title (e)</label><input type="text" id="titleE"></div>
+        <div class="fld span2"><label>Subtitle (v)</label><input type="text" id="subV"></div>
+        <div class="fld span2"><label>Subtitle (e)</label><input type="text" id="subE"></div>
+        <div class="fld"><label>Order</label><input type="text" id="order" spellcheck="false"></div>
+        <div class="fld span2"><label class="chk"><input type="checkbox" id="lookup"> Tạo Lookup — bảng lookup</label><input type="text" id="lookupTable" placeholder="mặc định = bảng của danh mục mới" disabled></div>
+        <div class="fld"><label>&nbsp;</label><span class="hint" id="tblNote"></span></div>
+      </div>
+    </div>
   </div>
-  <div class="tb"><b>Toolbar:</b><span id="tb" class="tb"></span></div>
-  <div class="tbl-wrap" style="min-height:10rem"><table class="tbl"><thead><tr><th class="c">Grid</th><th class="c">Form</th><th>Name</th><th>Header (v)</th><th>Header (e)</th><th style="width:5rem">Width</th><th style="width:7rem">type</th><th class="c">AllowNulls</th><th class="c">ReadOnly</th></tr></thead><tbody id="rows"></tbody></table></div>
+
+  <div class="tools">
+    <span class="grp"><b>Toolbar:</b><span id="tb" class="tb"></span></span>
+  </div>
+  <div class="tools">
+    <span class="grp"><b>Cột:</b><input type="text" id="flt" placeholder="Lọc cột…" spellcheck="false"><span class="muted" id="cnt"></span></span>
+    <span class="grp"><span class="muted">Grid</span><button data-all="inGrid" data-on="1" title="Tick Grid cho các cột đang hiện">✓ hết</button><button data-all="inGrid" data-on="0" title="Bỏ tick Grid cho các cột đang hiện">✕ hết</button></span>
+    <span class="grp"><span class="muted">Form</span><button data-all="inForm" data-on="1">✓ hết</button><button data-all="inForm" data-on="0">✕ hết</button></span>
+    <span class="grp" title="Đổi tên hàng loạt ở cột Name (các cột đang hiện): thay chuỗi này bằng chuỗi kia, vd _kh → _ncc"><span class="muted">Đổi tên: thay</span><input type="text" id="rFind" placeholder="_kh" spellcheck="false" style="width:6rem"><span class="muted">→</span><input type="text" id="rTo" placeholder="_ncc" spellcheck="false" style="width:6rem"><button id="bRen">Áp dụng</button><button id="bRenReset" title="Trả tên các cột đang hiện về tên cột nguồn">Về tên gốc</button></span>
+  </div>
+  <div class="tbl-wrap" style="min-height:10rem"><table class="tbl"><thead><tr><th class="c">Grid</th><th class="c">Form</th><th style="width:11rem">Cột nguồn</th><th style="width:13rem">Name (tên mới)</th><th>Header (v)</th><th>Header (e)</th><th style="width:5rem">Width</th><th style="width:7rem">type</th><th class="c">AllowNulls</th><th class="c">ReadOnly</th></tr></thead><tbody id="rows"></tbody></table></div>
 </div>
 <div class="dlg-bar"><span id="status" class="status"></span><button id="bGen" class="primary">Tạo file</button><button id="bClose">Đóng</button></div>
 <script>
@@ -43,35 +80,92 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let cols = [], orderAuto = true, toolbarNames = [];
+  let cols = [], orderAuto = true, toolbarNames = [], srcLoaded = '', tableAuto = true, idAuto = true;
   const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
+  const NAME_OK = /^[A-Za-z_][A-Za-z0-9_$]*$/;
 
-  function renderCols() {
-    $('rows').innerHTML = cols.map((c, i) =>
-      '<tr><td class="c"><input type="checkbox" data-i="' + i + '" data-f="inGrid"' + (c.inGrid ? ' checked' : '') + '></td>' +
-      '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="inForm"' + (c.inForm ? ' checked' : '') + '></td>' +
-      '<td class="ro">' + esc(c.name) + '</td>' +
-      '<td><input type="text" data-i="' + i + '" data-f="headerV" value="' + esc(c.headerV) + '"></td>' +
-      '<td><input type="text" data-i="' + i + '" data-f="headerE" value="' + esc(c.headerE) + '"></td>' +
-      '<td><input type="text" data-i="' + i + '" data-f="width" value="' + esc(c.width) + '"></td>' +
-      '<td><select data-i="' + i + '" data-f="type">' + ['', 'Boolean', 'Decimal', 'DateTime'].map((t) => '<option' + (t === c.type ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></td>' +
-      '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="allowNulls"' + (c.allowNulls ? ' checked' : '') + '></td>' +
-      '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="readOnly"' + (c.readOnly ? ' checked' : '') + '></td></tr>').join('');
+  function nameState(i) {
+    const n = cols[i].name.trim();
+    const dup = n && cols.some((c, j) => j !== i && c.name.trim().toLowerCase() === n.toLowerCase());
+    return { bad: !n || !NAME_OK.test(n) || dup, ren: n !== cols[i].src };
   }
-  $('rows').addEventListener('input', (e) => { const t = e.target, i = t.dataset.i; if (i == null) return; cols[i][t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; });
-  $('rows').addEventListener('change', (e) => { const t = e.target, i = t.dataset.i; if (i == null) return; cols[i][t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value; });
+  function visible(c) { const f = $('flt').value.trim().toLowerCase(); return !f || c.src.toLowerCase().includes(f) || c.name.toLowerCase().includes(f) || (c.headerV || '').toLowerCase().includes(f); }
+  function renderCols() {
+    const key = $('key').value.trim().toLowerCase();
+    $('rows').innerHTML = cols.map((c, i) => {
+      const st = nameState(i);
+      return '<tr data-r="' + i + '" class="' + (c.name.trim().toLowerCase() === key && key ? 'key ' : '') + (visible(c) ? '' : 'hide') + '">' +
+        '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="inGrid"' + (c.inGrid ? ' checked' : '') + '></td>' +
+        '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="inForm"' + (c.inForm ? ' checked' : '') + '></td>' +
+        '<td class="src" title="' + esc(c.sqlType || '') + '">' + esc(c.src) + ' <span class="muted">' + esc(c.sqlType || '') + '</span></td>' +
+        '<td><input type="text" spellcheck="false" class="' + (st.bad ? 'bad ' : '') + (st.ren ? 'ren' : '') + '" data-i="' + i + '" data-f="name" value="' + esc(c.name) + '" title="Tên cột trong XML và trong bảng mới (gốc: ' + esc(c.src) + ')"></td>' +
+        '<td><input type="text" data-i="' + i + '" data-f="headerV" value="' + esc(c.headerV) + '"></td>' +
+        '<td><input type="text" data-i="' + i + '" data-f="headerE" value="' + esc(c.headerE) + '"></td>' +
+        '<td><input type="text" data-i="' + i + '" data-f="width" value="' + esc(c.width) + '"></td>' +
+        '<td><select data-i="' + i + '" data-f="type">' + ['', 'Boolean', 'Decimal', 'DateTime'].map((t) => '<option' + (t === c.type ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></td>' +
+        '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="allowNulls"' + (c.allowNulls ? ' checked' : '') + '></td>' +
+        '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="readOnly"' + (c.readOnly ? ' checked' : '') + '></td></tr>';
+    }).join('');
+    refreshMeta();
+  }
+  function refreshMeta() {
+    const shown = cols.filter(visible).length, renamed = cols.filter((c) => c.name.trim() !== c.src).length;
+    $('cnt').textContent = cols.length ? shown + '/' + cols.length + ' cột' + (renamed ? ' · ' + renamed + ' cột đổi tên' : '') : '';
+    $('keys').innerHTML = cols.map((c) => '<option value="' + esc(c.name) + '">').join('');
+    const newTable = $('table').value.trim(), diff = newTable && srcLoaded && newTable.toLowerCase() !== srcLoaded.toLowerCase();
+    $('tblNote').textContent = !srcLoaded ? '' : (diff || renamed) ? 'Sẽ sinh thêm script CREATE TABLE cho bảng mới.' : 'Dùng lại bảng nguồn (không sinh script bảng).';
+  }
+  // Đổi tên 1 cột: Key / Order đang trỏ vào tên cũ thì đi theo tên mới; Header còn bằng tên cũ thì cũng đổi theo.
+  function setName(i, next) {
+    const c = cols[i], prev = c.name;
+    c.name = next;
+    if ($('key').value.trim().toLowerCase() === prev.trim().toLowerCase() && prev.trim()) $('key').value = next.trim();
+    if ($('order').value.trim().toLowerCase() === prev.trim().toLowerCase() && prev.trim()) $('order').value = next.trim();
+    if (c.headerV === prev) c.headerV = next;
+    if (c.headerE === prev) c.headerE = next;
+  }
+  function onCell(e) {
+    const t = e.target, i = t.dataset.i; if (i == null) return;
+    if (t.dataset.f === 'name') {
+      setName(+i, t.value);
+      const st = nameState(+i); t.classList.toggle('bad', st.bad); t.classList.toggle('ren', st.ren);
+      const tr = t.closest('tr'); if (tr) { const hv = tr.querySelector('[data-f=headerV]'), he = tr.querySelector('[data-f=headerE]'); if (hv) hv.value = cols[i].headerV; if (he) he.value = cols[i].headerE; }
+      refreshMeta();
+    } else cols[i][t.dataset.f] = t.type === 'checkbox' ? t.checked : t.value;
+  }
+  $('rows').addEventListener('input', onCell);
+  $('rows').addEventListener('change', onCell);
+  $('flt').addEventListener('input', () => { document.querySelectorAll('#rows tr').forEach((tr) => tr.classList.toggle('hide', !visible(cols[+tr.dataset.r]))); refreshMeta(); });
+  document.querySelectorAll('[data-all]').forEach((b) => { b.onclick = () => { cols.forEach((c) => { if (visible(c)) c[b.dataset.all] = b.dataset.on === '1'; }); renderCols(); }; });
+  $('bRen').onclick = () => {
+    const f = $('rFind').value, to = $('rTo').value; if (!f) { say('Nhập chuỗi cần thay ở ô "thay".', 'err'); return; }
+    let n = 0; cols.forEach((c, i) => { if (visible(c) && c.name.includes(f)) { setName(i, c.name.split(f).join(to)); n++; } });
+    renderCols(); say('Đã đổi tên ' + n + ' cột.', n ? 'ok' : '');
+  };
+  $('bRenReset').onclick = () => { cols.forEach((c, i) => { if (visible(c) && c.name !== c.src) setName(i, c.src); }); renderCols(); };
+
   $('lookup').onchange = () => { $('lookupTable').disabled = !$('lookup').checked; };
-  $('bLoad').onclick = () => post('loadColumns', { table: $('table').value });
-  $('table').addEventListener('change', () => { if ($('table').value.trim()) post('loadColumns', { table: $('table').value }); });
-  $('key').addEventListener('input', () => { if (!$('order').value || orderAuto) { $('order').value = $('key').value; orderAuto = true; } });
+  const load = () => { if ($('src').value.trim()) post('loadColumns', { table: $('src').value }); else say('Nhập bảng nguồn trước.', 'err'); };
+  $('bLoad').onclick = load;
+  $('src').addEventListener('change', load);
+  $('src').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); load(); } });
+  $('table').addEventListener('input', () => { tableAuto = false; if (idAuto) $('id').value = $('table').value; refreshMeta(); });
+  $('id').addEventListener('input', () => { idAuto = false; });
+  $('key').addEventListener('input', () => { if (!$('order').value || orderAuto) { $('order').value = $('key').value; orderAuto = true; } renderCols(); });
   $('order').addEventListener('keydown', () => { orderAuto = false; });
   document.querySelectorAll('[data-pick]').forEach((b) => { b.onclick = () => post('pickFolder', { target: b.dataset.pick, path: $(b.dataset.pick).value }); });
-  $('bGen').onclick = () => post('generate', {
-    template: $('template').value, output: $('output').value,
-    spec: { id: $('id').value, main: $('main').value, table: $('table').value, key: $('key').value, order: $('order').value, titleV: $('titleV').value, titleE: $('titleE').value,
-      subV: $('subV').value, subE: $('subE').value, lookup: $('lookup').checked, lookupTable: $('lookupTable').value,
-      toolbar: [...document.querySelectorAll('#tb input:checked')].map((i) => i.value), columns: cols },
-  });
+  $('bGen').onclick = () => {
+    if (!cols.length) { say('Chưa nạp cột — nhập bảng nguồn rồi bấm Nạp cột.', 'err'); return; }
+    const bad = cols.findIndex((c, i) => nameState(i).bad);
+    if (bad >= 0) { say('Tên cột "' + cols[bad].name + '" (gốc ' + cols[bad].src + ') không hợp lệ hoặc bị trùng.', 'err'); $('flt').value = ''; renderCols(); const el = document.querySelector('#rows tr[data-r="' + bad + '"] [data-f=name]'); if (el) { el.scrollIntoView({ block: 'center' }); el.focus(); } return; }
+    post('generate', {
+      template: $('template').value, output: $('output').value,
+      spec: { id: $('id').value, main: $('main').value, table: $('table').value, sourceTable: srcLoaded, key: $('key').value, order: $('order').value, titleV: $('titleV').value, titleE: $('titleE').value,
+        subV: $('subV').value, subE: $('subE').value, lookup: $('lookup').checked, lookupTable: $('lookupTable').value,
+        toolbar: [...document.querySelectorAll('#tb input:checked')].map((i) => i.value),
+        columns: cols.map((c) => Object.assign({}, c, { name: c.name.trim() })) },
+    });
+  };
   $('bClose').onclick = () => post('close');
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); });
 
@@ -79,14 +173,16 @@
     init(d) {
       $('template').value = d.template || ''; $('output').value = d.output || ''; toolbarNames = d.toolbar || [];
       $('tb').innerHTML = toolbarNames.map((n) => '<label class="chk"><input type="checkbox" value="' + esc(n) + '" checked> ' + esc(n) + '</label>').join('');
+      $('src').focus();
     },
     onTables(list) { $('tables').innerHTML = list.map((n) => '<option value="' + esc(n) + '">').join(''); },
     onColumns(d) {
-      cols = d.columns.map((c) => ({ inGrid: true, inForm: true, name: c.name, headerV: c.headerV, headerE: c.headerE, width: '150', type: c.type || '', allowNulls: true, readOnly: false }));
-      $('keys').innerHTML = d.columns.map((c) => '<option value="' + esc(c.name) + '">').join('');
+      srcLoaded = d.table; $('src').value = d.table;
+      cols = d.columns.map((c) => ({ inGrid: true, inForm: true, src: c.name, name: c.name, sqlType: c.sqlType || '', headerV: c.headerV, headerE: c.headerE, width: '150', type: c.type || '', allowNulls: !c.isKey, readOnly: false }));
       $('key').value = d.key; if (!$('order').value || orderAuto) { $('order').value = d.key; orderAuto = true; }
-      if (!$('lookupTable').value) $('lookupTable').value = d.table;
-      if (!$('id').value) $('id').value = d.table;
+      if (!$('table').value || tableAuto) { $('table').value = d.table; tableAuto = true; }
+      if (!$('id').value || idAuto) { $('id').value = $('table').value; idAuto = true; }
+      $('flt').value = '';
       renderCols();
     },
     onFolder(target, path) { $(target).value = path; },

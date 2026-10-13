@@ -32,6 +32,12 @@
   #main { flex: 1; display: flex; min-height: 0; }
   #left { width: 430px; min-width: 300px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--panel); }
   .title { padding: 5px 10px; color: var(--accent); font-family: Consolas, monospace; font-weight: 600; letter-spacing: .3px; background: var(--panel-alt); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  .dbbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 2px 2px 0; }
+  .dbtag { font-family: "Segoe UI", sans-serif; font-size: 11px; font-weight: 700; padding: 0 8px; border-radius: 9px; background: var(--accent); color: var(--on-accent, #fff); }
+  .dbsw { display: inline-flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+  .dbsw button { border: 0; border-radius: 0; background: transparent; color: var(--text-muted); padding: 1px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+  .dbsw button.on { background: var(--accent); color: var(--on-accent, #fff); }
+  .dbsw button.has::after { content: " ●"; font-size: .7em; vertical-align: middle; }
   .title .hint { color: var(--text-muted); font-family: "Segoe UI", sans-serif; font-weight: normal; font-size: 11px; }
   #left { min-height: 0; }
   #listWrap { flex: 1 1 0; min-height: 80px; overflow: auto; }   /* y/c nhiều: cuộn xuống tìm */
@@ -148,19 +154,22 @@
           </div>
         </div>
 
+        <div class="dbbar" title="SQL Object, SQL Top Script và SQL Bottom Script của App và của Sys là các bản RIÊNG. Chọn database ở đây để xem / sửa cả ba cùng lúc; bản của database nào thì vào đúng thư mục script của database đó.">
+          <span class="muted">Database của SQL Object / Top Script / Bottom Script:</span>
+          <span class="dbsw"><button id="swApp" class="on">App</button><button id="swSys">Sys</button></span>
+          <span class="hint" id="hDb">đang xem phần của database App</span>
+        </div>
         <div class="grid2">
           <div class="card">
-            <div class="title">SQL Object <span class="hint">table / view / stored / function / trigger — tự xếp đúng thứ tự update</span></div>
+            <div class="title">SQL Object <span class="dbtag" id="tObj">App</span><span class="hint">table / view / stored / function / trigger — tự xếp đúng thứ tự update</span></div>
             <div class="body">
               <textarea id="fProcedures" rows="10" placeholder="fs_PostARTran" spellcheck="false"></textarea>
-              <div class="row2"><span class="muted">Database:</span>
-                <label class="chk"><input type="checkbox" id="fUseApp" /> App</label>
-                <label class="chk"><input type="checkbox" id="fUseSys" /> Sys</label></div>
             </div>
           </div>
 
           <div class="card">
-            <div class="title"><span>SQL Top Script</span><span class="hint">đặt ở đầu gói (đầu file APP_Script.sql) — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
+            <div class="title"><span>SQL Top Script</span><span class="dbtag" id="tTop">App</span>
+              <span class="hint" id="hTop">đầu file script — chạy trước</span><button id="btnBottom" style="margin-left:auto" title="Hiện / ẩn khung SQL Bottom Script (chạy sau)">▾ Bottom Script</button></div>
             <div class="body">
               <textarea id="fTopScript" rows="10" placeholder="-- script chạy đầu tiên" spellcheck="false"></textarea>
             </div>
@@ -168,7 +177,7 @@
         </div>
 
         <div class="card" id="cBottom" style="display:none">
-          <div class="title">SQL Bottom Script <span class="hint">đặt ở cuối gói (cuối file APP_Script.sql) — chạy sau các script khác</span></div>
+          <div class="title">SQL Bottom Script <span class="dbtag" id="tBottom">App</span><span class="hint" id="hBottom">cuối file script — chạy sau các script khác</span></div>
           <div class="body">
             <textarea id="fBottomScript" rows="10" placeholder="-- script chạy sau cùng" spellcheck="false"></textarea>
           </div>
@@ -315,8 +324,10 @@
     if (r) {
       $('fName').value = r.name; $('fMobile').checked = !!r.mobile; $('fDone').checked = !!r.done;
       $('fContent').value = r.content || ''; $('fGenAll').value = r.genAll || '';
-      $('fFilePaths').value = r.filePaths || ''; $('fProcedures').value = r.procedures || '';
-      $('fUseApp').checked = !!r.useApp; $('fUseSys').checked = !!r.useSys; $('fTopScript').value = r.topScript || ''; $('fBottomScript').value = r.bottomScript || ''; showBottom(!!(r.bottomScript && r.bottomScript.trim()));
+      $('fFilePaths').value = r.filePaths || '';
+      migrateScripts(r);
+      if (changed) S.scriptDb = (!hasScript(r, 'app') && hasScript(r, 'sys')) ? 'sys' : 'app';   // mở y/c: đứng ở database đang có script (ưu tiên App)
+      showScripts(r);
       if (changed) { clearPreview(); S.tblList = []; }
       renderTables();
     }
@@ -344,6 +355,51 @@
     });
   }
 
+  // ---- SQL Top / Bottom Script: App và Sys mỗi bên một bản riêng (r.topScript / r.bottomScript = App, r.topScriptSys / r.bottomScriptSys = Sys) ----
+  S.scriptDb = 'app';
+  const topKey = (db) => (db === 'sys' ? 'topScriptSys' : 'topScript'), bottomKey = (db) => (db === 'sys' ? 'bottomScriptSys' : 'bottomScript');
+  const procKey = (db) => (db === 'sys' ? 'proceduresSys' : 'procedures');
+  const hasScript = (r, db) => !!(((r[procKey(db)] || '') + (r[topKey(db)] || '') + (r[bottomKey(db)] || '')).trim());
+  // Y/c lưu từ bản cũ (một script dùng chung cho database đang tick): tách theo đúng database đang tick — cùng quy tắc với AdvanceRequest.MigrateScripts ở C#.
+  function migrateScripts(r) {
+    // SQL Object kiểu cũ: một danh sách + tick App / Sys → chỉ tick Sys thì thuộc về Sys; tick cả hai thì mỗi bên một bản (bên nào không có object sẽ được báo khi Gen); còn lại thuộc về App.
+    if (!r.objectsSplit) {
+      r.objectsSplit = true;
+      if (r.useSys) {
+        if (!(r.proceduresSys || '').trim()) r.proceduresSys = r.procedures || '';
+        if (!r.useApp) r.procedures = '';
+      }
+    }
+    if (r.scriptsSplit) return;
+    r.scriptsSplit = true;
+    if (r.useSys) {
+      if (!(r.topScriptSys || '').trim()) r.topScriptSys = r.topScript || '';
+      if (!(r.bottomScriptSys || '').trim()) r.bottomScriptSys = r.bottomScript || '';
+      if (!r.useApp) { r.topScript = ''; r.bottomScript = ''; }
+    }
+  }
+  function showScripts(r) {
+    const db = S.scriptDb, name = db === 'sys' ? 'Sys' : 'App';
+    $('fProcedures').value = r[procKey(db)] || ''; $('fProcedures').placeholder = db === 'sys' ? 'object của database Sys, mỗi dòng 1 tên' : 'fs_PostARTran';
+    $('fTopScript').value = r[topKey(db)] || ''; $('fBottomScript').value = r[bottomKey(db)] || '';
+    ['tObj', 'tTop', 'tBottom'].forEach((id) => { $(id).textContent = name; });
+    $('hDb').textContent = 'đang xem phần của database ' + name + (hasScript(r, db === 'sys' ? 'app' : 'sys') ? ' — bên ' + (db === 'sys' ? 'App' : 'Sys') + ' cũng đang có nội dung (●)' : '');
+    $('fTopScript').placeholder = '-- script chạy đầu tiên trên database ' + name; $('fBottomScript').placeholder = '-- script chạy sau cùng trên database ' + name;
+    $('hTop').textContent = 'đầu file script của ' + name + ' — chạy trước';
+    $('hBottom').textContent = 'cuối file script của ' + name + ' — chạy sau các script khác';
+    paintSwitch(r);
+    showBottom(!!((r[bottomKey(db)] || '').trim()));
+  }
+  function paintSwitch(r) {
+    ['app', 'sys'].forEach((d) => { const b = $(d === 'sys' ? 'swSys' : 'swApp'); b.classList.toggle('on', S.scriptDb === d); b.classList.toggle('has', hasScript(r, d)); });
+  }
+  function switchScriptDb(db) {
+    const r = readEditor(); if (!r || S.scriptDb === db) return;   // readEditor: cất nội dung đang gõ vào đúng bản của database đang xem trước khi chuyển
+    S.scriptDb = db; showScripts(r);
+  }
+  $('swApp').onclick = () => switchScriptDb('app');
+  $('swSys').onclick = () => switchScriptDb('sys');
+
   // SQL Bottom Script: ẩn mặc định, bấm nút để hiện (tự hiện khi y/c đã có nội dung bottom).
   function showBottom(on) {
     $('cBottom').style.display = on ? 'block' : 'none';
@@ -356,8 +412,10 @@
     r.name = $('fName').value.trim() || r.name;
     r.mobile = $('fMobile').checked; r.done = $('fDone').checked;
     r.content = $('fContent').value; r.genAll = $('fGenAll').value;
-    r.filePaths = $('fFilePaths').value; r.procedures = $('fProcedures').value;
-    r.useApp = $('fUseApp').checked; r.useSys = $('fUseSys').checked; r.topScript = $('fTopScript').value; r.bottomScript = $('fBottomScript').value;
+    r.filePaths = $('fFilePaths').value;
+    r[procKey(S.scriptDb)] = $('fProcedures').value; r.objectsSplit = true;
+    r[topKey(S.scriptDb)] = $('fTopScript').value; r[bottomKey(S.scriptDb)] = $('fBottomScript').value; r.scriptsSplit = true;
+    paintSwitch(r);
     // r.tables được cập nhật trực tiếp khi tick (collectTables) nên ở đây giữ nguyên.
     return r;
   }
@@ -368,7 +426,7 @@
     post('save', { request: r });
     renderList();
   }
-  ['fName', 'fMobile', 'fDone', 'fContent', 'fGenAll', 'fFilePaths', 'fProcedures', 'fUseApp', 'fUseSys', 'fTopScript', 'fBottomScript'].forEach((id) => {
+  ['fName', 'fMobile', 'fDone', 'fContent', 'fGenAll', 'fFilePaths', 'fProcedures', 'fTopScript', 'fBottomScript'].forEach((id) => {
     $(id).addEventListener('input', scheduleSave);
     $(id).addEventListener('change', scheduleSave);
   });

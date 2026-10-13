@@ -16,6 +16,10 @@ public class CatalogColumn
     public bool AllowNulls { get; set; } = true;
     public bool ReadOnly { get; set; }
     public bool IsKey { get; set; }
+    /// <summary>Tên cột trong bảng NGUỒN (Name ở trên là tên mới — có thể đã đổi). Trống = không đổi tên.</summary>
+    public string SourceName { get; set; } = "";
+    /// <summary>Kiểu SQL của cột nguồn ("nvarchar(128)", "numeric(19,4)"...) — dùng khi sinh script CREATE TABLE cho bảng mới.</summary>
+    public string SqlType { get; set; } = "";
 }
 
 public class CatalogSpec
@@ -24,6 +28,8 @@ public class CatalogSpec
     public string Id { get; set; } = "";
     public string GridId { get; set; } = "";
     public string Table { get; set; } = "";
+    /// <summary>Bảng nguồn đã nạp cột. Khác <see cref="Table"/> (hoặc có cột đổi tên) thì cần script tạo bảng mới.</summary>
+    public string SourceTable { get; set; } = "";
     public string Key { get; set; } = "";
     public string Order { get; set; } = "";
     public string TitleV { get; set; } = "";
@@ -83,8 +89,65 @@ public class CatalogCloneService
         if (!spec.Columns.Any(c => c.InGrid)) return "Chưa tick cột nào cho Grid.";
         if (!spec.Columns.Any(c => c.InForm)) return "Chưa tick cột nào cho form Dir.";
         if (!spec.Columns.Any(c => c.Name.Equals(spec.Key, StringComparison.OrdinalIgnoreCase) && c.InForm))
-            return "Cột khoá phải được tick trong form Dir.";
+            return "Cột khoá phải được tick trong form Dir (Key phải là một tên ở cột Name).";
+        foreach (var c in spec.Columns)
+            if (!System.Text.RegularExpressions.Regex.IsMatch(c.Name, @"^[A-Za-z_][A-Za-z0-9_$]*$"))
+                return $"Tên cột \"{c.Name}\" không hợp lệ (chỉ chữ, số, _ và $; không bắt đầu bằng số).";
+        var dup = spec.Columns.GroupBy(c => c.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
+        if (dup is not null) return $"Tên cột \"{dup.Key}\" bị trùng.";
+        if (!System.Text.RegularExpressions.Regex.IsMatch(spec.Table, @"^[A-Za-z_][A-Za-z0-9_$]*$")) return "Tên bảng của danh mục mới không hợp lệ.";
         return null;
+    }
+
+    /// <summary>Có cần bảng mới không: tên bảng khác bảng nguồn, hoặc có cột đổi tên (bảng nguồn không có cột mang tên mới).</summary>
+    public static bool NeedsTableScript(CatalogSpec spec) =>
+        (spec.SourceTable.Length > 0 && !spec.SourceTable.Equals(spec.Table, StringComparison.OrdinalIgnoreCase))
+        || spec.Columns.Any(c => c.SourceName.Length > 0 && !c.SourceName.Equals(c.Name, StringComparison.Ordinal));
+
+    /// <summary>Script tạo bảng cho danh mục mới theo TÊN ĐÃ SỬA: mọi cột của bảng nguồn (kiểu giữ nguyên), khoá chính trên cột Key, kèm câu chép dữ liệu từ bảng nguồn
+    /// (để sẵn trong chú thích). Không tự chạy — người dùng xem lại rồi chạy.</summary>
+    public static string BuildTableScript(CatalogSpec spec)
+    {
+        static string TypeOf(CatalogColumn c) => c.SqlType.Length > 0 ? c.SqlType.ToUpperInvariant() : c.Type switch
+        {
+            "Boolean" => "BIT", "Decimal" => "NUMERIC(19, 4)", "DateTime" => "SMALLDATETIME", _ => "NVARCHAR(128)",
+        };
+        var sameTable = spec.SourceTable.Equals(spec.Table, StringComparison.OrdinalIgnoreCase);
+        var sb = new StringBuilder();
+        if (sameTable)
+        {
+            // Cùng bảng, chỉ đổi tên cột: đổi tên cột ngay trên bảng nguồn.
+            sb.AppendLine($"-- Đổi tên cột trên bảng dbo.{spec.Table} (cùng bảng với nguồn). Kiểm tra procedure / view / file khác còn dùng tên cũ trước khi chạy.");
+            foreach (var c in spec.Columns.Where(c => c.SourceName.Length > 0 && c.SourceName != c.Name))
+            {
+                sb.AppendLine($"IF EXISTS (SELECT * FROM syscolumns WHERE id = object_id('dbo.{spec.Table}') AND name = '{c.SourceName}')");
+                sb.AppendLine($"EXEC sp_rename 'dbo.{spec.Table}.{c.SourceName}', '{c.Name}', 'COLUMN'");
+                sb.AppendLine("GO");
+            }
+            return sb.ToString();
+        }
+
+        sb.AppendLine($"IF NOT EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'dbo.{spec.Table}') AND xType = 'U')");
+        sb.AppendLine($"CREATE TABLE [dbo].[{spec.Table}] (");
+        var lines = spec.Columns.Select(c => $"\t[{c.Name}] {TypeOf(c)}{(c.IsKey || !c.AllowNulls ? " NOT NULL" : "")}").ToList();
+        if (spec.Columns.Any(c => c.IsKey))
+            lines.Add($"\tCONSTRAINT [PK_{spec.Table}] PRIMARY KEY CLUSTERED ([{spec.Columns.First(c => c.IsKey).Name}])");
+        sb.AppendLine(string.Join(",\r\n", lines));
+        sb.AppendLine(")");
+        sb.AppendLine("GO");
+        if (spec.SourceTable.Length > 0)
+        {
+            var src = spec.Columns.Where(c => c.SourceName.Length > 0).ToList();
+            sb.AppendLine();
+            sb.AppendLine($"-- Chép dữ liệu từ bảng nguồn dbo.{spec.SourceTable} (bỏ chú thích nếu cần):");
+            sb.AppendLine("/*");
+            sb.AppendLine($"INSERT INTO [dbo].[{spec.Table}] ({string.Join(", ", src.Select(c => "[" + c.Name + "]"))})");
+            sb.AppendLine($"SELECT {string.Join(", ", src.Select(c => "[" + c.SourceName + "]"))}");
+            sb.AppendLine($"FROM [dbo].[{spec.SourceTable}]");
+            sb.AppendLine("*/");
+            sb.AppendLine("GO");
+        }
+        return sb.ToString();
     }
 
     public List<string> Generate(CatalogSpec spec, string templateDir, string outputRoot)

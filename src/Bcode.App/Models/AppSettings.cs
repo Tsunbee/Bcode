@@ -95,6 +95,10 @@ public class AppSettings
     /// mtime/size) hoặc "Off" (cách cũ, đọc lại mọi file mỗi lần bấm; chỉ dùng khi nghi ngờ cache).</summary>
     public string FileLookupCacheMode { get; set; } = "On";
 
+    /// <summary>File Lookup bỏ qua (không hiện, không quét nội dung) các file có tên (không đuôi) khớp một trong các mẫu này kiểu LIKE (không có * = tên chứa mẫu; có * hoặc % = khớp cả tên) — cách nhau bằng dấu phẩy hoặc chấm phẩy, không phân biệt hoa thường.
+    /// Sửa ở File Lookup → chuột phải → "Bỏ qua file theo đuôi tên...". Để trống = không bỏ qua file nào.</summary>
+    public string FileLookupIgnoreSuffixes { get; set; } = "_bk, _copy, - copy";
+
     /// <summary>Path to BcodeViewer.exe — the standalone Monaco/WebView2-based editor with
     /// an AI chat panel that File Lookup's "Edit" action launches for a file, the same way
     /// VSAppPath/SqlSmsPath launch their own external tools. Empty by default.</summary>

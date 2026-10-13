@@ -43,6 +43,35 @@ public class FileLookupService
             Files = files;
         }
 
+        private int _menuVersion = -1;
+        private List<string>? _menuFiles;
+        private ILookup<string, string>? _menuByName;
+
+        private void EnsureMenuView()
+        {
+            var v = FileLookupService.IgnoreVersion;
+            if (_menuFiles is not null && _menuVersion == v) return;
+            var files = Files.Any(IsBackupFile) ? Files.Where(f => !IsBackupFile(f)).ToList() : Files;
+            _menuByName = files.ToLookup(f => Path.GetFileNameWithoutExtension(f), StringComparer.OrdinalIgnoreCase);
+            _menuFiles = files;
+            _menuVersion = v;
+        }
+
+        /// <summary>Danh sách file dùng cho cây theo MENU (WCommand → File Lookup / Gen Update...): đã bỏ file khớp mẫu "bỏ qua" ở Settings. Duyệt thư mục / tìm theo tên vẫn dùng <see cref="Files"/> đầy đủ.</summary>
+        public List<string> MenuFiles { get { lock (this) { EnsureMenuView(); return _menuFiles!; } } }
+        public ILookup<string, string> MenuByName { get { lock (this) { EnsureMenuView(); return _menuByName!; } } }
+
+        /// <summary>Tên (không đuôi) khớp một trong <see cref="FileLookupService.IgnorePatterns"/> (kiểu LIKE, không phân biệt hoa thường) → file sao lưu / bản copy / tên rác.</summary>
+        internal static bool IsBackupFile(string path)
+        {
+            var patterns = FileLookupService.IgnorePatterns;
+            if (patterns.Length == 0) return false;
+            var name = Path.GetFileNameWithoutExtension(path);
+            foreach (var p in patterns)
+                if (p.IsMatch(name)) return true;
+            return false;
+        }
+
         public DateTime BuiltAtUtc { get; }
         public List<string> Dirs { get; }
         public List<string> Files { get; }
@@ -138,6 +167,25 @@ public class FileLookupService
     /// <summary>Chế độ dùng cache khi bấm menu — đặt từ AppSettings.FileLookupCacheMode lúc khởi động.</summary>
     public static FileLookupCacheMode CacheMode { get; set; } = FileLookupCacheMode.On;
 
+    /// <summary>Các đuôi tên file bị bỏ qua (xem AppSettings.FileLookupIgnoreSuffixes). Đổi giá trị thì gọi InvalidateCache để chỉ mục quét lại.</summary>
+    public static System.Text.RegularExpressions.Regex[] IgnorePatterns { get; private set; } = BuildIgnorePatterns("_bk, _copy, - copy");
+
+    public static int IgnoreVersion { get; private set; }
+
+    public static void SetIgnoreSuffixes(string? list) { IgnorePatterns = BuildIgnorePatterns(list); IgnoreVersion++; }
+
+    /// <summary>Mỗi mục cách nhau bằng dấu phẩy / chấm phẩy. Kiểu LIKE: mục KHÔNG có ký tự đại diện = tên file CHỨA mục đó (vd "_bk" khớp SRTran_bk, SRTran_Bk20, SRTran_bk12312);
+    /// mục có "*" hoặc "%" (thay cho chuỗi bất kỳ) = khớp CẢ tên theo mẫu đó (vd "tmp*", "*_old", "*copy*", "SR*_x"). Không phân biệt hoa thường.</summary>
+    private static System.Text.RegularExpressions.Regex[] BuildIgnorePatterns(string? list) =>
+        (list ?? "").Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0)
+            .Select(s =>
+            {
+                var wild = s.IndexOfAny(new[] { '*', '%' }) >= 0;
+                var body = string.Join(".*", s.Split('*', '%').Select(System.Text.RegularExpressions.Regex.Escape));
+                return new System.Text.RegularExpressions.Regex(wild ? "^" + body + "$" : body,
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Compiled);
+            }).ToArray();
+
     /// <summary>Ghi chú về lần dựng cây menu gần nhất (số hit/miss của cache) để hiện trên thanh trạng thái.</summary>
     public string? LastBuildNote { get; private set; }
 
@@ -180,8 +228,8 @@ public class FileLookupService
                 for (var pass = 0; pass < 5; pass++)
                 {
                     var filesToScan = (useCache
-                        ? sysIds.SelectMany(n => index.ByName[n])
-                        : index.Files.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)))).ToList();
+                        ? sysIds.SelectMany(n => index.MenuByName[n])
+                        : index.MenuFiles.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)))).ToList();
                     if (mainPath is { } main) filesToScan.Add(main);
 
                     var newFiles = filesToScan.Where(f => scannedFiles.Add(f)).ToList();
@@ -222,9 +270,9 @@ public class FileLookupService
                 var templateFiles = templateNames.Count == 0
                     ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                     : (useCache
-                        ? templateNames.SelectMany(n => index.ByName[n])
+                        ? templateNames.SelectMany(n => index.MenuByName[n])
                             .Where(f => f.StartsWith(templatesPrefix, StringComparison.OrdinalIgnoreCase))
-                        : index.Files
+                        : index.MenuFiles
                             .Where(f => f.StartsWith(templatesPrefix, StringComparison.OrdinalIgnoreCase)
                                         && templateNames.Contains(Path.GetFileNameWithoutExtension(f))))
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -246,7 +294,7 @@ public class FileLookupService
 
                 // File upload "ngược chiều": Templates\Upload\CBMaster.xml không mang tên sysId nên dò theo tên không ra, nhưng tự khai
                 // <!ENTITY TransferID "CBTran"> trỏ về menu — FCode lấy cả những file này (CBDetail thì có tên nằm trong Dir nên đã có sẵn).
-                var uploadCandidates = index.Files
+                var uploadCandidates = index.MenuFiles
                     .Where(f => IsUnderFolderNamed(controllersKey, f, "Upload") && ScannableExtensions.Contains(Path.GetExtension(f)))
                     .ToList();
                 var transferIds = new string[uploadCandidates.Count][];
@@ -284,8 +332,8 @@ public class FileLookupService
                 }
 
                 var candidates = useCache
-                    ? sysIds.SelectMany(n => index.ByName[n]).Concat(templateFiles).Distinct(StringComparer.OrdinalIgnoreCase)
-                    : index.Files.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)) || templateFiles.Contains(f));
+                    ? sysIds.SelectMany(n => index.MenuByName[n]).Concat(templateFiles).Distinct(StringComparer.OrdinalIgnoreCase)
+                    : index.MenuFiles.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)) || templateFiles.Contains(f));
                 var wantedExt = string.IsNullOrWhiteSpace(onlyExtension) ? ".f" : (onlyExtension.StartsWith('.') ? onlyExtension : "." + onlyExtension);
                 var matched = candidates.Where(f =>
                     !RequiresF(f) || (onlyF && wantedExt == ".*") || Path.GetExtension(f).Equals(onlyF ? wantedExt : ".f", StringComparison.OrdinalIgnoreCase));

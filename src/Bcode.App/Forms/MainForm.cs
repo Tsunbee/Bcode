@@ -38,6 +38,20 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _iconRailWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _statusBarWeb = new();
     private Func<WebMenu> _settingsMenu = null!;
+
+    /// <summary>Khai 1 lần các mẫu tên file bị bỏ qua khi dựng cây file của MENU (File Lookup theo menu, Gen Update, Gen All...): file khớp không hiện và không bị quét nội dung nên dựng cây nhanh hơn.
+    /// Kiểu LIKE: không có * thì "tên chứa" (_bk khớp X_bk, X_Bk20, X_bk12312), có * hoặc % thì khớp cả tên (tmp*, *_old). Cách nhau bằng dấu phẩy.</summary>
+    private void EditMenuTreeIgnore()
+    {
+        var text = SimplePromptForm.Show(this, "Cây menu — bỏ qua file",
+            "Bỏ qua file có tên (không đuôi) khớp — cách nhau bằng dấu phẩy. Không có * thì \"chứa\" (vd _bk khớp X_bk, X_Bk20, X_bk12312); có * thì khớp cả tên (vd tmp*, *_old). Để trống = không bỏ qua:",
+            _settings.FileLookupIgnoreSuffixes);
+        if (text is null) return;
+        _settings.FileLookupIgnoreSuffixes = text.Trim();
+        try { _settings.Save(); } catch { /* không lưu được thì chỉ áp dụng phiên này */ }
+        FileLookupService.SetIgnoreSuffixes(_settings.FileLookupIgnoreSuffixes);
+        PushStatus("Đã lưu mẫu bỏ qua file của cây menu — bấm lại menu để dựng cây theo mẫu mới.");
+    }
     private SqlObjectTreeControl _sqlObjectTree = null!;
     private WCommandTreeControl _wcommandTree = null!;
     private readonly Panel _leftContentHost = new() { Dock = DockStyle.Fill };
@@ -111,6 +125,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Bcode.App.UI.UiTemplate.Changed += OnPointerSetting;
         Disposed += (_, _) => { Bcode.App.UI.UiTemplate.Changed -= OnPointerSetting; Bcode.App.UI.MousePointer.Restore(); };
         Bcode.App.UI.UiScale.SetMode(_settings.UiScale, this);
+        FileLookupService.SetIgnoreSuffixes(_settings.FileLookupIgnoreSuffixes);
         FileLookupService.CacheMode = Enum.TryParse<FileLookupCacheMode>(_settings.FileLookupCacheMode, true, out var cacheMode)
             ? cacheMode : FileLookupCacheMode.On;
         _wcommandService = new WCommandService(_connections);
@@ -176,6 +191,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
+            .Add("Cây menu: bỏ qua file theo tên (like)...", () => BeginInvoke(new Action(EditMenuTreeIgnore)))
             .Add("Hướng dẫn gợi ý code SQL (gõ gì ra gì)...", () => BeginInvoke(new Action(OpenSqlHintsHelpTab)), shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.sqlHints"))
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Decrypt SQL, Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             .AddCaption("Database")

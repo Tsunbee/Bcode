@@ -401,8 +401,22 @@ public static class IncludeCheckService
         state = state.ToUpperInvariant(); if (state is not ("INCLUDE" or "IGNORE")) throw new InvalidDataException("Giá trị phải là INCLUDE hoặc IGNORE.");
         var path = Path.Combine(controllers, rel.Replace('/', '\\').TrimStart('\\'));
         var bak = path + ".bak";
-        if (File.Exists(path) && !File.Exists(bak)) File.Copy(path, bak);
-        File.WriteAllText(path, state, new UTF8Encoding(true));
+        try
+        {
+            if (File.Exists(path) && !File.Exists(bak)) File.Copy(path, bak);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            // Không tạo được .bak cạnh file (thư mục mạng chỉ cho sửa, không cho tạo file mới...): lưu bản gốc về máy rồi vẫn sửa tiếp.
+            var local = Path.Combine(BcodePaths.AppData, "Bcode", "Backups", "Include", DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Path.GetFileName(path) + ".bak");
+            Directory.CreateDirectory(Path.GetDirectoryName(local)!);
+            File.Copy(path, local, true);
+        }
+        try { File.WriteAllText(path, state, new UTF8Encoding(true)); }
+        catch (UnauthorizedAccessException)
+        {
+            throw new IOException($"Không có quyền ghi vào file:\n{path}\n\nThư mục này đang chỉ đọc đối với tài khoản đang chạy Bcode (thường là quyền Share trên máy chủ, không phải quyền NTFS). Nhờ quản trị cấp quyền Change/Modify, hoặc chép dự án về máy rồi chọn lại thư mục.");
+        }
     }
 
     /// <summary>Các file trong Controllers nhắc tới tên file include này (entity khai báo ..\Include\X.txt...) — tối đa <paramref name="max"/> kết quả.</summary>

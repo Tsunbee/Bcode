@@ -126,6 +126,7 @@ class BcodeShell {
         { sep: true },
         { label: 'Mở nhanh file...', shortcut: this.k('file.quickOpen'), run: () => window.bcodeQuickOpen && window.bcodeQuickOpen.open() },
         { label: 'Lịch sử file...', shortcut: this.k('file.history'), run: () => b.openHistory() },
+        { label: 'Lịch sử cả dự án...', shortcut: this.k('file.historyProject'), run: () => window.bcodeHistory.showHistory(b, 'project') },
         { sep: true },
         { label: 'Settings...', run: () => b.openSettings() },
         { label: 'Phím tắt...', run: () => b.openSettings('keys') },

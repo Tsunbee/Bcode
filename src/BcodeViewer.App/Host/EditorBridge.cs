@@ -746,6 +746,9 @@ public class EditorBridge
 
     private static string SaveWithHistoryCore(string path, string content)
     {
+        string? previous = null;
+        DateTime? previousWrite = null;
+        string? previousOwner = null;
         try
         {
             if (File.Exists(path))
@@ -757,6 +760,10 @@ public class EditorBridge
                 // gây lỗi "System.Xml.XmlException: Data at the root level is invalid" khi
                 // FastBusiness Online nạp lại 1 file .f vốn là UTF-16 mà bị lưu đè thành UTF-8.
                 var existing = ReadFileDetectEncoding(path);
+                previous = existing;
+                previousWrite = File.GetLastWriteTime(path);
+                try { previousOwner = new FileInfo(path).GetAccessControl().GetOwner(typeof(System.Security.Principal.NTAccount))?.ToString(); }
+                catch { /* không đọc được chủ file — chỉ là thông tin tham khảo */ }
                 // Nothing to preserve if the save is a no-op.
                 if (!string.Equals(existing, content, StringComparison.Ordinal))
                     LocalHistoryStore.Snapshot(path, existing);
@@ -769,8 +776,41 @@ public class EditorBridge
         }
 
         WriteFileKeepEncoding(path, content);
-        return "";
+
+        // Lịch sử CHUNG (ai / máy nào / IP / giờ) ngay trong thư mục History của dự án — chỉ ghi sau khi ghi file thành công.
+        // Trả trạng thái cho trang ("ok" / "same" / "none" / "skip" / "fail:<lý do>") để báo người dùng; không bao giờ làm hỏng việc lưu.
+        return JsonSerializer.Serialize(new { shared = SharedHistoryStore.Record(path, content, previous, previousWrite, previousOwner) });
     }
+
+    /// <summary>Lịch sử chung của một file (mode = "file") hoặc của cả dự án (mode = "project", days = 0 là tất cả). JSON {root,error,entries[]}.</summary>
+    public void BeginGetSharedHistory(string requestId, string path, string mode, int days) =>
+        _async.Begin(requestId, () => SharedHistoryStore.ToJson(mode == "project"
+            ? SharedHistoryStore.ListProject(path, days, 400)
+            : SharedHistoryStore.ListFile(path)));
+
+    /// <summary>Một bản chung và bản liền trước của cùng file: JSON {before,after,beforeAt}; "" nếu không còn.</summary>
+    public void BeginGetSharedPair(string requestId, string path, string rel, string id) =>
+        _async.Begin(requestId, () =>
+        {
+            var r = SharedHistoryStore.ReadPair(path, rel, id);
+            return r is null ? "" : JsonSerializer.Serialize(new { before = r.Value.Before, after = r.Value.After, beforeAt = r.Value.BeforeAt });
+        });
+
+    /// <summary>Dọn bản chung cũ hơn <paramref name="days"/> ngày (luôn giữ bản mới nhất của mỗi file). scope = "file" | "project"; dryRun = chỉ đếm. JSON {count,bytes,error}.</summary>
+    public void BeginPurgeSharedHistory(string requestId, string path, string scope, int days, bool dryRun) =>
+        _async.Begin(requestId, () =>
+        {
+            var r = SharedHistoryStore.Purge(path, scope, days, dryRun);
+            return JsonSerializer.Serialize(new { count = r.Count, bytes = r.Bytes, error = r.Error });
+        });
+
+    /// <summary>Mở thư mục lịch sử chung (của file nếu có rel, không thì của cả dự án) trong Explorer.</summary>
+    public void OpenSharedHistoryFolder(string path, string rel) =>
+        _async.Post(() =>
+        {
+            var folder = SharedHistoryStore.HistoryFolder(path, rel);
+            if (folder is not null) System.Diagnostics.Process.Start("explorer.exe", $"\"{folder}\"");
+        });
 
     /// <summary>JSON array of {"id","savedAt","length"} for one file, newest first.</summary>
     public void BeginGetFileHistory(string requestId, string path) =>

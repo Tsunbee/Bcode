@@ -939,3 +939,16 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
 #mailPreviewPanel .mpReal1 { color: #22c55e; }
 #mailPreviewPanel .mpChip { cursor: pointer; }
 #mailPreviewPanel .mpChip:hover { outline: 1px solid var(--bc-accent, #3b82f6); }
+
+/* ---- Lịch sử chung / cục bộ (history.js showHistory) ---- */
+.histWrap { flex: 0 0 330px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--bc-border); background: var(--bc-panel-alt); }
+.histWrap .histList { flex: 1 1 auto; border-right: 0; }
+.histHead { flex: 0 0 auto; padding: 6px 8px; border-bottom: 1px solid var(--bc-border); display: flex; flex-direction: column; gap: 6px; }
+.histTabs { display: flex; gap: 4px; }
+.histTab { flex: 1 1 0; padding: 4px 6px; font-size: 12px; cursor: pointer; border: 1px solid var(--bc-border); background: transparent; color: var(--bc-text); border-radius: 4px; }
+.histTab.on { background: var(--bc-accent); color: var(--bc-accent-text); border-color: var(--bc-accent); }
+.histFilter { display: flex; gap: 4px; }
+.histFilter input { flex: 1 1 auto; min-width: 0; }
+.histNote { font-size: 11px; color: var(--bc-text-muted); line-height: 1.4; white-space: normal; word-break: break-word; }
+.histRow .histWhen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.histRow .histSize { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

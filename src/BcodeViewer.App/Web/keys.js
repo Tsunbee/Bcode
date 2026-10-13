@@ -15,6 +15,7 @@ const BCODE_COMMANDS = [
   ['Tệp', 'file.new', 'New from Template...', 'Ctrl+N', (b) => b.openNewFromTemplate()],
   ['Tệp', 'file.quickOpen', 'Mở nhanh file (Quick Open)', 'Ctrl+P', () => window.bcodeQuickOpen && window.bcodeQuickOpen.open()],
   ['Tệp', 'file.history', 'Lịch sử file', 'Ctrl+Shift+H', (b) => window.bcodeHistory.showHistory(b)],
+  ['Tệp', 'file.historyProject', 'Lịch sử cả dự án (ai sửa gì)', '', (b) => window.bcodeHistory.showHistory(b, 'project')],
   ['Tệp', 'file.refresh', 'Tải lại file từ đĩa', '', (b) => b.refreshActive()],
   ['Tệp', 'file.saveRun', 'Lưu rồi mở menu của file trên trình duyệt', 'F5', (b, e) => { if (!(e && e.repeat)) b.saveAndRunMenu(); }],
   ['Tệp', 'app.settings', 'Mở Settings', '', (b) => b.openSettings()],

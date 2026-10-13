@@ -953,13 +953,14 @@ class BcodeEditor {
       // Version taken with the text being written: anything typed while the save is in
       // flight stays dirty afterwards.
       const savedVersion = this.currentModel.getAlternativeVersionId();
-      await window.bcodeHost.call('BeginSaveWithHistory', this.activePath, this.currentModel.getValue());
+      const saveRes = await window.bcodeHost.call('BeginSaveWithHistory', this.activePath, this.currentModel.getValue());
       this.markClean(this.activePath, savedVersion);
       // Báo "đã lưu" NGAY — các bước dọn cache bên dưới không được làm người dùng phải chờ (trên share, dựng lại
       // chỉ mục include là đọc từng file include qua mạng).
       const savedPath = this.activePath;
       const savedText = this.currentModel.getValue();
       this.showToast(`Đã lưu file thành công: ${fileNameOf(savedPath)}`, 2500);
+      this.reportSharedHistory(saveRes);
       this.dismissedWriteTimeUtc = null;
       this.hideExternalChangeBanner();
 
@@ -1081,6 +1082,16 @@ class BcodeEditor {
     this.dismissedWriteTimeUtc = null;
     this.hideExternalChangeBanner();
     this.validateActive();
+  }
+
+  /// Kết quả ghi lịch sử chung (xem SharedHistoryStore) — chỉ báo khi có chuyện: ghi thất bại (thường do thư mục History của dự án
+  /// không cho ghi) thì nói rõ, để người dùng biết file ĐÃ lưu nhưng KHÔNG có lịch sử chung. Thành công cũng báo ngắn để dễ kiểm tra quyền ghi.
+  reportSharedHistory(raw) {
+    let status = '';
+    try { status = (JSON.parse(raw || '{}').shared) || ''; } catch { return; }
+    this.lastSharedHistoryStatus = status;
+    if (status.startsWith('fail:')) this.showToast('Đã lưu file, nhưng KHÔNG ghi được lịch sử chung: ' + status.slice(5), 9000);
+    else if (status === 'ok') this.showToast('Đã lưu file thành công · đã ghi lịch sử chung của dự án', 3000);
   }
 
   /// "Save As": the file picker itself has to be native (WinForms SaveFileDialog, shown by

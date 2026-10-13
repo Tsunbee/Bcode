@@ -161,7 +161,7 @@ public partial class MainForm
         {
             page.Tag = null;
             var table = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate) { Dock = DockStyle.Fill };
-            table.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; _documentTabs.Invalidate(); } };
+            table.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; OnTabTitleChanged(); } };
             page.Controls.Add(table);
             Bcode.App.UI.ThemeManager.Apply(page);
             (string, string, string, int)? filter = null;

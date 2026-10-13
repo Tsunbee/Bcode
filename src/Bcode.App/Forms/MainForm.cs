@@ -325,6 +325,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _documentTabs.SelectedIndexChanged += (_, _) => BeginInvoke(new Action(() => RestoreContentFocus(activate: false)));
         Bcode.App.UI.ThemeManager.MakeClosable(_documentTabs, CloseDocumentTab);
         _documentTabs.SizeChanged += (_, _) => UpdateQuickAccessOverlayBounds();
+        // Tab đổi tên (tab Table lấy tên bảng vừa tải, tab đánh dấu chưa lưu...) thì bề rộng tab đổi theo — phải dời dải "Mở nhanh" (xem OnTabTitleChanged).
+        _documentTabs.ControlAdded += (_, e) => { if (e.Control is TabPage added) added.TextChanged += (_, _) => OnTabTitleChanged(); };
 
         _quickAccessOverlay.MouseUp += (_, e) =>
         {
@@ -1291,6 +1293,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         UpdateQuickAccessOverlayBounds();
     }
 
+    /// <summary>Tên một tab vừa đổi. Dải "Mở nhanh" (_quickAccessOverlay) là một panel nằm ĐÈ lên phần trống bên phải tab cuối, đặt theo mép phải của tab cuối tại lúc
+    /// thêm / bớt tab. Tab dài ra mà không dời dải này thì nó che mất phần mới nới của tab — đúng chỗ có nút ✕ (lỗi "lọc bảng xong tab mất dấu ✕, mở thêm tab mới thấy lại").</summary>
+    private void OnTabTitleChanged()
+    {
+        if (IsDisposed || _documentTabs.IsDisposed) return;
+        _documentTabs.Invalidate();
+        UpdateQuickAccessOverlayBounds();
+        // Làm lại một nhịp sau: phòng khi Windows chưa đo xong bề rộng tab ngay trong lúc đổi chữ.
+        if (IsHandleCreated)
+            BeginInvoke(new Action(() => { if (!IsDisposed && !_documentTabs.IsDisposed) { UpdateQuickAccessOverlayBounds(); _documentTabs.Invalidate(); } }));
+    }
+
     private void UpdateQuickAccessOverlayBounds()
     {
         var atBottom = _documentTabs.Alignment == TabAlignment.Bottom;
@@ -1692,7 +1706,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var control = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate);
         var page = AddDocumentTab(NumberedTabTitle("Table"), control);
         // Lọc/tải bảng nào thì tab đổi tên thành bảng đó (dmkh, r00$000000...).
-        control.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; _documentTabs.Invalidate(); } };
+        control.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; OnTabTitleChanged(); } };
     }
 
     private void OpenFileReferenceTab()

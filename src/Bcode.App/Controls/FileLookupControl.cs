@@ -1252,7 +1252,7 @@ public class FileLookupControl : UserControl
         var pattern = (node.IsDirectory ? node.Name : Path.GetFileNameWithoutExtension(node.Name)) + "*";
 
         if (!AddSourceLauncher.EnsureCollectionPath(this, _settings)) return;
-        using var form = new AddSourceForm(_settings.SourceCollectionPath, pattern, dest, () => Reload());
+        using var form = new AddSourceForm(_settings.SourceCollectionPath, pattern, dest, () => RefreshNewFiles());
         form.ShowDialog(this);
     }
 
@@ -1268,7 +1268,7 @@ public class FileLookupControl : UserControl
             File.SetAttributes(node.FullPath, FileAttributes.Normal); // file read-only thì File.Delete báo lỗi
             File.Delete(node.FullPath);
             _statusLabel.Text = "Đã xoá: " + node.FullPath;
-            Reload();
+            RefreshNewFiles();   // quét lại danh sách file (không dùng chỉ mục cũ còn file vừa xoá)
         }
         catch (Exception ex)
         {
@@ -1316,7 +1316,7 @@ public class FileLookupControl : UserControl
 
             for (var i = 0; i < sources.Count; i++) File.Copy(sources[i], targets[i]);
             _statusLabel.Text = $"Đã nhân bản {sources.Count} file → {newBase}.*";
-            Reload();
+            RefreshNewFiles();   // quét lại để thấy ngay file vừa nhân bản
         }
         catch (Exception ex)
         {

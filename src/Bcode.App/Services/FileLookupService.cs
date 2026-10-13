@@ -142,7 +142,7 @@ public class FileLookupService
     public string? LastBuildNote { get; private set; }
 
     /// <param name="session">null = cách cũ (đọc thẳng đĩa, lọc tuần tự); khác null = dùng <see cref="FileParseCache"/> và chỉ mục theo tên.</param>
-    private FileLookupNode BuildMenuTreeCore(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir, bool onlyF, ReadSession? session, string onlyExtension = ".f")
+    private FileLookupNode BuildMenuTreeCore(string sourceRootPath, string link, string sysId, bool onlyFInGridFilterDir, bool onlyF, ReadSession? session, string onlyExtension = ".f", bool retried = false)
     {
         var useCache = session is not null;
         var root = new FileLookupNode { Name = Path.GetFileName(sourceRootPath.TrimEnd('\\', '/')), FullPath = sourceRootPath, IsDirectory = true };
@@ -292,6 +292,13 @@ public class FileLookupService
 
                 var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
                 var matchedList = matched.ToList();
+                // Danh sách file đang lấy từ chỉ mục quét sẵn: nếu có file trong đó đã bị xoá / đổi tên (bởi Bcode hay công cụ khác) thì quét lại ổ đĩa một lần rồi dựng lại,
+                // thay vì hiện file không còn tồn tại (mở ra báo lỗi). File MỚI do người khác tạo thì do hạn 2 phút của chỉ mục hoặc nút Refresh / Load lo.
+                if (!retried && matchedList.Any(f => !File.Exists(f)))
+                {
+                    InvalidateCache();
+                    return BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, session, onlyExtension, retried: true);
+                }
                 FillFromPaths(controllersNode, controllersKey, Array.Empty<string>(), matchedList);
                 AttachEntityIssues(controllersNode, matchedList, session);
                 if (controllersNode.Children.Count > 0)

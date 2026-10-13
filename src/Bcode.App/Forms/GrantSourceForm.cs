@@ -12,7 +12,7 @@ namespace Bcode.App.Forms;
 /// </summary>
 public sealed class GrantSourceForm : ThemedForm
 {
-    private readonly string _collectionRoot;
+    private readonly IReadOnlyList<string> _collectionRoots;
     private readonly string _destRoot;
     private readonly List<string> _files;
     private readonly Action? _onCopied;
@@ -26,12 +26,12 @@ public sealed class GrantSourceForm : ThemedForm
     private List<GrantRow> _rows = new();
     private int _resolveVersion;
 
-    public GrantSourceForm(string collectionRoot, string destRoot, List<string> files, Action? onCopied = null, string? versionCode = null, bool startAll = false, List<string>? menuFiles = null)
+    public GrantSourceForm(IReadOnlyList<string> collectionRoots, string destRoot, List<string> files, Action? onCopied = null, string? versionCode = null, bool startAll = false, List<string>? menuFiles = null)
     {
         _menuFiles = menuFiles ?? new List<string>();
         _startAll = startAll; _all = startAll;
         _versionCode = versionCode;
-        _collectionRoot = collectionRoot;
+        _collectionRoots = collectionRoots;
         _destRoot = destRoot;
         _files = files;
         _onCopied = onCopied;
@@ -105,7 +105,7 @@ public sealed class GrantSourceForm : ThemedForm
         string? error = null, note = "", selected = null, current = null;
         try
         {
-            _versions = await Task.Run(() => SourceGrantService.ListVersions(_collectionRoot));
+            _versions = await Task.Run(() => SourceGrantService.ListVersions(_collectionRoots));
             selected = SourceGrantService.DetectVersion(_destRoot, _versions, out note, _versionCode) ?? _versions.FirstOrDefault();
             // Dự án có khai mã phiên bản và tìm được thư mục khớp → đưa thư mục phiên bản hiện tại lên ĐẦU danh sách (và đánh dấu).
             // Không khai mã thì giữ nguyên như cũ: mới nhất trước, chọn sẵn phiên bản đoán theo thư mục source.
@@ -131,7 +131,7 @@ public sealed class GrantSourceForm : ThemedForm
             var source = _all ? _menuFiles : _files;
             var kept = source.Where(SourceGrantService.IsGrantable).ToList();
             _skipped = source.Count - kept.Count;
-            return SourceGrantService.Resolve(_collectionRoot, version, _versions, kept, _destRoot);
+            return SourceGrantService.Resolve(_collectionRoots, version, _versions, kept, _destRoot);
         });
         if (token != _resolveVersion || IsDisposed) return; // đã đổi phiên bản khác trong lúc tìm
         _rows = rows;

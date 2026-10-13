@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tự scale theo cỡ cửa sổ (rem 12px → 16px); mật độ / bo góc / viền theo Template giao diện (--dens, --r, --bw trong shell.css). */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; }
+  button, input, textarea, select { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) calc(.9rem * var(--dens)); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button.ghost { background: transparent; border-color: transparent; color: var(--text-muted); padding: .15rem .5rem; }
+  button.ghost:hover { color: var(--text); border-color: var(--border); }
+  button.big { padding: calc(.5rem * var(--dens)) 1.3rem; font-size: 1.05rem; }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: .5; cursor: default; pointer-events: none; }
+  input[type=text], input[type=number], input[type=password], input[type=date], textarea, select { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.3rem * var(--dens)) .5rem; min-width: 0; width: 100%; }
+  textarea { resize: vertical; line-height: 1.45; }
+  input:focus, textarea:focus, select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  input[type=checkbox], input[type=radio] { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; margin: 0; cursor: pointer; width: auto; }
+
+  #main { flex: 1; min-height: 0; overflow: auto; padding: .8rem; display: grid; gap: .8rem; grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { #main { grid-template-columns: minmax(0, 1fr); } }
+  .col { display: flex; flex-direction: column; gap: .8rem; min-width: 0; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); }
+  .card > .ct { padding: calc(.45rem * var(--dens)) .8rem; font-weight: 600; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); border-radius: var(--r-lg) var(--r-lg) 0 0; display: flex; align-items: center; gap: .5rem; }
+  .card > .ct .sp { flex: 1; }
+  .card > .cb { padding: calc(.7rem * var(--dens)) .8rem; display: flex; flex-direction: column; gap: calc(.55rem * var(--dens)); }
+  .f { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: .5rem; align-items: center; }
+  .f > label, .lbl { color: var(--text-muted); font-size: .94rem; }
+  .f.top { align-items: start; }
+  .f.top > label { padding-top: .35rem; }
+  @media (max-width: 560px) { .f { grid-template-columns: minmax(0, 1fr); gap: .15rem; } }
+  .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+  .chk { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; white-space: nowrap; }
+  .hint { color: var(--text-muted); font-size: .88rem; line-height: 1.45; }
+  .hint code { background: var(--input); padding: 0 .25rem; border-radius: .25rem; color: var(--text); cursor: pointer; }
+  .dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem .8rem; }
+  .dates label { display: flex; flex-direction: column; gap: .15rem; color: var(--text-muted); font-size: .9rem; }
+
+  #list { display: flex; flex-direction: column; gap: .3rem; max-height: 22rem; overflow: auto; }
+  .item { padding: calc(.35rem * var(--dens)) .6rem; border: var(--bw) solid transparent; border-radius: var(--r); cursor: pointer; display: flex; flex-direction: column; }
+  .item:hover { border-color: var(--border); }
+  .item.on { background: var(--selection); border-color: var(--accent); }
+  .item .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .p { color: var(--text-muted); font-size: .86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #empty { color: var(--text-muted); padding: .5rem; }
+
+  #body { min-height: 16rem; font-family: inherit; }
+  #sig { min-height: 5rem; max-height: 14rem; overflow: auto; background: var(--input); color: var(--text); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .5rem .7rem; }
+  #sig:empty::before { content: attr(data-ph); color: var(--text-muted); }
+  #sig:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  #sig img { max-width: 100%; }
+  #preview { white-space: pre-wrap; line-height: 1.5; border: var(--bw) dashed var(--border); border-radius: var(--r); padding: .6rem .8rem; max-height: 22rem; overflow: auto; }
+  #preview b { color: var(--accent); }
+  #log { height: 9rem; min-height: 4rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; white-space: pre-wrap; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); padding: .4rem .6rem; background: var(--input); }
+  #log div.ok { color: var(--success); } #log div.err { color: var(--danger); } #log div.dim { color: var(--text-muted); }
+  #log .ts { color: var(--text-muted); margin-right: .5rem; }
+  #log:empty::before { content: 'Kết quả gửi sẽ hiện ở đây...'; color: var(--text-muted); }
+  #bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .8rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; }
+  #bar .grow { flex: 1; }
+  #state { font-weight: 600; }
+  #state.ok { color: var(--success); } #state.err { color: var(--danger); } #state.run { color: var(--accent); }
+  #smtpCard .cb { display: none; } #smtpCard.open .cb { display: flex; }
+</style>
+</head>
+<body>
+<div id="main">
+  <div class="col">
+    <div class="card">
+      <div class="ct">Mẫu mail <span class="sp"></span><button class="ghost" id="bNew" title="Tạo mẫu mới (có sẵn nội dung ví dụ kế hoạch tuần)">＋ Mới</button></div>
+      <div class="cb">
+        <select id="filter" title="Lọc mẫu theo dự án"></select>
+        <div id="list"></div>
+        <div class="row"><button class="ghost" id="bDup">Nhân bản</button><button class="ghost danger" id="bDel">Xoá mẫu</button></div>
+      </div>
+    </div>
+    <div class="card" id="smtpCard">
+      <div class="ct" style="cursor:pointer" id="smtpHead">▸ Máy chủ gửi mail (SMTP)<span class="sp"></span><span class="hint" id="smtpSum"></span></div>
+      <div class="cb">
+        <div class="hint">Dùng chung với tab Check Mail (cùng file cấu hình). Mật khẩu không được lưu — nhập lại mỗi lần mở tab.</div>
+        <div class="f"><label for="host">Host</label><input type="text" id="host" placeholder="mail.domain.com" spellcheck="false" /></div>
+        <div class="f"><label for="port">Port</label><div class="row"><input type="number" id="port" style="width:6.5rem" min="1" max="65535" value="587" />
+          <label class="chk"><input type="checkbox" id="ssl" /> SSL</label><label class="chk"><input type="checkbox" id="tls" /> TLS</label>
+          <label class="chk"><input type="checkbox" id="ignoreCert" /> Bỏ qua lỗi chứng chỉ</label></div></div>
+        <div class="f"><label for="senderEmail">Email gửi</label><input type="text" id="senderEmail" placeholder="ten@domain.com" spellcheck="false" /></div>
+        <div class="f"><label for="alias">Tên hiển thị</label><input type="text" id="alias" spellcheck="false" /></div>
+        <div class="f"><label for="account">Tài khoản</label><input type="text" id="account" placeholder="(để trống nếu không cần đăng nhập)" spellcheck="false" /></div>
+        <div class="f"><label for="password">Mật khẩu</label><div class="row" style="flex-wrap:nowrap"><input type="password" id="password" autocomplete="new-password" spellcheck="false" />
+          <label class="chk"><input type="checkbox" id="showPw" /> Hiện</label></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="card">
+      <div class="ct">Soạn mail</div>
+      <div class="cb">
+        <div class="f"><label for="name">Tên mẫu</label><input type="text" id="name" placeholder="Kế hoạch tuần — Tây Hồ" spellcheck="false" /></div>
+        <div class="f"><label for="project">Dự án</label><input type="text" id="project" list="projList" placeholder="Chọn / gõ tên dự án" spellcheck="false" /><datalist id="projList"></datalist></div>
+        <div class="f"><label for="to">To</label><input type="text" id="to" placeholder="nhieu-nguoi@domain.com; phan-cach-bang-dau-cham-phay" spellcheck="false" /></div>
+        <div class="f"><label for="cc">Cc</label><input type="text" id="cc" spellcheck="false" /></div>
+        <div class="f"><label for="bcc">Bcc</label><input type="text" id="bcc" spellcheck="false" /></div>
+        <div class="f"><label for="subject">Tiêu đề</label><input type="text" id="subject" spellcheck="false" /></div>
+        <div class="f top"><label for="body">Nội dung<br/>(kèm chữ ký)</label>
+          <div style="display:flex;flex-direction:column;gap:.4rem">
+            <textarea id="body" rows="14" spellcheck="false"></textarea>
+            <div class="row"><label class="chk"><input type="radio" name="fmt" id="fmtText" checked /> Text</label><label class="chk"><input type="radio" name="fmt" id="fmtHtml" /> HTML</label></div>
+            <div class="hint">Biến tự thay khi xem trước / gửi (bấm để chèn vào nội dung): <code data-v="{du_an}">{du_an}</code> <code data-v="{tuan_truoc_tu}">{tuan_truoc_tu}</code> <code data-v="{tuan_truoc_den}">{tuan_truoc_den}</code> <code data-v="{tuan_sau_tu}">{tuan_sau_tu}</code> <code data-v="{tuan_sau_den}">{tuan_sau_den}</code> <code data-v="{ngay}">{ngay}</code></div>
+          </div></div>
+        <div class="f top"><label>Chữ ký<br/>(HTML)</label>
+          <div style="display:flex;flex-direction:column;gap:.4rem">
+            <div id="sig" contenteditable="true" spellcheck="false" data-ph="Dán chữ ký vào đây (copy từ Outlook / Gmail / trang web — giữ nguyên định dạng, màu, logo, link)..."></div>
+            <textarea id="sigSrc" rows="8" spellcheck="false" style="display:none;font-family:Consolas,monospace" placeholder="Mã HTML chữ ký..."></textarea>
+            <div class="row"><label class="chk"><input type="checkbox" id="sigCode" /> Sửa mã HTML</label><button class="ghost" id="bSigClear">Xoá chữ ký</button>
+              <span class="hint">Có chữ ký thì thư gửi dạng HTML (nội dung Text tự xuống dòng đúng). Ảnh trong chữ ký cần là link http(s) hoặc ảnh nhúng dạng data:; ảnh “cid:” của Outlook không hiện được.</span></div>
+          </div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="ct">Tuần báo cáo <span class="sp"></span><button class="ghost" id="bAuto" title="Tính lại theo hôm nay: tuần vừa rồi = Thứ 2→Chủ nhật trước đó; tuần tới = Thứ 2→Thứ 6 của tuần kế tiếp">⟳ Tính theo hôm nay</button></div>
+      <div class="cb"><div class="dates">
+        <label>Thực hiện: từ ngày<input type="date" id="d1" /></label><label>đến ngày<input type="date" id="d2" /></label>
+        <label>Kế hoạch tuần tiếp theo: từ ngày<input type="date" id="d3" /></label><label>đến ngày<input type="date" id="d4" /></label>
+      </div></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">Xem trước <span class="sp"></span><button class="ghost" id="bCopy">Copy nội dung</button></div>
+      <div class="cb"><div class="hint" id="pvHead"></div><div id="preview"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="ct">Kết quả <span class="sp"></span><button class="ghost" id="bClear">Xoá log</button></div>
+      <div class="cb"><div id="log"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="bar">
+  <button class="primary big" id="bSend" title="Gửi mail (sẽ hỏi xác nhận người nhận trước)">✉ Gửi mail</button>
+  <button class="big" id="bSave" title="Lưu mẫu đang soạn">💾 Lưu mẫu</button>
+  <button class="big" id="bCancel" style="display:none">Huỷ</button>
+  <span class="grow"></span>
+  <span id="state"></span>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const FIELDS = ['name', 'project', 'to', 'cc', 'bcc', 'subject', 'body'];
+  const SMTP_TEXT = ['host', 'senderEmail', 'alias', 'account'];
+  let templates = [], current = null, currentProject = '', running = false, smtpTimer = null;
+
+  const SAMPLE = {
+    name: 'Kế hoạch tuần', subject: 'V/v: [FAST - {du_an}] KẾ HOẠCH TRIỂN KHAI TUẦN DỰ ÁN',
+    body: 'Gửi Anh/Chị Đội dự án {du_an},\n\nEm xin gửi báo cáo kế hoạch tuần dự án\nI. THỰC HIỆN TRONG TUẦN: {tuan_truoc_tu} - {tuan_truoc_den}\n- \nII. KẾ HOẠCH TUẦN TIẾP THEO: {tuan_sau_tu} - {tuan_sau_den}\n- \nEm cảm ơn Anh/Chị.\nTrân trọng.\n---\n',
+  };
+
+  // ---- Ngày ----
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  const vn = (s) => { if (!s) return ''; const p = s.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; };
+  const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  function autoDates() {
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const nextMon = addDays(t, (1 - t.getDay() + 7) % 7); // thứ Hai gần nhất tính từ hôm nay (hôm nay là thứ Hai thì lấy luôn hôm nay)
+    $('d1').value = iso(addDays(nextMon, -7)); $('d2').value = iso(addDays(nextMon, -1));
+    $('d3').value = iso(nextMon); $('d4').value = iso(addDays(nextMon, 4));
+    refresh();
+  }
+
+  function fill(text) {
+    const t = new Date();
+    return String(text || '').replace(/\{(du_an|tuan_truoc_tu|tuan_truoc_den|tuan_sau_tu|tuan_sau_den|ngay)\}/g, (_, k) => ({
+      du_an: $('project').value.trim(), tuan_truoc_tu: vn($('d1').value), tuan_truoc_den: vn($('d2').value),
+      tuan_sau_tu: vn($('d3').value), tuan_sau_den: vn($('d4').value), ngay: pad(t.getDate()) + '/' + pad(t.getMonth() + 1) + '/' + t.getFullYear(),
+    }[k]));
+  }
+
+  // ---- Danh sách mẫu ----
+  function readForm() {
+    const o = { id: current ? current.id : '' };
+    FIELDS.forEach((k) => { o[k] = $(k).value; });
+    o.html = $('fmtHtml').checked; o.signature = getSig();
+    return o;
+  }
+  function writeForm(t) {
+    FIELDS.forEach((k) => { $(k).value = t ? (t[k] || '') : ''; });
+    $('fmtHtml').checked = !!(t && t.html); $('fmtText').checked = !(t && t.html);
+    setSig(t ? t.signature : ''); $('sigCode').checked = false; $('sig').style.display = ''; $('sigSrc').style.display = 'none';
+    refresh();
+  }
+  function commit() { // đưa nội dung form vào mẫu đang chọn (chưa ghi đĩa)
+    if (!current) return;
+    Object.assign(current, readForm());
+  }
+  function renderFilter() {
+    const projects = [...new Set(templates.map((t) => t.project).filter(Boolean))];
+    const f = $('filter'), keep = f.value;
+    f.innerHTML = '<option value="*">Tất cả dự án</option>' + projects.map((p) => '<option value="' + esc(p) + '">' + esc(p) + '</option>').join('');
+    f.value = projects.includes(keep) || keep === '*' ? keep : '*';
+  }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function renderList() {
+    const f = $('filter').value, list = $('list');
+    const rows = templates.filter((t) => f === '*' || t.project === f);
+    list.innerHTML = rows.length ? '' : '<div id="empty">Chưa có mẫu — bấm “＋ Mới”.</div>';
+    rows.forEach((t) => {
+      const d = document.createElement('div'); d.className = 'item' + (current === t ? ' on' : '');
+      d.innerHTML = '<span class="n">' + esc(t.name || '(chưa đặt tên)') + '</span><span class="p">' + esc(t.project || '(chưa chọn dự án)') + '</span>';
+      d.onclick = () => select(t);
+      list.appendChild(d);
+    });
+  }
+  function select(t) { commit(); current = t; writeForm(t); renderList(); }
+  function persist() {
+    if (!current) { current = { id: String(Date.now()) + Math.random().toString(16).slice(2, 6) }; templates.push(current); } // đang soạn mà chưa có mẫu → tạo mẫu từ nội dung form
+    commit(); post('saveTemplates', { templates });
+  }
+
+  $('bNew').onclick = () => {
+    commit();
+    const t = Object.assign({ id: String(Date.now()) + Math.random().toString(16).slice(2, 6), project: $('filter').value !== '*' ? $('filter').value : currentProject, to: '', cc: '', bcc: '', html: false }, SAMPLE);
+    templates.push(t); current = t; writeForm(t); renderFilter(); renderList(); $('name').focus();
+  };
+  $('bDup').onclick = () => {
+    if (!current) return; commit();
+    const t = Object.assign({}, current, { id: String(Date.now()) + Math.random().toString(16).slice(2, 6), name: (current.name || '') + ' (bản sao)' });
+    templates.push(t); current = t; writeForm(t); renderFilter(); renderList();
+  };
+  $('bDel').onclick = () => {
+    if (!current) return;
+    templates = templates.filter((t) => t !== current); current = null; writeForm(null); renderFilter(); renderList(); post('saveTemplates', { templates });
+  };
+  $('filter').onchange = renderList;
+  $('bSave').onclick = () => { persist(); renderFilter(); renderList(); };
+
+  // ---- Chữ ký HTML ----
+  // Làm sạch HTML dán vào (bỏ script/iframe/object, thuộc tính on*, link javascript:) — trang có quyền gọi về Bcode nên không để mã lạ chạy.
+  function clean(html) {
+    const doc = new DOMParser().parseFromString('<body>' + html + '</body>', 'text/html');
+    doc.querySelectorAll('script,iframe,object,embed,link,meta,style[onload]').forEach((n) => n.remove());
+    doc.body.querySelectorAll('*').forEach((el) => [...el.attributes].forEach((a) => {
+      if (/^on/i.test(a.name) || (/^(href|src|xlink:href)$/i.test(a.name) && /^\s*javascript:/i.test(a.value))) el.removeAttribute(a.name);
+    }));
+    return doc.body.innerHTML;
+  }
+  const getSig = () => clean($('sigCode').checked ? $('sigSrc').value : $('sig').innerHTML).replace(/^(\s|<br\s*\/?>)+$/i, '');
+  function setSig(html) { $('sig').innerHTML = html || ''; $('sigSrc').value = html || ''; }
+  $('sig').addEventListener('paste', (e) => { // dán giữ định dạng nhưng qua bộ lọc
+    const h = e.clipboardData && e.clipboardData.getData('text/html');
+    if (!h) return;
+    e.preventDefault(); document.execCommand('insertHTML', false, clean(h.replace(/<!--[\s\S]*?-->/g, '')));
+  });
+  $('sigCode').onchange = () => {
+    const code = $('sigCode').checked;
+    if (code) $('sigSrc').value = clean($('sig').innerHTML); else $('sig').innerHTML = clean($('sigSrc').value);
+    $('sig').style.display = code ? 'none' : ''; $('sigSrc').style.display = code ? '' : 'none';
+  };
+  $('sig').addEventListener('input', () => { refresh(); });
+  $('sigSrc').addEventListener('input', () => { refresh(); });
+  $('bSigClear').onclick = () => { setSig(''); refresh(); };
+  // Nội dung cuối cùng: có chữ ký → luôn gửi HTML (nội dung Text được escape + xuống dòng thành <br>); không có → như đã chọn Text/HTML.
+  function compose() {
+    const sig = getSig(), body = fill($('body').value);
+    if (!sig && !$('fmtHtml').checked) return { html: false, body };
+    const main = $('fmtHtml').checked ? body : esc(body).replace(/\r?\n/g, '<br>\n');
+    return { html: true, body: main + (sig ? '<br>\n' + sig : '') };
+  }
+
+  // ---- Xem trước ----
+  function refresh() {
+    $('pvHead').innerHTML = esc('To: ' + $('to').value + ($('cc').value ? '   Cc: ' + $('cc').value : '') + ($('bcc').value ? '   Bcc: ' + $('bcc').value : '')) + '<br/><b>' + esc(fill($('subject').value)) + '</b>';
+    const c = compose(), text = c.body;
+    if (c.html) { $('preview').style.whiteSpace = 'normal'; $('preview').innerHTML = text; } else { $('preview').style.whiteSpace = ''; $('preview').textContent = text; }
+  }
+  ['to', 'cc', 'bcc', 'subject', 'body', 'project', 'd1', 'd2', 'd3', 'd4'].forEach((k) => $(k).addEventListener('input', refresh));
+  ['fmtText', 'fmtHtml'].forEach((k) => $(k).addEventListener('change', refresh));
+  ['name', 'project'].forEach((k) => $(k).addEventListener('input', () => { commit(); renderList(); }));
+  document.querySelectorAll('.hint code').forEach((c) => c.onclick = () => {
+    const b = $('body'), v = c.dataset.v, s = b.selectionStart || 0, e = b.selectionEnd || 0;
+    b.value = b.value.slice(0, s) + v + b.value.slice(e); b.focus(); b.selectionStart = b.selectionEnd = s + v.length; refresh();
+  });
+  $('bAuto').onclick = autoDates;
+  $('bCopy').onclick = () => post('copy', { text: fill($('subject').value) + '\n\n' + ($('preview').innerText || '') });
+
+  // ---- SMTP ----
+  const smtp = (withPw) => ({
+    host: $('host').value.trim(), port: parseInt($('port').value, 10) || 0, ssl: $('ssl').checked, tls: $('tls').checked, ignoreCert: $('ignoreCert').checked,
+    timeoutSeconds: 30, senderEmail: $('senderEmail').value.trim(), alias: $('alias').value.trim(), account: $('account').value.trim(), password: withPw ? $('password').value : '',
+  });
+  function smtpSummary() { const h = $('host').value.trim(); $('smtpSum').textContent = h ? h + ':' + $('port').value : 'chưa khai báo'; }
+  $('smtpHead').onclick = () => { const c = $('smtpCard'); c.classList.toggle('open'); $('smtpHead').firstChild.textContent = (c.classList.contains('open') ? '▾ ' : '▸ ') + 'Máy chủ gửi mail (SMTP)'; };
+  [...SMTP_TEXT, 'port', 'ssl', 'tls', 'ignoreCert'].forEach((k) => $(k).addEventListener('input', () => {
+    smtpSummary(); clearTimeout(smtpTimer); smtpTimer = setTimeout(() => post('saveSmtp', { cfg: smtp(false) }), 600);
+  }));
+  $('showPw').onchange = () => { $('password').type = $('showPw').checked ? 'text' : 'password'; };
+
+  // ---- Gửi ----
+  function setState(text, kind) { const s = $('state'); s.textContent = text || ''; s.className = kind || ''; }
+  const stamp = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
+  function addLog(text, kind) {
+    const box = $('log'), line = document.createElement('div'); if (kind) line.className = kind;
+    const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = kind === 'dim' ? '' : stamp();
+    line.append(ts, document.createTextNode(text)); box.appendChild(line); box.scrollTop = box.scrollHeight;
+  }
+  $('bSend').onclick = () => {
+    if (running) return;
+    const c = smtp(true);
+    if (!c.host) { addLog('Chưa khai báo máy chủ gửi mail (mở mục “Máy chủ gửi mail”).', 'err'); $('smtpCard').classList.add('open'); $('host').focus(); return; }
+    if (!c.senderEmail) { addLog('Chưa nhập Email gửi.', 'err'); $('smtpCard').classList.add('open'); $('senderEmail').focus(); return; }
+    if (!$('to').value.trim()) { addLog('Chưa nhập người nhận (To).', 'err'); $('to').focus(); return; }
+    persist();
+    Object.assign(c, { to: $('to').value.trim(), cc: $('cc').value.trim(), bcc: $('bcc').value.trim(), subject: fill($('subject').value), body: compose().body, html: compose().html });
+    post('send', { cfg: c });
+  };
+  $('bCancel').onclick = () => post('cancel');
+  $('bClear').onclick = () => { $('log').textContent = ''; setState(''); };
+
+  window.weeklyMail = {
+    init(d) {
+      templates = d.templates || []; currentProject = d.current || '';
+      $('projList').innerHTML = (d.projects || []).map((p) => '<option value="' + esc(p) + '">').join('');
+      const s = d.smtp || {};
+      $('host').value = s.host || ''; $('port').value = s.port || 587; $('ssl').checked = !!s.ssl; $('tls').checked = !!s.tls; $('ignoreCert').checked = !!s.ignoreCert;
+      SMTP_TEXT.forEach((k) => { $(k).value = s[k] || ''; }); smtpSummary();
+      renderFilter();
+      if (currentProject && templates.some((t) => t.project === currentProject)) $('filter').value = currentProject; // mở lên: ưu tiên mẫu của dự án đang chọn
+      const first = templates.find((t) => $('filter').value === '*' || t.project === $('filter').value);
+      current = first || null; writeForm(current); renderList(); autoDates();
+    },
+    onSaved() { setState('Đã lưu mẫu', 'ok'); setTimeout(() => { if ($('state').textContent === 'Đã lưu mẫu') setState(''); }, 2000); },
+    onStart() { running = true; $('bSend').disabled = true; $('bCancel').style.display = ''; setState('Đang gửi...', 'run'); },
+    onLog(text, kind) { addLog(text, kind); },
+    onDone(ok) {
+      running = false; $('bSend').disabled = false; $('bCancel').style.display = 'none';
+      setState(ok ? '✔ Đã gửi' : '✘ Không thành công', ok ? 'ok' : 'err');
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

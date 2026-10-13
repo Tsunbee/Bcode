@@ -538,7 +538,7 @@ public class WCommandTreeControl : UserControl
         }
         if (!AddSourceLauncher.EnsureCollectionPath(this, _settings)) return;
 
-        using var form = new AddSourceForm(_settings.SourceCollectionPath, string.Join("; ", patterns), ws.SourcePath,
+        using var form = new AddSourceForm(_settings.SourceCollectionRoots, string.Join("; ", patterns), ws.SourcePath,
             () => _fileLookupService.InvalidateCache());
         form.ShowDialog(this);
     }

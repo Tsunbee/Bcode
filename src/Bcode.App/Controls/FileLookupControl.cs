@@ -1220,7 +1220,7 @@ public class FileLookupControl : UserControl
                      && string.Equals(w.SourcePath.TrimEnd('\\', '/'), dest.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
                  ?? _settings.Workspaces.FirstOrDefault(w => string.Equals(w.Name, ProjectName, StringComparison.OrdinalIgnoreCase));
         // Chưa tick file nào → mở sẵn ở chế độ "Toàn bộ file .f của menu đang xem".
-        using var form = new GrantSourceForm(_settings.SourceCollectionPath, dest, files, () => Reload(), ws?.VersionCode, startAll: files.Count == 0, menuFiles: menuFiles);
+        using var form = new GrantSourceForm(_settings.SourceCollectionRoots, dest, files, () => Reload(), ws?.VersionCode, startAll: files.Count == 0, menuFiles: menuFiles);
         form.ShowDialog(this);
     }
 
@@ -1252,7 +1252,7 @@ public class FileLookupControl : UserControl
         var pattern = (node.IsDirectory ? node.Name : Path.GetFileNameWithoutExtension(node.Name)) + "*";
 
         if (!AddSourceLauncher.EnsureCollectionPath(this, _settings)) return;
-        using var form = new AddSourceForm(_settings.SourceCollectionPath, pattern, dest, () => RefreshNewFiles());
+        using var form = new AddSourceForm(_settings.SourceCollectionRoots, pattern, dest, () => RefreshNewFiles());
         form.ShowDialog(this);
     }
 

@@ -46,6 +46,26 @@ public static class SourceGrantService
         return 0;
     }
 
+    /// <summary>Phiên bản trong nhiều kho (kho chính + kho bổ sung): hợp các thư mục phiên bản, bỏ trùng tên; kho không truy cập được thì bỏ qua (ném lỗi chỉ khi KHÔNG kho nào đọc được).</summary>
+    public static List<string> ListVersions(IReadOnlyList<string> collectionRoots)
+    {
+        var names = new List<string>();
+        Exception? last = null; var ok = false;
+        foreach (var root in collectionRoots)
+        {
+            try { names.AddRange(Directory.GetDirectories(root).Select(Path.GetFileName).OfType<string>()); ok = true; }
+            catch (Exception ex) { last = ex; }
+        }
+        if (!ok && last is not null) throw last;
+        names = names.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        names.Sort((a, b) =>
+        {
+            var c = CompareVersion(ParseVersion(b), ParseVersion(a));
+            return c != 0 ? c : string.Compare(b, a, StringComparison.OrdinalIgnoreCase);
+        });
+        return names;
+    }
+
     /// <summary>Các thư mục phiên bản trong kho, mới nhất (số lớn) trước.</summary>
     public static List<string> ListVersions(string collectionRoot)
     {
@@ -141,6 +161,10 @@ public static class SourceGrantService
 
     /// <summary>Tìm file source cho từng file: phiên bản đã chọn trước; không có thì lấy bản sửa mới nhất ở phiên bản khác.</summary>
     public static List<GrantRow> Resolve(string collectionRoot, string chosenVersion, IReadOnlyList<string> allVersions, IEnumerable<string> projectFiles, string destRoot)
+        => Resolve(new[] { collectionRoot }, chosenVersion, allVersions, projectFiles, destRoot);
+
+    /// <summary>Như trên nhưng tìm trong nhiều kho: mỗi (phiên bản, file) lấy ở kho đầu tiên có file (kho chính trước, kho bổ sung sau).</summary>
+    public static List<GrantRow> Resolve(IReadOnlyList<string> collectionRoots, string chosenVersion, IReadOnlyList<string> allVersions, IEnumerable<string> projectFiles, string destRoot)
     {
         var rows = new List<GrantRow>();
         var others = allVersions.Where(v => !v.Equals(chosenVersion, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -153,8 +177,8 @@ public static class SourceGrantService
             var srcRel = SourceRelative(rel);
             var row = new GrantRow { ProjectFile = file, RelativeSource = srcRel };
 
-            var inChosen = Path.Combine(collectionRoot, chosenVersion, srcRel);
-            if (SafeExists(inChosen))
+            var inChosen = FindInRoots(collectionRoots, chosenVersion, srcRel);
+            if (inChosen is not null)
             {
                 row.SourcePath = inChosen; row.FromVersion = chosenVersion; row.Modified = SafeTime(inChosen);
             }
@@ -165,8 +189,8 @@ public static class SourceGrantService
                 var hits = new System.Collections.Concurrent.ConcurrentBag<(string Version, string Path, DateTime Time)>();
                 Parallel.ForEach(others, new ParallelOptions { MaxDegreeOfParallelism = 8 }, v =>
                 {
-                    var p = Path.Combine(collectionRoot, v, srcRel);
-                    if (SafeExists(p) && SafeTime(p) is { } t) hits.Add((v, p, t));
+                    var p = FindInRoots(collectionRoots, v, srcRel);
+                    if (p is not null && SafeTime(p) is { } t) hits.Add((v, p, t));
                 });
                 // "Truy về" các phiên bản CŨ HƠN (hoặc bằng) trước — dự án đang ở phiên bản này không nên nhận bản của phiên bản mới hơn khi
                 // còn bản cũ để dùng; chỉ khi không có bản cũ nào mới xét tới các phiên bản mới hơn.
@@ -196,6 +220,17 @@ public static class SourceGrantService
         for (var i = 0; i < Math.Max(a.Length, b.Length); i++, w /= 100)
             d += ((i < a.Length ? a[i] : 0) - (i < b.Length ? b[i] : 0)) * w;
         return d;
+    }
+
+    /// <summary>File <paramref name="srcRel"/> của <paramref name="version"/> ở kho đầu tiên có nó; null nếu không kho nào có.</summary>
+    private static string? FindInRoots(IReadOnlyList<string> roots, string version, string srcRel)
+    {
+        foreach (var root in roots)
+        {
+            var p = Path.Combine(root, version, srcRel);
+            if (SafeExists(p)) return p;
+        }
+        return null;
     }
 
     private static bool SafeExists(string path) { try { return File.Exists(path); } catch { return false; } }

@@ -52,6 +52,16 @@ public class AppSettings
     /// "Cấp source (Add Source)". Đổi được khi kho dời chỗ, không cần sửa code.</summary>
     public string SourceCollectionPath { get; set; } = @"\\172.168.5.14\SourceCollection\FBO-FBI";
 
+    /// <summary>Các kho source BỔ SUNG (cùng cấu trúc với <see cref="SourceCollectionPath"/>: mỗi thư mục con = 1 phiên bản). Cấp source tìm ở kho chính trước,
+    /// thiếu phiên bản/file thì lấy ở các kho này. Khai ở Template → Đường dẫn.</summary>
+    public List<string> SourceCollectionExtraPaths { get; set; } = new();
+
+    /// <summary>Kho chính + các kho bổ sung (đã bỏ trùng/trống), kho chính đứng đầu — cái nào cũng đưa vào danh sách, truy cập được hay không để nơi dùng tự xử lý.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<string> SourceCollectionRoots =>
+        new[] { SourceCollectionPath }.Concat(SourceCollectionExtraPaths ?? new())
+            .Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
     /// <summary>Chế độ hiệu năng: "auto" (đoán theo CPU/RAM máy), "low", "medium", "high" — xem <see cref="UI.PerformanceProfile"/>.</summary>
     public string PerformanceMode { get; set; } = "auto";
 

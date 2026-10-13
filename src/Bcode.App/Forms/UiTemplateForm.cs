@@ -306,6 +306,8 @@ public class UiTemplateForm : ThemedForm
     {
         if (key == "viewer") _settings.ViewerExePath = value;
         else if (key == "designer") _settings.ScreenDesignerExePath = value;
+        else if (key == "srcMain") _settings.SourceCollectionPath = value;
+        else if (key == "srcExtra") _settings.SourceCollectionExtraPaths = value.Split(new[] { (char)10, (char)13 }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         else return;
         _settings.Save();
     }
@@ -349,9 +351,40 @@ public class UiTemplateForm : ThemedForm
             designer = new { path = _settings.ScreenDesignerExePath ?? "", ok = MainForm.FindScreenDesignerExe(_settings.ScreenDesignerExePath) is not null, using_ = MainForm.FindScreenDesignerExe(_settings.ScreenDesignerExePath) ?? "", detected = detected ?? "" },
         };
         Js($"window.setPaths({JsonSerializer.Serialize(state)})");
+        PushSourceStatus();
+    }
+
+    /// <summary>Kho source (chính + bổ sung) có truy cập được không — kiểm tra ở luồng nền vì ổ mạng không với tới được có thể treo nhiều giây; trang hiện "đang kiểm tra" rồi cập nhật khi xong.</summary>
+    private void PushSourceStatus()
+    {
+        var main = _settings.SourceCollectionPath ?? "";
+        var extra = (_settings.SourceCollectionExtraPaths ?? new()).ToList();
+        _ = Task.Run(() =>
+        {
+            bool Ok(string p) { try { return !string.IsNullOrWhiteSpace(p) && Directory.Exists(p); } catch { return false; } }
+            var state = new { main = new { path = main, ok = Ok(main) }, extra = extra.Select(p => new { path = p, ok = Ok(p) }).ToList() };
+            try { BeginInvoke(new Action(() => Js($"window.setSourcePaths({JsonSerializer.Serialize(state)})"))); } catch { /* form đã đóng */ }
+        });
+    }
+
+    private void BrowseSourceExtra()
+    {
+        using var dlg = new FolderBrowserDialog { Description = "Chọn kho source bổ sung (thư mục chứa các thư mục phiên bản, vd \\\\server\\SourceCollection\\FBO-FBI)", UseDescriptionForTitle = true };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        var list = (_settings.SourceCollectionExtraPaths ?? new()).ToList();
+        if (!list.Contains(dlg.SelectedPath, StringComparer.OrdinalIgnoreCase)) list.Add(dlg.SelectedPath);
+        _settings.SourceCollectionExtraPaths = list;
+        try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+        PushPaths();
     }
 
     private void BrowseToolPath(string? key)
+    {
+        if (key == "srcAdd") { BrowseSourceExtra(); return; }
+        BrowseToolPathCore(key);
+    }
+
+    private void BrowseToolPathCore(string? key)
     {
         var current = key == "viewer" ? _settings.ViewerExePath : _settings.ScreenDesignerExePath;
         using var dlg = new OpenFileDialog

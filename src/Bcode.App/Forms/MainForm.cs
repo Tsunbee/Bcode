@@ -218,6 +218,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("note_new", "Note (New)", "4", (_, _) => OpenAdvanceNoteTab()));
         _toolSpecs.Add(("create_processing", "Create Processing", null, (_, _) => new CreateProcessingForm().ShowDialog(this)));
         _toolSpecs.Add(("check_mail", "Check Mail", null, (_, _) => OpenCheckMailTab()));
+        _toolSpecs.Add(("weekly_mail", "Mail kế hoạch tuần", null, (_, _) => OpenWeeklyMailTab()));
         _toolSpecs.Add(("excel_to_frx", "Excel → FRX", null, (_, _) => OpenExcelToFrxTab()));
         _toolSpecs.Add(("check_cfs", "Check LCTT / CĐKT", null, (_, _) => OpenCashFlowCheckTab()));
         _toolSpecs.Add(("bbxn", "Biên bản xác nhận (Word)", null, (_, _) => OpenBbxnTab()));
@@ -839,7 +840,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // ---- Menu "Triển khai" ----------------------------------------------------------------------------
     // Các công cụ phục vụ triển khai gom vào 1 nút menu trên thanh công cụ, KHÔNG hiện riêng ở thanh công cụ / Quick Access / Template thứ tự nút.
     // Phím tắt riêng của từng công cụ ("tool:<key>") vẫn cấu hình được ở Template → Phím tắt.
-    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report" };
+    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
     private static readonly string[] ExtToolKeys = { "check_include", "report_builder" };
@@ -1791,6 +1792,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (_fsgReqTab is not null && _documentTabs.TabPages.Contains(_fsgReqTab)) { _documentTabs.SelectedTab = _fsgReqTab; return; }
         _fsgReqTab = AddDocumentTab("Yêu cầu FSG", new FsgRequirementReportControl(() => _connections.Current, () => _settings.NoteProgrammer ?? ""));
         _fsgReqTab.Disposed += (_, _) => _fsgReqTab = null;
+    }
+
+    private TabPage? _weeklyMailTab;
+
+    /// <summary>Tab "Mail kế hoạch tuần" (menu Triển khai): mẫu mail báo cáo/kế hoạch tuần theo dự án, gửi qua SMTP dùng chung với Check Mail. Một tab duy nhất.</summary>
+    private void OpenWeeklyMailTab()
+    {
+        if (_weeklyMailTab is not null && _documentTabs.TabPages.Contains(_weeklyMailTab)) { _documentTabs.SelectedTab = _weeklyMailTab; return; }
+        _weeklyMailTab = AddDocumentTab("Mail kế hoạch tuần", new WeeklyMailControl(
+            () => _settings.Workspaces.Select(w => w.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList(),
+            () => _connections.Current?.Name));
+        _weeklyMailTab.Disposed += (_, _) => _weeklyMailTab = null;
     }
 
     private void OpenCheckMailTab()

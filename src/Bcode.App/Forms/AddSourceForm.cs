@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Bcode.App.Services;
 using Bcode.App.UI;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -42,16 +43,16 @@ public static class AddSourceLauncher
 /// </summary>
 public class AddSourceForm : ThemedForm
 {
-    private readonly string _collectionRoot;
+    private readonly IReadOnlyList<string> _collectionRoots;
     private readonly string _initialPattern;
     private readonly string _initialDest;
     private readonly Action? _onCopied;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private CancellationTokenSource? _findCts;
 
-    public AddSourceForm(string collectionRoot, string initialPattern, string destinationRoot, Action? onCopied = null)
+    public AddSourceForm(IReadOnlyList<string> collectionRoots, string initialPattern, string destinationRoot, Action? onCopied = null)
     {
-        _collectionRoot = collectionRoot;
+        _collectionRoots = collectionRoots;
         _initialPattern = initialPattern;
         _initialDest = destinationRoot;
         _onCopied = onCopied;
@@ -119,8 +120,9 @@ public class AddSourceForm : ThemedForm
         string? error = null;
         try
         {
-            var root = _collectionRoot;
-            versions = await Task.Run(() => Directory.GetDirectories(root).Select(Path.GetFileName).OfType<string>().ToList());
+            var roots = _collectionRoots;
+            // Hợp phiên bản của kho chính + các kho bổ sung (kho nào không đọc được thì bỏ qua, chỉ báo lỗi khi không kho nào đọc được).
+            versions = await Task.Run(() => SourceGrantService.ListVersions(roots));
             versions.Sort((a, b) => NaturalCompare(b, a)); // mới nhất (số lớn) lên đầu
         }
         catch (Exception ex) { error = "Không đọc được kho source: " + ex.Message; }
@@ -136,7 +138,7 @@ public class AddSourceForm : ThemedForm
         _findCts?.Cancel();
         var cts = _findCts = new CancellationTokenSource();
         var token = cts.Token;
-        var versionRoot = Path.Combine(_collectionRoot, version);
+        var versionRoots = _collectionRoots.Select(r => Path.Combine(r, version)).ToList(); // kho chính trước, kho bổ sung sau
 
         List<(string Path, string Name, string Sub, string Modified)> found;
         try
@@ -145,6 +147,7 @@ public class AddSourceForm : ThemedForm
             {
                 var list = new List<(string, string, string, string)>();
                 var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var versionRoot in versionRoots)
                 foreach (var sub in new[] { Path.Combine("App_Data", "Controllers"), "Main" })
                 {
                     var dir = Path.Combine(versionRoot, sub);
@@ -157,7 +160,7 @@ public class AddSourceForm : ThemedForm
                         foreach (var f in files)
                         {
                             token.ThrowIfCancellationRequested();
-                            if (!seen.Add(f)) continue;
+                            if (!seen.Add(Path.GetRelativePath(versionRoot, f))) continue; // cùng file ở kho bổ sung → giữ bản của kho đứng trước
                             list.Add((f, Path.GetFileName(f),
                                 Path.GetRelativePath(versionRoot, Path.GetDirectoryName(f) ?? versionRoot),
                                 File.GetLastWriteTime(f).ToString("dd/MM/yyyy HH:mm")));

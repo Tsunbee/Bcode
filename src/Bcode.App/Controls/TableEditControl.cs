@@ -173,17 +173,16 @@ public class TableEditControl : UserControl
             e.Graphics.DrawLine(pen, e.RowBounds.Left, e.RowBounds.Top, e.RowBounds.Right, e.RowBounds.Top);
             e.Graphics.DrawLine(pen, e.RowBounds.Left, e.RowBounds.Bottom - 1, e.RowBounds.Right, e.RowBounds.Bottom - 1);
         };
-        // Ô đang NULL được tô màu hổ phách (như FCode) để nhìn ra ngay — chạy Alter Null Value xong thì các ô này hết màu.
+        // Ô đang NULL hiện chữ "Null" nghiêng, màu xám (không tô nền).
         _grid.CellFormatting += (_, e) =>
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.RowIndex >= _grid.Rows.Count || e.Value is not (null or DBNull)) return;
             if (_grid.Rows[e.RowIndex].IsNewRow || _grid.Columns[e.ColumnIndex] is DataGridViewCheckBoxColumn) return;
-            e.CellStyle.BackColor = Bcode.App.UI.AppColors.IsDark ? Color.FromArgb(140, 90, 14) : Color.FromArgb(255, 220, 160);
             // Hiện chữ "Null" cho ô NULL (không áp khi đang sửa ô đó để khỏi dính chữ "Null" vào editor).
             if (!_editingCell || e.RowIndex != _grid.CurrentCell?.RowIndex || e.ColumnIndex != _grid.CurrentCell?.ColumnIndex)
             {
                 e.Value = "Null"; e.FormattingApplied = true;
-                e.CellStyle.ForeColor = Bcode.App.UI.AppColors.IsDark ? Color.FromArgb(235, 200, 140) : Color.FromArgb(120, 80, 10);
+                e.CellStyle.ForeColor = Bcode.App.UI.AppColors.IsDark ? Color.FromArgb(150, 150, 150) : Color.FromArgb(140, 140, 140);
                 _nullFont ??= new Font(_grid.Font, FontStyle.Italic);
                 e.CellStyle.Font = _nullFont;
             }
@@ -1228,8 +1227,8 @@ public class TableEditControl : UserControl
     {
         var menu = new WebMenu();
         AddGenGroup(menu, "Gen Structure Table", GenStructureTable);
-        AddGenGroup(menu, "Gen Add Column", () => GenColumnDdl("ADD"));
-        AddGenGroup(menu, "Gen Alter Column", () => GenColumnDdl("ALTER COLUMN"));
+        AddGenGroup(menu, "Gen Add Column", () => GenColumnDdl("ADD"), () => DesignColumns(true));
+        AddGenGroup(menu, "Gen Alter Column", () => GenColumnDdl("ALTER COLUMN"), () => DesignColumns(false));
         AddGenGroup(menu, "Gen Drop Column", GenDropColumn);
 
         menu.AddCaption("Render XML");
@@ -1238,12 +1237,56 @@ public class TableEditControl : UserControl
         return menu;
     }
 
-    private void AddGenGroup(WebMenu menu, string label, Func<string> generate)
+    private void AddGenGroup(WebMenu menu, string label, Func<string> generate, Action? design = null)
     {
         menu.AddCaption(label);
         menu.Add("Add to Clipboard", () => { try { Clipboard.SetText(generate()); } catch { } });
         menu.Add("Preview", () => { using var form = new WCommandScriptForm(generate(), label); form.ShowDialog(this); });
+        if (design is not null) menu.Add("Design", design);
     }
+
+    /// <summary>Design (Gen Add / Alter Column): mở hộp thiết kế cột — các cột đã tick (hoặc dòng đang chọn) được điền sẵn kiểu hiện tại — rồi sinh script
+    /// theo đúng kiểu đã chỉnh rồi copy thẳng vào clipboard (không mở cửa sổ xem trước).</summary>
+    private void DesignColumns(bool add)
+    {
+        var data = _grid.DataSource as DataTable;
+        var initial = GetTargetColumns()
+            .Select(c => ColumnDesignForm.FromSqlType(c.Name, c.Type, data is not null && data.Columns.Contains(c.Name) && !data.Columns[c.Name]!.AllowDBNull))
+            .ToList();
+        using var form = new ColumnDesignForm(add, _table, initial);
+        if (form.ShowDialog(this) != DialogResult.OK || form.Result.Count == 0) return;
+        var cols = form.Result.Select(c => (c.Name, Type: c.Type + (c.NotNull ? " NOT NULL" + (add ? DefaultClause(c.Type) : "") : ""))).ToList();
+        var script = BuildColumnScript(_schema, _table, _logTable, cols, add ? "ADD" : "ALTER COLUMN");
+        _ = RunColumnScriptAsync(script, add ? "Add" : "Alter", cols.Count);
+    }
+
+    /// <summary>Chạy luôn script Add / Alter Column của hộp Design xuống database đang mở (tách theo dòng GO, mỗi lô chạy riêng), sau khi hỏi xác nhận. Xong thì tải lại bảng để thấy cấu trúc mới.</summary>
+    private async Task RunColumnScriptAsync(string script, string verb, int count)
+    {
+        if (!WorkspaceStillMatches(out var mismatch)) { _statusLabel.Text = mismatch; MessageBox.Show(this, mismatch, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        var ask = MessageBox.Show(this, $"{verb} {count} cột trên [{_schema}].[{_table}] và chạy NGAY xuống database?\n\nNơi chạy: {DescribeStamp(_loadedStamp)}\n\n" +
+            (script.Length > 700 ? script[..700] + "…" : script), "Bcode — Table: " + verb + " Column", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (ask != DialogResult.Yes) return;
+        var batches = System.Text.RegularExpressions.Regex.Split(script, @"^\s*GO\s*$", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            .Select(b => b.Trim()).Where(b => b.Length > 0).ToList();
+        _statusLabel.Text = $"Đang chạy {verb} {count} cột…";
+        try
+        {
+            var errors = await _service.ExecuteEachAsync(_loadedUseSys, batches);
+            if (errors.Count > 0)
+            {
+                _statusLabel.Text = $"{verb} cột: {errors.Count}/{batches.Count} lô lỗi.";
+                MessageBox.Show(this, string.Join("\n\n", errors.Take(5)), "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            else _statusLabel.Text = $"Đã {verb} {count} cột trên [{_schema}].[{_table}] lúc {DateTime.Now:HH:mm:ss} ({DescribeStamp(_loadedStamp)}).";
+        }
+        catch (Exception ex) { _statusLabel.Text = "Không chạy được: " + ex.Message; MessageBox.Show(this, ex.Message, "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
+        _structureKey = "";   // dựng lại Structure đủ cột sau khi đổi cấu trúc
+        ReloadFromBar();
+    }
+
+    /// <summary>ADD cột NOT NULL vào bảng đã có dòng thì cần giá trị mặc định (số = 0, chữ = ''), nếu không SQL Server từ chối.</summary>
+    private static string DefaultClause(string sqlType) => DefaultFill(sqlType) switch { null => "", "0" => " DEFAULT 0", _ => " DEFAULT ''" };
 
     private void CopyAndPreview(string title, Func<string> generate)
     {
@@ -1286,9 +1329,11 @@ public class TableEditControl : UserControl
     /// <summary>Giá trị gán cho dòng cũ sau khi thêm cột (trong chuỗi SQL động nên chữ rỗng = ''''); null = không update (ngày, kiểu khác).</summary>
     private static string? DefaultFill(string sqlType)
     {
-        var t = sqlType.ToLowerInvariant();
+        var t = sqlType.ToLowerInvariant().Trim();
         var paren = t.IndexOf('(');
         if (paren >= 0) t = t[..paren];
+        var sp = t.IndexOf(' ');
+        if (sp >= 0) t = t[..sp];   // "bit NOT NULL" → "bit"
         return t switch
         {
             "tinyint" or "smallint" or "int" or "bigint" or "bit" or "decimal" or "numeric" or "money" or "smallmoney" or "float" or "real" => "0",
@@ -1340,7 +1385,7 @@ public class TableEditControl : UserControl
             sb.AppendLine();
             sb.AppendLine("set @strsql = '' ");
             foreach (var (name, type) in cols)
-                sb.AppendLine($"Set @strsql = @strsql + char(13) + 'alter table [{prefix}$%Partition] {action.ToLowerInvariant()} {Def(name, type)} '");
+                sb.AppendLine($"Set @strsql = @strsql + char(13) + 'alter table [{prefix}$%Partition] {action.ToLowerInvariant()} {Def(name, type).Replace("'", "''")} '");
             sb.AppendLine(exec);
 
             var fills = add ? cols.Select(c => (c.Name, Fill: DefaultFill(c.Type))).Where(x => x.Fill != null).ToList() : new();

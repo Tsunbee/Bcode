@@ -941,6 +941,7 @@ public class FileLookupService
                     (line[0] == 'D' ? dirs : files).Add(line[2..]);
                 }
             }
+            if (files.Count == 0) return null;   // bản lưu rỗng (lần quét hỏng trước đó) → không dùng
             return new FileIndex(DateTime.UtcNow, dirs, files);   // coi như mới trong IndexLifetime; bản quét thật chạy ở nền ngay sau đó
         }
         catch { return null; }
@@ -1018,25 +1019,35 @@ public class FileLookupService
     /// per folder (the old walk issued GetDirectories AND GetFiles for each one), and
     /// IgnoreInaccessible skips a permission-denied subfolder instead of dropping it silently
     /// mid-walk. AttributesToSkip = 0 keeps hidden/system entries, like GetDirectories/GetFiles did.</summary>
+    /// <summary>Quét lỗi giữa chừng (UNC chớp tắt) hoặc ra rỗng khi thư mục có thật → thử lại vài lần rồi trả null (KHÔNG cache, KHÔNG ghi bản lưu).
+    /// Trước đây bản quét dở dang / rỗng vẫn được giữ làm danh sách file nên ô lọc không ra source cho tới khi thoát vào lại.</summary>
     private static FileIndex? ScanDirectory(string rootKey)
     {
-        if (!Directory.Exists(rootKey)) return null;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            if (!Directory.Exists(rootKey))
+            {
+                if (attempt < 2) { Thread.Sleep(400 * (attempt + 1)); continue; }
+                return null;
+            }
 
-        var dirs = new List<string>();
-        var files = new List<string>();
-        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
-        try
-        {
-            var entries = new FileSystemEnumerable<(string Path, bool IsDirectory)>(
-                rootKey, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory), options);
-            foreach (var (path, isDirectory) in entries)
-                (isDirectory ? dirs : files).Add(path);
+            var dirs = new List<string>();
+            var files = new List<string>();
+            var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
+            var complete = true;
+            try
+            {
+                var entries = new FileSystemEnumerable<(string Path, bool IsDirectory)>(
+                    rootKey, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory), options);
+                foreach (var (path, isDirectory) in entries)
+                    (isDirectory ? dirs : files).Add(path);
+            }
+            catch (Exception) { complete = false; }   // UNC rớt giữa chừng
+
+            if (complete && files.Count > 0) return new FileIndex(DateTime.UtcNow, dirs, files);
+            if (attempt < 2) Thread.Sleep(600 * (attempt + 1));
         }
-        catch (Exception)
-        {
-            // UNC path dropped mid-scan — keep whatever was listed so far rather than crash the tree build
-        }
-        return new FileIndex(DateTime.UtcNow, dirs, files);
+        return null;
     }
 
     private static readonly Comparer<FileLookupNode> NodeOrder = Comparer<FileLookupNode>.Create((a, b) =>

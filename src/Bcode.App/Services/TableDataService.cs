@@ -337,9 +337,12 @@ ORDER BY c.column_id;";
 
     private static async Task ExecuteUpdateAsync(SqlConnection conn, SqlTransaction tx, string schema, string table, List<string> keyColumns, DataRow row)
     {
+        // Cột khoá: chỉ đưa vào SET khi giá trị khoá thật sự bị sửa (đổi tên khoá 1 / khoá 2...) — WHERE vẫn dùng giá trị khoá GỐC. Trước đây cột khoá luôn bị loại khỏi SET nên sửa khoá không được ghi xuống DB.
+        bool KeyChanged(DataColumn c) => !Equals(row[c, DataRowVersion.Original], row[c, DataRowVersion.Current]);
         var columns = row.Table.Columns.Cast<DataColumn>()
-            .Where(c => !keyColumns.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase))
+            .Where(c => !keyColumns.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase) || KeyChanged(c))
             .ToList();
+        if (columns.Count == 0) return;
 
         var cmd = new SqlCommand { Connection = conn, Transaction = tx };
         var setClause = string.Join(", ", columns.Select((c, i) => $"[{c.ColumnName}] = @s{i}"));
@@ -349,7 +352,11 @@ ORDER BY c.column_id;";
             cmd.Parameters.AddWithValue($"@s{i}", row[columns[i], DataRowVersion.Current] ?? DBNull.Value);
         for (var i = 0; i < keyColumns.Count; i++)
             cmd.Parameters.AddWithValue($"@k{i}", row[keyColumns[i], DataRowVersion.Original] ?? DBNull.Value);
-        await using (cmd) await cmd.ExecuteNonQueryAsync();
+        await using (cmd)
+        {
+            var affected = await cmd.ExecuteNonQueryAsync();
+            if (affected == 0) throw new InvalidOperationException("Không tìm thấy dòng cần sửa trong bảng (khoá gốc: " + string.Join(", ", keyColumns.Select(k => k + " = " + row[k, DataRowVersion.Original])) + ") — có thể dòng đã bị đổi / xoá ở nơi khác. Load lại rồi sửa tiếp.");
+        }
     }
 
     private static async Task ExecuteDeleteAsync(SqlConnection conn, SqlTransaction tx, string schema, string table, List<string> keyColumns, DataRow row)

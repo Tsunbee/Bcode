@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  table.tbl td { padding: .15rem .3rem; max-width: none; overflow: visible; }
+  table.tbl td input[type=text], table.tbl td select { width: 100%; box-sizing: border-box; }
+  td.c { text-align: center; width: 5rem; }
+  td.n { width: 2.4rem; color: var(--text-muted); text-align: center; }
+  td.x button { padding: 0 .5rem; }
+  #tn { width: 16rem; }
+</style>
+</head>
+<body>
+<div class="dlg-top">
+  <div class="fld"><label>Table Name</label><input type="text" id="tn" readonly /></div>
+  <span class="hint" id="hint"></span>
+</div>
+<div class="dlg-main">
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Name</th><th style="width:11rem">Type</th><th style="width:7rem">Length</th><th class="c">Not NULL</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+  <div class="row"><button id="bAdd">+ Thêm cột</button><span class="status" id="st"></span></div>
+</div>
+<div class="dlg-bar"><span class="grow"></span><button class="primary" id="bOk">OK</button><button id="bCancel">Cancel</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (o) => window.chrome.webview.postMessage(JSON.stringify(o));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const TYPES = ['bigint', 'bit', 'char', 'date', 'datetime', 'datetime2', 'decimal', 'float', 'image', 'int', 'money', 'nchar', 'ntext', 'numeric', 'nvarchar', 'real', 'smalldatetime', 'smallint', 'text', 'tinyint', 'uniqueidentifier', 'varbinary', 'varchar', 'xml'];
+  const DEF_LEN = { char: '16', nchar: '16', varchar: '128', nvarchar: '128', varbinary: 'max', decimal: '19,4', numeric: '19,4' };
+  const LEN_TYPES = Object.keys(DEF_LEN);
+  let cols = [], isAdd = true;
+
+  function rowHtml(c, i) {
+    const opts = (TYPES.includes(c.type) || !c.type ? TYPES : [c.type].concat(TYPES)).map((t) => '<option' + (t === c.type ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
+    const hasLen = LEN_TYPES.includes(c.type);
+    return '<tr data-i="' + i + '"><td class="n">' + (i + 1) + '</td>' +
+      '<td><input type="text" data-k="name" value="' + esc(c.name) + '" spellcheck="false" /></td>' +
+      '<td><select data-k="type">' + (c.type ? '' : '<option value=""></option>') + opts + '</select></td>' +
+      '<td><input type="text" data-k="length" value="' + esc(c.length) + '"' + (hasLen ? '' : ' disabled') + ' /></td>' +
+      '<td class="c"><input type="checkbox" data-k="notNull"' + (c.notNull ? ' checked' : '') + ' /></td>' +
+      '<td class="x"><button data-del="' + i + '" title="Xoá dòng">✕</button></td></tr>';
+  }
+  function render(focusLast) {
+    $('rows').innerHTML = cols.map(rowHtml).join('');
+    if (focusLast) { const ins = $('rows').querySelectorAll('input[data-k=name]'); if (ins.length) ins[ins.length - 1].focus(); }
+  }
+  $('rows').addEventListener('input', (e) => {
+    const tr = e.target.closest('tr'); if (!tr) return;
+    const c = cols[+tr.dataset.i], k = e.target.dataset.k;
+    if (k === 'notNull') c.notNull = e.target.checked; else if (k) c[k] = e.target.value;
+  });
+  $('rows').addEventListener('change', (e) => {
+    if (e.target.dataset.k !== 'type') return;
+    const tr = e.target.closest('tr'), c = cols[+tr.dataset.i];
+    c.type = e.target.value;
+    c.length = LEN_TYPES.includes(c.type) ? (DEF_LEN[c.type] || '') : '';
+    render();
+  });
+  $('rows').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-del]'); if (!b) return;
+    cols.splice(+b.dataset.del, 1); if (!cols.length) cols.push({ name: '', type: '', length: '', notNull: false }); render();
+  });
+  $('bAdd').onclick = () => { cols.push({ name: '', type: isAdd ? 'nvarchar' : 'varchar', length: isAdd ? '128' : '128', notNull: false }); render(true); };
+  $('bOk').onclick = () => {
+    const ok = cols.filter((c) => c.name.trim() && c.type);
+    if (!ok.length) { $('st').textContent = 'Nhập ít nhất 1 cột (tên + kiểu).'; $('st').className = 'status err'; return; }
+    post({ action: 'ok', cols: ok });
+  };
+  $('bCancel').onclick = () => post({ action: 'cancel' });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post({ action: 'cancel' }); });
+  window.colDesign = {
+    init(d) {
+      isAdd = d.isAdd; $('tn').value = d.table;
+      $('hint').textContent = isAdd ? 'Thêm cột mới (cột đã tick ở Structure được điền sẵn kiểu để copy sang bảng khác).' : 'Sửa kiểu / độ dài các cột đã tick, rồi OK để sinh script Alter Column.';
+      cols = (d.cols || []).map((c) => Object.assign({}, c));
+      if (!cols.length) cols.push({ name: '', type: isAdd ? 'nvarchar' : '', length: isAdd ? '128' : '', notNull: false });
+      render(isAdd && !d.cols.length);
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

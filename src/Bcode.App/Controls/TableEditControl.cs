@@ -1317,6 +1317,18 @@ public class TableEditControl : UserControl
 
     private string GenStructureTable()
     {
+        // Lấy cấu trúc THẬT từ database (đủ cột + khoá chính + index + trigger, kiểu Write Schema của FCode). Chạy ở luồng nền rồi chờ — menu cần chuỗi kết quả ngay.
+        if (!string.IsNullOrEmpty(_table))
+        {
+            try
+            {
+                var info = new SqlObjectInfo { Schema = _schema, Name = _table, Kind = SqlObjectKind.Table, FromSysDatabase = _loadedUseSys };
+                var full = Task.Run(() => _sqlObjectService.GetTableSchemaScriptAsync(info)).GetAwaiter().GetResult();
+                if (!string.IsNullOrEmpty(full)) return full;
+            }
+            catch (Exception ex) { _statusLabel.Text = "Gen Structure: không đọc được index / trigger (" + ex.Message + ") — chỉ sinh phần cột."; }
+        }
+        // Không phải bảng thật (bảng gộp phân kỳ $000000...) hoặc lỗi kết nối: sinh từ danh sách cột đang hiện như trước.
         var sb = new StringBuilder();
         sb.AppendLine($"CREATE TABLE [{_schema}].[{_table}] (");
         var lines = _structCols

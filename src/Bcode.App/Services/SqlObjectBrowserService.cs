@@ -41,7 +41,10 @@ ORDER BY o.type, s.name, o.name;";
         await using var conn = _connections.CreateConnection(useSysDatabase);
         await conn.OpenAsync();
         await using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@filter", (object?)(string.IsNullOrWhiteSpace(nameFilter) ? null : $"%{nameFilter}%") ?? DBNull.Value);
+        // Có ký tự đại diện (% hoặc *) thì dùng đúng mẫu LIKE người dùng gõ (cus% = bắt đầu bằng, %cus = kết thúc bằng); không có thì "chứa" như trước.
+        var like = string.IsNullOrWhiteSpace(nameFilter) ? null : nameFilter.Trim().Replace('*', '%');
+        if (like is not null && !like.Contains('%')) like = "%" + like + "%";
+        cmd.Parameters.AddWithValue("@filter", (object?)like ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@hidePeriod", hidePeriodTables ? 1 : 0);
 
         var results = new List<SqlObjectInfo>();
@@ -63,6 +66,22 @@ ORDER BY o.type, s.name, o.name;";
             results.Add(new SqlObjectInfo { Schema = reader.GetString(0), Name = reader.GetString(1), Kind = kind, FromSysDatabase = useSysDatabase });
         }
         return results;
+    }
+
+    /// <summary>Bộ so tên object cho ô lọc (cây SQL Object): không có ký tự đại diện = tên CHỨA chuỗi gõ (như trước); có % hoặc * = mẫu LIKE của SQL khớp CẢ tên
+    /// (%cus% chứa, cus% bắt đầu bằng, %cus kết thúc bằng, a%b; "_" = đúng 1 ký tự bất kỳ). Mẫu có dấu chấm thì so với tên đầy đủ schema.tên. Không phân biệt hoa thường.</summary>
+    public static Func<SqlObjectInfo, bool> NameMatcher(string? filter)
+    {
+        var f = (filter ?? "").Trim();
+        if (f.Length == 0) return _ => true;
+        if (f.IndexOfAny(new[] { '%', '*' }) < 0) return o => o.Name.Contains(f, StringComparison.OrdinalIgnoreCase);
+        var sb = new StringBuilder("^");
+        foreach (var ch in f)
+            sb.Append(ch is '%' or '*' ? ".*" : ch == '_' ? "." : Regex.Escape(ch.ToString()));
+        sb.Append('$');
+        var rx = new Regex(sb.ToString(), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var qualified = f.Contains('.');
+        return o => rx.IsMatch(qualified ? o.QualifiedName : o.Name);
     }
 
     // ---- Cache danh sách object (cây SQL Object) --------------------------------------------------------------------
@@ -377,6 +396,67 @@ ORDER BY i.index_id, ic.key_ordinal;", conn))
         }
         sb.Append(line).Append("\n*/");
         return sb.ToString();
+    }
+
+    /// <summary>Script cấu trúc ĐẦY ĐỦ của một bảng theo kiểu "Write Schema" của FCode — dùng cho Table → Gen Structure Table:
+    /// khối DROP (để trong chú thích) + CREATE TABLE (đủ cột, IDENTITY, NOT NULL, DEFAULT) + khoá chính / index + trigger, mỗi phần kết thúc bằng GO.
+    /// Trả null khi không thấy bảng (vd bảng gộp phân kỳ $000000 không phải bảng thật).</summary>
+    public async Task<string?> GetTableSchemaScriptAsync(SqlObjectInfo table)
+    {
+        await using var conn = _connections.CreateConnection(table.FromSysDatabase);
+        await conn.OpenAsync();
+        var full = "[" + table.Schema + "].[" + table.Name + "]";
+        var colDecl = new List<string>();
+        await using (var cmd = new SqlCommand(@"
+SELECT c.name, t.name AS tname, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity,
+       CONVERT(varchar(40), ic.seed_value), CONVERT(varchar(40), ic.increment_value), dc.name, dc.definition
+FROM sys.columns c
+JOIN sys.types t ON t.user_type_id = c.user_type_id
+LEFT JOIN sys.identity_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+LEFT JOIN sys.default_constraints dc ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id
+WHERE c.object_id = OBJECT_ID(@full) ORDER BY c.column_id;", conn))
+        {
+            cmd.Parameters.AddWithValue("@full", full);
+            await using var rd = await cmd.ExecuteReaderAsync();
+            while (await rd.ReadAsync())
+            {
+                var name = rd.GetString(0); var tn = rd.GetString(1).ToUpperInvariant(); int ml = rd.GetInt16(2), pr = rd.GetByte(3), sc = rd.GetByte(4);
+                var type = tn switch
+                {
+                    "VARCHAR" or "CHAR" or "VARBINARY" or "BINARY" => tn + "(" + (ml == -1 ? "MAX" : ml.ToString()) + ")",
+                    "NVARCHAR" or "NCHAR" => tn + "(" + (ml == -1 ? "MAX" : (ml / 2).ToString()) + ")",
+                    "NUMERIC" or "DECIMAL" => tn + "(" + pr + ", " + sc + ")",
+                    _ => tn,
+                };
+                var line = "\t[" + name + "] " + type;
+                if (rd.GetBoolean(6)) line += " IDENTITY(" + (rd.IsDBNull(7) ? "1" : rd.GetString(7)) + ", " + (rd.IsDBNull(8) ? "1" : rd.GetString(8)) + ")";
+                if (!rd.GetBoolean(5)) line += " NOT NULL";
+                if (!rd.IsDBNull(10)) line += (rd.IsDBNull(9) ? "" : " CONSTRAINT [" + rd.GetString(9) + "]") + " DEFAULT " + rd.GetString(10);
+                colDecl.Add(line);
+            }
+        }
+        if (colDecl.Count == 0) return null;
+
+        var tbl = table.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? "dbo." + table.Name : table.Schema + "." + table.Name;
+        var sb = new StringBuilder();
+        sb.Append("/*\nIF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'").Append(tbl).Append("') AND xType = 'U')\nDROP TABLE ").Append(full).Append("\n*/\nGO\n");
+        sb.Append("CREATE TABLE ").Append(full).Append(" (\n").Append(string.Join(",\n", colDecl)).Append("\n)\n\nGO\n");
+
+        var indexScript = await GenerateIndexScriptAsync(conn, table);
+        if (!string.IsNullOrEmpty(indexScript))
+        {
+            var body = indexScript.StartsWith("-- Indexes\n", StringComparison.Ordinal) ? indexScript["-- Indexes\n".Length..] : indexScript;
+            sb.Append('\n').Append(body.TrimEnd('\n')).Append('\n');
+        }
+
+        await using (var cmd = new SqlCommand("SELECT tr.name, OBJECT_DEFINITION(tr.object_id) FROM sys.triggers tr WHERE tr.parent_id = OBJECT_ID(@full) ORDER BY tr.name;", conn))
+        {
+            cmd.Parameters.AddWithValue("@full", full);
+            await using var rd = await cmd.ExecuteReaderAsync();
+            while (await rd.ReadAsync())
+                sb.Append('\n').Append(rd.IsDBNull(1) ? "-- Trigger " + rd.GetString(0) + ": WITH ENCRYPTION, không đọc được nội dung" : rd.GetString(1).Replace("\r\n", "\n").Trim()).Append("\nGO\n");
+        }
+        return sb.ToString().Replace("\n", "\r\n");
     }
 
     private async Task<string> GenerateCreateTableAsync(SqlConnection conn, SqlObjectInfo table)

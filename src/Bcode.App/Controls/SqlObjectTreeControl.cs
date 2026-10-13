@@ -299,7 +299,8 @@ public class SqlObjectTreeControl : UserControl
     private void Render()
     {
         var filter = _filterText.Trim();
-        var objects = filter.Length == 0 ? _items : _items.Where(o => o.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)).ToList();
+        var match = SqlObjectBrowserService.NameMatcher(filter);
+        var objects = filter.Length == 0 ? _items : _items.Where(o => match(o)).ToList();
 
         _tree.BeginUpdate();
         try

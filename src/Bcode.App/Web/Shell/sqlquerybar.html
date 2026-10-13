@@ -148,7 +148,19 @@
 
   document.getElementById('btnOpen').addEventListener('click', () => post({ action: 'open' }));
   document.getElementById('btnSave').addEventListener('click', () => post({ action: 'save' }));
-  document.getElementById('btnRun').addEventListener('click', () => post({ action: 'run' }));
+  // Đang chạy thì nút Execute đổi thành "■ Cancel" (C# gọi setRunning): bấm = huỷ lệnh đang chạy, như nút Cancel của SSMS.
+  var _running = false, _cancelKey = '';
+  function paintRun() {
+    var b = document.getElementById('btnRun');
+    b.textContent = _running ? '■ Cancel' : '▶ Execute';
+    b.style.background = _running ? 'var(--danger)' : '';
+    b.style.borderColor = _running ? 'var(--danger)' : '';
+    b.style.color = _running ? '#fff' : '';
+    if (_running) b.title = 'Huỷ lệnh đang chạy' + (_cancelKey ? ' (' + _cancelKey + ')' : '');
+    else if (window.applyKeymap) window.applyKeymap();
+  }
+  window.setRunning = function (on) { _running = !!on; paintRun(); };
+  document.getElementById('btnRun').addEventListener('click', () => post({ action: _running ? 'cancel' : 'run' }));
   document.getElementById('btnDebugTarget').addEventListener('click', () => post({ action: 'debug-target' }));
   document.getElementById('btnWriteSchema').addEventListener('click', () => post({ action: 'write-schema' }));
   document.getElementById('btnCheckFields').addEventListener('click', () => post({ action: 'check-fields' }));
@@ -198,7 +210,8 @@
     var m = window.__bcodeEditorKeys || {};
     var k = function (id, def) { return Object.prototype.hasOwnProperty.call(m, id) ? m[id] : def; };
     var run = [k('editor.run', 'F5'), k('editor.run2', 'Ctrl+Enter')].filter(Boolean).join(' / ');
-    document.getElementById('btnRun').title = 'Execute' + (run ? ' (' + run + ')' : '');
+    _cancelKey = k('editor.cancel', 'Alt+F5');
+    if (!_running) document.getElementById('btnRun').title = 'Execute' + (run ? ' (' + run + ')' : '') + (_cancelKey ? ' — đang chạy thì bấm lại (hoặc ' + _cancelKey + ') để Cancel' : '');
     var bt = k('editor.beauty', 'F7'); document.getElementById('btnBeauty').title = 'Định dạng câu lệnh SQL' + (bt ? ' (' + bt + ')' : '');
     var wr = k('editor.wrap', 'Alt+Z'); document.getElementById('chkWordWrap').parentElement.title = 'Tự động xuống dòng' + (wr ? ' (' + wr + ')' : '');
   };

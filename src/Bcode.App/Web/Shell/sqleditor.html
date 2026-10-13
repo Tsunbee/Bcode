@@ -799,13 +799,14 @@
                 _peek = { el: el, ed: ped, items: items };
                 render(); ped.focus();
             };
-            var KEY_DEFAULTS = { 'editor.peek': 'F12', 'editor.openObject': 'Ctrl+F12', 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
+            var KEY_DEFAULTS = { 'editor.peek': 'F12', 'editor.openObject': 'Ctrl+F12', 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.cancel': 'Alt+F5', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
                 'editor.suggest': 'Alt+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5' };
             var KEY_ACTIONS = {
                 'editor.peek': function () { requestPeek(editor, 'peek'); },
                 'editor.openObject': function () { requestPeek(editor, 'open'); },
                 'editor.run': function () { dbgPost('run'); },       // đang debug thì C# hiểu là Continue
                 'editor.run2': function () { dbgPost('run'); },
+                'editor.cancel': function () { dbgPost('cancel'); },   // huỷ lệnh đang chạy (không chạy gì thì C# bỏ qua)
                 'editor.beauty': function () { dbgPost('beauty'); },
                 'editor.wrap': function () { dbgPost('toggle-wrap-key'); },
                 'editor.ai': function () { window.showAiEdit(); },

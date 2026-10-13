@@ -173,19 +173,19 @@ public class RawSqlService
     /// connection, so re-running the same "CREATE TABLE #tmp ..." script never collides
     /// with a leftover #temp table from the previous run (no explicit DROP needed).
     /// </summary>
-    public Task<List<BatchResult>> ExecuteScriptAsync(string script, bool useSysDatabase = false) =>
+    public Task<List<BatchResult>> ExecuteScriptAsync(string script, bool useSysDatabase = false, CancellationToken ct = default) =>
         // Toàn bộ việc gọi SQL (mở kết nối, gửi lệnh, chờ, đọc kết quả) chạy ở luồng nền — như mỗi cửa sổ query trong SSMS: tab đang chạy lâu
         // không được chặn luồng giao diện, để vẫn chuyển tab / thao tác mục khác. (Chạy thẳng trên luồng giao diện từng làm Bcode đứng hàng chục giây
         // khi chạy procedure nặng, đo được 15,7 giây.)
-        Task.Run(() => ExecuteScriptOnConnectionAsync(script, () => _connections.CreateConnection(useSysDatabase), ownsConnection: true));
+        Task.Run(() => ExecuteScriptOnConnectionAsync(script, () => _connections.CreateConnection(useSysDatabase), ownsConnection: true, ct));
 
     /// <summary>
     /// Runs the script on an existing, already-open connection instead ("Reset Connection"
     /// unchecked) — #temp tables and any SET/session state persist across calls, matching
     /// what a real SSMS query window does when you keep the same connection open.
     /// </summary>
-    public Task<List<BatchResult>> ExecuteScriptOnAsync(string script, SqlConnection conn) =>
-        Task.Run(() => ExecuteScriptOnConnectionAsync(script, () => conn, ownsConnection: false));   // luồng nền, lý do như ExecuteScriptAsync
+    public Task<List<BatchResult>> ExecuteScriptOnAsync(string script, SqlConnection conn, CancellationToken ct = default) =>
+        Task.Run(() => ExecuteScriptOnConnectionAsync(script, () => conn, ownsConnection: false, ct));   // luồng nền, lý do như ExecuteScriptAsync
 
     /// <summary>Opens a new, caller-owned connection (used to hold a persistent connection across
     /// several ExecuteScriptOnAsync calls when "Reset Connection" is unchecked in RawSqlControl —
@@ -194,7 +194,7 @@ public class RawSqlService
 
     public string CurrentStamp(bool useSysDatabase) => _connections.CurrentStamp(useSysDatabase);
 
-    private async Task<List<BatchResult>> ExecuteScriptOnConnectionAsync(string script, Func<SqlConnection> connFactory, bool ownsConnection)
+    private async Task<List<BatchResult>> ExecuteScriptOnConnectionAsync(string script, Func<SqlConnection> connFactory, bool ownsConnection, CancellationToken ct = default)
     {
         var batches = SplitBatches(script);   // đã ở luồng nền (xem ExecuteScriptAsync)
 
@@ -205,7 +205,7 @@ public class RawSqlService
         try
         {
             if (conn.State != ConnectionState.Open) await conn.OpenAsync();
-            return await RunBatchesAsync(batches, conn, results);
+            return await RunBatchesAsync(batches, conn, results, ct);
         }
         finally
         {
@@ -257,7 +257,10 @@ public class RawSqlService
     /// batch vẫn được server gửi trước khi lỗi xảy ra, nên vẫn có mặt trong "pending" kịp lúc
     /// bắt exception ở dưới, đúng thứ tự SQL Server thực thi.
     /// </summary>
-    private static async Task<List<BatchResult>> RunBatchesAsync(List<(string Text, int StartLine)> batches, SqlConnection conn, List<BatchResult> results)
+    /// <summary>Thông báo đặt vào <see cref="BatchResult.Error"/> của batch bị người dùng bấm Cancel.</summary>
+    public const string CancelledMessage = "Đã huỷ theo yêu cầu (Cancel) — lệnh đang chạy trên máy chủ đã được dừng.";
+
+    private static async Task<List<BatchResult>> RunBatchesAsync(List<(string Text, int StartLine)> batches, SqlConnection conn, List<BatchResult> results, CancellationToken ct = default)
     {
         var pending = new List<string>();
         void OnInfoMessage(object? _, SqlInfoMessageEventArgs e) => pending.Add(e.Message);
@@ -271,9 +274,17 @@ public class RawSqlService
             batchNo++;
             pending.Clear();
             var batchWatch = System.Diagnostics.Stopwatch.StartNew();
+            var tables = new List<DataTable>();   // khai ngoài try: bấm Cancel giữa chừng vẫn giữ được các bảng đã đọc xong (như SSMS)
+            if (ct.IsCancellationRequested)
+            {
+                results.Add(new BatchResult(batch, tables, 0, CancelledMessage, null, 0));
+                break;
+            }
             try
             {
                 await using var cmd = new SqlCommand(batch, conn) { CommandTimeout = 120 };
+                // Cancel: gửi tín hiệu "attention" cho SQL Server dừng lệnh đang chạy (đúng việc nút Cancel của SSMS làm) — lệnh đang chờ / đang đọc kết quả sẽ ném SqlException.
+                await using var cancelReg = ct.Register(() => { try { cmd.Cancel(); } catch { /* lệnh vừa xong */ } });
                 await using var reader = await cmd.ExecuteReaderAsync();
 
                 // A single batch can produce more than one result set — most commonly an EXEC
@@ -299,7 +310,6 @@ public class RawSqlService
                 // each DataTable by hand from the reader's own schema (GetName/GetFieldType)
                 // and rows (Read/GetValues) — never call Load() on it at all — then advance
                 // with NextResultAsync() ourselves.
-                var tables = new List<DataTable>();
                 var segStartMs = 0L;   // mốc bắt đầu của bảng kết quả hiện tại (đầu batch, hoặc lúc bảng trước đọc xong)
                 do
                 {
@@ -340,6 +350,12 @@ public class RawSqlService
                 var rowsAffected = Math.Max(0, reader.RecordsAffected);
                 results.Add(new BatchResult(batch, tables, rowsAffected, null, JoinMessages(pending), batchWatch.ElapsedMilliseconds));
             }
+                catch (Exception) when (ct.IsCancellationRequested)
+                {
+                    // Người dùng bấm Cancel: không coi là lỗi SQL — giữ các bảng đã đọc xong + PRINT đã có, dừng các batch còn lại.
+                    results.Add(new BatchResult(batch, tables, 0, CancelledMessage, JoinMessages(pending), batchWatch.ElapsedMilliseconds));
+                    break;
+                }
                 catch (SqlException ex)
                 {
                     var errorLines = new List<string>();

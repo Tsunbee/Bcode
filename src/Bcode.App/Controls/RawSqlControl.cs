@@ -45,6 +45,7 @@ public class RawSqlControl : UserControl
     /// chạy lại cả script song song (INSERT/UPDATE bị thực thi nhiều lần; với "Reset Connection" tắt thì
     /// 2 lệnh dùng chung 1 SqlConnection → lỗi DataReader đang mở).</summary>
     private bool _running;
+    private CancellationTokenSource? _runCts;   // lần Execute đang chạy — Cancel() để dừng (nút Cancel / phím tắt editor.cancel)
     private string _persistentConnStamp = "";
     private bool _persistentConnUsesSys;
 
@@ -280,6 +281,7 @@ public class RawSqlControl : UserControl
                 case "open": OpenFile(); break;
                 case "save": SaveFile(); break;
                 case "run": _ = RunAsync(); break;
+                case "cancel": CancelRun(); break;
                 case "debug-target": _ = PickDebugTargetAsync(); break;
                 case "write-schema": _ = WriteSchemaAsync(); break;
                 case "check-fields": _ = CheckFieldsAsync(); break;
@@ -359,6 +361,10 @@ public class RawSqlControl : UserControl
 
             case "run":
                 await RunAsync();
+                break;
+
+            case "cancel":
+                CancelRun();
                 break;
 
             // Ctrl+I: AI sửa/sinh SQL theo yêu cầu (có kèm cấu trúc bảng)
@@ -1792,6 +1798,22 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         catch (Exception ex) { MessageBox.Show(this, "Không mở được lịch sử: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 
+    /// <summary>Cancel (như nút Cancel Executing Query của SSMS): dừng lệnh đang chạy trên máy chủ. Lệnh UPDATE/INSERT đang dở được SQL Server tự rollback phần của câu lệnh đó;
+    /// transaction do script tự mở (BEGIN TRAN) thì vẫn còn mở trên connection nếu đang tắt Reset Connection.</summary>
+    private void CancelRun()
+    {
+        if (!_running || _runCts is null || _runCts.IsCancellationRequested) return;
+        _statusLabel.ForeColor = Color.DarkOrange;
+        _statusLabel.Text = "Đang huỷ lệnh…";
+        try { _runCts.Cancel(); } catch { /* đã xong */ }
+    }
+
+    /// <summary>Báo cho thanh công cụ biết đang chạy hay không: đang chạy thì nút Execute đổi thành "■ Cancel".</summary>
+    private void PushRunningToBar(bool running)
+    {
+        try { _ = BarExec("window.setRunning && window.setRunning(" + (running ? "true" : "false") + ")"); } catch { /* thanh công cụ chưa sẵn sàng */ }
+    }
+
     private async Task RunAsync()
     {
         // Bật "Debug từng bước": Execute không chạy cả script mà bắt đầu phiên debug (hoặc chạy tiếp tới breakpoint/hết khi đang debug).
@@ -1807,6 +1829,10 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             return;
         }
         _running = true;
+        _runCts?.Dispose();
+        _runCts = new CancellationTokenSource();
+        var runToken = _runCts.Token;
+        PushRunningToBar(true);
         if (_split is { Panel2Collapsed: true }) _split.Panel2Collapsed = false; // đang ẩn khung kết quả: hiện lại để thấy kết quả
         _statusLabel.Text = "Đang chạy...";
         string? ranScript = null;
@@ -1814,7 +1840,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         var runWatch = System.Diagnostics.Stopwatch.StartNew();
         // Báo cáo nặng chạy lâu: hiện thời gian đã chạy mỗi giây để biết Bcode vẫn đang làm việc (giao diện không bị khoá).
         var tick = new System.Windows.Forms.Timer { Interval = 1000 };
-        tick.Tick += (_, _) => { if (_running) { _statusLabel.ForeColor = Color.DarkOrange; _statusLabel.Text = $"Đang chạy… {runWatch.Elapsed.TotalSeconds:0}s (server đang xử lý / đang đọc kết quả — vẫn thao tác được các tab khác)"; } };
+        tick.Tick += (_, _) => { if (_running) { _statusLabel.ForeColor = Color.DarkOrange; _statusLabel.Text = runToken.IsCancellationRequested ? $"Đang huỷ lệnh… {runWatch.Elapsed.TotalSeconds:0}s" : $"Đang chạy… {runWatch.Elapsed.TotalSeconds:0}s — bấm ■ Cancel để dừng (server đang xử lý / đang đọc kết quả — vẫn thao tác được các tab khác)"; } };
         tick.Start();
         try
         {
@@ -1829,8 +1855,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             var tracked = await Task.Run(() => Bcode.App.Services.SqlHistoryService.Detect(script)); // CREATE/ALTER procedure/function/view/trigger trong script (script lớn: regex không chặn giao diện)
             if (tracked.Count > 0) await CaptureHistoryBaselineAsync(tracked, useSys);
             var results = _resetConnOn
-                ? await _service.ExecuteScriptAsync(script, useSys)
-                : await RunWithPersistentConnectionAsync(script, useSys);
+                ? await _service.ExecuteScriptAsync(script, useSys, runToken)
+                : await RunWithPersistentConnectionAsync(script, useSys, runToken);
 
             var errorBatch = results.FirstOrDefault(r => r.Error is not null);
             ScriptExecuted?.Invoke(script, useSys, errorBatch is null, (int)runWatch.ElapsedMilliseconds, results.SelectMany(r => r.Tables).Sum(t => t.Rows.Count));
@@ -1868,7 +1894,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             var messagesList = results.Select(r => r.Messages).Where(m => !string.IsNullOrEmpty(m)).ToList();
             var printed = string.Join(Environment.NewLine, messagesList);
 
-            if (errorBatch is not null)
+            if (errorBatch is not null && errorBatch.Error == RawSqlService.CancelledMessage)
+            {
+                // Bấm Cancel: không phải lỗi — báo đã huỷ, vẫn giữ các bảng đã đọc xong và các dòng PRINT.
+                _statusLabel.ForeColor = Color.DarkOrange;
+                _statusLabel.Text = "Đã huỷ lệnh (Cancel)" + (allTables.Count > 0 ? $" · giữ {allTables.Count} bảng kết quả đã đọc xong" : "") + RunTimeText(results);
+                _tabs.SetMessages(null, (printed.Length > 0 ? printed + Environment.NewLine : "") + RawSqlService.CancelledMessage, allTables.Count);
+            }
+            else if (errorBatch is not null)
             {
                 _statusLabel.ForeColor = Color.Firebrick;
                 _statusLabel.Text = "Có lỗi xảy ra (xem chi tiết ở tab Message)." + RunTimeText(results);
@@ -1923,6 +1956,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         {
             tick.Stop(); tick.Dispose();
             _running = false;
+            PushRunningToBar(false);
         }
     }
 
@@ -1971,7 +2005,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         });
     }
 
-    private async Task<List<RawSqlService.BatchResult>> RunWithPersistentConnectionAsync(string script, bool useSys)
+    private async Task<List<RawSqlService.BatchResult>> RunWithPersistentConnectionAsync(string script, bool useSys, CancellationToken ct = default)
     {
         // Connection giữ lại (Reset Connection tắt) phải bám theo workspace: đổi workspace thì bỏ đi và mở
         // lại, nếu không các lệnh vẫn chạy vào server/DB CŨ trong khi giao diện đã hiện workspace mới.
@@ -1985,7 +2019,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             _persistentConnUsesSys = useSys;
             _persistentConnStamp = stamp;
         }
-        return await _service.ExecuteScriptOnAsync(script, _persistentConn);
+        return await _service.ExecuteScriptOnAsync(script, _persistentConn, ct);
     }
 
     private void DisposePersistentConnection()

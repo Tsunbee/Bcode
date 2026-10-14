@@ -145,6 +145,50 @@ internal static class WorkspaceSearchService
     }
 
     /// <summary>
+    /// Bản NHANH của <see cref="Search"/> chỉ để biết FILE NÀO có khớp (dùng cho F12 / tra entity — xem Web/entity.js), không cần số dòng:
+    /// đọc nhiều file song song (ổ mạng chậm do độ trễ từng file chứ không do băng thông, nên đọc đồng thời nhanh hơn hẳn đọc lần lượt),
+    /// mỗi file đọc 1 lần cả khối rồi so regex, và DỪNG NGAY khi đã đủ <paramref name="maxFiles"/> file — không phải quét hết cây như tìm trong project.
+    /// Trả cùng dạng JSON như Search (matches[{path,name,line:1,...}]) để phía trang dùng chung cách đọc.
+    /// </summary>
+    public static string SearchFiles(string root, string query, string? includeGlobs, int maxFiles)
+    {
+        if (string.IsNullOrEmpty(query)) return JsonSerializer.Serialize(new { error = "Chưa nhập từ khóa." });
+        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            return JsonSerializer.Serialize(new { error = $"Không tìm thấy thư mục: {root}" });
+        if (maxFiles <= 0) maxFiles = 20;
+
+        Regex regex;
+        try { regex = new Regex(query, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2)); }
+        catch (ArgumentException ex) { return JsonSerializer.Serialize(new { error = "Regex không hợp lệ: " + ex.Message }); }
+
+        var patterns = ParseGlobs(includeGlobs);
+        var found = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        var scanned = 0;
+        var clock = System.Diagnostics.Stopwatch.StartNew(); // quá 6 giây thì dừng, trả phần đã tìm được: tra entity không đáng để treo cả phút trên ổ mạng chậm
+        var candidates = EnumerateFiles(root).Where(f => IsSearchable(f, patterns));
+        try
+        {
+            Parallel.ForEach(candidates, new ParallelOptions { MaxDegreeOfParallelism = 12 }, (file, state) =>
+            {
+                if (found.Count >= maxFiles || clock.Elapsed.TotalSeconds > 6) { state.Stop(); return; }
+                try
+                {
+                    if (new FileInfo(file).Length > MaxFileBytes) return;
+                    var text = File.ReadAllText(file, Encoding.UTF8);
+                    Interlocked.Increment(ref scanned);
+                    if (regex.IsMatch(text)) found.Enqueue(file);
+                }
+                catch { /* khoá / xoá giữa chừng / regex quá thời gian: bỏ qua file này */ }
+                if (found.Count >= maxFiles) state.Stop();
+            });
+        }
+        catch (AggregateException) { /* lỗi lẻ ở 1 luồng — giữ phần đã tìm được */ }
+
+        var matches = found.Take(maxFiles).Select(f => new { path = f, name = Path.GetFileName(f), line = 1, column = 1, length = 0, preview = "", previewOffset = 0 }).ToList();
+        return JsonSerializer.Serialize(new { root, truncated = found.Count >= maxFiles, filesScanned = scanned, matches });
+    }
+
+    /// <summary>
     /// Applies <paramref name="replacement"/> to every match of the same query in the given
     /// files and returns <c>{filesChanged, replacements, errors:[...]}</c>.
     ///

@@ -1222,6 +1222,10 @@ public class EditorBridge
         _async.Begin(requestId, () =>
             WorkspaceSearchService.Search(root, query, useRegex, caseSensitive, wholeWord, includeGlobs, maxResults));
 
+    /// <summary>Tìm nhanh các FILE có khớp (song song, dừng sớm khi đủ <paramref name="maxFiles"/>) — dành cho F12/tra entity, xem WorkspaceSearchService.SearchFiles.</summary>
+    public void BeginSearchWorkspaceFiles(string requestId, string root, string query, string includeGlobs, int maxFiles) =>
+        _async.Begin(requestId, () => WorkspaceSearchService.SearchFiles(root, query, includeGlobs, maxFiles));
+
     /// <summary>Replace-all across the listed files. <paramref name="pathsJson"/> is a JSON
     /// string array — WebView2's IDispatch marshaling has no reliable path for a JS array of
     /// strings, so both directions of this feature speak JSON.</summary>

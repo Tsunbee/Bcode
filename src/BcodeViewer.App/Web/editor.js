@@ -779,6 +779,13 @@ class BcodeEditor {
     }
   }
 
+  /// Ẩn thông báo đang hiện (xem showToast).
+  hideToast() {
+    const el = document.getElementById("bcodeToast");
+    if (el) el.style.display = "none";
+    clearTimeout(this._toastTimer);
+  }
+
   /// Thông báo nhỏ góc trên bên phải (ngay dưới thanh tab, dễ thấy hơn góc dưới), tự tắt sau ms mili-giây (mặc định 5 giây).
   showToast(text, ms = 5000) {
     if (!text) return;

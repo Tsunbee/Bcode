@@ -50,6 +50,11 @@ class BcodeEntity {
     this.includeIndex = new Map();
 
     this.workspaceEntityCache = new Map();
+
+    // file (chữ thường) -> đường dẫn file đã mở nó bằng F12/Ctrl+F12 (file include/fragment). Một mảnh include như TaxFields.txt không tự có DOCTYPE:
+    // &Entity; trong đó được khai báo ở controller chứa nó, nên khi F12 trong mảnh không ra thì lần ngược lên file đã dẫn tới nó.
+    this.includedFrom = new Map();
+    try { for (const [k, v] of JSON.parse(localStorage.getItem("bcodeIncludedFrom") || "[]")) this.includedFrom.set(k, v); } catch { /* không có / hỏng localStorage */ }
     this.peekEditor = null;
     this.overlay = null;
   }
@@ -378,11 +383,67 @@ class BcodeEntity {
     return viaSearch && !viaSearch.decl.isParam ? viaSearch : null;
   }
 
+  /// Mở file include và nhớ "file nào dẫn tới nó" (xem includedFrom) để F12 trong mảnh include còn tra được entity khai báo ở file cha.
+  async openIncluded(target) {
+    const from = (this.overlay && this.peekCurrent && this.peekCurrent.ctxPath) || this.bcode.activePath; // chỉ tính khung peek khi nó đang mở (peekCurrent còn sót lại sau khi đóng)
+    if (from && target && from.toLowerCase() !== target.toLowerCase()) {
+      const k = target.toLowerCase();
+      this.includedFrom.delete(k); this.includedFrom.set(k, from); // đẩy xuống cuối = mới dùng gần nhất
+      while (this.includedFrom.size > 300) this.includedFrom.delete(this.includedFrom.keys().next().value);
+      try { localStorage.setItem("bcodeIncludedFrom", JSON.stringify([...this.includedFrom])); } catch { /* bỏ qua */ }
+    }
+    await this.bcode.openFile(target);
+  }
+
+  /// Tra &Name; theo chuỗi file đã dẫn tới file đang mở (cha, ông...), mỗi file tra theo chuỗi include của nó.
+  async resolveViaIncluder(name, startPath) {
+    const bcode = this.bcode;
+    let cur = startPath || bcode.activePath;
+    const seen = new Set();
+    while (cur) {
+      const parent = this.includedFrom.get(cur.toLowerCase());
+      if (!parent || seen.has(parent.toLowerCase())) return null;
+      seen.add(parent.toLowerCase());
+      const open = bcode.docs && bcode.docs.get(parent);
+      const text = open && open.model ? open.model.getValue() : await this.readFile(parent);
+      if (text) {
+        const hit = await this.resolveTop(name, parent, text);
+        if (hit) return hit;
+      }
+      cur = parent;
+    }
+    return null;
+  }
+
+  /// Tra &Name; cho 1 khung peek theo NGỮ CẢNH đã dẫn tới nó: chính khung đó, rồi các khung peek trước (từ gần tới xa), rồi file đang mở ở editor chính — mỗi nơi theo chuỗi include
+  /// của nó (và file cha đã nhớ, xem includedFrom). Mảnh include (vd TaxFields.txt) không tự có khai báo: &XMLUserDefinedFields; phải tra ở controller đã include nó (JR...), không phải
+  /// 1 file bất kỳ trong project (trước đây rơi xuống tìm cả project → ra nhầm APField.txt thay vì JRField.txt, và rất chậm).
+  async resolveInContexts(name, cur) {
+    const frames = [cur, ...[...(this.peekHistory || [])].reverse()];
+    for (const f of frames) {
+      if (!f || !f.ctxPath || !f.ctxText) continue;
+      const direct = await this.resolve(name, f.ctxPath, f.ctxText);
+      if (direct) return direct;
+      const up = await this.resolveViaIncluder(name, f.ctxPath);
+      if (up) return up;
+    }
+    const bcode = this.bcode;
+    if (bcode.activePath && bcode.currentModel) {
+      const direct = await this.resolveTop(name, bcode.activePath, bcode.currentModel.getValue());
+      if (direct) return direct;
+      return this.resolveViaIncluder(name, bcode.activePath);
+    }
+    return null;
+  }
+
   async resolveActive(name) {
     const bcode = this.bcode;
     if (!bcode.activePath || !bcode.currentModel) return null;
     const direct = await this.resolveTop(name, bcode.activePath, bcode.currentModel.getValue());
     if (direct) return direct;
+    // Mảnh include (vd TaxFields.txt mở bằng Ctrl+F12): entity khai báo ở file cha đã dẫn tới nó — chính xác hơn tìm cả project (nhiều file .ent cùng khai 1 tên).
+    const viaParent = await this.resolveViaIncluder(name);
+    if (viaParent) return viaParent;
     return this.resolveViaWorkspaceSearch(name);
   }
 
@@ -412,7 +473,7 @@ class BcodeEntity {
     const pattern = '<!ENTITY\\s+%?\\s*' + escapeRegExp(name) + '(?=[\\s"\'])';
     let raw;
     try {
-      raw = await window.bcodeHost.call('BeginSearchWorkspace', root, pattern, true, false, false, '', 50);
+      raw = await window.bcodeHost.call('BeginSearchWorkspaceFiles', root, pattern, '*.xml,*.f,*.ent,*.txt', 16); // bản nhanh: đọc song song, dừng khi đủ 16 file
     } catch { return null; }
 
     let result;
@@ -420,6 +481,7 @@ class BcodeEntity {
     if (result.error || !result.matches || result.matches.length === 0) return null;
 
 
+    await Promise.all(result.matches.map((m) => this.readFile(m.path).catch(() => null))); // đọc song song rồi mới phân tích lần lượt
     const seenPaths = new Set();
     for (const match of result.matches) {
       const key = match.path.toLowerCase();
@@ -429,7 +491,7 @@ class BcodeEntity {
       if (!text) continue;
       const decls = await this.declsOf(text, match.path);
       const hit = decls.find((d) => d.name === name);
-      if (hit) return { decl: hit, path: match.path, text };
+      if (hit) return { decl: hit, path: match.path, text, viaSearch: true };
     }
     return null;
   }
@@ -607,6 +669,17 @@ class BcodeEntity {
   /// khai báo (entity có giá trị). Trước đây F12 mở thẳng file với 2 loại đầu, chỉ entity có giá trị
   /// mới có peek, nên không có cách nào "xem lướt" 1 file include mà không bị chuyển tab.
   async goToOrPeek(mode = 'peek') {
+    // Chỉ chạy 1 lần tra tại một thời điểm: bấm F12 lặp khi lần trước còn đang tra (ổ mạng chậm) trước đây xếp hàng thêm nhiều lượt tìm nặng nên càng bấm càng lâu.
+    // Có thông báo "Đang tra..." nếu quá 300ms để người dùng biết phím đã nhận.
+    if (this._f12Busy) { this.bcode.showToast("Đang tra entity... (đợi lần trước xong)", 4000); return true; }
+    this._f12Busy = true;
+    let shown = false;
+    const timer = setTimeout(() => { shown = true; this.bcode.showToast("Đang tra entity...", 60000); }, 300);
+    try { return await this._goToOrPeekCore(mode); }
+    finally { clearTimeout(timer); this._f12Busy = false; if (shown && this.bcode.hideToast) this.bcode.hideToast(); }
+  }
+
+  async _goToOrPeekCore(mode = 'peek') {
     const go = mode === 'go';
     // Bôi đen NHIỀU entity rồi F12 → xem trước lần lượt nội dung của từng entity (1 trang hoặc từng trang).
     if (!go) {
@@ -622,7 +695,7 @@ class BcodeEntity {
       try { exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([target])))[0]; }
       catch { exists = false; }
       if (exists) {
-        if (go) await this.bcode.openFile(target);
+        if (go) await this.openIncluded(target);
         else await this.showPeekFile(fileNameOf(target), target);
         return true;
       }
@@ -632,7 +705,8 @@ class BcodeEntity {
     if (!name) return false;
 
     const found = await this.resolveActive(name);
-    if (!found) return false;
+    if (!found) { this.bcode.showToast(`Không tìm thấy khai báo của &${name}; (đã tra chuỗi include, file cha đã dẫn tới file này và cả project).`); return false; }
+    if (found.viaSearch) this.bcode.showToast(`&${name}; không khai báo trong chuỗi include của file này — đang xem khai báo tìm thấy ở: ${fileNameOf(found.path)} (có thể không đúng file; mở file này từ controller bằng Ctrl+F12 để tra đúng ngữ cảnh).`, 7000);
 
     if (found.decl.kind === 'system') {
       const dir = dirNameOf(found.path);
@@ -640,8 +714,8 @@ class BcodeEntity {
       let exists = false;
       try { exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([target])))[0]; }
       catch { exists = false; }
-      if (!exists) return false;
-      if (go) await this.bcode.openFile(target);
+      if (!exists) { this.bcode.showToast(`&${name}; trỏ tới file không có trên đĩa: ${target}`); return false; }
+      if (go) await this.openIncluded(target);
       else await this.showPeekFile(`&${name};`, target);
       return true;
     }
@@ -682,7 +756,7 @@ class BcodeEntity {
       text = text == null ? '' : String(text);
       const ext = target.slice(target.lastIndexOf('.')).toLowerCase();
       const language = ['.xml', '.f', '.ent'].includes(ext) ? (window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml') : this.languageOf(text);
-      return { name, title: '&' + name + ';', subtitle: target, text, language, ctxPath: target, ctxText: text, onOpen: async () => { this.closePeek(); await this.bcode.openFile(target); } };
+      return { name, title: '&' + name + ';', subtitle: target, text, language, ctxPath: target, ctxText: text, onOpen: async () => { this.closePeek(); await this.openIncluded(target); } };
     }
     const lines = found.decl.value.split('\n').length;
     return {
@@ -847,9 +921,11 @@ class BcodeEntity {
   /// Peek của 1 FILE (đọc mới từ đĩa, không dùng cache include — người dùng có thể vừa sửa nó).
   async showPeekFile(title, path) {
     let text;
+    const tRead = performance.now();
     try { text = await window.bcodeHost.call('BeginReadFile', path); }
     catch (e) { text = '(Không đọc được file: ' + (e && e.message ? e.message : e) + ')'; }
     text = text == null ? '' : String(text);
+    if (this._tm) this._tm.read = Math.round(performance.now() - tRead);
 
     const ext = path.slice(path.lastIndexOf('.')).toLowerCase();
     const language = ['.xml', '.f', '.ent'].includes(ext)
@@ -864,7 +940,7 @@ class BcodeEntity {
       language,
       openLabel: 'Mở file (Ctrl+F12)',
       ctxPath: path, ctxText: text,
-      onOpen: async () => { this.closePeek(); await this.bcode.openFile(path); },
+      onOpen: async () => { this.closePeek(); await this.openIncluded(path); },
       hint: 'Chỉ xem — Ctrl+F12 (hoặc "Mở file") để chuyển tới file này.',
       copyLabel: 'Copy nội dung',
     });
@@ -1013,20 +1089,37 @@ class BcodeEntity {
   /// F12 / Ctrl+F12 NGAY TRONG khung peek: tìm entity (hoặc đường dẫn trong dấu nháy) dưới con trỏ, tính theo file đang xem trong khung
   /// chứ không theo file đang mở ở editor chính, rồi xem tiếp trong cùng khung (lịch sử để quay lại). Ctrl+F12 = đóng khung, mở nơi đó.
   async peekNavigate(mode) {
+    // Như goToOrPeek: 1 lần tra tại một thời điểm + thông báo "Đang tra..." + đo thời gian từng bước (hiện khi chậm hơn 0,7 giây để biết chậm ở đâu).
+    if (this._f12Busy) { this.bcode.showToast("Đang tra entity... (đợi lần trước xong)", 4000); return; }
+    this._f12Busy = true;
+    const t0 = performance.now();
+    this._tm = { t0 };
+    let shown = false;
+    const timer = setTimeout(() => { shown = true; this.bcode.showToast("Đang tra entity...", 60000); }, 300);
+    try { await this._peekNavigateCore(mode); }
+    finally {
+      clearTimeout(timer); this._f12Busy = false;
+      const total = Math.round(performance.now() - t0), tm = this._tm || {};
+      if (shown && this.bcode.hideToast) this.bcode.hideToast();
+      if (total > 700) this.bcode.showToast(`F12 mất ${total} ms — tra entity ${tm.resolve ?? 0} ms · kiểm tra file ${tm.exists ?? 0} ms · đọc file ${tm.read ?? 0} ms`, 9000);
+    }
+  }
+
+  async _peekNavigateCore(mode) {
     const cur = this.peekCurrent, ed = this.peekEditor;
     if (!cur || !cur.ctxPath || !ed) return;
     const model = ed.getModel(), pos = ed.getPosition();
     const go = mode === 'go';
     const flash = (msg) => { if (this.peekHint) { const old = this.peekHint.textContent; this.peekHint.textContent = msg; setTimeout(() => { if (this.peekHint) this.peekHint.textContent = old; }, 2500); } };
     const showNested = (fn) => { this._keepHistory = [...(this.peekHistory || []), cur]; return fn(); };
-    const exists = async (p) => { try { return JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([p])))[0]; } catch { return false; } };
+    const exists = async (p) => { const t = performance.now(); try { return JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([p])))[0]; } catch { return false; } finally { if (this._tm) this._tm.exists = (this._tm.exists || 0) + Math.round(performance.now() - t); } };
 
     const quoted = this.quotedPathAt(model, pos);
     if (quoted) {
       const normalized = quoted.replace(/\//g, '\\');
       const target = /^([A-Za-z]:\\|\\\\)/.test(normalized) ? normalized : resolvePath(dirNameOf(cur.ctxPath), normalized);
       if (await exists(target)) {
-        if (go) { this.closePeek(); await this.bcode.openFile(target); }
+        if (go) { this.closePeek(); await this.openIncluded(target); }
         else await showNested(() => this.showPeekFile(fileNameOf(target), target));
         return;
       }
@@ -1034,13 +1127,16 @@ class BcodeEntity {
 
     const w = this.getEntityWordAtPosition(model, pos);
     if (!w) { flash('Không có entity dưới con trỏ.'); return; }
-    const found = (await this.resolve(w.word, cur.ctxPath, cur.ctxText)) || (await this.resolveViaWorkspaceSearch(w.word));
+    const tResolve = performance.now();
+    const found = (await this.resolveInContexts(w.word, cur)) || (await this.resolveViaWorkspaceSearch(w.word));
+    if (this._tm) this._tm.resolve = Math.round(performance.now() - tResolve);
     if (!found) { flash('Không tìm thấy khai báo của "' + w.word + '".'); return; }
+    if (found.viaSearch) flash('Tìm theo cả project (không thuộc chuỗi include của khung này) — có thể không đúng file: ' + fileNameOf(found.path));
 
     if (found.decl.kind === 'system') {
       const target = resolvePath(dirNameOf(found.path), found.decl.systemPath.replace(/\//g, '\\'));
       if (!(await exists(target))) { flash('Không thấy file include: ' + target); return; }
-      if (go) { this.closePeek(); await this.bcode.openFile(target); }
+      if (go) { this.closePeek(); await this.openIncluded(target); }
       else await showNested(() => this.showPeekFile(`&${w.word};`, target));
       return;
     }
@@ -1107,6 +1203,7 @@ class BcodeEntity {
       this.escHandler = null;
     }
     if (this.overlay) { this.overlay.remove(); this.overlay = null; }
+    this.peekCurrent = null;
   }
 
 async provideHover(model, position, token) {

@@ -109,6 +109,19 @@ public class AppSettings
     /// Sửa ở File Lookup → chuột phải → "Bỏ qua file theo đuôi tên...". Để trống = không bỏ qua file nào.</summary>
     public string FileLookupIgnoreSuffixes { get; set; } = "_bk, _copy, - copy";
 
+    // ---- File Lookup → Search Box (String search): các file/thư mục bị LOẠI khi tìm nội dung. Mặc định = đúng như trước đây; sửa ở Template → "Tìm file".
+    /// <summary>Đuôi file luôn bỏ qua dù File Type là gì (cách nhau bằng dấu phẩy).</summary>
+    public string SearchNeverExtensions { get; set; } = ".htm";
+    /// <summary>Đuôi file nhị phân bỏ qua khi File Type là *.* (gõ rõ đuôi, vd *.rpt, thì vẫn quét).</summary>
+    public string SearchBinaryExtensions { get; set; } = ".rpt, .xlsx, .xls, .xlsm, .xlsb, .doc, .docx, .ppt, .pptx, .pdf, .dll, .exe, .pdb, .obj, .lib, .so, .bin, .dat, .cache, .png, .jpg, .jpeg, .gif, .bmp, .ico, .tif, .tiff, .svgz, .zip, .rar, .7z, .gz, .tar, .nupkg, .bak, .mdf, .ldf, .ttf, .otf, .woff, .woff2, .eot, .mp3, .mp4, .avi, .wav";
+    /// <summary>Khi "Search in" là site / App_Data / Controllers: chỉ quét các thư mục con này của Controllers (để trống = quét đúng thư mục đã chọn).</summary>
+    public string SearchFolders { get; set; } = "Dir, Filter, Grid, Include, List, Lookup, Options, Templates";
+    /// <summary>Bỏ qua file .f nằm trong các thư mục "đã biên dịch" (bản mã hoá của .xml cùng tên) khi File Type là *.*.</summary>
+    public bool SearchSkipCompiledF { get; set; } = true;
+    public string SearchCompiledFolders { get; set; } = "Dir, Filter, Grid";
+    /// <summary>File lớn hơn số MB này bị bỏ qua khi File Type là *.* (0 = không giới hạn).</summary>
+    public int SearchMaxMegabytes { get; set; } = 20;
+
     /// <summary>Path to BcodeViewer.exe — the standalone Monaco/WebView2-based editor with
     /// an AI chat panel that File Lookup's "Edit" action launches for a file, the same way
     /// VSAppPath/SqlSmsPath launch their own external tools. Empty by default.</summary>

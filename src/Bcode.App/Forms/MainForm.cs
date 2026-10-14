@@ -50,6 +50,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _settings.FileLookupIgnoreSuffixes = text.Trim();
         try { _settings.Save(); } catch { /* không lưu được thì chỉ áp dụng phiên này */ }
         FileLookupService.SetIgnoreSuffixes(_settings.FileLookupIgnoreSuffixes);
+        FileLookupService.SetSearchRules(_settings);
         PushStatus("Đã lưu mẫu bỏ qua file của cây menu — bấm lại menu để dựng cây theo mẫu mới.");
     }
     private SqlObjectTreeControl _sqlObjectTree = null!;
@@ -126,6 +127,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Disposed += (_, _) => { Bcode.App.UI.UiTemplate.Changed -= OnPointerSetting; Bcode.App.UI.MousePointer.Restore(); };
         Bcode.App.UI.UiScale.SetMode(_settings.UiScale, this);
         FileLookupService.SetIgnoreSuffixes(_settings.FileLookupIgnoreSuffixes);
+        FileLookupService.SetSearchRules(_settings);
         FileLookupService.CacheMode = Enum.TryParse<FileLookupCacheMode>(_settings.FileLookupCacheMode, true, out var cacheMode)
             ? cacheMode : FileLookupCacheMode.On;
         _wcommandService = new WCommandService(_connections);

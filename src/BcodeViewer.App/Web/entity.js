@@ -436,15 +436,28 @@ class BcodeEntity {
     return null;
   }
 
-  async resolveActive(name) {
+  /// opts.allowSearch: cho phép tìm cả project khi file đang mở là MẢNH include không biết file cha (mặc định không — xem bên dưới).
+  async resolveActive(name, opts) {
     const bcode = this.bcode;
     if (!bcode.activePath || !bcode.currentModel) return null;
-    const direct = await this.resolveTop(name, bcode.activePath, bcode.currentModel.getValue());
+    const tm = this._tm || (this._tm = { t0: performance.now() });
+    const text = bcode.currentModel.getValue();
+    let t = performance.now();
+    const direct = await this.resolveTop(name, bcode.activePath, text);
+    tm.chain = Math.round(performance.now() - t);
     if (direct) return direct;
     // Mảnh include (vd TaxFields.txt mở bằng Ctrl+F12): entity khai báo ở file cha đã dẫn tới nó — chính xác hơn tìm cả project (nhiều file .ent cùng khai 1 tên).
+    t = performance.now();
     const viaParent = await this.resolveViaIncluder(name);
+    tm.parent = Math.round(performance.now() - t);
     if (viaParent) return viaParent;
-    return this.resolveViaWorkspaceSearch(name);
+    // Mảnh include (không có <!DOCTYPE>) mà không biết file cha: tìm cả project sẽ ra khai báo của 1 controller BẤT KỲ (sai file) và quét cả ổ mạng nhiều giây — hover
+    // cũng gọi vào đây cho từng từ nên càng nặng. Không tìm trừ khi người dùng yêu cầu rõ (opts.allowSearch: bấm F12 lần nữa).
+    if (!/<!DOCTYPE/i.test(text) && !(opts && opts.allowSearch)) { this._noContext = true; return null; }
+    t = performance.now();
+    const found = await this.resolveViaWorkspaceSearch(name);
+    tm.search = Math.round(performance.now() - t);
+    return found;
   }
 
 
@@ -670,13 +683,20 @@ class BcodeEntity {
   /// mới có peek, nên không có cách nào "xem lướt" 1 file include mà không bị chuyển tab.
   async goToOrPeek(mode = 'peek') {
     // Chỉ chạy 1 lần tra tại một thời điểm: bấm F12 lặp khi lần trước còn đang tra (ổ mạng chậm) trước đây xếp hàng thêm nhiều lượt tìm nặng nên càng bấm càng lâu.
-    // Có thông báo "Đang tra..." nếu quá 300ms để người dùng biết phím đã nhận.
+    // Có thông báo "Đang tra..." nếu quá 300ms để người dùng biết phím đã nhận; chậm hơn 0,7 giây thì báo thời gian từng bước để biết chậm ở đâu.
     if (this._f12Busy) { this.bcode.showToast("Đang tra entity... (đợi lần trước xong)", 4000); return true; }
     this._f12Busy = true;
+    const t0 = performance.now();
+    this._tm = { t0 };
     let shown = false;
     const timer = setTimeout(() => { shown = true; this.bcode.showToast("Đang tra entity...", 60000); }, 300);
     try { return await this._goToOrPeekCore(mode); }
-    finally { clearTimeout(timer); this._f12Busy = false; if (shown && this.bcode.hideToast) this.bcode.hideToast(); }
+    finally {
+      clearTimeout(timer); this._f12Busy = false;
+      const total = Math.round(performance.now() - t0), tm = this._tm || {};
+      if (shown && this.bcode.hideToast) this.bcode.hideToast();
+      if (total > 700) this.bcode.showToast(`F12 mất ${total} ms — chuỗi include ${tm.chain ?? 0} ms · file cha ${tm.parent ?? 0} ms · tìm cả project ${tm.search ?? 0} ms · kiểm tra file ${tm.exists ?? 0} ms`, 9000);
+    }
   }
 
   async _goToOrPeekCore(mode = 'peek') {
@@ -703,8 +723,17 @@ class BcodeEntity {
 
     const name = this.nameAtCaret();
     if (!name) return false;
-
-    const found = await this.resolveActive(name);
+    this._noContext = false;
+    let found = await this.resolveActive(name);
+    if (!found && this._noContext) {
+      // Mảnh include chưa biết file cha: không tự quét cả project (chậm và hay ra nhầm file) — báo ngay, bấm F12 lần nữa trong 8 giây mới tìm.
+      if (this._noCtxName === name && Date.now() - (this._noCtxAt || 0) < 8000) found = await this.resolveActive(name, { allowSearch: true });
+      else {
+        this._noCtxName = name; this._noCtxAt = Date.now();
+        this.bcode.showToast(`&${name}; không nằm trong file này — đây là mảnh include chưa biết file cha. Mở nó từ controller bằng F12 / Ctrl+F12 để tra đúng ngữ cảnh, hoặc bấm F12 lần nữa để tìm cả project (chậm, có thể ra nhầm file).`, 9000);
+        return false;
+      }
+    }
     if (!found) { this.bcode.showToast(`Không tìm thấy khai báo của &${name}; (đã tra chuỗi include, file cha đã dẫn tới file này và cả project).`); return false; }
     if (found.viaSearch) this.bcode.showToast(`&${name}; không khai báo trong chuỗi include của file này — đang xem khai báo tìm thấy ở: ${fileNameOf(found.path)} (có thể không đúng file; mở file này từ controller bằng Ctrl+F12 để tra đúng ngữ cảnh).`, 7000);
 

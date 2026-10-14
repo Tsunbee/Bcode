@@ -117,7 +117,7 @@
 <body>
 <header>
   <span class="t">Giao diện (Template)</span>
-  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button><button class="btn" id="tabBtnStruct">Cấu trúc</button><button class="btn" id="tabBtnEditor">Editor &amp; lưới</button><button class="btn" id="tabBtnWindow">Cửa sổ</button><button class="btn" id="tabBtnKeys">Phím tắt</button><button class="btn" id="tabBtnHtml">HTML &amp; CSS</button><button class="btn" id="tabBtnHist">Lịch sử SQL</button><button class="btn" id="tabBtnPaths">Đường dẫn</button><button class="btn" id="tabBtnTree">Màu cây</button></span>
+  <span class="tabs"><button class="btn active" id="tabBtnLayout">Bố cục &amp; font</button><button class="btn" id="tabBtnTheme">Theme &amp; màu</button><button class="btn" id="tabBtnStruct">Cấu trúc</button><button class="btn" id="tabBtnEditor">Editor &amp; lưới</button><button class="btn" id="tabBtnWindow">Cửa sổ</button><button class="btn" id="tabBtnKeys">Phím tắt</button><button class="btn" id="tabBtnHtml">HTML &amp; CSS</button><button class="btn" id="tabBtnHist">Lịch sử SQL</button><button class="btn" id="tabBtnPaths">Đường dẫn</button><button class="btn" id="tabBtnSearch">Tìm file</button><button class="btn" id="tabBtnTree">Màu cây</button></span>
   <span class="muted">Font gốc:</span> <select id="gFont"></select>
   <span class="muted">Cỡ (pt):</span> <input type="number" id="gSize" min="6" max="40" step="0.5" />
 </header>
@@ -278,6 +278,28 @@
       <div class="ctl" style="align-items:flex-start"><textarea id="pSrcExtra" rows="4" spellcheck="false" wrap="off" style="flex:1;min-width:0;font:inherit;color:inherit;background:var(--input,#3c3c3c);border:1px solid var(--border,#555);border-radius:4px;padding:5px 8px"></textarea>
         <button class="btn btn-border" id="pSrcAdd">＋ Thêm thư mục...</button></div></div>
     <div class="muted" style="font-size:11.5px;white-space:pre-line" id="pSrcExtraNote"></div>
+  </div>
+</div>
+
+<div id="tabSearch" style="display:none">
+  <div class="panel">
+    <h3>File Lookup → Search Box: file / thư mục bị loại khi tìm nội dung (String search)</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Đây là các quy tắc loại trừ Bcode đang áp dụng khi bấm <b>Search</b> trong Search Box (mặc định giống hệt trước đây). Sửa tự do — cách nhau bằng dấu phẩy hoặc xuống dòng — rồi bấm <b>Lưu</b>; áp dụng ngay cho lần tìm sau. Gõ rõ đuôi ở ô <b>File Type</b> (vd <code>*.rpt</code>) thì vẫn quét đúng loại đó dù nằm trong danh sách nhị phân.</div>
+    <div class="row"><label>Đuôi luôn bỏ qua<br/><span class="muted" style="font-size:11px">(dù File Type là gì)</span></label>
+      <div class="ctl"><input type="text" id="sNever" spellcheck="false" placeholder=".htm" /></div></div>
+    <div class="row" style="align-items:flex-start"><label>Đuôi nhị phân bỏ qua<br/><span class="muted" style="font-size:11px">(khi File Type = *.*)</span></label>
+      <div class="ctl"><textarea id="sBinary" rows="4" spellcheck="false" style="flex:1;min-width:0;font:inherit;color:inherit;background:var(--input,#3c3c3c);border:1px solid var(--border,#555);border-radius:4px;padding:5px 8px"></textarea></div></div>
+    <div class="row"><label>Thư mục được quét<br/><span class="muted" style="font-size:11px">(trong Controllers)</span></label>
+      <div class="ctl"><input type="text" id="sFolders" spellcheck="false" placeholder="Dir, Filter, Grid, Include, List, Lookup, Options, Templates" /></div></div>
+    <div class="muted" style="font-size:11.5px;margin:-4px 0 10px 0">Áp dụng khi “Search in” là site gốc / App_Data / Controllers. Để trống = quét đúng thư mục “Search in” đã chọn. Thư mục không có trong Controllers thì tự bỏ qua.</div>
+    <div class="row"><label>File .f đã biên dịch</label>
+      <div class="ctl"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="sSkipF" /> Bỏ qua file .f nằm trong:</label><input type="text" id="sCompiled" spellcheck="false" placeholder="Dir, Filter, Grid" /></div></div>
+    <div class="row"><label>File quá lớn (MB)</label>
+      <div class="ctl"><input type="number" id="sMax" min="0" style="width:7rem" /><span class="muted" style="font-size:11.5px">Bỏ qua file lớn hơn mức này khi File Type = *.* (0 = không giới hạn).</span></div></div>
+    <div class="row"><label>Tên file bỏ qua<br/><span class="muted" style="font-size:11px">(cây File Lookup)</span></label>
+      <div class="ctl"><input type="text" id="sIgnore" spellcheck="false" placeholder="_bk, _copy, - copy" /></div></div>
+    <div class="muted" style="font-size:11.5px;margin:-4px 0 10px 0">Mẫu tên (không đuôi) bị ẩn khỏi cây và không quét nội dung: không có * = “tên chứa”, có * hoặc % = khớp cả tên (vd <code>tmp*</code>, <code>*_old</code>). Đổi xong cần bấm lại menu để dựng lại cây.</div>
+    <div class="ctl" style="margin-top:6px"><button class="btn btn-border" id="sSave">Lưu</button><button class="btn btn-border" id="sDefault">Khôi phục mặc định</button><span class="muted" id="sNote" style="font-size:12px"></span></div>
   </div>
 </div>
 
@@ -715,6 +737,13 @@
   $('pSrcMain').onchange = () => post('paths-set', { key: 'srcMain', value: $('pSrcMain').value });
   $('pSrcExtra').onchange = () => post('paths-set', { key: 'srcExtra', value: $('pSrcExtra').value });
   $('pSrcAdd').onclick = () => post('paths-browse', { key: 'srcAdd' });
+  // ---- tab Tìm file: quy tắc loại trừ của Search Box (File Lookup) ----
+  window.setSearchRules = (r) => {
+    $('sNever').value = r.never; $('sBinary').value = r.binary; $('sFolders').value = r.folders;
+    $('sSkipF').checked = !!r.skipF; $('sCompiled').value = r.compiled; $('sMax').value = r.maxMb; $('sIgnore').value = r.ignore;
+  };
+  $('sSave').onclick = () => { post('search-set', { never: $('sNever').value, binary: $('sBinary').value, folders: $('sFolders').value, skipF: $('sSkipF').checked, compiled: $('sCompiled').value, maxMb: $('sMax').value, ignore: $('sIgnore').value }); $('sNote').textContent = 'Đã lưu — áp dụng cho lần tìm sau.'; setTimeout(() => { $('sNote').textContent = ''; }, 3000); };
+  $('sDefault').onclick = () => post('search-default');
   window.setHistoryPath = p => { S.historyPath = p || ''; renderHist(); };
 
   // ---------------------------------------------------------------- tab HTML & CSS (UiOverrides)
@@ -1035,10 +1064,12 @@
     $('tabBtnStruct').classList.toggle('active', name === 'struct');
     $('tabHist').style.display = name === 'hist' ? 'block' : 'none'; $('tabBtnHist').classList.toggle('active', name === 'hist');
     $('tabPaths').style.display = name === 'paths' ? 'block' : 'none'; $('tabBtnPaths').classList.toggle('active', name === 'paths');
+    $('tabSearch').style.display = name === 'search' ? 'block' : 'none'; $('tabBtnSearch').classList.toggle('active', name === 'search');
+    if (name === 'search') post('search-get');
     if (name === 'paths') post('paths-get');
     $('tabTree').style.display = name === 'tree' ? 'block' : 'none'; $('tabBtnTree').classList.toggle('active', name === 'tree');
   }
-  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme'); $('tabBtnStruct').onclick = () => showTab('struct'); $('tabBtnEditor').onclick = () => showTab('editor'); $('tabBtnWindow').onclick = () => showTab('window'); $('tabBtnKeys').onclick = () => showTab('keys'); $('tabBtnHtml').onclick = () => showTab('html'); $('tabBtnHist').onclick = () => showTab('hist'); $('tabBtnPaths').onclick = () => showTab('paths'); $('tabBtnTree').onclick = () => showTab('tree');
+  $('tabBtnLayout').onclick = () => showTab('layout'); $('tabBtnTheme').onclick = () => showTab('theme'); $('tabBtnStruct').onclick = () => showTab('struct'); $('tabBtnEditor').onclick = () => showTab('editor'); $('tabBtnWindow').onclick = () => showTab('window'); $('tabBtnKeys').onclick = () => showTab('keys'); $('tabBtnHtml').onclick = () => showTab('html'); $('tabBtnHist').onclick = () => showTab('hist'); $('tabBtnPaths').onclick = () => showTab('paths'); $('tabBtnSearch').onclick = () => showTab('search'); $('tabBtnTree').onclick = () => showTab('tree');
   window.setStatus = (text, level) => { const s = $('status'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setTheme = dark => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 

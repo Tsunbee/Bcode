@@ -468,14 +468,15 @@ public class FileLookupService
                 file =>
                 {
                     var extension = Path.GetExtension(file);
-                    if (NeverSearchedExtensions.Contains(extension) || (genericPattern && BinaryExtensions.Contains(extension))) return;
-                    if (genericPattern && extension.Equals(".f", StringComparison.OrdinalIgnoreCase) && IsInCompiledFolder(file)) return;
+                    var rules = _rules;
+                    if (rules.Never.Contains(extension) || (genericPattern && rules.Binary.Contains(extension))) return;
+                    if (genericPattern && rules.SkipCompiledF && extension.Equals(".f", StringComparison.OrdinalIgnoreCase) && IsInCompiledFolder(file)) return;
 
                     byte[] bytes;
                     try
                     {
                         using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 64 * 1024, FileOptions.SequentialScan);
-                        if (genericPattern && stream.Length > MaxGenericSearchBytes) return;
+                        if (genericPattern && stream.Length > rules.MaxBytes) return;
                         bytes = new byte[stream.Length];
                         var read = 0;
                         while (read < bytes.Length)
@@ -504,25 +505,25 @@ public class FileLookupService
     }
 
     private const int SearchParallelism = 16;
-    private const long MaxGenericSearchBytes = 20L * 1024 * 1024;
+    /// <summary>Bộ luật loại trừ khi tìm nội dung (Search Box) — đặt từ AppSettings (Template → Tìm file); mặc định giống hệt trước đây. Đổi nguyên khối (immutable) nên luồng đang quét không thấy giá trị nửa vời.</summary>
+    private sealed record SearchRuleSet(HashSet<string> Never, HashSet<string> Binary, string[] Folders, bool SkipCompiledF, string[] CompiledFolders, long MaxBytes);
+    private static SearchRuleSet _rules = BuildRules(".htm", DefaultBinaryList, "Dir, Filter, Grid, Include, List, Lookup, Options, Templates", true, "Dir, Filter, Grid", 20);
+    private const string DefaultBinaryList = ".rpt, .xlsx, .xls, .xlsm, .xlsb, .doc, .docx, .ppt, .pptx, .pdf, .dll, .exe, .pdb, .obj, .lib, .so, .bin, .dat, .cache, .png, .jpg, .jpeg, .gif, .bmp, .ico, .tif, .tiff, .svgz, .zip, .rar, .7z, .gz, .tar, .nupkg, .bak, .mdf, .ldf, .ttf, .otf, .woff, .woff2, .eot, .mp3, .mp4, .avi, .wav";
 
-    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".rpt", ".xlsx", ".xls", ".xlsm", ".xlsb", ".doc", ".docx", ".ppt", ".pptx", ".pdf",
-        ".dll", ".exe", ".pdb", ".obj", ".lib", ".so", ".bin", ".dat", ".cache",
-        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".tif", ".tiff", ".svgz",
-        ".zip", ".rar", ".7z", ".gz", ".tar", ".nupkg", ".bak", ".mdf", ".ldf",
-        ".ttf", ".otf", ".woff", ".woff2", ".eot", ".mp3", ".mp4", ".avi", ".wav",
-    };
+    private static string[] SplitList(string? s) => (s ?? "").Split(new[] { (char)44, (char)59, (char)10, (char)13 }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
+    private static HashSet<string> ExtSet(string? s) => new(SplitList(s).Select(x => x.StartsWith(".") ? x : "." + x), StringComparer.OrdinalIgnoreCase);
+    private static SearchRuleSet BuildRules(string? never, string? binary, string? folders, bool skipCompiled, string? compiled, int maxMb) =>
+        new(ExtSet(never), ExtSet(binary), SplitList(folders), skipCompiled, SplitList(compiled), maxMb <= 0 ? long.MaxValue : maxMb * 1024L * 1024);
 
-    // Luôn bỏ qua dù File Type là gì: không phải mã nguồn cần tìm.
-    private static readonly HashSet<string> NeverSearchedExtensions = new(StringComparer.OrdinalIgnoreCase) { ".htm" };
+    public static void SetSearchRules(string? never, string? binary, string? folders, bool skipCompiledF, string? compiledFolders, int maxMegabytes)
+        => _rules = BuildRules(never, binary, folders, skipCompiledF, compiledFolders, maxMegabytes);
 
-    // Search in trỏ vào site/App_Data (có thư mục Controllers) thì chỉ tìm trong các thư mục con này của Controllers.
-    private static readonly string[] SearchFolderNames = { "Dir", "Filter", "Grid", "Include", "List", "Lookup", "Options", "Templates" };
+    public static void SetSearchRules(Bcode.App.Models.AppSettings s)
+        => SetSearchRules(s.SearchNeverExtensions, s.SearchBinaryExtensions, s.SearchFolders, s.SearchSkipCompiledF, s.SearchCompiledFolders, s.SearchMaxMegabytes);
+
 
     /// <summary>Các thư mục thật sự quét. Search in là site gốc, App_Data hoặc chính Controllers → chỉ các thư mục con trong
-    /// <see cref="SearchFolderNames"/> của Controllers. Search in đã nằm sâu hơn (vd Controllers\Grid) hoặc không có Controllers
+    /// danh sách thư mục tìm (AppSettings.SearchFolders) của Controllers. Search in đã nằm sâu hơn (vd Controllers\Grid) hoặc không có Controllers
     /// → quét đúng thư mục đó như cũ, để vẫn tìm được chỗ khác khi cần.</summary>
     private static List<string> ResolveSearchRoots(string searchInPath)
     {
@@ -536,12 +537,11 @@ public class FileLookupService
         }
         if (controllers is null) return new List<string> { searchInPath };
 
-        var roots = SearchFolderNames.Select(n => Path.Combine(controllers, n)).Where(Directory.Exists).ToList();
+        var roots = _rules.Folders.Select(n => Path.Combine(controllers, n)).Where(Directory.Exists).ToList();
         return roots.Count > 0 ? roots : new List<string> { searchInPath };
     }
 
     // Controllers\Dir, \Filter, \Grid: file .f ở đó là bản đã biên dịch/mã hoá của .xml cùng tên — tìm chữ trong đó vô ích (xem cả FOnlyFolderNames).
-    private static readonly string[] CompiledFolderNames = { "Dir", "Filter", "Grid" };
 
     /// <summary>File nằm dưới Controllers\Dir, Controllers\Filter hoặc Controllers\Grid (ở bất kỳ độ sâu nào).</summary>
     private static bool IsInCompiledFolder(string file)
@@ -549,7 +549,7 @@ public class FileLookupService
         var parts = file.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var controllers = Array.FindLastIndex(parts, p => p.Equals("Controllers", StringComparison.OrdinalIgnoreCase));
         return controllers >= 0 && controllers + 1 < parts.Length - 1
-            && CompiledFolderNames.Contains(parts[controllers + 1], StringComparer.OrdinalIgnoreCase);
+            && _rules.CompiledFolders.Contains(parts[controllers + 1], StringComparer.OrdinalIgnoreCase);
     }
 
     private static byte AsciiLower(byte b) => b is >= (byte)'A' and <= (byte)'Z' ? (byte)(b + 32) : b;

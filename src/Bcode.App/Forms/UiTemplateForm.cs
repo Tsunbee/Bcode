@@ -172,6 +172,39 @@ public class UiTemplateForm : ThemedForm
                     PushPerf();
                     break;
                 }
+                case "search-get": PushSearchRules(); break;
+                case "search-set":
+                {
+                    string S(string k) => data.TryGetProperty(k, out var e) ? (e.GetString() ?? "").Trim() : "";
+                    _settings.SearchNeverExtensions = S("never");
+                    _settings.SearchBinaryExtensions = S("binary");
+                    _settings.SearchFolders = S("folders");
+                    _settings.SearchSkipCompiledF = data.TryGetProperty("skipF", out var sf) && sf.ValueKind == JsonValueKind.True;
+                    _settings.SearchCompiledFolders = S("compiled");
+                    _settings.SearchMaxMegabytes = int.TryParse(S("maxMb"), out var smb) && smb >= 0 ? smb : 20;
+                    _settings.FileLookupIgnoreSuffixes = S("ignore");
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    Bcode.App.Services.FileLookupService.SetSearchRules(_settings);
+                    Bcode.App.Services.FileLookupService.SetIgnoreSuffixes(_settings.FileLookupIgnoreSuffixes);
+                    PushSearchRules();
+                    break;
+                }
+                case "search-default":
+                {
+                    var def = new Bcode.App.Models.AppSettings();
+                    _settings.SearchNeverExtensions = def.SearchNeverExtensions;
+                    _settings.SearchBinaryExtensions = def.SearchBinaryExtensions;
+                    _settings.SearchFolders = def.SearchFolders;
+                    _settings.SearchSkipCompiledF = def.SearchSkipCompiledF;
+                    _settings.SearchCompiledFolders = def.SearchCompiledFolders;
+                    _settings.SearchMaxMegabytes = def.SearchMaxMegabytes;
+                    _settings.FileLookupIgnoreSuffixes = def.FileLookupIgnoreSuffixes;
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    Bcode.App.Services.FileLookupService.SetSearchRules(_settings);
+                    Bcode.App.Services.FileLookupService.SetIgnoreSuffixes(_settings.FileLookupIgnoreSuffixes);
+                    PushSearchRules();
+                    break;
+                }
                 case "paths-get": PushPaths(); break;
                 case "paths-set":
                 {
@@ -341,6 +374,16 @@ public class UiTemplateForm : ThemedForm
     private static bool? OnOff(JsonElement data, string name) =>
         data.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() switch { "on" => true, "off" => false, _ => null } : null;
     private static string OnOff(bool? value) => value switch { true => "on", false => "off", null => "" };
+
+    private void PushSearchRules()
+    {
+        var s = new
+        {
+            never = _settings.SearchNeverExtensions, binary = _settings.SearchBinaryExtensions, folders = _settings.SearchFolders,
+            skipF = _settings.SearchSkipCompiledF, compiled = _settings.SearchCompiledFolders, maxMb = _settings.SearchMaxMegabytes, ignore = _settings.FileLookupIgnoreSuffixes,
+        };
+        Js($"window.setSearchRules({JsonSerializer.Serialize(s)})");
+    }
 
     private void PushPaths()
     {

@@ -21,7 +21,7 @@ public partial class MainForm
         foreach (var g in _settings.ToolBarGroups)
         {
             if (string.IsNullOrWhiteSpace(g.Name)) continue;
-            result.Add(new ToolBarGroup { Name = g.Name.Trim(), Keys = g.Keys.Where(k => valid.Contains(k) && used.Add(k)).ToList() });
+            result.Add(new ToolBarGroup { Name = g.Name.Trim(), Keys = g.Keys.Where(k => valid.Contains(k) && used.Add(k)).ToList(), SeparatorBefore = g.SeparatorBefore });
         }
         return result;
     }
@@ -35,7 +35,7 @@ public partial class MainForm
         var bar = BarToolKeys();
         var groups = new List<ToolBarGroup>();
         for (var i = 0; i < ToolGroups.Length && i < names.Length; i++)
-            groups.Add(new ToolBarGroup { Name = names[i], Keys = ToolGroups[i].Where(k => bar.Contains(k) && !pinned.Contains(k)).ToList() });
+            groups.Add(new ToolBarGroup { Name = names[i], Keys = ToolGroups[i].Where(k => bar.Contains(k) && !pinned.Contains(k)).ToList(), SeparatorBefore = true });
         var rest = bar.Where(k => !pinned.Contains(k) && !groups.Any(g => g.Keys.Contains(k))).ToList();
         if (rest.Count > 0) groups.Add(new ToolBarGroup { Name = "Khác", Keys = rest });
         return groups.Where(g => g.Keys.Count > 0).ToList();
@@ -52,6 +52,8 @@ public partial class MainForm
         for (var i = 0; i < groups.Count; i++)
         {
             var index = i;
+            // Vạch ngăn tự chọn ở Quick Access (nhóm đầu đã có vạch sau vùng ghim ở trên).
+            if (i > 0 && groups[i].SeparatorBefore) _toolsBar.Items.Add(new ToolStripSeparator { Margin = new Padding(6, 2, 6, 2) });
             var labels = groups[i].Keys.Where(k => !_settings.HiddenToolKeys.Contains(k))
                 .Select(k => _toolSpecs.FirstOrDefault(t => t.key == k).label).Where(l => l is not null);
             var combo = Bcode.App.UI.ShortcutRegistry.Display($"bar.group{i + 1}");

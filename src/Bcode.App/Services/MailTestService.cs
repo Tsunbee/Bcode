@@ -64,7 +64,7 @@ public static class MailTestService
             if (!string.IsNullOrWhiteSpace(c.Account))
             {
                 log($"Đăng nhập bằng tài khoản {c.Account.Trim()}...", "info");
-                await client.AuthenticateAsync(c.Account.Trim(), c.Password, ct);
+                await client.AuthenticateAsync(c.Account.Trim(), (c.Password ?? "").Trim(), ct);   // mật khẩu ứng dụng dán từ web hay dính khoảng trắng / xuống dòng cuối
                 log("Đăng nhập thành công.", "ok");
             }
             else log("Không khai báo tài khoản đăng nhập — bỏ qua bước xác thực.", "info");

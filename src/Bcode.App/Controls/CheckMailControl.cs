@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Bcode.App.Services;
 
 namespace Bcode.App.Controls;
@@ -134,9 +135,11 @@ public class CheckMailControl : UserControl, ISleepableTab
     {
         try
         {
-            cfg.Password = ""; // không ghi mật khẩu ra đĩa
+            // Xoá mật khẩu trên bản sao: cfg gốc còn được dùng để đăng nhập ngay sau khi lưu.
+            var json = JsonSerializer.SerializeToNode(cfg, JsonOpts)!.AsObject();
+            json["password"] = "";   // không ghi mật khẩu ra đĩa
             Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
-            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(cfg, JsonOpts));
+            File.WriteAllText(ConfigPath, json.ToJsonString(JsonOpts));
         }
         catch { /* không lưu được thì lần sau nhập lại */ }
     }

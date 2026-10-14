@@ -94,8 +94,8 @@ public class QuickAccessForm : ThemedForm
                         items = _tools.Select(t => new { key = t.key, label = t.label, visible = !_initialHidden.Contains(t.key),
                             shortcut = _toolShortcut(t.key) }),
                         defaults = _defaultOrder,
-                        groups = Groups.Select((g, i) => new { name = g.Name, keys = g.Keys }),
-                        suggested = _suggested.Select(g => new { name = g.Name, keys = g.Keys }),
+                        groups = Groups.Select((g, i) => new { name = g.Name, keys = g.Keys, sep = g.SeparatorBefore }),
+                        suggested = _suggested.Select(g => new { name = g.Name, keys = g.Keys, sep = g.SeparatorBefore }),
                         groupShortcuts = Enumerable.Range(1, 9).Select(_groupShortcut),
                         title = _title,
                         intro = _intro,
@@ -142,7 +142,8 @@ public class QuickAccessForm : ThemedForm
                 if (name.Length == 0) continue;
                 var keys = g.TryGetProperty("keys", out var ks) && ks.ValueKind == JsonValueKind.Array
                     ? ks.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList() : new List<string>();
-                groups.Add(new Models.ToolBarGroup { Name = name, Keys = keys });
+                var sep = g.TryGetProperty("sep", out var sp) && sp.ValueKind == JsonValueKind.True;
+                groups.Add(new Models.ToolBarGroup { Name = name, Keys = keys, SeparatorBefore = sep });
             }
         Groups = groups;
     }

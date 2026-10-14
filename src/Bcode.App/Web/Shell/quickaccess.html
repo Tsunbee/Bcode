@@ -19,7 +19,8 @@
   .preview .cap { color: var(--text-muted); margin-right: 4px; }
   .preview .chip { padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-alt); white-space: nowrap; }
   .preview .chip.grp { border-color: var(--accent); }
-  .preview .sep { width: 1px; height: 16px; background: var(--border); margin: 0 4px; }
+  .preview .sep { width: 1px; height: 16px; background: color-mix(in srgb, var(--border) 60%, var(--text, #888) 40%); margin: 0 4px; }
+  .zhead .sepbtn.on { background: var(--accent); color: #fff; }
 
   main { flex: 1; overflow-y: auto; padding: 10px 16px; }
   .zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 10px; align-items: start; }
@@ -157,7 +158,10 @@
       dn.onclick = () => { [groups[gi + 1], groups[gi]] = [groups[gi], groups[gi + 1]]; render(); };
       const del = document.createElement('button'); del.className = 'mv'; del.textContent = '✕'; del.title = 'Xoá nhóm (công cụ về lại Ghim)';
       del.onclick = () => { pinned.push(...groups[gi].keys); groups.splice(gi, 1); render(); };
-      head.append(name, k, up, dn, del);
+      const sp = document.createElement('button'); sp.className = 'mv sepbtn' + (groups[gi].sep ? ' on' : ''); sp.textContent = '|'; sp.disabled = gi === 0;
+      sp.title = gi === 0 ? 'Nhóm đầu: vạch ngăn với vùng Ghim đã tự có' : (groups[gi].sep ? 'Đang có vạch ngăn bên trái nhóm này — bấm để bỏ' : 'Thêm vạch ngăn bên trái nhóm này');
+      sp.onclick = () => { groups[gi].sep = !groups[gi].sep; render(); };
+      head.append(name, k, sp, up, dn, del);
     }
     card.appendChild(head);
     if (zone === 'pin' && list.length > 6) {
@@ -183,7 +187,10 @@
     const named = groups.filter((g) => (g.name || '').trim());
     if (named.length) {
       if (pinned.length) { const s = document.createElement('span'); s.className = 'sep'; p.appendChild(s); }
-      named.forEach((g) => chip(g.name.trim() + ' ▾', 'grp'));
+      named.forEach((g, i) => {
+        if (i > 0 && g.sep) { const s = document.createElement('span'); s.className = 'sep'; p.appendChild(s); }
+        chip(g.name.trim() + ' ▾', 'grp');
+      });
       chip('⌕');
     }
     const n = pinned.length + (named.length ? named.length + 1 : 0);
@@ -206,7 +213,7 @@
   };
   $('bSuggest').onclick = () => {
     const inGroup = new Set(suggested.flatMap((g) => g.keys));
-    groups = suggested.map((g) => ({ name: g.name, keys: g.keys.filter((k) => tools[k] && !hidden.includes(k)) }));
+    groups = suggested.map((g) => ({ name: g.name, sep: !!g.sep, keys: g.keys.filter((k) => tools[k] && !hidden.includes(k)) }));
     pinned = Object.keys(tools).filter((k) => !inGroup.has(k) && !hidden.includes(k)).sort((a, b) => defaults.indexOf(a) - defaults.indexOf(b));
     render();
   };
@@ -219,7 +226,7 @@
     const items = pin.map((key) => ({ key, visible: true }))
       .concat(named.flatMap((g) => g.keys.map((key) => ({ key, visible: true }))))
       .concat(hidden.map((key) => ({ key, visible: false })));
-    post('ok', { items, groups: named.map((g) => ({ name: g.name.trim(), keys: g.keys })) });
+    post('ok', { items, groups: named.map((g) => ({ name: g.name.trim(), keys: g.keys, sep: !!g.sep })) });
   };
   $('bCancel').onclick = () => post('cancel');
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); });
@@ -235,7 +242,7 @@
     if (state.intro) $('intro').innerHTML = state.intro;   // chuỗi do C# soạn sẵn (không phải dữ liệu người dùng)
     hidden = state.items.filter((x) => !x.visible).map((x) => x.key);
     const used = new Set(hidden);
-    groups = (state.groups || []).map((g) => ({ name: g.name, keys: g.keys.filter((k) => tools[k] && !used.has(k) && (used.add(k), true)) }));
+    groups = (state.groups || []).map((g) => ({ name: g.name, sep: !!g.sep, keys: g.keys.filter((k) => tools[k] && !used.has(k) && (used.add(k), true)) }));
     pinned = state.items.filter((x) => x.visible && !used.has(x.key)).map((x) => x.key);
     render();
   };

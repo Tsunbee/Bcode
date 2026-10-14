@@ -1,4 +1,4 @@
-using System.IO.Pipes;
+﻿using System.IO.Pipes;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -524,20 +524,12 @@ public class MainForm : Form
                 _claudeWebView.Visible = true;
                 _claudeWebView.Focus();
 
-                // Claude Sidebar chỉ là trang claude.ai thật nhúng vào — bản thân trang
-                // không có cách nào tự biết Bee đang mở file nào trong BcodeViewer (khác với
-                // extension Chrome/Excel chính chủ, có quyền đọc nội dung tab/sheet đang mở).
-                // Nên mỗi lần mở panel ra, tự dán nội dung file đang mở vào ô chat để Bee chỉ
-                // cần gõ câu hỏi rồi gửi — xem InjectFileContextIntoClaudeAsync.
-                // BeginInvoke: đợi panel vừa hiện ra được layout xong rồi mới focus + dán, để
-                // WebView thật sự nhận focus (cần cho claude.ai gói nội dung thành thẻ PASTED).
-                var injectPath = _activePath;
+                // Không tự dán nội dung file vào ô chat nữa — muốn gửi file thì dùng nút "Đính kèm file".
                 BeginInvoke(async () =>
                 {
-                    var freshly = await EnsureAiViewAsync(Bcode.Shared.AiSite.Claude);   // lần đầu (hoặc sau khi đã tắt) mới nạp trang, đợi tải xong
+                    await EnsureAiViewAsync(Bcode.Shared.AiSite.Claude);   // lần đầu (hoặc sau khi đã tắt) mới nạp trang, đợi tải xong
                     if (AiCollapsed() || !_claudeWebView.Visible) return;
                     _claudeWebView.Focus();
-                    if (injectPath is not null) _ = InjectFileContextIntoClaudeAsync(injectPath);
                 });
             }
         };
@@ -1892,45 +1884,6 @@ public class MainForm : Form
         if (_geminiWebView.Visible) await AttachFileTrustedAsync(_geminiWebView, "Gemini", path);
         else if (_claudeWebView.Visible) await AttachFileTrustedAsync(_claudeWebView, "Claude", path);
         else await Msg("Mở sidebar Claude hoặc Gemini trước rồi bấm lại.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-    }
-
-    /// <summary>
-    /// Dán nội dung <paramref name="filePath"/> vào ô nhập chat của trang claude.ai đang nhúng
-    /// trong _claudeWebView, để Bee chỉ cần gõ câu hỏi phía sau rồi gửi — bù lại việc panel này
-    /// (khác với extension Chrome/Excel chính chủ) không có quyền tự đọc nội dung tab/file đang
-    /// mở.
-    ///
-    /// claude.ai không cung cấp API nào để làm việc này — đây là một script "đoán" cấu trúc
-    /// trang: tìm ô contenteditable lớn nhất đang hiển thị ngoài vùng nav/header, gõ dòng giới
-    /// thiệu bằng document.execCommand('insertText', ...) rồi phát một sự kiện 'paste' giả lập
-    /// mang nội dung file — claude.ai xử lý như Ctrl+V thật nên gói text dài thành thẻ "PASTED".
-    /// Trang không nhận paste giả lập thì quay về gõ thẳng nội dung như trước. Nếu Anthropic đổi giao diện trang web, phần dò
-    /// ô chat này có thể không còn đúng nữa — nhưng vì chạy độc lập, không được thì chỉ im lặng
-    /// bỏ qua (catch rỗng), không làm hỏng gì khác trong app.
-    /// </summary>
-    private async Task InjectFileContextIntoClaudeAsync(string filePath)
-    {
-        if (_claudeWebView.CoreWebView2 is null) return;
-
-        string content;
-        try
-        {
-            if (!File.Exists(filePath)) return;
-            // Giới hạn mềm ~200KB: dán nguyên cả file to hơn mức này vào ô chat gây rối hơn là
-            // giúp ích (và một số trang có giới hạn độ dài input), nên cắt bớt và ghi chú rõ.
-            const int maxChars = 200_000;
-            content = File.ReadAllText(filePath);
-            if (content.Length > maxChars)
-                content = content[..maxChars] + "\n\n[... nội dung bị cắt bớt vì file quá dài ...]";
-        }
-        catch { return; }
-
-        var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
-        var intro = $"File đang mở trong BcodeViewer: {filePath}\n";
-        // Dự phòng khi trang không nhận sự kiện paste giả lập (đổi giao diện…): quay về cách cũ.
-        var fallback = $"```{ext}\n{content}\n```\n\n";
-        // Dò ô chat + dán nội dung: code dùng chung với Bcode.App (Shared/AiWebHelper.cs).
-        await Bcode.Shared.AiWebHelper.InsertTextAsync(_claudeWebView, intro, content, fallback);
     }
 
     private void OnDirtyChanged(string path, bool isDirty)

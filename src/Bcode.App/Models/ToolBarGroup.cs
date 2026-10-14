@@ -11,4 +11,7 @@ public sealed class ToolBarGroup
 
     /// <summary>Khoá công cụ (vd "sql_query") theo thứ tự trong menu của nhóm.</summary>
     public List<string> Keys { get; set; } = new();
+
+    /// <summary>true = trên thanh có vạch ngăn "|" ngay trước nút của nhóm này (tách khỏi nhóm / công cụ ghim bên trái).</summary>
+    public bool SeparatorBefore { get; set; }
 }

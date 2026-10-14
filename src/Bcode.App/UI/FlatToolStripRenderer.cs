@@ -24,8 +24,14 @@ public class FlatColorTable : ProfessionalColorTable
     public override Color ButtonSelectedHighlightBorder => AppColors.Accent;
     public override Color ButtonPressedHighlight => AppColors.Selection;
     public override Color ButtonPressedHighlightBorder => AppColors.Accent;
-    public override Color SeparatorDark => AppColors.Border;
-    public override Color SeparatorLight => AppColors.Border;
+    // Vạch ngăn sáng hơn viền thường một chút (pha 35% màu chữ) để dễ phân biệt các nhóm.
+    private static Color SeparatorColor()
+    {
+        var b = AppColors.Border; var t = AppColors.Text;
+        return Color.FromArgb((b.R * 65 + t.R * 35) / 100, (b.G * 65 + t.G * 35) / 100, (b.B * 65 + t.B * 35) / 100);
+    }
+    public override Color SeparatorDark => SeparatorColor();
+    public override Color SeparatorLight => SeparatorColor();
     public override Color ToolStripBorder => AppColors.Border;
     public override Color OverflowButtonGradientBegin => AppColors.PanelAlt;
     public override Color OverflowButtonGradientMiddle => AppColors.PanelAlt;

@@ -149,6 +149,8 @@ public class AppSettings
 
     /// <summary>Tên lập trình (cột ma_lt1 của bảng yêu cầu) mà Note (New) dùng khi bấm "Sync yêu cầu" — mỗi máy khai 1 lần.</summary>
     public string NoteProgrammer { get; set; } = "";
+    /// <summary>Note (New) chế độ App: ô "Tách theo từng y/c" khi Generate nhiều y/c (trang web nhớ ở localStorage).</summary>
+    public bool NoteSplit { get; set; } = true;
 
     /// <summary>
     /// Whether the "(nội dung tạm)" bar at the top of a generated script tab
@@ -205,6 +207,26 @@ public class AppSettings
     public static bool TableRunAsync { get => FlagFile("table_run_async.txt", true); set => SetFlagFile("table_run_async.txt", value); }
 
     private static string AiPlacementPath => Path.Combine(SettingsDir, "ai_placement.txt");
+
+    /// <summary>Chế độ giao diện đã chọn lần trước (web / native); null = chưa chọn. Lưu file riêng (cùng lý do với <see cref="AiEmbedded"/>).</summary>
+    public static UI.UiModeKind? SavedUiMode
+    {
+        get
+        {
+            try
+            {
+                var p = Path.Combine(SettingsDir, "ui_mode.txt");
+                if (!File.Exists(p)) return null;
+                var v = File.ReadAllText(p).Trim();
+                return v == "native" ? UI.UiModeKind.Native : v == "web" ? UI.UiModeKind.Web : null;
+            }
+            catch { return null; }
+        }
+        set { try { if (value is null) return; Directory.CreateDirectory(SettingsDir); File.WriteAllText(Path.Combine(SettingsDir, "ui_mode.txt"), value == UI.UiModeKind.Native ? "native" : "web"); } catch { } }
+    }
+
+    /// <summary>true (mặc định) = mỗi lần mở Bcode hỏi chọn App/Web; false = vào thẳng chế độ đã lưu.</summary>
+    public static bool AskUiMode { get => FlagFile("ask_ui_mode.txt", true); set => SetFlagFile("ask_ui_mode.txt", value); }
 
     public static AppSettings Load()
     {

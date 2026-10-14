@@ -144,6 +144,7 @@
     $('sugW').style.display = isNew ? '' : 'none';
     (isNew ? $('bar') : $('bar')).focus();
   };
+  window.setFieldValue = (id, v) => { $(id).value = v; };
   window.setValue = (id, v) => { $(id).value = v; $(id).focus(); $(id).select(); };
   window.setHint = (which, text, level) => { const h = $(which === 'w' ? 'hintW' : 'hintM'); h.textContent = text || ''; h.className = 'hint ' + (level || ''); };
   window.setStatus = (text, level) => { const s = $('statusMsg'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };

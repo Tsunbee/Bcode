@@ -14,6 +14,7 @@ public class AppCommandEditForm : ThemedForm
 {
     private readonly AppCommandService _service;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
     private string? _menuId;                        // null = New
     private Dictionary<string, string?>? _seed;     // giá trị gợi ý khi New (nhân bản)
     private bool _ready;
@@ -33,10 +34,11 @@ public class AppCommandEditForm : ThemedForm
         MinimumSize = new Size(640, 480);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative) _host = Bcode.App.Controls.NativeForm.Attach(this, "appcommandedit.html", root => _ = HandleAsync(root.GetRawText()), () => _ = HandleAsync("{\"action\":\"ready\"}"));
+        else Controls.Add(_web);
         ThemeManager.ThemeChanged += PushTheme;
         FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
-        Load += async (_, _) => await InitWebAsync();
+        if (_host is null) Load += async (_, _) => await InitWebAsync();
     }
 
     private async Task InitWebAsync()
@@ -65,11 +67,13 @@ public class AppCommandEditForm : ThemedForm
         if (_ready) await PushStateAsync();
     }
 
-    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e) => await HandleAsync(e.TryGetWebMessageAsString());
+
+    private async Task HandleAsync(string json0)
     {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            using var doc = JsonDocument.Parse(json0);
             var action = doc.RootElement.GetProperty("action").GetString();
             var values = ReadValues(doc.RootElement.TryGetProperty("data", out var d) ? d : default);
             switch (action)
@@ -198,7 +202,9 @@ public class AppCommandEditForm : ThemedForm
 
     private async Task Js(string script)
     {
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (IsDisposed) return;
+        if (_host is not null) { _host.Call(script); return; }
+        if (_web.CoreWebView2 is null) return;
         await _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 

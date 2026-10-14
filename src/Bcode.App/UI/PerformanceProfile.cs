@@ -33,6 +33,7 @@ public sealed record PerformanceProfile(string Mode, string EffectiveMode, int R
         };
         if (s.RendererProcessLimit is { } l) limit = Math.Clamp(l, 0, 64);
         if (s.PrewarmSqlTab is { } p) prewarm = p;
+        if (UiMode.IsNative) prewarm = false;   // chế độ App: không dựng sẵn tab SQL ẩn (nó khởi động WebView2 chỉ để chờ)
         if (s.MergeSqlResultFrames is { } m) merge = m;
         if (s.HibernateSqlTabMinutes is { } h) hibernate = Math.Clamp(h, 0, 24 * 60);
         if (s.MergeSqlBarEditor is { } me) mergeEd = me;

@@ -21,6 +21,7 @@ public class FileReferenceControl : UserControl
     private readonly SourceIndexService _index = new();
     private static readonly System.Text.RegularExpressions.Regex WholeWord = new(@"^[\w$#@]{3,}$", System.Text.RegularExpressions.RegexOptions.Compiled);
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
     private bool _ready;
     private string _root = "";
     private string? _pendingTerm;
@@ -32,11 +33,12 @@ public class FileReferenceControl : UserControl
     {
         _service = service;
         Dock = DockStyle.Fill;
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative) _host = Bcode.App.Controls.NativeForm.Attach(this, "filereference.html", root => _ = HandleAsync(root.GetRawText()), () => _ = HandleAsync("{\"action\":\"ready\"}"));
+        else Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;
         Disposed += (_, _) => { ThemeManager.ThemeChanged -= PushTheme; _cts?.Cancel(); };
-        HandleCreated += async (_, _) => await InitWebAsync();
+        if (_host is null) HandleCreated += async (_, _) => await InitWebAsync();
     }
 
     private bool _initStarted;
@@ -72,11 +74,13 @@ public class FileReferenceControl : UserControl
         _ = SearchAsync(_root, term);
     }
 
-    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e) => await HandleAsync(e.TryGetWebMessageAsString());
+
+    private async Task HandleAsync(string json0)
     {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            using var doc = JsonDocument.Parse(json0);
             var action = doc.RootElement.GetProperty("action").GetString();
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
 
@@ -182,6 +186,7 @@ public class FileReferenceControl : UserControl
         if (IsDisposed) return;
         // Gọi được từ luồng nền (vd báo tiến độ lúc lập chỉ mục): WebView2 chỉ dùng được ở luồng giao diện.
         if (InvokeRequired) { try { BeginInvoke(new Action(() => Js(script))); } catch { /* đang đóng */ } return; }
+        if (_host is not null) { _host.Call(script); return; }
         if (_web.CoreWebView2 is null) return;
         _ = _web.CoreWebView2.ExecuteScriptAsync(script);
     }

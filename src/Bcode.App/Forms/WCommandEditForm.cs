@@ -27,6 +27,7 @@ public class WCommandEditForm : ThemedForm
     private WCommandItem? _existing;
     private WCommandItem? _seed;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
     private bool _ready;
     private readonly string? _sourcePath;
     private int _tableVersion;
@@ -52,11 +53,12 @@ public class WCommandEditForm : ThemedForm
         MinimumSize = new Size(520, 560);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative) _host = Bcode.App.Controls.NativeForm.Attach(this, "wcommandedit.html", root => _ = HandleAsync(root.GetRawText()), () => _ = HandleAsync("{\"action\":\"ready\"}"));
+        else Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;
         FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
-        Load += async (_, _) => await InitWebAsync();
+        if (_host is null) Load += async (_, _) => await InitWebAsync();
     }
 
     private async Task InitWebAsync()
@@ -75,11 +77,13 @@ public class WCommandEditForm : ThemedForm
         }
     }
 
-    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e) => await HandleAsync(e.TryGetWebMessageAsString());
+
+    private async Task HandleAsync(string json0)
     {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            using var doc = JsonDocument.Parse(json0);
             var action = doc.RootElement.GetProperty("action").GetString();
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
 
@@ -183,7 +187,7 @@ public class WCommandEditForm : ThemedForm
         try
         {
             var id = await _service.SuggestNextWMenuIdAsync(Get(f, "wmenuId0"));
-            await Js(focus ? $"window.setValue('wmenuId', {Json(id)})" : $"document.getElementById('wmenuId').value = {Json(id)}");
+            await Js(focus ? $"window.setValue('wmenuId', {Json(id)})" : $"window.setFieldValue('wmenuId', {Json(id)})");
             await Js($"window.setHint('w', {Json("Gợi ý: chưa tồn tại trong wcommand")}, 'ok')");
         }
         catch (Exception ex) { await Js($"window.setHint('w', {Json("Không gợi ý được: " + ex.Message)}, 'err')"); }
@@ -201,7 +205,7 @@ public class WCommandEditForm : ThemedForm
                 await Js($"window.setHint('m', {Json("Hết Menu Id trống (dạng GG.SS.LL, char(8)).")}, 'err')");
                 return;
             }
-            await Js(focus ? $"window.setValue('menuId', {Json(id)})" : $"document.getElementById('menuId').value = {Json(id)}");
+            await Js(focus ? $"window.setValue('menuId', {Json(id)})" : $"window.setFieldValue('menuId', {Json(id)})");
             await Js($"window.setHint('m', {Json("Gợi ý: chưa tồn tại trong command/wcommand")}, 'ok')");
         }
         catch (Exception ex) { await Js($"window.setHint('m', {Json("Không gợi ý được: " + ex.Message)}, 'err')"); }
@@ -273,7 +277,7 @@ public class WCommandEditForm : ThemedForm
         }
         finally
         {
-            if (!IsDisposed && _web.CoreWebView2 != null) await Js("window.setBusy(false)");
+            if (!IsDisposed && (_host is not null || _web.CoreWebView2 != null)) await Js("window.setBusy(false)");
         }
     }
 
@@ -355,7 +359,9 @@ public class WCommandEditForm : ThemedForm
     private async Task Js(string script)
     {
         if (!_ready && !script.StartsWith("window.setTheme")) return;
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (IsDisposed) return;
+        if (_host is not null) { _host.Call(script); return; }
+        if (_web.CoreWebView2 is null) return;
         await _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 

@@ -22,6 +22,7 @@ public sealed class WebBarHost : Panel, IWebPage
     private bool _ready;
     private bool _asleep;
     private string? _savedState;   // kết quả JSON-literal của GetStateJs lúc ngủ
+    private readonly NativePage? _native;   // chế độ App: trang native thay cho WebView2 (nếu trang này đã có bản native — xem NativePages)
 
     /// <summary>true = trang này chịu được "ngủ đông": khi tab ẩn lâu, MainForm huỷ WebView2 (giải phóng ~20–30MB) rồi dựng lại khi tab hiện.
     /// Chỉ bật cho trang mà dữ liệu quan trọng nằm ở C# (nạp lại qua <see cref="Ready"/>) hoặc ở các ô nhập (được lưu / khôi phục tự động);
@@ -46,7 +47,14 @@ public sealed class WebBarHost : Panel, IWebPage
         _designHeight = height;
         Height = height;
         BackColor = AppColors.PanelAlt;
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative && NativePages.TryCreate(page, out var np) && np is not null)
+        {
+            _native = np;
+            np.Message += root => Message?.Invoke(root);
+            Controls.Add(np);
+            np.Layout += (_, _) => FitNative();
+        }
+        else Controls.Add(_web);
         ThemeManager.ThemeChanged += PushTheme;
         Disposed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
     }
@@ -55,7 +63,16 @@ public sealed class WebBarHost : Panel, IWebPage
     {
         base.OnHandleCreated(e);
         Height = DpiScale.Px(this, _designHeight); // đặt tuyệt đối theo DPI màn hình (không bị nhân đôi nếu form cha đã tự scale)
+        if (_native is not null) { FitNative(); _ready = true; Call("window.setTheme && window.setTheme(" + (AppColors.IsDark ? "true" : "false") + ")"); Ready?.Invoke(); return; }
         _ = InitAsync();
+    }
+
+    /// <summary>Chế độ App, thanh nằm Dock Top/Bottom: cao đúng bằng nội dung trang native (xem <see cref="NativePage.ContentHeight"/>) — hàng nút xuống dòng khi
+    /// cửa sổ hẹp thì thanh cao thêm thay vì bị control bên dưới che (lỗi File Lookup: chủ đặt 230 nhưng OnHandleCreated đặt lại 150).</summary>
+    private void FitNative()
+    {
+        if (_native is null || Dock is not (DockStyle.Top or DockStyle.Bottom)) return;
+        if (_native.ContentHeight() is int h && h > 0 && Height != h) Height = h;
     }
 
     public bool IsReady => _ready;
@@ -74,7 +91,7 @@ public sealed class WebBarHost : Panel, IWebPage
     /// Trả false nếu không ngủ được (chưa bật <see cref="Sleepable"/>, đang hiện, chưa nạp xong).</summary>
     public async Task<bool> SleepAsync()
     {
-        if (!Sleepable || _asleep || !_ready || Visible || _web.IsDisposed || _web.CoreWebView2 is null) return false;
+        if (_native is not null || !Sleepable || _asleep || !_ready || Visible || _web.IsDisposed || _web.CoreWebView2 is null) return false;
         try { _savedState = await _web.CoreWebView2.ExecuteScriptAsync(GetStateJs); }
         catch { return false; }
         if (Visible || IsDisposed) return false;   // trong lúc chụp, tab đã được chọn
@@ -114,6 +131,13 @@ public sealed class WebBarHost : Panel, IWebPage
     /// have to guard on readiness themselves.</summary>
     public void Call(string script)
     {
+        if (_native is not null)
+        {
+            if (!_ready || IsDisposed) return;
+            void Run() { try { foreach (var (path, args) in JsCall.Parse(script)) _native.Dispatch(path, args); } catch { /* lời gọi không hợp lệ — bỏ qua như trang web */ } }
+            if (InvokeRequired) { try { BeginInvoke((Action)Run); } catch { /* đang đóng */ } } else Run();
+            return;
+        }
         if (!_ready || _web.CoreWebView2 is null) return;
         _ = _web.CoreWebView2.ExecuteScriptAsync(script);
     }
@@ -122,6 +146,13 @@ public sealed class WebBarHost : Panel, IWebPage
     /// lớn (vd bảng kết quả hàng chục nghìn dòng) mà nhét vào script của <see cref="Call"/> sẽ rất nặng. Trả false nếu trang chưa nạp xong.</summary>
     public bool PostJson(string json)
     {
+        if (_native is not null)
+        {
+            if (!_ready || IsDisposed) return false;
+            void Run() { try { using var doc = JsonDocument.Parse(json); _native.OnPostJson(doc.RootElement.Clone()); } catch { } }
+            if (InvokeRequired) { try { BeginInvoke((Action)Run); } catch { return false; } } else Run();
+            return true;
+        }
         if (!_ready || _web.IsDisposed || _web.CoreWebView2 is null) return false;
         _web.CoreWebView2.PostWebMessageAsJson(json);
         return true;
@@ -132,6 +163,7 @@ public sealed class WebBarHost : Panel, IWebPage
     /// Table box on open). No-op until the page has loaded.</summary>
     public void FocusWeb()
     {
+        if (_native is not null) { _native.FocusPrimary(); return; }
         if (!_ready || _web.IsDisposed || _web.CoreWebView2 is null) return;
         _web.Focus();
     }

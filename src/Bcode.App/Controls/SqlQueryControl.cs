@@ -19,7 +19,8 @@ namespace Bcode.App.Controls;
 /// </summary>
 public class SqlQueryControl : UserControl
 {
-    private readonly WebBarHost _web = new("commandquery.html") { Dock = DockStyle.Fill };
+    private readonly WebBarHost? _web;                    // chế độ Web: trang commandquery.html
+    private readonly NativeCommandPanel? _native;         // chế độ App: panel WinForms tương đương (không WebView2)
     private readonly DataGridView _grid;
     private readonly Label _statusLabel;
     private readonly SqlQueryService _service;
@@ -84,7 +85,19 @@ public class SqlQueryControl : UserControl
         right.Controls.Add(_statusLabel);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
-        split.Panel1.Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative)
+        {
+            _native = new NativeCommandPanel();
+            _native.RunRequested += (sel, from, where, ord, top) => _ = RunSafeAsync(() => RunAsync(sel, from, where, ord, top));
+            _native.FromChanged += from => _ = RunSafeAsync(() => ReloadFieldsAsync(from));
+            _native.AddScriptRequested += from => _ = RunSafeAsync(() => GenDataScriptAsync(from));
+            split.Panel1.Controls.Add(_native);
+        }
+        else
+        {
+            _web = new WebBarHost("commandquery.html") { Dock = DockStyle.Fill };
+            split.Panel1.Controls.Add(_web);
+        }
         split.Panel2.Controls.Add(right);
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
@@ -97,22 +110,32 @@ public class SqlQueryControl : UserControl
             if (split.SplitterDistance != clamped) split.SplitterDistance = clamped;
         }
         bool sized = false;
-        split.SizeChanged += (_, _) => { if (!sized) { sized = true; ApplySplitterDistance(); } };
+        split.SizeChanged += (_, _) => { if (!sized && split.Width > 600) { sized = true; ApplySplitterDistance(); } };   // chờ tới khi tab có bề rộng thật (tab native mới tạo rộng ~150px)
         Controls.Add(split);
 
-        _web.Ready += OnWebReady;
-        _web.Message += root => { var m = root.Clone(); _ = HandleAsync(m); };
+        if (_web is not null)
+        {
+            _web.Ready += OnWebReady;
+            _web.Message += root => { var m = root.Clone(); _ = HandleAsync(m); };
+        }
+        else HandleCreated += (_, _) => BeginInvoke(new Action(OnWebReady));
+    }
+
+    private async Task RunSafeAsync(Func<Task> work)
+    {
+        try { await work(); }
+        catch (Exception ex) { _statusLabel.Text = "Lỗi."; MessageBox.Show(this, ex.Message, "Bcode — SQL Query", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 
     private void Js(string script)
     {
-        if (IsDisposed) return;
+        if (IsDisposed || _web is null) return;
         if (InvokeRequired) { try { BeginInvoke(() => _web.Call(script)); } catch { /* đang đóng */ } }
         else _web.Call(script);
     }
 
-    public void SetFrom(string fromClause) { _pendingFrom = fromClause; if (_ready) Js($"cmdq.setFrom({J(fromClause)})"); }
-    public void SetWhere(string whereClause) { _pendingWhere = whereClause; if (_ready) Js($"cmdq.setWhere({J(whereClause)})"); }
+    public void SetFrom(string fromClause) { _pendingFrom = fromClause; if (_ready) { if (_native is not null) _native.SetFrom(fromClause); else Js($"cmdq.setFrom({J(fromClause)})"); } }
+    public void SetWhere(string whereClause) { _pendingWhere = whereClause; if (_ready) { if (_native is not null) _native.SetWhere(whereClause); else Js($"cmdq.setWhere({J(whereClause)})"); } }
 
     /// <summary>Fired after a successful Run, carrying the result table (consumed e.g. by Create *.xlsx).</summary>
     public event Action<DataTable>? ResultReady;
@@ -120,9 +143,10 @@ public class SqlQueryControl : UserControl
     private void OnWebReady()
     {
         _ready = true;
-        Js($"cmdq.init({J(new { maxRows = SqlQueryService.DefaultMaxRows })})");
-        if (_pendingFrom is not null) Js($"cmdq.setFrom({J(_pendingFrom)})");
-        if (_pendingWhere is not null) Js($"cmdq.setWhere({J(_pendingWhere)})");
+        if (_native is not null) _native.Init(SqlQueryService.DefaultMaxRows);
+        else Js($"cmdq.init({J(new { maxRows = SqlQueryService.DefaultMaxRows })})");
+        if (_pendingFrom is not null) { if (_native is not null) _native.SetFrom(_pendingFrom); else Js($"cmdq.setFrom({J(_pendingFrom)})"); }
+        if (_pendingWhere is not null) { if (_native is not null) _native.SetWhere(_pendingWhere); else Js($"cmdq.setWhere({J(_pendingWhere)})"); }
         _ = LoadFromSuggestionsAsync();
     }
 
@@ -138,7 +162,9 @@ public class SqlQueryControl : UserControl
                 var objs = await _sqlObjectService.ListObjectsAsync(useSys);
                 foreach (var o in objs.Where(o => o.Kind is SqlObjectKind.Table or SqlObjectKind.View)) { names.Add(o.QualifiedName); names.Add(o.Name); }
             }
-            Js($"cmdq.onSuggestions({J(names.Distinct().ToArray())})");
+            var distinct = names.Distinct().ToArray();
+            if (_native is not null) { if (!IsDisposed) BeginInvoke(new Action(() => _native.SetSuggestions(distinct))); }
+            else Js($"cmdq.onSuggestions({J(distinct)})");
         }
         catch { /* Chưa kết nối / lỗi tạm thời — người dùng vẫn gõ FROM tay được như cũ. */ }
     }
@@ -157,6 +183,18 @@ public class SqlQueryControl : UserControl
             }
         }
         catch (Exception ex) { _statusLabel.Text = "Lỗi."; MessageBox.Show(this, ex.Message, "Bcode — SQL Query", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+    }
+
+    private void UiFields(string status, IReadOnlyList<(string Name, bool Pk)> columns)
+    {
+        if (_native is not null) { if (!IsDisposed) BeginInvoke(new Action(() => _native.SetFields(status, columns))); }
+        else Js($"cmdq.onFields({J(new { status, columns = columns.Select(c => new { name = c.Name, pk = c.Pk }) })})");
+    }
+
+    private void UiBusy(bool busy)
+    {
+        if (_native is not null) _native.SetBusy(busy);
+        else Js($"cmdq.onBusy({(busy ? "true" : "false")})");
     }
 
     private static string S(JsonElement m, string name) => m.TryGetProperty(name, out var e) ? e.GetString() ?? "" : "";
@@ -183,12 +221,12 @@ public class SqlQueryControl : UserControl
 
         if (fromText.Length == 0 || fromText.Contains(' ') || fromText.Contains('$'))
         {
-            Js($"cmdq.onFields({J(new { status = "", columns = Array.Empty<object>() })})");
+            UiFields("", Array.Empty<(string, bool)>());
             return;
         }
 
         var (schema, table) = ParseTableRef(fromText);
-        Js($"cmdq.onFields({J(new { status = "Đang tải...", columns = Array.Empty<object>() })})");
+        UiFields("Đang tải...", Array.Empty<(string, bool)>());
         try
         {
             var columns = await _sqlObjectService.GetColumnsAsync(false, schema, table);
@@ -196,12 +234,12 @@ public class SqlQueryControl : UserControl
                 columns = await _sqlObjectService.GetColumnsAsync(true, schema, table);
             if (version != _fieldsRequestVersion) return; // FROM moved on again while this was loading
 
-            Js($"cmdq.onFields({J(new { status = columns.Count == 0 ? "(không có cột)" : $"{columns.Count} cột", columns = columns.Select(c => new { name = c.Name, pk = c.IsPrimaryKey }) })})");
+            UiFields(columns.Count == 0 ? "(không có cột)" : $"{columns.Count} cột", columns.Select(c => (c.Name, c.IsPrimaryKey)).ToArray());
         }
         catch
         {
             if (version != _fieldsRequestVersion) return;
-            Js($"cmdq.onFields({J(new { status = "", columns = Array.Empty<object>() })})");
+            UiFields("", Array.Empty<(string, bool)>());
             // Không kết nối được / tên bảng chưa hợp lệ — bỏ qua, SELECT vẫn gõ tay được.
         }
     }
@@ -211,7 +249,7 @@ public class SqlQueryControl : UserControl
         var maxRows = int.TryParse(top, out var n) ? n : SqlQueryService.DefaultMaxRows;
 
         _statusLabel.Text = "Đang chạy...";
-        Js("cmdq.onBusy(true)");
+        UiBusy(true);
         try
         {
             var table = await _service.RunAsync(select, from, where, orderBy, maxRows);
@@ -227,7 +265,7 @@ public class SqlQueryControl : UserControl
         }
         finally
         {
-            Js("cmdq.onBusy(false)");
+            UiBusy(false);
         }
     }
 
@@ -292,7 +330,7 @@ public class SqlQueryControl : UserControl
             string.IsNullOrWhiteSpace(defaultTable) ? table.TableName : defaultTable);
         if (string.IsNullOrWhiteSpace(targetName)) return;
 
-        Js("cmdq.onBusy(true)");
+        UiBusy(true);
         _statusLabel.Text = $"Đang sinh script cho {table.Rows.Count} dòng...";
         try
         {
@@ -311,7 +349,7 @@ public class SqlQueryControl : UserControl
         }
         finally
         {
-            Js("cmdq.onBusy(false)");
+            UiBusy(false);
         }
     }
 }

@@ -14,6 +14,7 @@ public class AiHistoryForm : ThemedForm
 {
     private readonly Func<string, Task> _insert;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
 
     /// <param name="insert">Chèn văn bản vào editor SQL Query tại con trỏ.</param>
     public AiHistoryForm(Func<string, Task> insert)
@@ -27,6 +28,11 @@ public class AiHistoryForm : ThemedForm
         MinimumSize = new Size(420, 420);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
+        if (UiMode.IsNative)
+        {
+            _host = Bcode.App.Controls.NativeForm.Attach(this, "aihistory.html", root => _ = HandleAsync(root), () => _ = PushItemsAsync());
+            return;
+        }
         Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;
@@ -51,11 +57,16 @@ public class AiHistoryForm : ThemedForm
 
     private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
     {
+        using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+        await HandleAsync(doc.RootElement);
+    }
+
+    private async Task HandleAsync(JsonElement root)
+    {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
-            var action = doc.RootElement.GetProperty("action").GetString();
-            var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
+            var action = root.GetProperty("action").GetString();
+            var data = root.TryGetProperty("data", out var d) ? d : default;
 
             switch (action)
             {
@@ -86,6 +97,7 @@ public class AiHistoryForm : ThemedForm
             id = h.Id, time = h.Time.ToString("o"), kind = h.Kind, engine = h.Engine,
             instruction = h.Instruction, context = h.Context, result = h.Result,
         });
+        if (_host is not null) { _host.Call($"window.setItems({JsonSerializer.Serialize(items)})"); return; }
         if (_web.CoreWebView2 is not null)
             await _web.CoreWebView2.ExecuteScriptAsync($"window.setItems({JsonSerializer.Serialize(items)})");
     }

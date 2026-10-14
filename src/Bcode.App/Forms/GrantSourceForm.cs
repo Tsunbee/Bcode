@@ -22,6 +22,7 @@ public sealed class GrantSourceForm : ThemedForm
     private bool _all;                    // chế độ hiện tại: true = quét toàn bộ .f của Dir/Grid/Filter
     private int _skipped;                 // số file bị bỏ qua vì nằm ngoài Dir/Grid/Filter
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
     private List<string> _versions = new();
     private List<GrantRow> _rows = new();
     private int _resolveVersion;
@@ -43,10 +44,11 @@ public sealed class GrantSourceForm : ThemedForm
         MinimumSize = new Size(640, 400);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative) _host = Bcode.App.Controls.NativeForm.Attach(this, "grantsource.html", root => _ = HandleAsync(root.GetRawText()), () => _ = HandleAsync("{\"action\":\"ready\"}"));
+        else Controls.Add(_web);
         ThemeManager.ThemeChanged += PushTheme;
         FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
-        Load += async (_, _) => await InitWebAsync();
+        if (_host is null) Load += async (_, _) => await InitWebAsync();
     }
 
     private async Task InitWebAsync()
@@ -64,13 +66,15 @@ public sealed class GrantSourceForm : ThemedForm
         }
     }
 
-    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e) => await HandleAsync(e.TryGetWebMessageAsString());
+
+    private async Task HandleAsync(string json0)
     {
         // Đọc hết giá trị trước khi await (JsonElement không dùng được sau khi tài liệu bị giải phóng).
         string? action, version = null; bool overwrite = false, allFlag = false; List<int> indexes = new();
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            using var doc = JsonDocument.Parse(json0);
             action = doc.RootElement.GetProperty("action").GetString();
             if (doc.RootElement.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object)
             {
@@ -162,14 +166,16 @@ public sealed class GrantSourceForm : ThemedForm
             projectFile = r.ProjectFile, rel = r.RelativeSource, found = r.SourcePath is not null, fallback = r.FromFallback,
             version = r.FromVersion, sourcePath = r.SourcePath, modified = r.Modified?.ToString("dd/MM/yyyy HH:mm"), destExists = r.DestExists,
         });
-        await Js($"(function(){{ var s = document.getElementById('status').textContent; grant.onRows({JsonSerializer.Serialize(view)}, ''); grant.onDone({Json(msg)}, {(errors.Count == 0 ? "true" : "false")}); }})()");
+        await Js($"grant.onRows({JsonSerializer.Serialize(view)}, ''); grant.onDone({Json(msg)}, {(errors.Count == 0 ? "true" : "false")})");
     }
 
     private static string Json(string s) => JsonSerializer.Serialize(s);
 
     private async Task Js(string script)
     {
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (IsDisposed) return;
+        if (_host is not null) { _host.Call(script); return; }
+        if (_web.CoreWebView2 is null) return;
         await _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 

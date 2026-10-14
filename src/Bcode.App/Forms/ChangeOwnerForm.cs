@@ -12,7 +12,7 @@ namespace Bcode.App.Forms;
 /// Giao diện là 1 trang WebView2 (Web/Shell/changeowner.html) tự co giãn theo cỡ cửa sổ: chọn database, gõ object (có gợi ý tên từ cả
 /// App Data và Sys Data), nhập schema mới. C# giữ phần chạy lệnh và hộp xác nhận — thao tác này không hoàn tác được nên luôn hỏi trước.
 /// </summary>
-public class ChangeOwnerForm : ThemedForm
+public partial class ChangeOwnerForm : ThemedForm
 {
     private readonly ChangeOwnerService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
@@ -34,6 +34,7 @@ public class ChangeOwnerForm : ThemedForm
         MinimumSize = new Size(380, 320);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
+        if (Bcode.App.UI.UiMode.IsNative) { BuildNative(); return; }   // chế độ App: giao diện WinForms (ChangeOwnerForm.Native.cs), không WebView2
         Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;

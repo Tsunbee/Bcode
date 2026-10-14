@@ -23,18 +23,25 @@ public class IconRailControl : Panel
     private string? _hoverKey;
     private string? _lastTooltipKey;
 
-    public const int ItemSize = 48;
-    private const int Gap = 4;
+    public const int ItemSize = 38;
+    private const int Gap = 3;
+    private int S(int v) => (int)Math.Round(v * DeviceDpi / 96.0);   // tự scale theo DPI màn hình
 
     public string? SelectedKey { get; private set; }
     public event Action<string>? SelectedKeyChanged;
 
     public IconRailControl()
     {
-        Width = 52;
+        Width = 46;
         Dock = DockStyle.Left;
         SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint |
                  ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        Width = S(46);
     }
 
     public void AddItem(string key, Bcode.App.UI.IconGlyph glyph, string tooltip) => _items.Add(new Item(key, glyph, tooltip));
@@ -51,20 +58,20 @@ public class IconRailControl : Panel
 
     private IEnumerable<(Item item, Rectangle bounds, bool pinnedBottom)> EnumerateSlots()
     {
-        var y = Gap;
+        var y = S(Gap + 2);
         foreach (var item in _items)
         {
-            yield return (item, new Rectangle(2, y, ItemSize, ItemSize), false);
-            y += ItemSize + Gap;
+            yield return (item, new Rectangle(S(4), y, S(ItemSize), S(ItemSize)), false);
+            y += S(ItemSize + Gap);
         }
 
-        var bottomY = Height - Gap;
+        var bottomY = Height - S(Gap);
         var bottomSlots = new List<(Item, Rectangle, bool)>();
         foreach (var item in _bottomItems)
         {
-            bottomY -= ItemSize;
-            bottomSlots.Add((item, new Rectangle(2, bottomY, ItemSize, ItemSize), true));
-            bottomY -= Gap;
+            bottomY -= S(ItemSize);
+            bottomSlots.Add((item, new Rectangle(S(4), bottomY, S(ItemSize), S(ItemSize)), true));
+            bottomY -= S(Gap);
         }
         bottomSlots.Reverse();
         foreach (var slot in bottomSlots) yield return slot;
@@ -129,15 +136,16 @@ public class IconRailControl : Panel
             if (selected)
             {
                 using var accentBrush = new SolidBrush(Bcode.App.UI.AppColors.Selection);
-                using var path = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(bounds, 10);
+                using var path = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(bounds, Bcode.App.UI.NativeSkin.CardRadius(this));
                 g.FillPath(accentBrush, path);
                 using var barBrush = new SolidBrush(Bcode.App.UI.AppColors.Accent);
-                g.FillRectangle(barBrush, 0, bounds.Y + 6, 3, bounds.Height - 12);
+                using var barPath = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(new Rectangle(0, bounds.Y + S(9), S(3), bounds.Height - S(18)), S(1));
+                g.FillPath(barBrush, barPath);
             }
             else if (hovered)
             {
                 using var hoverBrush = new SolidBrush(Bcode.App.UI.AppColors.PanelAlt);
-                using var path = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(bounds, 10);
+                using var path = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(bounds, Bcode.App.UI.NativeSkin.CardRadius(this));
                 g.FillPath(hoverBrush, path);
             }
 

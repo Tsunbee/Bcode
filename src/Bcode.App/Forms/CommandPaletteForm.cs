@@ -16,6 +16,7 @@ public class CommandPaletteForm : ThemedForm
     private readonly string _itemsJson;
     private readonly string _recentJson;
     private bool _closing;
+    private Bcode.App.Controls.WebBarHost? _host;
 
     /// <summary>(kind, id, secondary): secondary = Shift+Enter.</summary>
     public event Action<string, string, bool>? Chosen;
@@ -30,11 +31,16 @@ public class CommandPaletteForm : ThemedForm
         StartPosition = FormStartPosition.Manual;
         Padding = new Padding(1);                 // viền 1px màu nhấn quanh trang
         BackColor = AppColors.Accent;
-        Controls.Add(_web);
+        if (UiMode.IsNative)
+        {
+            // Chế độ App: trang native commandpalette.html (tìm mờ chạy trong C#).
+            _host = Bcode.App.Controls.NativeForm.Attach(this, "commandpalette.html", HandleRoot, () => { _host!.Call($"palette.init({_itemsJson}, {_recentJson})"); _host.Call("palette.focus()"); });
+        }
+        else Controls.Add(_web);
         Deactivate += (_, _) => CloseOnce();
         ThemeManager.ThemeChanged += PushTheme;
         FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
-        Load += async (_, _) => await InitWebAsync();
+        if (_host is null) Load += async (_, _) => await InitWebAsync();
     }
 
     protected override void OnShown(EventArgs e)
@@ -79,10 +85,14 @@ public class CommandPaletteForm : ThemedForm
 
     private void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
     {
+        try { using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString()); HandleRoot(doc.RootElement); }
+        catch { CloseOnce(); }
+    }
+
+    private void HandleRoot(JsonElement root)
+    {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
-            var root = doc.RootElement;
             switch (root.GetProperty("action").GetString())
             {
                 case "choose":

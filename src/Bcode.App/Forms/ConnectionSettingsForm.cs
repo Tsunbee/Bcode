@@ -23,6 +23,7 @@ public class ConnectionSettingsForm : ThemedForm
     private readonly bool _startNew;
     private int _initialIndex;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
 
     /// <param name="allowSync">true CHỈ khi mở từ màn hình Projects lúc mới mở Bcode: hiện khối "FSG — Đồng bộ dự án" và cho
     /// Ctrl+F5 — thêm/ghi đè project theo mã từ danh mục dự án FSG. Mở từ File &gt; Choose Server thì không có.</param>
@@ -57,10 +58,12 @@ public class ConnectionSettingsForm : ThemedForm
             _initialIndex = _settings.Workspaces.Count - 1;
         }
 
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative) _host = Bcode.App.Controls.NativeForm.Attach(this, "connections.html", root => _ = HandleAsync(root.GetRawText()), () => _ = HandleAsync("{\"action\":\"ready\"}"));
+
+        else Controls.Add(_web);
         ThemeManager.ThemeChanged += PushTheme;
         FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
-        Load += async (_, _) => await InitWebAsync();
+        if (_host is null) Load += async (_, _) => await InitWebAsync();
     }
 
     private async Task InitWebAsync()
@@ -92,11 +95,13 @@ public class ConnectionSettingsForm : ThemedForm
 
     // ---------------------------------------------------------------- web <-> C#
 
-    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e) => await HandleAsync(e.TryGetWebMessageAsString());
+
+    private async Task HandleAsync(string json0)
     {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            using var doc = JsonDocument.Parse(json0);
             var action = doc.RootElement.GetProperty("action").GetString();
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
 
@@ -309,7 +314,9 @@ public class ConnectionSettingsForm : ThemedForm
 
     private async Task Js(string script)
     {
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (IsDisposed) return;
+        if (_host is not null) { _host.Call(script); return; }
+        if (_web.CoreWebView2 is null) return;
         await _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 

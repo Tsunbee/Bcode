@@ -3,7 +3,7 @@ using Bcode.App.Controls;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// "Ngủ đông" tab SQL Query (Chế độ hiệu năng): tab không được xem quá N phút thì chụp trạng thái (<see cref="RawSqlControl.TryCaptureSnapshotAsync"/>),
+/// "Ngủ đông" tab SQL Query (Chế độ hiệu năng): tab không được xem quá N phút thì chụp trạng thái (<see cref="ISqlTab.TryCaptureSnapshotAsync"/>),
 /// giải phóng control + các WebView2 của nó và để lại tab "chờ" (<see cref="LazySql"/> kèm Snapshot) — đúng cơ chế tab chờ của khôi phục phiên,
 /// nên đóng tab / lưu phiên / mở lại tab đã đóng đều chạy như cũ. Bấm vào tab thì <see cref="MaterializeLazy"/> dựng lại y như trước, chỉ mất lịch sử Undo.
 /// Đo 2026-10-10: tạm ngưng (TrySuspend) / hạ MemoryUsageTargetLevel tab ẩn KHÔNG bớt RAM đáng kể (226 → 223MB) nên không dùng.
@@ -36,7 +36,7 @@ public partial class MainForm
             foreach (var page in _documentTabs.TabPages.Cast<TabPage>().ToList())
             {
                 if (ReferenceEquals(page, _documentTabs.SelectedTab) || page.Tag is not null || _closingPages.Contains(page)) continue;
-                var sql = page.Controls.OfType<RawSqlControl>().FirstOrDefault();
+                var sql = page.Controls.OfType<ISqlTab>().FirstOrDefault();
                 var web = sql is null ? page.Controls.OfType<ISleepableTab>().FirstOrDefault() : null;   // tab công cụ dạng trang web (Note, Check Mail...)
                 if (sql is null && web is null) continue;
                 if (!_tabLastActive.TryGetValue(page, out var last)) { _tabLastActive[page] = now; continue; }   // chưa biết lần xem cuối: bắt đầu đếm từ giờ
@@ -48,16 +48,16 @@ public partial class MainForm
         finally { _hibernating = false; }
     }
 
-    private async Task HibernateTabAsync(TabPage page, RawSqlControl c)
+    private async Task HibernateTabAsync(TabPage page, ISqlTab c)
     {
         var snap = await c.TryCaptureSnapshotAsync();
         // Trong lúc chụp, tab có thể đã được chọn / đóng / thay control — khi đó thôi.
         if (snap is null || IsDisposed || c.IsDisposed || !_documentTabs.TabPages.Contains(page) || ReferenceEquals(page, _documentTabs.SelectedTab)
-            || _closingPages.Contains(page) || !page.Controls.Contains(c))
+            || _closingPages.Contains(page) || !page.Controls.Contains(c.AsControl()))
             return;
         var key = _objectTabs.FirstOrDefault(kv => ReferenceEquals(kv.Value, page) && !kv.Key.StartsWith("usages:", StringComparison.Ordinal)).Key;
         page.Tag = new LazySql(snap.Text, snap.Sys, key, snap);
-        page.Controls.Remove(c);
+        page.Controls.Remove(c.AsControl());
         _sessionText.Remove(c);
         c.Dispose();
     }

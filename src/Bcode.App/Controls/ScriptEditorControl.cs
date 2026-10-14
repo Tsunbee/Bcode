@@ -20,6 +20,8 @@ public class ScriptEditorControl : UserControl
     private readonly LineNumberGutter _gutter;
     private Microsoft.Web.WebView2.WinForms.WebView2? _findWeb;   // thanh tìm nổi dạng WebView2 (tạo lần đầu bấm Ctrl+F)
     private bool _findWebReady;
+    private NativeFindBar? _findNative;   // chế độ App: thanh tìm WinForms thay cho WebView2 (không khởi động WebView2 chỉ để tìm chữ)
+    private Control? FindHost => (Control?)_findNative ?? _findWeb;
     private string _findText = "";
     private readonly Panel _topBar;
     private readonly Label _pathLabel;
@@ -341,11 +343,12 @@ public class ScriptEditorControl : UserControl
     /// <summary>Đặt thanh tìm ở góc trên-phải của khung chữ, chừa chỗ cho thanh cuộn dọc.</summary>
     private void PositionFindBar()
     {
-        if (_findWeb is null) return;
+        var host = FindHost;
+        if (host is null) return;
         var width = Math.Min(420, Math.Max(240, Width - 80));
-        _findWeb.Width = width;
-        _findWeb.Height = 38;
-        _findWeb.Location = new Point(Math.Max(0, Width - width - SystemInformation.VerticalScrollBarWidth - 10), _textBox.Top + 8);
+        host.Width = width;
+        if (_findNative is null) host.Height = 38;
+        host.Location = new Point(Math.Max(0, Width - width - SystemInformation.VerticalScrollBarWidth - 10), _textBox.Top + 8);
     }
 
     // ---- Tìm trong file (Ctrl+F): thanh tìm là 1 trang WebView2 nhỏ (Web/Shell/findbar.html) nổi ở góc trên-phải ----
@@ -360,20 +363,30 @@ public class ScriptEditorControl : UserControl
         var sel = _textBox.SelectedText;
         if (sel.Length is > 0 and <= 120 && !sel.Contains('\n')) _findText = sel;
         PositionFindBar();
-        _findWeb!.Visible = true;
-        _findWeb.BringToFront();
+        FindHost!.Visible = true;
+        FindHost.BringToFront();
         if (_findWebReady) PushFindState();
     }
 
     private void HideFindBar()
     {
-        if (_findWeb is not null) _findWeb.Visible = false;
+        if (FindHost is not null) FindHost.Visible = false;
         _textBox.Focus();
     }
 
     private void EnsureFindWeb()
     {
-        if (_findWeb is not null) return;
+        if (FindHost is not null) return;
+        if (UiMode.IsNative)
+        {
+            _findNative = new NativeFindBar { Visible = false };
+            _findNative.Find += (text, forward, typing) => { _findText = text; FindNext(forward, fromSelectionStart: typing); };
+            _findNative.CloseRequested += HideFindBar;
+            Controls.Add(_findNative);
+            _findNative.BringToFront();
+            _findWebReady = true;
+            return;
+        }
         _findWeb = new Microsoft.Web.WebView2.WinForms.WebView2 { Size = new Size(420, 38), Visible = false, DefaultBackgroundColor = AppColors.PanelAlt };
         Controls.Add(_findWeb);
         _findWeb.BringToFront();
@@ -425,6 +438,7 @@ public class ScriptEditorControl : UserControl
     /// <summary>Đẩy chủ đề, nội dung ô tìm và đưa con trỏ vào ô tìm sau khi trang đã sẵn sàng.</summary>
     private void PushFindState()
     {
+        if (_findNative is not null) { _findNative.SetText(_findText); _findNative.FocusInput(); UpdateFindInfo(); return; }
         if (_findWeb?.CoreWebView2 is null) return;
         var text = System.Text.Json.JsonSerializer.Serialize(_findText);
         _ = _findWeb.CoreWebView2.ExecuteScriptAsync(
@@ -435,6 +449,7 @@ public class ScriptEditorControl : UserControl
 
     private void SetFindInfo(string text, bool none = false)
     {
+        if (_findNative is not null) { _findNative.SetInfo(text, none); return; }
         if (_findWeb?.CoreWebView2 is null) return;
         _ = _findWeb.CoreWebView2.ExecuteScriptAsync(
             $"window.setInfo({System.Text.Json.JsonSerializer.Serialize(text)}, {(none ? "true" : "false")})");

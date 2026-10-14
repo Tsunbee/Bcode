@@ -12,7 +12,7 @@ namespace Bcode.App.Forms;
 /// Giao diện là trang WebView2 (Web/Shell/entitypeek.html) dùng Monaco + theme của BcodeViewer, giống khung peek bên BcodeViewer.
 /// Lựa chọn cách xem được nhớ trong AppSettings.EntityPeekMode. Cửa sổ không chặn (Show), chỉ đọc.
 /// </summary>
-public sealed class EntityMultiPeekForm : DpiForm
+public sealed partial class EntityMultiPeekForm : DpiForm
 {
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly List<EntityPreviewItem> _items;
@@ -36,6 +36,7 @@ public sealed class EntityMultiPeekForm : DpiForm
         Height = 720;
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
+        if (UiMode.IsNative) { BuildNative(); return; }
         Controls.Add(_web);
         Load += async (_, _) => await InitAsync();
     }

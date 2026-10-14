@@ -257,6 +257,11 @@ public class SqlProfilerControl : UserControl
 
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private readonly Panel _hostPanel;
+    // Chế độ App: thanh nút là trang native (WebBarHost + NativePages "sqlprofilerbar.html") thay cho WebView2 — cùng giao thức action / window.setXxx.
+    private readonly WebBarHost? _barNative;
+    private Control BarHost => (Control?)_barNative ?? _barWeb;
+    private bool BarReady => _barNative is not null || _barWeb.CoreWebView2 != null;
+    private void BarExec(string js) { if (_barNative is not null) _barNative.Call(js); else if (_barWeb.CoreWebView2 != null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync(js); }
 
     private Process? _profilerProcess;
     private IntPtr _profilerHwnd = IntPtr.Zero;
@@ -277,13 +282,21 @@ public class SqlProfilerControl : UserControl
         _hostPanel.Resize += (_, _) => ResizeEmbeddedWindow();
 
         Controls.Add(_hostPanel);
-        Controls.Add(_barWeb);
+        if (Bcode.App.UI.UiMode.IsNative)
+        {
+            _barNative = new WebBarHost("sqlprofilerbar.html", 76) { Dock = DockStyle.Top };
+            _barNative.Message += root => _ = HandleBarMessageAsync(root.Clone());
+            _barNative.Ready += () => { PushConfigToBar(); PushWorkspaceHintsToBar(); };
+            Controls.Add(_barNative);
+        }
+        else Controls.Add(_barWeb);
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
         _connections.WorkspaceChanged += PushWorkspaceHintsToBar;
         _connections.WorkspaceChanged += PushConfigToBar;
         // Tháo Profiler khỏi host TRƯỚC khi handle bị huỷ (HandleDestroyed chạy trước khi huỷ control con).
-        HandleDestroyed += (_, _) => CloseProfiler();
+        // wait: đóng tab / tắt Bcode phải CHỜ tự bấm Yes xong — trước đây việc đó chạy ở luồng nền nên tắt app là luồng bị cắt, hộp "traces still running" của Profiler ở lại.
+        HandleDestroyed += (_, _) => CloseProfiler(wait: true);
         Disposed += (_, _) =>
         {
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
@@ -292,7 +305,7 @@ public class SqlProfilerControl : UserControl
             CloseProfiler();
         };
 
-        _ = InitBarWebAsync();
+        if (_barNative is null) _ = InitBarWebAsync();
     }
 
     private async Task InitBarWebAsync()
@@ -304,42 +317,7 @@ public class SqlProfilerControl : UserControl
             _barWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
             {
                 using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
-                var root = doc.RootElement;
-                switch (root.GetProperty("action").GetString())
-                {
-                    case "browse": BrowseExe(); break;
-                    case "__height":
-                        // Trang báo chiều cao nội dung (px thiết bị): thanh cao thêm khi cửa sổ hẹp và nội dung xuống dòng,
-                        // thay vì cố định 120px làm cắt mất hàng trên/hàng dưới.
-                        _barWeb.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 2, Bcode.App.UI.DpiScale.Px(this, 60), Bcode.App.UI.DpiScale.Px(this, 420));
-                        break;
-                    case "run":
-                        await RunProfilerAsync(
-                            root.GetProperty("exePath").GetString() ?? "",
-                            root.GetProperty("loginUser").GetString() ?? "",
-                            root.GetProperty("loginPass").GetString() ?? "",
-                            root.GetProperty("template").GetString() ?? "",
-                            root.TryGetProperty("targetUser", out var tu) ? tu.GetString() ?? "" : "",
-                            root.TryGetProperty("uid", out var ui) ? ui.GetString() ?? "" : "");
-                        break;
-                    case "close": CloseProfiler(); break;
-                    case "lookup-uid": await LookupUidAsync(root.GetProperty("targetUser").GetString() ?? ""); break;
-                    case "copy":
-                        var value = root.GetProperty("value").GetString() ?? "";
-                        if (value.Length > 0 && !value.StartsWith("(")) Clipboard.SetText(value);
-                        break;
-                    case "refresh-hint": PushWorkspaceHintsToBar(); break;
-                    case "open-trace-folder": OpenTraceFolder(); break;
-                    case "copy-sql": await CopySqlCommandAsync(); break;
-                    case "open-saved-trace": await OpenSavedTraceAsync(); break;
-                    case "save-config":
-                        SaveConfig(
-                            root.GetProperty("exePath").GetString() ?? "",
-                            root.GetProperty("loginUser").GetString() ?? "",
-                            root.GetProperty("loginPass").GetString() ?? "",
-                            root.GetProperty("template").GetString() ?? "");
-                        break;
-                }
+                await HandleBarMessageAsync(doc.RootElement);
             };
 
             _barWeb.CoreWebView2.NavigationCompleted += (_, _) =>
@@ -356,10 +334,50 @@ public class SqlProfilerControl : UserControl
         }
     }
 
-    private void PushThemeToBar() { if (_barWeb.CoreWebView2 != null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({(Bcode.App.UI.AppColors.IsDark ? "true" : "false")})"); }
+    /// <summary>Xử lý 1 action của thanh nút — dùng chung cho trang web (WebView2) và trang native (chế độ App).</summary>
+    private async Task HandleBarMessageAsync(JsonElement root)
+    {
+        switch (root.GetProperty("action").GetString())
+        {
+            case "browse": BrowseExe(); break;
+            case "__height":
+                // Trang báo chiều cao nội dung (px thiết bị): thanh cao thêm khi cửa sổ hẹp và nội dung xuống dòng,
+                // thay vì cố định 120px làm cắt mất hàng trên/hàng dưới.
+                BarHost.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 2, Bcode.App.UI.DpiScale.Px(this, 60), Bcode.App.UI.DpiScale.Px(this, 420));
+                break;
+            case "run":
+                await RunProfilerAsync(
+                    root.GetProperty("exePath").GetString() ?? "",
+                    root.GetProperty("loginUser").GetString() ?? "",
+                    root.GetProperty("loginPass").GetString() ?? "",
+                    root.GetProperty("template").GetString() ?? "",
+                    root.TryGetProperty("targetUser", out var tu) ? tu.GetString() ?? "" : "",
+                    root.TryGetProperty("uid", out var ui) ? ui.GetString() ?? "" : "");
+                break;
+            case "close": CloseProfiler(); break;
+            case "lookup-uid": await LookupUidAsync(root.GetProperty("targetUser").GetString() ?? ""); break;
+            case "copy":
+                var value = root.GetProperty("value").GetString() ?? "";
+                if (value.Length > 0 && !value.StartsWith("(")) Clipboard.SetText(value);
+                break;
+            case "refresh-hint": PushWorkspaceHintsToBar(); break;
+            case "open-trace-folder": OpenTraceFolder(); break;
+            case "copy-sql": await CopySqlCommandAsync(); break;
+            case "open-saved-trace": await OpenSavedTraceAsync(); break;
+            case "save-config":
+                SaveConfig(
+                    root.GetProperty("exePath").GetString() ?? "",
+                    root.GetProperty("loginUser").GetString() ?? "",
+                    root.GetProperty("loginPass").GetString() ?? "",
+                    root.GetProperty("template").GetString() ?? "");
+                break;
+        }
+    }
+
+    private void PushThemeToBar() { if (_barNative is null && _barWeb.CoreWebView2 != null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({(Bcode.App.UI.AppColors.IsDark ? "true" : "false")})"); }
     private void PushConfigToBar()
     {
-        if (_barWeb.CoreWebView2 is null) return;
+        if (!BarReady) return;
         var ws = _getCurrentWorkspace();
         var cfg = JsonSerializer.Serialize(new
         {
@@ -370,7 +388,7 @@ public class SqlProfilerControl : UserControl
             targetUser = ws?.ProfilerTargetUser ?? "",
             traceFile = ws is null ? "" : GetTraceFilePath(ws)
         });
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setConfig && window.setConfig({cfg})");
+        BarExec($"window.setConfig && window.setConfig({cfg})");
     }
 
     private static string GetTraceFolder(Workspace ws)
@@ -482,14 +500,14 @@ public class SqlProfilerControl : UserControl
     }
     private void PushWorkspaceHintsToBar()
     {
-        if (_barWeb.CoreWebView2 is null) return;
+        if (!BarReady) return;
         var ws = _getCurrentWorkspace();
         var hint = ws is null ? "(chưa có Workspace)" : string.IsNullOrWhiteSpace(ws.ProjectId) ? "(Workspace chưa khai ID dự án)" : $"%{ws.ProjectId}%";
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setDbHint && window.setDbHint({JsonSerializer.Serialize(hint)})");
+        BarExec($"window.setDbHint && window.setDbHint({JsonSerializer.Serialize(hint)})");
     }
-    private void SetStatus(string text) { if (_barWeb.CoreWebView2 != null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setStatus && window.setStatus({JsonSerializer.Serialize(text)})"); }
-    private void SetUid(string text) { if (_barWeb.CoreWebView2 != null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setUid && window.setUid({JsonSerializer.Serialize(text)})"); }
-    private void SetRunning(bool running) { if (_barWeb.CoreWebView2 != null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setRunning && window.setRunning({(running ? "true" : "false")})"); }
+    private void SetStatus(string text) { BarExec($"window.setStatus && window.setStatus({JsonSerializer.Serialize(text)})"); }
+    private void SetUid(string text) { BarExec($"window.setUid && window.setUid({JsonSerializer.Serialize(text)})"); }
+    private void SetRunning(bool running) { BarExec($"window.setRunning && window.setRunning({(running ? "true" : "false")})"); }
 
     private void BrowseExe()
     {
@@ -1412,13 +1430,19 @@ public class SqlProfilerControl : UserControl
 
     /// <summary>Profiler còn trace đang chạy sẽ hỏi "There are traces still running. Are you sure you want to close the application?"
     /// — tìm hộp thoại đó (cửa sổ #32770 của chính process Profiler) rồi bấm Yes thay người dùng. Trả về true nếu đã bấm.</summary>
+    private static bool IsProfilerProcess(uint pid)
+    {
+        try { using var p = Process.GetProcessById((int)pid); return p.ProcessName.StartsWith("Profiler", StringComparison.OrdinalIgnoreCase); }
+        catch { return false; }
+    }
+
     private static bool ConfirmProfilerCloseDialog(int processId)
     {
         var clicked = false;
         EnumWindows((top, _) =>
         {
             GetWindowThreadProcessId(top, out var pid);
-            if (pid != (uint)processId) return true;
+            if (pid != (uint)processId && !IsProfilerProcess(pid)) return true;
             var cls = new StringBuilder(64);
             GetClassName(top, cls, cls.Capacity);
             if (cls.ToString() != "#32770") return true;
@@ -1447,7 +1471,7 @@ public class SqlProfilerControl : UserControl
     // (WaitForExit) ngay trên UI thread khiến cả 2 chờ nhau → treo; và nếu để cửa sổ còn là con của
     // _hostPanel thì khi tab bị huỷ Windows huỷ luôn cửa sổ Profiler (lỗi/crash). Vì vậy: tháo ra khỏi
     // host + ẩn trước, rồi đóng/kill ở luồng nền, không đụng control nào sau khi đã bị huỷ.
-    private void CloseProfiler()
+    private void CloseProfiler(bool wait = false)
     {
         var proc = _profilerProcess;
         var hwnd = _profilerHwnd;
@@ -1461,7 +1485,7 @@ public class SqlProfilerControl : UserControl
 
         if (proc != null)
         {
-            _ = Task.Run(() =>
+            var closing = Task.Run(() =>
             {
                 try
                 {
@@ -1478,6 +1502,7 @@ public class SqlProfilerControl : UserControl
                 catch { }
                 finally { proc.Dispose(); }
             });
+            if (wait) { try { closing.Wait(6000); } catch { } }
         }
 
         if (IsDisposed || Disposing) return;

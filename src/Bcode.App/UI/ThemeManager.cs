@@ -159,8 +159,41 @@ public static class ThemeManager
         }
     }
 
+    private static readonly System.Reflection.PropertyInfo? DoubleBufferedProp = typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>Chống nháy khi rê chuột / cuộn (chế độ App): bật double-buffer cho mọi control tự vẽ (trừ WebView2 / Scintilla có cơ chế riêng).</summary>
+    private static void EnableDoubleBuffer(Control c)
+    {
+        var ns = c.GetType().Namespace ?? "";
+        if (c is Form || ns.StartsWith("Microsoft.Web") || ns.StartsWith("ScintillaNET")) return;
+        try
+        {
+            DoubleBufferedProp?.SetValue(c, true);
+            if (c is TreeView tv && tv.IsHandleCreated) SendMessage(tv.Handle, 0x112C, (IntPtr)0x4, (IntPtr)0x4);   // TVS_EX_DOUBLEBUFFER
+            else if (c is ListView lv && lv.IsHandleCreated) SendMessage(lv.Handle, 0x1036, (IntPtr)0x10000, (IntPtr)0x10000);   // LVS_EX_DOUBLEBUFFER
+        }
+        catch { /* không bật được thì chịu nháy */ }
+    }
+
+    /// <summary>Chế độ App: (1) Label / CheckBox / RadioButton không coi '&' là phím tắt (tiêu đề "Create RPT & XML" mất dấu &);
+    /// (2) thanh cuộn tối theo theme cho mọi vùng cuộn — cột AutoScroll, lưới (thanh cuộn con của DataGridView), danh sách, cây, ô nhiều dòng.</summary>
+    private static void NativePolish(Control c)
+    {
+        switch (c)
+        {
+            case Label l: l.UseMnemonic = false; break;
+            case ButtonBase b and (CheckBox or RadioButton): b.UseMnemonic = false; break;
+        }
+        if (c is TextBoxBase or ListBox or ListView or TreeView or DataGridView or ScrollBar || (c is ScrollableControl sc && sc.AutoScroll))
+            Bcode.App.Controls.NK.DarkScroll(c);
+    }
+
     public static void Apply(Control root)
     {
+        if (Bcode.App.UI.UiMode.IsNative) { EnableDoubleBuffer(root); NativePolish(root); }
         StyleControl(root);
         foreach (Control child in root.Controls)
             Apply(child);
@@ -277,6 +310,8 @@ public static class ThemeManager
                 bar.ForeColor = AppColors.Accent;
                 break;
 
+            case TreeView themed when Bcode.App.Controls.NK.IsThemedTree(themed):
+                break;   // cây tự vẽ bằng NK.ThemeTree (icon + màu riêng) — không gắn thêm bộ vẽ chung
             case TreeView tree:
                 tree.BackColor = AppColors.Panel;
                 tree.ForeColor = AppColors.Text;

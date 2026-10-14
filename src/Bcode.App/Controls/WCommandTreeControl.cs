@@ -153,7 +153,8 @@ public class WCommandTreeControl : UserControl
         });
 
         Controls.Add(_tree);
-        Controls.Add(_barWeb);
+        var native = Bcode.App.UI.UiMode.IsNative;
+        if (native) Controls.Add(BuildNativeBar()); else Controls.Add(_barWeb);
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
         Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
@@ -164,8 +165,11 @@ public class WCommandTreeControl : UserControl
         // Thanh lọc (WebView2 ~10MB) chỉ dựng khi mục WCommand được hiện lần đầu: control ẩn thì chưa có handle nên chưa tốn tiến trình nào.
         var barStarted = false;
         void StartBar() { if (barStarted) return; barStarted = true; _ = InitBarWebAsync(); }
-        HandleCreated += (_, _) => BeginInvoke(new Action(StartBar));   // sau khi tạo handle xong hẳn (khởi tạo WebView2 ngay trong HandleCreated dễ bị E_ABORT)
-        if (IsHandleCreated) BeginInvoke(new Action(StartBar));
+        if (!native)
+        {
+            HandleCreated += (_, _) => BeginInvoke(new Action(StartBar));   // sau khi tạo handle xong hẳn (khởi tạo WebView2 ngay trong HandleCreated dễ bị E_ABORT)
+            if (IsHandleCreated) BeginInvoke(new Action(StartBar));
+        }
 
         async Task InitBarWebAsync()
         {
@@ -201,6 +205,24 @@ public class WCommandTreeControl : UserControl
             var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
             _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
         }
+    }
+
+    private RoundedInput? _nativeFilter;
+
+    /// <summary>Thanh lọc bản native (tương đương wcommandbar.html): ô lọc + nút Refresh; Enter hoặc Refresh = tải lại theo bộ lọc.</summary>
+    private Control BuildNativeBar()
+    {
+        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.UiTemplate.Dens(40), Padding = new Padding(6, 6, 6, 6) };
+        var refresh = PillButton.Flat("Refresh");
+        refresh.Dock = DockStyle.Right;
+        _nativeFilter = new RoundedInput { Dock = DockStyle.Fill, PlaceholderText = "Tìm theo tên menu, ID hoặc link..." };
+        async void Go() { _filterText = _nativeFilter.Text; await ReloadAsync(); }
+        refresh.Click += (_, _) => Go();
+        _nativeFilter.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Go(); } };
+        panel.Controls.Add(_nativeFilter);
+        panel.Controls.Add(new Panel { Dock = DockStyle.Right, Width = 6 });
+        panel.Controls.Add(refresh);
+        return panel;
     }
 
     // Chỉ lần tải MỚI NHẤT được phép đổ vào cây: đổi workspace nhanh (hoặc F5 liên tiếp) tạo nhiều lần tải
@@ -306,7 +328,7 @@ public class WCommandTreeControl : UserControl
     /// <summary>Mở các nhánh cha và chọn đúng menu <paramref name="target"/> trong cây (dùng cho Command Palette). Đang lọc thì bỏ lọc, nạp lại cây đầy đủ.</summary>
     public async Task RevealAsync(WCommandItem target)
     {
-        _filterText = "";
+        _filterText = ""; if (_nativeFilter is not null) _nativeFilter.Text = "";
         await ReloadAsync();
         var path = new List<WCommandItem>();
         bool Find(IEnumerable<WCommandItem> level)

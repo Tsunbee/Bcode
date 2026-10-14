@@ -23,7 +23,7 @@ public partial class MainForm
     private sealed class TextBox { public string Value = ""; public long Version = -1; }
 
     private readonly System.Windows.Forms.Timer _sessionTimer = new() { Interval = 4000 };
-    private readonly ConditionalWeakTable<RawSqlControl, TextBox> _sessionText = new();
+    private readonly ConditionalWeakTable<ISqlTab, TextBox> _sessionText = new();
     private string? _lastSessionJson;
     private int _sessionWriting;
     private bool _sessionArmed, _sessionRestoring;
@@ -38,7 +38,7 @@ public partial class MainForm
         {
             if (_sessionRestoring) return;
             var now = _documentTabs.SelectedTab;
-            if (_prevSelectedPage?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { IsReady: true } left) _ = CaptureSessionTextAsync(left);   // gõ dở rồi chuyển tab: giữ bản mới nhất
+            if (_prevSelectedPage?.Controls.OfType<ISqlTab>().FirstOrDefault() is { IsReady: true } left) _ = CaptureSessionTextAsync(left);   // gõ dở rồi chuyển tab: giữ bản mới nhất
             _prevSelectedPage = now;
             if (now is not null) MaterializeLazy(now);
         };
@@ -180,7 +180,7 @@ public partial class MainForm
         control.SetDatabase(lazy.Sys);
         control.SetScriptText(lazy.Text);
         control.Dock = DockStyle.Fill;
-        page.Controls.Add(control);
+        page.Controls.Add(control.AsControl());
         Bcode.App.UI.ThemeManager.Apply(page);
         if (lazy.Snapshot is { } snap) control.RestoreSnapshot(snap);
         _sessionText.AddOrUpdate(control, new TextBox { Value = lazy.Text });
@@ -188,7 +188,7 @@ public partial class MainForm
 
     // ---- ghi --------------------------------------------------------------------------------------------
 
-    private async Task CaptureSessionTextAsync(RawSqlControl c)
+    private async Task CaptureSessionTextAsync(ISqlTab c)
     {
         try
         {
@@ -204,7 +204,7 @@ public partial class MainForm
     private async Task SessionTickAsync()
     {
         if (!_sessionArmed || !_settings.RestoreSession || IsDisposed) return;
-        if (WindowState != FormWindowState.Minimized && _documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { IsReady: true } c)
+        if (WindowState != FormWindowState.Minimized && _documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault() is { IsReady: true } c)
             await CaptureSessionTextAsync(c);
         WriteSession(background: true);
     }
@@ -256,7 +256,7 @@ public partial class MainForm
         var pinned = _documentTabs.IsPinned(p);
         if (p.Tag is LazySql l) return new SessionTab("sql", p.Text, l.Key, l.Text, l.Sys, pinned);
         if (p.Tag is LazyTable lt) return new SessionTab("table", p.Text, $"{(lt.Sys ? 1 : 0)}|{lt.Schema}|{lt.Table}", lt.FilterJson, lt.Sys, pinned);
-        if (p.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } c)
+        if (p.Controls.OfType<ISqlTab>().FirstOrDefault() is { } c)
         {
             var text = _sessionText.TryGetValue(c, out var box) ? box.Value : "";
             var key = _objectTabs.FirstOrDefault(kv => ReferenceEquals(kv.Value, p) && !kv.Key.StartsWith("usages:", StringComparison.Ordinal)).Key;

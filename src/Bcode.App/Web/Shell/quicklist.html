@@ -59,6 +59,8 @@
   .tbl th.c { cursor: pointer; white-space: normal; line-height: 1.1; } .tbl th.c:hover { color: var(--accent); }
   .tbl td.drag { cursor: grab; color: var(--text-muted); text-align: center; user-select: none; padding: 0 .2rem; }
   .tbl td.nm { cursor: pointer; user-select: none; }
+  .tbl td.c { user-select: none; }
+  .tbl td.csel { background: color-mix(in srgb, var(--accent) 38%, transparent); box-shadow: inset 0 0 0 1px var(--accent); }
   .tbl td.nm small { display: block; color: var(--text-muted); font-size: .78rem; line-height: 1.1; }
   .tbl tr.key td.nm b { color: var(--accent); }
   .tbl tr.dim td.nm { color: var(--text-muted); }
@@ -71,11 +73,31 @@
   .empty-steps { padding: 1.5rem 1rem; color: var(--text-muted); line-height: 1.9; white-space: normal; }
   .empty-steps b { color: var(--text); }
 
-  .prev { flex: 1; min-height: 0; display: flex; gap: .6rem; }
-  .prev ul { list-style: none; margin: 0; padding: 0; width: 20rem; flex: none; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); }
-  .prev li { padding: .3rem .6rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .prev li.on { background: var(--accent); color: var(--on-accent); }
-  .prev pre { flex: 1; margin: 0; overflow: auto; padding: .6rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); font-family: Consolas, monospace; font-size: .88rem; white-space: pre; tab-size: 4; }
+  /* ---- Tab Xem XML: danh sách file (trái) + nội dung có số dòng, tô màu XML (phải) — cùng kiểu Tạo báo cáo ---- */
+  .fview { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); gap: .6rem; }
+  .fview .card { display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); box-shadow: 0 1px 3px rgba(0, 0, 0, .18); }
+  .fview .card > .ch { display: flex; align-items: center; gap: .6rem; padding: .4rem .7rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); border-radius: var(--r) var(--r) 0 0; flex: none; }
+  .fview .card > .ch b { font-size: .95rem; } .fview .card > .ch .grow { flex: 1; }
+  .fview .card > .cb { flex: 1; min-height: 0; overflow: auto; }
+  .flist ul { list-style: none; margin: 0; padding: .4rem; display: flex; flex-direction: column; gap: .3rem; }
+  .flist li { display: flex; align-items: center; gap: .6rem; padding: .45rem .55rem; cursor: pointer; border: var(--bw) solid transparent; border-radius: var(--r); }
+  .flist li:hover { background: rgba(127, 127, 127, .1); }
+  .flist li.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+  .flist li .fi { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+  .flist li .fi b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .flist li .fi small { color: var(--text-muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flist li .sz { flex: none; color: var(--text-muted); font-size: .78rem; text-align: right; line-height: 1.25; }
+  .flist .fnote { padding: .55rem .7rem; border-top: var(--bw) solid var(--border); font-size: .84rem; line-height: 1.45; white-space: normal; flex: none; }
+  .badge { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 3.6rem; padding: .1rem .4rem; border-radius: .8rem; font-size: .76rem; font-weight: 700; color: #fff; background: #6c757d; }
+  .badge.Dir { background: #d9822b; } .badge.Grid { background: #2e9a5b; } .badge.Lookup { background: #c2528b; } .badge.Filter { background: #3b7dd8; }
+  .badge.Import { background: #1d7a9a; } .badge.Upload { background: #1d7a44; } .badge.Main { background: #6c757d; }
+  .fcode .ch .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Consolas, monospace; font-size: .86rem; }
+  .codebox { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: flex-start; background: var(--input); border-radius: 0 0 var(--r) var(--r); }
+  .codebox pre { margin: 0; padding: .55rem .7rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .85rem; line-height: 1.5; tab-size: 4; white-space: pre; }
+  .codebox pre.gut { position: sticky; left: 0; flex: none; min-height: 100%; text-align: right; color: var(--text-muted); background: var(--input); border-right: var(--bw) solid var(--border); user-select: none; padding-right: .55rem; }
+  .codebox pre.src { flex: 1; }
+  .x-tb { color: #6a9fd8; } .x-tn { color: #4ec9b0; } .x-an { color: #9cdcfe; } .x-av { color: #ce9178; } .x-cm { color: #6a9955; font-style: italic; } .x-cd { color: #c586c0; } .x-en { color: #d7ba7d; }
+  [data-theme="light"] .x-tn { color: #127a6a; } [data-theme="light"] .x-an { color: #1f5fa8; } [data-theme="light"] .x-av { color: #a33f16; }
 
   /* ---- Xem trước form (mô phỏng theo đúng quy tắc bố cục bộ sinh dùng) ---- */
   .split { width: 6px; flex: none; cursor: col-resize; }
@@ -150,9 +172,9 @@
     <div class="fld"><label>Order</label><input type="text" id="order" spellcheck="false"></div>
     <div class="fld"><label>Cột tên (Lookup)</label><select id="nameField"></select></div>
     <div class="fld"><label>Title (v)</label><input type="text" id="titleV"></div>
-    <div class="fld"><label>Title (e)</label><input type="text" id="titleE"></div>
+    <div class="fld"><label>Title (e)</label><div class="pick"><input type="text" id="titleE"><button data-tr="titleV:titleE" title="Dịch Title (v) sang tiếng Anh">Dịch</button></div></div>
     <div class="fld"><label>Subtitle (v)</label><input type="text" id="subV"></div>
-    <div class="fld"><label>Subtitle (e)</label><input type="text" id="subE"></div>
+    <div class="fld"><label>Subtitle (e)</label><div class="pick"><input type="text" id="subE"><button data-tr="subV:subE" title="Dịch Subtitle (v) sang tiếng Anh">Dịch</button></div></div>
     <div class="fld w2"><label>&nbsp;</label>
       <details class="adv" id="adv"><summary>Nâng cao (thư mục mẫu, biến khoá cũ)</summary></details>
     </div>
@@ -184,7 +206,7 @@
     <div class="fld"><label>Khoá chi tiết</label><input type="text" id="detailKeys" spellcheck="false"></div>
     <div class="fld"><label>Order</label><input type="text" id="detailOrder" spellcheck="false" placeholder="line_nbr"></div>
     <div class="fld"><label>Tiêu đề lưới (v)</label><input type="text" id="detailTitleV"></div>
-    <div class="fld"><label>Tiêu đề lưới (e)</label><input type="text" id="detailTitleE"></div>
+    <div class="fld"><label>Tiêu đề lưới (e)</label><div class="pick"><input type="text" id="detailTitleE"><button data-tr="detailTitleV:detailTitleE" title="Dịch tiêu đề lưới (v) sang tiếng Anh">Dịch</button></div></div>
     <label class="chk" style="padding-bottom:.35rem"><input type="checkbox" id="detailImport"> Import</label>
   </div>
   <!-- Khôi phục cấu hình lần trước / kết quả tạo file -->
@@ -215,6 +237,7 @@
         <button class="help" tabindex="0">?<span class="helpbox">
           <b>Chọn cột:</b> click tên cột; <kbd>Ctrl</kbd> = chọn thêm, <kbd>Shift</kbd> = chọn dải. Nút Khoá / Cột thường / Hệ thống / Tự do = chọn cả nhóm.<br>
           <b>Tick nhanh:</b> bấm tiêu đề Grid / Dir / ... = bật/tắt cho các cột đang chọn (chưa chọn = các cột đang hiện). <kbd>Shift</kbd>+click ô tick = tick cả dải.<br>
+          <b>Bôi đen:</b> nhấn chuột vào 1 ô tick rồi kéo dọc cùng cột để bôi đen dải ô, bấm <kbd>Cách</kbd> = tick cả dải (đã tick hết thì bỏ tick).<br>
           <b>Width, type, AllowNulls, ReadOnly, Hidden, Ẩn tên:</b> sửa ở thanh "Đã chọn N cột", áp cho mọi cột đang chọn.<br>
           <b>Thứ tự field:</b> kéo ⠿ (hoặc kéo ngay trong khung xem trước), hoặc <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>.<br>
           <b>Khung xem trước:</b> click 1 ô / cột = nhảy tới dòng đó trong bảng.<br>
@@ -241,7 +264,19 @@
       </div>
       <div class="pane" id="pCols"><div class="tbl-wrap"><table class="tbl"><colgroup id="cgMaster"></colgroup><thead><tr id="headMaster"></tr></thead><tbody id="rows"></tbody></table></div></div>
       <div class="pane" id="pDet" hidden><div class="tbl-wrap"><table class="tbl"><colgroup id="cgDetail"></colgroup><thead><tr id="headDetail"></tr></thead><tbody id="drows"></tbody></table></div></div>
-      <div class="pane" id="pPrev" hidden><div class="prev"><ul id="files"></ul><pre id="code"></pre></div></div>
+      <div class="pane" id="pPrev" hidden>
+        <div class="fview">
+          <div class="card flist">
+            <div class="ch"><b>File sẽ tạo</b><span class="muted" id="fCount"></span></div>
+            <div class="cb"><ul id="files"></ul></div>
+            <div class="fnote muted">Các file được dựng từ source mẫu, <b>chưa ghi</b> vào source. Bấm <b>Tạo file</b> để ghi vào thư mục "Lưu vào" (có hỏi xác nhận nếu file đã tồn tại).</div>
+          </div>
+          <div class="card fcode">
+            <div class="ch"><span class="badge" id="fKind"></span><span class="path" id="fPath"></span><span class="grow"></span><span class="muted" id="fMeta"></span><button id="bCopy" title="Copy nội dung file">Copy</button></div>
+            <div class="codebox" id="codeBox"><pre class="gut" id="gut"></pre><pre class="src" id="code"></pre></div>
+          </div>
+        </div>
+      </div>
       <!-- Tab Menu: chọn menu mẫu cùng nhóm → xem trước menu sẽ tạo → mở form WCOMMAND (New) điền sẵn -->
       <div class="pane" id="pMenu" hidden>
         <div class="menuwrap">
@@ -379,7 +414,7 @@
         : 'Nhập <b>Bảng chi tiết</b> ở khung phía trên rồi bấm <b>Nạp</b>.') + '</td></tr>';
       renderSelbar(); scheduleRefresh(); return;
     }
-    const chk = (i, f) => '<td class="c"><input type="checkbox" data-i="' + i + '" data-f="' + f + '"' + (cols[i][f] ? ' checked' : '') + '></td>';
+    const chk = (i, f) => '<td class="c" data-f="' + f + '"><input type="checkbox" data-i="' + i + '" data-f="' + f + '"' + (cols[i][f] ? ' checked' : '') + '></td>';
     const txt = (i, f) => '<td><input type="text" data-i="' + i + '" data-f="' + f + '" value="' + esc(cols[i][f]) + '" title="' + esc(cols[i][f]) + '"></td>';
     $(t.rows).innerHTML = cols.map((c, i) => {
       if (!visible(c)) return '';
@@ -391,14 +426,46 @@
           (isKey ? '<b>' + esc(c.name) + ' 🔑</b>' : esc(c.name)) + '<small>' + esc(c.sqlType) + (c.type ? ' · ' + esc(c.type) : '') + (c.hidden ? ' · <b>ẩn</b>' : '') + (c.hideName && c.lookup ? ' · ẩn tên' : '') + '</small></td>' +
         t.flags.map(([f]) => chk(i, f)).join('') + txt(i, 'headerV') + txt(i, 'headerE') + lookupCell(c, i) + '</tr>';
     }).join('');
+    markCells(t);
     renderSelbar();
     scheduleRefresh();
   }
   const renderAll = () => { renderCols(tables.master); renderCols(tables.detail); };
 
+  // ---- Bôi đen ô tick (kéo chuột dọc 1 cột Grid/Dir/...) rồi bấm Cách = tick / bỏ tick cả dải -----------
+  /** Đánh dấu lại dải ô đang bôi đen (chỉ đổi class, không vẽ lại — dùng được khi đang kéo chuột). */
+  function markCells(t) {
+    document.querySelectorAll('#' + t.rows + ' td.csel').forEach((x) => x.classList.remove('csel'));
+    const s = t.cellSel; if (!s) return;
+    const lo = Math.min(s.a, s.b), hi = Math.max(s.a, s.b);
+    document.querySelectorAll('#' + t.rows + ' tr[data-i]').forEach((tr) => {
+      const i = +tr.dataset.i; if (i < lo || i > hi) return;
+      const td = tr.querySelector('td.c[data-f="' + s.f + '"]'); if (td) td.classList.add('csel');
+    });
+  }
+  /** Cách: có ô nào đã tick trong dải thì chưa đủ → tick hết; tick hết rồi thì bỏ tick hết. */
+  function toggleCells(t) {
+    const s = t.cellSel; if (!s) return false;
+    const lo = Math.min(s.a, s.b), hi = Math.max(s.a, s.b);
+    const target = t.cols.filter((c, i) => i >= lo && i <= hi && visible(c));
+    if (!target.length) return false;
+    const on = !target.every((c) => c[s.f]);
+    record(); target.forEach((c) => { c[s.f] = on; }); renderCols(t);
+    say((on ? 'Đã tick ' : 'Đã bỏ tick ') + target.length + ' ô.', '');
+    return true;
+  }
+  document.addEventListener('mouseup', () => {
+    Object.values(tables).forEach((t) => {
+      if (!t.drag) return;
+      if (t.cellSel && t.cellSel.a !== t.cellSel.b) { t.suppressClick = true; setTimeout(() => { t.suppressClick = false; }, 0); }
+      t.drag = null;
+    });
+  });
+
   // ---- Chọn cột (click tên, Ctrl/Shift) --------------------------------------------------
   function selectRow(t, i, e) {
     const cols = t.cols;
+    t.cellSel = null;
     if (e.shiftKey && t.anchor >= 0) {
       const [a, b] = [Math.min(t.anchor, i), Math.max(t.anchor, i)];
       if (!e.ctrlKey) cols.forEach((c) => c.sel = false);
@@ -490,8 +557,25 @@
     };
     body.addEventListener('input', onCell);
     body.addEventListener('change', onCell);
+    // Bôi đen ô tick: nhấn chuột vào 1 ô tick rồi kéo dọc cùng cột; bấm ra ngoài thì bỏ bôi đen.
+    body.addEventListener('mousedown', (e) => {
+      if (e.button) return;
+      const td = e.target.closest('td.c[data-f]');
+      if (!td) { if (t.cellSel) { t.cellSel = null; markCells(t); } return; }
+      if (e.shiftKey) return;   // Shift+click ô tick = tick cả dải (xử lý ở 'click')
+      const i = +td.parentElement.dataset.i;
+      t.cellSel = { f: td.dataset.f, a: i, b: i }; t.drag = { f: td.dataset.f };
+      markCells(t);
+    });
+    body.addEventListener('mouseover', (e) => {
+      if (!t.drag || !t.cellSel || !(e.buttons & 1)) return;
+      const tr = e.target.closest('tr[data-i]'); if (!tr) return;
+      const b = +tr.dataset.i;
+      if (b !== t.cellSel.b) { t.cellSel.b = b; markCells(t); window.getSelection().removeAllRanges(); }
+    });
     body.addEventListener('click', (e) => {
       const x = e.target;
+      if (t.suppressClick && x.closest('td.c')) { e.preventDefault(); return; }   // vừa kéo bôi đen: không để ô cuối tự đổi
       if (x.type === 'checkbox' && x.dataset.f) {
         const i = +x.dataset.i, f = x.dataset.f, v = x.checked;
         record();
@@ -532,6 +616,10 @@
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { post('close'); return; }
     if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); generate(); return; }
+    if (e.key === ' ' && !e.ctrlKey && !e.altKey && (activeTab === 'cols' || activeTab === 'det')) {
+      const t = cur(), a = document.activeElement;
+      if (t.cellSel && !typing() && !(a && (a.tagName === 'SELECT' || a.tagName === 'BUTTON'))) { e.preventDefault(); toggleCells(t); return; }
+    }
     if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && (activeTab === 'cols' || activeTab === 'det')) { e.preventDefault(); nudge(cur(), e.key === 'ArrowUp' ? -1 : 1); return; }
     // Ctrl+Z / Ctrl+Y: trong ô chữ để trình duyệt tự hoàn tác chữ; ngoài ô chữ = hoàn tác thao tác trên bảng cột.
     if (e.ctrlKey && !typing()) {
@@ -561,6 +649,14 @@
     Object.values(tables).forEach((t) => t.cols.forEach((c) => { c.autoV = c.autoE = true; }));
     guessHeaders();
   };
+
+  // ---- Nút Dịch: Title/Subtitle (v) → (e), cùng hàm dịch với form tạo command -------------------
+  document.querySelectorAll('[data-tr]').forEach((b) => b.onclick = () => {
+    const [from, to] = b.dataset.tr.split(':'), text = $(from).value.trim();
+    if (!text) { say('Nhập ô tiếng Việt trước rồi mới dịch.', 'err'); $(from).focus(); return; }
+    b.disabled = true; say('Đang dịch…', '');
+    post('translate', { items: [{ id: to, text }] });
+  });
 
   // ---- Các ô nhập phía trên -----------------------------------------------------------------
   $('adv').addEventListener('toggle', () => { $('advBody').hidden = !$('adv').open; });
@@ -709,6 +805,10 @@
     });
     return map;
   }
+  /** Lookup: cột có AutoComplete đi cặp với field tên (ma_bp, ten_bp%l) — cùng luật với Dir. */
+  const lookupRefs = (cols, all) => refsOf(cols, all);
+  /** Trường mã / số / ngày / tick / khoá / có tra cứu → ô nhập rộng 100 (cột 2–4); còn lại trải hết dòng. Khớp QuickListService.IsNarrowInput. */
+  const narrow = (c, isKey) => c.type === 'Boolean' || c.type === 'DateTime' || c.type === 'Decimal' || isKey || !!c.lookup || /^(ma|so)_/i.test(c.name);
   function box(c, opts) {
     opts = opts || {};
     if (c && c.type === 'Boolean') return '<div class="cb" title="' + esc(c.name) + '"></div>';
@@ -740,7 +840,7 @@
       const open = '<tr data-k="master" data-n="' + esc(c.name) + '" draggable="true"' + (sel.has(c.name) ? ' class="on"' : '') + ' title="' + esc(c.name) + ' — click để sửa, kéo để đổi thứ tự">';
       const label = '<td class="lb">' + esc(hdr(c)) + '</td>';
       if (refs.has(c.name)) return open + label + '<td colspan="3">' + box(c, { lookup: true, key: isKey }) + '</td><td colspan="9">' + box(null, { ro: true, title: refs.get(c.name) }) + '</td></tr>';
-      const span = c.type === 'Boolean' || c.type === 'DateTime' || c.type === 'Decimal' || isKey || c.lookup ? 3 : 12;
+      const span = narrow(c, isKey) ? 3 : 12;
       return open + label + '<td colspan="' + span + '">' + box(c, { key: isKey, lookup: !!c.lookup }) + '</td>' + (span < 12 ? '<td colspan="' + (12 - span) + '"></td>' : '') + '</tr>';
     }).join('');
 
@@ -772,7 +872,7 @@
     if ($('lookup').checked) {
       let lc = m.cols.filter((c) => c.inLookup);
       if (!lc.length) lc = m.cols.filter((c) => keys.includes(c.name.toLowerCase()) || c.name === $('nameField').value);
-      lookupHtml = '<h4>Lookup (danh sách tra cứu của danh mục này)</h4><div class="win"><div class="wb">' + gridHtml('lookup', lc, [], null, 3) + '</div></div>';
+      lookupHtml = '<h4>Lookup (danh sách tra cứu của danh mục này)</h4><div class="win"><div class="wb">' + gridHtml('lookup', lc, [], lookupRefs(lc, m.cols), 3) + '</div></div>';
     }
     let filterHtml = '';
     if ($('filter').checked) {
@@ -842,7 +942,7 @@
     const chk = (id, v) => { if (v !== undefined) $(id).checked = !!v; };
     val('controller', spec.controller); val('main', spec.main); val('keys', spec.keys); val('order', spec.order);
     val('titleV', spec.titleV); val('titleE', spec.titleE); val('subV', spec.subV); val('subE', spec.subE);
-    if (spec.oldKeyFormat) val('oldKeyFormat', spec.oldKeyFormat);
+    if (spec.oldKeyFormat && spec.oldKeyFormat !== '@{0}_old') val('oldKeyFormat', spec.oldKeyFormat);   // '@{0}_old' = mẫu cũ, đã đổi thành ${0}.OldValue
     orderAuto = (spec.order || '') === (spec.keys || '');
     ['funcNew', 'funcEdit', 'funcDelete', 'funcFilter', 'lookup', 'filter', 'import', 'irregular', 'comment', 'detailImport'].forEach((id) => chk(id, spec[id]));
     $('importVer').value = spec.import2262 === false ? 'old' : '2262'; $('importVer').disabled = !$('import').checked;
@@ -1010,10 +1110,33 @@
   $('bDoneClose').onclick = () => { $('doneBanner').hidden = true; };
   $('doneFiles').addEventListener('click', (e) => { const a = e.target.closest('a[data-p]'); if (a) post('openViewer', { path: a.dataset.p }); });
 
+  // ---- Tab Xem XML: nhãn loại file, số dòng/KB, tô màu XML, Copy (cùng kiểu Tạo báo cáo) -----------
+  const kindOf = (t) => /\\Templates\\Upload\\/i.test(t) ? 'Upload' : /\\Filter\\.*Import\.xml$/i.test(t) ? 'Import' : /\\Filter\\/i.test(t) ? 'Filter'
+    : /\\Grid\\/i.test(t) ? 'Grid' : /\\Dir\\/i.test(t) ? 'Dir' : /\\Lookup\\/i.test(t) ? 'Lookup' : /\.aspx$/i.test(t) ? 'Main' : '';
+  const splitPath = (t) => { const i = t.lastIndexOf('\\'); return i < 0 ? ['', t] : [t.slice(0, i + 1), t.slice(i + 1)]; };
+  const fmtBytes = (n) => n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+  const sizeOf = (s) => new Blob([s || '']).size;
+  /** Tô màu XML gọn nhẹ (thẻ, thuộc tính, chuỗi, chú thích, CDATA, entity) trên chuỗi đã escape. */
+  const hlXml = (txt) => esc(txt).replace(/(&lt;!--[\s\S]*?--&gt;)|(&lt;!\[CDATA\[|\]\]&gt;)|(&lt;[\/!?%@]?)([\w:.-]+)|([\/?%]?&gt;)|(&quot;[^\n]*?&quot;)|(&amp;[\w.%#]+;|%[\w.]+;)|(\s)([\w:.-]+)(?==)/g,
+    (m, cm, cd, lt, tn, gt, str, ent, sp, an) =>
+      cm ? `<span class="x-cm">${cm}</span>` : cd ? `<span class="x-cd">${cd}</span>` : lt ? `<span class="x-tb">${lt}</span><span class="x-tn">${tn}</span>`
+      : gt ? `<span class="x-tb">${gt}</span>` : str ? `<span class="x-av">${str}</span>` : ent ? `<span class="x-en">${ent}</span>` : an ? `${sp}<span class="x-an">${an}</span>` : m);
+  let curFile = 0;
   function showFile(i) {
-    document.querySelectorAll('#files li').forEach((li, j) => li.classList.toggle('on', i === j));
-    $('code').textContent = previewFiles[i] ? previewFiles[i].content : '';
+    curFile = Math.max(0, i);
+    document.querySelectorAll('#files li').forEach((li, j) => li.classList.toggle('on', curFile === j));
+    const f = previewFiles[curFile]; if (!f) { $('code').textContent = $('gut').textContent = ''; return; }
+    const k = kindOf(f.target), text = f.content || '', lines = text.split(/\r?\n/).length;
+    $('fKind').textContent = k; $('fKind').className = 'badge ' + k;
+    $('fPath').textContent = f.target;
+    const out = $('output').value.trim();
+    $('fPath').title = (out ? out.replace(/\\?$/, '\\') : '') + f.target;
+    $('fMeta').textContent = lines + ' dòng · ' + fmtBytes(sizeOf(text));
+    $('gut').textContent = Array.from({ length: lines }, (_, j) => j + 1).join('\n');
+    $('code').innerHTML = hlXml(text);
+    $('codeBox').scrollTop = 0; $('codeBox').scrollLeft = 0;
   }
+  $('bCopy').onclick = () => { const f = previewFiles[curFile]; if (f && f.content) post('copy', { text: f.content }); };
   $('files').addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) showFile(+li.dataset.i); });
 
   // ---- C# gọi xuống ---------------------------------------------------------------------------
@@ -1096,8 +1219,13 @@
     },
     onPreview(files) {
       previewFiles = files || [];
-      $('files').innerHTML = previewFiles.map((f, i) => '<li data-i="' + i + '" title="' + esc(f.target) + '">' + esc(f.target) + '</li>').join('');
-      showFile(0);
+      $('fCount').textContent = '· ' + previewFiles.length + ' file';
+      $('files').innerHTML = previewFiles.map((f, i) => {
+        const [dir, name] = splitPath(f.target), k = kindOf(f.target);
+        return '<li data-i="' + i + '" title="' + esc(f.target) + '"><span class="badge ' + k + '">' + esc(k) + '</span><span class="fi"><b>' + esc(name) + '</b><small>' + esc(dir) + '</small></span>' +
+          '<span class="sz">' + (f.content || '').split(/\r?\n/).length + ' dòng<br>' + fmtBytes(sizeOf(f.content)) + '</span></li>';
+      }).join('');
+      showFile(Math.min(curFile, previewFiles.length - 1));
     },
     onGenerated(d) {
       lastGenerated = d;
@@ -1120,6 +1248,11 @@
     onMenuFormClosed() {
       say('Đã đóng form menu. Bấm Refresh ở cây WCommand để thấy thay đổi.', '');
       loadMenus(true); findMenus();
+    },
+    onTranslated(map, err) {
+      document.querySelectorAll('[data-tr]').forEach((b) => { b.disabled = false; });
+      Object.keys(map || {}).forEach((id) => { $(id).value = map[id]; $(id).dispatchEvent(new Event('input', { bubbles: true })); });
+      if (err) say(err, 'err'); else say('Đã dịch — kiểm tra lại rồi tạo file.', 'ok');
     },
     onFolder(target, path) { $(target).value = path; scheduleRefresh(); },
     onStatus(t, k) { say(t, k); },

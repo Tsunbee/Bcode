@@ -345,49 +345,10 @@ public class WCommandEditForm : ThemedForm
 
     private static string Json(string s) => JsonSerializer.Serialize(s);
 
-    private static readonly HttpClient TranslateHttp = new() { Timeout = TimeSpan.FromSeconds(20) };
-
-    /// <summary>Dịch Bar (tiếng Việt) sang ngôn ngữ chọn bằng endpoint Google Translate (gtx, không cần API key) rồi điền vào Bar2.</summary>
+    /// <summary>Dịch Bar (tiếng Việt) sang ngôn ngữ chọn (<see cref="GoogleTranslateService"/>) rồi điền vào Bar2.</summary>
     private async Task TranslateBarAsync(string text, string lang)
     {
-        string? result = null, error = null;
-        var tl = string.IsNullOrWhiteSpace(lang) ? "en" : lang;
-        // Cách 1: clients5 (client=dict-chrome-ex, của tiện ích từ điển Chrome) — hay chạy khi gtx bị 429. Cách 2: gtx.
-        try
-        {
-            using var resp = await TranslateHttp.GetAsync("https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=vi&tl=" + Uri.EscapeDataString(tl) + "&q=" + Uri.EscapeDataString(text));
-            if (resp.IsSuccessStatusCode)
-            {
-                using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-                var el = doc.RootElement;
-                if (el.ValueKind == JsonValueKind.Array && el.GetArrayLength() > 0)
-                {
-                    el = el[0];
-                    if (el.ValueKind == JsonValueKind.Array && el.GetArrayLength() > 0) el = el[0];   // dạng ["bản dịch","vi"]
-                    if (el.ValueKind == JsonValueKind.String) result = (el.GetString() ?? "").Trim();
-                }
-            }
-        }
-        catch { /* thử đường gtx bên dưới */ }
-        if (string.IsNullOrEmpty(result))
-        {
-            try
-            {
-                using var resp = await TranslateHttp.GetAsync("https://translate.googleapis.com/translate_a/single?client=gtx&sl=vi&tl=" + Uri.EscapeDataString(tl) + "&dt=t&q=" + Uri.EscapeDataString(text));
-                if (!resp.IsSuccessStatusCode)
-                    error = resp.StatusCode == (System.Net.HttpStatusCode)429 ? "Google Dịch đang giới hạn tốc độ (429) — đợi vài phút rồi dịch lại, hoặc tự nhập Bar2." : $"Lỗi gọi Google Dịch ({(int)resp.StatusCode}).";
-                else
-                {
-                    using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-                    var sb = new System.Text.StringBuilder();
-                    foreach (var seg in doc.RootElement[0].EnumerateArray())
-                        if (seg.ValueKind == JsonValueKind.Array && seg.GetArrayLength() > 0 && seg[0].ValueKind == JsonValueKind.String) sb.Append(seg[0].GetString());
-                    result = sb.ToString().Trim();
-                    if (result.Length == 0) error = "Google Dịch không trả về kết quả.";
-                }
-            }
-            catch (Exception ex) { error = "Không dịch được (kiểm tra mạng): " + ex.Message; }
-        }
+        var (result, error) = await GoogleTranslateService.TranslateAsync(text, lang);
         await Js($"window.setTranslated({Json(result ?? "")}, {(error is null ? "null" : Json(error))})");
     }
 

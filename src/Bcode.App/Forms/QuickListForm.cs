@@ -79,6 +79,17 @@ public class QuickListForm : WebDialogForm
             }
             case "preview": Preview(msg); break;
             case "guessHeaders": GuessHeaders(msg); break;
+            case "translate": await TranslateAsync(msg); break;
+            case "copy":
+            {
+                var text = msg.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : "";
+                BeginInvoke(new Action(() =>
+                {
+                    try { Clipboard.SetText(text); Js($"quick.onStatus({J("Đã copy nội dung file.")}, 'ok')"); }
+                    catch { /* clipboard bận */ }
+                }));
+                break;
+            }
             case "generate": BeginInvoke(new Action(() => Generate(msg))); break;
             case "openFolder": OpenFolder(msg.GetProperty("path").GetString() ?? ""); break;
             case "openViewer":
@@ -216,6 +227,23 @@ public class QuickListForm : WebDialogForm
             .Where(x => x.g != null)
             .Select(x => new { name = x.n, v = x.g!.Value.V, e = x.g!.Value.E });
         Js($"quick.onHeaders({J(new { master = Map(Names("master")), detail = Map(Names("detail")) })})");
+    }
+
+    /// <summary>Nút "Dịch": dịch các ô tiếng Việt trang gửi lên (id ô đích → chữ Việt) sang tiếng Anh — cùng hàm dịch với form tạo command.</summary>
+    private async Task TranslateAsync(JsonElement msg)
+    {
+        var items = msg.GetProperty("items").EnumerateArray()
+            .Select(i => (Id: i.GetProperty("id").GetString() ?? "", Text: (i.GetProperty("text").GetString() ?? "").Trim()))
+            .Where(i => i.Id.Length > 0 && i.Text.Length > 0).ToList();
+        string? error = null;
+        var map = new Dictionary<string, string>();
+        foreach (var (id, text) in items)
+        {
+            var (result, err) = await GoogleTranslateService.TranslateAsync(text);
+            if (err != null) { error = err; break; }
+            map[id] = result ?? "";
+        }
+        Js($"quick.onTranslated({J(map)}, {J(error ?? "")})");
     }
 
     // ---- Sau khi tạo file -----------------------------------------------------------------------

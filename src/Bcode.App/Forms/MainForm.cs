@@ -775,7 +775,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         new[] { "sql_query", "lookup", "table", "command", "query_history", "sql_profiler" },                                   // truy vấn SQL
         new[] { "wcommand", "file_lookup", "file_reference", "change_owner", "compare_objects", "compare_structure", "decrypt_sql_object" },   // đối tượng / cấu hình Fast
-        new[] { "gen_update_package", "gen_update", "create_rpt_xlsx", "excel_to_frx", "view_rpt_fec", "create_processing", "catalog_clone", "quick_list" },   // gói cập nhật, báo cáo, danh mục
+        new[] { "gen_update_package", "gen_update", "create_rpt_xlsx", "excel_to_frx", "view_rpt_fec", "create_processing", "catalog_clone" },   // gói cập nhật, báo cáo, danh mục
         new[] { "note", "note_new", "compare_text", "string_beauty" },                                                          // văn bản, ghi chú
         new[] { "check_mail", "setup_einvoice", "fsg_crawler", "quick_launch", "library" },                                     // dự án / FSG / tiện ích khác
     };
@@ -845,7 +845,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list" };
 
     // Claude / Gemini: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web" };

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Bcode.App.Services;
@@ -91,7 +91,7 @@ public class QuickListSpec
 public class QuickListService
 {
     public const string DefaultTemplateFolderName = @"Templates\fileSource\CreateList";
-    public const string DefaultOldKeyFormat = "@{0}_old";
+    public const string DefaultOldKeyFormat = "${0}.OldValue";
 
     private static readonly UTF8Encoding Utf8Bom = new(encoderShouldEmitUTF8Identifier: true);
     private static readonly Regex AnyMarker = new(@"\[#([A-Za-z0-9_]+)#\]", RegexOptions.Compiled);
@@ -288,7 +288,7 @@ public class QuickListService
             ["TABLE"] = A(s.Table),
             ["KEY"] = A(string.Join(", ", keys)),
             ["ORDER"] = A(order),
-            ["NAME"] = A(s.NameField),
+            ["NAME"] = A(LookupName(s)),
             ["TITLE"] = A(s.TitleV),
             ["TITLE2"] = A(s.TitleE),
             ["SUBTITLE"] = A(s.SubTitleV),
@@ -336,13 +336,15 @@ public class QuickListService
                 v["VIEW"] = DirView(formCols, s.HasDetail ? s.DetailId : null, refs);
                 break;
             case "Grid":
-                v["FIELDS"] = Join(gridCols.Select(c => c.Hidden ? Hide(CatalogCloneService.GridField(c)) : CatalogCloneService.GridField(c)));
-                v["VIEW"] = Join(gridCols.Select(c => $"\t\t\t<field name=\"{A(c.Name)}\"/>"));
+                // Cột tên của danh mục đặt là "ten_xx%l" (theo ngôn ngữ), giống file Lookup.
+                var gridNamed = gridCols.Select(c => c.Name.Equals(s.NameField, StringComparison.OrdinalIgnoreCase) ? WithName(c, LookupName(s)) : c).ToList();
+                v["FIELDS"] = Join(gridNamed.Select(c => c.Hidden ? Hide(CatalogCloneService.GridField(c)) : CatalogCloneService.GridField(c)));
+                v["VIEW"] = Join(gridNamed.Select(c => $"\t\t\t<field name=\"{A(c.Name)}\"/>"));
                 break;
             case "Lookup":
                 var lookupCols = s.Columns.Where(c => c.InLookup).ToList();
                 if (lookupCols.Count == 0) lookupCols = s.Columns.Where(c => c.IsKey || c.Name.Equals(s.NameField, StringComparison.OrdinalIgnoreCase)).ToList();
-                v["FIELDS"] = Join(lookupCols.Select(CatalogCloneService.LookupField));
+                v["FIELDS"] = Join(LookupFieldsPaired(s, lookupCols));
                 break;
             case "Filter":
                 var filterCols = s.Columns.Where(c => c.InFilter)
@@ -558,13 +560,57 @@ public class QuickListService
         var A = CatalogCloneService.Attr;
         var sb = new StringBuilder($"<view id=\"Dir\">\n\t\t\t<item value=\"{CatalogCloneService.DirColumnWidths}\"/>\n");
         cols = cols.Where(c => c is not QuickListColumn { Hidden: true });
-        sb.Append(string.Join("\n", cols.Select(c => refs.TryGetValue(c.Name, out var r) && !r.Col.HideName
-            ? $"\t\t\t<item value=\"1100100000000: [{A(c.Name)}].Label, [{A(c.Name)}], [{A(r.Reference)}]\"/>"
-            : CatalogCloneService.DirItem(c))));
+        sb.Append(string.Join("\n", cols.Select(c =>
+        {
+            if (refs.TryGetValue(c.Name, out var r) && !r.Col.HideName)
+                return $"\t\t\t<item value=\"1100100000000: [{A(c.Name)}].Label, [{A(c.Name)}], [{A(r.Reference)}]\"/>";
+            // Độ dài chuỗi số = số cột dùng: "1100" = nhãn + ô nhập ở cột 2–4 (rộng 100), phần còn lại để trống.
+            // Ô mã / số / ngày / tick → 100; ô chữ (ten_xx, địa chỉ...) trải hết 13 cột.
+            return IsNarrowInput(c)
+                ? $"\t\t\t<item value=\"1100: [{A(c.Name)}].Label, [{A(c.Name)}]\"/>"
+                : CatalogCloneService.DirItem(c);
+        })));
         if (detailId != null) sb.Append($"\n\t\t\t<item value=\"1000000000000: [{CatalogCloneService.Attr(detailId)}]\"/>");
         sb.Append("\n\t\t</view>");
         return sb.ToString();
     }
+
+    /// <summary>Trường mã / số / ngày / tick / khoá / có tra cứu → ô nhập rộng 100; còn lại (text, ten_xxx, địa chỉ...) → trải hết dòng.</summary>
+    internal static bool IsNarrowInput(CatalogColumn c) =>
+        c.Type is "Boolean" or "DateTime" or "Decimal" || c.IsKey || c is QuickListColumn { Lookup: not null }
+        || Regex.IsMatch(c.Name, @"^(ma|so)_", RegexOptions.IgnoreCase);
+
+    /// <summary>Field Lookup: mỗi cột có AutoComplete đi cặp với field tên (ma_bp, ten_bp%l, ma_vv, ten_vv%l).</summary>
+    private static IEnumerable<string> LookupFieldsPaired(QuickListSpec s, List<QuickListColumn> lookupCols)
+    {
+        var refs = References(lookupCols, s.Columns);
+        // Cột tên của chính danh mục: field là "ten_xx%l" (header e = Description), khớp name="ten_xx%l" ở thẻ <lookup>. Luôn có mặt dù không tick Lookup.
+        var nameCol = s.Columns.FirstOrDefault(x => x.Name.Equals(s.NameField, StringComparison.OrdinalIgnoreCase));
+        if (nameCol != null && !lookupCols.Contains(nameCol)) lookupCols = lookupCols.Concat(new[] { nameCol }).ToList();
+        foreach (var c in lookupCols)
+        {
+            if (c == nameCol)
+            {
+                yield return CatalogCloneService.LookupField(new CatalogColumn { Name = LookupName(s), HeaderV = c.HeaderV, HeaderE = "Description" });
+                continue;
+            }
+            yield return CatalogCloneService.LookupField(c);
+            if (!refs.TryGetValue(c.Name, out var r)) continue;
+            var (v, e) = NameHeader(r.Reference);
+            var field = CatalogCloneService.LookupField(new CatalogColumn { Name = r.Reference, HeaderV = v, HeaderE = e });
+            yield return r.Col.HideName ? Hide(field) : field;
+        }
+    }
+
+    /// <summary>name="" của &lt;lookup&gt;: cột tên + %l (vd ten_bp%l).</summary>
+    private static string LookupName(QuickListSpec s) =>
+        s.NameField.Length == 0 || s.NameField.EndsWith("%l", StringComparison.Ordinal) ? s.NameField : s.NameField + "%l";
+
+    private static QuickListColumn WithName(QuickListColumn c, string name) => new()
+    {
+        Name = name, HeaderV = c.HeaderV, HeaderE = c.HeaderE, Width = c.Width, Type = c.Type, IsKey = c.IsKey, AllowNulls = c.AllowNulls,
+        ReadOnly = c.ReadOnly, Hidden = c.Hidden, InGrid = c.InGrid, SqlType = c.SqlType,
+    };
 
     private static string Join(IEnumerable<string> parts) => string.Join("\n", parts).TrimStart();
 

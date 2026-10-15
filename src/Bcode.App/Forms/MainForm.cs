@@ -405,13 +405,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Controls.Add(headerContainer);
         Load += (_, _) => ApplyWindowLayout(first: true);
         
+        // --project <tên>: Bcode được mở từ Ctrl+O của cửa sổ khác (đang có tab) để làm dự án vừa chọn — vào thẳng dự án đó, khỏi hỏi lại.
+        var startupProject = StartupArgs.Project is { } sp ? _settings.Workspaces.FindIndex(w => string.Equals(w.Name, sp, StringComparison.OrdinalIgnoreCase)) : -1;
         if (_settings.Workspaces.Count > 0)
         {
-            var last = _settings.Workspaces.FindIndex(w => w.Name == _settings.LastWorkspace);
+            var last = startupProject >= 0 ? startupProject : _settings.Workspaces.FindIndex(w => w.Name == _settings.LastWorkspace);
             SelectWorkspace(last >= 0 ? last : 0);
         }
         // Màn hình Projects khi mới mở Bcode: lọc/chọn nhanh project đã khai báo (đóng đi thì giữ project dùng gần nhất).
-        Shown += (_, _) => BeginInvoke(new Action(() => { ShowProjectPicker(); TryRestoreSession(); }));
+        Shown += (_, _) => BeginInvoke(new Action(() => { if (startupProject < 0) ShowProjectPicker(); TryRestoreSession(); }));
         InitSession();
         InitHibernation();
         // Dựng sẵn 1 tab SQL Query ở nền sau khi cửa sổ đã lên hình (xem TakeSqlControl).
@@ -640,7 +642,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>Màn hình Projects: lọc / chọn nhanh project đã khai báo (mở lúc khởi động và qua Actions &gt; Projects).</summary>
-    private void ShowProjectPicker()
+    /// <param name="newWindowIfTabs">Ctrl+O / Choose Server: cửa sổ này đang có tab mà chọn dự án KHÁC → mở Bcode mới cho dự án đó, cửa sổ này giữ nguyên
+    /// dự án + các tab đang làm. Không có tab (hoặc chọn lại đúng dự án đang vào) thì đổi dự án ngay tại cửa sổ này như trước.</param>
+    private void ShowProjectPicker(bool newWindowIfTabs = false)
     {
         if (IsDisposed) return;
         using IProjectPicker picker = Bcode.App.UI.UiMode.IsNative ? new NativeProjectPickerForm(_settings, _connections) : new ProjectPickerForm(_settings, _connections);
@@ -648,6 +652,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         PushWorkspacesToTopBar(); // New/Edit/Delete trong màn hình có thể đã đổi danh sách
         if (result == DialogResult.OK && picker.Chosen is { } chosen)
         {
+            if (newWindowIfTabs && _documentTabs.TabPages.Count > 0
+                && !string.Equals(chosen.Name, _connections.Current?.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                StartNewBcodeWindow(chosen.Name);
+                return;
+            }
             var idx = _settings.Workspaces.IndexOf(chosen);
             if (idx >= 0) SelectWorkspace(idx);
         }
@@ -667,7 +677,24 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>Choose Server (Ctrl+O, File/Actions &gt; Choose Server): mở ĐÚNG màn hình Projects như lúc vừa vào Bcode — danh sách
     /// project có ô lọc + Last Access; New/Edit/Delete và Synchronize (Ctrl+F5) đều nằm trong đó (xem ProjectPickerForm).</summary>
-    private void OpenConnectionSettings() => ShowProjectPicker();
+    private void OpenConnectionSettings() => ShowProjectPicker(newWindowIfTabs: true);
+
+    /// <summary>Mở thêm 1 cửa sổ Bcode chạy song song (cùng chế độ App/Web). <paramref name="project"/> != null → vào thẳng dự án đó (tham số --project).</summary>
+    private void StartNewBcodeWindow(string? project = null)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(Application.ExecutablePath) { UseShellExecute = false, WorkingDirectory = AppContext.BaseDirectory };
+            psi.ArgumentList.Add(Bcode.App.UI.UiMode.Arg(Bcode.App.UI.UiMode.Current));
+            if (!string.IsNullOrWhiteSpace(project)) { psi.ArgumentList.Add("--project"); psi.ArgumentList.Add(project); }
+            Process.Start(psi);
+            if (project is not null) PushStatus($"Đang mở Bcode mới cho dự án {project} — cửa sổ này giữ nguyên dự án và các tab đang mở.");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Không mở được Bcode mới:\n" + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
 
     private void PushDbNamesToTopBar(Bcode.App.Models.Workspace ws)
     {
@@ -2528,14 +2555,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             }
             case "window.new":
                 // Mở thêm 1 cửa sổ Bcode MỚI chạy song song (mỗi cửa sổ làm 1 dự án — lúc mở có màn hình Projects để chọn).
-                try
-                {
-                    Process.Start(new ProcessStartInfo(Application.ExecutablePath, Bcode.App.UI.UiMode.Arg(Bcode.App.UI.UiMode.Current)) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(this, "Không mở được Bcode mới:\n" + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
+                StartNewBcodeWindow();
                 return true;
         }
 

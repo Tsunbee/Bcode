@@ -1260,6 +1260,7 @@ public class MainForm : Form
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         base.OnFormClosed(e);
+        Settings.RecentFilesStore.Flush();   // danh sách file gần đây ghi ở luồng nền — đợi lần ghi cuối xong rồi mới thoát
 
         try { _webView.CoreWebView2?.RemoveHostObjectFromScript("host"); }
         catch { /* already torn down, or the browser process is gone */ }
@@ -1757,13 +1758,49 @@ public class MainForm : Form
         Host.WorkspaceConnection.CurrentProject = projectName;
         UpdateProjectStatus();
         _activePath = path;
+        // Đường nhanh (Ctrl+Tab / bấm tab sang file đã có trong cây, cùng dự án, nhánh đang mở): cây không đổi gì ngoài dòng đang chọn —
+        // trước đây vẫn dựng lại cả cây WinForms + gửi lại toàn bộ cây sang trang vẽ lại từ đầu mỗi lần đổi tab (cú khựng chính).
+        var fast = CanSwitchTreeInPlace(projectName, path, out var node);
         _recentFiles.Touch(projectName, path);
-        RefreshProjectTree(revealActive: true);
-        RenderBreadcrumb(path);
+        if (fast && node is not null)
+        {
+            _tree.SelectedNode = node;
+            node.EnsureVisible();
+            PushShellActive(path);
+        }
+        else RefreshProjectTree(revealActive: true);
+        if (!_webShell) RenderBreadcrumb(path);   // web shell: thanh đường dẫn WinForms đã ẩn, trang tự vẽ (shell.js renderBreadcrumb)
         Text = $"BcodeViewer — {Path.GetFileName(path)}";
         _langLabel.Text = Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
-        try { _modifiedLabel.Text = "Modified at " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm"); }
-        catch { _modifiedLabel.Text = ""; }
+        // Giờ sửa file đọc qua UNC ở luồng nền (mạng chậm từng làm khựng lúc đổi tab); về tới nơi mà đã sang file khác thì bỏ.
+        _modifiedLabel.Text = "";
+        _ = Task.Run(() => { try { return (DateTime?)File.GetLastWriteTime(path); } catch { return null; } }).ContinueWith(t =>
+        {
+            if (IsDisposed || !string.Equals(_activePath, path, StringComparison.OrdinalIgnoreCase)) return;
+            _modifiedLabel.Text = t.Result is { } at ? "Modified at " + at.ToString("dd/MM/yyyy HH:mm") : "";
+        }, TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
+    /// <summary>File <paramref name="path"/> đã nằm trong cây, cùng dự án <paramref name="projectName"/> (Touch không đổi nhóm / thứ tự dự án),
+    /// và mọi nhánh cha đang mở (không phải bung nhánh nào) → chỉ cần đổi dòng đang chọn, không dựng lại cây.</summary>
+    private bool CanSwitchTreeInPlace(string projectName, string path, out TreeNode? node)
+    {
+        node = null;
+        var entry = _recentFiles.Entries.FirstOrDefault(e => string.Equals(e.Path, path, StringComparison.OrdinalIgnoreCase));
+        if (entry is null || !string.Equals(entry.ProjectName, projectName, StringComparison.OrdinalIgnoreCase)) return false;
+        node = FindFileNode(path);
+        if (node is null) return false;
+        if (node.Parent?.Parent?.Tag is not ProjectGroupTag) return false;   // cây khác dạng dự án → thư mục → file: dựng lại cho chắc
+        for (var p = node.Parent; p is not null; p = p.Parent)
+            if (!p.IsExpanded || CollapsedSet.Contains(TreeKey(p))) return false;
+        return true;
+    }
+
+    /// <summary>Báo trang đổi dòng đang chọn của cây file (không gửi lại cả cây — xem PushShellTree).</summary>
+    private void PushShellActive(string path)
+    {
+        if (!_webShell || _webView.CoreWebView2 is null) return;
+        _ = ExecJsAsync($"shellActive({JsonSerializer.Serialize(path)})");
     }
 
 

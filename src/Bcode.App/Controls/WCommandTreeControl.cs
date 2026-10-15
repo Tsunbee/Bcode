@@ -125,6 +125,7 @@ public class WCommandTreeControl : UserControl
             var combo = Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData);
             if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.newLookup")) { e.Handled = true; OpenInNewLookup(); return; }
             if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.new")) { e.Handled = true; await NewAsync(); return; }
+            if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.menuName")) { e.Handled = true; ToggleMenuName(); return; }
             switch (e.KeyCode)
             {
                 case Keys.F3: e.Handled = true; await EditSelectedAsync(); break;
@@ -155,6 +156,7 @@ public class WCommandTreeControl : UserControl
                     .Add("Mở File Lookup mới", OpenInNewLookup, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.newLookup"), enabled: hasSelection)
                     .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
                     .AddSeparator()
+                    .Add(MenuNameToggleLabel, ToggleMenuName, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.menuName"))
                     .Add("Refresh", async () => await ReloadAsync(force: true), shortcut: "F5");
             return new WebMenu()
                 .Add("New", async () => await NewAsync(), shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.new"))
@@ -171,6 +173,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
                 .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
                 .AddSeparator()
+                .Add(MenuNameToggleLabel, ToggleMenuName, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.menuName"))
                 .Add("Refresh", async () => await ReloadAsync(force: true), shortcut: "F5");
         });
 
@@ -184,6 +187,10 @@ public class WCommandTreeControl : UserControl
         Action recolor = RecolorNodes;
         Bcode.App.UI.ThemeManager.ThemeChanged += recolor;
         Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= recolor;
+        // Đổi Menu Name (Bar ↔ Bar2) ở 1 cây thì cả cây WCommand lẫn cây Mobile cùng đổi tên hiển thị.
+        Action relabel = RelabelNodes;
+        MenuNameChanged += relabel;
+        Disposed += (_, _) => MenuNameChanged -= relabel;
         // Thanh lọc (WebView2 ~10MB) chỉ dựng khi mục WCommand được hiện lần đầu: control ẩn thì chưa có handle nên chưa tốn tiến trình nào.
         var barStarted = false;
         void StartBar() { if (barStarted) return; barStarted = true; _ = InitBarWebAsync(); }
@@ -672,9 +679,9 @@ public class WCommandTreeControl : UserControl
     {
         var parents = new List<string>();
         for (var n = node.Parent; n is not null; n = n.Parent)
-            if (n.Tag is WCommandItem parentItem) parents.Insert(0, parentItem.Bar);
+            if (n.Tag is WCommandItem parentItem) parents.Insert(0, DisplayName(parentItem));
 
-        var leaf = node.Tag is WCommandItem item ? $"{item.Bar} ({item.WMenuId})" : node.Text;
+        var leaf = node.Tag is WCommandItem item ? $"{DisplayName(item)} ({item.WMenuId})" : node.Text;
         parents.Add(leaf);
         return string.Join(" \\ ", parents);
     }
@@ -686,11 +693,55 @@ public class WCommandTreeControl : UserControl
 
     private static TreeNode ToTreeNode(WCommandItem item)
     {
-        var node = new TreeNode($"{item.Bar}  ({item.WMenuId})") { Tag = item };
+        var node = new TreeNode(NodeText(item)) { Tag = item };
         ApplyGroupColor(node, item);
         if (item.Children.Count > 0)
             node.Nodes.Add(new TreeNode("...")); // lazy placeholder — replaced in BeforeExpand
         return node;
+    }
+
+    // ---- Menu Name: hiện Bar (tiếng Việt) hay Bar2 (tiếng Anh) -------------------------------------------
+
+    /// <summary>Bắn khi đổi Menu Name ở bất kỳ cây nào — mọi cây WCommand / Mobile đang mở đổi tên node theo.</summary>
+    private static event Action? MenuNameChanged;
+
+    /// <summary>Tên hiển thị của menu: Bar2 khi đang chọn Menu Name: Bar2 (trống thì vẫn dùng Bar), không thì Bar.</summary>
+    private static string DisplayName(WCommandItem item) =>
+        ShowBar2 && !string.IsNullOrWhiteSpace(item.Bar2) ? item.Bar2 : item.Bar;
+
+    // Đọc file cờ 1 lần (DisplayName chạy cho từng node, ~1600 menu).
+    private static bool? _showBar2;
+    private static bool ShowBar2 => _showBar2 ??= AppSettings.MenuNameBar2;
+
+    private static string NodeText(WCommandItem item) => $"{DisplayName(item)}  ({item.WMenuId})";
+
+    /// <summary>Mục menu chuột phải: ghi tên cột sẽ chuyển sang (như FCode "Menu Name: Bar2").</summary>
+    private static string MenuNameToggleLabel => ShowBar2 ? "Menu Name: Bar (tiếng Việt)" : "Menu Name: Bar2 (tiếng Anh)";
+
+    private static void ToggleMenuName()
+    {
+        _showBar2 = !ShowBar2;
+        AppSettings.MenuNameBar2 = _showBar2.Value;
+        MenuNameChanged?.Invoke();
+    }
+
+    /// <summary>Đổi chữ các node đã dựng (node con chưa bung tự lấy tên mới khi bung — xem ToTreeNode).</summary>
+    private void RelabelNodes()
+    {
+        _tree.BeginUpdate();
+        try
+        {
+            void Walk(TreeNodeCollection nodes)
+            {
+                foreach (TreeNode n in nodes)
+                {
+                    if (n.Tag is WCommandItem item) n.Text = NodeText(item);
+                    Walk(n.Nodes);
+                }
+            }
+            Walk(_tree.Nodes);
+        }
+        finally { _tree.EndUpdate(); }
     }
 
     // ---- Màu theo phân hệ ----------------------------------------------------------------------------

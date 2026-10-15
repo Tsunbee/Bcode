@@ -431,9 +431,18 @@ class BcodeEditor {
   /// "while Ctrl is still held" state that a web page cannot observe reliably, and a
   /// two-item MRU toggle that silently becomes a ping-pong is worse than a predictable
   /// left-to-right cycle.
+  ///
+  /// Settings → Bố cục → "Ctrl+Tab bấm nhanh" = "Tab song song" (layout.tabSwitchMode = 'toggle', như Bcode): về lại tab vừa rời
+  /// (A ⇄ B, theo this.mru); chưa có tab trước thì đi tab kế như thường.
   cycleTab(delta) {
     const paths = this.openPaths();
     if (paths.length < 2) return;
+    if (window.bcodePrefs && window.bcodePrefs.layout('tabSwitchMode', 'sequential') === 'toggle') {
+      for (let k = this.mru.length - 1; k >= 0; k--) {
+        const p = this.mru[k];
+        if (p !== this.activePath && this.docs.has(p)) { this.activateDoc(p); return; }
+      }
+    }
     const i = paths.indexOf(this.activePath);
     const next = paths[(i + delta + paths.length) % paths.length];
     this.activateDoc(next);
@@ -450,6 +459,10 @@ class BcodeEditor {
     // would return to line 1.
     const prev = this.activeDoc;
     if (prev) prev.viewState = this.editor.saveViewState();
+    // Đổi tab giữ nguyên cỡ chữ đang dùng: bỏ qua lượt "tự co chữ" do chính việc đổi model / khôi phục vị trí cuộn gây ra
+    // (đổi cỡ chữ = Monaco đo lại font + dàn trang lại, mỗi lần Ctrl+Tab là một cú khựng). Chỉ co lại khi khung đổi kích thước hoặc người dùng cuộn.
+    // File đầu tiên (chưa có tab trước) thì vẫn tự co như cũ.
+    if (prev) { this._fitHoldUntil = performance.now() + 400; clearTimeout(this._fitTimer); clearTimeout(this._fitScrollTimer); }
 
     this.activePath = path;
     this.touchMru(path);
@@ -466,7 +479,8 @@ class BcodeEditor {
     this.hideExternalChangeBanner();
     window.bcodeNotify('NotifyFileOpened', path);
 
-    if (window.bcodeTabs) window.bcodeTabs.render();
+    // Chỉ chuyển tô sáng sang tab mới (tabs.setActive tự vẽ lại cả thanh khi tab chưa có trên thanh, vd file vừa mở).
+    if (window.bcodeTabs) window.bcodeTabs.setActive(path);
     // Editor đã hiện xong; outline + kiểm tra lỗi của file mới chạy khi trình duyệt rảnh (không chặn khung hình của lần chuyển tab).
     window.bcodeTyping.request('outline', () => window.bcodeOutline && window.bcodeOutline.refresh(), 0, 500);
     window.bcodeTyping.request('validate', () => this.validateActive(), 0, 800);
@@ -811,10 +825,12 @@ class BcodeEditor {
     this.viewConfig = { showMinimap: true, autoFitFont: true, autoFitMinFont: 9, lightMode: 'auto', wordWrap: false };
     // Editor tạo sau (khung tách đôi, cửa sổ peek...) cũng theo chế độ nhẹ.
     if (!this._liteHooked && monaco.editor.onDidCreateEditor) { this._liteHooked = true; monaco.editor.onDidCreateEditor((ed) => this.applyLiteTo(ed)); }
-    const schedule = () => { clearTimeout(this._fitTimer); this._fitTimer = setTimeout(() => this.autoFitFont(), 120); };
+    // held(): ngay sau khi đổi tab (activateDoc đặt _fitHoldUntil) — layout / cuộn lúc đó là do đổi model gây ra, không phải người dùng → giữ cỡ chữ.
+    const held = () => this._fitHoldUntil && performance.now() < this._fitHoldUntil;
+    const schedule = () => { if (held()) return; clearTimeout(this._fitTimer); this._fitTimer = setTimeout(() => this.autoFitFont(), 120); };
     this.editor.onDidLayoutChange(schedule);             // khung đổi kích thước (kéo khung Claude/Gemini, đóng mở panel...)
-    this.editor.onDidChangeModel(schedule);              // đổi tab
-    this.editor.onDidScrollChange((e) => { if (e.scrollTopChanged) { clearTimeout(this._fitScrollTimer); this._fitScrollTimer = setTimeout(() => this.autoFitFont(), 500); } });
+    this.editor.onDidChangeModel(schedule);              // mở file đầu tiên (đổi tab thì held() bỏ qua — giữ cỡ chữ)
+    this.editor.onDidScrollChange((e) => { if (e.scrollTopChanged && !held()) { clearTimeout(this._fitScrollTimer); this._fitScrollTimer = setTimeout(() => this.autoFitFont(), 500); } });
     this.applyViewConfig();
   }
 
@@ -1510,6 +1526,12 @@ class BcodeEditor {
   shellTree(data) {
     if (window.bcodeShell) window.bcodeShell.setTree(data);
     else this._pendingShellTree = data;
+  }
+
+  /// MainForm.PushShellActive — đổi tab sang file đã có trong cây: chỉ đổi dòng đang chọn + đường dẫn, không vẽ lại cả cây.
+  shellActive(path) {
+    if (window.bcodeShell && !this._pendingShellTree) window.bcodeShell.setActive(path);
+    else if (this._pendingShellTree) this._pendingShellTree.activePath = path;
   }
 
   /// MainForm.Msg — hộp thông báo/xác nhận thay MessageBox; báo kết quả về host bằng ResolveUiDialog.

@@ -244,31 +244,34 @@ internal static class WorkspaceConnection
 
     private static List<BcodeWorkspace>? LoadAllWorkspaces()
     {
+        var settings = LoadSettingsSubset();
+        return settings?.Workspaces is { Count: > 0 } ws ? ws : null;
+    }
+
+    private static string? TryReadLastWorkspaceName() => LoadSettingsSubset()?.LastWorkspace;
+
+    // settings.json của Bcode trước đây bị đọc + parse lại MỖI lần đổi tab (đoán project, thanh trạng thái... — 2-3 lần, ~10 ms/lần).
+    // Giờ giữ bản đã parse, chỉ đọc lại khi giờ sửa / kích thước file đổi (Bcode lưu workspace mới thì lần gọi sau thấy ngay).
+    private static readonly object SettingsLock = new();
+    private static (DateTime WriteUtc, long Length, BcodeAppSettingsSubset? Value)? _settingsCache;
+
+    private static BcodeAppSettingsSubset? LoadSettingsSubset()
+    {
         try
         {
-            var path = SettingsPath;
-            if (!File.Exists(path)) return null;
-
-            var settings = JsonSerializer.Deserialize<BcodeAppSettingsSubset>(File.ReadAllText(path));
-            return settings?.Workspaces is { Count: > 0 } ws ? ws : null;
+            var info = new FileInfo(SettingsPath);
+            if (!info.Exists) return null;
+            lock (SettingsLock)
+            {
+                if (_settingsCache is { } c && c.WriteUtc == info.LastWriteTimeUtc && c.Length == info.Length) return c.Value;
+                var value = JsonSerializer.Deserialize<BcodeAppSettingsSubset>(File.ReadAllText(info.FullName));
+                _settingsCache = (info.LastWriteTimeUtc, info.Length, value);
+                return value;
+            }
         }
         catch
         {
             return null; // settings file missing/corrupt — same as "no workspace"
-        }
-    }
-
-    private static string? TryReadLastWorkspaceName()
-    {
-        try
-        {
-            if (!File.Exists(SettingsPath)) return null;
-            var settings = JsonSerializer.Deserialize<BcodeAppSettingsSubset>(File.ReadAllText(SettingsPath));
-            return settings?.LastWorkspace;
-        }
-        catch
-        {
-            return null;
         }
     }
 

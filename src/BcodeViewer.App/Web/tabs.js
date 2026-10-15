@@ -110,6 +110,7 @@ class BcodeTabs {
       const name = fileNameOf(path);
       const tab = document.createElement('div');
       tab.className = 'edTab' + (path === this.bcode.activePath ? ' active' : '') + (doc.dirty ? ' dirty' : '');
+      tab.dataset.path = path;   // setActive tìm tab theo đường dẫn
       tab.title = path + (doc.dirty ? '\n(chưa lưu)' : '');
 
       const label = document.createElement('span');
@@ -144,6 +145,17 @@ class BcodeTabs {
     }
   }
 
+  /// Đổi tab (editor.activateDoc): chỉ chuyển tô "active" sang tab của path — không xoá rồi dựng lại cả thanh (khi ẩn cây, thanh liệt kê
+  /// cả nghìn file của cây: đo 48–283 ms mỗi lần vẽ lại). Tab chưa có trên thanh / đang là tab "chưa mở" (vừa mở file) thì vẽ lại như cũ.
+  setActive(path) {
+    let el = null;
+    for (const t of this.strip.children) if (t.dataset && t.dataset.path === path) { el = t; break; }
+    if (!el || el.classList.contains('notOpen')) { this.render(); return; }
+    for (const t of this.strip.querySelectorAll('.edTab.active')) if (t !== el) t.classList.remove('active');
+    el.classList.add('active');
+    requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+  }
+
   /// A tree file that isn't loaded yet (only listed while the tree is hidden). Click opens
   /// it through the host exactly like clicking it in the tree; ✕ drops it from the list,
   /// same as the tree's own ✕.
@@ -151,6 +163,7 @@ class BcodeTabs {
     const tab = document.createElement('div');
     tab.className = 'edTab notOpen';
     tab.title = path;
+    tab.dataset.path = path;
 
     const label = document.createElement('span');
     label.className = 'tabName';

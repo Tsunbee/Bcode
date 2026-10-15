@@ -230,6 +230,9 @@ public class AppSettings
     /// <summary>true (mặc định) = mỗi lần mở Bcode hỏi chọn App/Web; false = vào thẳng chế độ đã lưu.</summary>
     public static bool AskUiMode { get => FlagFile("ask_ui_mode.txt", true); set => SetFlagFile("ask_ui_mode.txt", value); }
 
+    /// <summary>Cây menu WCommand / Mobile hiện tên theo Bar2 (tiếng Anh) thay cho Bar (tiếng Việt) — chuột phải "Menu Name: ...".</summary>
+    public static bool MenuNameBar2 { get => FlagFile("menu_name_bar2.txt", false); set => SetFlagFile("menu_name_bar2.txt", value); }
+
     public static AppSettings Load()
     {
         try

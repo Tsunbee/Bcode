@@ -51,11 +51,37 @@ public class RecentFilesStore
         return new RecentFilesStore();
     }
 
+    // Save() được gọi MỖI lần đổi tab (Touch) — ghi đĩa ngay trên luồng giao diện làm Ctrl+Tab khựng. Giờ: chụp JSON ngay (rẻ, đúng trạng thái lúc gọi),
+    // ghi ở luồng nền theo hàng đợi 1 chiều; lần ghi đã có bản mới hơn chờ phía sau thì bỏ. Flush() (lúc đóng Viewer) đợi lần ghi cuối xong.
+    private static readonly object WriteLock = new();
+    private static long _writeSeq;
+    private static Task _lastWrite = Task.CompletedTask;
+
     public void Save()
     {
-        var dir = Path.GetDirectoryName(StorePath)!;
-        Directory.CreateDirectory(dir);
-        File.WriteAllText(StorePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+        var seq = Interlocked.Increment(ref _writeSeq);
+        lock (WriteLock)
+            _lastWrite = _lastWrite.ContinueWith(_ =>
+            {
+                if (seq != Interlocked.Read(ref _writeSeq)) return;   // đã có bản mới hơn — để lần sau ghi
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(StorePath)!);
+                    var tmp = StorePath + ".tmp";
+                    File.WriteAllText(tmp, json);
+                    File.Move(tmp, StorePath, overwrite: true);
+                }
+                catch { /* không ghi được thì giữ bản cũ trên đĩa, danh sách trong RAM vẫn đúng */ }
+            }, TaskScheduler.Default);
+    }
+
+    /// <summary>Đợi lần ghi nền cuối cùng xong (gọi lúc đóng Viewer để không mất thay đổi vừa có).</summary>
+    public static void Flush()
+    {
+        Task t;
+        lock (WriteLock) t = _lastWrite;
+        try { t.Wait(3000); } catch { }
     }
 
     /// <summary>Records (or moves to the front of) the given file under the given project,

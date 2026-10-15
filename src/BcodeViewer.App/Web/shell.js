@@ -497,6 +497,23 @@ class BcodeShell {
     if (window.bcodeTabs && this.sidebarHidden()) window.bcodeTabs.render();
   }
 
+  /// Host đổi file đang mở mà cây không đổi (MainForm.PushShellActive): chuyển tô "active" sang dòng của file đó, cập nhật đường dẫn
+  /// và cuộn cho thấy dòng — thay vì setTree vẽ lại toàn bộ cây mỗi lần Ctrl+Tab.
+  setActive(path) {
+    if (!this.tree) return;
+    this.tree.activePath = path;
+    this.renderBreadcrumb(path);
+    const want = (path || '').toLowerCase();
+    let row = null;
+    for (const r of this.treeEl.querySelectorAll('.shRow.file')) {
+      const hit = (r.dataset.path || '').toLowerCase() === want;
+      r.classList.toggle('active', hit);
+      if (hit) row = r;
+    }
+    if (row) row.scrollIntoView({ block: 'nearest' });
+    // Cây ẩn thì thanh tab liệt kê cả file của cây — tab đang chọn do tabs.setActive (editor.activateDoc) lo, không cần vẽ lại cả thanh.
+  }
+
   /// Các file nằm CÙNG NHÁNH (cùng nhóm trực tiếp, vd "Grid" trong dự án KOG) với <paramref name="path"/>, theo thứ tự trong cây — để đóng 1 file
   /// thì chuyển sang file kế bên trong nhánh đó trước, hết file trong nhánh mới nhảy sang nhánh khác.
   branchFiles(path) {
@@ -519,7 +536,7 @@ class BcodeShell {
     const row = document.createElement('div');
     row.className = 'shRow ' + n.kind + (n.dirty ? ' dirty' : '') + (n.kind === 'file' && this.selKeys && this.selKeys.has(n.key) ? ' sel' : '');
     row.style.paddingLeft = (6 + depth * 14) + 'px';
-    if (n.path) row.title = n.path;
+    if (n.path) { row.title = n.path; row.dataset.path = n.path; }   // setActive tìm dòng theo đường dẫn
     if (n.kind === 'group') {
       row.appendChild(Object.assign(document.createElement('span'), { className: 'shTwisty', textContent: n.expanded ? '▾' : '▸' }));
     } else if (n.kind === 'folder') {

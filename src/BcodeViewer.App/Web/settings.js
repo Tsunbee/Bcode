@@ -191,6 +191,17 @@ class BcodeSettingsDialog {
         className: 'setNote setNoteWide',
         textContent: 'Ẩn cả menu + toolbar + đường dẫn thì vào lại bằng phím tắt "Hiện/ẩn thanh menu + toolbar" (gán ở nhóm Phím tắt) hoặc xoá mục này trong Settings. Cây file và các bảng (Problems, Outline...) bật/tắt bằng menu View hoặc phím tắt.',
       }));
+      sec('Chuyển tab (Ctrl+Tab)');
+      line('Ctrl+Tab bấm nhanh:', (() => {
+        const sel = select([['sequential', 'Tab tới: A → B → C (tab kế tiếp)'], ['toggle', 'Tab song song: A ⇄ B (qua lại 2 tab gần nhất)']],
+          draft.layout.tabSwitchMode === 'toggle' ? 'toggle' : 'sequential');
+        sel.onchange = () => { if (sel.value === 'toggle') draft.layout.tabSwitchMode = 'toggle'; else delete draft.layout.tabSwitchMode; };
+        return sel;
+      })());
+      h.appendChild(Object.assign(document.createElement('div'), {
+        className: 'setNote setNoteWide',
+        textContent: 'Giống Bcode (Template → Cửa sổ → Ctrl+Tab). Áp cho Ctrl+Tab / Ctrl+Shift+Tab bấm nhanh; giữ Ctrl rồi bấm Tab vẫn hiện hộp chọn tab như cũ. Phím đổi được ở nhóm Phím tắt.',
+      }));
       sec('Cây file bên trái');
       line('Vị trí cây file:', (() => {
         const sel = select([['left', 'Bên trái (mặc định)'], ['right', 'Bên phải']], draft.layout.sidebarSide === 'right' ? 'right' : 'left');

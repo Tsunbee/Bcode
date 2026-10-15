@@ -38,6 +38,7 @@ public static class ShortcutRegistry
         {
             // ---- Cửa sổ ----
             new("tree.toggle", "Ẩn / hiện cây menu bên trái", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+H"),
+            new("left.mobile", "Mở cây menu Mobile (bảng dvcommand) ở cột trái", "Cửa sổ", ShortcutScope.App, ""),
             new("window.new", "Mở thêm cửa sổ Bcode mới", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+N"),
             new("app.theme", "Đổi giao diện sáng / tối", "Cửa sổ", ShortcutScope.App, ""),
             new("app.palette", "Command Palette — tìm nhanh tool, tab, menu, object SQL", "Cửa sổ", ShortcutScope.App, "Ctrl+P"),

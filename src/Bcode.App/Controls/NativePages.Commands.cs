@@ -133,12 +133,22 @@ internal sealed class WCommandEditPage : DialogPage
     public override void FocusPrimary() => _f["bar"].Inner.Focus();
 }
 
-/// <summary>COMMAND New/Edit (appcommandedit.html): form động theo cột bảng command + bảng Reports (Sys Data) theo Sysid.</summary>
+/// <summary>COMMAND New/Edit (appcommandedit.html): form động theo cột bảng command + bảng Reports (Sys Data) theo Sysid.
+/// Cũng là DVCOMMAND New/Edit (menu mobile): init gửi kèm title / top / showReports / translate / tableDir (thiếu thì như COMMAND).</summary>
 internal sealed class AppCommandEditPage : DialogPage
 {
     private sealed class Fld { public string Name = "", Kind = "String"; public bool Nullable; public RoundedInput Ctl = null!; public bool IsNull; public bool IsNullCapable() => Kind != "String" || Nullable; }
 
-    private static readonly string[] Top = { "menu_id", "menu_id0", "bar", "bar2" };
+    private static readonly string[] DefaultTop = { "menu_id", "menu_id0", "bar", "bar2" };
+    private static readonly (string Code, string Name)[] Langs = { ("en", "English"), ("zh-CN", "中文 (giản thể)"), ("zh-TW", "中文 (phồn thể)"), ("ja", "日本語"), ("ko", "한국어"), ("th", "ไทย"), ("fr", "Français"), ("de", "Deutsch"), ("es", "Español"), ("id", "Indonesia"), ("ru", "Русский") };
+    private string[] _top = DefaultTop;
+    private bool _translate, _tableDir;
+    private readonly Label _title = new() { Text = "COMMAND", AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 0, 8, 6) };
+    private readonly RoundedInput _tableM = NK.Input(""), _tableD = NK.Input("");
+    private readonly Label _tdNote = NK.Muted("");
+    private readonly DropDownButton _lang = new() { Width = NativeSkin.S(96) };
+    private readonly PillButton _tr;
+    private readonly Control _repHead;
     private readonly List<Fld> _fields = new();
     private readonly TableLayoutPanel _topGrid = new() { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4, Padding = new Padding(0, 0, 0, 6) };
     private readonly TableLayoutPanel _restGrid = new() { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4 };
@@ -159,19 +169,25 @@ internal sealed class AppCommandEditPage : DialogPage
         _bSave = NK.Button("Save", () => Post(new { action = "save", data = Collect() }), primary: true);
         _bNew = NK.Button("New", () => Post(new { action = "new", data = Collect() }), tip: "Làm menu mới (nhân bản dòng đang mở, bỏ menu_id)");
         _bDel = NK.Button("Delete", () => Post(new { action = "delete" })); _bDel.ForeOverride = AppColors.Danger;
+        _tr = NK.Button("🌐 Dịch", Translate, tip: "Dịch Bar (tiếng Việt) sang ngôn ngữ chọn bằng Google Dịch rồi điền vào Bar2");
+        _lang.SetItems(Langs.Select(l => l.Name).ToList(), 0);
+        _tableM.ReadOnly = _tableD.ReadOnly = true;
         var tools = TopBar();
         tools.Controls.AddRange(new Control[] { _bRefresh, _bSave, _bNew, _bDel, NK.Button("Close", () => Post(new { action = "close" })), StatusLabel });
         Bottom.Visible = false;
 
         _rep.Visible = false; _rep.Dock = DockStyle.Top; _rep.Height = NativeSkin.S(220); _rep.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
         var title = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, BackColor = Color.Transparent };
-        title.Controls.Add(new Label { Text = "COMMAND", AutoSize = true, BackColor = Color.Transparent, Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 3, FontStyle.Bold), Margin = new Padding(0, 0, 8, 6) }); title.Controls.Add(_mode);
+        _title.Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 3, FontStyle.Bold);
+        title.Controls.Add(_title); title.Controls.Add(_mode);
         var repHead = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, BackColor = Color.Transparent, Padding = new Padding(0, 10, 0, 0) };
         repHead.Controls.Add(new Label { Text = "Reports (Sys Data) theo Sysid", AutoSize = true, BackColor = Color.Transparent, Font = new Font(ThemeManager.BaseFont, FontStyle.Bold) }); repHead.Controls.Add(_repSys);
         _repNote.Dock = DockStyle.Top;
+        _repHead = repHead;
 
         var body = new Panel { AutoScroll = true, Padding = new Padding(14, 8, 14, 8) };
-        foreach (var c in new Control[] { _rep, _repNote, repHead, _restGrid, _topGrid, title }) body.Controls.Add(c);
+        _tdNote.Dock = DockStyle.Top; _tdNote.Visible = false; _tdNote.Padding = new Padding(0, 0, 0, 6);
+        foreach (var c in new Control[] { _rep, _repNote, repHead, _restGrid, _tdNote, _topGrid, title }) body.Controls.Add(c);
         _repTimer.Tick += (_, _) => { _repTimer.Stop(); var s = _fields.FirstOrDefault(f => f.Name.Equals("sysid", StringComparison.OrdinalIgnoreCase)); Post(new { action = "reports", data = new { sysid = s?.Ctl.Text ?? "" } }); };
         Disposed += (_, _) => _repTimer.Dispose();
         Layout(tools, body);
@@ -181,6 +197,23 @@ internal sealed class AppCommandEditPage : DialogPage
 
     private void QueueReports(int ms = 500) { _repTimer.Stop(); _repTimer.Interval = Math.Max(1, ms); _repTimer.Start(); }
     private void SetBusy(bool b) { _busy = b; _bSave.Enabled = _bDel.Enabled = _bNew.Enabled = _bRefresh.Enabled = !b; }
+
+    private void Translate()
+    {
+        var text = _fields.FirstOrDefault(f => f.Name.Equals("bar", StringComparison.OrdinalIgnoreCase))?.Ctl.Text.Trim() ?? "";
+        if (text.Length == 0) { Say("Nhập Bar (tiếng Việt) trước rồi mới dịch.", "err"); return; }
+        _tr.Enabled = false; Say("Đang dịch…");
+        Post(new { action = "translate", data = new { text, lang = Langs[Math.Max(0, _lang.SelectedIndex)].Code } });
+    }
+
+    /// <summary>Thêm 1 ô chỉ-đọc (Table Dir) vào lưới như 1 cột.</summary>
+    private static void AddReadOnly(TableLayoutPanel g, int slot, string label, RoundedInput inp)
+    {
+        var lb = new MutedLabel { Text = label, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 9, 6, 0), AutoEllipsis = true };
+        inp.Dock = DockStyle.Fill; inp.Margin = new Padding(0, 3, 12, 3);
+        if (slot % 2 == 0) g.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        g.Controls.Add(lb); g.Controls.Add(inp);
+    }
 
     protected override bool HandleKey(Keys k)
     {
@@ -202,7 +235,16 @@ internal sealed class AppCommandEditPage : DialogPage
         inp.TextChanged += (_, _) => { if (_loading) return; inp.Inner.ForeColor = AppColors.Text; if (f.Name.Equals("sysid", StringComparison.OrdinalIgnoreCase)) QueueReports(); };
         f.Ctl = inp;
         if (slot % 2 == 0) g.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        g.Controls.Add(lb); g.Controls.Add(inp);
+        Control cell = inp;
+        if (_translate && f.Name.Equals("bar2", StringComparison.OrdinalIgnoreCase))
+        {
+            // Bar2 + [ngôn ngữ] + [🌐 Dịch] như wcommandedit
+            var row = new Panel { Dock = DockStyle.Fill, Height = inp.Height, Margin = inp.Margin, BackColor = Color.Transparent };
+            inp.Margin = Padding.Empty; _tr.Dock = DockStyle.Right; _lang.Dock = DockStyle.Right;
+            row.Controls.Add(inp); row.Controls.Add(_lang); row.Controls.Add(_tr);
+            cell = row;
+        }
+        g.Controls.Add(lb); g.Controls.Add(cell);
     }
 
     public override void Dispatch(string path, IReadOnlyList<JsonElement> a)
@@ -213,6 +255,13 @@ internal sealed class AppCommandEditPage : DialogPage
             {
                 var st = Arg(a, 0);
                 _isNew = PB(st, "isNew"); _mode.Text = _isNew ? "New" : "Edit";
+                _title.Text = P(st, "title") is { Length: > 0 } t ? t : "COMMAND";
+                var top = PA(st, "top").Select(x => (x.GetString() ?? "").ToLowerInvariant()).Where(x => x.Length > 0).ToArray();
+                _top = top.Length > 0 ? top : DefaultTop;
+                _translate = PB(st, "translate"); _tableDir = PB(st, "tableDir");
+                var showReports = !(st.ValueKind == JsonValueKind.Object && st.TryGetProperty("showReports", out var sr) && sr.ValueKind == JsonValueKind.False);
+                _repHead.Visible = _repNote.Visible = showReports;
+                if (!showReports) _rep.Visible = false;
                 var cols = PA(st, "columns").Select(c => new Fld { Name = P(c, "name"), Kind = P(c, "kind"), Nullable = PB(c, "nullable") }).ToList();
                 var values = PO(st, "values");
                 string? Val(string n) => values.ValueKind == JsonValueKind.Object && values.TryGetProperty(n, out var v) && v.ValueKind != JsonValueKind.Null ? (v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString()) : null;
@@ -220,19 +269,38 @@ internal sealed class AppCommandEditPage : DialogPage
                 foreach (var g in new[] { _topGrid, _restGrid }) { g.SuspendLayout(); g.Controls.Clear(); g.RowStyles.Clear(); }
                 _fields.Clear();
                 var slot = 0;
-                foreach (var n in Top) { var c = cols.FirstOrDefault(x => x.Name.Equals(n, StringComparison.OrdinalIgnoreCase)); if (c is null) continue; _fields.Add(c); AddField(_topGrid, slot++, c, Val(c.Name)); }
+                foreach (var n in _top) { var c = cols.FirstOrDefault(x => x.Name.Equals(n, StringComparison.OrdinalIgnoreCase)); if (c is null) continue; _fields.Add(c); AddField(_topGrid, slot++, c, Val(c.Name)); }
+                if (_tableDir)
+                {
+                    if (slot % 2 == 1) slot++;   // Table Dir bắt đầu hàng mới
+                    AddReadOnly(_topGrid, slot++, "Table Dir (bảng m)", _tableM); AddReadOnly(_topGrid, slot++, "Bảng d (Grid)", _tableD);
+                    _tableM.Text = _tableD.Text = _tdNote.Text = "";
+                }
                 slot = 0;
-                foreach (var c in cols.Where(x => !Top.Contains(x.Name.ToLowerInvariant()))) { _fields.Add(c); AddField(_restGrid, slot++, c, Val(c.Name)); }
+                foreach (var c in cols.Where(x => !_top.Contains(x.Name.ToLowerInvariant()))) { _fields.Add(c); AddField(_restGrid, slot++, c, Val(c.Name)); }
                 foreach (var g in new[] { _topGrid, _restGrid }) g.ResumeLayout(true);
                 _loading = false;
                 _bDel.Visible = _bRefresh.Visible = !_isNew;
-                var first = _fields.FirstOrDefault(f => f.Name == (_isNew ? "menu_id" : "bar")) ?? _fields.FirstOrDefault();
+                _tdNote.Visible = _tableDir;
+                var keyCol = P(st, "key") is { Length: > 0 } k ? k : "menu_id";
+                var first = _fields.FirstOrDefault(f => f.Name == (_isNew ? keyCol : "bar")) ?? _fields.FirstOrDefault();
                 first?.Ctl.Inner.Focus();
                 QueueReports(1);
                 break;
             }
+            case "window.setTableDir": _tableM.Text = Str(a, 0); _tableD.Text = Str(a, 1); _tdNote.Text = Str(a, 2); break;
+            case "window.setTranslated":
+            {
+                _tr.Enabled = true;
+                if (a.Count > 1 && a[1].ValueKind == JsonValueKind.String) { Say(a[1].GetString() ?? "", "err"); break; }
+                var b2 = _fields.FirstOrDefault(f => f.Name.Equals("bar2", StringComparison.OrdinalIgnoreCase));
+                if (b2 is not null) { b2.Ctl.Text = Str(a, 0); b2.Ctl.Inner.ForeColor = AppColors.Text; }
+                Say("Đã dịch — kiểm tra lại Bar2 rồi Save.", "ok");
+                break;
+            }
             case "window.setReports":
             {
+                if (!_repHead.Visible) break;
                 var r = Arg(a, 0);
                 _repNote.Text = P(r, "note");
                 var columns = PA(r, "columns").Select(c => c.GetString() ?? "").ToList();

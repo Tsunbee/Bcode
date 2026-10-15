@@ -6,6 +6,20 @@ namespace Bcode.App.Services;
 /// <summary>Một cột của bảng command: tên, nhóm kiểu hiển thị (String/Byte/Decimal/DateTime) và có cho NULL không.</summary>
 public sealed record CommandColumn(string Name, string Kind, string SqlType, bool Nullable, int MaxLength);
 
+/// <summary>Bảng menu mà <see cref="AppCommandService"/> sửa: tên bảng, cột khoá, cột cha, tiêu đề form, các cột xếp trên đầu form.
+/// <see cref="Command"/> = bảng command của sản phẩm APP (hành vi cũ); <see cref="DvCommand"/> = menu mobile (Sys Data, khoá wmenu_id).</summary>
+public sealed record MenuTableSpec(string Table, string KeyColumn, string ParentColumn, string Title, string[] TopColumns,
+    bool SysOnly, bool ShowReports, bool Translate, bool SuggestKey)
+{
+    public static readonly MenuTableSpec Command = new("command", "menu_id", "menu_id0", "COMMAND", new[] { "menu_id", "menu_id0", "bar", "bar2" },
+        SysOnly: false, ShowReports: true, Translate: false, SuggestKey: false);
+
+    /// <summary>Menu app mobile (FBO MobileService): wmenu_id / wmenu_id0 / menu_id / bar / bar2 / icon_url / icon_color / status / sysid / action / xtype / xgroup.
+    /// menu_id mượn của bảng command (nhiều dòng dùng chung) nên chỉ sửa dvcommand, không đụng command.</summary>
+    public static readonly MenuTableSpec DvCommand = new("dvcommand", "wmenu_id", "wmenu_id0", "DVCOMMAND", new[] { "wmenu_id", "wmenu_id0", "bar", "bar2" },
+        SysOnly: true, ShowReports: false, Translate: true, SuggestKey: true);
+}
+
 /// <summary>
 /// CRUD tổng quát cho bảng <c>command</c> của sản phẩm dạng APP (FBFF...) — không có wcommand, form "COMMAND - Edit"
 /// của FCode liệt kê mọi cột. Cột đọc động từ INFORMATION_SCHEMA nên sản phẩm nào thiếu/thừa cột cũng chạy.
@@ -18,7 +32,14 @@ public sealed class AppCommandService
     private bool? _useSys;
     private List<CommandColumn>? _columns;
 
-    public AppCommandService(DbConnectionService connections) => _connections = connections;
+    public AppCommandService(DbConnectionService connections, MenuTableSpec? spec = null)
+    {
+        _connections = connections;
+        Spec = spec ?? MenuTableSpec.Command;
+    }
+
+    /// <summary>Bảng đang sửa (mặc định command).</summary>
+    public MenuTableSpec Spec { get; }
 
     /// <summary>Tên chương trình từ cột exe: bỏ mọi thứ sau khoảng trắng (kể cả tab/NBSP) và đuôi .exe — "zinctpnh.exe PNH" → "zinctpnh".</summary>
     public static string ExeStem(string? exe)
@@ -41,14 +62,17 @@ public sealed class AppCommandService
 
     private async Task<(SqlConnection Conn, bool UseSys)> OpenCommandDbAsync()
     {
-        foreach (var useSys in _useSys is { } known ? new[] { known } : new[] { true, false })
+        foreach (var useSys in _useSys is { } known ? new[] { known } : Spec.SysOnly ? new[] { true } : new[] { true, false })
         {
             var conn = _connections.CreateConnection(useSysDatabase: useSys);
             try
             {
                 await conn.OpenAsync();
                 await using var cmd = new SqlCommand(
-                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'command' AND COLUMN_NAME IN ('menu_id','menu_id0','bar')", conn);
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @t AND COLUMN_NAME IN (@k, @p, 'bar')", conn);
+                cmd.Parameters.AddWithValue("@t", Spec.Table);
+                cmd.Parameters.AddWithValue("@k", Spec.KeyColumn);
+                cmd.Parameters.AddWithValue("@p", Spec.ParentColumn);
                 if (Convert.ToInt32(await cmd.ExecuteScalarAsync()) >= 3)
                 {
                     _useSys = useSys;
@@ -58,8 +82,12 @@ public sealed class AppCommandService
             catch (SqlException) { }
             await conn.DisposeAsync();
         }
-        throw new InvalidOperationException("Không tìm thấy bảng command (menu_id, menu_id0, bar) ở Sys Data / App Data của workspace hiện tại.");
+        throw new InvalidOperationException($"Không tìm thấy bảng {Spec.Table} ({Spec.KeyColumn}, {Spec.ParentColumn}, bar) ở " +
+            (Spec.SysOnly ? "Sys Data" : "Sys Data / App Data") + " của workspace hiện tại.");
     }
+
+    private string Tbl => "dbo.[" + Spec.Table + "]";
+    private string Key => "[" + Spec.KeyColumn + "]";
 
     public async Task<IReadOnlyList<CommandColumn>> GetColumnsAsync()
     {
@@ -70,7 +98,8 @@ public sealed class AppCommandService
             var list = new List<CommandColumn>();
             await using var cmd = new SqlCommand(
                 "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, ISNULL(CHARACTER_MAXIMUM_LENGTH, 0) FROM INFORMATION_SCHEMA.COLUMNS " +
-                "WHERE TABLE_NAME = 'command' AND TABLE_SCHEMA = 'dbo' ORDER BY ORDINAL_POSITION", conn);
+                "WHERE TABLE_NAME = @t AND TABLE_SCHEMA = 'dbo' ORDER BY ORDINAL_POSITION", conn);
+            cmd.Parameters.AddWithValue("@t", Spec.Table);
             await using var r = await cmd.ExecuteReaderAsync();
             while (await r.ReadAsync())
             {
@@ -95,7 +124,7 @@ public sealed class AppCommandService
         var (conn, _) = await OpenCommandDbAsync();
         await using (conn)
         {
-            await using var cmd = new SqlCommand("SELECT * FROM dbo.command WHERE menu_id = @id", conn);
+            await using var cmd = new SqlCommand($"SELECT * FROM {Tbl} WHERE {Key} = @id", conn);
             cmd.Parameters.AddWithValue("@id", menuId);
             await using var r = await cmd.ExecuteReaderAsync();
             if (!await r.ReadAsync()) return null;
@@ -121,7 +150,7 @@ public sealed class AppCommandService
         var (conn, _) = await OpenCommandDbAsync();
         await using (conn)
         {
-            await using var cmd = new SqlCommand("SELECT COUNT(*) FROM dbo.command WHERE menu_id = @id", conn);
+            await using var cmd = new SqlCommand($"SELECT COUNT(*) FROM {Tbl} WHERE {Key} = @id", conn);
             cmd.Parameters.AddWithValue("@id", menuId);
             return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
         }
@@ -138,7 +167,7 @@ public sealed class AppCommandService
             await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
             if (!string.IsNullOrEmpty(originalId))
             {
-                await using var del = new SqlCommand("DELETE FROM dbo.command WHERE menu_id = @id", conn, tx);
+                await using var del = new SqlCommand($"DELETE FROM {Tbl} WHERE {Key} = @id", conn, tx);
                 del.Parameters.AddWithValue("@id", originalId);
                 await del.ExecuteNonQueryAsync();
             }
@@ -150,7 +179,7 @@ public sealed class AppCommandService
                 names.Add(c.Name);
                 ins.Parameters.AddWithValue("@p" + (names.Count - 1), ToDbValue(c, raw));
             }
-            ins.CommandText = $"INSERT INTO dbo.command ({string.Join(", ", names.Select(n => "[" + n + "]"))}) " +
+            ins.CommandText = $"INSERT INTO {Tbl} ({string.Join(", ", names.Select(n => "[" + n + "]"))}) " +
                               $"VALUES ({string.Join(", ", names.Select((_, i) => "@p" + i))})";
             await ins.ExecuteNonQueryAsync();
             await tx.CommitAsync();
@@ -162,10 +191,101 @@ public sealed class AppCommandService
         var (conn, _) = await OpenCommandDbAsync();
         await using (conn)
         {
-            await using var cmd = new SqlCommand("DELETE FROM dbo.command WHERE menu_id = @id", conn);
+            await using var cmd = new SqlCommand($"DELETE FROM {Tbl} WHERE {Key} = @id", conn);
             cmd.Parameters.AddWithValue("@id", menuId);
             await cmd.ExecuteNonQueryAsync();
         }
+    }
+
+    // ------------------------------------------------------------ cây menu (dvcommand)
+
+    /// <summary>Mọi dòng của bảng thành <see cref="Models.WCommandItem"/> phẳng (cho cây menu): khoá → WMenuId, cột cha → WMenuId0.
+    /// Bảng không có ở database này → danh sách rỗng.</summary>
+    public async Task<List<Models.WCommandItem>> LoadMenuItemsAsync()
+    {
+        Reset();   // đổi workspace: database / cột có thể khác
+        SqlConnection conn;
+        try { (conn, _) = await OpenCommandDbAsync(); }
+        catch (InvalidOperationException) { return new(); }
+        await using (conn)
+        {
+            await using var cmd = new SqlCommand($"SELECT * FROM {Tbl}", conn);
+            await using var r = await cmd.ExecuteReaderAsync();
+            var names = Enumerable.Range(0, r.FieldCount).Select(r.GetName).ToList();
+            string Get(string col) { var i = names.FindIndex(n => n.Equals(col, StringComparison.OrdinalIgnoreCase)); return i < 0 || r.IsDBNull(i) ? "" : Convert.ToString(r.GetValue(i), CultureInfo.InvariantCulture)?.Trim() ?? ""; }
+            var list = new List<Models.WCommandItem>();
+            while (await r.ReadAsync())
+            {
+                var id = Get(Spec.KeyColumn);
+                if (id.Length == 0) continue;
+                list.Add(new Models.WCommandItem
+                {
+                    WMenuId = id, WMenuId0 = Get(Spec.ParentColumn), MenuId = Get("menu_id"), Bar = Get("bar"), Bar2 = Get("bar2"),
+                    IconUrl = Get("icon_url"), Status = Get("status"), SysId = Get("sysid"), XType = Get("xtype"), Type = Get("action"),
+                });
+            }
+            return list;
+        }
+    }
+
+    /// <summary>Gợi ý khoá chưa dùng cho menu mới dưới <paramref name="parentId"/> (dạng GG.SS.LL): đoạn cuối = lớn nhất trong các menu anh em + bước
+    /// (5 nếu các menu anh em đều chia hết cho 5 như dvcommand chuẩn, không thì 1). Không có cha → nhóm gốc kế tiếp. Trả "" nếu không gợi ý được.</summary>
+    public async Task<string> SuggestNextKeyAsync(string? parentId)
+    {
+        var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var siblings = new List<string>();
+        var parent = (parentId ?? "").Trim();
+        var (conn, _) = await OpenCommandDbAsync();
+        await using (conn)
+        {
+            await using var cmd = new SqlCommand($"SELECT {Key}, [{Spec.ParentColumn}] FROM {Tbl}", conn);
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync())
+            {
+                var id = (r.IsDBNull(0) ? "" : Convert.ToString(r.GetValue(0)) ?? "").Trim();
+                if (id.Length == 0) continue;
+                used.Add(id);
+                if ((r.IsDBNull(1) ? "" : Convert.ToString(r.GetValue(1)) ?? "").Trim().Equals(parent, StringComparison.OrdinalIgnoreCase)) siblings.Add(id);
+            }
+        }
+        static int[]? Parts(string id) { var p = id.Split('.'); return p.Length == 3 && p.All(x => x.Length == 2 && x.All(char.IsDigit)) ? p.Select(int.Parse).ToArray() : null; }
+        if (parent.Length == 0)
+        {
+            var roots = siblings.Select(Parts).Where(p => p is not null).ToList();
+            var g = roots.Count == 0 ? 10 : roots.Max(p => p![0]) + 10;
+            for (; g <= 99; g++) if (!used.Contains($"{g:D2}.00.00")) return $"{g:D2}.00.00";
+            return "";
+        }
+        var pp = Parts(parent);
+        if (pp is null) return "";
+        var kids = siblings.Select(Parts).Where(p => p is not null && p[0] == pp[0] && p[1] == pp[1]).Select(p => p![2]).ToList();
+        var step = kids.Count > 0 && kids.All(n => n % 5 == 0) ? 5 : kids.Count == 0 ? 5 : 1;
+        for (var n = (kids.Count == 0 ? 0 : kids.Max()) + step; n <= 99; n += step)
+        {
+            var c = $"{pp[0]:D2}.{pp[1]:D2}.{n:D2}";
+            if (!used.Contains(c)) return c;
+        }
+        return "";
+    }
+
+    /// <summary>Script DELETE + INSERT của 1 dòng (đủ mọi cột của bảng ở database này) — Gen Script Menu của cây mobile.</summary>
+    public async Task<string> GenerateScriptAsync(string id)
+    {
+        var cols = await GetColumnsAsync();
+        var row = await LoadRowAsync(id) ?? throw new InvalidOperationException($"Không thấy dòng {Spec.KeyColumn} = '{id}' trong {Spec.Table}.");
+        string Lit(CommandColumn c)
+        {
+            row.TryGetValue(c.Name, out var v);
+            if (v is null) return "NULL";
+            return c.Kind is "Byte" or "Decimal" ? v : "N'" + v.Replace("'", "''") + "'";
+        }
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"DELETE {Spec.Table} WHERE {Spec.KeyColumn} = '{id.Replace("'", "''")}'");
+        sb.AppendLine("GO");
+        sb.AppendLine($"INSERT INTO {Spec.Table}({string.Join(", ", cols.Select(c => c.Name))})");
+        sb.AppendLine($"VALUES({string.Join(", ", cols.Select(Lit))})");
+        sb.AppendLine("GO");
+        return sb.ToString();
     }
 
     private static object ToDbValue(CommandColumn c, string? raw)

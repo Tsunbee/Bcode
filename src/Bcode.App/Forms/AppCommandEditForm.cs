@@ -9,6 +9,7 @@ namespace Bcode.App.Forms;
 /// "COMMAND - Edit" — New/Edit/Delete một dòng bảng <c>command</c> của sản phẩm dạng APP (FBFF...), giống form của FCode:
 /// mọi cột hiện dạng "tên (Kiểu)" + ô nhập, Menu_id/Menu_id0/Bar/Bar2 ở trên. Dưới form liệt kê dòng <c>reports</c> (Sys Data)
 /// có form = Sysid của menu (mẫu in / khai báo màn hình báo cáo). Mở không chặn: bấm sang menu khác ở cây thì nạp menu đó.
+/// Dùng chung cho "DVCOMMAND - Edit" (menu mobile): bảng / cột khoá / cột trên đầu theo <see cref="AppCommandService.Spec"/>, thêm nút Dịch Bar2 và ô Table Dir.
 /// </summary>
 public class AppCommandEditForm : ThemedForm
 {
@@ -19,13 +20,17 @@ public class AppCommandEditForm : ThemedForm
     private Dictionary<string, string?>? _seed;     // giá trị gợi ý khi New (nhân bản)
     private bool _ready;
     private string? _templateId;                  // New: mượn dữ liệu dòng này (bỏ menu_id) làm giá trị ban đầu
+    private readonly Func<string, CommandTableService.Result>? _tableDir;   // != null → hiện ô "Table Dir" (bảng m/d đọc từ file Dir theo sysid)
+    private int _tableVersion;
 
-    public AppCommandEditForm(AppCommandService service, string? menuId, string? templateId = null)
+    /// <param name="tableDir">Tra bảng m/d của 1 sysid (chạy nền) — có thì form hiện ô Table Dir (form DVCOMMAND). Bảng sửa, tiêu đề, cột khoá lấy từ <see cref="AppCommandService.Spec"/>.</param>
+    public AppCommandEditForm(AppCommandService service, string? menuId, string? templateId = null, Func<string, CommandTableService.Result>? tableDir = null)
     {
         _service = service;
+        _tableDir = tableDir;
         _templateId = templateId;
         _menuId = menuId;
-        Text = menuId is null ? "COMMAND - New" : "COMMAND - Edit";
+        Text = menuId is null ? $"{_service.Spec.Title} - New" : $"{_service.Spec.Title} - Edit";
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = true;
         MinimizeBox = false;
@@ -63,7 +68,7 @@ public class AppCommandEditForm : ThemedForm
         _menuId = menuId;
         _seed = null;
         _templateId = templateId;
-        Text = menuId is null ? "COMMAND - New" : "COMMAND - Edit";
+        Text = menuId is null ? $"{_service.Spec.Title} - New" : $"{_service.Spec.Title} - Edit";
         if (_ready) await PushStateAsync();
     }
 
@@ -84,11 +89,20 @@ public class AppCommandEditForm : ThemedForm
                 case "refresh": await PushStateAsync(); break;
                 case "new":
                     _menuId = null;
-                    _seed = new Dictionary<string, string?>(values, StringComparer.OrdinalIgnoreCase) { ["menu_id"] = "" };
-                    Text = "COMMAND - New";
+                    _seed = new Dictionary<string, string?>(values, StringComparer.OrdinalIgnoreCase) { [_service.Spec.KeyColumn] = "" };
+                    Text = $"{_service.Spec.Title} - New";
                     await PushStateAsync();
                     break;
-                case "reports": await PushReportsAsync(Get(values, "sysid")); break;
+                case "reports":
+                    if (_service.Spec.ShowReports) await PushReportsAsync(Get(values, "sysid"));
+                    if (_tableDir is not null) await PushTableDirAsync(Get(values, "sysid"));
+                    break;
+                case "translate":
+                {
+                    var (result, error) = await GoogleTranslateService.TranslateAsync(Get(values, "text"), Get(values, "lang"));
+                    await Js($"window.setTranslated({Json(result ?? "")}, {(error is null ? "null" : Json(error))})");
+                    break;
+                }
                 case "close": Close(); break;
             }
         }
@@ -106,12 +120,25 @@ public class AppCommandEditForm : ThemedForm
             var cols = await _service.GetColumnsAsync();
             Dictionary<string, string?>? values = _seed;
             if (_menuId is not null) values = await _service.LoadRowAsync(_menuId) ?? values;
-            else if (_seed is null && _templateId is not null && await _service.LoadRowAsync(_templateId) is { } tpl) { tpl["menu_id"] = ""; values = tpl; }
+            else if (_seed is null && _templateId is not null && await _service.LoadRowAsync(_templateId) is { } tpl) { tpl[_service.Spec.KeyColumn] = ""; values = tpl; }
+            var spec = _service.Spec;
+            // New (DVCOMMAND): gợi ý luôn khoá chưa dùng dưới cùng menu cha của dòng mẫu — khoá của mẫu đã có người dùng.
+            if (_menuId is null && spec.SuggestKey && values is not null && string.IsNullOrWhiteSpace(values.GetValueOrDefault(spec.KeyColumn)))
+            {
+                try { values = new Dictionary<string, string?>(values, StringComparer.OrdinalIgnoreCase) { [spec.KeyColumn] = await _service.SuggestNextKeyAsync(values.GetValueOrDefault(spec.ParentColumn)) }; }
+                catch { /* không gợi ý được thì để trống cho người dùng gõ */ }
+            }
             await Js("window.init(" + JsonSerializer.Serialize(new
             {
                 isNew = _menuId is null,
                 columns = cols.Select(c => new { name = c.Name, kind = c.Kind, nullable = c.Nullable, maxLength = c.Kind == "String" ? c.MaxLength : 0 }),
                 values,
+                title = spec.Title,
+                key = spec.KeyColumn,
+                top = spec.TopColumns,
+                showReports = spec.ShowReports,
+                translate = spec.Translate,
+                tableDir = _tableDir is not null,
             }) + ")");
             await Js("window.setStatus('')");
         }
@@ -130,10 +157,22 @@ public class AppCommandEditForm : ThemedForm
         catch (Exception ex) { await Js($"window.setReports({{columns:[],rows:[],note:{Json("Không đọc được reports: " + ex.Message)}}})"); }
     }
 
+    /// <summary>Ô Table Dir: bảng m/d của sysid đọc từ file Dir/Grid (nền, đọc qua UNC). Gõ sysid khác trong lúc đọc thì bỏ kết quả cũ.</summary>
+    private async Task PushTableDirAsync(string sysId)
+    {
+        var version = ++_tableVersion;
+        if (sysId.Trim().Length == 0) { await Js("window.setTableDir('', '', '')"); return; }
+        await Js($"window.setTableDir('', '', {Json("Đang đọc file Dir...")})");
+        var r = await Task.Run(() => _tableDir!(sysId.Trim()));
+        if (version != _tableVersion || IsDisposed) return;
+        await Js($"window.setTableDir({Json(r.Master)}, {Json(string.Join(", ", r.Details))}, {Json(r.Note)})");
+    }
+
     private async Task SaveAsync(Dictionary<string, string?> values)
     {
-        var id = Get(values, "menu_id").Trim();
-        if (id.Length == 0) { await Invalid("menu_id", "Nhập Menu_id."); return; }
+        var key = _service.Spec.KeyColumn;
+        var id = Get(values, key).Trim();
+        if (id.Length == 0) { await Invalid(key, $"Nhập {key}."); return; }
         if (Get(values, "bar").Trim().Length == 0) { await Invalid("bar", "Nhập Bar (tên menu)."); return; }
         var cols = await _service.GetColumnsAsync();
         foreach (var c in cols)
@@ -147,12 +186,12 @@ public class AppCommandEditForm : ThemedForm
             var idChanged = _menuId is null || !string.Equals(_menuId, id, StringComparison.OrdinalIgnoreCase);
             if (idChanged && await _service.ExistsAsync(id))
             {
-                await Invalid("menu_id", $"Menu_id '{id}' đã tồn tại — dùng id khác.");
+                await Invalid(key, $"{(key == "menu_id" ? "Menu_id" : key)} '{id}' đã tồn tại — dùng id khác.");
                 return;
             }
             await _service.SaveAsync(_menuId, values);
             _menuId = id;
-            Text = "COMMAND - Edit";
+            Text = $"{_service.Spec.Title} - Edit";
             await Js("window.setStatus('Đã lưu.', 'ok')");
             Changed?.Invoke();
         }
@@ -163,7 +202,7 @@ public class AppCommandEditForm : ThemedForm
     private async Task DeleteAsync()
     {
         if (_menuId is null) return;
-        if (MessageBox.Show(this, $"Xóa menu '{_menuId}' khỏi bảng command?", "Bcode — Command",
+        if (MessageBox.Show(this, $"Xóa menu '{_menuId}' khỏi bảng {_service.Spec.Table}?", "Bcode — Command",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
         await Js("window.setBusy(true)");
         try

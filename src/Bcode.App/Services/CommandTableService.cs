@@ -23,8 +23,14 @@ public static class CommandTableService
     {
         if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(sysId))
             return new Result("", new(), "");
+        return ResolveIn(Path.Combine(sourcePath, "App_Data", "Controllers"), sysId);
+    }
 
-        var controllers = Path.Combine(sourcePath, "App_Data", "Controllers");
+    /// <summary>Như <see cref="Resolve"/> nhưng chỉ thẳng thư mục chứa Dir\ và Grid\ (vd MobileService\App_Data\Controllers\Mobile).</summary>
+    public static Result ResolveIn(string controllers, string? sysId)
+    {
+        if (string.IsNullOrWhiteSpace(controllers) || string.IsNullOrWhiteSpace(sysId))
+            return new Result("", new(), "");
         var dirFile = FindFile(Path.Combine(controllers, "Dir"), sysId.Trim());
         if (dirFile is null) return new Result("", new(), $"Không thấy Dir/{sysId.Trim()}.f hoặc .xml trong source.");
 

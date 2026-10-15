@@ -62,6 +62,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
     private SqlObjectTreeControl _sqlObjectTree = null!;
     private WCommandTreeControl _wcommandTree = null!;
+    // Mục "Mobile" ở cột icon trái: cây menu app mobile (bảng dvcommand, Sys Data) — cùng control với WCommand, file nằm ở thư mục MobileService.
+    private WCommandTreeControl _mobileTree = null!;
+    private FileLookupControl? _mobileLookup;     // tab File Lookup dùng lại cho menu mobile (double-click); F4 thì mở tab mới
     private readonly Panel _leftContentHost = new() { Dock = DockStyle.Fill };
     private readonly Dictionary<string, Control> _leftSections = new();
     private readonly Bcode.App.Controls.FlatTabControl _documentTabs;
@@ -319,16 +322,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.DesignRequested += item => LaunchScreenDesigner(item.SysId);
         _wcommandTree = wcommandTree;
 
-        var mobilePanel = new Panel { Dock = DockStyle.Fill };
-        mobilePanel.Controls.Add(new Label
-        {
-            Dock = DockStyle.Top,
-            Height = 120,
-            Text = "Mobile: duyệt cấu trúc màn hình app di động (tương đương \"Mobile Path\" trong FCode).\n" +
-                   "Dùng lại FileLookupControl trỏ tới thư mục con dành cho mobile trong Source Path khi bạn xác định " +
-                   "được đúng quy ước thư mục trên server của mình.",
-            Padding = new Padding(6)
-        });
+        var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,
+            menuTable: new AppCommandService(_connections, MenuTableSpec.DvCommand),
+            tableDir: sysId => MobilePathService.ResolveTables(_connections.Current, sysId)) { Dock = DockStyle.Fill };
+        mobilePanel.NodeActivated += item => OpenMobileItem(item, newTab: false);
+        mobilePanel.NewLookupRequested += item => OpenMobileItem(item, newTab: true);
+        _mobileTree = mobilePanel;
 
         _leftSections["sql_object"] = sqlObjectTree;
         _leftSections["wcommand"] = wcommandTree;
@@ -604,6 +603,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var swSwitch = System.Diagnostics.Stopwatch.StartNew();
         var syncBefore = swSwitch.ElapsedMilliseconds;
         _ = TimedAsync("WCommandTree.ReloadAsync", () => _wcommandTree.ReloadAsync());
+        if (_mobileTree.Visible) _ = _mobileTree.ReloadAsync();   // mục Mobile đang mở: nạp dvcommand của project mới (ẩn thì nạp khi bấm vào mục)
         var tWc = swSwitch.ElapsedMilliseconds;
         _sqlObjectTree.ResetForWorkspace(); // đổi project → danh sách SQL Object nạp lại (từ cache của project mới)
         var tSql = swSwitch.ElapsedMilliseconds;
@@ -839,6 +839,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         foreach (var (sectionKey, control) in _leftSections) control.Visible = sectionKey == key;
         if (key == "wcommand") _ = _wcommandTree.ReloadAsync();
+        if (key == "mobile") _ = _mobileTree.ReloadAsync();
         if (key == "sql_object") _ = _sqlObjectTree.EnsureLoadedAsync(); // vào mục SQL Object: nạp sẵn (từ cache), chỉ nạp thêm khi có object mới/đổi
         _railNative?.Select(key);
         if (_iconRailWeb.CoreWebView2 is not null)
@@ -2468,6 +2469,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "project.openSource": OpenProjectFolder(_connections.Current?.SourcePath ?? ""); return true;
             case "project.openWorking": OpenProjectFolder(_connections.Current?.WorkingPath ?? ""); return true;
             case "project.openMobile": OpenProjectFolder(_connections.Current?.MobilePath ?? ""); return true;
+            case "left.mobile": SelectLeftSection("mobile"); return true;
             case "project.web": OpenProjectWeb(); return true;
             case "project.copyInfo":
                 if (_connections.Current is { } projectWs) CopyProjectInfo(projectWs);
@@ -2605,6 +2607,37 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var control = CreateExtraLookupTab(ws, $"File Lookup · {label}");
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: false);
         control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
+    }
+
+    /// <summary>Menu mobile (cây dvcommand): File Lookup theo sysid trong thư mục MobileService của project (Mobile Path, trống thì đoán cạnh Source Path).
+    /// Double-click dùng lại 1 tab "File Lookup · Mobile"; F4 (<paramref name="newTab"/>) mở thêm tab riêng.</summary>
+    private void OpenMobileItem(WCommandItem item, bool newTab)
+    {
+        if (string.IsNullOrWhiteSpace(item.SysId))
+        {
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có sysid gắn với source (có thể là mục nhóm/menu cha).", "dvcommand");
+            return;
+        }
+        var ws = _connections.Current;
+        if (MobilePathService.Resolve(ws) is not { } root)
+        {
+            MessageBox.Show(this, MobilePathService.MissingMessage(ws), "Bcode — Mobile");
+            return;
+        }
+
+        FileLookupControl control;
+        if (!newTab && _mobileLookup is { IsDisposed: false } open && open.Parent is TabPage page && _documentTabs.TabPages.Contains(page))
+        {
+            control = open;
+            _documentTabs.SelectedTab = page;
+        }
+        else
+        {
+            control = CreateExtraLookupTab(ws!, $"File Lookup · Mobile · {item.SysId}");
+            if (!newTab) _mobileLookup = control;
+        }
+        if (control.Parent is TabPage tab) tab.Text = $"File Lookup · Mobile · {item.SysId}";
+        control.ShowForMenuItem(root, "", item.SysId);
     }
 
     /// <summary>Tab File Lookup phụ (không được theo dõi như tab chính); F4 ngay trong tab phụ này cũng bung tiếp được.</summary>

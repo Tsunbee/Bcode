@@ -43,9 +43,21 @@ public class WCommandTreeControl : UserControl
 
     private readonly AppSettings? _settings;
 
-    public WCommandTreeControl(WCommandService service, FileLookupService fileLookupService, Func<Workspace?> getCurrentWorkspace, AppSettings? settings = null)
+    // Cây của 1 bảng menu khác wcommand (mục Mobile = bảng dvcommand): nạp / New / Edit / Delete / Gen Script qua AppCommandService
+    // của bảng đó, sửa bằng form AppCommandEditForm. null = cây WCommand như cũ.
+    private readonly AppCommandService? _menuTable;
+    private readonly Func<string, CommandTableService.Result>? _tableDir;
+    private bool IsMenuTable => _menuTable is not null;
+
+    /// <param name="menuTable">Khác null = cây của bảng menu đó (vd <see cref="MenuTableSpec.DvCommand"/>) thay cho wcommand; các mục chỉ dành cho menu web
+    /// (Run, Screen Designer, Copy source standard, Cấp source, Check WCommand) bị ẩn.</param>
+    /// <param name="tableDir">Ô Table Dir của form sửa (bảng m/d theo sysid) khi ở chế độ <paramref name="menuTable"/>.</param>
+    public WCommandTreeControl(WCommandService service, FileLookupService fileLookupService, Func<Workspace?> getCurrentWorkspace, AppSettings? settings = null,
+        AppCommandService? menuTable = null, Func<string, CommandTableService.Result>? tableDir = null)
     {
         _settings = settings;
+        _menuTable = menuTable;
+        _tableDir = tableDir;
         _service = service;
         _fileLookupService = fileLookupService;
         _getCurrentWorkspace = getCurrentWorkspace;
@@ -64,8 +76,8 @@ public class WCommandTreeControl : UserControl
         // Đang mở hộp thoại New/Edit mà bấm sang menu khác → hiện thông tin menu đó lên hộp thoại (không phải đóng rồi mở lại).
         _tree.AfterSelect += (_, e) =>
         {
-            if (_appEditForm is { IsDisposed: false } appOpen && e.Node?.Tag is WCommandItem { IsAppCommand: true } appPicked)
-                _ = appOpen.SwitchToAsync(appPicked.MenuId);
+            if (_appEditForm is { IsDisposed: false } appOpen && e.Node?.Tag is WCommandItem appPicked && AppKey(appPicked) is { } appKey)
+                _ = appOpen.SwitchToAsync(appKey);
             else if (_editForm is { IsDisposed: false } open && e.Node?.Tag is WCommandItem picked && !picked.IsAppCommand)
                 _ = open.SwitchToAsync(picked);
         };
@@ -134,6 +146,16 @@ public class WCommandTreeControl : UserControl
         WebMenu.AttachTo(_tree, () =>
         {
             var hasSelection = _tree.SelectedNode?.Tag is WCommandItem;
+            if (IsMenuTable)
+                return new WebMenu()
+                    .Add("New", async () => await NewAsync(), shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.new"))
+                    .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
+                    .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
+                    .AddSeparator()
+                    .Add("Mở File Lookup mới", OpenInNewLookup, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.newLookup"), enabled: hasSelection)
+                    .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
+                    .AddSeparator()
+                    .Add("Refresh", async () => await ReloadAsync(force: true), shortcut: "F5");
             return new WebMenu()
                 .Add("New", async () => await NewAsync(), shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.new"))
                 .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
@@ -184,6 +206,7 @@ public class WCommandTreeControl : UserControl
                     if (root.GetProperty("action").GetString() == "reload")
                     {
                         _filterText = root.GetProperty("filter").GetString() ?? "";
+                        _customOnly = root.TryGetProperty("custom", out var cu) && cu.ValueKind == System.Text.Json.JsonValueKind.True;
                         await ReloadAsync();
                     }
                 };
@@ -209,17 +232,22 @@ public class WCommandTreeControl : UserControl
 
     private RoundedInput? _nativeFilter;
 
-    /// <summary>Thanh lọc bản native (tương đương wcommandbar.html): ô lọc + nút Refresh; Enter hoặc Refresh = tải lại theo bộ lọc.</summary>
+    /// <summary>Thanh lọc bản native (tương đương wcommandbar.html): ô lọc + ô (C) (chỉ menu customize) + nút Refresh; Enter, đổi (C) hoặc Refresh = tải lại theo bộ lọc.</summary>
     private Control BuildNativeBar()
     {
         var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.UiTemplate.Dens(40), Padding = new Padding(6, 6, 6, 6) };
         var refresh = PillButton.Flat("Refresh");
         refresh.Dock = DockStyle.Right;
         _nativeFilter = new RoundedInput { Dock = DockStyle.Fill, PlaceholderText = "Tìm theo tên menu, ID hoặc link..." };
-        async void Go() { _filterText = _nativeFilter.Text; await ReloadAsync(); }
+        var custom = NK.Check("(C)");
+        custom.Dock = DockStyle.Right; custom.AutoSize = true; custom.Padding = new Padding(4, 0, 0, 0);
+        NK.Tip(custom, "Chỉ hiện menu customize (tên có (C) hoặc (*))");
+        async void Go() { _filterText = _nativeFilter.Text; _customOnly = custom.Checked; await ReloadAsync(); }
+        custom.CheckedChanged += (_, _) => Go();
         refresh.Click += (_, _) => Go();
         _nativeFilter.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Go(); } };
         panel.Controls.Add(_nativeFilter);
+        panel.Controls.Add(custom);
         panel.Controls.Add(new Panel { Dock = DockStyle.Right, Width = 6 });
         panel.Controls.Add(refresh);
         return panel;
@@ -235,6 +263,25 @@ public class WCommandTreeControl : UserControl
         _tree.Nodes.Clear();
         var filter = string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim();
 
+        if (_menuTable is not null)
+        {
+            // Bảng menu nhỏ (dvcommand vài chục dòng): luôn đọc thẳng database, không bản lưu / chữ ký.
+            List<WCommandItem> flat;
+            try { flat = await _menuTable.LoadMenuItemsAsync(); }
+            catch (Exception ex)
+            {
+                if (version != _reloadVersion) return;
+                MessageBox.Show(this, $"Không tải được {_menuTable.Spec.Table}: {ex.Message}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (version != _reloadVersion) return;
+            var tableRoots = WCommandService.BuildTree(flat, filter, inferParent: false);
+            if (filter is null) _rootsAll = tableRoots;
+            if (flat.Count == 0) _tree.Nodes.Add(new TreeNode($"(Không có bảng {_menuTable.Spec.Table} ở Sys Data của workspace này, hoặc bảng rỗng)") { ForeColor = Color.Gray });
+            RenderRoots(Shown(tableRoots), ExpandKey(filter));
+            return;
+        }
+
         // Có bản lưu trên máy (và đang không lọc): hiện cây NGAY từ đó, rồi hỏi database ngầm — giống nhau thì giữ nguyên, khác (hoặc database không với tới được) thì xử lý bên dưới.
         var cachedFlat = filter is null ? _service.LoadCachedFlat() : null;
         var cacheSignature = cachedFlat is { Count: > 0 } ? WCommandService.SignatureOf(cachedFlat) : null;
@@ -242,7 +289,7 @@ public class WCommandTreeControl : UserControl
         {
             var cachedRoots = _service.TreeFromFlat(cachedFlat!);
             _rootsAll = cachedRoots;
-            RenderRoots(cachedRoots, null);
+            RenderRoots(Shown(cachedRoots), ExpandKey(null));
         }
 
         // Bản lưu còn đúng (chữ ký nhẹ do database tính trùng) → giữ cây đang hiện, khỏi tải cả bảng wcommand.
@@ -267,8 +314,13 @@ public class WCommandTreeControl : UserControl
         if (cacheSignature is not null && _service.LastSignature == cacheSignature) return;   // database giống bản lưu — cây đang hiện đã đúng
         if (cacheSignature is not null) _tree.Nodes.Clear();                                    // khác: dựng lại theo bản mới
         if (filter is null) _rootsAll = roots;   // bản đầy đủ (không lọc) — Command Palette tìm menu trong đây
-        RenderRoots(roots, filter);
+        RenderRoots(Shown(roots), ExpandKey(filter));
     }
+
+    // Nút "(C)" của thanh lọc: chỉ hiện menu customize (tên có (C) / (*)) kèm menu cha — lọc trên bản sao, cây đầy đủ (_rootsAll) giữ nguyên.
+    private bool _customOnly;
+    private List<WCommandItem> Shown(List<WCommandItem> roots) => _customOnly ? WCommandService.FilterCustom(roots) : roots;
+    private string? ExpandKey(string? filter) => filter ?? (_customOnly ? "(C)" : null);   // đang lọc (C) thì bung hết như khi lọc chữ
 
     private void RenderRoots(List<WCommandItem> roots, string? filter)
     {
@@ -290,6 +342,7 @@ public class WCommandTreeControl : UserControl
             {
                 foreach (TreeNode root in _tree.Nodes)
                     ExpandRecursive(root);
+                if (_tree.Nodes.Count > 0) _tree.Nodes[0].EnsureVisible();   // bung hết xong cuộn về đầu kết quả
             }
         }
         finally
@@ -363,7 +416,7 @@ public class WCommandTreeControl : UserControl
     /// <summary>Ctrl+F5 (cấu hình được: Template → Phím tắt, nhóm "Cây menu WCommand") khi cây đang có focus: chạy menu đang chọn. Cây bắt phím trước phím cùng tổ hợp ở phạm vi cửa sổ.</summary>
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (_tree.ContainsFocus && Bcode.App.UI.ShortcutRegistry.FromKeys(keyData) is { } combo
+        if (!IsMenuTable && _tree.ContainsFocus && Bcode.App.UI.ShortcutRegistry.FromKeys(keyData) is { } combo
             && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.run") && SelectedItem is not null)
         {
             RunSelectedMenu();
@@ -425,6 +478,12 @@ public class WCommandTreeControl : UserControl
     private WCommandEditForm? _editForm;
     private AppCommandEditForm? _appEditForm;
 
+    /// <summary>Bảng mà form COMMAND/DVCOMMAND - Edit sửa: bảng của cây (chế độ <see cref="IsMenuTable"/>) hoặc command của sản phẩm APP.</summary>
+    private AppCommandService AppTable => _menuTable ?? _service.AppCommands;
+
+    /// <summary>Khoá của dòng khi sửa bằng form COMMAND/DVCOMMAND - Edit; null = dòng wcommand (form WCOMMAND - Edit).</summary>
+    private string? AppKey(WCommandItem item) => _menuTable is not null ? item.WMenuId : item.IsAppCommand ? item.MenuId : null;
+
     /// <summary>Menu dạng APP (chỉ có bảng command): mở form COMMAND - Edit tổng quát. existingId = null → New (mượn dữ liệu của templateId nếu có).</summary>
     private void OpenAppEditForm(string? existingId, string? templateId)
     {
@@ -434,7 +493,7 @@ public class WCommandTreeControl : UserControl
             open.Activate();
             return;
         }
-        var form = new AppCommandEditForm(_service.AppCommands, existingId, templateId);
+        var form = new AppCommandEditForm(AppTable, existingId, templateId, _tableDir);
         _appEditForm = form;
         form.Changed += () => { if (!IsDisposed) BeginInvoke(new Action(async () => await ReloadAsync())); };
         form.FormClosed += (_, _) => { if (ReferenceEquals(_appEditForm, form)) _appEditForm = null; form.Dispose(); };
@@ -470,6 +529,7 @@ public class WCommandTreeControl : UserControl
         // (WMenu Id itself gets overwritten again right after with a suggested free id —
         // see WCommandEditForm's own Load handler — since the cloned id is already taken.)
         var template = SelectedItem;
+        if (IsMenuTable) { OpenAppEditForm(null, template?.WMenuId); return Task.CompletedTask; }
         if (template is { IsAppCommand: true }) { OpenAppEditForm(null, template.MenuId); return Task.CompletedTask; }
         OpenEditForm(null, template);
         return Task.CompletedTask;
@@ -479,7 +539,7 @@ public class WCommandTreeControl : UserControl
     {
         var item = SelectedItem;
         if (item is null) return Task.CompletedTask;
-        if (item.IsAppCommand) { OpenAppEditForm(item.MenuId, null); return Task.CompletedTask; }
+        if (AppKey(item) is { } key) { OpenAppEditForm(key, null); return Task.CompletedTask; }
         OpenEditForm(item, null);
         return Task.CompletedTask;
     }
@@ -488,10 +548,10 @@ public class WCommandTreeControl : UserControl
     {
         var item = SelectedItem;
         if (item is null) return;
-        if (item.IsAppCommand)
+        if (AppKey(item) is { } key)
         {
-            if (MessageBox.Show(this, $"Xóa menu '{item.Bar}' ({item.MenuId}) khỏi bảng command?", "Bcode — Command", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-            try { await _service.AppCommands.DeleteAsync(item.MenuId); await ReloadAsync(); }
+            if (MessageBox.Show(this, $"Xóa menu '{item.Bar}' ({key}) khỏi bảng {AppTable.Spec.Table}?", "Bcode — Command", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+            try { await AppTable.DeleteAsync(key); await ReloadAsync(); }
             catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Command", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             return;
         }
@@ -584,8 +644,15 @@ public class WCommandTreeControl : UserControl
         var item = SelectedItem;
         if (item is null) return;
 
+        string script;
+        if (_menuTable is not null)
+        {
+            try { script = await _menuTable.GenerateScriptAsync(item.WMenuId); }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Gen Script Menu", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        }
+        else
         // Chỉ ghi các cột bảng wcommand / command thật sự có ở database này (đọc cấu trúc ở nền, có cache).
-        var script = await Task.Run(() => _service.GenerateScriptForCurrentDb(item));
+        script = await Task.Run(() => _service.GenerateScriptForCurrentDb(item));
         using var form = new WCommandScriptForm(script, $"Script — {item.WMenuId}");
         form.ShowDialog(this);
     }

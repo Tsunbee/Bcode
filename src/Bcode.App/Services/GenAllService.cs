@@ -55,7 +55,7 @@ public sealed class GenAllResult
 ///     Controllers, controller đi cặp...) + các file include/entity mà controller tham chiếu + procedure được gọi
 ///     trong controller Filter + script menu (wcommand, command).
 ///   • File Path: đường dẫn file nhập tay.
-///   • SQL Object: tên procedure nhập tay (script ALTER lấy từ database App/Sys).
+///   • SQL Object: tên procedure nhập tay (script IF EXISTS … DROP + CREATE lấy từ database App/Sys; table không bao giờ DROP).
 ///   • SQL Top Script: script đầu gói.
 /// </summary>
 /// <summary>1 table tìm thấy trong các file liên quan tới controller (xem <see cref="GenAllService.FindTablesAsync"/>).</summary>
@@ -385,16 +385,14 @@ public class GenAllService
 
             if (obj.Kind == SqlObjectKind.View)
             {
-                // View: chỉ có cấu trúc. Server cũ (SQL 2008) chưa có CREATE OR ALTER nên dùng "xoá nếu có rồi tạo lại".
+                // View: chỉ có cấu trúc. Server cũ (SQL 2008) chưa có CREATE OR ALTER nên dùng "xoá nếu có rồi tạo lại" (mẫu IF EXISTS ... DROP ... GO CREATE của FCode).
                 if (t.Data) result.Warnings.Add($"{origin}: là view — không có dữ liệu để nạp, chỉ sinh script tạo view.");
                 if (!t.Structure) return;
-                var raw = await _sql.GetDefinitionAsync(obj);
-                var create = Regex.Replace(raw, @"\bALTER\s+VIEW\b", "CREATE VIEW", RegexOptions.IgnoreCase);
                 result.Add(new PackageItem
                 {
                     Origin = origin + " · view",
                     RelativeDestPath = PackageLayout.Script(t.Sys, $"40_view_{safe}.sql"),
-                    GeneratedContent = $"-- Tạo lại view {obj.QualifiedName}\r\nIF OBJECT_ID(N'{obj.QualifiedName}', N'V') IS NOT NULL DROP VIEW {obj.QualifiedName}\r\nGO\r\n" + create,
+                    GeneratedContent = $"-- Tạo lại view {obj.QualifiedName}\r\n" + await _sql.GetDeployScriptAsync(obj),
                 });
                 return;
             }
@@ -739,7 +737,8 @@ public class GenAllService
                     if (result.Items.Count > before) found = true;
                     continue;
                 }
-                var script = await _sql.GetDefinitionAsync(obj);
+                // Procedure / function / trigger: IF EXISTS ... DROP ... GO + CREATE gốc (không dùng ALTER — chạy được cả khi DB đích chưa có object).
+                var script = await _sql.GetDeployScriptAsync(obj);
                 result.Add(new PackageItem
                 {
                     Origin = origin,

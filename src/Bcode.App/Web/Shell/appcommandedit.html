@@ -29,6 +29,11 @@
   td { padding: 3px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
   tr:hover td { background: rgba(255,255,255,.05); }
   .muted { color: var(--text-muted); font-size: 12px; }
+  .top .span2 { grid-column: span 2; }
+  .ctl { display: flex; gap: 6px; align-items: center; }
+  .ctl input { flex: 1; min-width: 0; }
+  .ctl select { flex: 0 0 auto; width: 108px; font-family: inherit; font-size: 12px; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: 4px; padding: 6px 4px; }
+  .ctl .btn { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -41,18 +46,21 @@
   <div class="grow" id="statusMsg"></div>
 </div>
 <main>
-  <h2><span>COMMAND</span><span class="tag" id="mode"></span></h2>
+  <h2><span id="title">COMMAND</span><span class="tag" id="mode"></span></h2>
   <div class="top" id="top"></div>
   <div class="grid" id="rest"></div>
+  <div id="repSec">
   <h3>Reports (Sys Data) theo Sysid <span id="repSys" class="muted"></span></h3>
   <div class="muted" id="repNote"></div>
   <div class="rep-wrap" id="repWrap" style="display:none"><table><thead id="repHead"></thead><tbody id="repBody"></tbody></table></div>
+  </div>
 </main>
 
 <script>
   const $ = id => document.getElementById(id);
   const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
-  const TOP = ['menu_id', 'menu_id0', 'bar', 'bar2'];
+  let TOP = ['menu_id', 'menu_id0', 'bar', 'bar2'];
+  const LANGS = [['en', 'English'], ['zh-CN', '中文 (giản thể)'], ['zh-TW', '中文 (phồn thể)'], ['ja', '日本語'], ['ko', '한국어'], ['th', 'ไทย'], ['fr', 'Français'], ['de', 'Deutsch'], ['es', 'Español'], ['id', 'Indonesia'], ['ru', 'Русский']];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let cols = [], isNew = true, busy = false, repTimer = 0;
 
@@ -69,10 +77,34 @@
 
   window.init = function (st) {
     cols = st.columns || []; isNew = !!st.isNew;
+    // Bảng khác command (vd dvcommand của menu mobile): tiêu đề, cột khoá, cột trên đầu, có/không Reports — C# gửi kèm; thiếu thì như cũ.
+    if (st.top) TOP = st.top.map(n => n.toLowerCase());
+    $('title').textContent = st.title || 'COMMAND';
+    $('repSec').style.display = st.showReports === false ? 'none' : '';
     $('mode').textContent = isNew ? 'New' : 'Edit';
     const byName = new Map(cols.map(c => [c.name.toLowerCase(), c]));
     const val = n => (st.values || {})[n];
-    $('top').innerHTML = TOP.filter(n => byName.has(n)).map(n => field(byName.get(n), val(byName.get(n).name))).join('');
+    $('top').innerHTML = TOP.filter(n => byName.has(n)).map(n => field(byName.get(n), val(byName.get(n).name))).join('') +
+      (st.tableDir ? '<div><label for="tableM">Table Dir (bảng m)</label><input type="text" id="tableM" readonly></div>' +
+                     '<div><label for="tableD">Bảng d (Grid)</label><input type="text" id="tableD" readonly title=""></div>' +
+                     '<div class="span2 muted" id="tdNote" style="grid-column: 1 / -1"></div>' : '');
+    if (st.translate && $('f_bar2')) {
+      ['f_bar', 'f_bar2'].forEach(id => $(id) && $(id).parentElement.classList.add('span2'));
+      const inp = $('f_bar2'), row = document.createElement('div');
+      row.className = 'ctl';
+      inp.parentElement.insertBefore(row, inp);
+      row.appendChild(inp);
+      row.insertAdjacentHTML('beforeend', '<select id="trLang" title="Ngôn ngữ dịch từ Bar (tiếng Việt)">' + LANGS.map(l => '<option value="' + l[0] + '">' + esc(l[1]) + '</option>').join('') + '</select>' +
+        '<button class="btn btn-border" id="btnTr" title="Dịch Bar (tiếng Việt) sang ngôn ngữ chọn bằng Google Dịch rồi điền vào Bar2">🌐 Dịch</button>');
+      try { const l = localStorage.getItem('wcmdTrLang'); if (l) $('trLang').value = l; } catch (e) { }
+      $('trLang').onchange = () => { try { localStorage.setItem('wcmdTrLang', $('trLang').value); } catch (e) { } };
+      $('btnTr').onclick = () => {
+        const text = ($('f_bar') || {}).value || '';
+        if (!text.trim()) { window.setStatus('Nhập Bar (tiếng Việt) trước rồi mới dịch.', 'err'); if ($('f_bar')) $('f_bar').focus(); return; }
+        $('btnTr').disabled = true; window.setStatus('Đang dịch…');
+        post('translate', { text: text.trim(), lang: $('trLang').value });
+      };
+    }
     $('rest').innerHTML = cols.filter(c => !TOP.includes(c.name.toLowerCase())).map(c => field(c, val(c.name))).join('');
     $('btnDelete').style.display = isNew ? 'none' : '';
     $('btnRefresh').style.display = isNew ? 'none' : '';
@@ -80,7 +112,7 @@
     // ô "NULL" xoá khi focus để gõ giá trị; rời ô mà để trống → lưu NULL
     inputs().forEach(i => i.addEventListener('focus', () => { if (i.value === 'NULL' && i.classList.contains('isnull')) { i.value = ''; } }));
     inputs().forEach(i => i.addEventListener('blur', () => { if (i.value === '' && i.dataset.null === '1' && i.dataset.col && cols.find(c => c.name === i.dataset.col && c.kind !== 'String')) { i.value = 'NULL'; i.classList.add('isnull'); } }));
-    const first = $('f_' + (isNew ? 'menu_id' : 'bar')) || inputs()[0];
+    const first = $('f_' + (isNew ? (st.key || 'menu_id') : 'bar')) || inputs()[0];
     if (first) first.focus();
     queueReports(0);
   };
@@ -96,6 +128,13 @@
     if (!has) return;
     $('repHead').innerHTML = '<tr>' + r.columns.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr>';
     $('repBody').innerHTML = r.rows.map(row => '<tr>' + row.map(v => '<td title="' + esc(v) + '">' + esc(v) + '</td>').join('') + '</tr>').join('');
+  };
+  window.setTableDir = (m, d, note) => { if (!$('tableM')) return; $('tableM').value = m || ''; $('tableD').value = d || ''; $('tableD').title = d || ''; $('tdNote').textContent = note || ''; };
+  window.setTranslated = (text, err) => {
+    if ($('btnTr')) $('btnTr').disabled = false;
+    if (err) { window.setStatus(err, 'err'); return; }
+    const b = $('f_bar2'); if (b) { b.value = text; b.classList.remove('invalid'); }
+    window.setStatus('Đã dịch — kiểm tra lại Bar2 rồi Save.', 'ok');
   };
   window.setStatus = (text, level) => { const s = $('statusMsg'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setBusy = b => { busy = b; ['btnSave', 'btnDelete', 'btnNew', 'btnRefresh'].forEach(i => $(i).disabled = b); };

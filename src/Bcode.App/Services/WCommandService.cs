@@ -233,6 +233,30 @@ public class WCommandService
         return result;
     }
 
+    /// <summary>Menu customize: tên (Bar / Bar2) có "(C)" hoặc "(*)" — quy ước đánh dấu menu làm riêng cho khách của FCode.</summary>
+    public static bool IsCustom(WCommandItem item) =>
+        item.Bar.Contains("(C)", StringComparison.OrdinalIgnoreCase) || item.Bar.Contains("(*)", StringComparison.Ordinal) ||
+        item.Bar2.Contains("(C)", StringComparison.OrdinalIgnoreCase) || item.Bar2.Contains("(*)", StringComparison.Ordinal);
+
+    /// <summary>Nút "(C)" của thanh lọc cây: chỉ giữ menu customize (<see cref="IsCustom"/>) cùng các menu cha của chúng; nhóm tự nó customize thì giữ
+    /// nguyên mọi menu con. KHÔNG sửa cây gốc (menu cha được chép ra node mới) — cây đầy đủ vẫn dùng cho Command Palette.</summary>
+    public static List<WCommandItem> FilterCustom(IEnumerable<WCommandItem> nodes)
+    {
+        var result = new List<WCommandItem>();
+        foreach (var node in nodes)
+        {
+            if (IsCustom(node)) { result.Add(node); continue; }
+            var kids = FilterCustom(node.Children);
+            if (kids.Count == 0) continue;
+            var copy = new WCommandItem();
+            foreach (var p in typeof(WCommandItem).GetProperties())
+                if (p.CanWrite) p.SetValue(copy, p.GetValue(node));
+            copy.Children.AddRange(kids);
+            result.Add(copy);
+        }
+        return result;
+    }
+
     private static bool Matches(WCommandItem item, string filter) =>
         item.Bar.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
         item.Bar2.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
@@ -408,7 +432,15 @@ public class WCommandService
         return "";
     }
 
-    private static List<WCommandItem> BuildHierarchy(List<WCommandItem> all)
+    /// <summary>Dựng cây (rồi lọc nếu có <paramref name="filter"/>) từ danh sách phẳng của một bảng menu bất kỳ (vd dvcommand của mục Mobile).
+    /// <paramref name="inferParent"/> = false: chỉ tin cột cha (wmenu_id0) — dvcommand có nhóm gốc dạng "20.10.00" không thuộc "20.00.00".</summary>
+    public static List<WCommandItem> BuildTree(List<WCommandItem> flat, string? filter, bool inferParent = true)
+    {
+        var roots = BuildHierarchy(flat, inferParent);
+        return string.IsNullOrWhiteSpace(filter) ? roots : FilterTree(roots, filter.Trim());
+    }
+
+    private static List<WCommandItem> BuildHierarchy(List<WCommandItem> all, bool inferParent = true)
     {
         var byId = all.Where(i => !string.IsNullOrEmpty(i.WMenuId))
                        .GroupBy(i => i.WMenuId)
@@ -420,7 +452,7 @@ public class WCommandService
         {
             var parentId = !string.IsNullOrWhiteSpace(item.WMenuId0)
                 ? item.WMenuId0
-                : InferParentId(item.WMenuId);
+                : inferParent ? InferParentId(item.WMenuId) : "";
 
             if (!string.IsNullOrEmpty(parentId) && byId.TryGetValue(parentId, out var parent) && parent != item)
             {
@@ -434,7 +466,8 @@ public class WCommandService
 
         // Ẩn menu mồ côi: ở cấp gốc mà không có menu con (cha khai báo không tồn tại → bị đẩy lên gốc, hoặc nhóm rỗng,
         // gồm cả các dòng "-" ngăn cách) — không có ích khi duyệt cây.
-        return roots.Where(r => r.Children.Count > 0).OrderBy(r => r.WMenuId).ToList();
+        // Bảng chỉ tin cột cha (dvcommand): giữ cả nhóm gốc chưa có menu con — vừa tạo nhóm mới thì phải thấy nó để thêm menu con.
+        return roots.Where(r => !inferParent || r.Children.Count > 0).OrderBy(r => r.WMenuId).ToList();
     }
 
     private static string InferParentId(string wmenuId)

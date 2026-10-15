@@ -15,18 +15,21 @@
   }
   input[type="text"] { flex: 1; min-width: 0; }
   button { flex: none; }
+  label.chk { flex: none; display: flex; align-items: center; gap: 3px; font-size: 12px; color: var(--text); cursor: pointer; white-space: nowrap; user-select: none; }
 </style>
 </head>
 <body data-area="tree">
   <input type="text" id="filterInput" placeholder="Tìm theo tên menu, ID hoặc link..." />
+  <label class="chk" title="Chỉ hiện menu customize (tên có (C) hoặc (*))"><input type="checkbox" id="customOnly" />(C)</label>
   <button class="btn" id="btnRefresh">Refresh</button>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
 
-  function reload() { post({ action: 'reload', filter: document.getElementById('filterInput').value }); }
+  function reload() { post({ action: 'reload', filter: document.getElementById('filterInput').value, custom: document.getElementById('customOnly').checked }); }
 
   document.getElementById('btnRefresh').addEventListener('click', reload);
+  document.getElementById('customOnly').addEventListener('change', reload);
   document.getElementById('filterInput').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') reload();
   });

@@ -71,6 +71,8 @@ class BcodeEntity {
     this.chainMemos.clear();
     this.includeIndex.clear();
     if (this._treePrefetch) this._treePrefetch.clear();
+    if (this._paramMemos) this._paramMemos.clear();       // giá trị công tắc %X; tra theo file include — file include có thể vừa đổi
+    if (this._noGlobalDecls) this._noGlobalDecls.clear();
     // Worker kiểm tra lỗi có bộ nhớ đệm riêng — báo cho nó bỏ luôn (file include có thể vừa đổi).
     if (typeof window !== 'undefined' && window.bcodeProblems && window.bcodeProblems.invalidateWorker) window.bcodeProblems.invalidateWorker();
     this.workspaceEntityCache.clear();
@@ -114,7 +116,7 @@ class BcodeEntity {
           // Tham số công tắc khai báo Ở FILE KHÁC (vd Unit.Customer dùng %Conditional.Control.Unit.Customer; do Unit.ent khai báo): tra theo chuỗi include của file đang mở.
           // Không có bước này thì luôn coi là IGNORE → mất khai báo trong khối (vd <!ENTITY j "5"> → anchor sai → cột nhãn bị giãn rộng).
           if (ctx) ctx.used = true;
-          value = await this.lookupParamValue(m[1]);
+          value = await this.lookupParamValue(m[1], ctx && ctx.root);
         }
         // Chỉ cần file BẮT ĐẦU bằng INCLUDE: nhiều file công tắc (vd Include\Unit.txt) có thêm rác / ký tự UTF-16 phía sau ("INCLUDE" + NULL...) mà FBO vẫn hiểu là INCLUDE —
         // so khớp cả file thì nhầm thành IGNORE, làm mất khai báo như <!ENTITY j "5"> (cột co giãn của view bị lệch → nhãn bị giãn rộng).
@@ -133,17 +135,30 @@ class BcodeEntity {
 
   /// Giá trị (chữ INCLUDE / IGNORE...) của tham số %Tên; khai báo ở FILE KHÁC, tra theo chuỗi include của file đang mở ('' nếu không thấy).
   /// Duyệt RIÊNG (không qua resolve / declInfo): mỗi file chỉ đánh giá công tắc bằng khai báo ngay trong nó (noGlobal) nên không đệ quy, không va chạm khi nhiều lần vẽ chạy song song.
-  async lookupParamValue(name) {
-    const bcode = this.bcode;
-    if (!bcode.activePath || !bcode.currentModel) return '';
-    const ctxKey = this.docCtxKey();
-    if (!this._paramMemo || this._paramMemoKey !== ctxKey) { this._paramMemo = new Map(); this._paramMemoKey = ctxKey; }
-    if (this._paramMemo.has(name)) return this._paramMemo.get(name);
+  /// root = { path, text } của file gốc đang được tra (vd lượt kiểm Problems chạy nền cho 1 file cụ thể); bỏ trống = file đang mở như trước.
+  /// Đọc "file đang mở" giữa chừng thì sai khi người dùng Ctrl+Tab sang file khác lúc lượt tra còn chờ đọc include.
+  async lookupParamValue(name, root) {
+    root = root || this.activeRoot();
+    if (!root) return '';
+    const ctxKey = this.docCtxKey(root);
+    // Nhớ kết quả THEO TỪNG ngữ cảnh (file + DOCTYPE), giữ vài ngữ cảnh gần nhất: trước đây chỉ nhớ 1 ngữ cảnh nên mỗi lần Ctrl+Tab qua lại (khung
+    // xem trước Dir đang mở) là xoá sạch rồi duyệt lại cả cây include cho từng công tắc — đứng trang 2–10 giây.
+    if (!this._paramMemos) this._paramMemos = new Map();
+    let memo = this._paramMemos.get(ctxKey);
+    if (!memo) {
+      memo = new Map();
+      this._paramMemos.set(ctxKey, memo);
+      if (this._paramMemos.size > 12) this._paramMemos.delete(this._paramMemos.keys().next().value);
+    }
+    if (memo.has(name)) return memo.get(name);
     const seen = new Set();
+    let visited = 0;
     const walk = async (path, text, depth) => {
       if (!text || depth < 0 || seen.has(path.toLowerCase())) return null;
       seen.add(path.toLowerCase());
-      const decls = this.parseDeclarations(await this.applyConditionals(text, path, { noGlobal: true }));
+      // Cây include có thể hàng trăm file: cứ 40 file nhường trình duyệt 1 nhịp để trang không đứng (thứ tự duyệt / kết quả không đổi).
+      if (++visited % 40 === 0) await new Promise((r) => setTimeout(r, 0));
+      const decls = await this.noGlobalDecls(path, text);
       const hit = decls.find((d) => d.isParam && d.name === name);
       if (hit) {
         if (hit.kind === 'value') return hit.value || '';
@@ -159,24 +174,43 @@ class BcodeEntity {
       }
       return null;
     };
-    const value = (await walk(bcode.activePath, bcode.currentModel.getValue(), 8)) || '';
-    this._paramMemo.set(name, value);
+    const value = (await walk(root.path, root.text, 8)) || '';
+    memo.set(name, value);
     return value;
   }
 
-  /// Khoá "ngữ cảnh tài liệu" (file đang mở + phần DOCTYPE): kết quả công tắc tra theo file khác chỉ đúng trong ngữ cảnh này.
-  docCtxKey() {
-    const b = this.bcode;
-    if (!b.activePath || !b.currentModel) return '';
-    return b.activePath.toLowerCase() + '|' + ((/<!DOCTYPE[\s\S]*?\]>/i.exec(b.currentModel.getValue()) || [''])[0]);
+  /// Khai báo của 1 file sau khi áp các khối điều kiện CHỈ bằng công tắc khai trong chính file đó (noGlobal) — không phụ thuộc file đang mở,
+  /// nên nhớ theo (đường dẫn, nội dung): file include lấy từ fileCache là cùng 1 chuỗi → so sánh O(1). Trước đây mỗi lần tra 1 công tắc
+  /// đều parse lại toàn bộ cây include.
+  async noGlobalDecls(path, text) {
+    if (!this._noGlobalDecls) this._noGlobalDecls = new Map();
+    const key = (path || '').toLowerCase();
+    const hit = this._noGlobalDecls.get(key);
+    if (hit && hit.text === text) return hit.decls;
+    const decls = this.parseDeclarations(await this.applyConditionals(text, path, { noGlobal: true }));
+    this._noGlobalDecls.set(key, { text, decls });
+    return decls;
   }
 
-  async declInfo(text, path) {
+  /// Khoá "ngữ cảnh tài liệu" (file đang mở + phần DOCTYPE): kết quả công tắc tra theo file khác chỉ đúng trong ngữ cảnh này.
+  docCtxKey(root) {
+    root = root || this.activeRoot();
+    if (!root) return '';
+    return root.path.toLowerCase() + '|' + ((/<!DOCTYPE[\s\S]*?\]>/i.exec(root.text) || [''])[0]);
+  }
+
+  /// File gốc mặc định = file đang mở ({ path, text }), null nếu chưa mở gì.
+  activeRoot() {
+    const b = this.bcode;
+    return b.activePath && b.currentModel ? { path: b.activePath, text: b.currentModel.getValue() } : null;
+  }
+
+  async declInfo(text, path, root) {
     const key = (path || '').toLowerCase();
     const hit = this.declCache.get(key);
     // text === text: cùng tham chiếu chuỗi (file include lấy từ fileCache) thì so sánh O(1).
-    if (hit && hit.text === text && (!hit.ctxKey || hit.ctxKey === this.docCtxKey())) return hit;
-    const cctx = { used: false };
+    if (hit && hit.text === text && (!hit.ctxKey || hit.ctxKey === this.docCtxKey(root))) return hit;
+    const cctx = { used: false, root };
     const decls = this.parseDeclarations(await this.applyConditionals(text, path, cctx));
     const byName = new Map();
     for (const d of decls) if (!byName.has(d.name)) byName.set(d.name, d); // trùng tên: khai báo đầu thắng
@@ -185,7 +219,7 @@ class BcodeEntity {
     // tra &TabHeightFomula; bằng byName (khai báo đầu thắng) sẽ ra nhầm khai báo tham số và nhét CẢ file .ent vào giá trị (xem trước Dir báo lỗi '<' trong thuộc tính).
     const byNameGeneral = new Map();
     for (const d of decls) if (!d.isParam && !byNameGeneral.has(d.name)) byNameGeneral.set(d.name, d);
-    const info = { text, decls, byName, byNameGeneral, ctxKey: cctx.used ? this.docCtxKey() : null };
+    const info = { text, decls, byName, byNameGeneral, ctxKey: cctx.used ? this.docCtxKey(root) : null };
     this.declCache.set(key, info);
     return info;
   }
@@ -328,13 +362,13 @@ class BcodeEntity {
   }
 
   /// kind: 'general' = chỉ entity thường (&Tên;) — bỏ qua khai báo tham số cùng tên, đi tiếp vào các file include; bỏ trống = như cũ (khai báo nào đứng đầu cũng được).
-  async resolve(name, path, text, seen, depth, kind) {
+  async resolve(name, path, text, seen, depth, kind, root) {
     seen = seen || new Set();
     depth = depth == null ? ENTITY_INCLUDE_DEPTH : depth;
     if (!text || seen.has(path.toLowerCase())) return null;
     seen.add(path.toLowerCase());
 
-    const info = await this.declInfo(text, path);
+    const info = await this.declInfo(text, path, root);
     const decls = info.decls;
     const hit = kind === 'general' ? info.byNameGeneral.get(name) : info.byName.get(name);
     if (hit) return { decl: hit, path, text };
@@ -348,7 +382,7 @@ class BcodeEntity {
       if (seen.has(resolved.toLowerCase())) continue;
       const included = await this.readFile(resolved);
       if (!included) continue;
-      const found = await this.resolve(name, resolved, included, seen, depth - 1, kind);
+      const found = await this.resolve(name, resolved, included, seen, depth - 1, kind, root);
       if (found) return found;
     }
     return null;
@@ -368,7 +402,8 @@ class BcodeEntity {
     const memoKey = kind ? kind + '|' + name : name;
     if (memo.has(memoKey)) return memo.get(memoKey);
     await this.prefetchTree(path, text);
-    const result = await this.resolve(name, path, text, undefined, undefined, kind);
+    // Công tắc %X; khai ở file khác tra theo CHÍNH file này (khoá nhớ ở trên cũng là path|DOCTYPE của nó), không theo file đang mở.
+    const result = await this.resolve(name, path, text, undefined, undefined, kind, { path, text });
     memo.set(memoKey, result);
     return result;
   }

@@ -274,6 +274,8 @@ class BcodeProblems {
       const k = name + '|' + doctypeKey;
       if (this._memo.has(k)) return this._memo.get(k);
       const r = await fn();
+      // Lượt kiểm đã bị thay (đổi tab / sửa file giữa chừng) thì KHÔNG nhớ: kết quả có thể tính sai ngữ cảnh, nhớ lại thì lỗi giả hiện mãi.
+      if (isStale()) return r;
       this._memo.set(k, r);
       if (this._memo.size > 8) this._memo.delete(this._memo.keys().next().value);
       return r;
@@ -282,10 +284,10 @@ class BcodeProblems {
     const steps = [
       // Cần khai triển &Entity; (I/O qua entity.js) nên thuộc nhóm này, không phải nhóm sync trên.
       memo('files', () => this.checkMissingEntityFiles(text, path)),
-      memo('params', () => this.checkUndeclaredParamEntities(text)),
+      memo('params', () => this.checkUndeclaredParamEntities(text, path)),
       () => this.checkItemVariableCount(text),
       () => this.checkRequestsAndFields(text),
-      () => this.checkUndeclaredEntities(text, declared),
+      () => this.checkUndeclaredEntities(text, declared, path),
     ];
     for (const step of steps) {
       let found = [];
@@ -583,7 +585,7 @@ class BcodeProblems {
   /// reference in a real controller as undeclared — a panel that is wrong about the common
   /// case teaches people to ignore it. Names not declared here are checked against the
   /// include chain (entity.js), which reads each file once and caches it.
-  async checkUndeclaredEntities(text, declared) {
+  async checkUndeclaredEntities(text, declared, path) {
     const items = [];
     const re = /&([A-Za-z_][\w.:$-]*);/g;
     const reported = new Set();
@@ -607,7 +609,8 @@ class BcodeProblems {
       let elsewhere = null;
       if (window.bcodeEntity) {
         if (strict) {
-          if (await window.bcodeEntity.resolveChainOnly(name)) continue;
+          // Tra theo chính file đang kiểm (xem checkUndeclaredParamEntities) — không theo file đang mở.
+          if (await (path ? window.bcodeEntity.resolveTop(name, path, text) : window.bcodeEntity.resolveChainOnly(name))) continue;
           if (projectSearches++ < 5) elsewhere = await window.bcodeEntity.resolveViaWorkspaceSearch(name);
         } else if (await window.bcodeEntity.resolveActive(name)) continue;
       }
@@ -629,10 +632,13 @@ class BcodeProblems {
   /// `%Name;` (parameter entity) dùng trong phần DOCTYPE mà chưa khai báo — vd
   /// `%Control.Unit.Include.Customer;` khi file Unit.ent chưa được include. Chỉ xét trong khối
   /// <!DOCTYPE ... [ ... ]>; chuỗi trong dấu nháy bị che đi để "100%;" trong giá trị không bị khớp.
-  async checkUndeclaredParamEntities(text) {
+  /// Tra theo chuỗi include của CHÍNH file đang kiểm (path + text), không theo file đang mở: lượt kiểm chạy nền, Ctrl+Tab sang file khác
+  /// giữa chừng thì resolveChainOnly (tra theo file đang mở) sẽ tra nhầm sang chuỗi include của file kia → báo thiếu các %X; riêng của file này.
+  async checkUndeclaredParamEntities(text, path) {
     const items = [];
     const start = text.search(/<!DOCTYPE\b/i);
     if (start < 0 || !window.bcodeEntity) return items;
+    const resolve = (name) => (path ? window.bcodeEntity.resolveTop(name, path, text) : window.bcodeEntity.resolveChainOnly(name));
     const end = this.skipDeclaration(text, start);
     const subset = text.slice(start, end).replace(/"[^"]*"|'[^']*'/g, (q) => ' '.repeat(q.length));
 
@@ -643,7 +649,7 @@ class BcodeProblems {
       const name = m[1];
       if (reported.has(name)) continue;
       reported.add(name);
-      if (await window.bcodeEntity.resolveChainOnly(name)) continue;
+      if (await resolve(name)) continue;
       const pos = offsetToPosition(text, start + m.index);
       items.push({
         severity: 'error',

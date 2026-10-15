@@ -126,8 +126,8 @@ VIEWER = [
   ('Lớp 4: AI ghost text', 'Host/ClaudeChatService.cs; EditorBridge.BeginInlineCompletion; Settings/CompletionPromptConfig.cs (Config/*.txt)', 'Debounce 400 ms; cache 400 ký tự cuối; system prompt sửa trong Config/common|xml|sql|js|css.txt cạnh exe, không cần build.'),
  ]),
  ('3. Entity & kiểm tra', [
-  ('F12 / Peek &Entity; xuyên include', 'Web/entity.js; Host/IncludeTree.cs; EditorBridge.BeginReadFiles/BeginReadIncludeTree', 'Độ sâu include tới 64; fallback tìm toàn project; cache theo tên.'),
-  ('Problems', 'Web/problems.js, problems-worker.js (Web Worker); dock.js', 'XML sai, số biến [item], thiếu entity/include, trùng field.'),
+  ('F12 / Peek &Entity; xuyên include', 'Web/entity.js; Host/IncludeTree.cs; EditorBridge.BeginReadFiles/BeginReadIncludeTree', 'Độ sâu include tới 64; fallback tìm toàn project; cache theo tên. Công tắc %Conditional...; khai ở file khác (lookupParamValue): nhớ theo từng ngữ cảnh file+DOCTYPE (12 gần nhất) + noGlobalDecls nhớ khai báo từng file include, nhường luồng mỗi 40 file — trước đây Ctrl+Tab khi đang mở xem trước Dir (Alt+P) đứng trang 2–10+ s.'),
+  ('Problems', 'Web/problems.js, problems-worker.js (Web Worker); dock.js', 'XML sai, số biến [item], thiếu entity/include, trùng field. Kiểm tra chạy nền: tra entity theo CHÍNH file đang kiểm (bcodeEntity.resolveTop(name, path, text), file gốc truyền xuống tới lookupParamValue) — không theo "file đang mở" (Ctrl+Tab giữa chừng từng báo thiếu %X; giả); kết quả lượt đã bị thay không được nhớ.'),
   ('Find / Replace in Files', 'Web/search.js; Host/WorkspaceSearchService.cs; EditorBridge.BeginSearchWorkspace/BeginReplaceInWorkspace', ''),
  ]),
  ('4. Xem trước & chạy', [

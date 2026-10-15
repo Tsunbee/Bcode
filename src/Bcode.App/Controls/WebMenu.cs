@@ -91,13 +91,57 @@ public sealed class WebMenu
             }
             wasDown = down;
         };
+        var wheel = new WheelScroller(menu);
+        Application.AddMessageFilter(wheel);
         menu.Closed += (_, _) =>
         {
             timer.Stop();
             timer.Dispose();
+            Application.RemoveMessageFilter(wheel);
             if (ReferenceEquals(_activeMenu, menu)) _activeMenu = null;
         };
         timer.Start();
+    }
+
+    /// <summary>Lăn chuột trong menu dài (vd danh sách version ở Cấp source): ToolStripDropDown chỉ cuộn bằng 2 nút mũi tên, không nhận bánh xe.
+    /// Bắt WM_MOUSEWHEEL khi con trỏ nằm trên menu (hoặc menu con đang mở) rồi cuộn bằng chính hàm của nút mũi tên — 3 mục mỗi nấc;
+    /// nuốt luôn thông điệp để editor / lưới phía dưới không cuộn theo.</summary>
+    private sealed class WheelScroller : IMessageFilter
+    {
+        private const int WM_MOUSEWHEEL = 0x020A, ItemsPerNotch = 3;
+        private static readonly System.Reflection.MethodInfo? ScrollByItem = typeof(ToolStripDropDownMenu).GetMethod("ScrollInternal",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, new[] { typeof(bool) }, null);
+        private static readonly System.Reflection.PropertyInfo? NeedsScroll = typeof(ToolStripDropDown).GetProperty("RequiresScrollButtons",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        private readonly ToolStripDropDown _root;
+        private int _remainder;   // bánh xe mịn (touchpad) gửi delta nhỏ hơn 120: cộng dồn đủ 1 nấc mới cuộn
+
+        public WheelScroller(ToolStripDropDown root) => _root = root;
+
+        public bool PreFilterMessage(ref Message m)
+        {
+            if (m.Msg != WM_MOUSEWHEEL || !_root.Visible) return false;
+            var target = DropDownAt(_root, Cursor.Position);
+            if (target is null) return false;
+            if (target is ToolStripDropDownMenu dm && ScrollByItem is not null && NeedsScroll?.GetValue(dm) is true)
+            {
+                _remainder += (short)((m.WParam.ToInt64() >> 16) & 0xFFFF);
+                var notches = _remainder / 120;
+                _remainder %= 120;
+                for (var i = 0; i < Math.Abs(notches) * ItemsPerNotch; i++)
+                    try { ScrollByItem.Invoke(dm, new object[] { notches > 0 }); } catch { break; }
+            }
+            return true;
+        }
+
+        /// <summary>Menu (hoặc menu con sâu nhất đang mở) nằm dưới con trỏ.</summary>
+        private static ToolStripDropDown? DropDownAt(ToolStripDropDown dropDown, Point screenPoint)
+        {
+            foreach (ToolStripItem item in dropDown.Items)
+                if (item is ToolStripDropDownItem { HasDropDownItems: true } sub && sub.DropDown.Visible && DropDownAt(sub.DropDown, screenPoint) is { } inner)
+                    return inner;
+            return dropDown.Visible && dropDown.Bounds.Contains(screenPoint) ? dropDown : null;
+        }
     }
 
     private static bool IsOverMenu(ToolStripDropDown dropDown, Point screenPoint)

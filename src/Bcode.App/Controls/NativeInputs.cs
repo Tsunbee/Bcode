@@ -38,10 +38,16 @@ public sealed class DropDownButton : PillButton
         if (raise && _selected >= 0) SelectionChanged?.Invoke(_selected);
     }
 
+    /// <summary>Danh sách dài hơn số mục này thì mở dạng khung danh sách có thanh cuộn (như &lt;select&gt; của trang web) thay vì menu cao hết màn hình.</summary>
+    private const int MenuMaxItems = 12, ListVisibleRows = 18;
+    private DateTime _listClosedAt;
+
     protected override void OnClick(EventArgs e)
     {
         base.OnClick(e);
         if (_items.Count == 0 || WebMenu.JustDismissed) return;   // bấm lần nữa vào nút khi menu đang mở = đóng menu
+        if ((DateTime.Now - _listClosedAt).TotalMilliseconds < 300) return;   // cú bấm vừa đóng khung danh sách (bấm lại vào nút) — không mở lại ngay
+        if (_items.Count > MenuMaxItems) { ShowList(); return; }
         var menu = new WebMenu();
         for (var i = 0; i < _items.Count; i++)
         {
@@ -49,6 +55,45 @@ public sealed class DropDownButton : PillButton
             menu.Add(_items[i], () => Select(idx, raise: true), @checked: idx == _selected);
         }
         menu.Show(this, 0, Height + 2);
+    }
+
+    /// <summary>Khung danh sách thả xuống: cao tối đa <see cref="ListVisibleRows"/> dòng, thanh cuộn theo theme, lăn chuột / ↑ ↓ / Enter / Esc,
+    /// mục đang chọn tô màu nhấn và được cuộn vào giữa. Dựng mỗi lần mở, đóng là giải phóng (không giữ RAM).</summary>
+    private void ShowList()
+    {
+        var list = new ThemedListBox { Font = Font, BackColor = AppColors.Input, ForeColor = AppColors.Text };
+        list.BeginUpdate();
+        foreach (var item in _items) list.Items.Add(item);
+        list.EndUpdate();
+        NK.DarkScroll(list);
+
+        const TextFormatFlags one = TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine;
+        var widest = _items.Max(t => TextRenderer.MeasureText(t, Font, Size.Empty, one).Width);
+        var screen = Screen.FromControl(this).WorkingArea;
+        var rows = Math.Min(_items.Count, ListVisibleRows);
+        list.Size = new Size(Math.Min(screen.Width / 2, Math.Max(Width - 2, widest + NativeSkin.S(24) + SystemInformation.VerticalScrollBarWidth)), rows * list.ItemHeight);
+
+        var host = new ToolStripControlHost(list) { AutoSize = false, Size = list.Size, Margin = Padding.Empty, Padding = Padding.Empty };
+        var drop = new ToolStripDropDown { Padding = new Padding(1), AutoSize = true, BackColor = AppColors.Border, DropShadowEnabled = true };   // nền viền 1px quanh danh sách
+        drop.Items.Add(host);
+
+        void Choose(int index) { drop.Close(ToolStripDropDownCloseReason.ItemClicked); if (index >= 0) Select(index, raise: true); }
+        list.MouseClick += (_, e) => Choose(list.IndexFromPoint(e.Location));
+        list.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Choose(list.SelectedIndex); }
+            else if (e.KeyCode == Keys.Escape) { e.Handled = e.SuppressKeyPress = true; drop.Close(ToolStripDropDownCloseReason.Keyboard); }
+        };
+        drop.Closed += (_, e) =>
+        {
+            if (e.CloseReason == ToolStripDropDownCloseReason.AppClicked) _listClosedAt = DateTime.Now;
+            BeginInvoke(new Action(drop.Dispose));   // giải phóng sau khi sự kiện đóng chạy xong
+        };
+
+        if (_selected >= 0) list.SelectedIndex = _selected;
+        drop.Show(this, new Point(0, Height + 2));
+        if (_selected >= 0) list.TopIndex = Math.Max(0, _selected - rows / 2);   // sau khi hiện: ListBox đã tự cuộn tới mục chọn (đáy), đưa nó về giữa
+        list.Focus();
     }
 }
 

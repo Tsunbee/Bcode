@@ -61,7 +61,7 @@ public class ScriptPopupForm : ThemedForm
             _sc = new ScintillaNET.Scintilla { Dock = DockStyle.Fill, BorderStyle = ScintillaNET.BorderStyle.None };
             SqlScintilla.Configure(_sc); SqlScintilla.ApplyTheme(_sc);
             _sc.Text = script; _pendingText = "";
-            ThemeManager.ThemeChanged += () => { if (!_sc.IsDisposed) SqlScintilla.ApplyTheme(_sc); };
+            ThemeManager.Subscribe(this, () => { if (!_sc.IsDisposed) SqlScintilla.ApplyTheme(_sc); });
             Controls.Add(_sc);
             Controls.Add(_toolbar);
             return;

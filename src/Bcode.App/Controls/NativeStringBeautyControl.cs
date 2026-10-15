@@ -30,7 +30,7 @@ public sealed class NativeStringBeautyControl : UserControl
         _type = new SegmentedBar(("SQL", "SQL"), ("JSON", "JSON"), ("XML", "XML"), ("JavaScript", "JavaScript"));
         _style = new SegmentedBar(("Expanded", "Expanded"), ("Compact", "Compact"));
         _kw = new SegmentedBar(("keep", "Giữ nguyên"), ("upper", "VIẾT HOA"), ("lower", "viết thường"));
-        new ToolTip().SetToolTip(_style, "Expanded: tách dòng theo mệnh đề, thụt lề theo BEGIN/END · Compact: gộp về 1 dòng");
+        NK.Tip(_style, "Expanded: tách dòng theo mệnh đề, thụt lề theo BEGIN/END · Compact: gộp về 1 dòng");
         _type.Changed += v => { SetSqlOnly(); if (_in.TextLength > 0) _ = RunAsync(); };
         _style.Changed += v => { if (_in.TextLength > 0 && _result.Length > 0) _ = RunAsync(); };
         _kw.Changed += v => { if (_in.TextLength > 0 && _result.Length > 0) _ = RunAsync(); };

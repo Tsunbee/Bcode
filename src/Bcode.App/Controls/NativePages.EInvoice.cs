@@ -58,7 +58,7 @@ internal sealed class SetupEInvoicePage : NativePage
         _log.Font = ThemeManager.MonoFont;
         var res = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10, 0, 10, 8) };
         res.Controls.Add(_log); res.Controls.Add(resHead);
-        ThemeManager.ThemeChanged += () => { if (!_log.IsDisposed) { _log.BackColor = AppColors.Input; _log.ForeColor = AppColors.Text; } };
+        ThemeManager.Subscribe(this, () => { if (!_log.IsDisposed) { _log.BackColor = AppColors.Input; _log.ForeColor = AppColors.Text; } });
         _log.BackColor = AppColors.Input; _log.ForeColor = AppColors.Text;
 
         var scroll = new Panel { Dock = DockStyle.Top, AutoScroll = false, AutoSize = true };

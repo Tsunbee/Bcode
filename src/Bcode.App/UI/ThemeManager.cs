@@ -11,6 +11,9 @@ public static class ThemeManager
     private static Font _baseFont = UiTemplate.BuildBaseFont();
     /// <summary>Font gốc: lấy từ template giao diện (UiTemplate) và nhân hệ số UiScale; đổi khi một trong hai đổi.</summary>
     public static Font BaseFont => _baseFont;
+    /// <summary>Bản đậm của <see cref="BaseFont"/>, lấy từ cache font của UiTemplate — trước đây mỗi lần Apply tạo <c>new Font(BaseFont, Bold)</c>
+    /// cho từng control đậm / từng lưới và không ai giải phóng (rò handle GDI mỗi lần mở tab hay đổi Template).</summary>
+    public static Font BoldFont => UiTemplate.GetFont(_baseFont.FontFamily.Name, _baseFont.Size, true);
 
     static ThemeManager()
     {
@@ -33,6 +36,48 @@ public static class ThemeManager
         }
         UiScale.Changed += Rebuild;
         UiTemplate.Changed += Rebuild;
+        // Đổi sáng/tối: Toggle chỉ Apply cho cửa sổ chính → tô lại thanh tiêu đề của mọi cửa sổ đang mở (1 đăng ký tĩnh, không giữ form nào).
+        ThemeChanged += () => { if (UiMode.IsNative) foreach (Form f in Application.OpenForms) ApplyTitleBar(f); };
+    }
+
+    // ---- Thanh tiêu đề cửa sổ theo theme (chế độ App) ----
+    [System.Runtime.InteropServices.DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE_OLD = 19, DWMWA_USE_IMMERSIVE_DARK_MODE = 20, DWMWA_BORDER_COLOR = 34, DWMWA_CAPTION_COLOR = 35, DWMWA_TEXT_COLOR = 36;
+    private static readonly bool IsWin11 = Environment.OSVersion.Version.Build >= 22000;
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form, object> _titleHooked = new();
+
+    /// <summary>Thanh tiêu đề Windows theo theme: bật chế độ tối của DWM (Windows 10 1809+); Windows 11 tô luôn nền / chữ / viền khung bằng màu
+    /// PanelAlt / Text / Border cho liền với thanh trên. Chỉ là thuộc tính vẽ của Windows — không tốn RAM. Máy cũ không hỗ trợ thì DWM bỏ qua.</summary>
+    private static void ApplyTitleBar(Form f)
+    {
+        if (!f.TopLevel || f.IsDisposed) return;
+        if (!_titleHooked.TryGetValue(f, out _))
+        {
+            _titleHooked.Add(f, new object());
+            f.HandleCreated += (_, _) => ApplyTitleBar(f);   // handle tạo lại (đổi ShowInTaskbar...) thì áp lại
+        }
+        if (!f.IsHandleCreated) return;
+        try
+        {
+            var dark = AppColors.IsDark ? 1 : 0;
+            if (DwmSetWindowAttribute(f.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int)) != 0)
+                DwmSetWindowAttribute(f.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE_OLD, ref dark, sizeof(int));
+            if (IsWin11)
+            {
+                static int Ref(Color c) => c.R | (c.G << 8) | (c.B << 16);   // COLORREF = 0x00BBGGRR
+                int caption = Ref(AppColors.PanelAlt), text = Ref(AppColors.Text), border = Ref(AppColors.Border);
+                DwmSetWindowAttribute(f.Handle, DWMWA_CAPTION_COLOR, ref caption, sizeof(int));
+                DwmSetWindowAttribute(f.Handle, DWMWA_TEXT_COLOR, ref text, sizeof(int));
+                DwmSetWindowAttribute(f.Handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
+            }
+            // Windows 10 chỉ vẽ lại thanh tiêu đề khi khung đổi: báo khung đổi để thấy ngay khi bấm sáng/tối lúc cửa sổ đang hiện.
+            else if (f.Visible) SetWindowPos(f.Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020);   // NOSIZE|NOMOVE|NOZORDER|NOACTIVATE|FRAMECHANGED
+        }
+        catch { /* dwmapi không có / không hỗ trợ: giữ thanh tiêu đề mặc định */ }
     }
     public static readonly Font MonoFont = new("Consolas", 10f);
 
@@ -123,6 +168,14 @@ public static class ThemeManager
     /// forgotten unsubscribe would keep every closed tab's control alive forever.</summary>
     public static event Action? ThemeChanged;
 
+    /// <summary>Đăng ký <see cref="ThemeChanged"/> và TỰ GỠ khi <paramref name="owner"/> bị Dispose. Dùng thay cho <c>ThemeChanged += () =&gt; ...</c>:
+    /// lambda gắn vào event static mà không gỡ sẽ giữ control/form đã đóng sống mãi (cùng editor, lưới, dữ liệu) → RAM tăng dần khi mở/đóng tab.</summary>
+    public static void Subscribe(Control owner, Action handler)
+    {
+        ThemeChanged += handler;
+        owner.Disposed += (_, _) => ThemeChanged -= handler;
+    }
+
     public static void Toggle(Control root)
     {
         AppColors.Current = AppColors.IsDark ? AppColors.Light : AppColors.Dark;
@@ -206,24 +259,25 @@ public static class ThemeManager
             case Form form:
                 form.BackColor = AppColors.Background;
                 form.ForeColor = AppColors.Text;
+                if (UiMode.IsNative) ApplyTitleBar(form);   // chế độ Web giữ thanh tiêu đề mặc định
                 break;
 
             case MenuStrip menu:
                 menu.BackColor = AppColors.PanelAlt;
                 menu.ForeColor = AppColors.Text;
-                menu.Renderer = new FlatToolStripRenderer();
+                menu.Renderer = FlatToolStripRenderer.Shared;
                 break;
 
             case StatusStrip status:
                 status.BackColor = AppColors.PanelAlt;
                 status.ForeColor = AppColors.TextMuted;
-                status.Renderer = new FlatToolStripRenderer();
+                status.Renderer = FlatToolStripRenderer.Shared;
                 break;
 
             case ToolStrip toolStrip:
                 toolStrip.BackColor = AppColors.PanelAlt;
                 toolStrip.ForeColor = AppColors.Text;
-                toolStrip.Renderer = new FlatToolStripRenderer();
+                toolStrip.Renderer = FlatToolStripRenderer.Shared;
                 toolStrip.GripStyle = ToolStripGripStyle.Hidden;
                 // Fix: the overflow ("»") popup and any ToolStripDropDownButton's dropdown
                 // (e.g. RawSqlControl's "Options...") are separate popups, not children in
@@ -368,7 +422,7 @@ public static class ThemeManager
         if (c.ContextMenuStrip is { } ownContextMenu) ApplyMenu(ownContextMenu);
 
         if (c.Font.FontFamily.Name != "Consolas")
-            c.Font = c.Font.Bold ? new Font(BaseFont, FontStyle.Bold) : BaseFont;
+            c.Font = c.Font.Bold ? BoldFont : BaseFont;
 
         // Style khai báo theo loại control (UiTemplate) — ghi đè lên mặc định của theme ở trên.
         if (UiTemplate.StyleFor(c) is { } custom) ApplyTemplateStyle(c, custom);
@@ -407,7 +461,7 @@ public static class ThemeManager
                 if (UiTemplate.FontOf(s) is { } gfont)
                 {
                     grid.DefaultCellStyle.Font = gfont;
-                    grid.ColumnHeadersDefaultCellStyle.Font = new Font(gfont, FontStyle.Bold);
+                    grid.ColumnHeadersDefaultCellStyle.Font = UiTemplate.GetFont(gfont.FontFamily.Name, gfont.Size, true);
                 }
                 break;
             default:
@@ -603,7 +657,7 @@ public static class ThemeManager
     {
         menu.BackColor = AppColors.PanelAlt;
         menu.ForeColor = AppColors.Text;
-        menu.Renderer = new FlatToolStripRenderer();
+        menu.Renderer = FlatToolStripRenderer.Shared;
         ApplyMenuItemColors(menu.Items);
     }
 
@@ -631,7 +685,7 @@ public static class ThemeManager
         grid.ColumnHeadersDefaultCellStyle.ForeColor = AppColors.Text;
         grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = AppColors.PanelAlt;
         grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = AppColors.Text;
-        grid.ColumnHeadersDefaultCellStyle.Font = new Font(BaseFont, FontStyle.Bold);
+        grid.ColumnHeadersDefaultCellStyle.Font = BoldFont;
 
         grid.DefaultCellStyle.BackColor = AppColors.Panel;
         grid.DefaultCellStyle.ForeColor = AppColors.Text;

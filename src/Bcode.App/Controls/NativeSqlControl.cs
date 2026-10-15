@@ -160,7 +160,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         b.Margin = new Padding(0, 0, 4, 0);
         b.Height = NativeSkin.RowHeight(this);
         b.Click += (_, _) => onClick();
-        new ToolTip().SetToolTip(b, tip);
+        NK.Tip(b, tip);
         return b;
     }
 

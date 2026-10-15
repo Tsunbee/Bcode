@@ -84,7 +84,7 @@ public sealed class NativeQueryHistoryControl : UserControl
             _ready = true;
             SetTab("runs");
         }));
-        ThemeManager.ThemeChanged += () => { SqlScintilla.ApplyTheme(_sql); _sql.Margins[0].Width = 0; };
+        ThemeManager.Subscribe(this, () => { SqlScintilla.ApplyTheme(_sql); _sql.Margins[0].Width = 0; });
         Disposed += (_, _) => _debounce.Dispose();
     }
 

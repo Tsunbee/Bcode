@@ -27,7 +27,7 @@ public sealed class CardPanel : Panel
         Padding = new Padding(1);
         Margin = new Padding(0, 0, 0, 10);
         _title.Text = title;
-        _title.Font = new Font(ThemeManager.BaseFont, FontStyle.Bold);
+        _title.Font = ThemeManager.BoldFont;
         _title.BackColor = Color.Transparent;
         _hint.Text = hint ?? "";
         _head.Controls.Add(_title);
@@ -47,7 +47,7 @@ public sealed class CardPanel : Panel
         _hint.TextChanged += (_, _) => PlaceTitle();
         Controls.Add(_body);
         Controls.Add(_head);
-        ThemeManager.ThemeChanged += () => Invalidate(true);
+        ThemeManager.Subscribe(this, () => Invalidate(true));
     }
 
     public void SetHint(string text) { _hint.Text = text; PlaceTitle(); }
@@ -99,7 +99,7 @@ public sealed class CardPanel : Panel
         using (var fill = new SolidBrush(AppColors.Panel)) g.FillPath(fill, path);
         var oldClip = g.Clip;
         g.SetClip(new Rectangle(0, 0, Width, _head.Height + 1));
-        g.IntersectClip(new Region(path));
+        using (var region = new Region(path)) g.IntersectClip(region);   // Region giữ tài nguyên GDI+: giải phóng ngay, không đợi GC (vẽ mỗi lần sơn thẻ)
         using (var hb = new SolidBrush(AppColors.PanelAlt)) g.FillRectangle(hb, new Rectangle(0, 0, Width, _head.Height + 1));
         g.Clip = oldClip;
         using var pen = new Pen(AppColors.Border, NativeSkin.BorderWidth(this));
@@ -137,8 +137,32 @@ internal static class NK
         b.Margin = new Padding(0, 3, 8, 3);   // khe 8px giữa các nút + 3px trên/dưới: hàng nút xuống dòng khi hẹp không dính nhau
         b.Height = NativeSkin.RowHeight(b, 26);
         b.Click += (_, _) => onClick();
-        if (tip is not null) new ToolTip().SetToolTip(b, tip);
+        if (tip is not null) Tip(b, tip);
         return b;
+    }
+
+    // Một ToolTip cho mỗi form (thay cho mỗi nút một "new ToolTip()": mỗi cái là 1 cửa sổ Windows, không ai Dispose, và giữ tham chiếu tới nút
+    // → trang/tab đã đóng không được giải phóng). ToolTip của form bị Dispose cùng form; control bị Dispose thì tự gỡ khỏi ToolTip.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Form, ToolTip> FormTips = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, ToolTip> BoundTips = new();
+
+    /// <summary>Gắn chú thích di chuột cho <paramref name="c"/> qua ToolTip dùng chung của form chứa nó (gắn khi control đã nằm trong form).</summary>
+    public static void Tip(Control c, string? text)
+    {
+        if (BoundTips.TryGetValue(c, out var bound)) { try { bound.SetToolTip(c, text); } catch (ObjectDisposedException) { } return; }
+        bool Bind()
+        {
+            if (c.IsDisposed || c.FindForm() is not { } form || form.IsDisposed) return false;
+            var tip = FormTips.GetValue(form, f => { var t = new ToolTip(); f.Disposed += (_, _) => t.Dispose(); return t; });
+            tip.SetToolTip(c, text);
+            BoundTips.AddOrUpdate(c, tip);
+            c.Disposed += (_, _) => { try { tip.SetToolTip(c, null); } catch (ObjectDisposedException) { } };
+            return true;
+        }
+        if (c.IsHandleCreated && Bind()) return;
+        void Try(object? s, EventArgs e) { if (!Bind()) return; c.HandleCreated -= Try; c.VisibleChanged -= Try; }
+        c.HandleCreated += Try;
+        c.VisibleChanged += Try;   // control con được báo khi khung cha hiện lên — lúc đó chắc chắn đã nằm trong form
     }
 
     public static RoundedInput Input(string placeholder = "", bool mono = false)

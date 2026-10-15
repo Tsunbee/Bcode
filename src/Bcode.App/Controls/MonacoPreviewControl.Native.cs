@@ -23,7 +23,7 @@ public partial class MonacoPreviewControl
             else if (e.Control && e.KeyCode == Keys.G) { e.Handled = e.SuppressKeyPress = true; GoToNative(); }
             else if (e.Control && e.KeyCode == Keys.F) { e.Handled = e.SuppressKeyPress = true; ShowFindNative(); }
         };
-        ThemeManager.ThemeChanged += () => { if (_ed is { IsDisposed: false }) { SqlScintilla.ApplyTheme(_ed); if (_lang != "None") SetLang(_ed, _lang); } };
+        ThemeManager.Subscribe(this, () => { if (_ed is { IsDisposed: false }) { SqlScintilla.ApplyTheme(_ed); if (_lang != "None") SetLang(_ed, _lang); } });
 
         _findBox = NK.Input("Tìm... (Enter = tiếp, Shift+Enter = lùi, Esc = đóng)"); _findBox.Dock = DockStyle.Fill;
         _findStatus = NK.Muted(""); _findStatus.Dock = DockStyle.Right; _findStatus.AutoSize = false; _findStatus.Width = 120; _findStatus.TextAlign = ContentAlignment.MiddleLeft;

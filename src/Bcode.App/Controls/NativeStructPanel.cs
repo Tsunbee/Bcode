@@ -119,7 +119,7 @@ public sealed class NativeStructPanel : Panel
 
         var all = PillButton.Flat("☑"); var none = PillButton.Flat("☐");
         foreach (var b in new[] { all, none }) { b.Dock = DockStyle.Right; b.AutoWidth = false; b.Width = NativeSkin.RowHeight(this, 30); b.Margin = new Padding(4, 0, 0, 0); }
-        new ToolTip().SetToolTip(all, "Tick hết các cột đang hiện (Ctrl+A)"); new ToolTip().SetToolTip(none, "Bỏ tick hết các cột đang hiện");
+        NK.Tip(all, "Tick hết các cột đang hiện (Ctrl+A)"); NK.Tip(none, "Bỏ tick hết các cột đang hiện");
         all.Click += (_, _) => SetChecked(Visible().Select(c => c.Name), true);
         none.Click += (_, _) => SetChecked(Visible().Select(c => c.Name), false);
         _filter.Dock = DockStyle.Fill;

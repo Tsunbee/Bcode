@@ -82,7 +82,7 @@ public sealed class NativeTopBar : Panel
         Height = UiTemplate.Dens(34);
         DoubleBuffered = true;
 
-        var brand = new AccentLabel { Text = "Bcode", AutoSize = true, Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent, Font = new Font(ThemeManager.BaseFont, FontStyle.Bold) };
+        var brand = new AccentLabel { Text = "Bcode", AutoSize = true, Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent, Font = ThemeManager.BoldFont };
         _left.Controls.Add(brand);
         _left.Controls.Add(Btn("", "Settings (File / Actions)", () => Action?.Invoke("settings"), icon: IconGlyph.Gear, width: 30));
         _left.Controls.Add(Btn("Actions ▾", "Các hành động nhanh", () => Action?.Invoke("actions")));
@@ -124,7 +124,7 @@ public sealed class NativeTopBar : Panel
         b.Height = UiTemplate.Dens(26);
         if (width is { } w) { b.AutoWidth = false; b.Width = w; }
         b.Click += (_, _) => onClick();
-        if (tip is not null) new ToolTip().SetToolTip(b, tip);
+        if (tip is not null) NK.Tip(b, tip);
         return b;
     }
 
@@ -212,7 +212,7 @@ public sealed class NativeStatusBar : Panel
         _menu.OnPanelAlt = true;
         _menu.Margin = new Padding(0, 2, 0, 0);
         _menu.Click += (_, _) => ProjectMenuRequested?.Invoke(_menu.PointToScreen(new Point(0, 0)));
-        new ToolTip().SetToolTip(_menu, "Thông tin project: mở nhanh Program / Source / Working / Mobile, copy project info");
+        NK.Tip(_menu, "Thông tin project: mở nhanh Program / Source / Working / Mobile, copy project info");
         _link.LinkClicked += (_, _) => ProjectWebClicked?.Invoke();
         _right.Controls.AddRange(new Control[] { _link, _menu, _machine });
         Controls.Add(_text);

@@ -226,7 +226,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         saveRow.Controls.Add(_gSave, 0, 1); saveRow.Controls.Add(_gFolder, 1, 1);
         var genRow = NK.Row(_gSplit, NK.Button("⚙ Generate Update", () => { Flush(); _ = GenerateAsync(); }, primary: true));
         genRow.Dock = DockStyle.Top;
-        new ToolTip().SetToolTip(_gSplit, "Tick nhiều y/c: bật = mỗi y/c 1 thư mục con riêng (1585\\, 1586\\...); tắt = gộp tất cả vào 1 gói chung (1 file APP_Script.sql).");
+        NK.Tip(_gSplit, "Tick nhiều y/c: bật = mỗi y/c 1 thư mục con riêng (1585\\, 1586\\...); tắt = gộp tất cả vào 1 gói chung (1 file APP_Script.sql).");
         _result.Dock = DockStyle.Top; _history.Dock = DockStyle.Top;
         cGenUp.Body.Controls.Add(_history); cGenUp.Body.Controls.Add(_result); cGenUp.Body.Controls.Add(genRow); cGenUp.Body.Controls.Add(saveRow);
         _gFolder.Inner.TextChanged += (_, _) => { if (!_loading) _folderTouched = true; };

@@ -44,7 +44,7 @@ public sealed partial class EntityMultiPeekForm
         _ed = new Scintilla { Dock = DockStyle.Fill, BorderStyle = ScintillaNET.BorderStyle.None };
         SqlScintilla.Configure(_ed); SqlScintilla.ApplyTheme(_ed); _ed.ReadOnly = true;
         _ed.KeyDown += (_, e) => { if (e.KeyCode == Keys.F12) { e.Handled = e.SuppressKeyPress = true; F12Native(); } };
-        ThemeManager.ThemeChanged += () => { if (!_ed.IsDisposed) { SqlScintilla.ApplyTheme(_ed); SqlScintilla.SetLanguage(_ed, _lang); } };
+        ThemeManager.Subscribe(this, () => { if (!_ed.IsDisposed) { SqlScintilla.ApplyTheme(_ed); SqlScintilla.SetLanguage(_ed, _lang); } });
 
         _nHint = NK.Muted("");
         _bCopy = NK.Button("Copy", CopyNative); _bOpen = NK.Button("Mở entity này", OpenNative, primary: true);

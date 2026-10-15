@@ -32,7 +32,7 @@ public sealed class NativeCommandPanel : UserControl
             box.Controls.Add(L(cap)); input.Dock = DockStyle.Top; input.Margin = new Padding(0, 0, 0, 2); box.Controls.Add(input);
         }
         _btnRun = PillButton.Flat("▶ Run", primary: true); _btnAdd = PillButton.Flat("Add Script");
-        new ToolTip().SetToolTip(_btnAdd, "Gói mọi dòng đang xem thành script DELETE + INSERT");
+        NK.Tip(_btnAdd, "Gói mọi dòng đang xem thành script DELETE + INSERT");
         _btnRun.Click += (_, _) => DoRun(); _btnAdd.Click += (_, _) => AddScriptRequested?.Invoke(_from.Text);
         _top.Width = NativeSkin.RowHeight(this, 90); _top.Dock = DockStyle.None;
         var row = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = false, Margin = new Padding(0, 4, 0, 0) };

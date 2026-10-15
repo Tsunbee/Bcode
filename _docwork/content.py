@@ -120,7 +120,7 @@ VIEWER = [
   ('Dịch caption v → e', 'Host/CaptionTranslator.cs; EditorBridge.BeginTranslateCaptions', 'Engine google (không key) / gemini / claude chọn ở Settings.'),
  ]),
  ('2. IntelliSense (4 lớp) — Web/completion.js', [
-  ('Lớp 1: Hint Code + snippet FCodeViewer', 'Settings/HintSnippetStore.cs, FcodeXmlSnippets.cs; Assets/snippets/*.xml; Web/templates.js', 'Đồng bộ, không gọi mạng. Thư mục dùng chung đặt ở Settings.'),
+  ('Lớp 1: Hint Code + snippet FCodeViewer', 'Settings/HintSnippetStore.cs, FcodeXmlSnippets.cs; Assets/snippets/*.xml; Web/templates.js', 'Đồng bộ, không gọi mạng. Thư mục dùng chung đặt ở Settings. Gợi ý gọi do gõ DẤU CÁCH (completion.js isSpaceTrigger): XML chỉ khi đang ở chỗ gõ thuộc tính của thẻ mở (OPEN_TAG_ATTR_POS), SQL chỉ sau từ khoá mở mệnh đề / dấu phẩy / toán tử (SQL_SPACE_TRIGGER) — thoát trước docFacts (~15 lượt quét cả file). Snippet tính $[#FIELD#] lười.'),
   ('Lớp 2: cấu trúc XML + structural ghost', 'completion.js (provideXml, structuralGhost); Settings/FcodeFieldDictionary.cs; EditorBridge.GetFieldTemplates', 'Từ điển field (header.xml): gõ f.ma_kh + Enter.'),
   ('Lớp 3: SQL schema', 'Host/SqlSchemaService.cs, WorkspaceConnection.cs; EditorBridge.BeginGetSqlTables/Columns', 'Chỉ chạy khi con trỏ ở vùng SQL; đọc chung workspace của Bcode.'),
   ('Lớp 4: AI ghost text', 'Host/ClaudeChatService.cs; EditorBridge.BeginInlineCompletion; Settings/CompletionPromptConfig.cs (Config/*.txt)', 'Debounce 400 ms; cache 400 ký tự cuối; system prompt sửa trong Config/common|xml|sql|js|css.txt cạnh exe, không cần build.'),
@@ -131,7 +131,7 @@ VIEWER = [
   ('Find / Replace in Files', 'Web/search.js; Host/WorkspaceSearchService.cs; EditorBridge.BeginSearchWorkspace/BeginReplaceInWorkspace', ''),
  ]),
  ('4. Xem trước & chạy', [
-  ('Xem trước Dir (Alt+P)', 'Web/dirpreview.js, dirview.js', 'Dựng form FormTable từ source; file dùng chung với Bcode.ScreenDesigner.'),
+  ('Xem trước Dir (Alt+P)', 'Web/dirpreview.js, dirview.js', 'Dựng form FormTable từ source; file dùng chung với Bcode.ScreenDesigner. layoutSignature (DOCTYPE + <fields> bỏ CDATA + <views> + <title> + file): giống lần vẽ trước thì bỏ qua (sửa <script>/<command>... không dựng lại; ⟳ = ép vẽ). Lượt vẽ mang docPath/docText của chính file (tra entity, Grid kèm theo, khoá expMemo) — không theo file đang mở.'),
   ('Xem trước mail/SMS mẫu (Alt+P ở Message.xml...)', 'Web/mailpreview.js', ''),
   ('Chạy SQL trong file', 'Web/sqlrun.js; Host/SqlRunnerService.cs; EditorBridge.InspectSql/StartSql/PollSql/CancelSql/SendSqlToBcode', 'Ctrl+Enter; ghi INSERT/UPDATE/DELETE/EXEC mặc định TẮT; "Debug trong Bcode" gửi script sang Bcode.'),
   ('F5: chạy menu của file', 'Host/MenuLauncher.cs; EditorBridge.BeginRunMenu', 'Tra menu wcommand rồi mở trình duyệt mặc định.'),
@@ -139,10 +139,11 @@ VIEWER = [
  ('5. Khung, cấu hình, AI', [
   ('Web shell (menu, toolbar, cây Project)', 'Web/shell.js; MainForm.cs (ShowWebShell, PushShellTree, HandleShellCommand); EditorBridge.ShellCommand/GetShellState', 'Cây file nhóm theo Project do MainForm giữ rồi đẩy sang trang.'),
   ('Settings, phím tắt, bố cục', 'Web/settings.js, keys.js; Settings/ViewerSettings.cs; EditorBridge.GetSettings/BeginSaveSettings/GetUiPrefs/SetUiPrefs', 'SettingsForm/HintCodeForm/TemplatePickerForm (WinForms) chỉ là dự phòng.'),
+  ('Đo độ mượt (log long task)', 'Web/perfwatch.js; EditorBridge.NotifyPerfLog/OpenPerfLog; shell.js menu Help', 'Trang bị chặn >= 100 ms → 1 dòng vào %AppData%\\Bcode\\viewer-perf.log (thời điểm, ms, file, việc vừa làm: đổi tab / gõ / việc nền / xem trước Dir / gợi ý..., trạng thái). Gắn nhãn bằng cách bọc hàm sau khi trang nạp (BcodePerf.wrap), không sửa logic file khác. File > 2 MB đổi thành .old. Help → "Log độ mượt".'),
   ('Hint Code, New from Template', 'Web/templates.js; Settings/HintSnippetStore.cs, FileTemplateStore.cs', ''),
   ('Theme (+ import VS Code .json/.vsix)', 'UI/ThemeCatalog.cs, AppTheme.cs, VsCodeThemeImporter.cs; Web/theme.js', 'Một bảng màu dùng cho WinForms + Monaco + CSS.'),
   ('Hộp thoại theo theme', 'Web/ui.js; EditorBridge.ResolveUiDialog', 'Thay alert/confirm/MessageBox.'),
-  ('Sidebar Claude/Gemini + đính kèm file', 'MainForm.cs; Shared/AiWebHelper.cs', 'Trang web thật (profile riêng), không dùng API key.'),
+  ('Sidebar Claude/Gemini + đính kèm file', 'MainForm.cs; Shared/AiWebHelper.cs', 'Trang web thật (profile riêng), không dùng API key. Đóng khung = giải phóng (ReleaseAiViews); thu nhỏ Viewer khi khung đang mở = ẩn + TrySuspendAsync, mở lại tự thức (MainForm.OnResize/SleepAiViews).'),
   ('Một bản mỗi phiên; mở file từ ngoài', 'Program.cs; MainForm.StartPipeServer/OpenExternalRequest; Host/WorkspaceConnection.ResolveProjectName', 'args[0]=file, args[1]=project (nếu thiếu thì suy từ đường dẫn).'),
  ]),
 ]
@@ -196,6 +197,7 @@ RECIPES = [
 
 TRAPS = [
  'Bash tool làm mất dấu \\ — script có đường dẫn Windows phải ghi bằng Write (memory bash-backslash-gotcha).',
+ 'WebFrameHost (gộp nhiều trang vào 1 WebView2): khung được đánh dấu sẵn sàng (__frame-ready) lúc iframe load xong — với trang có Monaco (nạp bằng script động) việc này đến SAU tin "editor-ready" của chính trang; EdExec lúc đó rơi im lặng. RawSqlControl hoãn editor-ready tới _edPage.Ready (từng làm tab SQL mở object lần đầu trống nội dung khi bật MergeSqlBarEditor). Trang mới đặt trong WebFrameHost phải chờ khung sẵn sàng trước khi gửi lệnh.',
  'BcodeViewer KHÔNG nhận BCODE_DATA_DIR (BcodePaths.cs của Viewer chưa đồng bộ với Bcode) — chạy thử Viewer là ghi thẳng vào %AppData%\\Bcode\\viewer-*.json thật: sao lưu trước. Chạy 1 bản mỗi phiên Windows; đo / điều khiển trang bằng WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333 + CDP (Runtime.evaluate).',
  'Menu bật từ trang WebView2 tự đóng do AppFocusChange — sửa ở WebMenu.Track (memory bcode-webmenu-focus-bug).',
  'Đừng đặt PacketSize > 16383 (TLS) khi kết nối SQL (memory bcode-sql-connection-gotchas).',

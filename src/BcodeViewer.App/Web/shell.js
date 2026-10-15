@@ -148,7 +148,11 @@ class BcodeShell {
         { label: 'Clear Structure App', run: () => this.cmd('clearStructure') },
         { label: 'Refresh Web.config', run: () => this.cmd('refreshWebConfig') },
       ] },
-      { title: 'Help', items: [{ label: 'Giới thiệu...', run: () => this.showAbout() }] },
+      { title: 'Help', items: [
+        { label: 'Giới thiệu...', run: () => this.showAbout() },
+        // Web/perfwatch.js: mỗi lần trang bị chặn >= 100 ms ghi 1 dòng (lúc đang làm gì) — thấy giật thì gửi file này.
+        { label: 'Log độ mượt (viewer-perf.log)...', run: () => window.bcodeNotify('OpenPerfLog') },
+      ] },
       { title: 'Theme', items: theme, refresh: true },
       { title: '⚙ Toolbar', items: toolbarItems, refresh: true },
     ];
@@ -480,18 +484,20 @@ class BcodeShell {
     this.paintTreeSelection();
     this.renderBreadcrumb(data.activePath);
     const scroll = this.treeEl.scrollTop;
-    this.treeEl.textContent = '';
     let activeRow = null;
     const active = (data.activePath || '').toLowerCase();
+    // Dựng mọi dòng vào DocumentFragment (ngoài màn hình) rồi thay 1 lần — trình duyệt chỉ tính bố cục 1 lần thay vì sau từng dòng.
+    const frag = document.createDocumentFragment();
     const walk = (nodes, depth) => {
       for (const n of nodes) {
         const row = this.renderRow(n, depth);
         if (n.kind === 'file' && n.path && n.path.toLowerCase() === active) { row.classList.add('active'); activeRow = row; }
-        this.treeEl.appendChild(row);
+        frag.appendChild(row);
         if (n.kind !== 'file' && n.expanded) walk(n.children, depth + 1);
       }
     };
     walk(data.nodes || [], 0);
+    this.treeEl.replaceChildren(frag);
     this.treeEl.scrollTop = scroll;
     if (data.reveal && activeRow) activeRow.scrollIntoView({ block: 'nearest' });
     if (window.bcodeTabs && this.sidebarHidden()) window.bcodeTabs.render();

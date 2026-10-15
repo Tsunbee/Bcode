@@ -30,6 +30,12 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/// Duyệt cây include (hàng trăm file, đọc từ cache nên await không nhường luồng thật): cứ 40 file nhường trình duyệt 1 nhịp để trang không đứng
+/// (lần đầu phân tích SVTran ~600 file ≈ 270 ms liền một mạch). Thứ tự duyệt / kết quả không đổi.
+function yieldEvery(count) {
+  return count % 40 === 0 ? new Promise((r) => setTimeout(r, 0)) : null;
+}
+
 class BcodeEntity {
   constructor(bcode) {
     this.bcode = bcode;
@@ -367,6 +373,7 @@ class BcodeEntity {
     depth = depth == null ? ENTITY_INCLUDE_DEPTH : depth;
     if (!text || seen.has(path.toLowerCase())) return null;
     seen.add(path.toLowerCase());
+    await yieldEvery(seen.size);
 
     const info = await this.declInfo(text, path, root);
     const decls = info.decls;
@@ -558,6 +565,7 @@ class BcodeEntity {
       const resolved = resolvePath(dir, include.systemPath.replace(/\//g, '\\'));
       if (seen.has(resolved.toLowerCase())) continue;
       seen.add(resolved.toLowerCase());
+      await yieldEvery(seen.size);
       const included = await this.readFile(resolved);
       if (!included) continue;
 

@@ -550,6 +550,45 @@ public class EditorBridge
 
     public void NotifyDirtyChanged(string path, bool isDirty) => DirtyChanged?.Invoke(path, isDirty);
 
+    // ---- Đo độ mượt (Web/perfwatch.js) ---------------------------------------------------------------
+
+    internal static string PerfLogPath => Path.Combine(BcodePaths.AppData, "Bcode", "viewer-perf.log");
+    private static readonly object PerfLogLock = new();
+
+    /// <summary>Ghi thêm các dòng "trang bị chặn bao lâu, lúc đang làm gì" vào viewer-perf.log (luồng nền; file quá 2 MB thì đổi tên thành .old rồi ghi mới).</summary>
+    public void NotifyPerfLog(string lines) =>
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                lock (PerfLogLock)
+                {
+                    var path = PerfLogPath;
+                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                    if (File.Exists(path) && new FileInfo(path).Length > 2 * 1024 * 1024) File.Move(path, path + ".old", overwrite: true);
+                    var header = File.Exists(path) ? "" : "Thời điểm\tBị chặn\tFile đang mở\tViệc vừa làm (mới nhất trước)\tTrạng thái\r\n";
+                    File.AppendAllText(path, header + lines.Replace("\n", "\r\n") + "\r\n", Encoding.UTF8);
+                }
+            }
+            catch { /* không ghi được log thì thôi — không ảnh hưởng soạn thảo */ }
+        });
+
+    /// <summary>Help → "Log độ mượt": mở viewer-perf.log bằng ứng dụng mặc định (chưa có thì tạo file trống kèm dòng tiêu đề).</summary>
+    public void OpenPerfLog() =>
+        _async.Post(() =>
+        {
+            var path = PerfLogPath;
+            lock (PerfLogLock)
+            {
+                if (!File.Exists(path))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                    File.WriteAllText(path, "Thời điểm\tBị chặn\tFile đang mở\tViệc vừa làm (mới nhất trước)\tTrạng thái\r\n", Encoding.UTF8);
+                }
+            }
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+        });
+
     /// <summary>Đổi nhanh 1 tuỳ chọn hiển thị rồi lưu (dùng cho phím tắt "Bật/tắt tự co chữ", "Bật/tắt Chế độ nhẹ" — khỏi mở Settings).
     /// <paramref name="name"/>: "autoFitFont" (value "true"/"false") hoặc "lightMode" (value "auto"/"on"/"off").</summary>
     public void BeginSetViewOption(string requestId, string name, string value) =>

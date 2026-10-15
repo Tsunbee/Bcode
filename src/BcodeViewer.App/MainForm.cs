@@ -1321,6 +1321,40 @@ public class MainForm : Form
     }
 
     /// <summary>Tắt hẳn trang web của khung AI đang ẩn: nhớ địa chỉ hiện tại, huỷ WebView2 (kéo theo các tiến trình trình duyệt của nó, trả RAM) rồi đặt một WebView2 trống thay vào chỗ cũ để lần mở sau nạp lại.</summary>
+    // ---- Khung Claude/Gemini ngủ khi thu nhỏ Viewer ----------------------------------------------------------------------
+    // Đóng khung AI thì trang đã được giải phóng hẳn (ReleaseAiViews); còn khung đang MỞ mà thu nhỏ cửa sổ thì trang claude.ai / gemini vẫn chạy nền
+    // (timer, hiệu ứng, kết nối) ăn CPU. Thu nhỏ → ẩn khung + TrySuspendAsync (WebView2 chỉ cho ngủ khi đang ẩn); mở lại cửa sổ → hiện lại, tự thức.
+    private readonly List<WebView2> _aiSleeping = new();
+    private FormWindowState _lastWindowState;
+
+    protected override void OnResize(EventArgs e)
+    {
+        base.OnResize(e);
+        if (WindowState == _lastWindowState) return;
+        var was = _lastWindowState;
+        _lastWindowState = WindowState;
+        if (WindowState == FormWindowState.Minimized) SleepAiViews();
+        else if (was == FormWindowState.Minimized) WakeAiViews();
+    }
+
+    private async void SleepAiViews()
+    {
+        foreach (var view in new[] { _claudeWebView, _geminiWebView })
+        {
+            if (view.CoreWebView2 is null || !view.Visible) continue;
+            _aiSleeping.Add(view);
+            view.Visible = false;
+            try { await view.CoreWebView2.TrySuspendAsync(); } catch { /* đang nạp / đã huỷ — để chạy tiếp */ }
+        }
+    }
+
+    private void WakeAiViews()
+    {
+        foreach (var view in _aiSleeping)
+            if (!view.IsDisposed && (view == _claudeWebView || view == _geminiWebView)) view.Visible = true;   // hiện lại = WebView2 tự thức
+        _aiSleeping.Clear();
+    }
+
     private void ReleaseAiViews(bool claude, bool gemini)
     {
         if (claude) _claudeWebView = ReleaseAiView(_claudeWebView, Bcode.Shared.AiSite.Claude);

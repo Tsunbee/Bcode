@@ -15,6 +15,7 @@ public class RawSqlControl : UserControl, ISqlTab
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _editorWeb = new();
     private bool _editorReady;
+    private bool _editorReadyDeferred;   // chế độ gộp: editor-ready tới trước khi khung sẵn sàng — chạy lại khi _edPage.Ready (xem InitMergedAsync)
     private SplitContainer? _split; // editor (Panel1) | kết quả + message (Panel2)
     private string? _pendingScriptText;
     private readonly AppSettings _settings = AppSettings.Load();
@@ -269,6 +270,16 @@ public class RawSqlControl : UserControl, ISqlTab
         _barPage!.Message += root => OnBarMessage(root);
         _barPage.Ready += OnBarLoaded;
         _edPage!.Message += root => { var copy = root.Clone(); _ = OnEditorMessage(copy); };
+        // Khung editor được đánh dấu sẵn sàng (__frame-ready, lúc iframe 'load' xong) SAU khi trang đã báo editor-ready (Monaco nạp bằng script động nên
+        // 'load' chờ cả Monaco) → lúc editor-ready mọi EdExec đều rơi vì khung "chưa sẵn sàng": tab mở lần đầu trống trơn (nội dung object, vị trí, wrap...).
+        // editor-ready tới sớm thì hoãn (xem OnEditorMessage) và chạy lại ở đây.
+        _edPage.Ready += () =>
+        {
+            if (!_editorReadyDeferred) return;
+            _editorReadyDeferred = false;
+            using var doc = System.Text.Json.JsonDocument.Parse("{\"action\":\"editor-ready\"}");
+            _ = OnEditorMessage(doc.RootElement.Clone());
+        };
         await Task.CompletedTask;
     }
 
@@ -328,14 +339,17 @@ public class RawSqlControl : UserControl, ISqlTab
         switch (action)
         {
             case "editor-ready":
+                // Chế độ gộp (MergeSqlBarEditor): khung chưa được đánh dấu sẵn sàng thì mọi lệnh xuống editor đều rơi — hoãn tới _edPage.Ready.
+                if (_mergeBarEditor && _edPage is { IsReady: false }) { _editorReadyDeferred = true; break; }
                 _editorReady = true;
                 PushCopilotAuto();
                 if (!_deferTables) _ = LoadTablesForEditorAsync();
                 PushThemeToAll();
-                if (_pendingScriptText is not null)
+                if (_pendingScriptText is { } pendingText)
                 {
-                    await SetScriptTextAsync(_pendingScriptText);
+                    // Lấy ra TRƯỚC khi gửi: SetScriptTextAsync có thể đưa lại vào hàng chờ (khung chưa sẵn sàng) — trước đây gửi xong mới xoá nên xoá mất luôn.
                     _pendingScriptText = null;
+                    await SetScriptTextAsync(pendingText);
                 }
                 if (_pendingViewState is { } vs)
                 {

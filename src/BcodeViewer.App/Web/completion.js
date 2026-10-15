@@ -826,6 +826,22 @@ function enclosingFieldName(text, offset) {
   return m ? m[1] : '';
 }
 
+/// Provider được gọi vì người dùng vừa gõ DẤU CÁCH (ký tự kích hoạt ' ').
+function isSpaceTrigger(context) {
+  return !!context && context.triggerKind === monaco.languages.CompletionTriggerKind.TriggerCharacter && context.triggerCharacter === ' ';
+}
+
+/// Chữ trên dòng từ đầu dòng tới con trỏ (rẻ: chỉ 1 dòng, không đụng cả file).
+function lineBeforeCaret(model, position) {
+  return model.getValueInRange({ startLineNumber: position.lineNumber, startColumn: 1, endLineNumber: position.lineNumber, endColumn: position.column });
+}
+
+/// Dấu cách đứng ở chỗ gõ thuộc tính: trong thẻ mở trên cùng dòng (<field name="x" ␣) hoặc dòng chỉ gồm các thuộc tính của thẻ viết nhiều dòng.
+const OPEN_TAG_ATTR_POS = /(?:<[A-Za-z_][\w.:-]*(?:\s+[A-Za-z_][\w.:-]*(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*|^\s*(?:[A-Za-z_][\w.:-]*\s*=\s*(?:"[^"]*"|'[^']*')\s*)+)\s+$/;
+
+/// Dấu cách trong SQL đáng gợi ý: sau từ khoá mở mệnh đề, sau dấu phẩy / toán tử / mở ngoặc.
+const SQL_SPACE_TRIGGER = /(?:\b(?:select|from|join|update|into|where|and|or|on|by|set|having|when|then|else|case|exec|execute|distinct|not|in|table|delete|insert|values|union|apply)|[,=<>(+\-*/])\s+$/i;
+
 function wordRange(model, position) {
   const word = model.getWordUntilPosition(position);
   return {
@@ -984,7 +1000,7 @@ class BcodeCompletion {
     // the caret is genuinely in a SQL region, so this costs nothing elsewhere.
     monaco.languages.registerCompletionItemProvider(['sql', ...MARKUP_LANGUAGES], {
       triggerCharacters: ['.', ' ', '@', '$'],
-      provideCompletionItems: (model, position) => this.provideSql(model, position),
+      provideCompletionItems: (model, position, context) => this.provideSql(model, position, context),
     });
 
     monaco.languages.registerInlineCompletionsProvider(FCODE_LANGUAGES, {
@@ -1111,9 +1127,11 @@ class BcodeCompletion {
       : null;
 
     // $[#CONTROLLER#] / $[#FIELD#] (FCode) → tên file đang mở / tên <field> chứa con trỏ.
+    // field tính LƯỜI: chỉ snippet có [#FIELD#] mới cần — trước đây mỗi phím đều lấy cả file (getValue) + quét ngược tìm <field>.
+    let fieldName;
     const macros = isMarkupLanguage(language) ? {
       controller: controllerNameOf(path),
-      field: enclosingFieldName(model.getValue(), model.getOffsetAt(position)) || 'field',
+      get field() { return fieldName !== undefined ? fieldName : (fieldName = enclosingFieldName(model.getValue(), model.getOffsetAt(position)) || 'field'); },
     } : null;
     const suggestions = this.snippets
       .filter((s) => (byRegion
@@ -1198,6 +1216,9 @@ class BcodeCompletion {
   // ---- Layer 2: FCode XML structure --------------------------------------------------
 
   provideXml(model, position, context) {
+    // Gọi do gõ DẤU CÁCH: chỉ có ích khi đang trong thẻ mở để gợi ý thuộc tính (<field name="x" |). Chỗ khác (chữ, script, giữa các thẻ)
+    // thoát ngay — trước đây mỗi dấu cách đều chạy tới docFacts (≈15 lượt quét cả file) rồi mới biết không có gì để gợi ý.
+    if (isSpaceTrigger(context) && !OPEN_TAG_ATTR_POS.test(lineBeforeCaret(model, position))) return { suggestions: [] };
     // Tag/attribute/entity completion is about markup, so it stays out of the embedded
     // blocks. The one thing still worth offering inside <script> is the list of field
     // names and functions declared in the file, which is what FCode's JavaScript refers
@@ -1686,7 +1707,10 @@ class BcodeCompletion {
   ///
   /// Only the branches that genuinely need the database — "alias." and table names after
   /// FROM/JOIN — return a promise, from provideSqlFromSchema.
-  provideSql(model, position) {
+  provideSql(model, position, context) {
+    // Gọi do gõ DẤU CÁCH: chỉ gợi ý sau từ khoá mở mệnh đề (from/join/where/and/select...), sau dấu phẩy hoặc toán tử (=, <, >, ().
+    // Trước đây sau MỌI dấu cách trong vùng SQL đều bật danh sách cột (gõ "ma_kh " cũng hiện) và quét cả file.
+    if (isSpaceTrigger(context) && !SQL_SPACE_TRIGGER.test(lineBeforeCaret(model, position))) return { suggestions: [] };
     if (this.regionAt(model, position) !== 'sql') return { suggestions: [] };
 
     const facts = docFacts(model);

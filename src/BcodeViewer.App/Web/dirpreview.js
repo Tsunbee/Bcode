@@ -123,6 +123,12 @@ class BcodeDirPreview {
       return;
     }
 
+    // Chữ ký bố cục: chỉ những phần form thật sự dùng (DOCTYPE/entity, <fields> bỏ khối CDATA script/query, <views>, <title>) + file.
+    // Sửa ở <script>, <command>, <response>... hay trong CDATA thì form không đổi → khỏi dựng lại (trước đây mỗi lần ngừng gõ đều dựng lại cả form).
+    // ⟳ (force), kéo-thả, đổi file thì chữ ký khác / force nên vẫn vẽ như cũ.
+    const sig = this.layoutSignature(this.bcode.activePath, text);
+    if (!force && sig === this._lastSig && this.root.childElementCount) return;
+    this._lastSig = null;   // chỉ ghi nhận khi vẽ xong trọn vẹn (bên dưới)
     if (!(this._flashUntil > Date.now())) this.status.textContent = 'Đang dựng…';
     // Khai báo DOCTYPE đổi (hoặc bấm ⟳, hoặc cache quá 20s — file include có thể vừa sửa) thì bỏ cache.
     const head = (/<!DOCTYPE[sS]*?]>/i.exec(text) || [''])[0];
@@ -134,7 +140,9 @@ class BcodeDirPreview {
       this.entHead = head;
       this.entTime = Date.now();
     }
-    const ctx = { cache: this.entCache, unresolved: new Set() };
+    // Lượt vẽ mang theo CHÍNH file nó vẽ (docPath/docText): vẽ bất đồng bộ, Ctrl+Tab giữa chừng thì tra theo "file đang mở" sẽ ra entity của file kia.
+    const docPath = this.bcode.activePath;
+    const ctx = { cache: this.entCache, unresolved: new Set(), docPath, docText: text, searchFallback: true };
     let fieldsXml, viewsXml;
     try {
       const fieldsRaw = this.stripComments((/<fields\b[\s\S]*?<\/fields>/i.exec(text) || [''])[0]);
@@ -177,22 +185,32 @@ class BcodeDirPreview {
         // được các ô đứng trước phần entity (không đụng mặt nạ) — xem parseRows.
         const outside = /&[A-Za-z_][\w.:$-]*;/.test(rv.replace(/\[[^\]]*\]/g, ''));
         try {
-          this.rawMap.set(await this.expand(rv, { cache: ctx.cache, unresolved: new Set() }), rv);
+          this.rawMap.set(await this.expand(rv, { cache: ctx.cache, unresolved: new Set(), docPath, docText: text, searchFallback: true }), rv);
           if (outside) this.partialRaw.add(rv);
         } catch { /* bỏ qua dòng này */ }
       }
       this.gridInfo = new Map();
       this.gridEditable = false; // lưới nhúng trong Dir thuộc file khác — chỉ xem
       const controllers = [...new Set([...fields.values()].filter((f) => f.itemsStyle === 'Grid' && f.controller).map((f) => f.controller))];
-      await Promise.all(controllers.map(async (c) => { this.gridInfo.set(c, await this.loadGrid(c)); }));
+      await Promise.all(controllers.map(async (c) => { this.gridInfo.set(c, await this.loadGrid(c, docPath)); }));
       if (run !== this.version) return;
       this.draw({ title: this.cleanText(title), fields, view });
     }
+    if (run === this.version) this._lastSig = sig;
     // Giữ thông báo kéo-thả (flash) hiện đủ vài giây dù preview vừa vẽ lại.
     if (!(this._flashUntil > Date.now())) this.status.textContent = new Date().toLocaleTimeString();
     this.footer.textContent = ctx.unresolved.size
       ? `Entity chưa giải được (${ctx.unresolved.size}): ` + [...ctx.unresolved].slice(0, 12).map((n) => '&' + n + ';').join(' ') + (ctx.unresolved.size > 12 ? ' …' : '')
       : '';
+  }
+
+  /// Phần nội dung mà form xem trước phụ thuộc (xem render): đổi phần khác của file thì khỏi vẽ lại.
+  layoutSignature(path, text) {
+    const head = (/<!DOCTYPE[\s\S]*?\]>/i.exec(text) || [''])[0];
+    const fields = ((/<fields\b[\s\S]*?<\/fields>/i.exec(text) || [''])[0]).replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '');
+    const views = (/<views\b[\s\S]*?<\/views>/i.exec(text) || [''])[0];
+    const title = (/<title\b[^>]*\bv="([^"]*)"/i.exec(text) || [])[1] || '';
+    return (path || '') + '\u0001' + head + '\u0001' + fields + '\u0001' + views + '\u0001' + title;
   }
 
   // ---- Kéo-thả để đổi vị trí (sửa thẳng source, Ctrl+Z hoàn tác được) -----------------------------
@@ -793,8 +811,8 @@ class BcodeDirPreview {
   // ---- Lưới chi tiết (controller Grid) ------------------------------------------------------
 
   /// Đọc Grid\<controller>.xml cạnh thư mục Dir đang mở và rút ra danh sách cột. null nếu không đọc được.
-  async loadGrid(controller) {
-    const activePath = this.bcode.activePath;
+  async loadGrid(controller, basePath) {
+    const activePath = basePath || this.bcode.activePath;   // file Dir của lượt vẽ (xem render), không phải file đang mở lúc đọc xong
     if (!activePath) return null;
     const path = resolvePath(dirNameOf(activePath), '..\\Grid\\' + controller + '.xml');
     const key = path.toLowerCase();
@@ -891,13 +909,15 @@ class BcodeDirPreview {
 
   // Khối không đổi so với lần vẽ trước (thường là <fields> khi chỉ sửa <view>, và ngược lại) thì dùng lại kết quả.
   async expandMemo(raw, ctx) {
-    const hit = this.expMemo.get(raw);
+    // Khoá gồm cả file: 2 file có khối giống hệt nhau nhưng entity khác nhau không được dùng chung kết quả.
+    const key = (ctx.docPath || '').toLowerCase() + '\u0001' + raw;
+    const hit = this.expMemo.get(key);
     if (hit) { hit.unresolved.forEach((n) => ctx.unresolved.add(n)); return hit.out; }
-    const local = { cache: ctx.cache, unresolved: new Set() };
+    const local = { cache: ctx.cache, unresolved: new Set(), docPath: ctx.docPath, docText: ctx.docText, searchFallback: ctx.searchFallback };
     const out = await this.expand(raw, local);
     local.unresolved.forEach((n) => ctx.unresolved.add(n));
     if (this.expMemo.size > 6) this.expMemo.clear();
-    this.expMemo.set(raw, { out, unresolved: [...local.unresolved] });
+    this.expMemo.set(key, { out, unresolved: [...local.unresolved] });
     return out;
   }
 
@@ -925,9 +945,14 @@ class BcodeDirPreview {
     if (ctx.cache.has(name)) return ctx.cache.get(name);
     let value = null;
     try {
-      const found = window.bcodeEntity
+      let found = window.bcodeEntity
         ? (ctx.docPath ? await window.bcodeEntity.resolveTop(name, ctx.docPath, ctx.docText, 'general') : await window.bcodeEntity.resolveTopActiveGeneral(name))
         : null;
+      // File chính của lượt vẽ: chuỗi include không có thì tìm cả project như resolveTopActiveGeneral vẫn làm (file Grid đọc kèm thì không — giữ như cũ).
+      if (!found && ctx.docPath && ctx.searchFallback && window.bcodeEntity) {
+        const viaSearch = await window.bcodeEntity.resolveViaWorkspaceSearch(name);
+        found = viaSearch && !viaSearch.decl.isParam ? viaSearch : null;
+      }
       if (found && found.decl.kind === 'value') {
         value = found.decl.value;
       } else if (found && found.decl.kind === 'system') {

@@ -102,7 +102,7 @@ public static class ShortcutRegistry
             new("editor.suggest", "Gọi gợi ý AI ngay", "Editor SQL", ShortcutScope.Editor, "Alt+\\"),
             new("editor.saveHistory", "Lưu script vào Lịch sử SQL", "Editor SQL", ShortcutScope.Editor, "Ctrl+Alt+H"),
             new("editor.open", "Open (mở file .sql)", "Editor SQL", ShortcutScope.Editor, ""),
-            new("editor.save", "Save (lưu file .sql)", "Editor SQL", ShortcutScope.Editor, "", NativeDefault: "Ctrl+S"),
+            new("editor.save", "Save (lưu file .sql)", "Editor SQL", ShortcutScope.Editor, "Ctrl+S"),
             new("editor.find", "Tìm trong editor (chế độ App; chế độ Web dùng Ctrl+F của Monaco)", "Editor SQL", ShortcutScope.Editor, "", NativeDefault: "Ctrl+F"),
             new("editor.writeSchema", "Write Schema", "Editor SQL", ShortcutScope.Editor, ""),
             new("editor.checkFields", "Check Fields", "Editor SQL", ShortcutScope.Editor, ""),

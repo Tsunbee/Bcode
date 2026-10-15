@@ -110,6 +110,8 @@ public class AppSettings
     public string FileLookupIgnoreSuffixes { get; set; } = "_bk, _copy, - copy";
 
     // ---- File Lookup → Search Box (String search): các file/thư mục bị LOẠI khi tìm nội dung. Mặc định = đúng như trước đây; sửa ở Template → "Tìm file".
+    /// <summary>Đuôi file ĐƯỢC tìm khi File Type là *.* (chỉ quét các đuôi này; để trống = mọi đuôi trừ 2 danh sách loại trừ). Gõ rõ đuôi ở File Type thì không áp.</summary>
+    public string SearchIncludeExtensions { get; set; } = ".xml, .f, .txt, .js, .sql, .ent, .xsd, .css, .config, .json, .html";
     /// <summary>Đuôi file luôn bỏ qua dù File Type là gì (cách nhau bằng dấu phẩy).</summary>
     public string SearchNeverExtensions { get; set; } = ".htm";
     /// <summary>Đuôi file nhị phân bỏ qua khi File Type là *.* (gõ rõ đuôi, vd *.rpt, thì vẫn quét).</summary>

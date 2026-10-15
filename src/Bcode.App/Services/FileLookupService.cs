@@ -470,6 +470,7 @@ public class FileLookupService
                     var extension = Path.GetExtension(file);
                     var rules = _rules;
                     if (rules.Never.Contains(extension) || (genericPattern && rules.Binary.Contains(extension))) return;
+                    if (genericPattern && rules.Include.Count > 0 && !rules.Include.Contains(extension)) return;   // *.*: chỉ các đuôi "được tìm"
                     if (genericPattern && rules.SkipCompiledF && extension.Equals(".f", StringComparison.OrdinalIgnoreCase) && IsInCompiledFolder(file)) return;
 
                     byte[] bytes;
@@ -506,20 +507,21 @@ public class FileLookupService
 
     private const int SearchParallelism = 16;
     /// <summary>Bộ luật loại trừ khi tìm nội dung (Search Box) — đặt từ AppSettings (Template → Tìm file); mặc định giống hệt trước đây. Đổi nguyên khối (immutable) nên luồng đang quét không thấy giá trị nửa vời.</summary>
-    private sealed record SearchRuleSet(HashSet<string> Never, HashSet<string> Binary, string[] Folders, bool SkipCompiledF, string[] CompiledFolders, long MaxBytes);
-    private static SearchRuleSet _rules = BuildRules(".htm", DefaultBinaryList, "Dir, Filter, Grid, Include, List, Lookup, Options, Templates", true, "Dir, Filter, Grid", 20);
+    /// <summary><paramref name="Include"/> rỗng = mọi đuôi (trừ Never / Binary); có phần tử = khi File Type là *.* chỉ quét các đuôi này.</summary>
+    private sealed record SearchRuleSet(HashSet<string> Include, HashSet<string> Never, HashSet<string> Binary, string[] Folders, bool SkipCompiledF, string[] CompiledFolders, long MaxBytes);
+    private static SearchRuleSet _rules = BuildRules(new Bcode.App.Models.AppSettings().SearchIncludeExtensions, ".htm", DefaultBinaryList, "Dir, Filter, Grid, Include, List, Lookup, Options, Templates", true, "Dir, Filter, Grid", 20);
     private const string DefaultBinaryList = ".rpt, .xlsx, .xls, .xlsm, .xlsb, .doc, .docx, .ppt, .pptx, .pdf, .dll, .exe, .pdb, .obj, .lib, .so, .bin, .dat, .cache, .png, .jpg, .jpeg, .gif, .bmp, .ico, .tif, .tiff, .svgz, .zip, .rar, .7z, .gz, .tar, .nupkg, .bak, .mdf, .ldf, .ttf, .otf, .woff, .woff2, .eot, .mp3, .mp4, .avi, .wav";
 
     private static string[] SplitList(string? s) => (s ?? "").Split(new[] { (char)44, (char)59, (char)10, (char)13 }, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
     private static HashSet<string> ExtSet(string? s) => new(SplitList(s).Select(x => x.StartsWith(".") ? x : "." + x), StringComparer.OrdinalIgnoreCase);
-    private static SearchRuleSet BuildRules(string? never, string? binary, string? folders, bool skipCompiled, string? compiled, int maxMb) =>
-        new(ExtSet(never), ExtSet(binary), SplitList(folders), skipCompiled, SplitList(compiled), maxMb <= 0 ? long.MaxValue : maxMb * 1024L * 1024);
+    private static SearchRuleSet BuildRules(string? include, string? never, string? binary, string? folders, bool skipCompiled, string? compiled, int maxMb) =>
+        new(ExtSet(include), ExtSet(never), ExtSet(binary), SplitList(folders), skipCompiled, SplitList(compiled), maxMb <= 0 ? long.MaxValue : maxMb * 1024L * 1024);
 
-    public static void SetSearchRules(string? never, string? binary, string? folders, bool skipCompiledF, string? compiledFolders, int maxMegabytes)
-        => _rules = BuildRules(never, binary, folders, skipCompiledF, compiledFolders, maxMegabytes);
+    public static void SetSearchRules(string? include, string? never, string? binary, string? folders, bool skipCompiledF, string? compiledFolders, int maxMegabytes)
+        => _rules = BuildRules(include, never, binary, folders, skipCompiledF, compiledFolders, maxMegabytes);
 
     public static void SetSearchRules(Bcode.App.Models.AppSettings s)
-        => SetSearchRules(s.SearchNeverExtensions, s.SearchBinaryExtensions, s.SearchFolders, s.SearchSkipCompiledF, s.SearchCompiledFolders, s.SearchMaxMegabytes);
+        => SetSearchRules(s.SearchIncludeExtensions, s.SearchNeverExtensions, s.SearchBinaryExtensions, s.SearchFolders, s.SearchSkipCompiledF, s.SearchCompiledFolders, s.SearchMaxMegabytes);
 
 
     /// <summary>Các thư mục thật sự quét. Search in là site gốc, App_Data hoặc chính Controllers → chỉ các thư mục con trong

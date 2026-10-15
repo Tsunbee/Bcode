@@ -375,7 +375,7 @@ public class GenUpdatePackageControl : UserControl
     }
 
     /// <summary>"Gen Script" của Gen nhanh Store — tìm đúng 1 stored procedure theo tên trong database App/Sys, lấy definition
-    /// (đã ALTER, sẵn sàng chạy update) và thêm vào gói tại Script\app\&lt;tên&gt;.sql hoặc Script\sys\&lt;tên&gt;.sql.</summary>
+    /// (dạng IF EXISTS ... DROP ... GO + CREATE, chạy được cả khi DB đích chưa có) và thêm vào gói tại Script\app\&lt;tên&gt;.sql hoặc Script\sys\&lt;tên&gt;.sql.</summary>
     private async Task GenStoreScriptAsync(string name, bool useSys)
     {
         name = name.Trim();
@@ -392,7 +392,7 @@ public class GenUpdatePackageControl : UserControl
                 return;
             }
 
-            var script = await _sqlObjectService.GetDefinitionAsync(target);
+            var script = await _sqlObjectService.GetDeployScriptAsync(target);
             var relative = PackageLayout.Script(useSys, $"{target.Name}.sql");
             var item = new BatchItem { DisplayName = $"[{(useSys ? "Sys" : "App")}] {target.Name}", RelativeDestPath = relative, GeneratedContent = script };
             var i = _batch.FindIndex(b => string.Equals(b.RelativeDestPath, relative, StringComparison.OrdinalIgnoreCase));

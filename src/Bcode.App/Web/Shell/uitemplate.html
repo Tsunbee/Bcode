@@ -283,8 +283,11 @@
 
 <div id="tabSearch" style="display:none">
   <div class="panel">
-    <h3>File Lookup → Search Box: file / thư mục bị loại khi tìm nội dung (String search)</h3>
-    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Đây là các quy tắc loại trừ Bcode đang áp dụng khi bấm <b>Search</b> trong Search Box (mặc định giống hệt trước đây). Sửa tự do — cách nhau bằng dấu phẩy hoặc xuống dòng — rồi bấm <b>Lưu</b>; áp dụng ngay cho lần tìm sau. Gõ rõ đuôi ở ô <b>File Type</b> (vd <code>*.rpt</code>) thì vẫn quét đúng loại đó dù nằm trong danh sách nhị phân.</div>
+    <h3>File Lookup → Search Box: file / thư mục được tìm và bị loại khi tìm nội dung (String search)</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Đây là các quy tắc Bcode đang áp dụng khi bấm <b>Search</b> trong Search Box. Sửa tự do — cách nhau bằng dấu phẩy hoặc xuống dòng — rồi bấm <b>Lưu</b>; áp dụng ngay cho lần tìm sau. Gõ rõ đuôi ở ô <b>File Type</b> (vd <code>*.rpt</code>) thì vẫn quét đúng loại đó dù nằm trong danh sách nhị phân.</div>
+    <div class="row" style="align-items:flex-start"><label>Đuôi file được tìm<br/><span class="muted" style="font-size:11px">(khi File Type = *.*)</span></label>
+      <div class="ctl"><textarea id="sInclude" rows="2" spellcheck="false" placeholder="Để trống = mọi đuôi (trừ 2 danh sách bỏ qua bên dưới)" style="flex:1;min-width:0;font:inherit;color:inherit;background:var(--input,#3c3c3c);border:1px solid var(--border,#555);border-radius:4px;padding:5px 8px"></textarea></div></div>
+    <div class="muted" style="font-size:11.5px;margin:-4px 0 10px 0">Chỉ quét nội dung các file có đuôi này. Để trống = quét mọi đuôi như trước. Gõ rõ đuôi ở ô File Type (vd <code>*.cs</code>) thì quét đúng đuôi đó, không xét danh sách này.</div>
     <div class="row"><label>Đuôi luôn bỏ qua<br/><span class="muted" style="font-size:11px">(dù File Type là gì)</span></label>
       <div class="ctl"><input type="text" id="sNever" spellcheck="false" placeholder=".htm" /></div></div>
     <div class="row" style="align-items:flex-start"><label>Đuôi nhị phân bỏ qua<br/><span class="muted" style="font-size:11px">(khi File Type = *.*)</span></label>
@@ -739,10 +742,10 @@
   $('pSrcAdd').onclick = () => post('paths-browse', { key: 'srcAdd' });
   // ---- tab Tìm file: quy tắc loại trừ của Search Box (File Lookup) ----
   window.setSearchRules = (r) => {
-    $('sNever').value = r.never; $('sBinary').value = r.binary; $('sFolders').value = r.folders;
+    $('sInclude').value = r.include || ''; $('sNever').value = r.never; $('sBinary').value = r.binary; $('sFolders').value = r.folders;
     $('sSkipF').checked = !!r.skipF; $('sCompiled').value = r.compiled; $('sMax').value = r.maxMb; $('sIgnore').value = r.ignore;
   };
-  $('sSave').onclick = () => { post('search-set', { never: $('sNever').value, binary: $('sBinary').value, folders: $('sFolders').value, skipF: $('sSkipF').checked, compiled: $('sCompiled').value, maxMb: $('sMax').value, ignore: $('sIgnore').value }); $('sNote').textContent = 'Đã lưu — áp dụng cho lần tìm sau.'; setTimeout(() => { $('sNote').textContent = ''; }, 3000); };
+  $('sSave').onclick = () => { post('search-set', { include: $('sInclude').value, never: $('sNever').value, binary: $('sBinary').value, folders: $('sFolders').value, skipF: $('sSkipF').checked, compiled: $('sCompiled').value, maxMb: $('sMax').value, ignore: $('sIgnore').value }); $('sNote').textContent = 'Đã lưu — áp dụng cho lần tìm sau.'; setTimeout(() => { $('sNote').textContent = ''; }, 3000); };
   $('sDefault').onclick = () => post('search-default');
   window.setHistoryPath = p => { S.historyPath = p || ''; renderHist(); };
 

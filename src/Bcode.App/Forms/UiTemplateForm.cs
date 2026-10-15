@@ -176,6 +176,7 @@ public class UiTemplateForm : ThemedForm
                 case "search-set":
                 {
                     string S(string k) => data.TryGetProperty(k, out var e) ? (e.GetString() ?? "").Trim() : "";
+                    _settings.SearchIncludeExtensions = S("include");
                     _settings.SearchNeverExtensions = S("never");
                     _settings.SearchBinaryExtensions = S("binary");
                     _settings.SearchFolders = S("folders");
@@ -192,6 +193,7 @@ public class UiTemplateForm : ThemedForm
                 case "search-default":
                 {
                     var def = new Bcode.App.Models.AppSettings();
+                    _settings.SearchIncludeExtensions = def.SearchIncludeExtensions;
                     _settings.SearchNeverExtensions = def.SearchNeverExtensions;
                     _settings.SearchBinaryExtensions = def.SearchBinaryExtensions;
                     _settings.SearchFolders = def.SearchFolders;
@@ -379,7 +381,7 @@ public class UiTemplateForm : ThemedForm
     {
         var s = new
         {
-            never = _settings.SearchNeverExtensions, binary = _settings.SearchBinaryExtensions, folders = _settings.SearchFolders,
+            include = _settings.SearchIncludeExtensions, never = _settings.SearchNeverExtensions, binary = _settings.SearchBinaryExtensions, folders = _settings.SearchFolders,
             skipF = _settings.SearchSkipCompiledF, compiled = _settings.SearchCompiledFolders, maxMb = _settings.SearchMaxMegabytes, ignore = _settings.FileLookupIgnoreSuffixes,
         };
         Js($"window.setSearchRules({JsonSerializer.Serialize(s)})");

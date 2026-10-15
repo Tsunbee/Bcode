@@ -14,6 +14,7 @@ public class LicenseKeyForm : ThemedForm
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly string? _reason;
+    private readonly Bcode.App.Controls.WebBarHost? _host;
 
     /// <param name="reason">Lý do mở hộp thoại (vd tính năng đang bị khoá) — hiện ở đầu trang; null = mở từ menu.</param>
     public LicenseKeyForm(string? reason = null)
@@ -28,6 +29,15 @@ public class LicenseKeyForm : ThemedForm
         MinimumSize = new Size(380, 420);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
+        if (UiMode.IsNative)
+        {
+            // Chế độ App: trang native licensekey.html (WebBarHost tự chọn) thay cho WebView2.
+            _host = new Bcode.App.Controls.WebBarHost("licensekey.html") { Dock = DockStyle.Fill };
+            Controls.Add(_host);
+            _host.Message += root => { var c = root.Clone(); _ = HandleAsync(c); };
+            _host.Ready += () => _ = PushStateAsync();
+            return;
+        }
         Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;
@@ -50,7 +60,7 @@ public class LicenseKeyForm : ThemedForm
         }
     }
 
-    private void Js(string script) { if (_web.CoreWebView2 is not null) _ = _web.CoreWebView2.ExecuteScriptAsync(script); }
+    private void Js(string script) { if (_host is not null) { _host.Call(script); return; } if (_web.CoreWebView2 is not null) _ = _web.CoreWebView2.ExecuteScriptAsync(script); }
     private static string J(object? o) => JsonSerializer.Serialize(o, JsonOpts);
 
     private void PushTheme() => Js($"window.setTheme && window.setTheme({(AppColors.IsDark ? "true" : "false")})");
@@ -64,10 +74,14 @@ public class LicenseKeyForm : ThemedForm
 
     private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
     {
+        using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+        await HandleAsync(doc.RootElement);
+    }
+
+    private async Task HandleAsync(JsonElement root)
+    {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
-            var root = doc.RootElement;
             switch (root.GetProperty("action").GetString())
             {
                 case "ready":

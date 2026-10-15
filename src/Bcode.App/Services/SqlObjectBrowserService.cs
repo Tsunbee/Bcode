@@ -326,6 +326,42 @@ ORDER BY ORDINAL_POSITION;";
             return regex.Replace(rawScript, "ALTER $1", 1);
         }
 
+    /// <summary>Script đưa vào gói update (Note (New) / Gen All, Gen Update) cho procedure / function / view / trigger theo mẫu FCode:
+    /// <c>IF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'dbo.X') AND xType = 'P' AND OBJECTPROPERTY(id, 'IsEncrypted') = 0)</c>
+    /// <c>DROP PROCEDURE dbo.X</c> / <c>GO</c> / CREATE gốc / <c>GO</c>. Table KHÔNG bao giờ DROP — trả nguyên script CREATE TABLE như <see cref="GetDefinitionAsync"/>.
+    /// Object mã hoá / không đọc được definition → chỉ trả lời nhắc (không sinh DROP vì không có CREATE để tạo lại).</summary>
+    public async Task<string> GetDeployScriptAsync(SqlObjectInfo obj)
+    {
+        if (obj.Kind == SqlObjectKind.Table) return await GetDefinitionAsync(obj);
+
+        string? raw;
+        await using (var conn = _connections.CreateConnection(obj.FromSysDatabase))
+        {
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@name));", conn);
+            cmd.Parameters.AddWithValue("@name", obj.QualifiedName);
+            raw = await cmd.ExecuteScalarAsync() as string;
+        }
+        if (string.IsNullOrWhiteSpace(raw))
+            return "-- (Object được tạo WITH ENCRYPTION, hoặc không tìm thấy definition. Xem tool Decrypt SQL Object.)";
+
+        static string Part(string s) => Regex.IsMatch(s, @"^[A-Za-z_][\w$#@]*$") ? s : "[" + s.Replace("]", "]]") + "]";
+        var name = Part(obj.Schema) + "." + Part(obj.Name);
+        var (xtype, word) = obj.Kind switch
+        {
+            SqlObjectKind.StoredProcedure => ("xType = 'P'", "PROCEDURE"),
+            SqlObjectKind.Function => ("xType IN ('FN', 'IF', 'TF')", "FUNCTION"),
+            SqlObjectKind.View => ("xType = 'V'", "VIEW"),
+            _ => ("xType = 'TR'", "TRIGGER"),
+        };
+        var sb = new System.Text.StringBuilder();
+        sb.Append("IF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'").Append(name.Replace("'", "''")).Append("') AND ")
+          .Append(xtype).Append(" AND OBJECTPROPERTY(id, 'IsEncrypted') = 0)\r\n");
+        sb.Append("DROP ").Append(word).Append(' ').Append(name).Append("\r\nGO\r\n");
+        sb.Append(raw.Trim('\r', '\n')).Append("\r\nGO\r\n");
+        return sb.ToString();
+    }
+
     /// <summary>Cấu trúc bảng để xem nhanh (F12 trong SQL Query), dạng như FCode: CREATE TABLE đủ cột + "/* Index */" (tên: [cột…]) + "/* List columns */" (tên cột cách nhau dấu phẩy, xuống dòng theo chiều rộng).</summary>
     public async Task<string> GetTableStructureAsync(SqlObjectInfo table)
     {

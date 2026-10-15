@@ -15,7 +15,7 @@ namespace Bcode.App.Controls;
 /// Read-only. Exposes the subset of ScriptEditorControl's API that FileLookupControl uses,
 /// and F12 resolves through the very same code (<see cref="ScriptEditorControl.ResolveF12"/>).
 /// </summary>
-public class MonacoPreviewControl : UserControl
+public partial class MonacoPreviewControl : UserControl
 {
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _web = new() { Dock = DockStyle.Fill };
     private bool _ready;
@@ -40,6 +40,7 @@ public class MonacoPreviewControl : UserControl
     public MonacoPreviewControl()
     {
         Dock = DockStyle.Fill;
+        if (UiMode.IsNative) { BuildNative(); return; }
         Controls.Add(_web);
         _ = InitAsync();
         WatchThemeFile();
@@ -148,6 +149,7 @@ public class MonacoPreviewControl : UserControl
     /// hint, "not a text file", read error) rather than as a document.</summary>
     public void LoadContent(string? path, string content, string? entityResolveBasePath = null)
     {
+        if (_ed is not null) { LoadNative(path, content, entityResolveBasePath); return; }
         CurrentPath = path;
         _entityResolveBasePath = entityResolveBasePath ?? path;
         if (path is null)
@@ -162,6 +164,7 @@ public class MonacoPreviewControl : UserControl
 
     public void Clear()
     {
+        if (_ed is not null) { LoadNative(null, "", null); return; }
         CurrentPath = null;
         _entityResolveBasePath = null;
         _text = "";
@@ -173,6 +176,7 @@ public class MonacoPreviewControl : UserControl
 
     public void ShowFind()
     {
+        if (_ed is not null) { ShowFindNative(); return; }
         _web.Focus();
         if (_ready) Post(JsonSerializer.Serialize(new { type = "find" }));
     }

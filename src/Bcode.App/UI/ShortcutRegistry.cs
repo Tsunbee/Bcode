@@ -12,7 +12,14 @@ public enum ShortcutScope
     Tree,
 }
 
-public sealed record ShortcutDef(string Id, string Text, string Group, ShortcutScope Scope, string Default);
+/// <param name="WebDefault">Phím mặc định (chế độ Web, và chế độ App khi không có <paramref name="NativeDefault"/>).</param>
+/// <param name="NativeDefault">Phím mặc định riêng của chế độ App/WinForms (null = như Web) — vd Ctrl+S / Ctrl+F của editor Scintilla, mà ở chế độ Web
+/// Monaco/trang đã tự xử lý hoặc chưa gán.</param>
+public sealed record ShortcutDef(string Id, string Text, string Group, ShortcutScope Scope, string WebDefault, string? NativeDefault = null)
+{
+    /// <summary>Phím mặc định của chế độ đang chạy.</summary>
+    public string Default => UiMode.IsNative && NativeDefault is not null ? NativeDefault : WebDefault;
+}
 
 /// <summary>
 /// Danh sách MỌI phím tắt cấu hình được + phím mặc định, và phím người dùng đã khai báo lại (UiTemplate.Shortcuts: id → tổ hợp phím,
@@ -31,6 +38,7 @@ public static class ShortcutRegistry
         {
             // ---- Cửa sổ ----
             new("tree.toggle", "Ẩn / hiện cây menu bên trái", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+H"),
+            new("left.mobile", "Mở cây menu Mobile (bảng dvcommand) ở cột trái", "Cửa sổ", ShortcutScope.App, ""),
             new("window.new", "Mở thêm cửa sổ Bcode mới", "Cửa sổ", ShortcutScope.App, "Ctrl+Shift+N"),
             new("app.theme", "Đổi giao diện sáng / tối", "Cửa sổ", ShortcutScope.App, ""),
             new("app.palette", "Command Palette — tìm nhanh tool, tab, menu, object SQL", "Cửa sổ", ShortcutScope.App, "Ctrl+P"),
@@ -95,7 +103,8 @@ public static class ShortcutRegistry
             new("editor.suggest", "Gọi gợi ý AI ngay", "Editor SQL", ShortcutScope.Editor, "Alt+\\"),
             new("editor.saveHistory", "Lưu script vào Lịch sử SQL", "Editor SQL", ShortcutScope.Editor, "Ctrl+Alt+H"),
             new("editor.open", "Open (mở file .sql)", "Editor SQL", ShortcutScope.Editor, ""),
-            new("editor.save", "Save (lưu file .sql)", "Editor SQL", ShortcutScope.Editor, ""),
+            new("editor.save", "Save (lưu file .sql)", "Editor SQL", ShortcutScope.Editor, "Ctrl+S"),
+            new("editor.find", "Tìm trong editor (chế độ App; chế độ Web dùng Ctrl+F của Monaco)", "Editor SQL", ShortcutScope.Editor, "", NativeDefault: "Ctrl+F"),
             new("editor.writeSchema", "Write Schema", "Editor SQL", ShortcutScope.Editor, ""),
             new("editor.checkFields", "Check Fields", "Editor SQL", ShortcutScope.Editor, ""),
             new("editor.comment", "Comment (chú thích dòng đang chọn)", "Editor SQL", ShortcutScope.Editor, ""),

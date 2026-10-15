@@ -22,6 +22,7 @@ public class CopyMultiFileForm : ThemedForm
     private readonly string _root;
     private readonly AppSettings _settings;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
 
     /// <param name="files">Đường dẫn đầy đủ các file cần copy.</param>
     /// <param name="root">Thư mục gốc đang duyệt ở File Lookup — vị trí tương đối của file dưới gốc này được giữ lại ở đích khi bật "Giữ cấu trúc".</param>
@@ -40,11 +41,12 @@ public class CopyMultiFileForm : ThemedForm
         MinimumSize = new Size(520, 460);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative) _host = Bcode.App.Controls.NativeForm.Attach(this, "copymulti.html", root => _ = HandleAsync(root.GetRawText()), () => _ = HandleAsync("{\"action\":\"ready\"}"));
+        else Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;
         FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
-        Load += async (_, _) => await InitWebAsync();
+        if (_host is null) Load += async (_, _) => await InitWebAsync();
     }
 
     private static string RelativeTo(string root, string file)
@@ -76,11 +78,13 @@ public class CopyMultiFileForm : ThemedForm
         }
     }
 
-    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e) => await HandleAsync(e.TryGetWebMessageAsString());
+
+    private async Task HandleAsync(string json0)
     {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            using var doc = JsonDocument.Parse(json0);
             var action = doc.RootElement.GetProperty("action").GetString();
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
 
@@ -243,7 +247,9 @@ public class CopyMultiFileForm : ThemedForm
 
     private void Js(string script)
     {
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (IsDisposed) return;
+        if (_host is not null) { _host.Call(script); return; }
+        if (_web.CoreWebView2 is null) return;
         if (InvokeRequired) { BeginInvoke(new Action(() => Js(script))); return; }
         _ = _web.CoreWebView2.ExecuteScriptAsync(script);
     }

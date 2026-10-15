@@ -13,7 +13,9 @@ namespace Bcode.App.Controls;
 /// </summary>
 public class TableEditControl : UserControl
 {
-    private readonly WebBarHost _barWeb;
+    private readonly WebBarHost? _barWeb;                 // chế độ Web: trang tablebar.html
+    private readonly NativeTableBar? _barNative;         // chế độ App: thanh WinForms tương đương
+    private Control BarControl => (Control?)_barNative ?? _barWeb!;
     private int _dbIndex = 0;
     private string _tableInputText = "";
     private string _fieldsInputText = "*";
@@ -36,7 +38,9 @@ public class TableEditControl : UserControl
     private bool _editingCell;
     private Font? _nullFont;
     /// <summary>Khung trái Structure / Fields — trang WebView2 Web/Shell/tablestruct.html (đồng bộ giao diện với thanh trên).</summary>
-    private readonly WebBarHost _structWeb;
+    private readonly WebBarHost? _structWeb;              // chế độ Web: trang tablestruct.html
+    private readonly NativeStructPanel? _structNative;    // chế độ App: khung WinForms tương đương
+    private Control StructControl => (Control?)_structNative ?? _structWeb!;
     /// <summary>Cột của bảng đang mở theo đúng thứ tự (tên, kiểu SQL thật, khoá chính) — nguồn cho khung Structure / Fields, gợi ý cột, Gen script.</summary>
     private List<(string Name, string Type, bool IsKey)> _structCols = new();
     private List<string> _structChecked = new();   // cột đang tick ở tab Structure (theo thứ tự bảng)
@@ -67,15 +71,16 @@ public class TableEditControl : UserControl
         Dock = DockStyle.Fill;
 
         // Thanh công cụ WebView2 chạy file tablebar.html (đã có sẵn ô nhập Fields)
-        _barWeb = new WebBarHost("tablebar.html", height: 76); // 2 hàng; chiều cao thật do trang báo lại (__height)
-        _barWeb.Message += async msg =>
+        if (Bcode.App.UI.UiMode.IsNative) _barNative = new NativeTableBar();
+        else _barWeb = new WebBarHost("tablebar.html", height: 76); // 2 hàng; chiều cao thật do trang báo lại (__height)
+        Func<JsonElement, Task> onBar = async msg =>
         {
             var action = msg.TryGetProperty("action", out var a) ? a.GetString() : null;
             switch (action)
             {
                 case "__height":
                     // Chiều cao thật của thanh (px thiết bị) — theo UiScale/DPI và khi thanh tự thu nhỏ cho vừa bề ngang.
-                    _barWeb.Height = Math.Clamp(msg.GetProperty("height").GetInt32() + 1, DpiScale.Px(_barWeb, 30), DpiScale.Px(_barWeb, 160));
+                    BarControl.Height = Math.Clamp(msg.GetProperty("height").GetInt32() + 1, DpiScale.Px(BarControl, 30), DpiScale.Px(BarControl, 160));
                     break;
                 case "db":
                     _dbIndex = msg.TryGetProperty("value", out var dbVal) ? dbVal.GetInt32() : 0;
@@ -138,12 +143,17 @@ public class TableEditControl : UserControl
         // Vừa mở tab Table là con trỏ nằm sẵn ở ô "Table" (trước đây focus rơi xuống khung
         // Structure/Fields bên trái), đồng thời nạp trước danh sách bảng để gợi ý hiện ngay
         // từ phím gõ đầu tiên.
-        _barWeb.Ready += () =>
-        {
-            _barWeb.FocusWeb();
-            _barWeb.Call("window.focusTable && window.focusTable()");
-            _ = GetTableNamesAsync(_dbIndex);
-        };
+        if (_barWeb is not null) _barWeb.Message += async msg => await onBar(msg);
+        else _barNative!.Action += payload => _ = onBar(JsonSerializer.SerializeToElement(payload));
+        if (_barWeb is not null)
+            _barWeb.Ready += () =>
+            {
+                _barWeb.FocusWeb();
+                _barWeb.Call("window.focusTable && window.focusTable()");
+                _ = GetTableNamesAsync(_dbIndex);
+            };
+        else
+            HandleCreated += (_, _) => BeginInvoke(new Action(() => { _barNative!.FocusTable(); _ = GetTableNamesAsync(_dbIndex); }));
         VisibleChanged += (_, _) => { if (!Visible) HideTableSuggest(); };
         Disposed += (_, _) => { _tableSuggest?.Dispose(); _colSuggest?.Dispose(); };
 
@@ -256,9 +266,13 @@ public class TableEditControl : UserControl
 
         // Cột bên trái: Structure (cấu trúc cột) + Fields (tick nhanh cột đưa lên ô Fields) — trang WebView2 tablestruct.html,
         // cùng kiểu giao diện với thanh công cụ phía trên. Trang giữ tick/lọc/chọn dòng; C# giữ danh sách cột và lo Gen script.
-        _structWeb = new WebBarHost("tablestruct.html", height: 200) { Dock = DockStyle.Fill };
-        _structWeb.Ready += PushStructure;
-        _structWeb.Message += msg =>
+        if (Bcode.App.UI.UiMode.IsNative) _structNative = new NativeStructPanel { Dock = DockStyle.Fill };
+        else
+        {
+            _structWeb = new WebBarHost("tablestruct.html", height: 200) { Dock = DockStyle.Fill };
+            _structWeb.Ready += PushStructure;
+        }
+        Action<JsonElement> onStruct = msg =>
         {
             // JsonElement chỉ hợp lệ trong handler — đọc hết ngay tại đây.
             var action = msg.TryGetProperty("action", out var a) ? a.GetString() : null;
@@ -279,7 +293,7 @@ public class TableEditControl : UserControl
                     break;
                 case "menu":
                     _structSelected = msg.TryGetProperty("name", out var m) ? m.GetString() : null;
-                    BeginInvoke(() => BuildStructureContextMenu().Show(_structWeb, Cursor.Position));
+                    BeginInvoke(() => BuildStructureContextMenu().Show(StructControl, Cursor.Position));
                     break;
                 case "reload":
                     BeginInvoke(ReloadFromBar);
@@ -287,8 +301,11 @@ public class TableEditControl : UserControl
             }
         };
 
+        if (_structWeb is not null) _structWeb.Message += msg => onStruct(msg);
+        else { _structNative!.Action += payload => onStruct(JsonSerializer.SerializeToElement(payload)); PushStructure(); }
+
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
-        split.Panel1.Controls.Add(_structWeb);
+        split.Panel1.Controls.Add(StructControl);
         split.Panel2.Controls.Add(_grid);
         _rowLabel = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Bcode.App.UI.AppColors.Accent, Padding = new Padding(6, 3, 0, 0), AutoEllipsis = true };
         split.Panel2.Controls.Add(_rowLabel);
@@ -313,11 +330,25 @@ public class TableEditControl : UserControl
         queryPanel.Controls.Add(_statusLabel);
 
         Controls.Add(queryPanel);
-        Controls.Add(_barWeb);
+        Controls.Add(BarControl);
     }
 
     /// <summary>F5 = như bấm Enter/Load trên thanh công cụ: đọc lại các ô Table/Fields/Where/Order/Top đang hiện rồi tải lại dữ liệu.</summary>
-    private void ReloadFromBar() => _barWeb.Call("window.triggerLoad && window.triggerLoad()");
+    private void ReloadFromBar() { if (_barNative is not null) _barNative.TriggerLoad(); else _barWeb!.Call("window.triggerLoad && window.triggerLoad()"); }
+
+    // ---- thao tác xuống thanh công cụ (web: gọi hàm JS của trang; App: gọi thẳng control) ----
+    private void BarSetDatabase(int i) { if (_barNative is not null) _barNative.SetDatabase(i); else _barWeb!.Call($"window.setDatabase && window.setDatabase({i})"); }
+    private void BarSetTable(string t) { if (_barNative is not null) _barNative.SetTable(t); else _barWeb!.Call($"window.setTable && window.setTable({WebBarHost.Json(t)})"); }
+    private void BarSetFields(string t) { if (_barNative is not null) _barNative.SetFields(t); else _barWeb!.Call($"window.setFields && window.setFields({WebBarHost.Json(t)})"); }
+    private void BarSetWhere(string t) { if (_barNative is not null) _barNative.SetWhere(t); else _barWeb!.Call($"window.setWhere && window.setWhere({WebBarHost.Json(t)})"); }
+    private void BarSetOrder(string t) { if (_barNative is not null) _barNative.SetOrder(t); else _barWeb!.Call($"window.setOrder && window.setOrder({WebBarHost.Json(t)})"); }
+    private void BarSetTop(string t) { if (_barNative is not null) _barNative.SetTop(t); else _barWeb!.Call($"window.setTop && window.setTop({WebBarHost.Json(t)})"); }
+    private void BarSetSuggestOpen(bool o) { if (_barNative is not null) _barNative.SetSuggestOpen(o); else _barWeb!.Call($"window.setSuggestOpen && window.setSuggestOpen({(o ? "true" : "false")})"); }
+    private void BarSetColSuggestOpen(bool o) { if (_barNative is not null) _barNative.SetColSuggestOpen(o); else _barWeb!.Call($"window.setColSuggestOpen && window.setColSuggestOpen({(o ? "true" : "false")})"); }
+    private void BarInsertColumn(string n) { if (_barNative is not null) _barNative.InsertColumn(n); else _barWeb!.Call($"window.insertColumn && window.insertColumn({WebBarHost.Json(n)})"); }
+    /// <summary>Hệ số đổi toạ độ ô nhập sang pixel thật: trang web gửi px CSS (nhân DPI và UiScale), thanh WinForms gửi sẵn pixel thiết bị.</summary>
+    private double BarScale() => _barNative is not null ? 1.0 : _barWeb!.DeviceDpi / 96.0 * UiScale.Factor;
+    private bool BarGone => IsDisposed || Disposing || BarControl.IsDisposed;
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -889,7 +920,7 @@ public class TableEditControl : UserControl
     {
         var fieldsStr = names.Count == 0 ? "*" : string.Join(", ", names);
         _fieldsInputText = fieldsStr;
-        _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(fieldsStr)})");
+        BarSetFields(fieldsStr);
     }
 
     /// <summary>Đẩy danh sách cột + trạng thái tick xuống khung Structure / Fields (gọi lại được — trang tự vẽ lại).</summary>
@@ -904,7 +935,8 @@ public class TableEditControl : UserControl
             structChecked = _structChecked,
             fields,
         };
-        _structWeb.Call($"window.setColumns && window.setColumns({JsonSerializer.Serialize(payload)})");
+        if (_structNative is not null) _structNative.SetColumns(_structCols.Select(c => new NativeStructPanel.Col(c.Name, c.Type, c.IsKey)), _structChecked, fields);
+        else _structWeb!.Call($"window.setColumns && window.setColumns({JsonSerializer.Serialize(payload)})");
     }
 
     // ------------------------------------------------------------------------------------
@@ -997,12 +1029,12 @@ public class TableEditControl : UserControl
 
         if (FindForm() is not { } owner) return;
         // CSS px → pixel thật trên màn hình theo DPI hiện tại của thanh công cụ.
-        var scale = _barWeb.DeviceDpi / 96.0 * UiScale.Factor; // + ZoomFactor của UiScale (WebView2 phóng/thu theo hệ số này)
-        var screen = _barWeb.PointToScreen(new Point(
+        var scale = BarScale(); // web: + ZoomFactor của UiScale (WebView2 phóng/thu theo hệ số này)
+        var screen = BarControl.PointToScreen(new Point(
             (int)Math.Round(x * scale),
             (int)Math.Round((y + h) * scale) + 2));
         EnsureTableSuggestPopup().ShowItems(owner, screen, (int)Math.Round(w * scale), matches);
-        _barWeb.Call("window.setSuggestOpen && window.setSuggestOpen(true)");
+        BarSetSuggestOpen(true);
     }
 
     private SuggestPopup EnsureTableSuggestPopup()
@@ -1062,13 +1094,13 @@ public class TableEditControl : UserControl
             break;
         }
         _tableInputText = name;
-        _barWeb.Call($"window.setTable && window.setTable({WebBarHost.Json(name)})");
+        BarSetTable(name);
     }
 
     private void SwitchDatabase(int dbIndex)
     {
         _dbIndex = dbIndex;
-        _barWeb.Call($"window.setDatabase && window.setDatabase({dbIndex})");
+        BarSetDatabase(dbIndex);
         _ = GetTableNamesAsync(dbIndex);
     }
 
@@ -1109,10 +1141,10 @@ public class TableEditControl : UserControl
         if (matches.Count == 0 || (matches.Count == 1 && matches[0].Equals(term, StringComparison.OrdinalIgnoreCase))) { HideColumnSuggest(); return; }
 
         if (FindForm() is not { } owner) return;
-        var scale = _barWeb.DeviceDpi / 96.0 * UiScale.Factor;
-        var screen = _barWeb.PointToScreen(new Point((int)Math.Round(x * scale), (int)Math.Round((y + h) * scale) + 2));
+        var scale = BarScale();
+        var screen = BarControl.PointToScreen(new Point((int)Math.Round(x * scale), (int)Math.Round((y + h) * scale) + 2));
         EnsureColumnSuggestPopup().ShowItems(owner, screen, (int)Math.Round(w * scale), matches);
-        _barWeb.Call("window.setColSuggestOpen && window.setColSuggestOpen(true)");
+        BarSetColSuggestOpen(true);
     }
 
     private SuggestPopup EnsureColumnSuggestPopup()
@@ -1122,7 +1154,7 @@ public class TableEditControl : UserControl
         _colSuggest.Picked += name =>
         {
             HideColumnSuggest();
-            _barWeb.Call($"window.insertColumn && window.insertColumn({WebBarHost.Json(name)})");
+            BarInsertColumn(name);
         };
         if (FindForm() is { } form)
         {
@@ -1148,7 +1180,7 @@ public class TableEditControl : UserControl
                 if (_colSuggest.SelectedText is { } picked)
                 {
                     HideColumnSuggest();
-                    _barWeb.Call($"window.insertColumn && window.insertColumn({WebBarHost.Json(picked)})");
+                    BarInsertColumn(picked);
                 }
                 else HideColumnSuggest();
                 break;
@@ -1159,8 +1191,8 @@ public class TableEditControl : UserControl
     private void HideColumnSuggest()
     {
         if (_colSuggest is { IsDisposed: false }) _colSuggest.HidePopup();
-        if (IsDisposed || Disposing || _barWeb.IsDisposed) return;
-        try { _barWeb.Call("window.setColSuggestOpen && window.setColSuggestOpen(false)"); }
+        if (BarGone) return;
+        try { BarSetColSuggestOpen(false); }
         catch { /* WebView2 đang huỷ — bỏ qua */ }
     }
 
@@ -1168,8 +1200,8 @@ public class TableEditControl : UserControl
     {
         _tableSuggestRequest++; // huỷ luôn kết quả gợi ý còn đang chờ (nếu có)
         if (_tableSuggest is { IsDisposed: false }) _tableSuggest.HidePopup();
-        if (IsDisposed || Disposing || _barWeb.IsDisposed) return; // đang đóng tab — không gọi vào WebView2 nữa
-        try { _barWeb.Call("window.setSuggestOpen && window.setSuggestOpen(false)"); }
+        if (BarGone) return; // đang đóng tab — không gọi vào WebView2 nữa
+        try { BarSetSuggestOpen(false); }
         catch { /* WebView2 đang huỷ — bỏ qua */ }
     }
 
@@ -1477,15 +1509,15 @@ public class TableEditControl : UserControl
             _topValue = f.Top > 0 ? f.Top : _topValue;
         }
         // Thanh nhập (WebView2) có thể chưa nạp xong (tab khôi phục từ phiên cũ vừa dựng): Call lúc đó là no-op nên ô Table / Where... để trống dù dữ liệu vẫn tải. Chờ trang sẵn sàng rồi mới đặt.
-        await _barWeb.WaitReadyAsync();
-        _barWeb.Call($"window.setDatabase && window.setDatabase({_dbIndex})");
-        _barWeb.Call($"window.setTable && window.setTable({WebBarHost.Json(_tableInputText)})");
+        if (_barWeb is not null) await _barWeb.WaitReadyAsync();
+        BarSetDatabase(_dbIndex);
+        BarSetTable(_tableInputText);
         if (filter is not null)
         {
-            _barWeb.Call($"window.setFields && window.setFields({WebBarHost.Json(_fieldsInputText)})");
-            _barWeb.Call($"window.setWhere && window.setWhere({WebBarHost.Json(_whereInputText)})");
-            _barWeb.Call($"window.setOrder && window.setOrder({WebBarHost.Json(_orderInputText)})");
-            _barWeb.Call($"window.setTop && window.setTop({WebBarHost.Json(_topValue.ToString())})");
+            BarSetFields(_fieldsInputText);
+            BarSetWhere(_whereInputText);
+            BarSetOrder(_orderInputText);
+            BarSetTop(_topValue.ToString());
         }
         await LoadAsync();
     }

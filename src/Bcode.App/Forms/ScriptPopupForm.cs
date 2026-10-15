@@ -41,21 +41,48 @@ public class ScriptPopupForm : ThemedForm
                 case "save": _ = SaveToFileAsync(); break;
                 case "clear":
                     Post(new { type = "clear" });
+                    if (_sc is not null) _sc.Text = "";
                     foreach (var tb in Controls.OfType<TextBox>()) tb.Clear(); // khung dự phòng khi không có WebView2
                     Cleared?.Invoke();
                     break;
                 case "close": Close(); break;
                 case "find":
+                    if (_sc is not null) { FindNativeNext(msg.TryGetProperty("value", out var fv) ? fv.GetString() ?? "" : ""); break; }
                     Post(new { type = "find", value = msg.TryGetProperty("value", out var v) ? v.GetString() ?? "" : "" });
                     break;
             }
         };
 
-        Controls.Add(_web);
-        Controls.Add(_toolbar);
         KeyPreview = true;
         KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) Close(); };
+        if (UiMode.IsNative)
+        {
+            // Chế độ App: editor Scintilla thay Monaco (cùng cấu hình/màu với tab SQL Query native).
+            _sc = new ScintillaNET.Scintilla { Dock = DockStyle.Fill, BorderStyle = ScintillaNET.BorderStyle.None };
+            SqlScintilla.Configure(_sc); SqlScintilla.ApplyTheme(_sc);
+            _sc.Text = script; _pendingText = "";
+            ThemeManager.Subscribe(this, () => { if (!_sc.IsDisposed) SqlScintilla.ApplyTheme(_sc); });
+            Controls.Add(_sc);
+            Controls.Add(_toolbar);
+            return;
+        }
+        Controls.Add(_web);
+        Controls.Add(_toolbar);
         _ = InitAsync();
+    }
+
+    private readonly ScintillaNET.Scintilla? _sc;
+
+    private void FindNativeNext(string term)
+    {
+        if (_sc is null || term.Length == 0) return;
+        var wrapped = false;
+        _sc.TargetStart = _sc.SelectionEnd; _sc.TargetEnd = _sc.TextLength; _sc.SearchFlags = ScintillaNET.SearchFlags.None;
+        var pos = _sc.SearchInTarget(term);
+        if (pos < 0) { wrapped = true; _sc.TargetStart = 0; _sc.TargetEnd = _sc.TextLength; pos = _sc.SearchInTarget(term); }
+        if (pos < 0) { _toolbar.Call($"window.setFindStatus && window.setFindStatus({WebBarHost.Json("Không tìm thấy")})"); return; }
+        _sc.SetSelection(_sc.TargetStart, _sc.TargetEnd); _sc.ScrollCaret(); _sc.Focus();
+        _toolbar.Call($"window.setFindStatus && window.setFindStatus({WebBarHost.Json(wrapped ? "Quay lại đầu file" : "")})");
     }
 
     private async Task InitAsync()
@@ -111,6 +138,7 @@ public class ScriptPopupForm : ThemedForm
 
     private async Task<string> GetTextAsync()
     {
+        if (_sc is not null) return _sc.Text;
         if (!_ready || _web.CoreWebView2 is null)
             return Controls.OfType<TextBox>().FirstOrDefault()?.Text ?? _pendingText;
         var json = await _web.CoreWebView2.ExecuteScriptAsync("window.getText()");

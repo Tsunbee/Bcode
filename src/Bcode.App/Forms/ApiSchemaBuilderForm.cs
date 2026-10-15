@@ -8,7 +8,7 @@ using Bcode.App.UI;
 
 namespace Bcode.App.Forms;
 
-public class ApiSchemaBuilderForm : ThemedForm
+public partial class ApiSchemaBuilderForm : ThemedForm
 {
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly SqlObjectBrowserService _sqlObjectService;
@@ -23,6 +23,7 @@ public class ApiSchemaBuilderForm : ThemedForm
         Width = 1050;
         Height = 700;
         StartPosition = FormStartPosition.CenterParent;
+        if (UiMode.IsNative) { BuildNative(); return; }
         Controls.Add(_web);
 
         Load += async (_, _) =>

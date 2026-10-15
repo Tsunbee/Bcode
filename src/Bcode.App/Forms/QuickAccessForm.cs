@@ -16,6 +16,7 @@ public class QuickAccessForm : ThemedForm
     private readonly HashSet<string> _initialHidden;
     private readonly List<string> _defaultOrder;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
 
     public HashSet<string> HiddenKeys { get; private set; }
     public List<string> OrderedKeys { get; private set; }
@@ -54,11 +55,12 @@ public class QuickAccessForm : ThemedForm
         MinimumSize = new Size(340, 420);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
-        Controls.Add(_web);
+        if (Bcode.App.UI.UiMode.IsNative) _host = Bcode.App.Controls.NativeForm.Attach(this, "quickaccess.html", root => _ = HandleAsync(root.GetRawText()), () => _ = HandleAsync("{\"action\":\"ready\"}"));
+        else Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;
         FormClosed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
-        Load += async (_, _) => await InitWebAsync();
+        if (_host is null) Load += async (_, _) => await InitWebAsync();
     }
 
     private async Task InitWebAsync()
@@ -77,11 +79,13 @@ public class QuickAccessForm : ThemedForm
         }
     }
 
-    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e) => await HandleAsync(e.TryGetWebMessageAsString());
+
+    private async Task HandleAsync(string json0)
     {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+            using var doc = JsonDocument.Parse(json0);
             var action = doc.RootElement.GetProperty("action").GetString();
             var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
 
@@ -149,7 +153,9 @@ public class QuickAccessForm : ThemedForm
     }
 
     private Task Js(string script) =>
-        IsDisposed || _web.CoreWebView2 is null ? Task.CompletedTask : _web.CoreWebView2.ExecuteScriptAsync(script);
+        IsDisposed ? Task.CompletedTask : _host is not null ? Run(() => _host.Call(script)) : _web.CoreWebView2 is null ? Task.CompletedTask : _web.CoreWebView2.ExecuteScriptAsync(script);
+
+    private static Task Run(Action a) { a(); return Task.CompletedTask; }
 
     private void PushTheme()
     {

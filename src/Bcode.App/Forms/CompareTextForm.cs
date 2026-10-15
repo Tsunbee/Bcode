@@ -9,7 +9,7 @@ namespace Bcode.App.Forms;
 
 public class CompareTextControl : UserControl
 {
-    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _topBarWeb = new();
+    private readonly Bcode.App.Controls.WebBarHost _topBarWeb = new("comparebar.html", 85);
 
     private readonly RichTextBox _content1Box;
     private readonly RichTextBox _content2Box;
@@ -81,18 +81,13 @@ public class CompareTextControl : UserControl
 
         Controls.Add(_split);
         Controls.Add(_topBarWeb);
-        _ = InitWebViewAsync();
+        WireTopBar();
     }
 
-    private async Task InitWebViewAsync()
+    private void WireTopBar()
     {
-        await Bcode.App.UI.WebViewEnvironment.InitAsync(_topBarWeb);
-        const string host = Bcode.App.UI.WebViewEnvironment.Host;
-
-        _topBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
+        _topBarWeb.Message += root =>
         {
-            using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-            var root = doc.RootElement;
             switch (root.GetProperty("action").GetString())
             {
                 case "float": FloatWindowRequested?.Invoke(); break;
@@ -108,14 +103,6 @@ public class CompareTextControl : UserControl
                     break;
             }
         };
-
-        _topBarWeb.CoreWebView2.NavigationCompleted += (_, _) =>
-        {
-            var isDark = AppColors.IsDark ? "true" : "false";
-            _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
-        };
-
-        _topBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("comparebar.html"));
     }
 
     private Panel MakeLabeledPanel(string title, out RichTextBox box)
@@ -143,8 +130,8 @@ public class CompareTextControl : UserControl
             {
                 contentBox.Text = File.ReadAllText(ofd.FileName);
                 var pathStr = $"\"{ofd.FileName.Replace("\\", "\\\\")}\""; 
-                if (fileIndex == 1) { _path1 = ofd.FileName; _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setPaths({pathStr}, null)"); }
-                else { _path2 = ofd.FileName; _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setPaths(null, {pathStr})"); }
+                if (fileIndex == 1) { _path1 = ofd.FileName; _topBarWeb.Call($"window.setPaths({pathStr}, null)"); }
+                else { _path2 = ofd.FileName; _topBarWeb.Call($"window.setPaths(null, {pathStr})"); }
             }
             catch (Exception ex) { MessageBox.Show(this, "Không đọc được file: " + ex.Message); }
         }
@@ -227,7 +214,7 @@ private void RunCompare()
 
     private void UpdateNavButtons(string summary)
     {
-        if (_topBarWeb.CoreWebView2 != null)
+        if (true)
         {
             var script = $@"
                 window.setMode(true, '{summary}');
@@ -237,7 +224,7 @@ private void RunCompare()
                 if (btnPrev) btnPrev.style.display = showNav ? '' : 'none';
                 if (btnNext) btnNext.style.display = showNav ? '' : 'none';
             ";
-            _topBarWeb.CoreWebView2.ExecuteScriptAsync(script);
+            _topBarWeb.Call(script);
         }
     }
     private static string GutterPrefix(int? lineNo) => (lineNo?.ToString() ?? "").PadLeft(5) + " │ ";
@@ -317,7 +304,7 @@ private void RunCompare()
         finally { _syncingScroll = false; }
     }
     private void ShowDiffMode(string summary) { _split.Panel1.Controls.Clear(); _split.Panel2.Controls.Clear(); _split.Panel1.Controls.Add(_diffPnlLeft); _split.Panel2.Controls.Add(_diffPnlRight); UpdateNavButtons(summary); }
-    private void ShowEditMode() { _split.Panel1.Controls.Clear(); _split.Panel2.Controls.Clear(); _split.Panel1.Controls.Add(_pnlLeft); _split.Panel2.Controls.Add(_pnlRight); _topBarWeb.CoreWebView2?.ExecuteScriptAsync("window.setMode(false, '')"); }
+    private void ShowEditMode() { _split.Panel1.Controls.Clear(); _split.Panel2.Controls.Clear(); _split.Panel1.Controls.Add(_pnlLeft); _split.Panel2.Controls.Add(_pnlRight); _topBarWeb.Call("window.setMode(false, '')"); }
 
     private sealed class SyncRichTextBox : RichTextBox
     {

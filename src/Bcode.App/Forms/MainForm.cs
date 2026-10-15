@@ -37,6 +37,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _topBarWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _iconRailWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _statusBarWeb = new();
+    // Chế độ App (UiMode.Native): ba thanh khung là control WinForms thay cho ba WebView2 ở trên (WebView2 không được khởi động).
+    private NativeTopBar? _topNative;
+    private NativeStatusBar? _statusNative;
+    private IconRailControl? _railNative;
+    private Control TopBarControl => _topNative ?? (Control)_topBarWeb;
+    private Control StatusBarControl => _statusNative ?? (Control)_statusBarWeb;
+    private Control IconRailHost => _railNative ?? (Control)_iconRailWeb;
     private Func<WebMenu> _settingsMenu = null!;
 
     /// <summary>Khai 1 lần các mẫu tên file bị bỏ qua khi dựng cây file của MENU (File Lookup theo menu, Gen Update, Gen All...): file khớp không hiện và không bị quét nội dung nên dựng cây nhanh hơn.
@@ -55,6 +62,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
     private SqlObjectTreeControl _sqlObjectTree = null!;
     private WCommandTreeControl _wcommandTree = null!;
+    // Mục "Mobile" ở cột icon trái: cây menu app mobile (bảng dvcommand, Sys Data) — cùng control với WCommand, file nằm ở thư mục MobileService.
+    private WCommandTreeControl _mobileTree = null!;
+    private FileLookupControl? _mobileLookup;     // tab File Lookup dùng lại cho menu mobile (double-click); F4 thì mở tab mới
     private readonly Panel _leftContentHost = new() { Dock = DockStyle.Fill };
     private readonly Dictionary<string, Control> _leftSections = new();
     private readonly Bcode.App.Controls.FlatTabControl _documentTabs;
@@ -75,7 +85,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void UpdateHeaderHeight()
     {
         if (_headerContainer is null) return;
-        _headerContainer.Height = _topBarWeb.Height + _toolsBar.Height;
+        _headerContainer.Height = TopBarControl.Height + _toolsBar.Height;
     }
     private readonly List<(string key, string label, string? shortcut, EventHandler action)> _toolSpecs = new();
     private TabPage? _fileLookupTabPage;
@@ -85,7 +95,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private TabPage? _lookupTabPage;
     private TabPage? _fileReferenceTabPage;
     private TabPage? _rawSqlTabPage;
-    private RawSqlControl? _rawSqlControl;
+    private ISqlTab? _rawSqlControl;
     private readonly Dictionary<string, TabPage> _noteTabs = new();
     private readonly Dictionary<string, TabPage> _objectTabs = new();
     private readonly Dictionary<string, TabPage> _debugTargetTabs = new();
@@ -179,12 +189,33 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         WindowState = FormWindowState.Maximized;
         if (Bcode.App.UI.AppIcons.AppIcon is { } appIcon) Icon = appIcon;
 
-        _topBarWeb.Dock = DockStyle.Top;
-        _topBarWeb.Height = 46;
-        _iconRailWeb.Dock = DockStyle.Left;
-        _iconRailWeb.Width = 52;
-        _statusBarWeb.Dock = DockStyle.Bottom;
-        _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26); // theo Mật độ của Template giao diện
+        if (Bcode.App.UI.UiMode.IsNative)
+        {
+            _topNative = new NativeTopBar();
+            _statusNative = new NativeStatusBar();
+            _railNative = new IconRailControl();
+            _railNative.AddItem("sql_object", Bcode.App.UI.IconGlyph.Table, "SQL Object");
+            _railNative.AddItem("wcommand", Bcode.App.UI.IconGlyph.Terminal, "WCommand");
+            _railNative.AddItem("mobile", Bcode.App.UI.IconGlyph.Phone, "Mobile");
+            _railNative.SelectedKeyChanged += SelectLeftSection;
+            _topNative.BarHeightChanged += UpdateHeaderHeight;
+            _topNative.Action += a => OnTopBarCommand(a);
+            _topNative.ToolClicked += k => OnTopBarCommand("tool", key: k);
+            _topNative.ScriptClicked += w => OnTopBarCommand("script", which: w);
+            _topNative.WorkspaceSelected += i => OnTopBarCommand("select-ws", index: i);
+            _topNative.DatabaseSelected += sys => OnTopBarCommand("select-db", which: sys ? "sys" : "app");
+            _statusNative.ProjectWebClicked += () => BeginInvoke(new Action(OpenProjectWeb));
+            _statusNative.ProjectMenuRequested += pt => BeginInvoke(new Action(() => ShowProjectMenu(pt)));
+        }
+        else
+        {
+            _topBarWeb.Dock = DockStyle.Top;
+            _topBarWeb.Height = 46;
+            _iconRailWeb.Dock = DockStyle.Left;
+            _iconRailWeb.Width = 52;
+            _statusBarWeb.Dock = DockStyle.Bottom;
+            _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26); // theo Mật độ của Template giao diện
+        }
 
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
@@ -193,6 +224,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
+            .AddSub("Kiểu giao diện (bo góc, mật độ)", sub => { foreach (var pr in Bcode.App.UI.NativeSkin.Presets) { var id = pr.Id; sub.Add(pr.Label, () => Bcode.App.UI.NativeSkin.ApplyPreset(id), @checked: Bcode.App.UI.NativeSkin.IsPreset(id)); } })
+            .Add($"Chế độ giao diện: {Bcode.App.UI.UiMode.Label(Bcode.App.UI.UiMode.Current)} — đổi...", () => BeginInvoke(new Action(ChangeUiMode)))
             .Add("Cây menu: bỏ qua file theo tên (like)...", () => BeginInvoke(new Action(EditMenuTreeIgnore)))
             .Add("Hướng dẫn gợi ý code SQL (gõ gì ra gì)...", () => BeginInvoke(new Action(OpenSqlHintsHelpTab)), shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.sqlHints"))
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Decrypt SQL, Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
@@ -255,7 +288,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var sw = System.Diagnostics.Stopwatch.StartNew();
             RebuildToolsBar(); var a = sw.ElapsedMilliseconds;
             PushTopBarLayout(); var b = sw.ElapsedMilliseconds;
-            _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26);
+            StatusBarControl.Height = Bcode.App.UI.UiTemplate.Dens(26);
+            if (Bcode.App.UI.UiMode.IsNative) Invalidate(true);   // control native tự vẽ đọc bo góc/viền/mật độ từ Template → vẽ lại
             ApplyWindowLayout(first: false);
             Bcode.App.UI.ThemeManager.LogTiming($"MainForm.OnTemplateChanged: tổng {sw.ElapsedMilliseconds} ms (RebuildToolsBar {a}, PushTopBarLayout {b - a}, ApplyWindowLayout {sw.ElapsedMilliseconds - b})");
         }
@@ -268,9 +302,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolsBar.GripStyle = ToolStripGripStyle.Hidden;
         if (_toolsBar.LayoutSettings is FlowLayoutSettings toolsFlow) toolsFlow.WrapContents = true;
 
-        _headerContainer = new Panel { Dock = DockStyle.Top, Height = _topBarWeb.Height + _toolsBar.Height };
+        _headerContainer = new Panel { Dock = DockStyle.Top, Height = TopBarControl.Height + _toolsBar.Height };
         _headerContainer.Controls.Add(_toolsBar);
-        _headerContainer.Controls.Add(_topBarWeb);
+        _headerContainer.Controls.Add(TopBarControl);
         _toolsBar.SizeChanged += (_, _) => UpdateHeaderHeight();
         var headerContainer = _headerContainer;
         // Khu vực của Template giao diện (font/màu riêng từng vùng): thanh trên + thanh công cụ, cây menu bên trái, thanh tab.
@@ -288,16 +322,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.DesignRequested += item => LaunchScreenDesigner(item.SysId);
         _wcommandTree = wcommandTree;
 
-        var mobilePanel = new Panel { Dock = DockStyle.Fill };
-        mobilePanel.Controls.Add(new Label
-        {
-            Dock = DockStyle.Top,
-            Height = 120,
-            Text = "Mobile: duyệt cấu trúc màn hình app di động (tương đương \"Mobile Path\" trong FCode).\n" +
-                   "Dùng lại FileLookupControl trỏ tới thư mục con dành cho mobile trong Source Path khi bạn xác định " +
-                   "được đúng quy ước thư mục trên server của mình.",
-            Padding = new Padding(6)
-        });
+        var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,
+            menuTable: new AppCommandService(_connections, MenuTableSpec.DvCommand),
+            tableDir: sysId => MobilePathService.ResolveTables(_connections.Current, sysId)) { Dock = DockStyle.Fill };
+        mobilePanel.NodeActivated += item => OpenMobileItem(item, newTab: false);
+        mobilePanel.NewLookupRequested += item => OpenMobileItem(item, newTab: true);
+        _mobileTree = mobilePanel;
 
         _leftSections["sql_object"] = sqlObjectTree;
         _leftSections["wcommand"] = wcommandTree;
@@ -309,7 +339,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var leftContainer = new Panel { Dock = DockStyle.Fill };
         leftContainer.Controls.Add(_leftContentHost);
-        leftContainer.Controls.Add(_iconRailWeb);
+        leftContainer.Controls.Add(IconRailHost);
 
         _documentTabs = new Bcode.App.Controls.FlatTabControl { Dock = DockStyle.Fill };
         typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
@@ -371,7 +401,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         UpdateQuickAccessOverlayBounds();
 
         Controls.Add(split);
-        Controls.Add(_statusBarWeb);
+        Controls.Add(StatusBarControl);
         Controls.Add(headerContainer);
         Load += (_, _) => ApplyWindowLayout(first: true);
         
@@ -390,7 +420,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Shown += (_, _) => QueueSpareSql(2500);
         Disposed += (_, _) => _spareTimer.Dispose();
 
-        _ = InitShellWebViewsAsync();
+        if (Bcode.App.UI.UiMode.IsNative) Load += (_, _) => { PushWorkspacesToTopBar(); PushThemeToShell(); PushProjectInfo(); };   // khung native dựng đồng bộ, không phải chờ trang nạp
+        else _ = InitShellWebViewsAsync();
 
         async Task InitShellWebViewsAsync()
         {
@@ -407,72 +438,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
                     var root = doc.RootElement;
-                    switch (root.GetProperty("action").GetString())
+                    var action = root.GetProperty("action").GetString() ?? "";
+                    if (action == "__height")
                     {
-                        case "__height":
-                            // Trang topbar báo chiều cao nội dung thật (px thiết bị) → thanh cao thêm khi hẹp và xuống dòng.
-                            _topBarWeb.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 1, Bcode.App.UI.DpiScale.Px(this, 40), Bcode.App.UI.DpiScale.Px(this, 260));
-                            UpdateHeaderHeight();
-                            break;
-                        case "settings":
-                            if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
-                            _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height);
-                            break;
-                        case "ext":
-                            if (WebMenu.JustDismissed) break;
-                            ShowExtMenu();
-                            break;
-                        case "tool":
-                        {
-                            var tk = root.GetProperty("key").GetString();
-                            var ts = _toolSpecs.FirstOrDefault(t => t.key == tk && TopBarToolKeys.Contains(t.key));
-                            if (ts.key is not null) { var act = ts.action; BeginInvoke(new Action(() => act(this, EventArgs.Empty))); }
-                            break;
-                        }
-                        case "deploy":
-                            if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
-                            ShowDeployMenu();
-                            break;
-                        case "quickaccess":
-                            // Không mở hộp thoại (có WebView2 riêng) NGAY trong handler message của WebView2 thanh trên: tạo WebView2 mới
-                            // từ trong callback của WebView2 khác gây lỗi "Class not registered". Để handler trả về rồi mới mở.
-                            BeginInvoke(new Action(OpenQuickAccess));
-                            break;
-                        case "theme":
-                            Bcode.App.UI.ThemeManager.Toggle(this);
-                            PushThemeToShell();
-                            BeginInvoke(new Action(RestoreContentFocus));
-                            break;
-                        case "script":
-                            switch (root.GetProperty("which").GetString())
-                            {
-                                case "add": AddScript(); break;
-                                case "view": ViewScriptCart(); break;
-                                case "clear": _scriptFileService.ClearCart(); break;
-                                case "save": SaveActiveScript(); break;
-                                case "copy": CopyActiveScript(); break;
-                            }
-                            BeginInvoke(new Action(RestoreContentFocus));
-                            break;
-                        case "select-ws":
-                        {
-                            // Ô chọn ở topbar liệt kê database của project đang vào — index là vị trí trong _topDbEntries.
-                            var i = root.GetProperty("index").GetInt32();
-                            if (i >= 0 && i < _topDbEntries.Count) ApplyActiveDatabase(_topDbEntries[i].Sys, _topDbEntries[i].Extra, setOverride: true);
-                            BeginInvoke(new Action(RestoreContentFocus));
-                            break;
-                        }
-                        case "select-db":
-                            ApplyActiveDatabase(root.GetProperty("which").GetString() == "sys");
-                            BeginInvoke(new Action(RestoreContentFocus));
-                            break;
-                        case "show-actions-menu":
-                            if (WebMenu.JustDismissed) break; // bấm lần nữa vào nút Actions để đóng menu đang mở
-                            var actionsMenu = BuildActionsMenu();
-                            WebMenu.Track(actionsMenu); // tự đóng khi bấm ra ngoài (kể cả trên WebView2)
-                            actionsMenu.Show(_topBarWeb, 100, _topBarWeb.Height); // Tọa độ x=100 tạm tính để thả xuống đúng chỗ nút Actions
-                            break;
+                        // Trang topbar báo chiều cao nội dung thật (px thiết bị) → thanh cao thêm khi hẹp và xuống dòng.
+                        _topBarWeb.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 1, Bcode.App.UI.DpiScale.Px(this, 40), Bcode.App.UI.DpiScale.Px(this, 260));
+                        UpdateHeaderHeight();
+                        return;
                     }
+                    OnTopBarCommand(action,
+                        key: root.TryGetProperty("key", out var kp) ? kp.GetString() : null,
+                        which: root.TryGetProperty("which", out var wp) ? wp.GetString() : null,
+                        index: root.TryGetProperty("index", out var ip) && ip.TryGetInt32(out var iv) ? iv : -1);
                 };
 
                 _iconRailWeb.CoreWebView2.WebMessageReceived += (_, e) =>
@@ -525,6 +502,84 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
+    /// <summary>Lệnh từ thanh trên — dùng chung cho thanh web (topbar.html gửi JSON) và thanh native (NativeTopBar). action: settings | ext | tool | deploy | quickaccess | theme | script | select-ws | select-db | show-actions-menu.</summary>
+    private void OnTopBarCommand(string action, string? key = null, string? which = null, int index = -1)
+    {
+        var bar = TopBarControl;
+        switch (action)
+        {
+            case "settings":
+                if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
+                _settingsMenu().Show(bar, 10, bar.Height);
+                break;
+            case "ext":
+                if (WebMenu.JustDismissed) break;
+                ShowExtMenu();
+                break;
+            case "tool":
+            {
+                var ts = _toolSpecs.FirstOrDefault(t => t.key == key && TopBarToolKeys.Contains(t.key));
+                if (ts.key is not null) { var act = ts.action; BeginInvoke(new Action(() => act(this, EventArgs.Empty))); }
+                break;
+            }
+            case "deploy":
+                if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
+                ShowDeployMenu();
+                break;
+            case "quickaccess":
+                // Không mở hộp thoại (có WebView2 riêng) NGAY trong handler message của WebView2 thanh trên: tạo WebView2 mới
+                // từ trong callback của WebView2 khác gây lỗi "Class not registered". Để handler trả về rồi mới mở.
+                BeginInvoke(new Action(OpenQuickAccess));
+                break;
+            case "theme":
+                Bcode.App.UI.ThemeManager.Toggle(this);
+                PushThemeToShell();
+                BeginInvoke(new Action(RestoreContentFocus));
+                break;
+            case "script":
+                switch (which)
+                {
+                    case "add": AddScript(); break;
+                    case "view": ViewScriptCart(); break;
+                    case "clear": _scriptFileService.ClearCart(); break;
+                    case "save": SaveActiveScript(); break;
+                    case "copy": CopyActiveScript(); break;
+                }
+                BeginInvoke(new Action(RestoreContentFocus));
+                break;
+            case "select-ws":
+                // Ô chọn ở topbar liệt kê database của project đang vào — index là vị trí trong _topDbEntries.
+                if (index >= 0 && index < _topDbEntries.Count) ApplyActiveDatabase(_topDbEntries[index].Sys, _topDbEntries[index].Extra, setOverride: true);
+                BeginInvoke(new Action(RestoreContentFocus));
+                break;
+            case "select-db":
+                ApplyActiveDatabase(which == "sys");
+                BeginInvoke(new Action(RestoreContentFocus));
+                break;
+            case "actions":
+            case "show-actions-menu":
+                if (WebMenu.JustDismissed) break; // bấm lần nữa vào nút Actions để đóng menu đang mở
+                var actionsMenu = BuildActionsMenu();
+                WebMenu.Track(actionsMenu); // tự đóng khi bấm ra ngoài (kể cả trên WebView2)
+                actionsMenu.Show(bar, 100, bar.Height); // Tọa độ x=100 tạm tính để thả xuống đúng chỗ nút Actions
+                break;
+        }
+    }
+
+    /// <summary>Đổi chế độ App/Web: lưu lựa chọn rồi hỏi mở lại Bcode (chế độ chỉ áp lúc khởi động).</summary>
+    private void ChangeUiMode()
+    {
+        using var dlg = new UiModeChooserForm(Bcode.App.UI.UiMode.Current, AppSettings.AskUiMode);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        AppSettings.AskUiMode = dlg.AskNextTime;
+        if (dlg.Chosen == Bcode.App.UI.UiMode.Current) return;
+        AppSettings.SavedUiMode = dlg.Chosen;
+        if (MessageBox.Show(this, "Đã lưu chế độ " + Bcode.App.UI.UiMode.Label(dlg.Chosen) + ". Mở lại Bcode bây giờ để áp dụng?\n(Tab đang mở sẽ được lưu theo phiên nếu bạn bật khôi phục phiên.)", "Bcode",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        try { Process.Start(new ProcessStartInfo(Application.ExecutablePath, Bcode.App.UI.UiMode.Arg(dlg.Chosen)) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory }); Close(); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở lại được Bcode:\n" + ex.Message, "Bcode"); }
+    }
+
     private void UpdateWindowTitle()
     {
         if (IsDisposed) return;
@@ -548,6 +603,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var swSwitch = System.Diagnostics.Stopwatch.StartNew();
         var syncBefore = swSwitch.ElapsedMilliseconds;
         _ = TimedAsync("WCommandTree.ReloadAsync", () => _wcommandTree.ReloadAsync());
+        if (_mobileTree.Visible) _ = _mobileTree.ReloadAsync();   // mục Mobile đang mở: nạp dvcommand của project mới (ẩn thì nạp khi bấm vào mục)
         var tWc = swSwitch.ElapsedMilliseconds;
         _sqlObjectTree.ResetForWorkspace(); // đổi project → danh sách SQL Object nạp lại (từ cache của project mới)
         var tSql = swSwitch.ElapsedMilliseconds;
@@ -587,7 +643,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void ShowProjectPicker()
     {
         if (IsDisposed) return;
-        using var picker = new ProjectPickerForm(_settings, _connections);
+        using IProjectPicker picker = Bcode.App.UI.UiMode.IsNative ? new NativeProjectPickerForm(_settings, _connections) : new ProjectPickerForm(_settings, _connections);
         var result = picker.ShowDialog(this);
         PushWorkspacesToTopBar(); // New/Edit/Delete trong màn hình có thể đã đổi danh sách
         if (result == DialogResult.OK && picker.Chosen is { } chosen)
@@ -615,6 +671,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void PushDbNamesToTopBar(Bcode.App.Models.Workspace ws)
     {
+        if (_topNative is not null) { _topNative.SetDbNames(ws.SysDatabase, ws.EffectiveAppDatabase); return; }
         if (_topBarWeb.CoreWebView2 is null) return;
         var sysArg = System.Text.Json.JsonSerializer.Serialize(ws.SysDatabase);
         var appArg = System.Text.Json.JsonSerializer.Serialize(ws.EffectiveAppDatabase);
@@ -629,8 +686,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Đẩy thứ tự + chữ + font/màu các nút Script (template giao diện) xuống thanh trên.</summary>
     private void PushTopBarLayout()
     {
-        if (_topBarWeb.CoreWebView2 is null) return;
         var t = Bcode.App.UI.UiTemplate.Current;
+        if (_topNative is not null)
+        {
+            _topNative.SetScriptLayout(t.ScriptOrder, id => t.Items.TryGetValue("script:" + id, out var st) ? st : null);
+            return;
+        }
+        if (_topBarWeb.CoreWebView2 is null) return;
         var items = new Dictionary<string, object>();
         foreach (var (id, _) in Bcode.App.UI.UiTemplate.ScriptButtons)
         {
@@ -642,7 +704,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
     private void PushWorkspacesToTopBar()
     {
-        if (_topBarWeb.CoreWebView2 is null) return;
+        if (_topNative is null && _topBarWeb.CoreWebView2 is null) return;
         _topDbEntries.Clear();
         var names = new List<string>();
         if (_connections.Current is { } ws)
@@ -656,10 +718,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 names.Add($"{ws.Name} — {extra}  (DB)"); _topDbEntries.Add((false, extra));
             }
         }
-        var arg = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(names.ToArray()));
         var over = _connections.Current?.ActiveAppDatabaseOverride;
         var sel = _topDbEntries.FindIndex(en => en.Sys == _topDbSys && (_topDbSys || string.Equals(en.Extra, string.IsNullOrWhiteSpace(over) ? null : over, StringComparison.OrdinalIgnoreCase)));
         if (sel < 0) sel = 0;
+        if (_topNative is not null)
+        {
+            _topNative.SetWorkspaces(names, sel, _topDbSys);
+            if (_connections.Current is { } cw) _topNative.SetDbNames(cw.SysDatabase, cw.EffectiveAppDatabase);
+            PushTopBarLayout();
+            return;
+        }
+        var arg = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(names.ToArray()));
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync(
             $"window.setWorkspaces && window.setWorkspaces({arg}); window.setSelectedWs && window.setSelectedWs({sel}); window.setDbView && window.setDbView('{(_topDbSys ? "sys" : "app")}')");
         PushTopBarLayout();
@@ -678,7 +747,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _sqlObjectTree.ResetForWorkspace(); // đổi database làm việc → danh sách SQL Object nạp lại theo database mới
         }
         PushWorkspacesToTopBar();
-        if (_documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql)
+        if (_documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault() is { } sql)
             sql.SetDatabase(useSys);
         if (_connections.Current is { } ws)
             PushStatus($"Database: {(useSys ? ws.SysDatabase : ws.EffectiveAppDatabase)} ({(useSys ? "Sys" : "App")})  —  Project: {ws.Name}");
@@ -686,6 +755,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void PushThemeToShell()
     {
+        if (Bcode.App.UI.UiMode.IsNative) { Invalidate(true); return; }   // control native tự đọc AppColors khi vẽ
         var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
         foreach (var web in new[] { _topBarWeb, _iconRailWeb, _statusBarWeb })
             if (web.CoreWebView2 is not null)
@@ -694,6 +764,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void PushStatus(string text)
     {
+        if (_statusNative is not null) { _statusNative.SetStatus(text); PushProjectInfo(); return; }
         if (_statusBarWeb.CoreWebView2 is null) return;
         var arg = System.Text.Json.JsonSerializer.Serialize(text);
         _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setStatus && window.setStatus({arg})");
@@ -704,6 +775,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void PushProjectInfo()
     {
+        if (_statusNative is not null) { _statusNative.SetProject(_connections.Current?.LoginWLink?.Trim() ?? "", Environment.MachineName); return; }
         if (_statusBarWeb.CoreWebView2 is null) return;
         var info = new { link = _connections.Current?.LoginWLink?.Trim() ?? "", machine = Environment.MachineName };
         var arg = System.Text.Json.JsonSerializer.Serialize(info);
@@ -727,9 +799,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void ShowProjectMenu(double cssX, double cssY)
     {
-        if (_connections.Current is not { } ws) { MessageBox.Show(this, "Chưa chọn workspace (WS).", "Bcode"); return; }
         var scale = _statusBarWeb.DeviceDpi / 96.0 * Bcode.App.UI.UiScale.Factor;
-        var screen = _statusBarWeb.PointToScreen(new Point((int)Math.Round(cssX * scale), (int)Math.Round(cssY * scale)));
+        ShowProjectMenu(_statusBarWeb.PointToScreen(new Point((int)Math.Round(cssX * scale), (int)Math.Round(cssY * scale))));
+    }
+
+    /// <summary>Menu "▾ Project" của thanh trạng thái, thả tại toạ độ màn hình <paramref name="screen"/>.</summary>
+    private void ShowProjectMenu(Point screen)
+    {
+        if (_connections.Current is not { } ws) { MessageBox.Show(this, "Chưa chọn workspace (WS).", "Bcode"); return; }
         new WebMenu()
             .Add($"Login WLink: {ws.LoginWLink}", OpenProjectWeb, enabled: !string.IsNullOrWhiteSpace(ws.LoginWLink))
             .Add($"Program: {ws.ProgramPath}", () => OpenProjectFolder(ws.ProgramPath), enabled: !string.IsNullOrWhiteSpace(ws.ProgramPath))
@@ -738,7 +815,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add($"Mobile: {ws.MobilePath}", () => OpenProjectFolder(ws.MobilePath), enabled: !string.IsNullOrWhiteSpace(ws.MobilePath))
             .AddSeparator()
             .Add("Copy Project Info", () => CopyProjectInfo(ws))
-            .Show(_statusBarWeb, screen);
+            .Show(StatusBarControl, screen);
     }
 
     /// <summary>Copy thông tin project (ID, SQL, Web, Program, Source, Mobile, Update, Version) vào clipboard để dán cho đồng nghiệp.</summary>
@@ -762,7 +839,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         foreach (var (sectionKey, control) in _leftSections) control.Visible = sectionKey == key;
         if (key == "wcommand") _ = _wcommandTree.ReloadAsync();
+        if (key == "mobile") _ = _mobileTree.ReloadAsync();
         if (key == "sql_object") _ = _sqlObjectTree.EnsureLoadedAsync(); // vào mục SQL Object: nạp sẵn (từ cache), chỉ nạp thêm khi có object mới/đổi
+        _railNative?.Select(key);
         if (_iconRailWeb.CoreWebView2 is not null)
         {
             var arg = System.Text.Json.JsonSerializer.Serialize(key);
@@ -966,8 +1045,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "snip":
                 if (!snippets.TryGetValue(id, out var snippetText)) break;
                 // Chèn vào tab SQL đang chọn; không phải tab SQL thì mở tab SQL mới rồi chèn.
-                var sqlHere = _documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault();
-                if (sqlHere is null) { OpenFreeScriptTab(); sqlHere = _documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault(); }
+                var sqlHere = _documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault();
+                if (sqlHere is null) { OpenFreeScriptTab(); sqlHere = _documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault(); }
                 if (sqlHere is not null) _ = sqlHere.InsertSnippetAsync(snippetText);
                 break;
             case "obj":
@@ -1055,14 +1134,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab = _compareObjectsTab;
             return;
         }
-        var control = new CompareObjectsControl(_settings, () => _connections.Current);
-        control.OpenSqlRequested += (script, title) =>
+        Action<string, string> openSql = (script, title) =>
         {
             var sql = TakeSqlControl();
             sql.SetScriptText(script);
-            AddDocumentTab(title, sql);
+            AddDocumentTab(title, sql.AsControl());
             sql.FocusEditor();
         };
+        Control control;
+        if (Bcode.App.UI.UiMode.IsNative) { var nc = new NativeCompareObjectsControl(_settings, () => _connections.Current); nc.OpenSqlRequested += openSql; control = nc; }
+        else { var wc = new CompareObjectsControl(_settings, () => _connections.Current); wc.OpenSqlRequested += openSql; control = wc; }
         _compareObjectsTab = AddDocumentTab("So sánh object", control);
         _compareObjectsTab.Disposed += (_, _) => _compareObjectsTab = null;
     }
@@ -1077,15 +1158,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab = _queryHistoryTab;
             return;
         }
-        var control = new QueryHistoryControl(() => _connections.Current?.Name ?? "");
-        control.OpenSqlRequested += (script, sys, title) =>
+        Action<string, bool, string> openSql = (script, sys, title) =>
         {
             var sql = TakeSqlControl();
             sql.SetDatabase(sys);
             sql.SetScriptText(script);
-            AddDocumentTab(title, sql);
+            AddDocumentTab(title, sql.AsControl());
             sql.FocusEditor();
         };
+        Control control;
+        if (Bcode.App.UI.UiMode.IsNative) { var nc = new NativeQueryHistoryControl(() => _connections.Current?.Name ?? ""); nc.OpenSqlRequested += openSql; control = nc; }
+        else { var wc = new QueryHistoryControl(() => _connections.Current?.Name ?? ""); wc.OpenSqlRequested += openSql; control = wc; }
         _queryHistoryTab = AddDocumentTab("Lịch sử SQL", control);
         _queryHistoryTab.Disposed += (_, _) => _queryHistoryTab = null;
     }
@@ -1124,6 +1207,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var page = new TabPage(title);
         content.Dock = DockStyle.Fill;
         page.Controls.Add(content);
+        if (Bcode.App.UI.UiMode.IsNative)
+        {
+            // Chế độ App: tô theme TRƯỚC khi tab hiện ra — trước đây tab được chọn (vẽ lên màn hình) với màu trắng mặc định rồi mới áp theme → nháy trắng.
+            page.BackColor = Bcode.App.UI.AppColors.Background;
+            Bcode.App.UI.ThemeManager.Apply(page);
+            _documentTabs.TabPages.Add(page);
+            _documentTabs.SelectedTab = page;
+            UpdateQuickAccessOverlayBounds();
+            return page;
+        }
         _documentTabs.TabPages.Add(page);
         _documentTabs.SelectedTab = page;
         Bcode.App.UI.ThemeManager.Apply(page);
@@ -1175,7 +1268,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (index < 0 || index >= _documentTabs.TabPages.Count) return;
         var page = _documentTabs.TabPages[index];
         // Tab SQL đang mở thật: lấy nội dung mới nhất từ editor TRƯỚC khi đóng (Reopen Closed Tab mở lại đúng chữ vừa gõ), chờ tối đa ~0,4s rồi mới đóng.
-        if (!_sessionRestoring && !_closingPages.Contains(page) && page.Controls.OfType<RawSqlControl>().FirstOrDefault() is { IsReady: true } sqlCtl)
+        if (!_sessionRestoring && !_closingPages.Contains(page) && page.Controls.OfType<ISqlTab>().FirstOrDefault() is { IsReady: true } sqlCtl)
         {
             _closingPages.Add(page);
             _ = CaptureThenCloseAsync(page, sqlCtl);
@@ -1184,7 +1277,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         CloseDocumentTabCore(page);
     }
 
-    private async Task CaptureThenCloseAsync(TabPage page, RawSqlControl c)
+    private async Task CaptureThenCloseAsync(TabPage page, ISqlTab c)
     {
         try { await Task.WhenAny(CaptureSessionTextAsync(c), Task.Delay(400)); }
         catch { /* editor đang đóng — dùng bản đã nhớ */ }
@@ -1497,7 +1590,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // Mở 1 tab SQL Query phải khởi tạo 2 WebView2 (thanh Execute + editor Monaco), mất cỡ nửa giây tới 1 giây. Nên luôn giữ sẵn MỘT tab đã nạp xong ở khung ẩn
     // (ngoài màn hình): bấm mở tab thì chỉ việc gắn nó vào thanh tab (đổi cha của control, WebView2 giữ nguyên) rồi dựng tiếp 1 tab dự phòng ở nền.
     private readonly Panel _spareHost = new() { Left = -6000, Top = 0, Width = 1100, Height = 700, TabStop = false };
-    private RawSqlControl? _spareSql;
+    private ISqlTab? _spareSql;
     private readonly System.Windows.Forms.Timer _spareTimer = new();
 
     private void QueueSpareSql(int delayMs)
@@ -1515,19 +1608,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         try
         {
             var c = CreateFreeScriptControl(prewarm: true);
-            _spareHost.Controls.Add(c);
-            Bcode.App.UI.ThemeManager.Apply(c);
+            _spareHost.Controls.Add(c.AsControl());
+            Bcode.App.UI.ThemeManager.Apply(c.AsControl());
             _spareSql = c;
         }
         catch { _spareSql = null; /* không dựng sẵn được — lần mở tab sau tạo bình thường */ }
     }
 
     /// <summary>Lấy tab SQL Query dựng sẵn nếu có (rồi dựng cái dự phòng kế tiếp), không thì tạo mới.</summary>
-    private RawSqlControl TakeSqlControl()
+    private ISqlTab TakeSqlControl()
     {
         var spare = _spareSql;
         _spareSql = null;
-        RawSqlControl control;
+        ISqlTab control;
         // Chỉ lấy tab dựng sẵn khi nó đã SẴN SÀNG: lấy ngay lúc WebView2 còn đang khởi tạo rồi chuyển sang tab khác làm khởi tạo bị huỷ (E_ABORT) —
         // dễ gặp khi vừa mở Bcode và khôi phục tab. Chưa sẵn sàng thì để nó lại làm dự phòng và tạo tab mới.
         if (spare is not null && !spare.IsDisposed && spare.IsReady) { control = spare; control.BeginUse(); }
@@ -1547,17 +1640,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var control = TakeSqlControl();
         control.SetDatabase(false);
         control.SetScriptText(script);
-        AddDocumentTab(NumberedTabTitle(string.IsNullOrWhiteSpace(title) ? "SQL Query" : title), control);
+        AddDocumentTab(NumberedTabTitle(string.IsNullOrWhiteSpace(title) ? "SQL Query" : title), control.AsControl());
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Maximized;
         Activate();
         control.FocusEditor();
     }
 
-    private RawSqlControl OpenFreeScriptTab()
+    private ISqlTab OpenFreeScriptTab()
     {
         // Luôn tạo tab SQL Query mới, không dùng lại tab cũ
         _rawSqlControl = TakeSqlControl();
-        _rawSqlTabPage = AddDocumentTab(NumberedTabTitle("SQL Query"), _rawSqlControl);
+        _rawSqlTabPage = AddDocumentTab(NumberedTabTitle("SQL Query"), _rawSqlControl.AsControl());
         _rawSqlTabPage.Disposed += (_, _) =>
         {
             _rawSqlTabPage = null;
@@ -1584,18 +1677,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>Mở Claude/Gemini theo Settings: nhúng thành khung bên phải của tab SQL Query (<paramref name="host"/>, hoặc tab SQL Query đang chọn), còn không có tab SQL Query
     /// hay đang để "tab riêng" thì mở tab riêng như trước.</summary>
-    private AiWebPanel OpenAi(Bcode.Shared.AiSite site, RawSqlControl? host)
+    private AiWebPanel OpenAi(Bcode.Shared.AiSite site, ISqlTab? host)
     {
         if (AppSettings.AiEmbedded)
         {
-            host ??= _documentTabs.SelectedTab?.Controls.OfType<RawSqlControl>().FirstOrDefault();
+            host ??= _documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault();
             if (host is not null) return host.ShowAi(site);
         }
         return OpenAiTab(site);
     }
 
     /// <summary>Từ tab SQL Query: mở Claude/Gemini rồi đưa script vào ô chat (chưa gửi — gõ câu hỏi rồi Enter).</summary>
-    private async void SendScriptToAi(string engine, string text, RawSqlControl? host = null)
+    private async void SendScriptToAi(string engine, string text, ISqlTab? host = null)
     {
         if (string.IsNullOrWhiteSpace(text)) return;
         var site = engine.Equals("gemini", StringComparison.OrdinalIgnoreCase) ? Bcode.Shared.AiSite.Gemini : Bcode.Shared.AiSite.Claude;
@@ -1629,9 +1722,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         catch (Exception ex) { PushStatus("Không gửi được sang " + engine + ": " + ex.Message); }
     }
 
-    private RawSqlControl CreateFreeScriptControl(bool prewarm = false)
+    private ISqlTab CreateFreeScriptControl(bool prewarm = false)
     {
-        var control = new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
+        // Chế độ App: tab SQL native (Scintilla + lưới WinForms, không WebView2); chế độ Web: Monaco như trước.
+        ISqlTab control = Bcode.App.UI.UiMode.IsNative
+            ? new NativeSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets)
+            : new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
         control.ResultReady += table => _lastQueryResult = table;
         control.CurrentProject = () => _connections.Current?.Name ?? "";
         control.SaveHistoryRequested += (script, sys) => QueryHistoryService.Instance.Save(_connections.Current?.Name ?? "", sys, script);   // chỉ lưu khi người dùng bấm "Lưu lịch sử"
@@ -1650,7 +1746,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         {
             var tab = TakeSqlControl();
             tab.SetDatabase(sys);
-            AddDocumentTab(title, tab);
+            AddDocumentTab(title, tab.AsControl());
             _ = tab.OpenScriptAsync(text);
         };
         return control;
@@ -1674,7 +1770,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (_debugTargetTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
         {
             _documentTabs.SelectedTab = existingPage;
-            if (existingPage.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } existingControl)
+            if (existingPage.Controls.OfType<ISqlTab>().FirstOrDefault() is { } existingControl)
             {
                 existingControl.SetDatabase(target.FromSysDatabase);
                 _ = existingControl.LoadAndDebugAsync(definition, callText);
@@ -1684,7 +1780,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var control = TakeSqlControl();
         control.SetDatabase(target.FromSysDatabase);
-        var page = AddDocumentTab(target.QualifiedName, control);
+        var page = AddDocumentTab(target.QualifiedName, control.AsControl());
         _ = control.LoadAndDebugAsync(definition, callText); // nạp định nghĩa + bắt đầu debug từng bước (hỏi tham số nếu có)
         _debugTargetTabs[key] = page;
         page.Disposed += (_, _) => _debugTargetTabs.Remove(key);
@@ -1698,8 +1794,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        var control = new LookupControl(_sqlObjectService, _tableDataService);
-        control.OpenInTabRequested += obj => _ = OpenObjectDefinitionAsync(obj);
+        Control control;
+        if (Bcode.App.UI.UiMode.IsNative)
+        {
+            var nc = new NativeLookupControl(_sqlObjectService, _tableDataService);
+            nc.OpenInTabRequested += obj => _ = OpenObjectDefinitionAsync(obj);
+            control = nc;
+        }
+        else
+        {
+            var wc = new LookupControl(_sqlObjectService, _tableDataService);
+            wc.OpenInTabRequested += obj => _ = OpenObjectDefinitionAsync(obj);
+            control = wc;
+        }
         _lookupTabPage = AddDocumentTab("Lookup", control);
         _lookupTabPage.Disposed += (_, _) => _lookupTabPage = null;
     }
@@ -1764,7 +1871,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab = _stringBeautyTab;
             return;
         }
-        _stringBeautyTab = AddDocumentTab("String Beauty", new StringBeautyControl());
+        _stringBeautyTab = AddDocumentTab("String Beauty", Bcode.App.UI.UiMode.IsNative ? new NativeStringBeautyControl() : new StringBeautyControl());
         _stringBeautyTab.Disposed += (_, _) => _stringBeautyTab = null;
     }
 
@@ -1802,9 +1909,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void OpenWeeklyMailTab()
     {
         if (_weeklyMailTab is not null && _documentTabs.TabPages.Contains(_weeklyMailTab)) { _documentTabs.SelectedTab = _weeklyMailTab; return; }
-        _weeklyMailTab = AddDocumentTab("Mail kế hoạch tuần", new WeeklyMailControl(
-            () => _settings.Workspaces.Select(w => w.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList(),
-            () => _connections.Current?.Name));
+        Func<IReadOnlyList<string>> projects = () => _settings.Workspaces.Select(w => w.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+        Func<string?> currentProject = () => _connections.Current?.Name;
+        _weeklyMailTab = AddDocumentTab("Mail kế hoạch tuần", Bcode.App.UI.UiMode.IsNative ? new NativeWeeklyMailControl(projects, currentProject) : new WeeklyMailControl(projects, currentProject));
         _weeklyMailTab.Disposed += (_, _) => _weeklyMailTab = null;
     }
 
@@ -1815,6 +1922,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab = _checkMailTab;
             return;
         }
+        // Check Mail dùng bản WebView ở CẢ hai chế độ (user chọn 2026-10-15) — NativeCheckMailControl còn trong code, chỉ không dùng.
         _checkMailTab = AddDocumentTab("Check Mail", new CheckMailControl(() => _connections.Current));
         _checkMailTab.Disposed += (_, _) => _checkMailTab = null;
     }
@@ -1868,7 +1976,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var sql = TakeSqlControl();
             sql.SetDatabase(sys);
             sql.SetScriptText(script);
-            AddDocumentTab(title, sql);
+            AddDocumentTab(title, sql.AsControl());
             sql.FocusEditor();
             Activate(); // đưa cửa sổ Bcode lên để thấy tab SQL vừa mở (cửa sổ thiết kế vẫn mở)
         });
@@ -1924,17 +2032,29 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _documentTabs.SelectedTab = _advanceNoteTab;
             return;
         }
-        var control = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
-        control.OpenScriptsRequested += scripts =>
+        Action<IReadOnlyList<(string Title, bool Sys, string Text)>> openScripts = scripts =>
         {
             foreach (var (title, sys, text) in scripts)
             {
                 var tab = TakeSqlControl();
                 tab.SetDatabase(sys);
-                AddDocumentTab(title, tab);
+                AddDocumentTab(title, tab.AsControl());
                 _ = tab.OpenScriptAsync(text);
             }
         };
+        Control control;
+        if (Bcode.App.UI.UiMode.IsNative)
+        {
+            var nc = new NativeAdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
+            nc.OpenScriptsRequested += openScripts;
+            control = nc;
+        }
+        else
+        {
+            var wc = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
+            wc.OpenScriptsRequested += openScripts;
+            control = wc;
+        }
         _advanceNoteTab = AddDocumentTab("Note (New)", control);
         _advanceNoteTab.Disposed += (_, _) => _advanceNoteTab = null;
     }
@@ -2186,7 +2306,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (!activate && Form.ActiveForm is null) return;
         if (activate && !ReferenceEquals(Form.ActiveForm, this)) Activate();
         var page = _documentTabs.SelectedTab;
-        if (page?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql) sql.FocusEditor();
+        if (page?.Controls.OfType<ISqlTab>().FirstOrDefault() is { } sql) sql.FocusEditor();
         else if (page?.Controls.OfType<AiWebPanel>().FirstOrDefault() is { } ai) ai.FocusWeb(); // Claude/Gemini: focus vào trang web để gõ được ngay
         else if (page is not null) { page.Focus(); page.SelectNextControl(page, true, true, true, false); }
         else _documentTabs.Focus();
@@ -2287,7 +2407,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _spareTimer.Stop();
         var spare = _spareSql;
         _spareSql = null;
-        if (spare is not null && !spare.IsDisposed) { _spareHost.Controls.Remove(spare); spare.Dispose(); }
+        if (spare is not null && !spare.IsDisposed) { _spareHost.Controls.Remove(spare.AsControl()); spare.Dispose(); }
     }
 
     private void ChooseUiScale()
@@ -2349,6 +2469,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "project.openSource": OpenProjectFolder(_connections.Current?.SourcePath ?? ""); return true;
             case "project.openWorking": OpenProjectFolder(_connections.Current?.WorkingPath ?? ""); return true;
             case "project.openMobile": OpenProjectFolder(_connections.Current?.MobilePath ?? ""); return true;
+            case "left.mobile": SelectLeftSection("mobile"); return true;
             case "project.web": OpenProjectWeb(); return true;
             case "project.copyInfo":
                 if (_connections.Current is { } projectWs) CopyProjectInfo(projectWs);
@@ -2374,7 +2495,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.sqlHints": OpenSqlHintsHelpTab(); return true;
             case "app.restoreSession": ToggleRestoreSession(); return true;
             case "app.quickAccess": BeginInvoke(new Action(OpenQuickAccess)); return true;
-            case "app.settingsMenu": _settingsMenu().Show(_topBarWeb, 10, _topBarWeb.Height); return true;
+            case "app.settingsMenu": _settingsMenu().Show(TopBarControl, 10, TopBarControl.Height); return true;
             case "app.template": BeginInvoke(new Action(OpenUiTemplate)); return true;
             case "app.customUi": ToggleCustomUi(); return true;
             case "db.app": ApplyActiveDatabase(false); return true;
@@ -2409,7 +2530,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 // Mở thêm 1 cửa sổ Bcode MỚI chạy song song (mỗi cửa sổ làm 1 dự án — lúc mở có màn hình Projects để chọn).
                 try
                 {
-                    Process.Start(new ProcessStartInfo(Application.ExecutablePath) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
+                    Process.Start(new ProcessStartInfo(Application.ExecutablePath, Bcode.App.UI.UiMode.Arg(Bcode.App.UI.UiMode.Current)) { UseShellExecute = true, WorkingDirectory = AppContext.BaseDirectory });
                 }
                 catch (Exception ex)
                 {
@@ -2488,6 +2609,37 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
     }
 
+    /// <summary>Menu mobile (cây dvcommand): File Lookup theo sysid trong thư mục MobileService của project (Mobile Path, trống thì đoán cạnh Source Path).
+    /// Double-click dùng lại 1 tab "File Lookup · Mobile"; F4 (<paramref name="newTab"/>) mở thêm tab riêng.</summary>
+    private void OpenMobileItem(WCommandItem item, bool newTab)
+    {
+        if (string.IsNullOrWhiteSpace(item.SysId))
+        {
+            MessageBox.Show(this, $"Menu \"{item.Bar}\" không có sysid gắn với source (có thể là mục nhóm/menu cha).", "dvcommand");
+            return;
+        }
+        var ws = _connections.Current;
+        if (MobilePathService.Resolve(ws) is not { } root)
+        {
+            MessageBox.Show(this, MobilePathService.MissingMessage(ws), "Bcode — Mobile");
+            return;
+        }
+
+        FileLookupControl control;
+        if (!newTab && _mobileLookup is { IsDisposed: false } open && open.Parent is TabPage page && _documentTabs.TabPages.Contains(page))
+        {
+            control = open;
+            _documentTabs.SelectedTab = page;
+        }
+        else
+        {
+            control = CreateExtraLookupTab(ws!, $"File Lookup · Mobile · {item.SysId}");
+            if (!newTab) _mobileLookup = control;
+        }
+        if (control.Parent is TabPage tab) tab.Text = $"File Lookup · Mobile · {item.SysId}";
+        control.ShowForMenuItem(root, "", item.SysId);
+    }
+
     /// <summary>Tab File Lookup phụ (không được theo dõi như tab chính); F4 ngay trong tab phụ này cũng bung tiếp được.</summary>
     private FileLookupControl CreateExtraLookupTab(Workspace ws, string title)
     {
@@ -2548,7 +2700,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
-    private async Task<RawSqlControl?> OpenObjectDefinitionAsync(SqlObjectInfo obj)
+    private async Task<ISqlTab?> OpenObjectDefinitionAsync(SqlObjectInfo obj)
     {
         try
         {
@@ -2561,7 +2713,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             if (_objectTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
             {
                 _documentTabs.SelectedTab = existingPage;
-                if (existingPage.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } existingCtrl)
+                if (existingPage.Controls.OfType<ISqlTab>().FirstOrDefault() is { } existingCtrl)
                 {
                     existingCtrl.SetDatabase(obj.FromSysDatabase);
                     await existingCtrl.SetScriptTextAsync(definition);
@@ -2570,13 +2722,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 }
             }
 
-            // 2. Nếu là Procedure/Bảng khác -> Khởi tạo một tab SQL Query mới (RawSqlControl)
+            // 2. Nếu là Procedure/Bảng khác -> Khởi tạo một tab SQL Query mới (ISqlTab)
             var control = TakeSqlControl();
             control.SetDatabase(obj.FromSysDatabase);
             control.SetScriptText(definition); // Tự động nạp code vào Monaco khi editor sẵn sàng
 
             // 3. Đặt tiêu đề tab theo tên QualifiedName (ví dụ: dbo.rs_Transfer$AfterSynchronize)
-            var page = AddDocumentTab(obj.QualifiedName, control);
+            var page = AddDocumentTab(obj.QualifiedName, control.AsControl());
             _objectTabs[key] = page;
             page.Disposed += (_, _) => _objectTabs.Remove(key);
             if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, control, cached);
@@ -2590,7 +2742,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
     /// <summary>Sau khi hiện bản lưu: hỏi database xem object đã đổi chưa. Đổi và bạn chưa sửa gì trong tab → thay bằng bản mới; bạn đã sửa → giữ bản của bạn và báo ở thanh trạng thái.</summary>
-    private async Task RefreshCachedDefinitionAsync(SqlObjectInfo obj, RawSqlControl control, SqlObjectBrowserService.DefinitionCache cached)
+    private async Task RefreshCachedDefinitionAsync(SqlObjectInfo obj, ISqlTab control, SqlObjectBrowserService.DefinitionCache cached)
     {
         try
         {
@@ -2607,7 +2759,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         catch { /* offline / lỗi nhẹ — vẫn dùng bản lưu */ }
     }
 
-    private async Task OpenProcedureWithQueryAsync(RawSqlControl source, string identifier, bool useSysDatabase)
+    private async Task OpenProcedureWithQueryAsync(ISqlTab source, string identifier, bool useSysDatabase)
     {
         var obj = await ResolveProcedureAsync(identifier, useSysDatabase);
         if (obj is null)
@@ -2695,7 +2847,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 return;
             }
 
-            if (page?.Controls.OfType<RawSqlControl>().FirstOrDefault() is { } sql)
+            if (page?.Controls.OfType<ISqlTab>().FirstOrDefault() is { } sql)
             {
                 var text = await sql.GetSelectedTextAsync();
                 if (string.IsNullOrWhiteSpace(text)) text = await sql.GetScriptTextAsync();

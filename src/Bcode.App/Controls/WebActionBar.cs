@@ -72,7 +72,7 @@ public sealed class WebActionBar : Panel
         Height = 52;
         HandleCreated += (_, _) => Height = DpiScale.Px(this, 52);
         BackColor = AppColors.PanelAlt;
-        Controls.Add(_web);
+        if (!Bcode.App.UI.UiMode.IsNative) Controls.Add(_web);
         ThemeManager.ThemeChanged += PushTheme;
         Disposed += (_, _) => ThemeManager.ThemeChanged -= PushTheme;
     }
@@ -167,6 +167,7 @@ public sealed class WebActionBar : Panel
 
     private async Task InitAsync()
     {
+        if (Bcode.App.UI.UiMode.IsNative) { BuildFallback(); return; }   // chế độ App: luôn dùng hàng nút WinForms (PillButton)
         try
         {
             await WebViewEnvironment.InitAsync(_web);

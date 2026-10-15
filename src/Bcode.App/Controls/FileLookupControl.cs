@@ -17,7 +17,7 @@ public class FileLookupControl : UserControl
     private bool _rightClickSelecting;        // đang chọn node do chuột phải — AfterSelect hoãn việc xem trước
     private TreeNode? _deferredPreviewNode;   // node cần xem trước sau khi menu chuột phải đóng
     
-    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
+    private readonly WebBarHost _barWeb = new("filelookupbar.html", 150);
     private string _pathText = "";
     private string _extensionText = ".*"; // ".*" = không lọc theo đuôi (hiện như bình thường)
     private bool _onlyShowFilteredOn = true;
@@ -30,7 +30,7 @@ public class FileLookupControl : UserControl
     private readonly FileLookupService _service;
     private readonly ScriptFileService _scriptFileService;
 
-    private Microsoft.Web.WebView2.WinForms.WebView2 _searchBoxPanel = null!;
+    private WebBarHost _searchBoxPanel = null!;
     private bool _searchBoxWebStarted;
     private string _sbFileTypeText = "*.*";
     private string _sbSearchInText = "";
@@ -41,7 +41,7 @@ public class FileLookupControl : UserControl
     private readonly AppSettings _settings;
 
    
-    private readonly Microsoft.Web.WebView2.WinForms.WebView2 _previewBarWeb = new();
+    private readonly WebBarHost _previewBarWeb = new("filelookuppreview.html", 46);
     private readonly MonacoPreviewControl _previewEditor;
 
     
@@ -70,7 +70,7 @@ public class FileLookupControl : UserControl
         Dock = DockStyle.Fill;
 
         _barWeb.Dock = DockStyle.Top;
-        _barWeb.Height = 150; // 3 hàng: Path/Load · ext/Only Show/Search · Copy to/Tick
+        _barWeb.Height = Bcode.App.UI.UiMode.IsNative ? 230 : 150; // 3 hàng: Path/Load · ext/Only Show/Search · Copy to/Tick
 
         _statusLabel = new Label
         {
@@ -259,92 +259,55 @@ public class FileLookupControl : UserControl
             Bcode.App.UI.ThemeManager.ThemeChanged -= RecolorTreeOnTheme;
             _contentSearchCts?.Cancel();
         };
-        _ = InitBarsAsync();
+        WireBars();
 
-        async Task InitBarsAsync()
+        void WireBars()
         {
-            try
+            _barWeb.Message += root =>
             {
-                await Bcode.App.UI.WebViewEnvironment.InitAsync(_barWeb);
-                await Bcode.App.UI.WebViewEnvironment.InitAsync(_previewBarWeb);
-
-                _barWeb.CoreWebView2.WebMessageReceived += (_, e) =>
+                switch (root.GetProperty("action").GetString())
                 {
-                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-                    var root = doc.RootElement;
-                    switch (root.GetProperty("action").GetString())
-                    {
-                        case "load":
-                            _menuMode = false;
-                            _pathText = root.GetProperty("path").GetString() ?? "";
-                           
-                            _service.InvalidateCache();
-                            _service.ResetParseCache(_pathText);
-                            Reload();
-                            break;
-                        case "ext":
-                            _extensionText = root.GetProperty("value").GetString() ?? ".*";
-                            // Chọn đuôi cụ thể ở chế độ menu = muốn chỉ xem đuôi đó: tự bật Only Show (tắt lại bằng nút nếu cần xem hết); ".*" thì không lọc.
-                            if (_menuMode) _onlyShowFilteredOn = _extensionText != ".*";
-                            Reload();
-                            break;
-                        case "toggle-only-show":
-                            _onlyShowFilteredOn = !_onlyShowFilteredOn;
-                            Reload();
-                            break;
-                        case "toggle-searchbox":
-                            ToggleSearchBoxPanel();
-                            break;
-                        case "copy-to":
-                            BeginInvoke(new Action(ShowCopyMultiDialog));
-                            break;
-                        case "grant-source":
-                            BeginInvoke(new Action(ShowGrantSourceDialog));
-                            break;
-                        case "check-all":
-                            SetAllChecked(root.TryGetProperty("value", out var cv) && cv.ValueKind == System.Text.Json.JsonValueKind.True);
-                            break;
-                        case "search":
-                            _menuMode = false;
-                            _searchText = root.GetProperty("value").GetString() ?? "";
-                            Reload();
-                            break;
-                    }
-                };
-
-                _previewBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
-                {
-                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-                    if (doc.RootElement.GetProperty("action").GetString() == "edit") OpenInViewer();
-                };
-
-                _barWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToBars();
-                _previewBarWeb.CoreWebView2.NavigationCompleted += (_, _) =>
-                {
-                    PushThemeToBars();
-                    ShowNoSelection();
-                };
-
-                _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filelookupbar.html"));
-                _previewBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filelookuppreview.html"));
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this,
-                    "Không khởi tạo được thanh công cụ (dùng WebView2).\nChi tiết lỗi: " + ex.Message,
-                    "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
+                    case "load":
+                        _menuMode = false;
+                        _pathText = root.GetProperty("path").GetString() ?? "";
+                        _service.InvalidateCache();
+                        _service.ResetParseCache(_pathText);
+                        Reload();
+                        break;
+                    case "ext":
+                        _extensionText = root.GetProperty("value").GetString() ?? ".*";
+                        // Chọn đuôi cụ thể ở chế độ menu = muốn chỉ xem đuôi đó: tự bật Only Show (tắt lại bằng nút nếu cần xem hết); ".*" thì không lọc.
+                        if (_menuMode) _onlyShowFilteredOn = _extensionText != ".*";
+                        Reload();
+                        break;
+                    case "toggle-only-show":
+                        _onlyShowFilteredOn = !_onlyShowFilteredOn;
+                        Reload();
+                        break;
+                    case "toggle-searchbox":
+                        ToggleSearchBoxPanel();
+                        break;
+                    case "copy-to":
+                        BeginInvoke(new Action(ShowCopyMultiDialog));
+                        break;
+                    case "grant-source":
+                        BeginInvoke(new Action(ShowGrantSourceDialog));
+                        break;
+                    case "check-all":
+                        SetAllChecked(root.TryGetProperty("value", out var cv) && cv.ValueKind == System.Text.Json.JsonValueKind.True);
+                        break;
+                    case "search":
+                        _menuMode = false;
+                        _searchText = root.GetProperty("value").GetString() ?? "";
+                        Reload();
+                        break;
+                }
+            };
+            _previewBarWeb.Message += root => { if (root.GetProperty("action").GetString() == "edit") OpenInViewer(); };
+            _previewBarWeb.Ready += ShowNoSelection;
         }
 
-        void PushThemeToBars()
-        {
-            var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
-            if (_barWeb.CoreWebView2 is not null)
-                _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
-            if (_previewBarWeb.CoreWebView2 is not null)
-                _ = _previewBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
-            PushSearchBoxTheme();
-        }
+        void PushThemeToBars() { }   // WebBarHost tự đẩy theme cho trang của nó
     }
 
     private bool _reloadWhenVisible;
@@ -402,28 +365,25 @@ public class FileLookupControl : UserControl
 
     private void PushPathToBar()
     {
-        if (_barWeb.CoreWebView2 is null) return;
         var arg = System.Text.Json.JsonSerializer.Serialize(_pathText);
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setPath && window.setPath({arg})");
+        _barWeb.Call($"window.setPath && window.setPath({arg})");
     }
 
     private void PushOnlyShowState(string label)
     {
-        if (_barWeb.CoreWebView2 is null) return;
         var labelArg = System.Text.Json.JsonSerializer.Serialize(label);
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setOnlyShowLabel && window.setOnlyShowLabel({labelArg})");
+        _barWeb.Call($"window.setOnlyShowLabel && window.setOnlyShowLabel({labelArg})");
         var checkedArg = _onlyShowFilteredOn ? "true" : "false";
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setOnlyShowChecked && window.setOnlyShowChecked({checkedArg})");
+        _barWeb.Call($"window.setOnlyShowChecked && window.setOnlyShowChecked({checkedArg})");
     }
 
     private void PushPreview(string path, string modified, string breadcrumb, bool editEnabled)
     {
-        if (_previewBarWeb.CoreWebView2 is null) return;
         var pathArg = System.Text.Json.JsonSerializer.Serialize(path);
         var modifiedArg = System.Text.Json.JsonSerializer.Serialize(modified);
         var breadcrumbArg = System.Text.Json.JsonSerializer.Serialize(breadcrumb);
         var editArg = editEnabled ? "true" : "false";
-        _ = _previewBarWeb.CoreWebView2.ExecuteScriptAsync(
+        _previewBarWeb.Call(
             $"window.setPreview && window.setPreview({pathArg},{modifiedArg},{breadcrumbArg},{editArg})");
     }
 
@@ -587,36 +547,18 @@ public class FileLookupControl : UserControl
     /// String search / Match Case / Show Pattern / Search — a real content search across
     /// files, as opposed to the filter bar's plain filename-only search box. WebView2 (searchbox.html), khởi tạo khi mở lần đầu
     /// (WebView2 trong control đang ẩn không tạo được cửa sổ).</summary>
-    private Microsoft.Web.WebView2.WinForms.WebView2 BuildSearchBoxPanel() =>
-        new() { Dock = DockStyle.Top, Height = 158, Visible = false };
-
-    private async void EnsureSearchBoxWeb()
+    private WebBarHost BuildSearchBoxPanel()
     {
-        if (_searchBoxWebStarted) return;
-        _searchBoxWebStarted = true;
-        try
-        {
-            await Bcode.App.UI.WebViewEnvironment.InitAsync(_searchBoxPanel);
-            _searchBoxPanel.CoreWebView2.WebMessageReceived += OnSearchBoxMessage;
-            _searchBoxPanel.CoreWebView2.NavigationCompleted += (_, _) =>
-            {
-                PushSearchBoxTheme();
-                PushSearchBoxState();
-            };
-            _searchBoxPanel.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("searchbox.html"));
-        }
-        catch (Exception ex)
-        {
-            _searchBoxWebStarted = false;
-            MessageBox.Show(this, "Không khởi tạo được Search Box (dùng WebView2).\nChi tiết lỗi: " + ex.Message,
-                "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
+        var p = new WebBarHost("searchbox.html", 158) { Dock = DockStyle.Top, Visible = false };
+        p.Message += OnSearchBoxMessage;
+        p.Ready += () => PushSearchBoxState();
+        return p;
     }
 
-    private void OnSearchBoxMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
+    private void EnsureSearchBoxWeb() { }
+
+    private void OnSearchBoxMessage(System.Text.Json.JsonElement root)
     {
-        using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-        var root = doc.RootElement;
         if (root.TryGetProperty("fileType", out var fileType)) _sbFileTypeText = fileType.GetString() ?? "";
         if (root.TryGetProperty("searchIn", out var searchIn)) _sbSearchInText = searchIn.GetString() ?? "";
         if (root.TryGetProperty("text", out var text)) _sbStringText = text.GetString() ?? "";
@@ -633,38 +575,36 @@ public class FileLookupControl : UserControl
 
     private void PushSearchBoxTheme()
     {
-        if (_searchBoxPanel.CoreWebView2 is null) return;
         var isDark = Bcode.App.UI.AppColors.IsDark ? "true" : "false";
-        _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
+        _searchBoxPanel.Call($"window.setTheme && window.setTheme({isDark})");
     }
 
     /// <summary>Đẩy lại giá trị đang nhớ vào trang (sau khi trang nạp xong) — chỉ ô Search in và trạng thái nút Search/Cancel.</summary>
     private void PushSearchBoxState()
     {
-        if (_searchBoxPanel.CoreWebView2 is null) return;
         if (!string.IsNullOrWhiteSpace(_sbSearchInText))
-            _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync(
+            _searchBoxPanel.Call(
                 $"window.setSearchIn && window.setSearchIn({System.Text.Json.JsonSerializer.Serialize(_sbSearchInText)})");
-        _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync(
+        _searchBoxPanel.Call(
             $"window.setRunning && window.setRunning({(_contentSearchRunning ? "true" : "false")})");
     }
 
     private void ToggleSearchBoxPanel()
     {
         _searchBoxPanel.Visible = !_searchBoxPanel.Visible;
-        if (_barWeb.CoreWebView2 is not null)
+        if (true)
         {
             var arg = System.Text.Json.JsonSerializer.Serialize(_searchBoxPanel.Visible ? "SearchBox ▴" : "SearchBox ▾");
-            _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setSearchBoxToggleText && window.setSearchBoxToggleText({arg})");
+            _barWeb.Call($"window.setSearchBoxToggleText && window.setSearchBoxToggleText({arg})");
         }
         if (!_searchBoxPanel.Visible) return;
 
         if (string.IsNullOrWhiteSpace(_sbSearchInText)) _sbSearchInText = _pathText.Trim();
         EnsureSearchBoxWeb();
-        if (_searchBoxPanel.CoreWebView2 is not null)
+        if (true)
         {
             PushSearchBoxState();
-            _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync("window.focusText && window.focusText()");
+            _searchBoxPanel.Call("window.focusText && window.focusText()");
         }
     }
 
@@ -683,8 +623,8 @@ public class FileLookupControl : UserControl
     private void SetSearchRunning(bool running)
     {
         _contentSearchRunning = running;
-        if (_searchBoxPanel.CoreWebView2 is not null)
-            _ = _searchBoxPanel.CoreWebView2.ExecuteScriptAsync($"window.setRunning && window.setRunning({(running ? "true" : "false")})");
+        if (true)
+            _searchBoxPanel.Call($"window.setRunning && window.setRunning({(running ? "true" : "false")})");
     }
 
     private void CancelContentSearch() => _contentSearchCts?.Cancel();
@@ -1379,8 +1319,7 @@ public class FileLookupControl : UserControl
 
     private void PushCheckedCount()
     {
-        if (_barWeb.CoreWebView2 is null) return;
-        _ = _barWeb.CoreWebView2.ExecuteScriptAsync($"window.setCheckedCount && window.setCheckedCount({CheckedFiles().Count})");
+        _barWeb.Call($"window.setCheckedCount && window.setCheckedCount({CheckedFiles().Count})");
     }
 
     /// <summary>Copy to... nhiều file: các file đã tick; chưa tick gì thì lấy file đang chọn trên cây.</summary>

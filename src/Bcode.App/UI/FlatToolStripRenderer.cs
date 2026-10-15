@@ -42,6 +42,10 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
 {
     public FlatToolStripRenderer() : base(new FlatColorTable()) { }
 
+    /// <summary>Một bộ vẽ dùng chung cho mọi menu / thanh công cụ: bảng màu đọc AppColors trực tiếp mỗi lần vẽ nên không cần tạo mới khi đổi theme
+    /// (trước đây mỗi lần ThemeManager.Apply tạo 1 renderer + 1 bảng màu mới cho từng menu).</summary>
+    public static FlatToolStripRenderer Shared { get; } = new();
+
     /// <summary>Set <c>toolStripButton.Tag = "primary"</c> to mark the one action in a
     /// toolbar that actually does something (e.g. RawSqlControl's "▶ Execute (F5)") — same
     /// convention as Button's own Tag="primary" in ThemeManager.StyleButton, so it reads as
@@ -50,7 +54,8 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
 
     protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
     {
-        e.TextColor = IsPrimary(e.Item) ? Color.White : AppColors.Text;
+        // Chế độ App: chữ trên nền nhấn dùng OnAccent của theme (theme tối: nâu đậm trên vàng mật ong — chữ trắng gần như không đọc được).
+        e.TextColor = IsPrimary(e.Item) ? (UiMode.IsNative ? AppColors.OnAccent : Color.White) : AppColors.Text;
         base.OnRenderItemText(e);
     }
 
@@ -100,7 +105,9 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
         var g = e.Graphics;
         var oldMode = g.SmoothingMode;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        using var path = RoundedRect(bounds, 6);
+        // Chế độ App: bo góc theo Template giao diện như PillButton (chặn bán kính < nửa cạnh ngắn, không thì RoundedRect vẽ hình vuông).
+        var radius = UiMode.IsNative && e.ToolStrip is { } strip ? Math.Max(1, Math.Min(NativeSkin.ButtonRadius(strip), (Math.Min(bounds.Width, bounds.Height) - 1) / 2)) : 6;
+        using var path = RoundedRect(bounds, radius);
         using var brush = new SolidBrush(fill);
         g.FillPath(brush, path);
         g.SmoothingMode = oldMode;

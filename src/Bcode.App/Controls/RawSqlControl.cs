@@ -10,7 +10,7 @@ using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Controls;
 
-public class RawSqlControl : UserControl
+public class RawSqlControl : UserControl, ISqlTab
 {
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _editorWeb = new();
@@ -2199,6 +2199,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     }
 
     /// <summary>Hiện khung Claude/Gemini bên phải editor (tạo lần đầu, các lần sau chỉ chuyển qua lại — giữ nguyên cuộc trò chuyện).</summary>
+    AiWebPanel ISqlTab.ShowAi(Bcode.Shared.AiSite site) => ShowAi(site);
     internal AiWebPanel ShowAi(Bcode.Shared.AiSite site)
     {
         if (_aiHead is null)

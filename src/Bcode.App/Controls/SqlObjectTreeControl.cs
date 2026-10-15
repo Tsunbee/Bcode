@@ -53,6 +53,11 @@ public class SqlObjectTreeControl : UserControl
         });
 
         Controls.Add(_tree);
+        if (Bcode.App.UI.UiMode.IsNative)
+        {
+            Controls.Add(BuildNativeBar());   // chế độ App: ô chọn database + ô lọc là control WinForms, không WebView2
+            return;
+        }
         Controls.Add(_barWeb);
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
@@ -104,6 +109,34 @@ public class SqlObjectTreeControl : UserControl
     }
 
     private bool UseSysDatabase => _useSysDatabase;
+
+    /// <summary>Thanh trên cây bản native: tương đương sqlobjectbar.html (chọn App/Sys Data + lọc theo tên, gõ tới đâu lọc tới đó sau 120ms).</summary>
+    private Control BuildNativeBar()
+    {
+        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.UiTemplate.Dens(82), Padding = new Padding(6, 6, 6, 6) };
+        var db = new DropDownButton { Dock = DockStyle.Top, Height = Bcode.App.UI.UiTemplate.Dens(28) };
+        db.SetItems(new[] { "App Data", "Sys Data" }, 0);
+        var filter = new RoundedInput { Dock = DockStyle.Top, PlaceholderText = "Lọc theo tên (gõ là lọc luôn)..." };
+        var gap = new Panel { Dock = DockStyle.Top, Height = 4 };
+        var timer = new System.Windows.Forms.Timer { Interval = 120 };
+        timer.Tick += async (_, _) => { timer.Stop(); _filterText = filter.Text; if (_loadedOnce) await RenderAsync(); else await ReloadAsync(); };
+        filter.TextChanged += (_, _) => { timer.Stop(); timer.Start(); };
+        filter.InputKeyDown += async (_, e) =>
+        {
+            if (e.KeyCode != Keys.Enter) return;
+            e.Handled = e.SuppressKeyPress = true; timer.Stop(); _filterText = filter.Text;
+            if (_loadedOnce) await RenderAsync(); else await ReloadAsync();
+        };
+        db.SelectionChanged += async i =>
+        {
+            _useSysDatabase = i == 1; _filterText = filter.Text;
+            _loadedOnce = false; _currentSignature = null; // mỗi database có cache riêng
+            await ReloadAsync();
+        };
+        Disposed += (_, _) => timer.Dispose();
+        panel.Controls.Add(filter); panel.Controls.Add(gap); panel.Controls.Add(db);
+        return panel;
+    }
 
     private bool _loadedOnce;
     private int _loadVersion;

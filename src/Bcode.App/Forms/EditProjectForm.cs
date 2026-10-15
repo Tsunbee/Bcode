@@ -22,6 +22,7 @@ public class EditProjectForm : ThemedForm
     private readonly DbConnectionService _connections;
     private readonly Workspace _original;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    private readonly Bcode.App.Controls.WebBarHost? _host;
 
     /// <summary>The edited Workspace — only updated when the dialog closes with DialogResult.OK.</summary>
     public Workspace Result { get; private set; }
@@ -41,6 +42,11 @@ public class EditProjectForm : ThemedForm
         MinimumSize = new Size(380, 420);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
+        if (UiMode.IsNative)
+        {
+            _host = Bcode.App.Controls.NativeForm.Attach(this, "editproject.html", root => _ = HandleAsync(root), () => _ = OnReadyAsync());
+            return;
+        }
         Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;
@@ -67,11 +73,16 @@ public class EditProjectForm : ThemedForm
 
     private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
     {
+        using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
+        await HandleAsync(doc.RootElement);
+    }
+
+    private async Task HandleAsync(JsonElement root)
+    {
         try
         {
-            using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
-            var action = doc.RootElement.GetProperty("action").GetString();
-            var data = doc.RootElement.TryGetProperty("data", out var d) ? d : default;
+            var action = root.GetProperty("action").GetString();
+            var data = root.TryGetProperty("data", out var d) ? d : default;
 
             switch (action)
             {
@@ -158,7 +169,9 @@ public class EditProjectForm : ThemedForm
 
     private async Task Js(string script)
     {
-        if (IsDisposed || _web.CoreWebView2 is null) return;
+        if (IsDisposed) return;
+        if (_host is not null) { _host.Call(script); return; }
+        if (_web.CoreWebView2 is null) return;
         await _web.CoreWebView2.ExecuteScriptAsync(script);
     }
 

@@ -15,7 +15,7 @@ namespace Bcode.App.Forms;
 /// Trang giữ bản sao đang sửa; chỉ khi bấm Save (hoặc Ctrl+S) C# mới thay danh sách của <see cref="SnippetLibraryService"/> rồi ghi xuống file
 /// (kèm 1 dòng trong library.log). Insert chèn nội dung snippet đang chọn vào Script Editor (không tự lưu).
 /// </summary>
-public class LibrarySnippetForm : ThemedForm
+public partial class LibrarySnippetForm : ThemedForm
 {
     private readonly SnippetLibraryService _service;
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
@@ -38,6 +38,7 @@ public class LibrarySnippetForm : ThemedForm
         MinimumSize = new Size(480, 420);
         StartPosition = FormStartPosition.CenterParent;
         ShowIcon = false;
+        if (Bcode.App.UI.UiMode.IsNative) { BuildNative(); return; }   // chế độ App: giao diện WinForms (LibrarySnippetForm.Native.cs), không WebView2
         Controls.Add(_web);
 
         ThemeManager.ThemeChanged += PushTheme;

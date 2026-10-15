@@ -22,6 +22,25 @@ public static class PivotDetector
     private static readonly (string Row, string Col)[] KeyPairs = { ("xRow", "xColumn"), ("sysRow", "sysColumn"), ("KeyRow", "KeyCol") };
     private static readonly string[] SystemCols = { "sysorder", "sysprint", "systotal", "stt", "line_nbr", "stt_rec", "stt_rec0" };
 
+    /// <summary>Như RawSqlControl.UpdatePivotTab: đoán tên controller từ script, đọc &lt;pivot&gt; của Grid controller trong <paramref name="sourcePath"/> (nếu có) rồi
+    /// nhận diện. Đọc share — gọi ở luồng nền. Lỗi đọc / kết quả lạ = null (không phải pivot).</summary>
+    public static PivotPayload? DetectForScript(IReadOnlyList<DataTable> tables, string script, string? sourcePath)
+    {
+        if (tables.Count == 0) return null;
+        ControllerInfo? info = null;
+        try
+        {
+            var name = ReportProfilerService.GuessName(script);
+            if (!string.IsNullOrWhiteSpace(sourcePath) && name.Length > 0)
+            {
+                var loaded = new GridControllerReader().Load(sourcePath, name);
+                if (loaded.GridPath is not null) info = loaded;
+            }
+        }
+        catch { /* không đọc được controller: vẫn đoán theo tên cột */ }
+        try { return Detect(tables, info); } catch { return null; }
+    }
+
     public static PivotPayload? Detect(IReadOnlyList<DataTable> tables, ControllerInfo? info)
     {
         for (int pass = 0; pass < 2; pass++)

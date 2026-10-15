@@ -144,7 +144,12 @@ public sealed class NativeTopBar : Panel
         // Chiều cao theo nội dung nhóm trái khi xuống dòng (giống topbar.html tự cao).
         var avail = Math.Max(100, Width - _right.Width);
         var want = Math.Max(UiTemplate.Dens(34), Math.Max(_left.GetPreferredSize(new Size(avail, 0)).Height, _right.GetPreferredSize(Size.Empty).Height) + 1);
-        if (want != Height) { Height = want; BarHeightChanged?.Invoke(); }
+        if (want == Height) return;
+        Height = want;
+        // Đổi Height ngay trong OnLayout: lượt layout do resize bị WinForms bỏ qua (đang trong layout) → _left (Dock Fill) giữ chiều cao cũ,
+        // hàng dưới bị cắt. Dock lại các con theo chiều cao mới.
+        base.OnLayout(levent);
+        BarHeightChanged?.Invoke();
     }
 
     private void RenderDb()

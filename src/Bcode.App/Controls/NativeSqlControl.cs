@@ -310,11 +310,92 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("editor.peek") || combo == ShortcutRegistry.Get("editor.openObject")) { _ = OpenObjectUnderCaretAsync(); return true; }
             if (combo == ShortcutRegistry.Get("editor.open")) { OpenFile(); return true; }
             if (combo == ShortcutRegistry.Get("editor.save")) { SaveFile(); return true; }
+            if (combo == ShortcutRegistry.Get("editor.find")) { ShowFind(); return true; }
             if (combo == ShortcutRegistry.Get("editor.comment")) { ToggleComment(true); return true; }
             if (combo == ShortcutRegistry.Get("editor.uncomment")) { ToggleComment(false); return true; }
         }
         if (keyData == (Keys.Control | Keys.R)) { _split.Panel2Collapsed = !_split.Panel2Collapsed; return true; }
+        if (keyData == Keys.Escape && _find is { Visible: true } && _ed.Focused) { HideFind(); return true; }
         return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    // =====================================================================  tìm trong editor (thanh tìm nổi như Monaco)
+
+    private NativeFindBar? _find;
+
+    private void ShowFind()
+    {
+        if (_find is null)
+        {
+            // Thanh tìm NỔI ở góc trên-phải editor (như find widget của Monaco / ScriptEditorControl), không dock chiếm cả bề ngang.
+            _find = new NativeFindBar { Visible = false, UnderColor = () => _ed.Styles[Style.Default].BackColor };   // góc bo trùng nền editor bên dưới
+            _find.Find += FindInEditor;
+            _find.CloseRequested += HideFind;
+            _split.Panel1.Controls.Add(_find);
+            _split.Panel1.Resize += (_, _) => PositionFind();
+        }
+        // Chữ đang bôi đen trên 1 dòng → điền sẵn (như Monaco).
+        var sel = _ed.SelectedText;
+        if (sel.Length > 0 && sel.IndexOfAny(new[] { '\r', '\n' }) < 0) _find.SetText(sel);
+        PositionFind();
+        _find.Visible = true;
+        _find.BringToFront();
+        _find.FocusInput();
+    }
+
+    /// <summary>Góc trên-phải khung editor, chừa chỗ thanh cuộn dọc; rộng tối đa 420px thiết kế (co lại khi khung hẹp).</summary>
+    private void PositionFind()
+    {
+        if (_find is null) return;
+        var host = _split.Panel1.ClientSize;
+        var width = Math.Min(NativeSkin.S(420), Math.Max(NativeSkin.S(240), host.Width - NativeSkin.S(80)));
+        _find.Width = width;
+        _find.Location = new Point(Math.Max(0, host.Width - width - SystemInformation.VerticalScrollBarWidth - NativeSkin.S(10)), NativeSkin.S(6));
+    }
+
+    private void HideFind()
+    {
+        if (_find is null) return;
+        _find.Visible = false;
+        FocusEditor();
+    }
+
+    /// <summary>Tìm không phân biệt hoa thường; hết văn bản thì quay vòng; báo "vị trí/tổng" trên thanh tìm.</summary>
+    private void FindInEditor(string text, bool forward, bool typing)
+    {
+        if (_find is null) return;
+        if (text.Length == 0) { _find.SetInfo("", false); return; }
+        _ed.SearchFlags = SearchFlags.None;
+        // Đang gõ: tìm lại từ đầu vùng chọn (chữ dài thêm vẫn khớp chỗ cũ); Enter / ↓: sau vùng chọn; ↑: trước vùng chọn.
+        var from = forward ? (typing ? _ed.SelectionStart : _ed.SelectionEnd) : _ed.SelectionStart;
+        var pos = SearchRange(text, from, forward ? _ed.TextLength : 0);
+        if (pos < 0) pos = SearchRange(text, forward ? 0 : _ed.TextLength, from);   // quay vòng
+        if (pos < 0) { _find.SetInfo("Không có kết quả", true); return; }
+        _ed.SetSelection(_ed.TargetEnd, _ed.TargetStart);
+        _ed.ScrollRange(_ed.TargetStart, _ed.TargetEnd);
+        _find.SetInfo(MatchInfo(text, pos), false);
+    }
+
+    private int SearchRange(string text, int start, int end)
+    {
+        _ed.TargetStart = start;
+        _ed.TargetEnd = end;   // start > end = tìm lùi
+        return _ed.SearchInTarget(text);
+    }
+
+    /// <summary>"3/17": thứ tự của kết quả đang chọn trên tổng số kết quả (đếm tối đa 9999).</summary>
+    private string MatchInfo(string text, int current)
+    {
+        int count = 0, index = 0, at = 0;
+        while (count < 9999)
+        {
+            var p = SearchRange(text, at, _ed.TextLength);
+            if (p < 0) break;
+            count++;
+            if (p == current) index = count;
+            at = Math.Max(_ed.TargetEnd, p + 1);
+        }
+        return count >= 9999 ? $"{index}/9999+" : $"{index}/{count}";
     }
 
     // =====================================================================  chạy script

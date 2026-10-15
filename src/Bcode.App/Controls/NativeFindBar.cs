@@ -48,11 +48,14 @@ internal sealed class NativeFindBar : Panel
     public void SetInfo(string text, bool none) { _info.Text = text; _info.ForeColor = none ? AppColors.Danger : AppColors.TextMuted; }
     public void FocusInput() { _q.Inner.Focus(); _q.Inner.SelectAll(); }
 
+    /// <summary>Màu nền nằm dưới thanh (tô 4 góc ngoài vùng bo) khi thanh nổi trên 1 control khác cha (vd editor Scintilla); null = nền của cha.</summary>
+    public Func<Color>? UnderColor { get; set; }
+
     /// <summary>Thẻ nổi: nền panel, viền bo tròn (như .findbar của trang web) — vẽ bằng GDI+, không bitmap.</summary>
     protected override void OnPaintBackground(PaintEventArgs e)
     {
         var g = e.Graphics;
-        using (var under = new SolidBrush(Parent?.BackColor ?? AppColors.Background)) g.FillRectangle(under, ClientRectangle);
+        using (var under = new SolidBrush(UnderColor?.Invoke() ?? Parent?.BackColor ?? AppColors.Background)) g.FillRectangle(under, ClientRectangle);
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         using var path = FlatToolStripRenderer.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Math.Min(NativeSkin.CardRadius(this), (Height - 2) / 2));
         using (var fill = new SolidBrush(AppColors.PanelAlt)) g.FillPath(fill, path);

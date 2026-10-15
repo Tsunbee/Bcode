@@ -33,6 +33,16 @@ internal static class SqlScintilla
             "getdate","getutcdate","sysdatetime","len","substring","charindex","patindex","replace","stuff","ltrim","rtrim","upper","lower","left","right","reverse","format","concat","isnull","coalesce","nullif","cast","convert","try_convert","iif","choose","abs","ceiling","floor","round","power","sqrt","rand",
             "count","sum","avg","min","max","row_number","rank","dense_rank","ntile","lag","lead","first_value","last_value","string_agg","stuff","datediff","dateadd","datepart","datename","year","month","day","eomonth","isdate","isnumeric","object_id","object_name","object_definition","db_name","scope_identity","newid","@@rowcount","@@error","@@identity","@@trancount","@@fetch_status","@@version","@@servername"));
         _ed.WordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$#@";
+        if (!KeyGuarded.TryGetValue(_ed, out _)) { KeyGuarded.Add(_ed, new object()); _ed.KeyPress += BlockControlChars; }
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Scintilla, object> KeyGuarded = new();
+
+    /// <summary>Ctrl + chữ chưa gắn lệnh: Windows vẫn gửi ký tự điều khiển (Ctrl+S = 0x13 "DC3", Ctrl+F = 0x06 "ACK"...) và Scintilla chèn nguyên
+    /// ký tự đó vào văn bản (hiện thành ô DC3/ACK). Chặn mọi ký tự điều khiển trừ Tab / xuống dòng / Backspace.</summary>
+    private static void BlockControlChars(object? sender, KeyPressEventArgs e)
+    {
+        if ((e.KeyChar < ' ' && e.KeyChar is not ('\t' or '\r' or '\n' or '\b')) || e.KeyChar == '\x7f') e.Handled = true;
     }
 
     private static Color Blend(Color a, Color b, double t) => Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));

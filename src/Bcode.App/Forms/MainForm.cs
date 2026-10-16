@@ -279,9 +279,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
         _toolSpecs.Add(("claude_web", "Claude", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Claude, null)));
         _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
-        // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3).
+        _toolSpecs.Add(("help", "Trợ giúp", null, (_, _) => OpenHelpTab(HelpTopicForActiveTab())));
+        // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3;
+        // Trợ giúp = Ctrl+F1 — không lấy F1 vì F1 đang là "chi tiết dòng" của lưới Table, phím phạm vi App sẽ chặn mất).
         Bcode.App.UI.ShortcutRegistry.SetTools(_toolSpecs.Select(t => (t.key, t.label,
-            t.shortcut is not null ? $"Ctrl+Shift+{t.shortcut}" : t.key == "sql_profiler" ? "Ctrl+3" : (string?)null)));
+            t.shortcut is not null ? $"Ctrl+Shift+{t.shortcut}" : t.key == "sql_profiler" ? "Ctrl+3" : t.key == "help" ? "Ctrl+F1" : (string?)null)));
         RebuildToolsBar();
         void OnTemplateChanged()
         {
@@ -991,8 +993,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
     private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list" };
 
-    // Claude / Gemini: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
-    private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web" };
+    // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
+    private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
     private static bool IsMenuTool(string key) => DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key) || TopBarToolKeys.Contains(key);
 
     /// <summary>Khoá các nút mặc định của thanh công cụ (không gồm các công cụ trong menu Triển khai).</summary>
@@ -1187,6 +1189,59 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (_sqlHintsHelpTab is not null && _documentTabs.TabPages.Contains(_sqlHintsHelpTab)) { _documentTabs.SelectedTab = _sqlHintsHelpTab; return; }
         _sqlHintsHelpTab = AddDocumentTab("Gợi ý SQL — hướng dẫn", new SqlHintsHelpControl());
         _sqlHintsHelpTab.Disposed += (_, _) => _sqlHintsHelpTab = null;
+    }
+
+    private TabPage? _helpTab;
+    private HelpControl? _helpControl;
+
+    /// <summary>Tab "Trợ giúp" (một tab duy nhất): cây tính năng + hướng dẫn sử dụng, mở sẵn ở mục <paramref name="topic"/> (id trong Help\HuongDanSuDung.md).</summary>
+    private void OpenHelpTab(string? topic)
+    {
+        if (_helpTab is not null && _helpControl is not null && _documentTabs.TabPages.Contains(_helpTab))
+        {
+            _documentTabs.SelectedTab = _helpTab;
+            if (topic is not null) _helpControl.ShowTopic(topic);
+            return;
+        }
+        _helpControl = new HelpControl(topic);
+        _helpTab = AddDocumentTab("Trợ giúp", _helpControl);
+        _helpTab.Disposed += (_, _) => { _helpTab = null; _helpControl = null; };
+    }
+
+    // Loại control của tab đang mở → id mục hướng dẫn tương ứng (Trợ giúp / Ctrl+F1 mở đúng tính năng đang dùng). Khớp các dòng <a id="..."> trong docs/HuongDanSuDung.md.
+    private static readonly Dictionary<string, string> HelpTopicByControl = new(StringComparer.Ordinal)
+    {
+        ["RawSqlControl"] = "sql-query", ["NativeSqlControl"] = "sql-query",
+        ["TableEditControl"] = "table",
+        ["SqlQueryControl"] = "command-lookup", ["LookupControl"] = "command-lookup", ["NativeLookupControl"] = "command-lookup",
+        ["FileLookupControl"] = "file-lookup",
+        ["GenUpdatePackageControl"] = "gen-update",
+        ["NoteControl"] = "note", ["AdvanceNoteControl"] = "note", ["NativeAdvanceNoteControl"] = "note",
+        ["QueryHistoryControl"] = "lich-su-sql", ["NativeQueryHistoryControl"] = "lich-su-sql",
+        ["CreateRptControl"] = "create-rpt", ["QuickReportControl"] = "tool-mo-rong",
+        ["CompareObjectsControl"] = "sql-object", ["NativeCompareObjectsControl"] = "sql-object", ["UsagesControl"] = "sql-object",
+        ["DecryptSqlObjectControl"] = "sql-object", ["SqlProfilerControl"] = "sql-object",
+        ["FileReferenceControl"] = "cap-source", ["IncludeCheckControl"] = "tool-mo-rong",
+        ["CashFlowCheckControl"] = "trien-khai", ["BbxnControl"] = "trien-khai", ["FsgRequirementReportControl"] = "trien-khai",
+        ["NativeWeeklyMailControl"] = "trien-khai",
+        ["SetupEInvoiceControl"] = "tien-ich", ["CheckMailControl"] = "tien-ich", ["NativeCheckMailControl"] = "tien-ich",
+        ["StringBeautyControl"] = "tien-ich", ["NativeStringBeautyControl"] = "tien-ich",
+        ["SqlHintsHelpControl"] = "sql-query",
+    };
+
+    /// <summary>Mục hướng dẫn theo tab đang mở (tìm control đã biết trong vài lớp con đầu của tab); không khớp → null (mục đầu).</summary>
+    private string? HelpTopicForActiveTab()
+    {
+        if (_documentTabs.SelectedTab is not { } page || page == _helpTab) return null;
+        var queue = new Queue<(Control c, int depth)>();
+        foreach (Control c in page.Controls) queue.Enqueue((c, 0));
+        while (queue.Count > 0)
+        {
+            var (c, depth) = queue.Dequeue();
+            if (HelpTopicByControl.TryGetValue(c.GetType().Name, out var topic)) return topic;
+            if (depth < 3) foreach (Control k in c.Controls) queue.Enqueue((k, depth + 1));
+        }
+        return null;
     }
 
     private TabPage? _compareObjectsTab;
@@ -2571,6 +2626,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "script.clear": _scriptFileService.ClearCart(); return true;
             case "script.save": SaveActiveScript(); return true;
             case "script.copy": CopyActiveScript(); return true;
+            case "app.openWebConfig": OpenWebConfig(); return true;
             case "app.refreshWebConfig": RefreshWebConfig(); return true;
             case "app.clearStructure": ClearStructureApp(); return true;
             case "app.createMenu": _ = CreateMenuAsync(); return true;
@@ -3220,6 +3276,23 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
 
 
+    /// <summary>Mở file web.config ở gốc Source Path của dự án: BcodeViewer nếu đã khai đường dẫn, không thì tab script trong Bcode (như double-click file ở File Lookup).</summary>
+    private void OpenWebConfig()
+    {
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace chưa khai báo Source Path.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        var webConfigPath = Path.Combine(ws.SourcePath, "web.config");
+        if (!File.Exists(webConfigPath))
+        {
+            MessageBox.Show(this, $"Không tìm thấy file web.config tại:\n{webConfigPath}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        OpenFileFromLookup(webConfigPath);
+    }
+
     private void RefreshWebConfig()
     {
         // 1. Kiểm tra cấu hình Workspace
@@ -3311,33 +3384,35 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripSeparator());
 
         // ---------------------------------------------------------
-        // NHÓM 4: QUẢN LÝ TAB VÀ CỬA SỔ
+        // NHÓM 4: QUẢN LÝ TAB VÀ CỬA SỔ — gom vào 1 menu con (như Tools) cho menu Actions gọn
         // ---------------------------------------------------------
-        menu.Items.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => {
+        var tabMenu = new ToolStripMenuItem("Tab & cửa sổ");
+        tabMenu.DropDownItems.Add(new ToolStripMenuItem("Close Tab", null, (_, _) => {
             if (_documentTabs.SelectedIndex >= 0) CloseDocumentTab(_documentTabs.SelectedIndex);
         }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.close") });
         
-        menu.Items.Add(new ToolStripMenuItem("Close All But This", null, (_, _) => {
+        tabMenu.DropDownItems.Add(new ToolStripMenuItem("Close All But This", null, (_, _) => {
             var currentIdx = _documentTabs.SelectedIndex;
             for (int i = _documentTabs.TabPages.Count - 1; i >= 0; i--)
                 if (i != currentIdx) CloseDocumentTab(i);
         }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeOthers") });
         
-        menu.Items.Add(new ToolStripMenuItem(
+        tabMenu.DropDownItems.Add(new ToolStripMenuItem(
             Bcode.App.UI.UiOverrides.Enabled ? "Tuỳ chỉnh giao diện web: đang BẬT (bấm để tắt — chế độ an toàn)" : "Tuỳ chỉnh giao diện web: đang TẮT (bấm để bật)", null,
             (_, _) => ToggleCustomUi()));
-        menu.Items.Add(new ToolStripMenuItem("Hide / Show cây menu", null, (_, _) => ToggleMenuTree()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tree.toggle") });
+        tabMenu.DropDownItems.Add(new ToolStripMenuItem("Hide / Show cây menu", null, (_, _) => ToggleMenuTree()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tree.toggle") });
 
-        menu.Items.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) => {
+        tabMenu.DropDownItems.Add(new ToolStripMenuItem("Close Tabs to the Right", null, (_, _) => {
             if (_documentTabs.SelectedTab is not { } cur) return;
             var from = _documentTabs.SelectedIndex;
             CloseTabsWhere(p => _documentTabs.TabPages.IndexOf(p) > from);
         }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeRight") });
 
-        menu.Items.Add(new ToolStripMenuItem("Close All Tab", null, (_, _) => {
+        tabMenu.DropDownItems.Add(new ToolStripMenuItem("Close All Tab", null, (_, _) => {
             for (int i = _documentTabs.TabPages.Count - 1; i >= 0; i--)
                 CloseDocumentTab(i);
         }) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tab.closeAll") });
+        menu.Items.Add(tabMenu);
 
         menu.Items.Add(new ToolStripSeparator());
 
@@ -3346,7 +3421,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         // ---------------------------------------------------------
         menu.Items.Add(new ToolStripMenuItem("Get Key Data/Value", null, (_, _) => { }));
         menu.Items.Add(new ToolStripMenuItem("Clear Structure App", null, (_, _) => ClearStructureApp()));
-        menu.Items.Add(new ToolStripMenuItem("Refresh Web.config", null, (_, _) => RefreshWebConfig()));
+        menu.Items.Add(new ToolStripMenuItem("Open Web.config", null, (_, _) => OpenWebConfig()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.openWebConfig") });
+        menu.Items.Add(new ToolStripMenuItem("Refresh Web.config", null, (_, _) => RefreshWebConfig()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.refreshWebConfig") });
         menu.Items.Add(new ToolStripMenuItem("Create Menu", null, async (_, _) => await CreateMenuAsync()));
 
         // Áp dụng màu nền Dark/Light theo hệ thống theme của Bcode

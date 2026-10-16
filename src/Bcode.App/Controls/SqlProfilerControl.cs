@@ -352,9 +352,11 @@ public class SqlProfilerControl : UserControl
                     root.GetProperty("loginPass").GetString() ?? "",
                     root.GetProperty("template").GetString() ?? "",
                     root.TryGetProperty("targetUser", out var tu) ? tu.GetString() ?? "" : "",
-                    root.TryGetProperty("uid", out var ui) ? ui.GetString() ?? "" : "");
+                    root.TryGetProperty("uid", out var ui) ? ui.GetString() ?? "" : "",
+                    root.TryGetProperty("uidManual", out var um) && um.ValueKind == JsonValueKind.True);
                 break;
             case "close": CloseProfiler(); break;
+            case "uid-cleared": SetStatus("Đã xoá u_id — lần bung Profiler tới sẽ không lọc theo ID (ApplicationName), chỉ lọc theo Database."); break;
             case "lookup-uid": await LookupUidAsync(root.GetProperty("targetUser").GetString() ?? ""); break;
             case "copy":
                 var value = root.GetProperty("value").GetString() ?? "";
@@ -613,7 +615,9 @@ public class SqlProfilerControl : UserControl
         catch { /* Bỏ qua lỗi ghi file template nếu không đủ quyền, auto-type vẫn sẽ chạy được với template khác */ }
     }
 
-    private async Task RunProfilerAsync(string exePath, string loginUser, string loginPass, string template, string targetUser = "", string uidFromBar = "")
+    /// <param name="uidManual">Người dùng tự sửa / xoá ô u_id: dùng đúng giá trị đó (trống = KHÔNG lọc theo ID, gỡ cả filter ID trong template
+    /// đã có — có trường hợp ứng dụng không gắn ApplicationName = u_id), không tự tra lại theo tên user.</param>
+    private async Task RunProfilerAsync(string exePath, string loginUser, string loginPass, string template, string targetUser = "", string uidFromBar = "", bool uidManual = false)
     {
         exePath = exePath.Trim();
         if (!File.Exists(exePath)) { SetStatus("Không tìm thấy Profiler.exe ở đường dẫn đã khai."); return; }
@@ -643,7 +647,7 @@ public class SqlProfilerControl : UserControl
         // template sinh ra không có filter ID).
         string autoUid = (uidFromBar ?? "").Trim();
         var lookupName = !string.IsNullOrWhiteSpace(targetUser) ? targetUser.Trim() : ws.ProfilerTargetUser;
-        if (autoUid.Length == 0 && !string.IsNullOrWhiteSpace(lookupName))
+        if (autoUid.Length == 0 && !uidManual && !string.IsNullOrWhiteSpace(lookupName))
         {
             try
             {
@@ -662,14 +666,17 @@ public class SqlProfilerControl : UserControl
             ws.ProfilerTargetUser = targetUser.Trim();
             try { _settings.Save(); } catch { }
         }
-        if (autoUid.Length == 0)
+        var noIdFilter = uidManual && autoUid.Length == 0;
+        if (noIdFilter)
+            SetStatus("Ô u_id để trống — trace không lọc theo ID (ApplicationName), chỉ lọc theo Database.");
+        else if (autoUid.Length == 0)
             SetStatus("Chưa có u_id (nhập tên user rồi bấm \"Tra u_id\") — template sẽ chỉ lọc theo Database, không lọc ID.");
 
         // Template CHƯA có → tự ghi file .tdf (chỉ SQL:BatchStarting + lọc DatabaseName %mã WS% [+ u_id])
         // vào thư mục template của Profiler TRƯỚC khi mở Profiler.exe, để nó nạp như template tự lưu.
         // Template đã có (người dùng tự lưu, hoặc dựng sẵn của Profiler) thì giữ nguyên, không đụng.
         // Cách này thay cho việc bấm chuột theo toạ độ vào lưới Events Selection (rất dễ lệch).
-        await EnsureTemplateFileAsync(exePath, ws, template, autoUid);
+        await EnsureTemplateFileAsync(exePath, ws, template, autoUid, noIdFilter);
 
         // ĐÃ BỎ HẲN "-S/-U/-P" khỏi dòng lệnh khởi động — xác nhận qua thực tế (ảnh + video Bee gửi)
         // rằng truyền sẵn đủ Server+Login+Password qua tham số dòng lệnh khiến chính Profiler.exe
@@ -1318,7 +1325,8 @@ public class SqlProfilerControl : UserControl
         SetStatus("Đã nạp Template và bấm Run.");
     }
 
-    private async Task EnsureTemplateFileAsync(string exePath, Workspace ws, string template, string autoUid)
+    /// <param name="removeIdFilter">Người dùng cố ý xoá u_id: template đã có filter ID thì gỡ đi.</param>
+    private async Task EnsureTemplateFileAsync(string exePath, Workspace ws, string template, string autoUid, bool removeIdFilter = false)
     {
         try
         {
@@ -1342,7 +1350,7 @@ public class SqlProfilerControl : UserControl
             else if (result is { Created: false } existing)
             {
                 OfferTemplateFilterUpdate(existing.Path, template,
-                    string.IsNullOrWhiteSpace(autoUid) ? null : autoUid,
+                    removeIdFilter ? "" : string.IsNullOrWhiteSpace(autoUid) ? null : autoUid,
                     string.IsNullOrWhiteSpace(dbKey) ? null : "%" + dbKey + "%");
             }
         }
@@ -1358,6 +1366,7 @@ public class SqlProfilerControl : UserControl
     /// giữ lại thành .tdf.bak để quay về được. Chỉ xử lý
     /// template cá nhân trong AppData, dạng 1 event SQL:BatchStarting; template dựng sẵn của Profiler
     /// hay dạng khác thì bỏ qua. Bản cũ giữ lại thành *.tdf.bak.</summary>
+    /// <param name="wantApp">null = không đụng filter ID; "" = gỡ filter ID; còn lại = đặt filter ID theo giá trị này.</param>
     private void OfferTemplateFilterUpdate(string path, string template, string? wantApp, string? wantDb)
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -1367,7 +1376,12 @@ public class SqlProfilerControl : UserControl
 
         var changes = new List<string>();
         string? newApp = null, newDb = null;
-        if (wantApp != null && !string.Equals(info.AppLike, wantApp, StringComparison.OrdinalIgnoreCase))
+        if (wantApp == "" && info.AppLike != null)
+        {
+            changes.Add($"ID (ApplicationName): {info.AppLike} → (không lọc)");
+            newApp = "";
+        }
+        else if (!string.IsNullOrEmpty(wantApp) && !string.Equals(info.AppLike, wantApp, StringComparison.OrdinalIgnoreCase))
         {
             changes.Add($"ID (ApplicationName): {(info.AppLike ?? "(không lọc)")} → {wantApp}");
             newApp = wantApp;

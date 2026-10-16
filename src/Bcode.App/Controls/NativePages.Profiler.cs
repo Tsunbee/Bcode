@@ -12,16 +12,20 @@ internal sealed class SqlProfilerBarPage : NativePage
     private readonly Label _dbHint = Hint("(chưa có Workspace)"), _traceFile = Hint("(chưa có Workspace)"), _status = NK.Muted("Chưa chạy Profiler.");
     private readonly PillButton _bClose;
     private readonly ToolTip _tip = new();
+    private bool _uidManual, _settingUid;
 
     public SqlProfilerBarPage()
     {
         _pass.Inner.UseSystemPasswordChar = true;
-        _uid.ReadOnly = true;
+        // Ô u_id sửa / xoá được: người dùng tự đổi (_uidManual) thì Bcode dùng đúng giá trị đó, trống = không lọc ID; Tra u_id / đổi tên user = quay về tự tra.
+        _uid.Inner.TextChanged += (_, _) => { if (!_settingUid) _uidManual = true; };
+        _target.Inner.TextChanged += (_, _) => _uidManual = false;
+        _tip.SetToolTip(_uid.Inner, "u_id dùng làm bộ lọc ApplicationName (= ID) của trace. Để TRỐNG = không lọc theo ID, chỉ lọc theo Database.");
         foreach (var i in new[] { _exe, _user, _pass, _template }) i.Inner.Leave += (_, _) => SaveConfig();
         _template.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; SaveConfig(); } };
         _target.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Lookup(); } };
 
-        var bRun = NK.Button("▶ Bung & Đăng nhập", () => Post(new { action = "run", exePath = _exe.Text, loginUser = _user.Text, loginPass = _pass.Text, template = _template.Text, targetUser = _target.Text, uid = _uid.Text }), primary: true);
+        var bRun = NK.Button("▶ Bung & Đăng nhập", () => Post(new { action = "run", exePath = _exe.Text, loginUser = _user.Text, loginPass = _pass.Text, template = _template.Text, targetUser = _target.Text, uid = _uid.Text, uidManual = _uidManual }), primary: true);
         _bClose = NK.Button("✕ Đóng Profiler", () => Post(new { action = "close" })); _bClose.Enabled = false;
         _traceFile.AutoSize = false; _traceFile.AutoEllipsis = true; _traceFile.TextAlign = ContentAlignment.MiddleLeft;
         _status.AutoSize = false; _status.AutoEllipsis = true; _status.TextAlign = ContentAlignment.MiddleLeft;
@@ -32,7 +36,9 @@ internal sealed class SqlProfilerBarPage : NativePage
             (Lbl("Login user"), 0), (_user, 14), (Lbl("Pass"), 0), (_pass, 12), (Lbl("Trace Template"), 0), (_template, 18));
         var row2 = NK.GridRow(8,
             (Lbl("User theo dõi (u_name)"), 0), (_target, 16), (NK.Button("Tra u_id", Lookup), 0),
-            (Lbl("→ u_id"), 0), (_uid, 12), (NK.Button("Copy", () => Post(new { action = "copy", value = _uid.Text })), 0),
+            (Lbl("→ u_id"), 0), (_uid, 12),
+            (NK.Button("✕", () => { _uid.Text = ""; _uidManual = true; Post(new { action = "uid-cleared" }); }, tip: "Xoá u_id — trace không lọc theo ID (ApplicationName)"), 0),
+            (NK.Button("Copy", () => Post(new { action = "copy", value = _uid.Text })), 0),
             (Sep(), 0), (Lbl("Lọc DatabaseName gợi ý"), 0), (_dbHint, 0), (NK.Button("Copy", () => Post(new { action = "copy", value = _dbHint.Text })), 0),
             (NK.Button("⟳", () => Post(new { action = "refresh-hint" }), tip: "Làm mới gợi ý"), 0));
         var row3 = NK.GridRow(8,
@@ -64,7 +70,7 @@ internal sealed class SqlProfilerBarPage : NativePage
                 break;
             }
             case "window.setStatus": _status.Text = Str(a, 0); break;
-            case "window.setUid": _uid.Text = Str(a, 0); break;
+            case "window.setUid": _settingUid = true; _uid.Text = Str(a, 0); _settingUid = false; _uidManual = false; break;
             case "window.setDbHint": _dbHint.Text = Str(a, 0); break;
             case "window.setRunning": _bClose.Enabled = Bool(a, 0); break;
         }

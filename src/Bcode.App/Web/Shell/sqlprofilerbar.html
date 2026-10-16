@@ -19,7 +19,8 @@
   }
   .row { display: flex; align-items: center; gap: 6px; }
   #exePath { flex: 1; min-width: 120px; }
-  .uid-out { width: 70px; background: var(--panel); }
+  .uid-out { width: 70px; }
+  .uid-out:placeholder-shown { font-style: italic; }
   .db-hint { color: var(--accent); font-size: 12px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
   .status { color: var(--text-muted); font-size: 12px; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   label.lbl { color: var(--text); font-size: 12px; white-space: nowrap; flex: none; }
@@ -58,7 +59,8 @@
     <input type="text" id="targetUser" style="width:110px" />
     <button class="btn" id="btnLookup">Tra u_id</button>
     <label class="lbl">→ u_id:</label>
-    <input type="text" class="uid-out" id="uidOut" readonly />
+    <input type="text" class="uid-out" id="uidOut" placeholder="không lọc" title="u_id dùng làm bộ lọc ApplicationName (= ID) của trace. Sửa / xoá được: để TRỐNG = không lọc theo ID (khi ứng dụng không gắn ApplicationName = u_id), chỉ lọc theo Database." />
+    <button class="btn btn-icon" id="btnClearUid" title="Xoá u_id — trace không lọc theo ID (ApplicationName)">✕</button>
     <button class="btn" id="btnCopyUid">Copy</button>
     <div class="sep"></div>
     <label class="lbl">Lọc DatabaseName gợi ý:</label>
@@ -95,10 +97,16 @@
 
   document.getElementById('btnBrowse').addEventListener('click', () => post({ action: 'browse' }));
   document.getElementById('btnRun').addEventListener('click', () => post({
-    action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template'), targetUser: val('targetUser'), uid: val('uidOut')
+    action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template'), targetUser: val('targetUser'), uid: val('uidOut'), uidManual: uidManual
   }));
   document.getElementById('btnClose').addEventListener('click', () => post({ action: 'close' }));
   document.getElementById('btnLookup').addEventListener('click', () => post({ action: 'lookup-uid', targetUser: val('targetUser') }));
+  // Ô u_id: người dùng tự sửa / xoá (uidManual) thì dùng đúng giá trị đó, trống = không lọc ID; chưa đụng tới thì C# tự tra theo tên user như cũ.
+  // Tra u_id hoặc đổi tên user = quay về tự tra.
+  var uidManual = false;
+  document.getElementById('uidOut').addEventListener('input', function () { uidManual = true; });
+  document.getElementById('targetUser').addEventListener('input', function () { uidManual = false; });
+  document.getElementById('btnClearUid').addEventListener('click', function () { document.getElementById('uidOut').value = ''; uidManual = true; post({ action: 'uid-cleared' }); });
   document.getElementById('btnCopyUid').addEventListener('click', () => post({ action: 'copy', value: val('uidOut') }));
   document.getElementById('btnCopyDb').addEventListener('click', () => post({ action: 'copy', value: document.getElementById('dbHint').textContent }));
   document.getElementById('btnRefreshHint').addEventListener('click', () => post({ action: 'refresh-hint' }));
@@ -128,7 +136,7 @@
     tf.title = cfg.traceFile || '';
   };
   window.setStatus = function (text) { document.getElementById('status').textContent = text || ''; };
-  window.setUid = function (text) { document.getElementById('uidOut').value = text || ''; };
+  window.setUid = function (text) { document.getElementById('uidOut').value = text || ''; uidManual = false; };
   window.setDbHint = function (text) { document.getElementById('dbHint').textContent = text || ''; };
   window.setRunning = function (running) { document.getElementById('btnClose').disabled = !running; };
   window.setTheme = function (isDark) {

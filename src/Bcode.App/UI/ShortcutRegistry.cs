@@ -87,6 +87,7 @@ public static class ShortcutRegistry
             new("project.openMobile", "Mở thư mục Mobile Path của project", "Project & kết nối", ShortcutScope.App, ""),
             new("project.web", "Bung web đăng nhập (Login WLink) của project", "Project & kết nối", ShortcutScope.App, ""),
             new("project.copyInfo", "Copy Project Info (ID, SQL, Web, Program, Source...)", "Project & kết nối", ShortcutScope.App, ""),
+            new("app.openWebConfig", "Open Web.config (mở file web.config của Source Path)", "Project & kết nối", ShortcutScope.App, ""),
             new("app.refreshWebConfig", "Refresh Web.config", "Project & kết nối", ShortcutScope.App, ""),
             new("app.clearStructure", "Clear Structure App", "Project & kết nối", ShortcutScope.App, ""),
             new("app.createMenu", "Create Menu", "Project & kết nối", ShortcutScope.App, ""),

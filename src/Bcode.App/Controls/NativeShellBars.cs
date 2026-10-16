@@ -70,7 +70,7 @@ public sealed class NativeTopBar : Panel
 
     /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | quickaccess | theme | refresh-db.</summary>
     public event Action<string>? Action;
-    public event Action<string>? ToolClicked;      // claude_web / gemini_web
+    public event Action<string>? ToolClicked;      // claude_web / gemini_web / help
     public event Action<string>? ScriptClicked;    // add | view | clear | save | copy
     public event Action<int>? WorkspaceSelected;
     public event Action<bool>? DatabaseSelected;   // true = Sys
@@ -96,6 +96,7 @@ public sealed class NativeTopBar : Panel
         _left.Controls.Add(Btn("Tool mở rộng ▾", "Công cụ mở rộng: Check Include, Tạo báo cáo, Tạo nhanh danh mục", () => Action?.Invoke("ext")));
         _left.Controls.Add(Btn("Claude", "Mở Claude trong một tab", () => ToolClicked?.Invoke("claude_web")));
         _left.Controls.Add(Btn("Gemini", "Mở Gemini trong một tab", () => ToolClicked?.Invoke("gemini_web")));
+        _left.Controls.Add(Btn("Trợ giúp", "Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)", () => ToolClicked?.Invoke("help")));
 
         _ws.SelectionChanged += i => WorkspaceSelected?.Invoke(i);
         _ws.Height = UiTemplate.Dens(26);

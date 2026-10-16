@@ -80,11 +80,17 @@ function detectLanguage(path, content) {
       return ext === '.txt' && window.detectFcodeVariantLanguage
         ? window.detectFcodeVariantLanguage(content)
         : window.FCODE_LANGUAGE_ID;
+    // XML thường (không phải controller FCode): web.config, schema Crystal, file dự án .NET... — tô màu XML của Monaco.
+    case '.config': case '.xsd': case '.xsl': case '.xslt': case '.resx': case '.csproj': case '.props': case '.targets': case '.svg':
+      return 'xml';
     case '.sql': return 'sql';
     case '.js': return 'javascript';
-    case '.aspx': case '.html': return 'html';
+    case '.css': return 'css';
+    case '.aspx': case '.ascx': case '.asmx': case '.master': case '.html': case '.htm': return 'html';
     case '.json': return 'json';
-    default: return 'plaintext';
+    default:
+      // Đuôi lạ mà nội dung là XML (vd Aggregation.v) → vẫn tô màu XML.
+      return content && /^﻿?\s*<(\?xml|!--|[A-Za-z])/.test(content.slice(0, 200)) ? 'xml' : 'plaintext';
   }
 }
 

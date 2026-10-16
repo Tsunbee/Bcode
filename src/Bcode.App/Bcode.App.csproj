@@ -60,6 +60,14 @@
     <Content Include="Templates\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Nội dung tab "Trợ giúp" (Controls/HelpControl.cs + Web/Shell/help.html): bản gốc là tài liệu hướng dẫn
+         sử dụng ở docs/ của repo, chép thành Help\HuongDanSuDung.md cạnh exe — một nguồn cho cả repo lẫn app. -->
+    <Content Include="..\..\docs\HuongDanSuDung.md" Link="Help\HuongDanSuDung.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\docs\images\**" LinkBase="Help\images">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <!-- Embedded so UI/AppIcons.cs can load them at runtime via

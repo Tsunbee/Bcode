@@ -30,6 +30,7 @@ Bcode.App/
 │   ├── FlatTabControl.cs  170
 │   ├── FsgRequirementReportControl.cs  160
 │   ├── GenUpdatePackageControl.cs  443
+│   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  154
 │   ├── IconRailControl.cs  158
 │   ├── IncludeCheckControl.cs  200
@@ -346,6 +347,7 @@ Bcode.App/
 │       ├── fsgreq.html  387
 │       ├── genupdate.html  594
 │       ├── grantsource.html  113
+│       ├── help.html  425
 │       ├── iconrail.html  72
 │       ├── includecheck.html  328
 │       ├── library.html  168

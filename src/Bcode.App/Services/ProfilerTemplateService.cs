@@ -150,7 +150,7 @@ public static class ProfilerTemplateService
     }
 
     /// <summary>Ghi lại template với filter mới (giữ nguyên server, bộ cột, filter loại trừ Profiler).
-    /// Tham số null = giữ filter hiện có. Bản cũ lưu thành "&lt;tên&gt;.tdf.bak" (Profiler chỉ liệt kê *.tdf).</summary>
+    /// Tham số null = giữ filter hiện có, chuỗi rỗng = bỏ filter đó. Bản cũ lưu thành "&lt;tên&gt;.tdf.bak" (Profiler chỉ liệt kê *.tdf).</summary>
     public static bool TryUpdateFilters(string path, string? appLike, string? databaseLike)
     {
         try

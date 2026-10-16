@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Trợ giúp kiểu file CHM: trái = cây tính năng (Nội dung / Chỉ mục / Tìm kiếm), phải = hướng dẫn của tính năng đang chọn.
+     Nội dung đọc từ Help\HuongDanSuDung.md cạnh Bcode.exe (C# gửi xuống qua help.init) — sửa file .md rồi bấm "Tải lại". */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; height: 100vh; margin: 0; overflow: hidden; }
+  header { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; padding: calc(.35rem * var(--dens)) .6rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  header .sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 .3rem; }
+  header .spacer { flex: 1; }
+  .tbtn { font: inherit; color: var(--text); background: transparent; border: var(--bw) solid transparent; border-radius: var(--r); padding: calc(.2rem * var(--dens)) .7rem; cursor: pointer; }
+  .tbtn:hover { background: var(--button-back); border-color: var(--border); }
+  .tbtn.on { background: var(--selection); border-color: var(--border); font-weight: 600; }
+  .tbtn:disabled { opacity: .4; cursor: default; background: transparent; border-color: transparent; }
+  #wrap { flex: 1; min-height: 0; display: flex; }
+  aside { flex: none; width: 19rem; min-width: 11rem; max-width: 60vw; display: flex; flex-direction: column; background: var(--panel-alt); border-right: var(--bw) solid var(--border); }
+  .pane { flex: 1; min-height: 0; display: none; flex-direction: column; }
+  .pane.on { display: flex; }
+  .pane .box { flex: none; display: flex; gap: .3rem; padding: .5rem; }
+  .pane .list { flex: 1; min-height: 0; overflow: auto; padding: .2rem 0 1rem; }
+  input[type=text] { font: inherit; color: var(--text); background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .6rem; flex: 1; min-width: 0; }
+  #split { flex: none; width: 5px; cursor: col-resize; margin-left: -3px; z-index: 2; }
+  #split:hover, #split.drag { background: var(--accent); opacity: .5; }
+  /* Cây */
+  .node { display: flex; align-items: center; gap: .3rem; padding: calc(.18rem * var(--dens)) .5rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); border-radius: var(--r-sm); margin: 0 .3rem; }
+  .node:hover { background: var(--button-back); }
+  .node.sel { background: var(--selection); font-weight: 600; }
+  .node .tw { flex: none; width: 1rem; text-align: center; color: var(--text-muted); font-size: .75rem; }
+  .node .ic { flex: none; width: 1.05rem; height: 1.05rem; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; color: var(--on-accent); background: var(--accent); }
+  .node.l1 { font-weight: 600; }
+  .node.l1 .ic { background: color-mix(in srgb, var(--accent) 70%, var(--text)); }
+  .node.l3 .ic { background: transparent; color: var(--text-muted); }
+  .node .t { overflow: hidden; text-overflow: ellipsis; }
+  .kids { display: none; }
+  .kids.open { display: block; }
+  .kids .node { padding-left: 1.4rem; }
+  .kids .kids .node { padding-left: 2.6rem; }
+  .res { padding: .35rem .8rem; cursor: pointer; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+  .res:hover { background: var(--button-back); }
+  .res b { display: block; color: var(--accent); font-weight: 600; }
+  .res span { display: block; color: var(--text-muted); font-size: .85rem; line-height: 1.35; }
+  .empty { color: var(--text-muted); padding: .5rem .8rem; }
+  /* Nội dung */
+  main { flex: 1; min-width: 0; overflow-y: auto; padding: .6rem 1.6rem 3rem; background: var(--panel); }
+  #doc { max-width: 62rem; }
+  #doc h1, #doc h2 { color: var(--accent); margin: .6rem 0 .6rem; padding-bottom: .3rem; border-bottom: 2px solid var(--accent); font-size: 1.3rem; }
+  #doc h3 { color: var(--accent); margin: 1.3rem 0 .4rem; font-size: 1.08rem; border-bottom: 1px solid var(--border); padding-bottom: .2rem; }
+  #doc h4 { margin: 1rem 0 .3rem; font-size: 1rem; }
+  #doc p, #doc li { color: var(--text); line-height: 1.6; }
+  #doc p { margin: .4rem 0; }
+  #doc ul, #doc ol { margin: .3rem 0 .5rem; padding-left: 1.6rem; }
+  #doc li { margin: .15rem 0; }
+  #doc a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  #doc a:hover { text-decoration: underline; }
+  #doc table { border-collapse: collapse; margin: .5rem 0 .8rem; width: 100%; }
+  #doc th { text-align: left; color: var(--text-muted); font-weight: 600; font-size: .88rem; padding: .3rem .6rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  #doc td { padding: calc(.3rem * var(--dens)) .6rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); vertical-align: top; line-height: 1.5; }
+  #doc code { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .9em; background: var(--input); border-radius: 4px; padding: 0 .3rem; }
+  #doc kbd { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .86rem; background: var(--button-back); border: var(--bw) solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 .35rem; white-space: nowrap; }
+  #doc pre { background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .5rem .8rem; overflow-x: auto; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .85rem; }
+  #doc pre code { background: none; padding: 0; }
+  #doc .tip { background: var(--panel-alt); border-left: 3px solid var(--warning); padding: .4rem .9rem; margin: .6rem 0; border-radius: 0 var(--r) var(--r) 0; }
+  #doc .tip p { margin: .2rem 0; }
+  #doc hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+  #doc .crumb { color: var(--text-muted); font-size: .85rem; margin-top: .3rem; }
+  #doc .crumb a { color: var(--text-muted); }
+  #doc .subs { display: flex; flex-wrap: wrap; gap: .3rem .5rem; margin: .2rem 0 .8rem; }
+  #doc .subs a { font-size: .88rem; border: var(--bw) solid var(--border); border-radius: 999px; padding: 0 .6rem; }
+  #doc .flash { animation: flash 1.6s ease-out; }
+  @keyframes flash { 0% { background: color-mix(in srgb, var(--accent) 35%, transparent); } 100% { background: transparent; } }
+  mark { background: color-mix(in srgb, var(--warning) 55%, transparent); color: inherit; border-radius: 2px; }
+  /* Ảnh chụp màn hình: ![Chú thích](images/x.png) — bấm để phóng to. */
+  #doc figure.shot { margin: .7rem 0 1rem; }
+  #doc figure.shot img { display: block; max-width: 100%; min-height: 3rem; border: var(--bw) solid var(--border); border-radius: var(--r); cursor: zoom-in; background: var(--panel-alt); }
+  #doc figure.shot figcaption { color: var(--text-muted); font-size: .85rem; margin-top: .3rem; font-style: italic; }
+  #lightbox { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.78); cursor: zoom-out; padding: 1.5rem; }
+  #lightbox.on { display: flex; }
+  #lightbox img { max-width: 100%; max-height: 100%; box-shadow: 0 6px 30px rgba(0,0,0,.6); border-radius: 4px; }
+</style>
+</head>
+<body data-area="editor">
+<header>
+  <button class="tbtn on" data-pane="toc" title="Cây tính năng">📖 Nội dung</button>
+  <button class="tbtn" data-pane="idx" title="Danh sách mục theo vần A–Z">📑 Chỉ mục</button>
+  <button class="tbtn" data-pane="find" title="Tìm chữ trong toàn bộ hướng dẫn (gõ có hoặc không dấu)">🔍 Tìm kiếm</button>
+  <span class="sep"></span>
+  <button class="tbtn" id="btnBack" title="Lùi (Alt+←)" disabled>◀</button>
+  <button class="tbtn" id="btnFwd" title="Tới (Alt+→)" disabled>▶</button>
+  <span class="spacer"></span>
+  <button class="tbtn" id="btnReload" title="Đọc lại file hướng dẫn (sau khi sửa file .md)">⟳ Tải lại</button>
+  <button class="tbtn" id="btnOpen" title="Mở file HuongDanSuDung.md để xem / bổ sung nội dung">✎ Sửa nội dung</button>
+</header>
+<div id="wrap">
+  <aside id="side">
+    <div class="pane on" id="paneToc"><div class="list" id="toc"></div></div>
+    <div class="pane" id="paneIdx">
+      <div class="box"><input id="idxQ" type="text" placeholder="Gõ từ khoá cần tìm…" spellcheck="false" autocomplete="off"></div>
+      <div class="list" id="idx"></div>
+    </div>
+    <div class="pane" id="paneFind">
+      <div class="box"><input id="findQ" type="text" placeholder="Tìm trong hướng dẫn (vd: write schema, phim tat)…" spellcheck="false" autocomplete="off"></div>
+      <div class="list" id="found"><div class="empty">Gõ chữ cần tìm rồi Enter.</div></div>
+    </div>
+  </aside>
+  <div id="split"></div>
+  <main id="main"><div id="doc"><p class="empty">Đang nạp hướng dẫn…</p></div></main>
+</div>
+<div id="lightbox" title="Bấm hoặc Esc để đóng"><img alt=""></div>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  var post = function (o) { try { window.chrome.webview.postMessage(JSON.stringify(o)); } catch (e) { } };
+
+  // Bỏ dấu từng ký tự (độ dài giữ nguyên) để tìm "phim tat" ra "phím tắt" và tô đúng vị trí.
+  function foldCh(c) { if (c === 'đ' || c === 'Đ') return 'd'; var f = c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); return f.length === 1 ? f : c.toLowerCase(); }
+  function fold(s) { var o = ''; for (var i = 0; i < s.length; i++) o += foldCh(s[i]); return o; }
+
+  // ---- Đọc file Markdown thành các mục -------------------------------------------------------------
+  // # = phần (Bcode / BcodeViewer), ## = tính năng (một trang), ### = mục con trong trang.
+  // Dòng <a id="..."></a> ngay trên tiêu đề đặt id cho tiêu đề đó (C# mở đúng mục theo id; link [x](#id) trong bài cũng dùng id này).
+  var parts = [], topics = [], byId = {}, heads = [];
+  function parse(md) {
+    parts = []; topics = []; byId = {}; heads = [];
+    var lines = md.replace(/\r\n?/g, '\n').split('\n');
+    var curPart = null, curTopic = null, pendingId = null, inFence = false, auto = 0;
+    function newTopic(title, id, part, level) {
+      var t = { id: id, title: title, part: part, level: level, lines: [], subs: [] };
+      topics.push(t); byId[id] = t; return t;
+    }
+    for (var i = 0; i < lines.length; i++) {
+      var ln = lines[i];
+      if (/^\s*```/.test(ln)) inFence = !inFence;
+      if (!inFence) {
+        var a = /^\s*<a\s+(?:id|name)="([^"]+)"\s*><\/a>\s*$/.exec(ln);
+        if (a) { pendingId = a[1]; continue; }
+        var h = /^(#{1,3})\s+(.+?)\s*#*\s*$/.exec(ln);
+        if (h) {
+          var lv = h[1].length, title = h[2], id = pendingId || ('muc-' + (++auto));
+          pendingId = null;
+          if (lv === 1) {
+            curPart = { id: id, title: title, topics: [] }; parts.push(curPart);
+            curTopic = newTopic(title, id, curPart, 1); curPart.intro = curTopic;
+            heads.push({ id: id, title: title, topic: curTopic });
+            continue;
+          }
+          if (lv === 2) {
+            if (!curPart) { curPart = { id: 'phan-0', title: 'Hướng dẫn', topics: [] }; parts.push(curPart); }
+            curTopic = newTopic(title, id, curPart, 2); curPart.topics.push(curTopic);
+            heads.push({ id: id, title: title, topic: curTopic });
+            continue;
+          }
+          if (curTopic) { curTopic.subs.push({ id: id, title: title }); byId[id] = curTopic; heads.push({ id: id, title: title, topic: curTopic, sub: true }); }
+          if (curTopic) curTopic.lines.push('<a id="' + id + '"></a>');
+          if (curTopic) curTopic.lines.push(ln);
+          continue;
+        }
+      }
+      if (curTopic) curTopic.lines.push(ln);
+    }
+    topics.forEach(function (t) { t.md = t.lines.join('\n'); t.plain = t.md.replace(/<[^>]+>/g, ' ').replace(/[`*_|>#\[\]]/g, ' '); t.fplain = fold(t.title + ' ' + t.plain); });
+  }
+
+  // ---- Markdown → HTML (đủ dùng cho tài liệu: tiêu đề, đoạn, danh sách lồng, bảng, code, ghi chú >) -------------------
+  var KEY_RE = /^(Ctrl|Alt|Shift|Win|F\d{1,2}|Tab|Enter|Esc|Insert|Delete|Del|Home|End|PageUp|PageDown|Space|Backspace)(\s*[+\/]\s*\S+)*$/i;
+  function inline(s) {
+    var codes = [];
+    s = s.replace(/`([^`]+)`/g, function (_, c) { codes.push(c); return '\u0001' + (codes.length - 1) + '\u0002'; });
+    s = esc(s);
+    // Chỉ **đậm** (không dùng *nghiêng*: dễ nhầm với mẫu tên file như *.rpt, *.xlsx).
+    s = s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, function (_, alt, src) { return '<img class="inl" data-src="' + src + '" alt="' + alt + '">'; });
+    s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, function (_, t, href) { return '<a data-href="' + href + '">' + t + '</a>'; });
+    s = s.replace(/&lt;br\s*\/?&gt;/g, '<br>');
+    s = s.replace(/\u0001(\d+)\u0002/g, function (_, n) {
+      var c = codes[+n];
+      return KEY_RE.test(c.trim()) ? '<kbd>' + esc(c) + '</kbd>' : '<code>' + esc(c) + '</code>';
+    });
+    return s;
+  }
+  function splitRow(r) { r = r.trim(); if (r[0] === '|') r = r.slice(1); if (r[r.length - 1] === '|') r = r.slice(0, -1); return r.split(/(?<!\\)\|/).map(function (c) { return c.replace(/\\\|/g, '|').trim(); }); }
+  function render(md) {
+    var lines = md.split('\n'), out = [], i = 0;
+    while (i < lines.length) {
+      var ln = lines[i];
+      if (/^\s*```/.test(ln)) {
+        var buf = []; i++;
+        while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++]);
+        i++; out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>'); continue;
+      }
+      if (/^\s*<a id="[^"]+"><\/a>\s*$/.test(ln)) { out.push(ln.trim()); i++; continue; }
+      var im = /^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/.exec(ln);
+      if (im) { out.push('<figure class="shot"><img data-src="' + esc(im[2]) + '" alt="' + esc(im[1]) + '">' + (im[1] ? '<figcaption>' + inline(im[1]) + '</figcaption>' : '') + '</figure>'); i++; continue; }
+      var h = /^(#{3,6})\s+(.+)$/.exec(ln);
+      if (h) { var lv = Math.min(h[1].length, 4); out.push('<h' + lv + '>' + inline(h[2]) + '</h' + lv + '>'); i++; continue; }
+      if (/^\s*(-{3,}|\*{3,})\s*$/.test(ln)) { out.push('<hr>'); i++; continue; }
+      if (/^\s*\|/.test(ln) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+        var head = splitRow(ln); i += 2;
+        var html = '<table><thead><tr>' + head.map(function (c) { return '<th>' + inline(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
+        while (i < lines.length && /^\s*\|/.test(lines[i])) { html += '<tr>' + splitRow(lines[i++]).map(function (c) { return '<td>' + inline(c) + '</td>'; }).join('') + '</tr>'; }
+        out.push(html + '</tbody></table>'); continue;
+      }
+      if (/^\s*>/.test(ln)) {
+        var q = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) q.push(lines[i++].replace(/^\s*>\s?/, ''));
+        out.push('<div class="tip">' + render(q.join('\n')) + '</div>'); continue;
+      }
+      if (/^\s*([-*+]|\d+[.)])\s+/.test(ln)) { var r = list(lines, i); out.push(r.html); i = r.next; continue; }
+      if (!ln.trim()) { i++; continue; }
+      var p = [];
+      while (i < lines.length && lines[i].trim() && !/^\s*(```|#{1,6}\s|\||>|([-*+]|\d+[.)])\s+|<a id=|!\[)/.test(lines[i])) p.push(lines[i++].trim());
+      if (!p.length) { p.push(lines[i++].trim()); }
+      out.push('<p>' + inline(p.join(' ')) + '</p>');
+    }
+    return out.join('\n');
+  }
+  // Danh sách lồng theo thụt lề; dòng thụt vào không có dấu đầu dòng = nối tiếp mục trước.
+  function list(lines, i) {
+    var m0 = /^(\s*)([-*+]|\d+[.)])\s+/.exec(lines[i]), base = m0[1].length, ordered = /\d/.test(m0[2]);
+    var html = ordered ? '<ol>' : '<ul>', item = null;
+    function flush() { if (item !== null) { html += '<li>' + inline(item.text) + (item.kids || '') + '</li>'; item = null; } }
+    while (i < lines.length) {
+      var ln = lines[i];
+      if (!ln.trim()) { if (i + 1 < lines.length && /^\s+\S/.test(lines[i + 1]) && (/^(\s*)/.exec(lines[i + 1])[1].length > base)) { i++; continue; } break; }
+      var m = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(ln), ind = /^(\s*)/.exec(ln)[1].length;
+      if (m && ind === base) { flush(); item = { text: m[3], kids: '' }; i++; continue; }
+      if (m && ind > base && item) { var r = list(lines, i); item.kids += r.html; i = r.next; continue; }
+      if (!m && ind > base && item) {
+        if (/^\s*```/.test(ln)) { var buf = []; i++; while (i < lines.length && !/^\s*```/.test(lines[i])) buf.push(lines[i++].replace(new RegExp('^\\s{0,' + (ind) + '}'), '')); i++; item.kids += '<pre><code>' + esc(buf.join('\n')) + '</code></pre>'; continue; }
+        if (/^\s*>/.test(ln)) { var q = []; while (i < lines.length && /^\s*>/.test(lines[i])) q.push(lines[i++].replace(/^\s*>\s?/, '')); item.kids += '<div class="tip">' + render(q.join('\n')) + '</div>'; continue; }
+        item.text += ' ' + ln.trim(); i++; continue;
+      }
+      break;
+    }
+    flush();
+    return { html: html + (ordered ? '</ol>' : '</ul>'), next: i };
+  }
+
+  // ---- Cây Nội dung / Chỉ mục / Tìm kiếm -------------------------------------------------------------
+  var curId = null, back = [], fwd = [], marks = [];
+  function buildToc() {
+    var h = '';
+    parts.forEach(function (p, pi) {
+      h += '<div class="node l1" data-id="' + esc(p.id) + '" data-part="' + pi + '"><span class="tw">' + (p.topics.length ? '▸' : '') + '</span><span class="ic">◆</span><span class="t">' + esc(p.title) + '</span></div>';
+      h += '<div class="kids" data-kids="' + pi + '">';
+      p.topics.forEach(function (t) {
+        h += '<div class="node l2" data-id="' + esc(t.id) + '"><span class="tw">' + (t.subs.length ? '▸' : '') + '</span><span class="ic">?</span><span class="t">' + esc(t.title) + '</span></div>';
+        if (t.subs.length) {
+          h += '<div class="kids">';
+          t.subs.forEach(function (s) { h += '<div class="node l3" data-id="' + esc(s.id) + '"><span class="tw"></span><span class="ic">•</span><span class="t">' + esc(s.title) + '</span></div>'; });
+          h += '</div>';
+        }
+      });
+      h += '</div>';
+    });
+    $('toc').innerHTML = h || '<div class="empty">Chưa có nội dung.</div>';
+    var first = $('toc').querySelector('.kids'); if (first) { first.classList.add('open'); first.previousElementSibling.querySelector('.tw').textContent = '▾'; }
+  }
+  $('toc').addEventListener('click', function (e) {
+    var n = e.target.closest('.node'); if (!n) return;
+    var kids = n.nextElementSibling && n.nextElementSibling.classList.contains('kids') ? n.nextElementSibling : null;
+    if (kids && (e.target.classList.contains('tw') || n.classList.contains('sel') || n.classList.contains('l1'))) {
+      var open = kids.classList.toggle('open');
+      n.querySelector('.tw').textContent = open ? '▾' : '▸';
+      if (e.target.classList.contains('tw')) return;
+    }
+    go(n.getAttribute('data-id'));
+  });
+  function syncToc(id) {
+    $('toc').querySelectorAll('.node.sel').forEach(function (n) { n.classList.remove('sel'); });
+    var n = $('toc').querySelector('.node[data-id="' + CSS.escape(id) + '"]'); if (!n) return;
+    n.classList.add('sel');
+    for (var k = n.parentElement; k && k !== $('toc'); k = k.parentElement)
+      if (k.classList.contains('kids')) { k.classList.add('open'); var tw = k.previousElementSibling && k.previousElementSibling.querySelector('.tw'); if (tw) tw.textContent = '▾'; }
+    var kids = n.nextElementSibling; if (kids && kids.classList.contains('kids') && !kids.classList.contains('open')) { kids.classList.add('open'); n.querySelector('.tw').textContent = '▾'; }
+    n.scrollIntoView({ block: 'nearest' });
+  }
+  function buildIdx() {
+    var q = fold($('idxQ').value.trim());
+    var items = heads.filter(function (h) { return h.topic.level > 1 || h.topic.md.trim(); })
+      .map(function (h) { return { id: h.id, title: h.title.replace(/^[\dIVX]+[.)]\s*(\d+[.)]\s*)*/, ''), where: h.sub ? h.topic.title : h.topic.part.title }; })
+      .filter(function (x) { return !q || fold(x.title + ' ' + x.where).indexOf(q) >= 0; })
+      .sort(function (a, b) { return a.title.localeCompare(b.title, 'vi'); });
+    $('idx').innerHTML = items.length ? items.map(function (x) { return '<div class="res" data-id="' + esc(x.id) + '"><b>' + esc(x.title) + '</b><span>' + esc(x.where) + '</span></div>'; }).join('') : '<div class="empty">Không có mục nào khớp.</div>';
+  }
+  function find() {
+    var raw = $('findQ').value.trim(); marks = [];
+    if (!raw) { $('found').innerHTML = '<div class="empty">Gõ chữ cần tìm rồi Enter.</div>'; return; }
+    var words = fold(raw).split(/\s+/).filter(Boolean); marks = words;
+    var res = [];
+    topics.forEach(function (t) {
+      if (!t.md.trim() && t.level === 1) return;
+      var score = 0, ok = words.every(function (w) { var n = t.fplain.split(w).length - 1; score += n + (fold(t.title).indexOf(w) >= 0 ? 20 : 0); return n > 0; });
+      if (!ok) return;
+      var pos = t.fplain.indexOf(words[0]), src = t.title + ' ' + t.plain, from = Math.max(0, pos - 50);
+      res.push({ t: t, score: score, snip: (from > 0 ? '…' : '') + src.slice(from, pos + 110).replace(/\s+/g, ' ') + '…' });
+    });
+    res.sort(function (a, b) { return b.score - a.score; });
+    $('found').innerHTML = res.length ? res.map(function (r) { return '<div class="res" data-id="' + esc(r.t.id) + '"><b>' + esc(r.t.title) + '</b><span>' + esc(r.snip) + '</span></div>'; }).join('') : '<div class="empty">Không tìm thấy "' + esc(raw) + '".</div>';
+  }
+  $('idx').addEventListener('click', function (e) { var r = e.target.closest('.res'); if (r) go(r.getAttribute('data-id')); });
+  $('found').addEventListener('click', function (e) { var r = e.target.closest('.res'); if (r) go(r.getAttribute('data-id'), { mark: true }); });
+  $('idxQ').addEventListener('input', buildIdx);
+  $('findQ').addEventListener('keydown', function (e) { if (e.key === 'Enter') find(); });
+  var findTimer = 0; $('findQ').addEventListener('input', function () { clearTimeout(findTimer); findTimer = setTimeout(find, 250); });
+
+  function setPane(name) {
+    document.querySelectorAll('[data-pane]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-pane') === name); });
+    $('paneToc').classList.toggle('on', name === 'toc'); $('paneIdx').classList.toggle('on', name === 'idx'); $('paneFind').classList.toggle('on', name === 'find');
+    if (name === 'idx') { buildIdx(); $('idxQ').focus(); }
+    if (name === 'find') $('findQ').focus();
+    if (name === 'toc' && curId) syncToc(curId);
+  }
+  document.querySelectorAll('[data-pane]').forEach(function (b) { b.addEventListener('click', function () { setPane(b.getAttribute('data-pane')); }); });
+
+  // ---- Hiển thị một tính năng -----------------------------------------------------------------------
+  function show(id, opt) {
+    opt = opt || {};
+    var t = byId[id] || topics.filter(function (x) { return x.level === 2; })[0] || topics[0];
+    if (!t) return;
+    var h = '<div class="crumb">' + esc(t.part.title) + (t.level === 2 ? ' › ' + esc(t.title) : '') + '</div>';
+    h += t.level === 1 ? '<h1>' + inline(t.title) + '</h1>' : '<h2>' + inline(t.title) + '</h2>';
+    if (t.subs.length > 1) h += '<div class="subs">' + t.subs.map(function (s) { return '<a data-href="#' + esc(s.id) + '">' + esc(s.title) + '</a>'; }).join('') + '</div>';
+    h += render(t.md);
+    if (t.level === 1 && t.part.topics.length) h += '<ul>' + t.part.topics.map(function (x) { return '<li><a data-href="#' + esc(x.id) + '">' + esc(x.title) + '</a></li>'; }).join('') + '</ul>';
+    $('doc').innerHTML = h;
+    loadImages();
+    if (opt.mark && marks.length) highlight($('doc'), marks);
+    var target = id !== t.id ? $('doc').querySelector('a[id="' + CSS.escape(id) + '"]') : null;
+    if (target) { var hd = target.nextElementSibling || target; hd.scrollIntoView({ block: 'start' }); hd.classList.add('flash'); }
+    else if (opt.mark && $('doc').querySelector('mark')) $('doc').querySelector('mark').scrollIntoView({ block: 'center' });
+    else $('main').scrollTop = 0;
+    curId = id; syncToc(id);
+    $('btnBack').disabled = !back.length; $('btnFwd').disabled = !fwd.length;
+  }
+  function go(id, opt) {
+    if (!id) return;
+    if (curId && curId !== id) { back.push(curId); fwd = []; }
+    show(id, opt);
+  }
+  function highlight(root, words) {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null), nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function (n) {
+      var txt = n.nodeValue, f = fold(txt), hits = [];
+      words.forEach(function (w) { var p = 0; while ((p = f.indexOf(w, p)) >= 0) { hits.push([p, p + w.length]); p += w.length; } });
+      if (!hits.length) return;
+      hits.sort(function (a, b) { return a[0] - b[0]; });
+      var frag = document.createDocumentFragment(), last = 0;
+      hits.forEach(function (hh) { if (hh[0] < last) return; frag.appendChild(document.createTextNode(txt.slice(last, hh[0]))); var m = document.createElement('mark'); m.textContent = txt.slice(hh[0], hh[1]); frag.appendChild(m); last = hh[1]; });
+      frag.appendChild(document.createTextNode(txt.slice(last)));
+      n.parentNode.replaceChild(frag, n);
+    });
+  }
+  // Ảnh nằm trong Help\images cạnh exe: trang xin C# đọc từng ảnh khi bài được mở (help.img trả data URL), nhớ lại cho lần sau.
+  // Chạy ngoài Bcode (xem thử trong trình duyệt) thì dùng thẳng đường dẫn tương đối.
+  var imgCache = {};
+  function loadImages() {
+    $('doc').querySelectorAll('img[data-src]').forEach(function (img) {
+      var src = img.getAttribute('data-src');
+      if (imgCache[src]) { img.src = imgCache[src]; return; }
+      if (window.chrome && window.chrome.webview) post({ action: 'img', src: src });
+      else img.src = src;
+    });
+  }
+  $('doc').addEventListener('click', function (e) {
+    var im = e.target.closest('img[src]');
+    if (im) { $('lightbox').querySelector('img').src = im.src; $('lightbox').classList.add('on'); return; }
+    var a = e.target.closest('a[data-href]'); if (!a) return;
+    var href = a.getAttribute('data-href');
+    if (href[0] === '#') go(href.slice(1));
+    else if (/^https?:/i.test(href)) post({ action: 'open-url', url: href });
+  });
+  $('btnBack').addEventListener('click', function () { if (!back.length) return; fwd.push(curId); show(back.pop()); });
+  $('btnFwd').addEventListener('click', function () { if (!fwd.length) return; back.push(curId); show(fwd.pop()); });
+  $('btnReload').addEventListener('click', function () { post({ action: 'reload' }); });
+  $('btnOpen').addEventListener('click', function () { post({ action: 'open-file' }); });
+  $('lightbox').addEventListener('click', function () { $('lightbox').classList.remove('on'); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $('lightbox').classList.contains('on')) { $('lightbox').classList.remove('on'); return; }
+    if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); $('btnBack').click(); }
+    else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); $('btnFwd').click(); }
+    else if (e.ctrlKey && !e.shiftKey && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); setPane('find'); $('findQ').select(); }
+  });
+
+  // Kéo đổi rộng cột trái (nhớ theo máy).
+  (function () {
+    var side = $('side'), sp = $('split'), drag = false;
+    try { var w = localStorage.getItem('help.sideWidth'); if (w) side.style.width = w; } catch (e) { }
+    sp.addEventListener('mousedown', function (e) { drag = true; sp.classList.add('drag'); e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) { if (drag) side.style.width = Math.max(160, Math.min(window.innerWidth * 0.6, e.clientX)) + 'px'; });
+    document.addEventListener('mouseup', function () { if (!drag) return; drag = false; sp.classList.remove('drag'); try { localStorage.setItem('help.sideWidth', side.style.width); } catch (e) { } });
+  })();
+
+  // ---- C# gọi xuống ----------------------------------------------------------------------------------
+  window.help = {
+    // data: { md, topic, error }
+    init: function (data) {
+      if (data.error) { $('doc').innerHTML = '<div class="tip"><p>' + esc(data.error) + '</p></div>'; $('toc').innerHTML = ''; return; }
+      var keep = curId;
+      parse(data.md || '');
+      buildToc();
+      if ($('paneIdx').classList.contains('on')) buildIdx();
+      show(data.topic || keep || null);
+    },
+    show: function (topic) { go(topic || curId); },
+    // Ảnh C# đọc xong (dataUrl rỗng = không đọc được → hiện chữ chú thích thay ảnh).
+    img: function (src, dataUrl) {
+      if (dataUrl) imgCache[src] = dataUrl;
+      $('doc').querySelectorAll('img[data-src]').forEach(function (img) {
+        if (img.getAttribute('data-src') !== src) return;
+        if (dataUrl) img.src = dataUrl; else { img.alt = '(thiếu ảnh ' + src + ')'; img.style.cursor = 'default'; }
+      });
+    }
+  };
+  post({ action: 'ready' });
+})();
+</script>
+</body>
+</html>

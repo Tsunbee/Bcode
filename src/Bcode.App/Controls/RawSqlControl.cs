@@ -1322,6 +1322,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         if (!_deferTables) _ = LoadTablesForEditorAsync();
     }
 
+    public void RefreshSchema()
+    {
+        lock (_schemaCache) _schemaCache.Clear();   // cấu trúc bảng gửi cho AI
+        if (_deferTables || !_editorReady) return;   // tab dựng sẵn / editor chưa sẵn sàng: lúc dùng sẽ tự nạp
+        PostToEditorUi(() => { if (EdAlive) _ = EdExec("window.BcodeHints && (BcodeHints.cols = {});"); });   // cột đã hỏi trong trang
+        _ = LoadTablesForEditorAsync();   // danh sách bảng + chữ ký procedure/function
+    }
+
     private void PushDatabaseToBar()
     {
         if (!BarAlive) return;
@@ -2089,6 +2097,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     private async Task WriteSchemaAsync()
     {
         var script = await GetScriptTextAsync();
+        await Task.Yield(); // thoát hẳn khỏi callback của WebView2 trước khi mở hộp RptSchemaForm (WebView2 mới) — không thì trang trắng
         var status = Bcode.App.Services.Rpt.XsdSchemaWriter.SaveWithDialog(this, _lastResultSchema, script, _service.Connections.Current?.SourcePath);
         if (status is null) return;
         _statusLabel.ForeColor = Color.DarkGreen;

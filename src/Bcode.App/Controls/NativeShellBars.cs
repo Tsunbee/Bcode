@@ -68,7 +68,7 @@ public sealed class NativeTopBar : Panel
     private string _sysName = "", _appName = "";
     private bool _sysView;
 
-    /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | quickaccess | theme.</summary>
+    /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | quickaccess | theme | refresh-db.</summary>
     public event Action<string>? Action;
     public event Action<string>? ToolClicked;      // claude_web / gemini_web
     public event Action<string>? ScriptClicked;    // add | view | clear | save | copy
@@ -99,12 +99,14 @@ public sealed class NativeTopBar : Panel
 
         _ws.SelectionChanged += i => WorkspaceSelected?.Invoke(i);
         _ws.Height = UiTemplate.Dens(26);
-        _ws.Margin = new Padding(0, 0, 6, 0);
+        _ws.Margin = new Padding(0, 0, 3, 0);
+        var refresh = Btn("", "Refresh database — nạp lại danh sách object / bảng / cột của project hiện tại", () => Action?.Invoke("refresh-db"), icon: IconGlyph.Refresh, width: 30);
+        refresh.Margin = new Padding(0, 0, 6, 0);
         _sys = Btn("Sys", null, () => { _sysView = true; RenderDb(); DatabaseSelected?.Invoke(true); });
         _app = Btn("App", null, () => { _sysView = false; RenderDb(); DatabaseSelected?.Invoke(false); });
         _theme = Btn("", "Đổi giao diện sáng/tối", () => Action?.Invoke("theme"), icon: AppColors.IsDark ? IconGlyph.Moon : IconGlyph.Sun, width: 30);
         var quick = Btn("Quick Access", "Chọn tính năng hiển thị trên toolbar", () => Action?.Invoke("quickaccess"), icon: IconGlyph.Star, primary: true, pill: true);
-        foreach (var c in new Control[] { new MutedLabel { Text = "WS:", AutoSize = true, Margin = new Padding(0, 8, 2, 0), BackColor = Color.Transparent }, _ws, _sys, _app, _dbName, _theme, quick })
+        foreach (var c in new Control[] { new MutedLabel { Text = "WS:", AutoSize = true, Margin = new Padding(0, 8, 2, 0), BackColor = Color.Transparent }, _ws, refresh, _sys, _app, _dbName, _theme, quick })
             _right.Controls.Add(c);
 
         Controls.Add(_left);

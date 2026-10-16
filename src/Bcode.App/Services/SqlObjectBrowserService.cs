@@ -149,6 +149,13 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
         catch { /* không lưu được cache thì lần sau nạp lại */ }
     }
 
+    /// <summary>Xoá cache danh sách object của database (nút Refresh database) — lần nạp sau hỏi lại database.</summary>
+    public void DeleteCache(bool useSys)
+    {
+        try { File.Delete(CachePath(useSys)); }
+        catch { /* chưa chọn workspace / file đang bận — lần sau so chữ ký như thường */ }
+    }
+
     /// <summary>Trong số <paramref name="names"/>, những table có thật trong database (schema bất kỳ) và số dòng ước tính (từ sys.partitions — không đếm thật nên rất nhanh).</summary>
     public async Task<Dictionary<string, long>> GetTableRowCountsAsync(bool useSysDatabase, IReadOnlyCollection<string> names)
     {

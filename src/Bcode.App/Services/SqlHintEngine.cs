@@ -63,6 +63,12 @@ public sealed class SqlHintEngine
         if (userJson != _userJson) { _userJson = userJson; e.Execute("BcodeHints.user = " + (userJson.Length == 0 ? "[]" : userJson) + ";"); }
     }
 
+    /// <summary>Nút Refresh database: lần hỏi sau nạp lại chữ ký procedure/function và xoá bộ nhớ đệm cột (như khi đổi database).</summary>
+    public void Invalidate()
+    {
+        lock (_gate) _routinesKey = "";
+    }
+
     /// <summary>Hỏi tất cả provider tại vị trí <paramref name="offset"/> (ký tự) của <paramref name="text"/> (đã Normalize). Chạy đồng bộ — gọi trong Task.Run.</summary>
     public List<HintItem> Complete(string text, int offset, string key, string routinesJson, IReadOnlyList<string> dbTables, string userJson, Func<string, string> columns)
     {

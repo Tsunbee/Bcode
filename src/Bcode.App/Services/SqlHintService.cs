@@ -182,6 +182,15 @@ WHERE o.type IN ('P','FN','IF','TF') AND o.is_ms_shipped = 0 AND m.definition IS
         return result;
     }
 
+    /// <summary>Bỏ dữ liệu gợi ý đã lưu (bộ nhớ + đĩa) của database đang chọn — nút Refresh database; lần gợi ý sau nạp lại từ database.</summary>
+    public void Forget(bool sys)
+    {
+        var stamp = _connections.CurrentStamp(sys);
+        if (stamp.Length == 0) return;
+        Memory.TryRemove(stamp, out _);
+        try { File.Delete(CachePath(stamp)); } catch { /* file đang bận — lần sau so chữ ký như thường */ }
+    }
+
     private (string Signature, string Json)? ReadDisk(string stamp)
     {
         try

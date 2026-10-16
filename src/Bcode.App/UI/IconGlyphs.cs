@@ -12,6 +12,7 @@ public enum IconGlyph
     Moon,       // Dark theme
     Star,       // Quick Access
     Plus,       // generic "add"
+    Refresh,    // Refresh database — vòng cung có mũi tên
 }
 
 /// <summary>
@@ -52,6 +53,7 @@ public static class IconGlyphs
             case IconGlyph.Moon: DrawMoon(g, brush, backColor, box); break;
             case IconGlyph.Star: DrawStar(g, brush, box); break;
             case IconGlyph.Plus: DrawPlus(g, pen, box); break;
+            case IconGlyph.Refresh: DrawRefresh(g, pen, brush, box); break;
         }
 
         g.SmoothingMode = oldSmoothing;
@@ -156,6 +158,27 @@ public static class IconGlyphs
             points[i] = new PointF(cx + (float)Math.Cos(angle) * r, cy + (float)Math.Sin(angle) * r);
         }
         g.FillPolygon(brush, points);
+    }
+
+    private static void DrawRefresh(Graphics g, Pen pen, Brush brush, Rectangle box)
+    {
+        // Vòng cung 280° theo chiều kim đồng hồ (hở ở phía trên), mũi tên tam giác ở cuối cung chỉ tiếp theo chiều quay — dáng ↻.
+        const float start = -50f, sweep = 280f;
+        g.DrawArc(pen, box, start, sweep);
+        var cx = box.X + box.Width / 2f;
+        var cy = box.Y + box.Height / 2f;
+        var r = box.Width / 2f;
+        var a = (start + sweep) * Math.PI / 180;
+        float cos = (float)Math.Cos(a), sin = (float)Math.Sin(a);
+        var end = new PointF(cx + cos * r, cy + sin * r);
+        float tx = -sin, ty = cos;                         // tiếp tuyến theo chiều kim đồng hồ (trục y hướng xuống)
+        var h = Math.Max(3f, box.Width * 0.38f);
+        g.FillPolygon(brush, new[]
+        {
+            new PointF(end.X + tx * h * 0.7f, end.Y + ty * h * 0.7f),
+            new PointF(end.X + cos * h * 0.55f, end.Y + sin * h * 0.55f),
+            new PointF(end.X - cos * h * 0.55f, end.Y - sin * h * 0.55f),
+        });
     }
 
     private static void DrawPlus(Graphics g, Pen pen, Rectangle box)

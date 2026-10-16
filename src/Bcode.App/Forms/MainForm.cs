@@ -558,6 +558,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 ApplyActiveDatabase(which == "sys");
                 BeginInvoke(new Action(RestoreContentFocus));
                 break;
+            case "refresh-db":
+                _ = RefreshDatabaseAsync();
+                BeginInvoke(new Action(RestoreContentFocus));
+                break;
             case "actions":
             case "show-actions-menu":
                 if (WebMenu.JustDismissed) break; // bấm lần nữa vào nút Actions để đóng menu đang mở
@@ -622,6 +626,31 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             frc?.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"));
         }
         Bcode.App.UI.ThemeManager.LogTiming($"Đổi project → {ws.Name}: phần đồng bộ trên UI {swSwitch.ElapsedMilliseconds} ms (WCommand bắt đầu {tWc - syncBefore}, SQL Object bắt đầu {tSql - tWc}, File Lookup/Reference {swSwitch.ElapsedMilliseconds - tSql})");
+    }
+
+    /// <summary>Nút ⟳ cạnh WS (phím db.refresh): nạp lại dự án hiện tại từ database — bỏ cache danh sách SQL Object (App + Sys), dữ liệu gợi ý code
+    /// (bảng / cột / chữ ký procedure) và danh sách tên bảng của các tab Table đang mở, rồi nạp lại cây SQL Object ngay.</summary>
+    private async Task RefreshDatabaseAsync()
+    {
+        if (_connections.Current is not { } ws) { PushStatus("Chưa chọn workspace — chọn project trước khi Refresh database."); return; }
+        var hints = new SqlHintService(_connections);
+        hints.Forget(false);
+        hints.Forget(true);
+        SqlHintEngine.Shared.Invalidate();
+        foreach (TabPage p in _documentTabs.TabPages)
+        {
+            foreach (var sql in p.Controls.OfType<ISqlTab>()) if (!sql.IsDisposed) sql.RefreshSchema();
+            foreach (var table in p.Controls.OfType<TableEditControl>()) table.ResetTableNamesCache();
+        }
+        PushStatus($"Refresh database: đang nạp lại danh sách object của {ws.Name}...");
+        try
+        {
+            var count = await _sqlObjectTree.RefreshFromDatabaseAsync();
+            PushStatus(count >= 0
+                ? $"Refresh database: đã nạp lại {count} object — {ws.Name}."
+                : $"Refresh database: đã xoá cache của {ws.Name} — danh sách object sẽ nạp mới khi mở mục SQL Object.");
+        }
+        catch (Exception ex) { PushStatus("Refresh database: không nạp lại được từ database (" + ex.Message + ") — giữ danh sách cũ."); }
     }
 
     /// <summary>Chạy một việc nền và ghi thời gian xong vào log (để biết bước nào làm đổi project lâu).</summary>
@@ -2536,6 +2565,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.customUi": ToggleCustomUi(); return true;
             case "db.app": ApplyActiveDatabase(false); return true;
             case "db.sys": ApplyActiveDatabase(true); return true;
+            case "db.refresh": _ = RefreshDatabaseAsync(); return true;
             case "script.add": AddScript(); return true;
             case "script.view": ViewScriptCart(); return true;
             case "script.clear": _scriptFileService.ClearCart(); return true;

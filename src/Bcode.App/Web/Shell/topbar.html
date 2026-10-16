@@ -58,6 +58,7 @@
   <div class="ws-group">
     <span class="muted">WS:</span>
     <select id="wsSelect"></select>
+    <button class="btn btn-icon" id="btnRefreshDb" title="Refresh database — nạp lại danh sách object / bảng / cột của project hiện tại"><span class="icon icon-refresh"></span></button>
   </div>
   <div class="ws-group" id="dbGroup">
     <button class="btn" id="dbToggleSys" data-db="sys">Sys</button>
@@ -93,6 +94,7 @@
   document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => post({ action: 'tool', key: b.getAttribute('data-tool') })));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
+  document.getElementById('btnRefreshDb').addEventListener('click', () => post({ action: 'refresh-db' }));
   document.getElementById('dbGroup').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-db]');
     if (btn) { _dbView = btn.getAttribute('data-db'); renderDbLabel(); post({ action: 'select-db', which: _dbView }); }

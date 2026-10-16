@@ -195,6 +195,12 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         ReloadNames();
     }
 
+    public void RefreshSchema()
+    {
+        _hints?.ResetCache();
+        ReloadNames();
+    }
+
     private bool _focusPending;
 
     /// <summary>Đưa con trỏ về editor. Gọi khi tab chưa hiện / chưa có handle (vừa mở) thì nhớ lại và focus ngay khi hiện.</summary>

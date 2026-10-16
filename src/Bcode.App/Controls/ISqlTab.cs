@@ -18,6 +18,8 @@ internal interface ISqlTab
     void BeginUse();
     bool UseSysDatabase { get; }
     void SetDatabase(bool useSysDatabase);
+    /// <summary>Nút Refresh database: bỏ danh sách bảng / cột / procedure đã nhớ cho gợi ý code và nạp lại từ database.</summary>
+    void RefreshSchema();
     void FocusEditor();
 
     Task<string> GetScriptTextAsync();

@@ -69,6 +69,7 @@ public static class ShortcutRegistry
             // ---- Database & Script ----
             new("db.app", "Chuyển sang App Data", "Database & Script", ShortcutScope.App, ""),
             new("db.sys", "Chuyển sang Sys Data", "Database & Script", ShortcutScope.App, ""),
+            new("db.refresh", "Refresh database: nạp lại danh sách object / bảng / cột của project (nút ⟳ cạnh WS)", "Database & Script", ShortcutScope.App, ""),
             new("script.add", "Add Script (thêm vào giỏ script)", "Database & Script", ShortcutScope.App, "Ctrl+Alt+Shift+A"),
             new("script.view", "View Script Cart (xem giỏ script)", "Database & Script", ShortcutScope.App, "Ctrl+Alt+Shift+V"),
             new("script.clear", "Clear Script (xoá giỏ script)", "Database & Script", ShortcutScope.App, ""),

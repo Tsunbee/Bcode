@@ -198,6 +198,10 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus {
 .icon-theme { border-radius: 50%; background: currentColor; overflow: visible; }
 .icon-theme.dark::after { content: ''; position: absolute; right: -4px; top: -3px; width: 14px; height: 14px; border-radius: 50%; background: var(--panel-alt); }
 
+/* Refresh (↻): vòng tròn hở phần trên + mũi tên tam giác ở đầu cung bên trái chỉ theo chiều kim đồng hồ — như IconGlyph.Refresh. */
+.icon-refresh { box-sizing: border-box; border: 1.8px solid currentColor; border-top-color: transparent; border-radius: 50%; overflow: visible; }
+.icon-refresh::after { content: ''; position: absolute; left: 0; top: -2px; border-style: solid; border-width: 3.5px 0 3.5px 5px; border-color: transparent transparent transparent currentColor; transform: rotate(-45deg); }
+
 .icon-star { background: currentColor; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
 
 /* ---- Toggle buttons (checkable — Suggest Param/Caret, Reset Connection, Result Tab,

@@ -943,6 +943,9 @@ public class TableEditControl : UserControl
     // Gợi ý tên bảng cho ô "Table"
     // ------------------------------------------------------------------------------------
 
+    /// <summary>Nút Refresh database: quên danh sách tên bảng đã nạp cho ô "Table" — lần gõ sau hỏi lại database.</summary>
+    public void ResetTableNamesCache() => _tableNamesCache.Clear();
+
     private Task<List<string>> GetTableNamesAsync(int dbIndex)
     {
         if (!_tableNamesCache.TryGetValue(dbIndex, out var task) || task.IsFaulted || task.IsCanceled)

@@ -126,6 +126,9 @@ internal sealed class NativeSqlHints : IDisposable
 
     private string Key() => (_hasConnection() ? "ws" : "none") + (_useSys() ? "|sys" : "|app") + "|" + _objects.Connections.CurrentStamp(_useSys());
 
+    /// <summary>Nút Refresh database: quên chữ ký procedure/function đã nạp — lần gợi ý sau hỏi lại (SqlHintService đã bỏ cache chung).</summary>
+    public void ResetCache() => _routines.Clear();
+
     private async Task<string> RoutinesAsync(bool sys)
     {
         var key = Key();

@@ -1102,7 +1102,7 @@ public class TableEditControl : UserControl
         }
         _tableInputText = name;
         BarSetTable(name);
-        ReloadFromBar(); // chọn gợi ý (click / Enter / Tab) = nạp luôn structure + dữ liệu như bấm Load
+        _ = LoadAsync(structureOnly: true); // chọn gợi ý (click / Enter / Tab) = nạp luôn structure; dữ liệu chỉ tải khi Enter / Load
     }
 
     /// <summary>DB đang chọn ở ô "DB:" của tab (true = Sys Data).</summary>
@@ -1578,7 +1578,9 @@ public class TableEditControl : UserControl
         return false;
     }
 
-    private async Task LoadAsync()
+    /// <param name="structureOnly">true = chỉ nạp structure (đủ cột, lưới trống — SELECT * ... WHERE 1 = 0), không lọc dữ liệu; dùng khi chọn
+    /// bảng trong gợi ý. Dữ liệu chỉ tải khi Enter / Load / F5.</param>
+    private async Task LoadAsync(bool structureOnly = false)
     {
         if (string.IsNullOrWhiteSpace(_tableInputText)) return;
         await AutoSwitchDatabaseForTableAsync(_tableInputText);
@@ -1588,7 +1590,9 @@ public class TableEditControl : UserControl
         var stamp = _service.CurrentStamp(useSys);
         var topN = _topValue;
 
-        var fieldsToSelect = string.IsNullOrWhiteSpace(_fieldsInputText) ? "*" : _fieldsInputText.Trim();
+        var fieldsToSelect = structureOnly || string.IsNullOrWhiteSpace(_fieldsInputText) ? "*" : _fieldsInputText.Trim();
+        var whereSql = structureOnly ? "1 = 0" : _whereInputText;
+        var orderSql = structureOnly ? "" : _orderInputText;
 
         _loading = true;
         _statusLabel.Text = "Đang tải...";
@@ -1596,8 +1600,8 @@ public class TableEditControl : UserControl
         {
             // "Run Table Async": bật (mặc định) = tải ở nền; tắt = chạy đồng bộ (giao diện chờ tới khi tải xong).
             var data = AppSettings.TableRunAsync
-                ? await _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect, _whereInputText, _orderInputText)
-                : Task.Run(() => _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect, _whereInputText, _orderInputText)).GetAwaiter().GetResult();
+                ? await _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect, whereSql, orderSql)
+                : Task.Run(() => _service.LoadTableAsync(useSys, schema, table, topN, fieldsToSelect, whereSql, orderSql)).GetAwaiter().GetResult();
             if (version != _loadVersion) return; // đã có lần tải mới hơn — bỏ kết quả này
             if (_service.CurrentStamp(useSys) != stamp)
             {
@@ -1650,7 +1654,7 @@ public class TableEditControl : UserControl
             var filterInfo = (string.IsNullOrWhiteSpace(_whereInputText) ? "" : $" — Where: {_whereInputText.Trim()}")
                            + (string.IsNullOrWhiteSpace(_orderInputText) ? "" : $" — Order: {_orderInputText.Trim()}");
             TableLoaded?.Invoke(_schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}");
-            _statusLabel.Text = ""; // dòng "N dòng đã tải ..." đã ẩn theo yêu cầu (filterInfo/fieldsToSelect không còn hiển thị)
+            _statusLabel.Text = structureOnly ? "Đã nạp structure — Enter / Load để tải dữ liệu." : ""; // dòng "N dòng đã tải ..." đã ẩn theo yêu cầu (filterInfo/fieldsToSelect không còn hiển thị)
         }
         catch (Exception ex)
         {

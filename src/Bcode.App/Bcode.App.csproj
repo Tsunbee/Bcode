@@ -74,6 +74,8 @@
     <EmbeddedResource Include="Assets\bbxn\logo1.png" LogicalName="bbxn.logo1.png" />
     <EmbeddedResource Include="Assets\bbxn\logo2.png" LogicalName="bbxn.logo2.png" />
     <EmbeddedResource Include="Assets\includecheck\*.txt" LogicalName="includecheck.%(Filename)%(Extension)" />
+    <!-- Write Schema → cập nhật bảng trong .rpt: chạy bằng Windows PowerShell 5.1 + Crystal runtime (Services/Rpt/RptSchemaService). -->
+    <EmbeddedResource Include="Assets\rpt\rptschema.ps1" LogicalName="rpt.rptschema.ps1" />
   </ItemGroup>
   <ItemGroup>
     <!-- Bee's own FCode client DLL (see Libs/README.md) — referenced as an ordinary library and

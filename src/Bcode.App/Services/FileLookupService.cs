@@ -175,14 +175,16 @@ public class FileLookupService
     public static void SetIgnoreSuffixes(string? list) { IgnorePatterns = BuildIgnorePatterns(list); IgnoreVersion++; }
 
     /// <summary>Mỗi mục cách nhau bằng dấu phẩy / chấm phẩy. Kiểu LIKE: mục KHÔNG có ký tự đại diện = tên file CHỨA mục đó (vd "_bk" khớp SRTran_bk, SRTran_Bk20, SRTran_bk12312);
-    /// mục có "*" hoặc "%" (thay cho chuỗi bất kỳ) = khớp CẢ tên theo mẫu đó (vd "tmp*", "*_old", "*copy*", "SR*_x"). Không phân biệt hoa thường.</summary>
+    /// mục có "*" hoặc "%" (thay cho chuỗi bất kỳ) = khớp CẢ tên theo mẫu đó (vd "tmp*", "*_old", "*copy*", "SR*_x"). Không phân biệt hoa thường.
+    /// Mục "chứa" kết thúc bằng chữ cái thì chữ ngay sau nó không được là chữ cái: "_bk" vẫn khớp X_bk, X_Bk20, X_bk_old nhưng KHÔNG khớp
+    /// zpt_bkhdbhds (tên thật, "_bk" chỉ là đầu của "_bkhd...") — trước đây file như vậy bị coi là bản sao lưu và mất khỏi cây menu.</summary>
     private static System.Text.RegularExpressions.Regex[] BuildIgnorePatterns(string? list) =>
         (list ?? "").Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0)
             .Select(s =>
             {
                 var wild = s.IndexOfAny(new[] { '*', '%' }) >= 0;
                 var body = string.Join(".*", s.Split('*', '%').Select(System.Text.RegularExpressions.Regex.Escape));
-                return new System.Text.RegularExpressions.Regex(wild ? "^" + body + "$" : body,
+                return new System.Text.RegularExpressions.Regex(wild ? "^" + body + "$" : body + (char.IsLetter(s[^1]) ? "(?![A-Za-z])" : ""),
                     System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Compiled);
             }).ToArray();
 
@@ -209,13 +211,22 @@ public class FileLookupService
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(sysId))
+        // Trang Main\*.aspx tự khai controller của nó (<FastBusiness:ReportExtender ... Controller="zpt_bkhdbhds"/>) — menu báo cáo
+        // tự làm thường có sysid trống/khác tên đó, FCode vẫn lần theo tên này để ra Filter/Grid/Report\zpt_bkhdbhds.* và template của Report.
+        var aspxControllers = mainPath is null || !Path.GetExtension(mainPath).Equals(".aspx", StringComparison.OrdinalIgnoreCase)
+            ? Array.Empty<string>()
+            : useCache
+                ? session!.Cache.GetOrCompute("aspx", mainPath, session, rd => ExtractAspxControllers(mainPath, rd))
+                : ExtractAspxControllers(mainPath, DirectRead).ToArray();
+
+        if (!string.IsNullOrWhiteSpace(sysId) || aspxControllers.Length > 0)
         {
             var controllersDir = Path.Combine(sourceRootPath, "App_Data", "Controllers");
             var controllersKey = NormalizeDir(controllersDir);
             if (GetIndex(controllersKey) is { } index)
             {
-                var sysIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { sysId };
+                var sysIds = new HashSet<string>(aspxControllers, StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(sysId)) sysIds.Add(sysId);
                 // Chases the chain of explicitly-declared related controllers as far as it
                 // goes — e.g. Dir\SVTran.xml's <items style="Grid" controller="SVDetail">
                 // pulls in SVDetail, and SVDetail's OWN file in turn has
@@ -687,6 +698,15 @@ public class FileLookupService
     
         return found;
     }
+
+    // <FastBusiness:ReportExtender ID="MainReport" ... Controller="zpt_bkhdbhds" .../> trong Main\*.aspx
+    private static readonly Regex AspxControllerRegex = new(@"\bController\s*=\s*""([A-Za-z0-9_$]+)""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>Tên controller mà trang .aspx khai qua thuộc tính Controller="..." (rỗng nếu không đọc được / không có).</summary>
+    private static IEnumerable<string> ExtractAspxControllers(string aspxPath, Func<string, string?> read) =>
+        read(aspxPath) is not { } content
+            ? Array.Empty<string>()
+            : AspxControllerRegex.Matches(content).Select(m => m.Groups[1].Value).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
     private static readonly Regex IdentifierRegex = new(@"^[A-Za-z0-9_$]+$", RegexOptions.Compiled);
     // <!ENTITY ISTran SYSTEM ".\Include\ISTranBI.xml"> / <!ENTITY % External SYSTEM ".\Config\SVTran.ent">

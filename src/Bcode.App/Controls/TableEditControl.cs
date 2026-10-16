@@ -962,10 +962,12 @@ public class TableEditControl : UserControl
     }
 
     /// <summary>Tên bắt đầu bằng chữ đang gõ lên trước (so cả tên có/không có schema), sau đó
-    /// tới tên chỉ chứa chữ đó ở giữa — giống cách gợi ý bảng bên SQL Query.</summary>
+    /// tới tên chỉ chứa chữ đó ở giữa — giống cách gợi ý bảng bên SQL Query. Trong cùng mức, bảng phân kỳ
+    /// (&lt;gốc&gt;$&lt;kỳ số&gt;, vd d91$000000, d91$202501) đứng trước theo thứ tự kỳ, rồi mới tới các bảng khác (d91log, d91$log...).
+    /// Nhóm phân kỳ không tính vào <paramref name="max"/> (tối đa 100 dòng) để không đẩy mất các bảng còn lại.</summary>
     private static List<string> RankTableNames(List<string> names, string term, int max)
     {
-        return names
+        var ranked = names
             .Select(n =>
             {
                 var dot = n.IndexOf('.');
@@ -973,16 +975,21 @@ public class TableEditControl : UserControl
                 var rank = shortName.StartsWith(term, StringComparison.OrdinalIgnoreCase) || n.StartsWith(term, StringComparison.OrdinalIgnoreCase) ? 0
                     : n.Contains(term, StringComparison.OrdinalIgnoreCase) ? 1
                     : -1;
-                return (Name: n, Rank: rank);
+                return (Name: n, Rank: rank, Period: PeriodTableName.IsMatch(shortName));
             })
             .Where(t => t.Rank >= 0)
+            .ToList();
+        var periods = ranked.Where(t => t.Period).OrderBy(t => t.Rank).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).Take(100);
+        var others = ranked.Where(t => !t.Period).OrderBy(t => t.Rank).ThenBy(t => t.Name.Length).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).Take(max);
+        return periods.Concat(others)
             .OrderBy(t => t.Rank)
-            .ThenBy(t => t.Name.Length)
-            .ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(max)
+            .ThenBy(t => t.Period ? 0 : 1)   // OrderBy ổn định → giữ nguyên thứ tự riêng của từng nhóm
             .Select(t => t.Name)
             .ToList();
     }
+
+    /// <summary>Bảng phân kỳ: &lt;gốc&gt;$&lt;kỳ toàn số&gt; (d91$000000, d91$202501) — không gồm d91$log.</summary>
+    private static readonly System.Text.RegularExpressions.Regex PeriodTableName = new(@"^\w+\$\d+$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
     /// <param name="x">Toạ độ ô Table trong trang tablebar.html (đơn vị CSS px).</param>
     private async Task ShowTableSuggestionsAsync(string text, double x, double y, double w, double h)
@@ -1095,6 +1102,17 @@ public class TableEditControl : UserControl
         }
         _tableInputText = name;
         BarSetTable(name);
+        ReloadFromBar(); // chọn gợi ý (click / Enter / Tab) = nạp luôn structure + dữ liệu như bấm Load
+    }
+
+    /// <summary>DB đang chọn ở ô "DB:" của tab (true = Sys Data).</summary>
+    public bool UseSysDatabase => _dbIndex == 1;
+
+    /// <summary>Ctrl+1 (Switch Database) / chọn App–Sys trên topbar: đổi ô "DB:" như người dùng tự chọn (không tự tải lại bảng).</summary>
+    public void SetDatabase(bool useSys)
+    {
+        HideTableSuggest();
+        SwitchDatabase(useSys ? 1 : 0);
     }
 
     private void SwitchDatabase(int dbIndex)

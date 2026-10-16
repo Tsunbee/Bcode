@@ -44,6 +44,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     private bool _suggestOn = true;
     private bool _resetConnOn = true;
     private bool _resultTabOn;
+    private List<DataTable>? _lastResultSchema;   // cấu trúc (không dữ liệu) các bảng kết quả lần chạy gần nhất — cho Write Schema (.xsd)
     private bool _wordWrap;
     private bool _running;
     private CancellationTokenSource? _runCts;
@@ -313,6 +314,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("editor.find")) { ShowFind(); return true; }
             if (combo == ShortcutRegistry.Get("editor.comment")) { ToggleComment(true); return true; }
             if (combo == ShortcutRegistry.Get("editor.uncomment")) { ToggleComment(false); return true; }
+            if (combo == ShortcutRegistry.Get("editor.writeSchema")) { WriteSchema(); return true; }
         }
         if (keyData == (Keys.Control | Keys.R)) { _split.Panel2Collapsed = !_split.Panel2Collapsed; return true; }
         if (keyData == Keys.Escape && _find is { Visible: true } && _ed.Focused) { HideFind(); return true; }
@@ -445,6 +447,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             ScriptExecuted?.Invoke(script, useSys, errorBatch is null, (int)watch.ElapsedMilliseconds, results.SelectMany(r => r.Tables).Sum(t => t.Rows.Count));
             if (errorBatch is null && tracked.Count > 0) RecordHistory(tracked, useSys);
             var allTables = results.SelectMany(r => r.Tables).ToList();
+            _lastResultSchema = allTables.Select(t => t.Clone()).ToList();
             if (allTables.Count > 0)
             {
                 if (_resultTabOn) OpenResultInNewTabRequested?.Invoke(allTables, "Command Result");
@@ -579,7 +582,16 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         .Add("UPPER Keyword", () => ApplyDefaultType(true))
         .Add("lower Keyword", () => ApplyDefaultType(false))
         .AddSeparator()
+        .Add("Write Schema (.xsd cho Crystal Report từ bảng kết quả)...", WriteSchema, shortcut: ShortcutRegistry.Display("editor.writeSchema"))
+        .AddSeparator()
         .Add("Mở object dưới con trỏ ở tab mới", () => _ = OpenObjectUnderCaretAsync(), shortcut: ShortcutRegistry.Display("editor.openObject"));
+
+    /// <summary>Tạo file .xsd cho Crystal Report từ các bảng kết quả lần chạy gần nhất (d1, d2, d3…) — như nút Write Schema chế độ Web (Services/Rpt/XsdSchemaWriter).</summary>
+    private void WriteSchema()
+    {
+        var status = Bcode.App.Services.Rpt.XsdSchemaWriter.SaveWithDialog(this, _lastResultSchema, _ed.Text, _service.Connections.Current?.SourcePath);
+        if (status is not null) SetStatus(status, AppColors.Success);
+    }
 
     private WebMenu BuildHistoryMenu() => new WebMenu()
         .Add("Lưu script vào Lịch sử SQL", SaveToHistory, shortcut: ShortcutRegistry.Display("editor.saveHistory"))

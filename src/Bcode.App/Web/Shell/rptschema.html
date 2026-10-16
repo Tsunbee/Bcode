@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  .row { display: flex; gap: .5rem; align-items: center; }
+  .row input { flex: 1; min-width: 0; font-family: Consolas, 'Cascadia Mono', monospace; }
+  .grid { display: grid; grid-template-columns: minmax(8rem, 22%) minmax(10rem, 26%) minmax(0, 1fr); gap: .45rem .8rem; align-items: center; }
+  .grid .n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grid .n small { display: block; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+  .grid select { width: 100%; }
+  .grid .note { font-size: .9rem; color: var(--text-muted); overflow-wrap: anywhere; }
+  .grid .note.ok { color: var(--success); } .grid .note.warn { color: var(--warning); } .grid .note.err { color: var(--danger); font-weight: 600; }
+  .grid .h { color: var(--text-muted); font-size: .85rem; border-bottom: var(--bw) solid var(--border); padding-bottom: .2rem; }
+  .chk { display: none; gap: .45rem; align-items: center; }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <div id="head" class="hint"></div>
+  <div class="row"><span class="lbl">File .rpt</span><input type="text" id="rpt" spellcheck="false" placeholder="Đường dẫn file Crystal Report (.rpt) — Enter để đọc"><button id="bPick">Chọn...</button></div>
+  <div id="grid" class="grid"></div>
+  <label id="subWrap" class="chk"><input type="checkbox" id="chkSub" checked> <span id="subNote"></span></label>
+</div>
+<div class="dlg-bar"><span id="status" class="status"></span><button id="bCancel">Huỷ</button><button id="bOk" class="primary" disabled>Cập nhật .rpt</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let rows = [], busy = false;
+  const apply = () => { if (!busy && rows.length) post('apply', { choices: Object.fromEntries([...document.querySelectorAll('select[data-k]')].map((s) => [s.dataset.k, s.value])), subreports: $('chkSub').checked }); };
+  const showNote = (sel) => {
+    const r = rows.find((x) => x.key === sel.dataset.k); const o = r && r.options.find((x) => x.value === sel.value);
+    const n = sel.parentElement.nextElementSibling; n.textContent = o ? o.note : ''; n.className = 'note ' + (o ? o.level : '');
+  };
+  $('bPick').onclick = () => { if (!busy) post('pick'); };
+  $('bOk').onclick = apply;
+  $('bCancel').onclick = () => post('cancel');
+  $('rpt').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (!busy) post('load', { rpt: $('rpt').value }); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); });
+  window.rptSchema = {
+    init(d) {
+      $('head').innerHTML = 'Đã ghi <b>' + esc(d.xsd) + '</b> — ' + esc(d.xsdTables.join(', ')) + '.<br>Chọn file .rpt; mỗi bảng của report lấy nguồn từ bảng nào của xsd (như Set Datasource Location + Verify Database). Bản gốc được sao lưu thành .rpt.bak.';
+      $('rpt').value = d.rpt || ''; $('rpt').focus();
+    },
+    setRpt(p) { $('rpt').value = p; },
+    load(d) {
+      rows = d ? d.rows : [];
+      $('grid').innerHTML = rows.length ? '<div class="h">Bảng trong rpt</div><div class="h">Lấy từ</div><div class="h">Khác biệt cột</div>' + rows.map((r) =>
+        '<div class="n" title="' + esc(r.tip || r.label) + '">' + esc(r.label) + '<small>' + esc(r.sub) + '</small></div>' +
+        '<div><select data-k="' + esc(r.key) + '">' + r.options.map((o) => '<option value="' + esc(o.value) + '"' + (o.value === r.selected ? ' selected' : '') + '>' + esc(o.text) + '</option>').join('') + '</select></div>' +
+        '<div class="note"></div>').join('') : '';
+      document.querySelectorAll('select[data-k]').forEach((s) => { s.onchange = () => showNote(s); showNote(s); });
+      $('subWrap').style.display = d && d.subNote ? 'flex' : 'none'; $('subNote').textContent = d ? d.subNote : '';
+      $('bOk').disabled = busy || !rows.length;
+    },
+    busy(b) { busy = b; $('bOk').disabled = b || !rows.length; $('bPick').disabled = b; },
+    status(t, kind) { const s = $('status'); s.textContent = t; s.title = t; s.className = 'status ' + (kind || ''); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

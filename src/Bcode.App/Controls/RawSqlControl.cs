@@ -24,6 +24,7 @@ public class RawSqlControl : UserControl, ISqlTab
     private bool _suggestOn = true;
     private bool _resetConnOn = true;
     private bool _resultTabOn;
+    private List<DataTable>? _lastResultSchema;   // cấu trúc (không dữ liệu) các bảng kết quả lần chạy gần nhất — cho Write Schema (.xsd)
     private bool _debugStepOn;
     private StepPlan? _plan;          // phiên debug từng bước đang mở (null = không debug)
     private int _executedLine;        // dòng cuối cùng đã chạy tới (0 = chưa chạy gì)
@@ -1877,6 +1878,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             if (errorBatch is null && tracked.Count > 0) RecordHistory(tracked, useSys);
             var allTables = results.SelectMany(r => r.Tables).ToList();
             var lastTable = allTables.LastOrDefault();
+            _lastResultSchema = allTables.Select(t => t.Clone()).ToList();
 
             if (allTables.Count > 0)
             {
@@ -2083,38 +2085,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     // ---------------- Write Schema ----------------
 
+    /// <summary>Tạo file .xsd cho Crystal Report từ các bảng kết quả lần chạy gần nhất (d1, d2, d3…) — Services/Rpt/XsdSchemaWriter, dùng chung với chế độ App.</summary>
     private async Task WriteSchemaAsync()
     {
         var script = await GetScriptTextAsync();
-        var guess = TableRefRegex.Match(script) is { Success: true } m
-            ? m.Groups[1].Value.Replace("[", "").Replace("]", "")
-            : "";
-
-        var input = Bcode.App.Forms.SimplePromptForm.Show(this, "Write Schema", "Tên bảng cần lấy CREATE TABLE:", guess);
-        if (string.IsNullOrWhiteSpace(input)) return;
-
-        var (schema, table) = ParseTableRef(input);
-        try
-        {
-            var obj = new SqlObjectInfo { Schema = schema, Name = table, Kind = SqlObjectKind.Table, FromSysDatabase = UseSysDatabase };
-            var ddl = await _sqlObjectService.GetDefinitionAsync(obj);
-            var block = "\r\n-- ===== Write Schema: " + obj.QualifiedName + " =====\r\n" +
-                        string.Join("\r\n", ddl.Split('\n').Select(l => "-- " + l.TrimEnd('\r'))) +
-                        "\r\n-- ===== hết Write Schema =====\r\n";
-            await InsertTextAtCaretAsync(block);
-            _statusLabel.Text = $"Đã chèn schema của {obj.QualifiedName}.";
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, ex.Message, "Bcode — Write Schema", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    private static (string schema, string table) ParseTableRef(string raw)
-    {
-        raw = raw.Trim().Replace("[", "").Replace("]", "");
-        var parts = raw.Split('.', 2);
-        return parts.Length == 2 ? (parts[0], parts[1]) : ("dbo", parts[0]);
+        var status = Bcode.App.Services.Rpt.XsdSchemaWriter.SaveWithDialog(this, _lastResultSchema, script, _service.Connections.Current?.SourcePath);
+        if (status is null) return;
+        _statusLabel.ForeColor = Color.DarkGreen;
+        _statusLabel.Text = status;
     }
 
     // ---------------- Check Fields ----------------

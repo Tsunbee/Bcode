@@ -45,5 +45,6 @@ internal static class Pages
         NativePages.Register("filelookuppreview.html", () => new FileLookupPreviewBarPage());
         NativePages.Register("note.html", () => new NotePage());
         NativePages.Register("sqlprofilerbar.html", () => new SqlProfilerBarPage());
+        NativePages.Register("rptschema.html", () => new RptSchemaPage());
     }
 }

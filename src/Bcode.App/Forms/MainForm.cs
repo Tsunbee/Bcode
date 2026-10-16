@@ -51,7 +51,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void EditMenuTreeIgnore()
     {
         var text = SimplePromptForm.Show(this, "Cây menu — bỏ qua file",
-            "Bỏ qua file có tên (không đuôi) khớp — cách nhau bằng dấu phẩy. Không có * thì \"chứa\" (vd _bk khớp X_bk, X_Bk20, X_bk12312); có * thì khớp cả tên (vd tmp*, *_old). Để trống = không bỏ qua:",
+            "Bỏ qua file có tên (không đuôi) khớp — cách nhau bằng dấu phẩy. Không có * thì \"chứa\" (vd _bk khớp X_bk, X_Bk20, X_bk12312, không khớp zpt_bkhd vì ngay sau là chữ cái); có * thì khớp cả tên (vd tmp*, *_old). Để trống = không bỏ qua:",
             _settings.FileLookupIgnoreSuffixes);
         if (text is null) return;
         _settings.FileLookupIgnoreSuffixes = text.Trim();
@@ -776,8 +776,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         PushWorkspacesToTopBar();
         if (_documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault() is { } sql)
             sql.SetDatabase(useSys);
+        else if (_documentTabs.SelectedTab?.Controls.OfType<TableEditControl>().FirstOrDefault() is { } table)
+            table.SetDatabase(useSys);   // tab Table: đổi luôn ô "DB:" của tab
         if (_connections.Current is { } ws)
             PushStatus($"Database: {(useSys ? ws.SysDatabase : ws.EffectiveAppDatabase)} ({(useSys ? "Sys" : "App")})  —  Project: {ws.Name}");
+    }
+
+    /// <summary>Ctrl+1 / menu Switch Database: đảo App ↔ Sys. Đang ở tab Table thì đảo theo ô "DB:" của tab (có thể đã tự chuyển khác topbar).</summary>
+    private void ToggleActiveDatabase()
+    {
+        var table = _documentTabs.SelectedTab?.Controls.OfType<TableEditControl>().FirstOrDefault();
+        ApplyActiveDatabase(!(table?.UseSysDatabase ?? _topDbSys));
     }
 
     private void PushThemeToShell()
@@ -2491,7 +2500,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "project.picker": ShowProjectPicker(); return true;
             case "debug.decrypt": DebugDecryptConnectStr(); return true;
             case "app.chooseServer": OpenConnectionSettings(); return true;
-            case "app.toggleDb": ApplyActiveDatabase(!_topDbSys); return true;
+            case "app.toggleDb": ToggleActiveDatabase(); return true;
             case "app.programPath": OpenProgramPath(); return true;
             case "project.openSource": OpenProjectFolder(_connections.Current?.SourcePath ?? ""); return true;
             case "project.openWorking": OpenProjectFolder(_connections.Current?.WorkingPath ?? ""); return true;
@@ -3230,7 +3239,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripMenuItem("Choose Server", null, (_, _) => OpenConnectionSettings()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.chooseServer") });
         menu.Items.Add(new ToolStripMenuItem("Projects...", null, (_, _) => ShowProjectPicker()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("project.picker") });
         menu.Items.Add(new ToolStripMenuItem("New Bcode window", null, (_, _) => RunAppShortcut("window.new")) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("window.new") });
-        menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => ApplyActiveDatabase(!_topDbSys)) { ShortcutKeyDisplayString = "Ctrl+1" });
+        menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => ToggleActiveDatabase()) { ShortcutKeyDisplayString = "Ctrl+1" });
         menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tool:sql_profiler") });
         menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }) { ShortcutKeyDisplayString = "Ctrl+4" });
         menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => OpenProgramPath()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.programPath") });

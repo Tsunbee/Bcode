@@ -915,10 +915,9 @@ public class EditorBridge
             }
         });
 
-    /// <summary>Backs the "Open Folder" context-menu submenu — opens Explorer at a folder
-    /// (or, for a file, opens its containing folder with that file selected), same as
-    /// FCode's own quick-access folder shortcuts (Images/Options/Lookup/Templates siblings
-    /// of Controllers under App_Data).</summary>
+    /// <summary>Opens Explorer at a folder (or, for a file, opens its containing folder with
+    /// that file selected). Silent when the path is missing — callers that must report a
+    /// missing folder use <see cref="BeginOpenSiteFolder"/>.</summary>
     public void OpenFolder(string path) =>
         _async.Post(() =>
         {
@@ -926,6 +925,87 @@ public class EditorBridge
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\"");
             else if (Directory.Exists(path))
                 System.Diagnostics.Process.Start("explorer.exe", $"\"{path}\"");
+        });
+
+    /// <summary>Menu chuột phải "Open Folder ▸": mở &lt;site&gt;\<paramref name="relative"/> trong Explorer (Images,
+    /// App_Data\Controllers\Options|Lookup|Templates). Site = thư mục trên App_Data của file đang mở, không có thì Source
+    /// Path của workspace (<see cref="WorkspaceConnection.ResolveSourceRoot"/>). Trả JSON {path} hoặc {path?, error} để trang
+    /// báo rõ đường dẫn thiếu — trước đây OpenFolder im lặng khi thư mục không có nên bấm như không ăn.</summary>
+    public void BeginOpenSiteFolder(string requestId, string activePath, string relative) =>
+        _async.Begin(requestId, () =>
+        {
+            var (_, root) = WorkspaceConnection.ResolveSourceRoot(string.IsNullOrWhiteSpace(activePath) ? null : activePath);
+            if (root is null)
+                return JsonSerializer.Serialize(new { error = "Không xác định được thư mục site: file đang mở không nằm dưới App_Data và workspace chưa khai Source Path (khai ở Bcode)." });
+            var path = Path.Combine(root, relative ?? "");
+            bool exists;
+            try { exists = Directory.Exists(path); } catch { exists = false; }
+            if (!exists) return JsonSerializer.Serialize(new { path, error = "Thư mục không tồn tại." });
+            System.Diagnostics.Process.Start("explorer.exe", $"\"{path}\"");
+            return JsonSerializer.Serialize(new { path });
+        });
+
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".png", ".gif", ".jpg", ".jpeg", ".bmp", ".ico", ".svg" };
+    private static readonly object SiteImagesLock = new();
+    private static (string Dir, DateTime Stamp, string Json)? _siteImagesCache;
+
+    /// <summary>"Open Folder ▸ Image File ▸": các file ảnh nằm ngay trong &lt;site&gt;\Images (không vào thư mục con, như FCode cũ),
+    /// mỗi file kèm icon dạng data: URL (file &gt; 64 KB thì không kèm). Trả JSON {dir, files:[{name, path, icon}]} hoặc {dir?, error}.
+    /// Cache theo (thư mục, giờ sửa thư mục) — thêm/xoá/đổi tên file là giờ sửa đổi; mở menu lần sau chỉ tốn 1 lần stat.</summary>
+    public void BeginListSiteImages(string requestId, string activePath) =>
+        _async.Begin(requestId, () =>
+        {
+            var (_, root) = WorkspaceConnection.ResolveSourceRoot(string.IsNullOrWhiteSpace(activePath) ? null : activePath);
+            if (root is null) return JsonSerializer.Serialize(new { error = "Không xác định được thư mục site." });
+            var dir = Path.Combine(root, "Images");
+            try
+            {
+                if (!Directory.Exists(dir)) return JsonSerializer.Serialize(new { dir, error = "Thư mục không tồn tại." });
+                var stamp = Directory.GetLastWriteTimeUtc(dir);
+                lock (SiteImagesLock)
+                {
+                    if (_siteImagesCache is { } c && string.Equals(c.Dir, dir, StringComparison.OrdinalIgnoreCase) && c.Stamp == stamp)
+                        return c.Json;
+                }
+                var files = Directory.GetFiles(dir)
+                    .Where(f => ImageExtensions.Contains(Path.GetExtension(f)))
+                    .OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase)
+                    .Take(500)
+                    .Select(f => new { name = Path.GetFileName(f), path = f, icon = ImageDataUrl(f) })
+                    .ToList();
+                var json = JsonSerializer.Serialize(new { dir, files });
+                lock (SiteImagesLock) _siteImagesCache = (dir, stamp, json);
+                return json;
+            }
+            catch (Exception ex)
+            {
+                return JsonSerializer.Serialize(new { dir, error = ex.Message });
+            }
+        });
+
+    private static string? ImageDataUrl(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length > 64 * 1024) return null;
+            var mime = info.Extension.ToLowerInvariant() switch
+            {
+                ".png" => "image/png", ".gif" => "image/gif", ".jpg" or ".jpeg" => "image/jpeg",
+                ".bmp" => "image/bmp", ".ico" => "image/x-icon", ".svg" => "image/svg+xml", _ => null
+            };
+            return mime is null ? null : $"data:{mime};base64,{Convert.ToBase64String(File.ReadAllBytes(path))}";
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Mở 1 file bằng chương trình mặc định của Windows (Ctrl+bấm ở "Image File ▸" = mở file ảnh).</summary>
+    public void OpenWithShell(string path) =>
+        _async.Post(() =>
+        {
+            if (File.Exists(path))
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
         });
 
     /// <summary>JSON array of {"name","path","isDirectory"} for one folder level — powers

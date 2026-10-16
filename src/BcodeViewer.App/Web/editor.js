@@ -1243,23 +1243,84 @@ class BcodeEditor {
     return m ? m[1] : null;
   }
 
-  /// F11: jumps to "function Name(" for the handler referenced on the current line (e.g.
-  /// a field's onchange="Name(this)"). Falls back to the <script> section if the current
-  /// line doesn't reference one, so F11 always does *something* useful.
-  gotoFunctionAtCaret() {
+  /// Tên định danh JS dưới con trỏ (tính cả $, vd on$GridVoucherDetail$RowChange), hoặc phần đang bôi đen nếu
+  /// nó là đúng 1 tên. Không dùng getWordAtPosition: từ của ngôn ngữ XML cắt ở dấu $.
+  identifierAtCaret() {
+    const model = this.editor.getModel();
+    const sel = this.editor.getSelection();
+    if (!model || !sel) return null;
+    if (!sel.isEmpty()) {
+      const picked = model.getValueInRange(sel).trim();
+      return /^[A-Za-z_$][\w$]*$/.test(picked) ? picked : null;
+    }
+    const line = model.getLineContent(sel.positionLineNumber);
+    const col = sel.positionColumn - 1;
+    let a = col, b = col;
+    while (a > 0 && /[\w$]/.test(line[a - 1])) a--;
+    while (b < line.length && /[\w$]/.test(line[b])) b++;
+    const word = line.slice(a, b);
+    return /^[A-Za-z_$][\w$]*$/.test(word) ? word : null;
+  }
+
+  /// Vị trí khai báo hàm `name` trong text: function name( / name = function( / name: function(. -1 nếu không có.
+  findFunctionDecl(text, name) {
+    const n = name.replace(/[$]/g, '\\$');
+    const re = new RegExp(`\\bfunction\\s+${n}\\s*\\(|(?:^|[^\\w$.])${n}\\s*[=:]\\s*function\\b`);
+    const m = re.exec(text);
+    if (!m) return -1;
+    return m[0].startsWith('function') ? m.index : m.index + m[0].indexOf(name);
+  }
+
+  /// F11 / Goto Function: đứng trên (hoặc bôi đen) tên hàm — on$GridVoucherDetail$RowChange(g); trong <script>, hay
+  /// onchange="Ten(this)" của field — thì nhảy tới chỗ khai báo `function Ten(...)`. Tìm trong file hiện tại trước, không
+  /// có thì tìm trong cả cây file include (Host/IncludeTree.cs qua BeginReadIncludeTree) và mở file đó tại dòng khai báo.
+  /// Con trỏ không đứng trên tên nào và dòng không gọi hàm nào thì về <script> như trước.
+  async gotoFunctionAtCaret(forcedName) {
     if (!this.activePath) return;
-    const name = this.handlerNameAtCaret();
     const model = this.editor.getModel();
     const text = model.getValue();
-    if (name) {
-      const idx = text.indexOf('function ' + name + '(');
+    const names = [];
+    for (const n of [forcedName, this.identifierAtCaret(), this.handlerNameAtCaret()])
+      if (n && n !== 'function' && !names.includes(n)) names.push(n);
+    if (!names.length) { this.gotoTag(/<script\b/); return; }
+
+    // Tên dưới con trỏ xét trọn (file này rồi các file include) trước tên hàm của onchange="..." trên dòng.
+    const path = this.activePath;
+    let files = null, tree = {};
+    for (const name of names) {
+      const idx = this.findFunctionDecl(text, name);
       if (idx >= 0) {
         const pos = offsetToPosition(text, idx);
-        this.editor.revealLineInCenter(pos.line);
-        this.editor.setPosition({ lineNumber: pos.line, column: pos.col });
-        this.editor.focus();
+        this.revealPosition(pos.line, pos.col);
         return;
       }
+
+      if (!files) {
+        try { tree = JSON.parse(await window.bcodeHost.call('BeginReadIncludeTree', path, text)) || {}; }
+        catch { tree = {}; }
+        files = Object.keys(tree).filter((p) => tree[p] && p.toLowerCase() !== path.toLowerCase()).sort();
+        if (this.activePath !== path) return; // người dùng đã đổi tab trong lúc chờ đọc include
+      }
+      const hits = [];
+      for (const p of files) {
+        const idx = this.findFunctionDecl(tree[p], name);
+        if (idx >= 0) hits.push({ path: p, pos: offsetToPosition(tree[p], idx) });
+      }
+      if (!hits.length) continue;
+      await this.openFile(hits[0].path, { line: hits[0].pos.line, column: hits[0].pos.col });
+      const short = (p) => p.substring(p.lastIndexOf('\\') + 1);
+      if (hits.length > 1)
+        this.showToast(`function ${name} khai ở ${hits.length} file include: ${hits.map((h) => short(h.path)).join(', ')} — đang mở ${short(hits[0].path)}.`, 7000);
+      return;
+    }
+
+    // Tên dưới con trỏ có dạng lời gọi (Ten(...)) mà không thấy khai báo đâu: báo rõ thay vì nhảy đi chỗ khác.
+    const pos = this.editor.getPosition();
+    const lineText = model.getLineContent(pos.lineNumber);
+    const looksLikeCall = names.some((n) => new RegExp(n.replace(/[$]/g, '\\$') + '\\s*\\(').test(lineText));
+    if (looksLikeCall) {
+      this.showToast(`Không tìm thấy khai báo function ${names[0]} trong file này và ${files.length} file include.`, 5000);
+      return;
     }
     this.gotoTag(/<script\b/);
   }
@@ -1274,7 +1335,7 @@ class BcodeEditor {
 
     const model = this.editor.getModel();
     const text = model.getValue();
-    if (text.indexOf('function ' + name + '(') >= 0) { this.gotoFunctionAtCaret(); return; }
+    if (this.findFunctionDecl(text, name) >= 0) { this.gotoFunctionAtCaret(name); return; }
 
     const scriptStart = text.indexOf('<script');
     if (scriptStart < 0) { alert('Không tìm thấy <script> trong file này.'); return; }
@@ -1401,12 +1462,31 @@ class BcodeEditor {
     return this.activePath.substring(0, idx + '\\App_Data'.length);
   }
 
-  /// "Open Folder > Images/Options/Lookup/Templates" — well-known siblings of Controllers
-  /// under App_Data in every FastBusiness site.
-  openAppDataFolder(subfolder) {
-    const root = this.appDataRoot();
-    if (!root) return;
-    window.chrome.webview.hostObjects.host.OpenFolder(root + '\\' + subfolder);
+  /// "Open Folder ▸": mở <site>\<relative> trong Explorer — Images nằm ở gốc site, Options/Lookup/Templates ở
+  /// App_Data\Controllers. Site do host tính (thư mục trên App_Data của file đang mở, không có thì Source Path
+  /// của workspace). Thư mục không có thì báo rõ đường dẫn thay vì im lặng.
+  async openSiteFolder(relative) {
+    let r;
+    try { r = JSON.parse(await window.bcodeHost.call('BeginOpenSiteFolder', this.activePath || '', relative)); }
+    catch (e) { alert('Không mở được thư mục:\n' + e); return; }
+    if (r.error) alert(r.path ? `${r.error}\n${r.path}` : r.error);
+  }
+
+  /// "Open Folder ▸ Image File ▸": các file ảnh trong <site>\Images — { dir, files: [{ name, path, icon }] } hoặc { dir?, error }.
+  async listSiteImages() {
+    try { return JSON.parse(await window.bcodeHost.call('BeginListSiteImages', this.activePath || '')); }
+    catch (e) { return { error: String(e) }; }
+  }
+
+  /// Bấm 1 file ở "Image File ▸": chèn tên file (vd TextSave.png) vào chỗ con trỏ / thay phần đang bôi đen.
+  insertAtCaret(text) {
+    const ed = this.editor;
+    const sel = ed.getSelection();
+    if (!this.activePath || !sel) return;
+    ed.pushUndoStop();
+    ed.executeEdits('bcode-insert', [{ range: sel, text, forceMoveMarkers: true }]);
+    ed.pushUndoStop();
+    ed.focus();
   }
 
   /// "Open File Config" — the fixed shared config files FCode's own menu links to,

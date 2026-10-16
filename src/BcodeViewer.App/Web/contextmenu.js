@@ -1,8 +1,10 @@
 // Custom right-click menu matching FCode's own editor context menu — built by hand
 // instead of Monaco's native contextMenuGroupId API because that can't do the nested
 // "Open Folder >"/"Open File Config >" submenus FCode's real menu has. Only includes
-// items whose exact behavior is actually known — "Goto File" and "Goto Completed" are
-// still left out, but "Open File Config" is now populated from paths confirmed straight
+// items whose exact behavior is actually known — "Goto Completed" is still left out;
+// "Goto File" only appears on an <items controller="X"> line; "Open Folder" opens site
+// folders (Images, App_Data\Controllers\Options|Lookup|Templates) plus "Image File >";
+// "Open File Config" is populated from paths confirmed straight
 // out of FCode's own internal gen_update search config (App_Data\Controllers\Options\
 // Message.xml, \Grid\Config\Aggregation.xml/.v, \Include\Extender.ent, etc.) — see
 // editor.js's openConfigFile/listIncludeConfigFiles.
@@ -100,8 +102,8 @@ class BcodeContextMenu {
       // Không có tên hàm trên dòng hiện tại thì F11 vẫn nhảy về <script>, nên chỉ mờ khi
       // file không có cả hai.
       { label: 'Goto Function', shortcut: 'F11', run: () => editorInstance.gotoFunctionAtCaret(),
-        enabled: () => hasFile && (!!editorInstance.handlerNameAtCaret() || docText.indexOf('<script') >= 0),
-        disabledHint: 'Dòng hiện tại không gọi hàm nào, và file không có <script>' },
+        enabled: () => hasFile && (!!editorInstance.identifierAtCaret() || !!editorInstance.handlerNameAtCaret() || docText.indexOf('<script') >= 0),
+        disabledHint: 'Con trỏ không đứng trên tên hàm nào, và file không có <script>' },
       // Same key F12 already uses, listed here because a value entity has no visible
       // declaration to click through to — until you look, there is nothing on screen to
       // suggest &Name; leads anywhere at all.
@@ -113,11 +115,18 @@ class BcodeContextMenu {
         disabledHint: 'Con trỏ không đứng trên một &Entity; hay đường dẫn file nào' },
       { sep: true },
       { label: 'Open File Config', id: 'openFileConfig', submenu: openFileConfigItems },
+      // Images nằm ở gốc site (cạnh App_Data); Options/Lookup/Templates ở App_Data\Controllers. Trước đây cả bốn
+      // trỏ vào App_Data\<tên> — thư mục không có thật, và OpenFolder im lặng nên bấm như không ăn.
       { label: 'Open Folder', submenu: [
-        { label: 'Folder Images', run: () => editorInstance.openAppDataFolder('Images') },
-        { label: 'Folder Options', run: () => editorInstance.openAppDataFolder('Options') },
-        { label: 'Folder Lookup', run: () => editorInstance.openAppDataFolder('Lookup') },
-        { label: 'Folder Templates', run: () => editorInstance.openAppDataFolder('Templates') }
+        { label: 'Folder Images', run: () => editorInstance.openSiteFolder('Images') },
+        { label: 'Folder Options', run: () => editorInstance.openSiteFolder('App_Data\\Controllers\\Options') },
+        { label: 'Folder Lookup', run: () => editorInstance.openSiteFolder('App_Data\\Controllers\\Lookup') },
+        { label: 'Folder Templates', run: () => editorInstance.openSiteFolder('App_Data\\Controllers\\Templates') },
+        { sep: true },
+        // Danh sách file điền sau khi đọc xong thư mục Images (ổ mạng) — xem fillImageFiles.
+        { label: 'Image File', id: 'imageFile', submenu: [
+          { label: 'Đang đọc thư mục Images...', run: () => {}, enabled: () => false }
+        ] }
       ] },
       { sep: true },
       { label: 'Chạy SQL tại con trỏ', shortcut: 'Ctrl+Enter', run: () => window.bcodeSqlRun.run(),
@@ -169,6 +178,7 @@ class BcodeContextMenu {
     document.body.appendChild(this.root);
     this.position(this.root, x, y);
     if (ctrl) this.fillControllerFiles(token, editorInstance, ctrl);
+    this.fillImageFiles(token, editorInstance);
 
     // Hai mục này phải đọc thư mục trên ổ mạng. Menu hiện trước, chúng chèn vào sau khi có
     // kết quả — chờ cả hai lần đọc xong mới vẽ menu là một khoảng chết không rõ lý do.
@@ -236,8 +246,15 @@ class BcodeContextMenu {
       }
 
       const label = document.createElement('span');
-      label.textContent = item.label;
+      if ('icon' in item) {
+        const icon = document.createElement(item.icon ? 'img' : 'i');
+        icon.className = 'ctxIcon';
+        if (item.icon) { icon.src = item.icon; icon.alt = ''; }
+        label.appendChild(icon);
+      }
+      label.appendChild(document.createTextNode(item.label));
       row.appendChild(label);
+      if (item.title && !disabled) row.title = item.title;
 
       if (item.shortcut) {
         const sc = document.createElement('span');
@@ -273,7 +290,7 @@ class BcodeContextMenu {
         // Không gắn click: menu đã chặn click nổi lên document, nên bấm vào mục mờ là không
         // có gì xảy ra và menu vẫn mở — đúng như mọi menu khác.
       } else {
-        row.addEventListener('click', () => { item.run(); this.hide(); });
+        row.addEventListener('click', (e) => { item.run(e); this.hide(); });
       }
 
       menu.appendChild(row);
@@ -286,18 +303,42 @@ class BcodeContextMenu {
     return menu;
   }
 
-  /// Con trỏ nằm trong 1 thẻ <items ... controller="X" ...> (có thể trải nhiều dòng) thì trả về
-  /// { controller, style }, không thì null. Giá trị ghép lúc chạy (&Entity;, {$...}) bỏ qua vì
-  /// không ứng với tên file nào.
+  /// Con trỏ nằm trong 1 thẻ <items ... controller="X" ...> (có thể trải nhiều dòng), hoặc đứng ở
+  /// dòng có thẻ đó (đầu dòng, sau "/>"...), thì trả về { controller, style }, không thì null. Giá
+  /// trị ghép lúc chạy (&Entity;, {$...}) bỏ qua vì không ứng với tên file nào.
   controllerAtCaret(editorInstance, docText) {
     const pos = editorInstance.editor.getPosition();
     const model = editorInstance.editor.getModel();
     if (!pos || !model) return null;
     const offset = model.getOffsetAt(pos);
-    const start = docText.lastIndexOf('<items', offset);
-    if (start < 0) return null;
-    const end = docText.indexOf('>', start);
-    if (end < 0 || offset > end + 1) return null;
+    // Cuối thẻ = dấu > đầu tiên NGOÀI ngoặc kép: key="... > ..." của AutoComplete hay có dấu > trong giá trị.
+    const tagEnd = (from) => {
+      let q = null;
+      for (let i = from; i < docText.length; i++) {
+        const c = docText[i];
+        if (q) { if (c === q) q = null; }
+        else if (c === '"' || c === "'") q = c;
+        else if (c === '>') return i;
+      }
+      return -1;
+    };
+    let start = docText.lastIndexOf('<items', offset);
+    let end = start >= 0 ? tagEnd(start) : -1;
+    if (start < 0 || end < 0 || offset > end + 1) {
+      // Không nằm trong thẻ: lấy thẻ <items đứng trên chính dòng của con trỏ.
+      const lineStart = model.getOffsetAt({ lineNumber: pos.lineNumber, column: 1 });
+      const lineEnd = lineStart + model.getLineLength(pos.lineNumber);
+      start = docText.indexOf('<items', lineStart);
+      if (start < 0 || start >= lineEnd) {
+        start = docText.lastIndexOf('<items', lineEnd);
+        if (start < 0) return null;
+        end = tagEnd(start);
+        if (end < lineStart) return null; // thẻ gần nhất kết thúc trước dòng này
+      } else {
+        end = tagEnd(start);
+      }
+      if (end < 0) return null;
+    }
     const tag = docText.slice(start, end + 1);
     if (!/^<items[\s/>]/.test(tag)) return null;
     const m = /\scontroller\s*=\s*["']([^"']*)["']/.exec(tag);
@@ -327,6 +368,37 @@ class BcodeContextMenu {
         submenu: files.map((f) => ({ label: f.rel, run: () => editorInstance.openFile(f.path) })) };
     }
     row.replaceWith(this.buildMenu([replacement]).firstChild);
+  }
+
+  /// Điền "Open Folder ▸ Image File ▸" bằng các file ảnh trong <site>\Images, mỗi hàng có icon của chính file (như FCode cũ).
+  /// Bấm = chèn tên file (vd TextSave.png) vào chỗ con trỏ — tên này là thứ người viết controller cần gõ (urlImage, css...);
+  /// Ctrl+bấm = mở file ảnh bằng chương trình mặc định.
+  async fillImageFiles(token, editorInstance) {
+    const r = await editorInstance.listSiteImages();
+    if (token !== this._showToken || !this.root) return; // menu đã đóng hoặc bị thay
+    const submenu = this.root.querySelector('[data-ctx-submenu-of="imageFile"]');
+    if (!submenu) return;
+    const host = window.chrome.webview.hostObjects.host;
+    let items;
+    if (r.error) {
+      items = [{ label: r.dir ? `Không có thư mục ${r.dir}` : r.error, run: () => {}, enabled: () => false }];
+    } else if (!r.files.length) {
+      items = [{ label: `Không có file ảnh trong ${r.dir}`, run: () => {}, enabled: () => false }];
+    } else {
+      items = r.files.map((f) => ({
+        label: f.name, icon: f.icon || null,
+        title: `${f.path}\nBấm: chèn "${f.name}" vào chỗ con trỏ · Ctrl+bấm: mở file ảnh`,
+        run: (e) => {
+          if (e && e.ctrlKey) host.OpenWithShell(f.path);
+          else editorInstance.insertAtCaret(f.name);
+        }
+      }));
+      items.push({ sep: true }, { label: 'Mở thư mục Images', run: () => editorInstance.openSiteFolder('Images') });
+    }
+    submenu.textContent = '';
+    const built = this.buildMenu(items);
+    while (built.firstChild) submenu.appendChild(built.firstChild);
+    if (submenu.style.display === 'block') this.openSubmenu(submenu.parentElement, submenu);
   }
 
   /// Con trỏ có đứng trên thứ gì mà F12 mở được không.

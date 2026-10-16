@@ -57,6 +57,7 @@ const BCODE_COMMANDS = [
 
   ['Công cụ', 'tool.runSql', 'Chạy SQL tại con trỏ', 'Ctrl+Enter', () => window.bcodeSqlRun.run()],
   ['Công cụ', 'tool.clearStructure', 'Clear Structure App', '', () => window.bcodeShell && window.bcodeShell.cmd('clearStructure')],
+  ['Công cụ', 'tool.openWebConfig', 'Open Web.config (mở web.config của site)', '', () => window.bcodeShell && window.bcodeShell.cmd('openWebConfig')],
   ['Công cụ', 'tool.refreshWebConfig', 'Reset WebConfig', '', () => window.bcodeShell && window.bcodeShell.cmd('refreshWebConfig')],
 ].map(([group, id, label, def, run]) => ({ group, id, label, def, run }));
 

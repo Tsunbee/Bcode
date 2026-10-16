@@ -138,7 +138,7 @@ VIEWER = [
   ('F5: chạy menu của file', 'Host/MenuLauncher.cs; EditorBridge.BeginRunMenu', 'Tra menu wcommand rồi mở trình duyệt mặc định.'),
  ]),
  ('5. Khung, cấu hình, AI', [
-  ('Web shell (menu, toolbar, cây Project)', 'Web/shell.js; MainForm.cs (ShowWebShell, PushShellTree, HandleShellCommand); EditorBridge.ShellCommand/GetShellState', 'Cây file nhóm theo Project do MainForm giữ rồi đẩy sang trang.'),
+  ('Web shell (menu, toolbar, cây Project)', 'Web/shell.js; MainForm.cs (ShowWebShell, PushShellTree, HandleShellCommand); EditorBridge.ShellCommand/GetShellState', 'Cây file nhóm theo Project do MainForm giữ rồi đẩy sang trang. Actions: Clear Structure App / Open Web.config / Refresh Web.config (MainForm.ClearStructureApp, OpenWebConfig, RefreshWebConfig — site theo file đang mở, WorkspaceConnection.ResolveSourceRoot). Ngôn ngữ tô màu theo đuôi: editor.js detectLanguage (.config/.xsd… = xml, đuôi lạ có nội dung XML = xml).'),
   ('Settings, phím tắt, bố cục', 'Web/settings.js, keys.js; Settings/ViewerSettings.cs; EditorBridge.GetSettings/BeginSaveSettings/GetUiPrefs/SetUiPrefs', 'SettingsForm/HintCodeForm/TemplatePickerForm (WinForms) chỉ là dự phòng.'),
   ('Đo độ mượt (log long task)', 'Web/perfwatch.js; EditorBridge.NotifyPerfLog/OpenPerfLog; shell.js menu Help', 'Trang bị chặn >= 100 ms → 1 dòng vào %AppData%\\Bcode\\viewer-perf.log (thời điểm, ms, file, việc vừa làm: đổi tab / gõ / việc nền / xem trước Dir / gợi ý..., trạng thái). Gắn nhãn bằng cách bọc hàm sau khi trang nạp (BcodePerf.wrap), không sửa logic file khác. File > 2 MB đổi thành .old. Help → "Log độ mượt".'),
   ('Hint Code, New from Template', 'Web/templates.js; Settings/HintSnippetStore.cs, FileTemplateStore.cs', ''),

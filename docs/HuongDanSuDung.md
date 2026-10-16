@@ -858,7 +858,7 @@ Trên ảnh: **①** thanh menu · **②** thanh công cụ · **③** đường
 |---|---|
 | **File** | New from Template… (`Ctrl+N`) · Mở nhanh file… (`Ctrl+P`) · Lịch sử file… (`Ctrl+Shift+H`) · Lịch sử cả dự án… · Settings… · Phím tắt… |
 | **View** | Tìm trong project… (`Ctrl+Shift+F`) · Bảng Problems (`Ctrl+Shift+M`) · Xem trước Dir (`Alt+P`) · Outline (`Ctrl+Shift+U`) · Chạy SQL tại con trỏ (`Ctrl+Enter`) · Tách đôi khung soạn thảo (`Ctrl+\`) · Tìm nơi sử dụng (`Shift+F12`) · Show Vertical Tabpage (`Ctrl+B`) · Tự ẩn Menu/Toolbar |
-| **Actions** | Clear Structure App · Refresh Web.config |
+| **Actions** | Clear Structure App · **Open Web.config** (mở web.config của site thành 1 tab, tô màu XML — giống Bcode) · Refresh Web.config |
 | **Help** | Giới thiệu… · Log độ mượt (viewer-perf.log)… |
 | **Theme** | Danh sách theme Tối / Sáng có sẵn · theme đã nhập · Nhập theme (VS Code .json / .vsix, Fcode .xml)… · Theo Windows (sáng/tối) |
 | **⚙ Toolbar** | Tick để ẩn / hiện từng nút · Hiện tất cả · Sắp xếp / thêm nút… (chuột phải thanh công cụ cũng ra menu này) |
@@ -867,7 +867,7 @@ Trên ảnh: **①** thanh menu · **②** thanh công cụ · **③** đường
 
 ### Thanh công cụ (mặc định)
 
-Save (`Ctrl+S`) · Save As · ⚠ Check (so `<fields>` với `<views>` của Dir/Grid) · Undo · Redo · Comment (`Ctrl+/`) · Bookmark · ● Next · Refresh (tải lại file từ đĩa) · Hint (Hint Code) · Tìm project · Problems · Outline · Xem Dir · Chạy SQL · Tách đôi · Wrap (`Alt+Z`) · 🤖 Claude Sidebar · ✨ Gemini Sidebar · 📎 Đính kèm file · Clear Structure · Reset WebConfig.
+Save (`Ctrl+S`) · Save As · ⚠ Check (so `<fields>` với `<views>` của Dir/Grid) · Undo · Redo · Comment (`Ctrl+/`) · Bookmark · ● Next · Refresh (tải lại file từ đĩa) · Hint (Hint Code) · Tìm project · Problems · Outline · Xem Dir · Chạy SQL · Tách đôi · Wrap (`Alt+Z`) · 🤖 Claude Sidebar · ✨ Gemini Sidebar · 📎 Đính kèm file · Clear Structure · Reset WebConfig · Open WebConfig (mở web.config của site).
 
 Dưới thanh công cụ là **đường dẫn** (breadcrumb) của file đang mở — bấm vào một đoạn để mở thư mục đó trong Explorer.
 
@@ -1102,7 +1102,7 @@ Menu **Theme**: hơn 30 theme có sẵn (Dark+, Dracula, One Dark Pro, Monokai, 
 - **Workspace dùng chung**: Viewer đọc danh sách workspace và workspace đang chọn từ `%AppData%\Bcode\settings.json` do Bcode ghi — không cần khai lại kết nối. Đổi workspace trong Bcode thì gợi ý SQL / Chạy SQL của Viewer đi theo.
   - Gợi ý SQL + Chạy SQL: workspace **đang chọn trong Bcode**.
   - `F5` + thanh trạng thái: workspace **trùng tên dự án của file**.
-  - Clear Structure / Refresh Web.config: site của file đang mở.
+  - Clear Structure / Open Web.config / Refresh Web.config: site của file đang mở (thư mục chứa App_Data), không có thì Source Path của workspace.
 - **Bcode → Viewer**: File Lookup → Edit in BcodeViewer (mở file kèm tên dự án).
 - **Viewer → Bcode**: Debug trong Bcode — gửi script sang tab SQL Query mới của Bcode (Bcode phải đang mở, cùng phiên Windows).
 

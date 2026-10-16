@@ -36,6 +36,7 @@ const SHELL_TOOLBAR = [
   { text: '📎 Đính kèm file', host: 'attachFile', title: 'Đính kèm file đang mở vào ô chat của sidebar AI đang hiện' },
   { text: 'Clear Structure', host: 'clearStructure', title: 'Xoá file trong Controllers\\Structure\\App' },
   { text: 'Reset WebConfig', host: 'refreshWebConfig', title: 'Chạm web.config để IIS nạp lại site' },
+  { text: 'Open WebConfig', host: 'openWebConfig', title: 'Mở web.config của site (thư mục chứa App_Data của file đang mở) thành 1 tab' },
 ];
 
 class BcodeShell {
@@ -145,8 +146,9 @@ class BcodeShell {
         { label: 'Tự ẩn Menu/Toolbar', checked: this.autoHide, run: () => { this.autoHide = !this.autoHide; this.save('shell.autoHide', this.autoHide ? '1' : '0'); this.applyAutoHide(); } },
       ] },
       { title: 'Actions', items: [
-        { label: 'Clear Structure App', run: () => this.cmd('clearStructure') },
-        { label: 'Refresh Web.config', run: () => this.cmd('refreshWebConfig') },
+        { label: 'Clear Structure App', shortcut: this.k('tool.clearStructure'), run: () => this.cmd('clearStructure') },
+        { label: 'Open Web.config', shortcut: this.k('tool.openWebConfig'), run: () => this.cmd('openWebConfig') },
+        { label: 'Refresh Web.config', shortcut: this.k('tool.refreshWebConfig'), run: () => this.cmd('refreshWebConfig') },
       ] },
       { title: 'Help', items: [
         { label: 'Giới thiệu...', run: () => this.showAbout() },
@@ -272,7 +274,8 @@ class BcodeShell {
     this.renderToolbar();
   }
 
-  /// Thứ tự nút trên thanh công cụ: theo người dùng sắp xếp (Settings → Bố cục) hoặc mặc định; nút mới của bản cập nhật chưa có trong thứ tự thì nối vào cuối.
+  /// Thứ tự nút trên thanh công cụ: theo người dùng sắp xếp (Settings → Bố cục) hoặc mặc định; nút mới của bản cập nhật chưa có trong thứ tự
+  /// thì chèn ngay sau nút đứng trước nó trong thứ tự mặc định (vd Open WebConfig cạnh Reset WebConfig), không có thì nối vào cuối.
   /// Mỗi phần tử: tên nút (SHELL_TOOLBAR), "|" = vạch ngăn, "cmd:<id>" = nút thêm cho 1 chức năng bất kỳ của bảng phím tắt.
   defaultTokens() { return SHELL_TOOLBAR.map((t) => (t.sep ? '|' : t.text)); }
 
@@ -281,7 +284,13 @@ class BcodeShell {
     const saved = (window.bcodePrefs && window.bcodePrefs.data.toolbarOrder) || [];
     if (!saved.length) return this.defaultTokens();
     const out = saved.filter((t) => t === '|' || known.has(t) || (t.startsWith('cmd:') && window.bcodeKeys && window.bcodeKeys.find(t.slice(4))));
-    for (const t of known) if (!out.includes(t)) out.push(t);
+    const defs = SHELL_TOOLBAR.filter((t) => !t.sep).map((t) => t.text);
+    defs.forEach((t, i) => {
+      if (out.includes(t)) return;
+      let at = -1;
+      for (let j = i - 1; j >= 0 && at < 0; j--) at = out.indexOf(defs[j]);
+      if (at >= 0) out.splice(at + 1, 0, t); else out.push(t);
+    });
     return out;
   }
 

@@ -219,6 +219,7 @@ public class MainForm : Form
 
         var actionsMenu = new ToolStripMenuItem("Actions");
         actionsMenu.DropDownItems.Add(new ToolStripMenuItem("Clear Structure App", null, (_, _) => ClearStructureApp()));
+        actionsMenu.DropDownItems.Add(new ToolStripMenuItem("Open Web.config", null, (_, _) => OpenWebConfig()));
         actionsMenu.DropDownItems.Add(new ToolStripMenuItem("Refresh Web.config", null, (_, _) => RefreshWebConfig()));
         menu.Items.Add(actionsMenu);
 
@@ -277,6 +278,9 @@ public class MainForm : Form
 
         var resetWebConfigBtn = new ToolStripButton("Reset WebConfig", null, (_, _) => RefreshWebConfig());
         toolStrip.Items.Add(resetWebConfigBtn);
+
+        var openWebConfigBtn = new ToolStripButton("Open WebConfig", null, (_, _) => OpenWebConfig()) { ToolTipText = "Mở web.config của site thành 1 tab" };
+        toolStrip.Items.Add(openWebConfigBtn);
 
         SetupToolbarCustomization(toolStrip, menu);
 
@@ -1417,6 +1421,29 @@ public class MainForm : Form
         }
     }
 
+    /// <summary>Actions &gt; Open Web.config — mở web.config ở gốc site (thư mục trên App_Data của file đang mở, không thì Source Path của workspace)
+    /// thành 1 tab, giống Actions → Open Web.config của Bcode.</summary>
+    private async void OpenWebConfig()
+    {
+        var (wsName, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot(_activePath);
+        if (sourcePath is null)
+        {
+            await Msg("Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        var webConfigPath = Path.Combine(sourcePath, "web.config");
+        if (!File.Exists(webConfigPath))
+        {
+            await Msg($"Dự án: {wsName}\nKhông tìm thấy file web.config tại:\n{webConfigPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        // Cây file nhóm theo dự án: gắn web.config vào đúng dự án của site (như mở file từ ngoài).
+        _projectName = !string.IsNullOrWhiteSpace(wsName) ? wsName : Host.WorkspaceConnection.ResolveProjectName(webConfigPath) ?? "#Other";
+        await OpenFileInPageAsync(webConfigPath);
+    }
+
     /// <summary>Actions &gt; Refresh Web.config — appends one space so IIS sees a changed
     /// file and recycles the app, same trick as Bcode.App.</summary>
     private async void RefreshWebConfig()
@@ -1595,6 +1622,7 @@ public class MainForm : Form
                 try { System.Diagnostics.Process.Start("explorer.exe", $"\"{VsCodeThemeImporter.Folder}\""); } catch { }
                 break;
             case "clearStructure": ClearStructureApp(); break;
+            case "openWebConfig": OpenWebConfig(); break;
             case "refreshWebConfig": RefreshWebConfig(); break;
             case "toggleClaude": _toggleClaude(); break;
             case "toggleGemini": _toggleGemini(); break;

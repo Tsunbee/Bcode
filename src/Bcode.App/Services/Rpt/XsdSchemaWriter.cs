@@ -88,13 +88,15 @@ public static class XsdSchemaWriter
             var count = ds.Tables.Count;
             var status = $"Đã ghi schema {count} bảng (d1{(count > 1 ? "…d" + count : "")}) ra {sfd.FileName}.";
 
-            // Bước tiếp (tuỳ chọn): đổi nguồn bảng trong file .rpt sang xsd vừa ghi — Forms/RptSchemaForm. Có file .rpt cùng tên thì gợi ý sẵn.
-            var rpt = Path.ChangeExtension(sfd.FileName, ".rpt");
-            var hasRpt = File.Exists(rpt);
-            if (MessageBox.Show(owner, status + "\r\n\r\nCập nhật bảng trong file Crystal Report (.rpt) theo schema này luôn?" + (hasRpt ? $"\r\n(có sẵn {Path.GetFileName(rpt)} cùng thư mục)" : ""),
-                    "Bcode — Write Schema", MessageBoxButtons.YesNo, MessageBoxIcon.Question, hasRpt ? MessageBoxDefaultButton.Button1 : MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            // Bước tiếp (tuỳ chọn): đổi nguồn bảng trong file .rpt sang xsd vừa ghi — Forms/RptSchemaForm (nạp sẵn danh sách .rpt của Templates\Rpt để tìm,
+            // file .rpt cùng tên với xsd thì chọn sẵn).
+            var rptName = Path.GetFileNameWithoutExtension(sfd.FileName) + ".rpt";
+            var hasRpt = File.Exists(Path.ChangeExtension(sfd.FileName, ".rpt")) || (rptDir is not null && File.Exists(Path.Combine(rptDir, rptName)));
+            var canPick = hasRpt || (rptDir is not null && Directory.Exists(rptDir));
+            if (MessageBox.Show(owner, status + "\r\n\r\nCập nhật bảng trong file Crystal Report (.rpt) theo schema này luôn?" + (hasRpt ? $"\r\n(có sẵn {rptName})" : ""),
+                    "Bcode — Write Schema", MessageBoxButtons.YesNo, MessageBoxIcon.Question, canPick ? MessageBoxDefaultButton.Button1 : MessageBoxDefaultButton.Button2) == DialogResult.Yes)
             {
-                using var form = new Bcode.App.Forms.RptSchemaForm(sfd.FileName, ds, hasRpt ? rpt : null);
+                using var form = new Bcode.App.Forms.RptSchemaForm(sfd.FileName, ds, rptDir);
                 if (form.ShowDialog(owner) == DialogResult.OK && form.ResultStatus is { } s) status += " " + s;
             }
             return status;

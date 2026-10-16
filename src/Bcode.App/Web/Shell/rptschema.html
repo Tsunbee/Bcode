@@ -16,12 +16,23 @@
   .grid .note.ok { color: var(--success); } .grid .note.warn { color: var(--warning); } .grid .note.err { color: var(--danger); font-weight: 600; }
   .grid .h { color: var(--text-muted); font-size: .85rem; border-bottom: var(--bw) solid var(--border); padding-bottom: .2rem; }
   .chk { display: none; gap: .45rem; align-items: center; }
+  .search { position: relative; flex: 1; min-width: 0; display: flex; }
+  .search input { flex: 1; }
+  .drop { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 10; max-height: 16rem; overflow: auto;
+          background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  .drop.open { display: block; }
+  .drop .it { padding: .28rem .6rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Consolas, 'Cascadia Mono', monospace; }
+  .drop .it b { color: var(--accent); font-weight: 600; }
+  .drop .it.sel { background: var(--accent); color: var(--on-accent, #fff); } .drop .it.sel b { color: inherit; }
+  .drop .note { padding: .25rem .6rem; color: var(--text-muted); font-size: .85rem; border-top: var(--bw) solid var(--border); position: sticky; bottom: 0; background: var(--panel); }
+  #dir { margin-top: -.4rem; }
 </style>
 </head>
 <body>
 <div class="dlg-main">
   <div id="head" class="hint"></div>
-  <div class="row"><span class="lbl">File .rpt</span><input type="text" id="rpt" spellcheck="false" placeholder="Đường dẫn file Crystal Report (.rpt) — Enter để đọc"><button id="bPick">Chọn...</button></div>
+  <div class="row"><span class="lbl">File .rpt</span><div class="search"><input type="text" id="rpt" spellcheck="false" autocomplete="off" placeholder="Gõ tên để tìm file .rpt — hoặc dán đường dẫn, Enter để đọc"><div id="drop" class="drop"></div></div><button id="bPick">Chọn...</button></div>
+  <div id="dir" class="hint"></div>
   <div id="grid" class="grid"></div>
   <label id="subWrap" class="chk"><input type="checkbox" id="chkSub" checked> <span id="subNote"></span></label>
 </div>
@@ -40,12 +51,45 @@
   $('bPick').onclick = () => { if (!busy) post('pick'); };
   $('bOk').onclick = apply;
   $('bCancel').onclick = () => post('cancel');
-  $('rpt').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (!busy) post('load', { rpt: $('rpt').value }); } });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); });
+  // Ô tìm file .rpt: C# lọc danh sách đã nạp sẵn (search → matches), trang chỉ hiện + điều hướng ↑ ↓ Enter Esc.
+  const inp = $('rpt'), drop = $('drop');
+  let items = [], sel = -1, timer = 0;
+  const isPath = (v) => /[\\:]/.test(v);
+  const openDrop = (b) => drop.classList.toggle('open', b);
+  const search = (q) => { clearTimeout(timer); timer = setTimeout(() => post('search', { q }), 60); openDrop(true); };
+  const pick = (it) => { if (!it || busy) return; inp.value = it.path; openDrop(false); post('load', { rpt: it.path }); };
+  const mark = (name, q) => { const i = q ? name.toLowerCase().indexOf(q.toLowerCase()) : -1; return i < 0 ? esc(name) : esc(name.slice(0, i)) + '<b>' + esc(name.slice(i, i + q.length)) + '</b>' + esc(name.slice(i + q.length)); };
+  const paint = () => [...drop.querySelectorAll('.it')].forEach((el, i) => { el.classList.toggle('sel', i === sel); if (i === sel) el.scrollIntoView({ block: 'nearest' }); });
+  inp.addEventListener('focus', () => { inp.select(); search(isPath(inp.value) ? '' : inp.value); });
+  inp.addEventListener('input', () => search(isPath(inp.value) ? '' : inp.value));
+  inp.addEventListener('blur', () => setTimeout(() => openDrop(false), 150));
+  inp.addEventListener('keydown', (e) => {
+    const open = drop.classList.contains('open') && items.length > 0;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!drop.classList.contains('open')) { search(isPath(inp.value) ? '' : inp.value); return; }
+      if (items.length) { sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; paint(); }
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); e.stopPropagation();
+      if (open && sel >= 0) pick(items[sel]);
+      else if (!busy) { openDrop(false); post('load', { rpt: inp.value }); }
+    } else if (e.key === 'Escape' && drop.classList.contains('open')) { e.preventDefault(); e.stopPropagation(); openDrop(false); }
+  });
+  drop.addEventListener('mousedown', (e) => { e.preventDefault(); const el = e.target.closest('.it'); if (el) pick(items[+el.dataset.i]); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented) post('cancel'); });
   window.rptSchema = {
     init(d) {
       $('head').innerHTML = 'Đã ghi <b>' + esc(d.xsd) + '</b> — ' + esc(d.xsdTables.join(', ')) + '.<br>Chọn file .rpt; mỗi bảng của report lấy nguồn từ bảng nào của xsd (như Set Datasource Location + Verify Database). Bản gốc được sao lưu thành .rpt.bak.';
-      $('rpt').value = d.rpt || ''; $('rpt').focus();
+      $('rpt').value = d.rpt || '';
+      $('dir').textContent = 'Tìm trong: ' + d.dir;
+      if (!d.rpt) $('rpt').focus();
+    },
+    matches(d) {
+      const q = isPath(inp.value) ? '' : inp.value.trim();
+      items = d.items || []; sel = items.length ? 0 : -1;
+      drop.innerHTML = items.map((it, i) => '<div class="it" data-i="' + i + '" title="' + esc(it.path) + '">' + mark(it.name, q) + '</div>').join('') +
+        (d.note ? '<div class="note">' + esc(d.note) + '</div>' : '');
+      paint();
     },
     setRpt(p) { $('rpt').value = p; },
     load(d) {

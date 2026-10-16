@@ -9,30 +9,83 @@ namespace Bcode.App.Forms;
 /// Write Schema → "Cập nhật bảng trong file .rpt": chọn file Crystal Report, mỗi bảng của rpt chọn lấy nguồn từ bảng nào của xsd vừa ghi
 /// (mặc định bảng cùng tên), bảng xsd chưa có trong rpt thì thêm mới; báo trước cột thêm / mất — cột mất mà report đang dùng thì Crystal xoá
 /// luôn ô đó khỏi layout nên tô đỏ và hỏi lại. Logic ở Services/Rpt/RptSchemaService; giao diện Web/Shell/rptschema.html (App: RptSchemaPage).
+/// Ô "File .rpt" là ô tìm: nạp sẵn danh sách *.rpt của &lt;Source Path&gt;\App_Data\Controllers\Templates\Rpt (không có thì thư mục của xsd),
+/// gõ tới đâu lọc tới đó (khớp đầu tên trước, chứa sau — lọc ở C# cho cả 2 chế độ), chọn 1 dòng là đọc rpt đó.
 /// </summary>
 public sealed class RptSchemaForm : WebDialogForm
 {
     private readonly string _xsdPath;
     private readonly List<(string Name, List<string> Columns)> _xsd;
     private string _rptPath;
+    private readonly string _rptDir;          // thư mục nạp sẵn danh sách .rpt để tìm
+    private List<string>? _files;             // đường dẫn đầy đủ các .rpt trong _rptDir (null = đang đọc)
+    private string _query = "";
     private RptInfo? _info;
     private bool _busy;
+    private const int MaxMatches = 200;
 
     /// <summary>Dòng trạng thái sau khi cập nhật thành công (hiện ở thanh trạng thái tab SQL Query).</summary>
     public string? ResultStatus { get; private set; }
 
-    public RptSchemaForm(string xsdPath, DataSet schema, string? suggestedRpt)
-        : base("Write Schema — cập nhật bảng trong file .rpt", "rptschema.html", 820, 520, 560, 340)
+    /// <param name="rptDir">Thư mục Templates\Rpt của workspace (&lt;Source Path&gt;\App_Data\Controllers\Templates\Rpt); không có thì dùng thư mục của xsd.</param>
+    public RptSchemaForm(string xsdPath, DataSet schema, string? rptDir)
+        : base("Write Schema — cập nhật bảng trong file .rpt", "rptschema.html", 820, 560, 560, 360)
     {
         _xsdPath = xsdPath;
         _xsd = schema.Tables.Cast<DataTable>().Select(t => (t.TableName, t.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList())).ToList();
-        _rptPath = suggestedRpt ?? "";
+        var xsdDir = Path.GetDirectoryName(xsdPath) ?? "";
+        _rptDir = !string.IsNullOrWhiteSpace(rptDir) && Directory.Exists(rptDir) ? rptDir : xsdDir;
+        // Gợi ý sẵn file .rpt cùng tên với xsd (cạnh xsd trước, rồi trong Templates\Rpt).
+        var name = Path.GetFileNameWithoutExtension(xsdPath) + ".rpt";
+        _rptPath = new[] { Path.Combine(xsdDir, name), Path.Combine(_rptDir, name) }.FirstOrDefault(File.Exists) ?? "";
     }
 
     protected override void OnReady()
     {
-        Js($"rptSchema.init({J(new { xsd = _xsdPath, xsdTables = _xsd.Select(t => $"{t.Name} ({t.Columns.Count} cột)"), rpt = _rptPath })})");
-        if (_rptPath.Length > 0 && File.Exists(_rptPath)) _ = LoadAsync(_rptPath);
+        Js($"rptSchema.init({J(new { xsd = _xsdPath, xsdTables = _xsd.Select(t => $"{t.Name} ({t.Columns.Count} cột)"), rpt = _rptPath, dir = _rptDir })})");
+        _ = LoadFileListAsync();
+        if (_rptPath.Length > 0) _ = LoadAsync(_rptPath);
+    }
+
+    /// <summary>Đọc danh sách *.rpt của thư mục (ở luồng nền — share mạng có hàng nghìn file) rồi đẩy kết quả lọc theo ô tìm hiện tại.</summary>
+    private async Task LoadFileListAsync()
+    {
+        try
+        {
+            var dir = _rptDir;
+            _files = await Task.Run(() => Directory.Exists(dir)
+                ? Directory.EnumerateFiles(dir, "*.rpt").OrderBy(f => Path.GetFileName(f), StringComparer.OrdinalIgnoreCase).ToList()
+                : new List<string>());
+        }
+        catch (Exception ex) { _files = new List<string>(); Status("Không đọc được danh sách rpt: " + ex.Message, "err"); }
+        PushMatches();
+    }
+
+    /// <summary>Lọc danh sách theo ô tìm: khớp đầu tên trước, chứa sau (giữ thứ tự tên); ô trống thì file cùng tên gốc với xsd lên đầu. Gõ đường dẫn (có \ hoặc :) thì không lọc.</summary>
+    private void PushMatches()
+    {
+        if (_files is null) { Js($"rptSchema.matches({J(new { items = Array.Empty<object>(), note = "Đang đọc danh sách .rpt trong " + _rptDir + "..." })})"); return; }
+        var q = _query.Trim();
+        var isPath = q.Contains('\\') || q.Contains(':');
+        IEnumerable<string> hits;
+        if (isPath) hits = Enumerable.Empty<string>();
+        else if (q.Length == 0)
+        {
+            var stem = Path.GetFileNameWithoutExtension(_xsdPath);
+            hits = _files.Where(f => Path.GetFileName(f).StartsWith(stem, StringComparison.OrdinalIgnoreCase))
+                         .Concat(_files.Where(f => !Path.GetFileName(f).StartsWith(stem, StringComparison.OrdinalIgnoreCase)));
+        }
+        else
+        {
+            hits = _files.Where(f => Path.GetFileName(f).StartsWith(q, StringComparison.OrdinalIgnoreCase))
+                         .Concat(_files.Where(f => !Path.GetFileName(f).StartsWith(q, StringComparison.OrdinalIgnoreCase)
+                                                   && Path.GetFileName(f).Contains(q, StringComparison.OrdinalIgnoreCase)));
+        }
+        var list = hits.ToList();
+        var note = _files.Count == 0 ? "Không có file .rpt nào trong " + _rptDir
+                 : list.Count == 0 ? (q.Length > 0 && !isPath ? $"Không có file nào khớp \"{q}\" (trong {_files.Count} file)" : "")
+                 : list.Count > MaxMatches ? $"{MaxMatches}/{list.Count} file khớp — gõ thêm để lọc" : $"{list.Count}/{_files.Count} file";
+        Js($"rptSchema.matches({J(new { items = list.Take(MaxMatches).Select(f => new { name = Path.GetFileName(f), path = f }), note })})");
     }
 
     protected override async Task OnActionAsync(string action, JsonElement msg)
@@ -42,7 +95,7 @@ public sealed class RptSchemaForm : WebDialogForm
             case "pick":
             {
                 using var ofd = new OpenFileDialog { Title = "Chọn file Crystal Report", Filter = "Crystal Report (*.rpt)|*.rpt|All files (*.*)|*.*" };
-                var dir = _rptPath.Length > 0 ? Path.GetDirectoryName(_rptPath) : Path.GetDirectoryName(_xsdPath);
+                var dir = _rptPath.Length > 0 ? Path.GetDirectoryName(_rptPath) : _rptDir;
                 if (dir is not null && Directory.Exists(dir)) ofd.InitialDirectory = dir;
                 if (ofd.ShowDialog(this) != DialogResult.OK) return;
                 Js($"rptSchema.setRpt({J(ofd.FileName)})");
@@ -51,6 +104,10 @@ public sealed class RptSchemaForm : WebDialogForm
             }
             case "load":
                 await LoadAsync(Str(msg, "rpt"));
+                break;
+            case "search":
+                _query = Str(msg, "q");
+                PushMatches();
                 break;
             case "apply":
                 await ApplyAsync(msg);

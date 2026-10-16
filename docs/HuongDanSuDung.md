@@ -631,7 +631,7 @@ Dữ liệu lưu ở `%AppData%\Bcode\AdvanceNotes\<workspace>.json`.
 
 Dùng khi yêu cầu là **tạo một danh mục mới** (màn hình thêm / sửa / xoá / tìm các mã của một bảng, có thể kèm lưới chi tiết). AI chỉ **điền sẵn** màn [Tạo nhanh danh mục](#tool-mo-rong) — không tự ghi file, không chạy SQL.
 
-1. Ở **Note (New)**, Sync yêu cầu (hoặc tự nhập Request Content), chọn yêu cầu → bấm **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`; đổi phím ở Template → Phím tắt).
+1. Ở **Note (New)**, Sync yêu cầu (hoặc tự nhập Request Content), chọn yêu cầu → bấm **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`; đổi phím ở Template → Phím tắt). Ở **Báo cáo yêu cầu FSG** (menu Triển khai): bấm ô Nội dung của 1 yêu cầu để mở khung chi tiết → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) — gửi mã YC + tên menu + nội dung + ghi chú.
 2. Màn **Tạo nhanh danh mục** mở ra (đang mở thì dùng lại) với khung **🤖 AI tạo danh mục** ở trên: AI đọc nội dung yêu cầu + tên bảng / tên cột / kiểu cột của App Data (không gửi dữ liệu dòng nào), rồi điền Bảng, Controller, File Main, Key, Title (v/e), các cột (header, tick Grid / Dir / Lookup / Filter / Import, AutoComplete), bảng chi tiết nếu có.
 3. Thiếu thông tin thì khung AI hiện **câu hỏi** — gõ trả lời (để trống = AI tự chọn) → **Gửi trả lời & hỏi lại AI**. **Hỏi lại AI** = hỏi lại với nội dung hiện có.
 4. Bảng AI đề xuất **chưa có** trong App Data: cột lấy theo đề xuất của AI, khung AI có **script tạo bảng** (Copy script) — tự xem lại và chạy trước khi dùng danh mục; Bcode không chạy.
@@ -640,10 +640,10 @@ Dùng khi yêu cầu là **tạo một danh mục mới** (màn hình thêm / s�
 Yêu cầu không phải tạo danh mục (sửa màn hình có sẵn, báo cáo, chứng từ...) thì khung AI báo "chưa hỗ trợ". Dùng **Claude (Anthropic) API key** (hoặc Gemini) nhập ở tab **SQL Query → ⚙ Tùy chọn → Copilot / AI** (dùng chung với Ctrl+I); mỗi lượt hỏi AI tốn token của key đó và được lưu ở **Lịch sử gợi ý AI** (loại "Danh mục").
 
 **Chưa có API key** → Bcode tự **gợi ý theo cấu trúc Fast** (khung ghi "Luật Fast (không AI)", không gọi AI, không tốn token):
-- Đọc tốt nhất câu dạng `Thêm danh mục <tên>: Mã, Tên, Khách hàng, Ngày hiệu lực, Ghi chú` (hoặc "… gồm …", hoặc gạch đầu dòng mỗi cột một dòng).
-- Bảng mới đặt theo quy ước FBO: `dm` + chữ đầu các từ (hình thức bán hàng → `dmhtbh`, mã `ma_htbh`, tên `ten_htbh`, `ten_htbh2`), luôn thêm `status` và các cột hệ thống `datetime0/2`, `user_id0/2`. Ghi rõ tên bảng trong yêu cầu (vd `dmhtbh`) thì theo đó.
+- Đọc tốt nhất câu dạng `Thêm danh mục <tên>: Mã, Tên, Khách hàng, Ngày hiệu lực, Ghi chú` (hoặc "… gồm …", hoặc gạch đầu dòng mỗi cột một dòng). Y/c FSG viết kiểu "Thêm (mới) (1) danh mục X … Thông tin khai báo / Gồm các trường: - Mã …: tự nhập - Mã tỉnh: Lookup từ danh mục …" cũng đọc được: mỗi gạch đầu dòng 1 cột, phần sau dấu ":" là mô tả (có "lookup / chọn từ danh mục …" thì gắn lookup); y/c trộn việc khác (thêm trường vào chứng từ, báo cáo…) thì chỉ lấy phần danh mục và ghi chú phần còn lại.
+- Bảng mới đặt tên **`zdm` + chữ đầu các từ** để dễ phân biệt với bảng `dm…` chuẩn của Fast (hình thức bán hàng → `zdmhtbh`, mã `ma_htbh`, tên `ten_htbh`, `ten_htbh2`), luôn thêm `status` và các cột hệ thống `datetime0/2`, `user_id0/2`. Có API key thì AI cũng đặt theo tiền tố này. Ghi rõ tên bảng trong yêu cầu (vd `dmhtbh`) thì theo đó. Đổi tiền tố: sửa `"NewCatalogTablePrefix"` trong `%AppData%\Bcode\settings.json` (lúc Bcode đã tắt).
 - Cột khác tra theo tiêu đề: lookup thường dùng (Khách hàng → `ma_kh` / Customer, Vật tư → `ma_vt` / Item, Kho, Ngoại tệ, Bộ phận, Đơn vị → `ma_dvcs` / Unit…), rồi từ điển field của Bcode (header.xml); "Nhóm …" → `nh_xxx1`; không tra được thì đoán tên + kiểu (Ngày → smalldatetime, Tiền/Giá/Tỷ lệ → numeric) và **hỏi lại** tên field.
-- "1 hoặc nhiều <X>" / "chi tiết" → có lưới chi tiết (bảng `ct<bảng>`, khoá `ma_xxx, line_nbr`); "import / nhập từ Excel" → bật Import.
+- "1 hoặc nhiều <X>" / "chi tiết" → có lưới chi tiết (bảng `<bảng>ct`, vd `zdmkbhct`, khoá `ma_xxx, line_nbr`); "import / nhập từ Excel" → bật Import.
 - Bảng `dm…` đã có trong App Data → dùng đủ cột thật; source đã có danh mục cùng tên → hỏi có tạo màn mới không.
 - Luật không hiểu câu văn tự do như AI — kiểm tra kỹ tên bảng / cột trước khi Tạo file. Nhập API key xong thì lần bấm sau dùng lại AI.
 
@@ -693,7 +693,7 @@ Nút **Triển khai ▾** trên thanh trên. Các công cụ này không có ph�
 | **Thiết kế màn hình** | Mở BcodeScreenDesigner (thiết kế / xem trước màn hình Dir có dữ liệu mẫu) cho dự án hiện tại; từ cây WCommand thì mở thẳng controller của menu. Không thấy exe → khai ở Template → Đường dẫn. |
 | **Khai báo API** | Khai báo & quản lý API chuẩn LT3: **＋ Mới từ mẫu LT3**, **Nhập Postman…**, **Xuất Postman…**; kết nối (địa chỉ gốc, tài khoản, mật khẩu — mã hoá theo máy) → **Lấy token**. Phím: `Ctrl+Shift+Enter` gửi, `Ctrl+S` lưu, `Ctrl+Shift+T` lấy token, `Ctrl+Shift+F` format, `Ctrl+Shift+K` validate. |
 | **Tạo cấu trúc API** | Chọn bảng / cột → xuất tài liệu Word "TÀI LIỆU ĐẶC TẢ TỔNG HỢP API". |
-| **Báo cáo yêu cầu FSG** | Kéo yêu cầu từ FSG (chỉ đọc): lọc Mã dự án, bộ phận, người, mã YC, lập trình (ma_lt1), triển khai (ma_nv1) → **⟳ Kéo về**; xem Chi tiết / Dashboard / Gợi ý ưu tiên. |
+| **Báo cáo yêu cầu FSG** | Kéo yêu cầu từ FSG (chỉ đọc): lọc Mã dự án, bộ phận, người, mã YC, lập trình (ma_lt1), triển khai (ma_nv1) → **⟳ Kéo về**; xem Chi tiết / Dashboard / Gợi ý ưu tiên. Bấm ô Nội dung để mở khung chi tiết y/c → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) như ở Note (New) — xem [AI tạo danh mục](#ai-danh-muc). |
 | **Mail kế hoạch tuần** | Mẫu mail theo dự án (＋ Mới / Nhân bản / Xoá mẫu), máy chủ SMTP dùng chung với Check Mail, **⟳ Tính theo hôm nay** điền ngày trong tuần → **✉ Gửi mail** / **💾 Lưu mẫu**. |
 
 <a id="tool-mo-rong"></a>
@@ -1000,6 +1000,12 @@ Trong cửa sổ peek: **Mở nơi khai báo (Ctrl+F12)** · **Copy code**; `F12
 - Chạy SQL tại con trỏ (`Ctrl+Enter`) · Debug SQL trong Bcode
 - Create Function · Tạo `<action>` cho f.request · Lookup Regex · Convert to XML
 - **Dịch caption (v → e)** (`Ctrl+Alt+T`): điền `e="..."` cho mọi thẻ có `v` mà `e` trống (trong vùng chọn hoặc cả file); sửa tay kết quả trước khi bấm **Áp dụng**; `Ctrl+Z` để hoàn tác. Engine dịch chọn ở Settings → AI (Google không cần key).
+  - Dịch sang **English** thì Viewer tra **Từ điển dịch** trước, chỉ caption không có trong từ điển mới gửi Google/Gemini/Claude. Cột bên phải mỗi dòng cho biết bản dịch lấy từ đâu: *Từ điển* (từ bạn khai báo), *Có sẵn* (header.xml, HeaderDictionary.json, tiêu đề Bcode đã học), *Google*/*Gemini*/*Claude*.
+  - **Lưu vào từ điển**: lưu các bản dịch của Google/AI và những ô bạn đã sửa tay vào Từ điển dịch — lần sau gặp caption đó sẽ dùng luôn, không gọi Google nữa. **Từ điển...** mở hộp Từ điển dịch.
+- **Từ điển dịch (Việt → Anh)** (menu **Actions → Từ điển dịch...**, hoặc nút **Từ điển...** trong hộp Dịch caption; gán phím ở Settings → Phím tắt → *Từ điển dịch*): xem / thêm / sửa / xoá các cặp Việt → Anh của bạn rồi bấm **Lưu**.
+  - So khớp không phân biệt hoa/thường, khoảng trắng thừa, dấu `:` `.` cuối; caption gõ **không dấu** ("Ma khach hang") vẫn khớp từ có dấu. Caption dài không có nguyên câu thì ghép theo cụm dài nhất có trong từ điển (vd "Mã" + "khách hàng" → "Customer Code"); còn từ nào chưa biết thì để Google dịch.
+  - Từ của bạn luôn thắng từ có sẵn. Tick **Hiện cả từ có sẵn** để xem các từ có sẵn; bấm **Sửa** ở một dòng có sẵn để chép thành từ của bạn rồi sửa. Bỏ tick **Dùng từ có sẵn** / **ghép theo cụm** nếu chỉ muốn dùng đúng từ đã khai báo.
+  - Ô **Thử dịch** (gõ rồi Enter) cho biết từ điển (đã lưu) sẽ dịch một caption ra sao. File lưu: `%AppData%\Bcode\viewer-translate-dict.json` (sửa tay được, Viewer tự nạp lại).
 - **Clone file…**: nhập tên mới (mặc định tên cũ + "2"), có thể clone cùng các file cùng tên (vd `.f` + `.xml`), không bao giờ ghi đè.
 - **Get Hash Source**: SHA-256 + ngày sửa của file và các file cùng tên trong site (để so bản giữa các máy).
 
@@ -1120,7 +1126,7 @@ Menu **Theme**: hơn 30 theme có sẵn (Dark+, Dracula, One Dark Pro, Monokai, 
 | **📎 Đính kèm file** | Một sidebar đang mở | Dán nội dung file đang mở vào ô chat |
 | **`Ctrl+I`** | Anthropic API key | Sinh / sửa code ngay tại con trỏ |
 | **AI ghost text** | Bật trong Settings → AI + API key | Gợi ý chữ mờ khi ngừng gõ (tính phí) |
-| **Dịch caption** `Ctrl+Alt+T` | Google: không cần key | Điền tiếng Anh cho header |
+| **Dịch caption** `Ctrl+Alt+T` | Google: không cần key | Điền tiếng Anh cho header — tra Từ điển dịch trước, không có mới gọi Google/AI |
 
 Đóng khung AI là giải phóng bộ nhớ; thu nhỏ Viewer khi khung đang mở thì khung tạm ngủ. Vị trí khung chọn ở Settings → Giao diện.
 
@@ -1196,7 +1202,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\FileLookupCache\` | Bcode | Cache phân tích file / menu (xoá được) |
 | `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" |
 | `%AppData%\Bcode\license.key` | Bcode | Key bản quyền |
-| `%AppData%\Bcode\viewer-*.json`, `viewer-hints.json`, `viewer-recent-files.json` | BcodeViewer | Settings, phím tắt, Hint Code, danh sách file của cây |
+| `%AppData%\Bcode\viewer-*.json`, `viewer-hints.json`, `viewer-recent-files.json` | BcodeViewer | Settings, phím tắt, Hint Code, danh sách file của cây; `viewer-translate-dict.json` = Từ điển dịch |
 | `%AppData%\Bcode\history\` | BcodeViewer | Lịch sử file của máy này |
 | `<thư mục dự án>\History\` | BcodeViewer | Lịch sử chung của dự án (ai sửa gì) |
 | `<BcodeViewer.exe>\Config\*.txt` | BcodeViewer | Prompt AI ghost text |

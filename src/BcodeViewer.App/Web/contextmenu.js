@@ -629,25 +629,52 @@ class BcodeDialogs {
         : 'Không có caption nào cần dịch (v có chữ, e còn trống).';
       rows.forEach((r) => {
         const line = document.createElement('div');
-        line.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+        line.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 64px;gap:6px;align-items:center';
         const vi = document.createElement('div');
         vi.className = 'dlgLabel';
         vi.textContent = r.vi + (r.field ? `  [${r.field}]` : '');
         r.input = document.createElement('input');
         r.input.className = 'dlgTextarea';
+        // Nguồn bản dịch: Từ điển (người dùng) / Có sẵn / Google, Gemini, Claude.
+        r.badge = document.createElement('div');
+        r.badge.className = 'dlgLabel';
+        r.badge.style.cssText = 'margin-top:0;font-size:12px;white-space:nowrap';
         line.appendChild(vi);
         line.appendChild(r.input);
+        line.appendChild(r.badge);
         list.appendChild(line);
       });
       translateBtn.disabled = rows.length === 0;
       applyBtn.disabled = true;
+      saveDictBtn.disabled = true;
     };
 
     const translateBtn = this.makeButton('Dịch', 'primary');
     const applyBtn = this.makeButton('Áp dụng');
+    const saveDictBtn = this.makeButton('Lưu vào từ điển');
+    saveDictBtn.title = 'Lưu các bản dịch của Google/AI và những ô đã sửa tay vào Từ điển dịch — lần sau tra từ điển, không gọi Google nữa';
+    const dictBtn = this.makeButton('Từ điển...');
+    dictBtn.title = 'Xem / sửa / thêm từ của Từ điển dịch (Việt → Anh)';
+    dictBtn.onclick = () => this.showTranslateDictionary();
     const closeBtn = this.makeButton('Close');
     closeBtn.onclick = () => overlay.remove();
     overwrite.onchange = scan;
+    const SRC_LABEL = { user: 'Từ điển', builtin: 'Có sẵn', google: 'Google', gemini: 'Gemini', claude: 'Claude' };
+    // Từ điển dịch chỉ là Việt → Anh: dịch sang ngôn ngữ khác thì không tra, không lưu.
+    const isEnglish = (lang) => /^(english|en|tiếng anh|anh)$/i.test(String(lang || '').trim());
+
+    saveDictBtn.onclick = async () => {
+      if (!isEnglish(langBox.value.trim() || 'English')) { info.textContent = 'Từ điển dịch chỉ lưu bản dịch sang tiếng Anh (English).'; return; }
+      // Bản dịch lấy từ từ điển mà không sửa thì không cần lưu lại.
+      const pairs = rows.filter((r) => r.input.value.trim() && !((r.src === 'user' || r.src === 'builtin') && r.input.value.trim() === r.orig))
+        .map((r) => ({ vi: r.vi, en: r.input.value.trim() }));
+      if (!pairs.length) { info.textContent = 'Không có bản dịch mới nào để lưu vào từ điển.'; return; }
+      saveDictBtn.disabled = true;
+      const reply = String(await window.bcodeHost.call('BeginAddTranslateDict', JSON.stringify(pairs)) || '');
+      if (/^Lỗi/.test(reply)) { info.textContent = reply; saveDictBtn.disabled = false; return; }
+      info.textContent = `Đã lưu ${reply} cặp vào Từ điển dịch.`;
+      rows.forEach((r) => { if (r.input.value.trim()) { r.src = 'user'; r.orig = r.input.value.trim(); r.badge.textContent = SRC_LABEL.user; } });
+    };
 
     translateBtn.onclick = async () => {
       const lang = langBox.value.trim() || 'English';
@@ -659,19 +686,35 @@ class BcodeDialogs {
           info.textContent = `Đang dịch ${Math.min(i + BATCH, rows.length)}/${rows.length}...`;
           const chunk = rows.slice(i, i + BATCH);
           const payload = JSON.stringify(chunk.map((r) => ({ vi: r.vi, field: r.field })));
-          // Engine dịch (Google không cần key / Gemini / Claude) do C# chọn theo Settings — CaptionTranslator.
+          // Tiếng Anh: tra Từ điển dịch trước, phần còn lại mới qua engine (Google không cần key / Gemini / Claude theo Settings) —
+          // CaptionTranslator. Trả {texts, src, engine, error} (bản cũ trả mảng chuỗi).
           const reply = await window.bcodeHost.call('BeginTranslateCaptions', payload, lang);
           let out;
           try { out = JSON.parse(reply || ''); } catch { out = null; }
-          if (!Array.isArray(out) || out.length !== chunk.length) {
+          if (Array.isArray(out)) out = { texts: out, src: [] };
+          if (!out || !Array.isArray(out.texts) || out.texts.length !== chunk.length) {
             info.textContent = reply && reply.trim() ? (/^Lỗi/.test(reply.trim()) ? reply.trim() : 'Lỗi: ' + reply.trim()).slice(0, 300) : 'Lỗi: không nhận được bản dịch.';
             translateBtn.disabled = false;
             return;
           }
-          chunk.forEach((r, k) => { r.input.value = String(out[k] ?? ''); });
+          chunk.forEach((r, k) => {
+            r.input.value = String(out.texts[k] ?? '');
+            r.orig = r.input.value.trim();
+            r.src = (out.src && out.src[k]) || '';
+            r.badge.textContent = SRC_LABEL[r.src] || r.src;
+          });
+          if (out.error) {
+            info.textContent = 'Từ điển đã dịch được một phần; phần còn lại lỗi — ' + String(out.error).slice(0, 300);
+            applyBtn.disabled = false;
+            saveDictBtn.disabled = !isEnglish(lang);
+            translateBtn.disabled = false;
+            return;
+          }
         }
-        info.textContent = old + ' Đã dịch — sửa tay nếu cần rồi bấm Áp dụng.';
+        const fromDict = rows.filter((r) => r.src === 'user' || r.src === 'builtin').length;
+        info.textContent = old + ` Đã dịch (${fromDict} từ Từ điển dịch) — sửa tay nếu cần rồi bấm Áp dụng.`;
         applyBtn.disabled = false;
+        saveDictBtn.disabled = !isEnglish(lang);
       } catch (err) {
         info.textContent = 'Lỗi: ' + err;
       }
@@ -699,10 +742,186 @@ class BcodeDialogs {
     body.appendChild(langBox);
     body.appendChild(overwriteLabel);
     body.appendChild(list);
-    body.appendChild(this.makeButtonRow([translateBtn, applyBtn, closeBtn]));
+    body.appendChild(this.makeButtonRow([dictBtn, saveDictBtn, translateBtn, applyBtn, closeBtn]));
     document.body.appendChild(overlay);
     scan();
     langBox.focus();
+  }
+
+  /// Từ điển dịch Việt → Anh (Settings/TranslateDictionary.cs, %AppData%\Bcode\viewer-translate-dict.json): "Dịch caption" sang
+  /// English tra ở đây trước, không có mới gọi Google/AI. Từ của người dùng sửa thẳng trong bảng; từ có sẵn (header.xml,
+  /// HeaderDictionary.json...) chỉ đọc — "Sửa" chép thành từ của người dùng (thắng từ có sẵn).
+  async showTranslateDictionary() {
+    const { overlay, body } = this.makeDialog('Từ điển dịch (Việt → Anh)');
+    overlay.firstChild.style.width = '880px';
+    const info = this.makeLabel('Đang nạp...');
+    const bare = (s) => String(s || '').toLowerCase().replace(/đ/g, 'd').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    const norm = (s) => String(s || '').trim().replace(/[:.]+$/, '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const input = (ph) => { const i = document.createElement('input'); i.className = 'dlgTextarea'; i.placeholder = ph; return i; };
+    const check = (text) => {
+      const l = document.createElement('label');
+      l.className = 'dlgLabel';
+      l.style.marginTop = '0';
+      const c = document.createElement('input');
+      c.type = 'checkbox';
+      l.appendChild(c);
+      l.appendChild(document.createTextNode(' ' + text));
+      return { l, c };
+    };
+    const grid = (cols) => { const d = document.createElement('div'); d.style.cssText = `display:grid;grid-template-columns:${cols};gap:6px;align-items:center`; return d; };
+
+    const useBuiltin = check('Dùng từ có sẵn (header.xml, HeaderDictionary.json, tiêu đề Bcode đã học)');
+    const compose = check('Không khớp nguyên câu thì ghép theo cụm dài nhất');
+    const showBuiltin = check('Hiện cả từ có sẵn trong danh sách');
+    const opts = grid('1fr 1fr 1fr');
+    [useBuiltin, compose, showBuiltin].forEach((o) => opts.appendChild(o.l));
+
+    const addVi = input('Tiếng Việt (vd: Mã khách hàng)');
+    const addEn = input('Tiếng Anh (vd: Customer Code)');
+    const addBtn = this.makeButton('Thêm');
+    const addRow = grid('1fr 1fr 80px');
+    [addVi, addEn, addBtn].forEach((x) => addRow.appendChild(x));
+
+    const filter = input('Lọc theo tiếng Việt hoặc tiếng Anh (gõ không dấu cũng được)...');
+    const testBox = input('Thử dịch 1 caption theo từ điển đã lưu, Enter...');
+    const testOut = this.makeLabel('');
+    testOut.style.marginTop = '0';
+    const toolRow = grid('1fr 1fr');
+    toolRow.appendChild(filter);
+    toolRow.appendChild(testBox);
+
+    const list = document.createElement('div');
+    list.style.cssText = 'height:360px;overflow:auto;display:flex;flex-direction:column;gap:3px;border-top:1px solid var(--bc-border);padding-top:6px';
+
+    const saveBtn = this.makeButton('Lưu', 'primary');
+    const closeBtn = this.makeButton('Close');
+
+    let entries = [];      // [{vi, en}] — từ của người dùng (sửa được)
+    let builtin = null;    // [{vi, en}] — từ có sẵn (nạp khi tick "Hiện cả từ có sẵn")
+    let builtinCount = 0;
+    let path = '';
+    let dirty = false;
+    const LIMIT = 400;
+
+    const setDirty = () => { dirty = true; saveBtn.disabled = false; };
+    const updateInfo = () => {
+      info.textContent = `${entries.length} từ của bạn · ${builtinCount} từ có sẵn${dirty ? ' · chưa lưu' : ''} — ${path}`;
+    };
+
+    const render = () => {
+      list.textContent = '';
+      const q = bare(filter.value);
+      const hit = (e) => !q || bare(e.vi).includes(q) || bare(e.en).includes(q);
+      let shown = 0, more = 0;
+      entries.forEach((e) => {
+        if (!hit(e)) return;
+        if (shown >= LIMIT) { more++; return; }
+        shown++;
+        const row = grid('1fr 1fr 80px');
+        const vi = input('Tiếng Việt'); vi.value = e.vi;
+        const en = input('Tiếng Anh'); en.value = e.en;
+        vi.oninput = () => { e.vi = vi.value; setDirty(); updateInfo(); };
+        en.oninput = () => { e.en = en.value; setDirty(); updateInfo(); };
+        const del = this.makeButton('Xoá');
+        del.onclick = () => { entries = entries.filter((x) => x !== e); setDirty(); render(); };
+        [vi, en, del].forEach((x) => row.appendChild(x));
+        list.appendChild(row);
+      });
+      if (showBuiltin.c.checked && builtin) {
+        const mine = new Set(entries.map((e) => norm(e.vi)));
+        builtin.forEach((e) => {
+          if (mine.has(norm(e.vi)) || !hit(e)) return;
+          if (shown >= LIMIT) { more++; return; }
+          shown++;
+          const row = grid('1fr 1fr 80px');
+          const vi = this.makeLabel(e.vi); vi.style.marginTop = '0';
+          const en = this.makeLabel(e.en + '  (có sẵn)'); en.style.marginTop = '0';
+          const edit = this.makeButton('Sửa');
+          edit.title = 'Chép thành từ của bạn để sửa (thắng từ có sẵn)';
+          edit.onclick = () => { entries.unshift({ vi: e.vi, en: e.en }); setDirty(); updateInfo(); render(); };
+          [vi, en, edit].forEach((x) => row.appendChild(x));
+          list.appendChild(row);
+        });
+      }
+      if (!shown) list.appendChild(this.makeLabel(q ? 'Không có từ nào khớp bộ lọc.' : 'Chưa có từ nào — thêm ở ô trên, hoặc bấm "Lưu vào từ điển" trong hộp Dịch caption.'));
+      if (more) list.appendChild(this.makeLabel(`… còn ${more} dòng nữa — gõ vào ô Lọc để thu hẹp.`));
+    };
+
+    const load = async (withBuiltin) => {
+      const reply = String(await window.bcodeHost.call('BeginGetTranslateDict', !!withBuiltin) || '');
+      let d;
+      try { d = JSON.parse(reply); } catch { info.textContent = reply.slice(0, 300) || 'Lỗi: không đọc được từ điển dịch.'; return; }
+      if (!dirty) {
+        entries = (d.entries || []).map((e) => ({ vi: e.vi || '', en: e.en || '' }));
+        useBuiltin.c.checked = d.useBuiltin !== false;
+        compose.c.checked = d.compose !== false;
+      }
+      if (d.builtin) builtin = d.builtin;
+      builtinCount = d.builtinCount || 0;
+      path = d.path || '';
+      updateInfo();
+      render();
+    };
+
+    addBtn.onclick = () => {
+      const vi = addVi.value.trim(), en = addEn.value.trim();
+      if (!vi || !en) { info.textContent = 'Nhập cả tiếng Việt và tiếng Anh rồi bấm Thêm.'; addVi.focus(); return; }
+      const same = entries.find((e) => norm(e.vi) === norm(vi));
+      if (same) same.en = en; else entries.unshift({ vi, en });
+      addVi.value = ''; addEn.value = '';
+      setDirty(); updateInfo(); render();
+      addVi.focus();
+    };
+    addEn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addBtn.onclick(); } });
+    addVi.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addEn.focus(); } });
+    let filterTimer = 0;
+    filter.oninput = () => { clearTimeout(filterTimer); filterTimer = setTimeout(render, 150); };
+    useBuiltin.c.onchange = () => { setDirty(); updateInfo(); };
+    compose.c.onchange = () => { setDirty(); updateInfo(); };
+    showBuiltin.c.onchange = () => { if (showBuiltin.c.checked && !builtin) load(true); else render(); };
+    testBox.addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const text = testBox.value.trim();
+      if (!text) { testOut.textContent = ''; return; }
+      let r;
+      try { r = JSON.parse(String(await window.bcodeHost.call('BeginLookupTranslateDict', text) || '')); } catch { r = null; }
+      testOut.textContent = r && r.en
+        ? `→ ${r.en}   (${r.src === 'user' ? 'từ của bạn' : 'từ có sẵn'})${dirty ? ' — theo bản đã lưu' : ''}`
+        : '→ không có trong từ điển — Dịch caption sẽ gọi Google/AI cho câu này.';
+    });
+
+    saveBtn.disabled = true;
+    saveBtn.onclick = async () => {
+      const clean = entries.map((e) => ({ vi: e.vi.trim(), en: e.en.trim() })).filter((e) => e.vi && e.en);
+      saveBtn.disabled = true;
+      const reply = String(await window.bcodeHost.call('BeginSaveTranslateDict',
+        JSON.stringify({ useBuiltin: useBuiltin.c.checked, compose: compose.c.checked, entries: clean })) || '');
+      if (reply) { info.textContent = reply; saveBtn.disabled = false; return; }
+      dirty = false;
+      entries = clean;
+      updateInfo();
+      render();
+    };
+    const close = async () => {
+      if (dirty && !(await window.bcodeUi.confirm('Từ điển dịch có thay đổi chưa lưu. Đóng mà không lưu?', { okText: 'Đóng', danger: true }))) return;
+      overlay.remove();
+    };
+    closeBtn.onclick = close;
+    // Bấm ra ngoài hộp: hỏi trước nếu chưa lưu (chạy trước bộ đóng của makeDialog).
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) { e.stopImmediatePropagation(); close(); } }, true);
+
+    body.appendChild(info);
+    body.appendChild(opts);
+    body.appendChild(this.makeLabel('Thêm từ'));
+    body.appendChild(addRow);
+    body.appendChild(toolRow);
+    body.appendChild(testOut);
+    body.appendChild(list);
+    body.appendChild(this.makeButtonRow([saveBtn, closeBtn]));
+    document.body.appendChild(overlay);
+    addVi.focus();
+    await load(false);
   }
 
   /// Get Hash Source: băm SHA-256 + ngày sửa của file đang mở và các file cùng tên gốc trong site, dạng JSON để dán/so sánh.

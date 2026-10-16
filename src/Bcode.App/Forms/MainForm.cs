@@ -2043,7 +2043,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void OpenFsgRequirementReportTab()
     {
         if (_fsgReqTab is not null && _documentTabs.TabPages.Contains(_fsgReqTab)) { _documentTabs.SelectedTab = _fsgReqTab; return; }
-        _fsgReqTab = AddDocumentTab("Yêu cầu FSG", new FsgRequirementReportControl(() => _connections.Current, () => _settings.NoteProgrammer ?? ""));
+        var fsgReq = new FsgRequirementReportControl(() => _connections.Current, () => _settings.NoteProgrammer ?? "");
+        fsgReq.AiCatalogRequested += OpenQuickListWithAi;
+        _fsgReqTab = AddDocumentTab("Yêu cầu FSG", fsgReq);
         _fsgReqTab.Disposed += (_, _) => _fsgReqTab = null;
     }
 
@@ -2672,7 +2674,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.createMenu": _ = CreateMenuAsync(); return true;
             case "note.aiCatalog":
             {
-                // Chỉ có tác dụng khi đang ở tab Note (New); tab khác thì để phím đi tiếp.
+                // Chỉ có tác dụng khi đang ở tab Note (New) hoặc Yêu cầu FSG; tab khác thì để phím đi tiếp.
+                if (_fsgReqTab is not null && _documentTabs.SelectedTab == _fsgReqTab)
+                {
+                    if (FindDescendant<FsgRequirementReportControl>(_fsgReqTab) is not { } fsg) return false;
+                    fsg.RequestAiCatalog();
+                    return true;
+                }
                 if (_advanceNoteTab is null || _documentTabs.SelectedTab != _advanceNoteTab) return false;
                 var note = FindDescendant<AdvanceNoteControl>(_advanceNoteTab);
                 var nativeNote = FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab);

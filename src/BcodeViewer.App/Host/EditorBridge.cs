@@ -1084,6 +1084,26 @@ public class EditorBridge
     public void BeginTranslateCaptions(string requestId, string payloadJson, string lang) =>
         _async.Begin(requestId, null, token => _translator.TranslateAsync(payloadJson, lang, token));
 
+    /// <summary>Từ điển dịch Việt → Anh (<see cref="TranslateDictionary"/>): {path, useBuiltin, compose, entries, builtinCount, builtin?}.</summary>
+    public void BeginGetTranslateDict(string requestId, bool includeBuiltin) =>
+        _async.Begin(requestId, () => TranslateDictionary.Instance.GetJson(includeBuiltin));
+
+    /// <summary>Ghi đè từ điển dịch: {useBuiltin, compose, entries:[{vi,en}]} → "" hoặc "Lỗi: ...".</summary>
+    public void BeginSaveTranslateDict(string requestId, string json) =>
+        _async.Begin(requestId, () => TranslateDictionary.Instance.Save(json));
+
+    /// <summary>Thêm/cập nhật cặp [{vi,en}] vào từ điển dịch → số cặp mới/đổi hoặc "Lỗi: ...".</summary>
+    public void BeginAddTranslateDict(string requestId, string json) =>
+        _async.Begin(requestId, () => TranslateDictionary.Instance.Add(json));
+
+    /// <summary>Thử tra 1 caption trong từ điển dịch (không gọi engine) → {en, src}; en = null nếu không có.</summary>
+    public void BeginLookupTranslateDict(string requestId, string text) =>
+        _async.Begin(requestId, () =>
+        {
+            var en = TranslateDictionary.Instance.Lookup(text, out var src);
+            return JsonSerializer.Serialize(new { en, src });
+        });
+
     /// <summary>"Get Hash Source": JSON [{fullpath, subpath, name, ext, size, date, hash}] của file đang mở và các file cùng tên gốc
     /// (SVTran.f/.xml, Main\SVTran.aspx...) dưới App_Data\Controllers và Main của site — để so hash/ngày sửa bản cũ với mới.
     /// hash = SHA-256 hoa; date = giờ ghi file lần cuối (giờ máy).</summary>

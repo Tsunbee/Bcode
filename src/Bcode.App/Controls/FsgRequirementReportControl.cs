@@ -29,6 +29,12 @@ public class FsgRequirementReportControl : UserControl
         _web.Ready += SendInit;
     }
 
+    /// <summary>"🤖 AI tạo danh mục" cho y/c đang mở ở khung chi tiết (mã y/c, nội dung) — MainForm mở Tạo nhanh danh mục, như Note (New).</summary>
+    public event Action<string, string>? AiCatalogRequested;
+
+    /// <summary>Phím tắt note.aiCatalog: bấm nút của khung chi tiết (chưa mở y/c nào thì trang nhắc).</summary>
+    public void RequestAiCatalog() => Js("window.fsgReq && fsgReq.aiCatalog && fsgReq.aiCatalog()");
+
     private static string J(object? o) => JsonSerializer.Serialize(o, JsonOpts);
 
     private void Js(string script)
@@ -128,6 +134,7 @@ public class FsgRequirementReportControl : UserControl
                     break;
                 }
                 case "copy": try { Clipboard.SetText(Str("text")); } catch { /* clipboard bận */ } break;
+                case "aiCatalog": AiCatalogRequested?.Invoke(Str("name"), Str("content")); break;
             }
         }
         catch (Exception ex) { Js($"fsgReq.onData({J(new { rows = (object?)null, error = ex.Message })})"); }

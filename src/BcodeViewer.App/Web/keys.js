@@ -59,6 +59,7 @@ const BCODE_COMMANDS = [
   ['Công cụ', 'tool.clearStructure', 'Clear Structure App', '', () => window.bcodeShell && window.bcodeShell.cmd('clearStructure')],
   ['Công cụ', 'tool.openWebConfig', 'Open Web.config (mở web.config của site)', '', () => window.bcodeShell && window.bcodeShell.cmd('openWebConfig')],
   ['Công cụ', 'tool.refreshWebConfig', 'Reset WebConfig', '', () => window.bcodeShell && window.bcodeShell.cmd('refreshWebConfig')],
+  ['Công cụ', 'tool.translateDict', 'Từ điển dịch (Việt → Anh)', '', () => window.bcodeDialogs.showTranslateDictionary()],
 ].map(([group, id, label, def, run]) => ({ group, id, label, def, run }));
 
 const BCODE_RESERVED = new Set(['Ctrl+C', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Alt+F4', 'Ctrl+Alt+Delete', 'Ctrl+Shift+Escape']);

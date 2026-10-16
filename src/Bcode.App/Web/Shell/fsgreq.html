@@ -131,7 +131,7 @@
 <div id="prio"></div>
 <div id="wrap"><div class="empty" id="empty">Nhập điều kiện rồi bấm “Kéo về”.</div><table id="tbl" hidden></table></div>
 <div id="dtModal"><div id="dtResizer" title="Kéo để đổi độ rộng khung"></div><div id="dtBox">
-  <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
+  <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtAi" title="Bản thử: đọc nội dung y/c này, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (AI nếu có API key, không thì theo luật cấu trúc Fast) — Ctrl+Alt+I">🤖 AI tạo danh mục</button><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
   <div id="dtMeta"></div>
   <div id="dtBody"></div>
 </div></div>
@@ -326,7 +326,9 @@
   // Bấm vào ô "Nội dung yêu cầu" (hoặc nhấp đúp dòng) → xem đầy đủ nội dung + thông tin yêu cầu; không cắt chữ, chọn / copy được.
   let shown = [];
   $('prio').addEventListener('click', (e) => { const td = e.target.closest('td.nd'); const tr = td && td.closest('tr[data-pi]'); if (tr && prioShown[+tr.dataset.pi]) openDetail(prioShown[+tr.dataset.pi]); });
+  let curDetail = null;   // y/c đang mở ở khung chi tiết — cho nút 🤖 AI tạo danh mục
   const openDetail = (r) => {
+    curDetail = r;
     const s = stOf(r);
     $('dtTitle').textContent = (r.fcode1 || '') + (r.tenMenuNgan ? ' — ' + r.tenMenuNgan : '');
     $('dtMeta').innerHTML = [['Mã DA', r.maDa], ['Menu ID', r.menuId], ['BP lập trình', r.bpLt], ['Lập trình', r.maLt1], ['Triển khai', r.maNv1], ['Hạn hoàn thành', fmtDate(r.ngayHt)], ['Trạng thái', s.label]]
@@ -344,6 +346,13 @@
   $('tbl').addEventListener('dblclick', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr && shown[+tr.dataset.i]) openDetail(shown[+tr.dataset.i]); });
   const closeDetail = () => { $('dtModal').classList.remove('show'); document.querySelectorAll('#tbl tr.sel').forEach((x) => x.classList.remove('sel')); };
   $('dtClose').onclick = closeDetail;
+  // AI tạo danh mục: gửi mã y/c + nội dung (kèm tên menu, ghi chú) — C# mở Tạo nhanh danh mục và gợi ý ở đó (như Note (New)).
+  $('dtAi').onclick = () => {
+    const r = curDetail; if (!r) return;
+    const content = (r.tenMenuNgan ? 'Menu: ' + r.tenMenuNgan + '\n' : '') + String(r.noiDung == null ? '' : r.noiDung) + (r.ghiChu ? '\n\nGhi chú:\n' + r.ghiChu : '');
+    if (!content.trim()) return;
+    post('aiCatalog', { name: r.fcode1 || r.menuId || '', content });
+  };
   // kéo cạnh trái của khung để đổi độ rộng
   $('dtResizer').addEventListener('mousedown', (e) => {
     e.preventDefault(); const rz = $('dtResizer'); rz.classList.add('drag');
@@ -366,6 +375,11 @@
   });
 
   window.fsgReq = {
+    // Phím tắt note.aiCatalog (Ctrl+Alt+I): y/c đang mở ở khung chi tiết; chưa mở thì nhắc.
+    aiCatalog() {
+      if ($('dtModal').classList.contains('show') && curDetail) { $('dtAi').click(); return; }
+      $('msg').className = 'on note'; $('msg').textContent = 'Bấm vào ô Nội dung của 1 yêu cầu để mở khung chi tiết, rồi bấm 🤖 AI tạo danh mục (hoặc Ctrl+Alt+I).';
+    },
     init(i) { $('maDa').value = i.maDa || ''; $('bpLt').value = i.bpLt || ''; $('person').value = i.person || ''; $('lt').value = i.programmer || ''; $('nv').value = i.deployer || ''; $('fcode').value = i.fcode || ''; $('content').value = i.content || ''; },
     setBusy(b) { $('btnFetch').disabled = b; $('btnFetch').textContent = b ? 'Đang kéo…' : '⟳ Kéo về'; },
     onData(r) {

@@ -166,6 +166,10 @@ public class AppSettings
     /// </summary>
     public string GeminiApiKey { get; set; } = "";
 
+    /// <summary>"AI tạo danh mục": tiền tố tên bảng danh mục MỚI do Bcode / AI đề xuất (mặc định "zdm" để dễ phân biệt với bảng dm* chuẩn của Fast).
+    /// Bảng chi tiết = tên bảng + "ct". Sửa trong settings.json nếu dự án dùng tiền tố khác.</summary>
+    public string NewCatalogTablePrefix { get; set; } = "zdm";
+
     /// <summary>API Key của Anthropic (Claude) — dùng cho gợi ý code SQL inline khi <see cref="CopilotEngine"/> = "claude".</summary>
     public string AnthropicApiKey { get; set; } = "";
 
@@ -250,6 +254,23 @@ public class AppSettings
         }
 
         return new AppSettings();
+    }
+
+    /// <summary>
+    /// Đồng bộ Anthropic / Gemini API key của bản settings này theo file settings.json. Tab SQL Query giữ bản AppSettings riêng
+    /// (RawSqlControl): nhập / xoá key ở đó thì bản của MainForm không biết; "AI tạo danh mục" gọi hàm này trước mỗi lượt để dùng đúng key hiện tại
+    /// (và lần MainForm Save sau không ghi lại key cũ). Không đọc được file thì giữ nguyên.
+    /// </summary>
+    public void SyncApiKeysFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return;
+            if (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) is not { } disk) return;
+            AnthropicApiKey = disk.AnthropicApiKey ?? "";
+            GeminiApiKey = disk.GeminiApiKey ?? "";
+        }
+        catch { /* file đang ghi dở / hỏng → giữ key đang có */ }
     }
 
     public void Save()

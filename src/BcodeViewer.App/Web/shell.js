@@ -149,6 +149,8 @@ class BcodeShell {
         { label: 'Clear Structure App', shortcut: this.k('tool.clearStructure'), run: () => this.cmd('clearStructure') },
         { label: 'Open Web.config', shortcut: this.k('tool.openWebConfig'), run: () => this.cmd('openWebConfig') },
         { label: 'Refresh Web.config', shortcut: this.k('tool.refreshWebConfig'), run: () => this.cmd('refreshWebConfig') },
+        { sep: true },
+        { label: 'Từ điển dịch (Việt → Anh)...', shortcut: this.k('tool.translateDict'), run: () => window.bcodeDialogs.showTranslateDictionary() },
       ] },
       { title: 'Help', items: [
         { label: 'Giới thiệu...', run: () => this.showAbout() },

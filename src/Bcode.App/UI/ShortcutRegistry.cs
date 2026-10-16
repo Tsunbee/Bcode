@@ -91,7 +91,7 @@ public static class ShortcutRegistry
             new("app.refreshWebConfig", "Refresh Web.config", "Project & kết nối", ShortcutScope.App, ""),
             new("app.clearStructure", "Clear Structure App", "Project & kết nối", ShortcutScope.App, ""),
             new("app.createMenu", "Create Menu", "Project & kết nối", ShortcutScope.App, ""),
-            new("note.aiCatalog", "Note (New): AI tạo danh mục từ y/c đang chọn (mở Tạo nhanh danh mục điền sẵn)", "Project & kết nối", ShortcutScope.App, "Ctrl+Alt+I"),
+            new("note.aiCatalog", "Note (New) / Yêu cầu FSG: AI tạo danh mục từ y/c đang chọn (mở Tạo nhanh danh mục điền sẵn)", "Project & kết nối", ShortcutScope.App, "Ctrl+Alt+I"),
             new("debug.decrypt", "Giải mã chuỗi kết nối (debug)", "Project & kết nối", ShortcutScope.App, "Ctrl+Shift+F5"),
 
             // ---- Editor SQL (chỉ khi con trỏ ở editor SQL Query) ----

@@ -45,6 +45,7 @@ public sealed class AiCatalogService
     private readonly Func<string, string, Task<(string Text, string Engine)>> _ask;
     private readonly Func<bool> _useRules;
     private readonly string _sourcePath;
+    private readonly string _tablePrefix;
     private List<string>? _tables;
     private readonly Dictionary<string, List<AiTableColumn>> _columnCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -53,14 +54,16 @@ public sealed class AiCatalogService
     /// <param name="ask">Gọi AI (system, user) → (chữ trả về, tên engine).</param>
     /// <param name="useRules">true = không gọi AI, gợi ý theo luật cấu trúc Fast (<see cref="FastCatalogRules"/>) — mặc định khi chưa có API key.</param>
     /// <param name="sourcePath">Source Path của workspace — để luật biết danh mục nào đã có (Controllers\Dir).</param>
+    /// <param name="tablePrefix">Tiền tố tên bảng danh mục mới (mặc định "zdm"; chi tiết = bảng + "ct").</param>
     public AiCatalogService(Func<Task<List<string>>> listTables, Func<string, Task<List<AiTableColumn>>> getColumns,
-        Func<string, string, Task<(string Text, string Engine)>> ask, Func<bool>? useRules = null, string sourcePath = "")
+        Func<string, string, Task<(string Text, string Engine)>> ask, Func<bool>? useRules = null, string sourcePath = "", string tablePrefix = "zdm")
     {
         _listTables = listTables;
         _getColumns = getColumns;
         _ask = ask;
         _useRules = useRules ?? (() => false);
         _sourcePath = sourcePath;
+        _tablePrefix = string.IsNullOrWhiteSpace(tablePrefix) ? "zdm" : tablePrefix.Trim().ToLowerInvariant();
     }
 
     /// <summary>Bản dùng trong Bcode: đọc App Data qua service sẵn có, gọi Claude (ưu tiên) hoặc Gemini theo API key trong settings;
@@ -77,7 +80,7 @@ public sealed class AiCatalogService
                 return cols.Select(c => new AiTableColumn(c.Name, types.TryGetValue(c.Name, out var t) ? t : "", c.IsPrimaryKey)).ToList();
             },
             (system, user) => AskConfiguredAsync(settings, system, user),
-            () => !HasApiKey(settings), sourcePath)
+            () => { settings.SyncApiKeysFromDisk(); return !HasApiKey(settings); }, sourcePath, settings.NewCatalogTablePrefix)
     { }
 
     public static bool HasApiKey(AppSettings settings) =>
@@ -114,7 +117,7 @@ public sealed class AiCatalogService
         {
             // Chưa có API key: gợi ý theo luật cấu trúc Fast — cùng dạng JSON nên chuẩn hoá + giao diện dùng chung với AI.
             progress?.Invoke("Chưa có API key — đang gợi ý theo cấu trúc Fast (không dùng AI)...");
-            var raw = await Task.Run(() => FastCatalogRules.SuggestAsync(content, answers, tableSet, ColumnsAsync, _sourcePath));
+            var raw = await Task.Run(() => FastCatalogRules.SuggestAsync(content, answers, tableSet, ColumnsAsync, _sourcePath, _tablePrefix));
             result = Parse(raw);
             result.Engine = FastCatalogRules.Engine;
         }
@@ -130,7 +133,7 @@ public sealed class AiCatalogService
 
             progress?.Invoke(round == 1 ? "Đang hỏi AI..." : $"Đang hỏi AI (lượt {round}, đã gửi thêm cột bảng được xin)...");
             var user = BuildUserPrompt(requestName, content, tables, columns, answers);
-            var (raw, engine) = await _ask(SystemPrompt, user);
+            var (raw, engine) = await _ask(SystemPrompt.Replace("@@PREFIX@@", _tablePrefix), user);
             AiHistoryStore.Add("Danh mục", engine, $"[{requestName}] AI tạo danh mục", Clip(content, 300), raw);
 
             var parsed = Parse(raw);
@@ -187,7 +190,7 @@ Reply with ONE JSON object and nothing else (no markdown fences, no text before 
 - "ghi_chu": short Vietnamese notes: assumptions you made, what to check.
 
 spec (keys exactly as below):
-  "table": the catalog table. Use an EXISTING table when the requirement names one or one clearly matches (its columns must have been given to you; otherwise ask for it in can_bang). Otherwise propose a NEW table name (lowercase, catalogs start with "dm", e.g. "dmloaihd") and define all its columns with sqlType.
+  "table": the catalog table. Use an EXISTING table when the requirement names one or one clearly matches (its columns must have been given to you; otherwise ask for it in can_bang). Otherwise propose a NEW table name: lowercase, starting with the prefix "@@PREFIX@@" (e.g. "@@PREFIX@@loaihd" = prefix + initials of the catalog words), and define all its columns with sqlType.
   "controller": file name for Dir/Grid/Lookup (letters, digits, _; usually the table name, e.g. "dmloaihd")
   "main": Main .aspx name without extension (usually the table name, lowercase)
   "keys": key column(s), comma separated string
@@ -215,7 +218,7 @@ spec (keys exactly as below):
 Conventions for a NEW FastBusiness catalog table: code ma_xxx varchar(32) (key, not null), name ten_xxx nvarchar(256), English name ten_xxx2 nvarchar(256),
 the business columns the requirement describes (codes of other catalogs varchar(32), amounts numeric(19,4), quantities numeric(19,4), dates smalldatetime, flags bit or char(1)),
 ghi_chu nvarchar(512) when useful, status char(1) (1 = đang sử dụng), datetime0 datetime, datetime2 datetime, user_id0 int, user_id2 int.
-A detail table has the catalog key columns + line_nbr int + its own columns + the same system columns.
+A NEW detail table is named catalog table + "ct" (e.g. "@@PREFIX@@loaihdct") and has the catalog key columns + line_nbr int + its own columns + the same system columns.
 Headers: Vietnamese with full diacritics ("Mã ...", "Tên ...", "Tên 2", "Ghi chú", "Trạng thái"), English short.
 Never invent existing tables or columns: use only names from the schema you were given.
 The menu entry is created afterwards in the tool's Menu tab, so do not ask or note about it. Behaviour beyond the standard catalog (auto-filling fields, formulas, special checks) is coded by hand later: mention it once in ghi_chu, do not ask about it.
@@ -232,7 +235,7 @@ The menu entry is created afterwards in the tool's Menu tab, so do not ask or no
         // Danh sách tên bảng: bỏ bảng theo kỳ (tên có $); quá dài thì chỉ giữ bảng danh mục (dm*) + bảng đã gửi cột.
         var names = tables.Where(t => !t.Contains('$')).ToList();
         if (names.Count > MaxTableNames)
-            names = names.Where(t => t.StartsWith("dm", StringComparison.OrdinalIgnoreCase) || columns.ContainsKey(t)).Take(MaxTableNames).ToList();
+            names = names.Where(t => t.StartsWith("dm", StringComparison.OrdinalIgnoreCase) || t.StartsWith("zdm", StringComparison.OrdinalIgnoreCase) || columns.ContainsKey(t)).Take(MaxTableNames).ToList();
         sb.AppendLine($"--- BẢNG TRONG APP DATA ({names.Count}{(names.Count < tables.Count ? $" / {tables.Count}" : "")}) ---");
         sb.AppendLine(string.Join(", ", names));
         sb.AppendLine();

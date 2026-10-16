@@ -44,5 +44,7 @@
     <None Include="Assets\snippets\*.xml" CopyToOutputDirectory="PreserveNewest" />
     <!-- Từ điển field FCode (gợi ý "f.ma_kh" + Enter — Settings/FcodeFieldDictionary) dùng chung với Bcode.App — link, không chép. -->
     <None Include="..\Bcode.App\Templates\fileSource\header.xml" Link="Assets\fields\header.xml" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Từ có sẵn của Từ điển dịch (Settings/TranslateDictionary) — cùng file HeaderTranslator của Bcode dùng; link, không chép. -->
+    <None Include="..\Bcode.App\Templates\HeaderDictionary.json" Link="Assets\fields\HeaderDictionary.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -11,7 +11,8 @@ namespace BcodeViewer.App.Host;
 ///   • google — endpoint translate.googleapis.com/translate_a/single?client=gtx (KHÔNG cần API key). Không chính thức:
 ///     có thể bị đổi/chặn hoặc trả 429 khi gọi dày, và dịch từng chuỗi không có ngữ cảnh (tên field) như AI;
 ///   • gemini / claude — qua API key tương ứng, kèm tên field làm ngữ cảnh và yêu cầu dùng thuật ngữ ERP.
-/// Trả về MẢNG JSON các chuỗi dịch (đúng thứ tự, đúng số lượng) khi thành công; lỗi thì trả chuỗi bắt đầu bằng "Lỗi" —
+/// Đích là tiếng Anh thì tra <see cref="TranslateDictionary"/> (từ điển dịch người dùng + từ có sẵn) TRƯỚC, chỉ caption không có mới gửi engine.
+/// Trả về JSON {texts, src, engine, error} khi thành công (src[i] cho biết bản dịch lấy từ đâu); lỗi hết thì trả chuỗi bắt đầu bằng "Lỗi" —
 /// trang hiện thẳng lên dialog.
 /// </summary>
 public class CaptionTranslator
@@ -44,7 +45,36 @@ public class CaptionTranslator
         if (items.Count == 0) return "[]";
 
         lang = string.IsNullOrWhiteSpace(lang) ? "English" : lang.Trim();
-        switch ((_settings.TranslateEngine ?? "google").ToLowerInvariant())
+        var engine = (_settings.TranslateEngine ?? "google").ToLowerInvariant() is "gemini" or "claude" ? _settings.TranslateEngine!.ToLowerInvariant() : "google";
+
+        // Từ điển dịch Việt → Anh (TranslateDictionary) tra TRƯỚC; chỉ caption không tra được mới gửi engine.
+        var texts = new string[items.Count];
+        var src = new string[items.Count];
+        if (ResolveLangCode(lang) == "en")
+            for (var i = 0; i < items.Count; i++)
+                if (TranslateDictionary.Instance.Lookup(items[i].Vi, out var s) is { } en) { texts[i] = en; src[i] = s; }
+        var missing = Enumerable.Range(0, items.Count).Where(i => src[i] is null && !string.IsNullOrWhiteSpace(items[i].Vi)).ToList();
+
+        string? error = null;
+        if (missing.Count > 0)
+        {
+            var reply = await EngineAsync(engine, missing.Select(i => items[i]).ToList(), lang, token).ConfigureAwait(false);
+            List<string?>? arr = null;
+            try { if (reply.TrimStart().StartsWith('[')) arr = JsonSerializer.Deserialize<List<string?>>(reply); } catch { /* xem như lỗi */ }
+            if (arr is not null && arr.Count == missing.Count)
+                for (var k = 0; k < missing.Count; k++) { texts[missing[k]] = arr[k] ?? ""; src[missing[k]] = engine; }
+            else error = reply.StartsWith("Lỗi") ? reply : "Lỗi: " + reply;
+        }
+        // {texts, src, engine, error}: src[i] = "user" / "builtin" (từ điển) / tên engine / "" (chưa dịch). Có lỗi mà từ điển đã dịch được
+        // một phần thì vẫn trả phần đó kèm error để trang điền.
+        if (error is not null && missing.Count == items.Count) return error;
+        return JsonSerializer.Serialize(new { texts = texts.Select(t => t ?? ""), src = src.Select(s => s ?? ""), engine, error });
+    }
+
+    /// <summary>Dịch bằng engine chọn ở Settings — trả mảng JSON hoặc "Lỗi: ..." (như trước khi có từ điển).</summary>
+    private async Task<string> EngineAsync(string engine, List<Item> items, string lang, CancellationToken token)
+    {
+        switch (engine)
         {
             case "claude":
                 if (string.IsNullOrWhiteSpace(_settings.AnthropicApiKey)) return "Lỗi: chưa có Anthropic API key (Settings) — hoặc đổi Engine dịch sang Google.";

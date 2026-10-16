@@ -83,6 +83,8 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _toolbar.Controls.Add(_syncProg);
         _toolbar.Controls.Add(NK.Button("⟳ Sync yêu cầu", () => { Flush(); _ = SyncAsync(); }, tip: "Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có"));
         _toolbar.Controls.Add(NK.Button("📄 Request Content", OpenContent, tip: "Xem / sửa nội dung y/c & những gì đã sửa — Ctrl+Shift+4"));
+        _toolbar.Controls.Add(NK.Button("🤖 AI tạo danh mục", RequestAiCatalog,
+            tip: "Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)"));
         _toolbar.Controls.Add(_status);
         _syncProg.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Flush(); _ = SyncAsync(); } };
 
@@ -921,6 +923,18 @@ public sealed class NativeAdvanceNoteControl : UserControl
         }
         catch (Exception ex) { SetStatus(ex.Message, true); }
         finally { SetBusy(false); }
+    }
+
+    /// <summary>"🤖 AI tạo danh mục" cho y/c đang chọn (tên, nội dung) — MainForm mở Tạo nhanh danh mục và hỏi AI ở đó.</summary>
+    public event Action<string, string>? AiCatalogRequested;
+
+    /// <summary>Nút "AI tạo danh mục" / phím tắt note.aiCatalog: lưu y/c đang sửa rồi gửi tên + nội dung (như trang advnote.html).</summary>
+    public void RequestAiCatalog()
+    {
+        Flush();
+        if (_cur is null) { SetStatus("Chọn 1 y/c trước.", true); return; }
+        if (string.IsNullOrWhiteSpace(_cur.Content)) { SetStatus("Y/c chưa có nội dung — Sync yêu cầu hoặc nhập Request Content trước.", true); return; }
+        AiCatalogRequested?.Invoke(_cur.Name ?? "", _cur.Content);
     }
 
     private void BrowseFiles()

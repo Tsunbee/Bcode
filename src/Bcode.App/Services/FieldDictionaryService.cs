@@ -85,6 +85,9 @@ public sealed class FieldDictionaryService
         return _parameters.TryGetValue(name, out var p) ? p : null;
     }
 
+    /// <summary>Mọi field của header.xml (tên, tiêu đề, kiểu, lookup) — để tra ngược tiêu đề → field (gợi ý danh mục không cần AI, <see cref="FastCatalogRules"/>).</summary>
+    public IEnumerable<Entry> Entries => _fields.Values.SelectMany(l => l);
+
     /// <summary>Mọi cặp tiêu đề (Việt, Anh) của header.xml + parameters.xml — nguồn cho <see cref="HeaderTranslator"/>.</summary>
     public IEnumerable<(string V, string E)> HeaderPairs() =>
         _fields.Values.SelectMany(l => l).Select(e => (e.HeaderV, e.HeaderE)).Concat(_parameters.Values.Select(p => (p.V, p.E)));

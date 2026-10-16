@@ -211,6 +211,10 @@ public class AdvanceNoteControl : UserControl
                     await SyncRequestsAsync(root.TryGetProperty("programmer", out var pr) ? pr.GetString() ?? "" : "");
                     break;
 
+                case "aiCatalog":
+                    AiCatalogRequested?.Invoke(root.GetProperty("name").GetString() ?? "", root.GetProperty("content").GetString() ?? "");
+                    break;
+
                 case "browseFiles":
                     BrowseFiles();
                     break;
@@ -249,6 +253,12 @@ public class AdvanceNoteControl : UserControl
 
     /// <summary>Yêu cầu mở script (theo thứ tự chạy) vào các tab SQL Query — MainForm tạo tab.</summary>
     public event Action<IReadOnlyList<(string Title, bool Sys, string Text)>>? OpenScriptsRequested;
+
+    /// <summary>"🤖 AI tạo danh mục" cho y/c đang chọn (tên, nội dung) — MainForm mở Tạo nhanh danh mục và hỏi AI ở đó.</summary>
+    public event Action<string, string>? AiCatalogRequested;
+
+    /// <summary>Phím tắt note.aiCatalog: bấm nút "AI tạo danh mục" của trang (trang tự lưu + lấy y/c đang chọn).</summary>
+    public void RequestAiCatalog() => Js("window.advNote && advNote.aiCatalog && advNote.aiCatalog()");
 
     private List<PackageItem> _previewItems = new();
 

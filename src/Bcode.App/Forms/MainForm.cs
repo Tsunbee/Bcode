@@ -60,6 +60,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         FileLookupService.SetSearchRules(_settings);
         PushStatus("Đã lưu mẫu bỏ qua file của cây menu — bấm lại menu để dựng cây theo mẫu mới.");
     }
+    /// <summary>Mở file mẫu quy tắc đoán pivot (%AppData%\Bcode\pivot-rules.txt, chưa có thì tạo từ mẫu mặc định) bằng NotePadApp — lưu là áp dụng ở lần chạy SQL sau.</summary>
+    private void EditPivotRules()
+    {
+        try
+        {
+            var path = Bcode.App.Services.Rpt.PivotRules.EnsureFile();
+            var app = string.IsNullOrWhiteSpace(_settings.NotePadApp) ? "notepad.exe" : _settings.NotePadApp;
+            try { Process.Start(new ProcessStartInfo(app, "\"" + path + "\"") { UseShellExecute = true }); }
+            catch { Process.Start(new ProcessStartInfo("notepad.exe", "\"" + path + "\"") { UseShellExecute = true }); }
+            PushStatus("Đã mở " + path + " — sửa, lưu rồi chạy lại SQL để tab Pivot áp quy tắc mới.");
+        }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được file quy tắc pivot:\n" + ex.Message, "Bcode"); }
+    }
     private SqlObjectTreeControl _sqlObjectTree = null!;
     private WCommandTreeControl _wcommandTree = null!;
     // Mục "Mobile" ở cột icon trái: cây menu app mobile (bảng dvcommand, Sys Data) — cùng control với WCommand, file nằm ở thư mục MobileService.
@@ -119,6 +132,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _quickListForm = new QuickListForm(_sqlObjectService, _tableDataService, _connections, _wcommandService, _settings);
         _quickListForm.FormClosed += (_, _) => _quickListForm = null;
         _quickListForm.Show();
+    }
+
+    /// <summary>
+    /// Note (New) → "🤖 AI tạo danh mục" (bản thử): mở (hoặc đưa lên) Tạo nhanh danh mục rồi để AI đọc y/c và điền spec ở đó.
+    /// AI không ghi gì — người dùng duyệt, sửa, bấm Tạo file như bình thường.
+    /// </summary>
+    private void OpenQuickListWithAi(string requestName, string content)
+    {
+        OpenQuickList();
+        _quickListForm?.StartAi(requestName, content);
     }
     /// <summary>MainForm tự dàn bằng Dock + thanh web báo chiều cao, nên không nhân bố cục thêm theo UiScale.</summary>
     protected override bool ScaleLayoutWithUiScale => false;
@@ -227,6 +250,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .AddSub("Kiểu giao diện (bo góc, mật độ)", sub => { foreach (var pr in Bcode.App.UI.NativeSkin.Presets) { var id = pr.Id; sub.Add(pr.Label, () => Bcode.App.UI.NativeSkin.ApplyPreset(id), @checked: Bcode.App.UI.NativeSkin.IsPreset(id)); } })
             .Add($"Chế độ giao diện: {Bcode.App.UI.UiMode.Label(Bcode.App.UI.UiMode.Current)} — đổi...", () => BeginInvoke(new Action(ChangeUiMode)))
             .Add("Cây menu: bỏ qua file theo tên (like)...", () => BeginInvoke(new Action(EditMenuTreeIgnore)))
+            .Add("Pivot SQL Query: quy tắc đoán cấu trúc...", () => BeginInvoke(new Action(EditPivotRules)))
             .Add("Hướng dẫn gợi ý code SQL (gõ gì ra gì)...", () => BeginInvoke(new Action(OpenSqlHintsHelpTab)), shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.sqlHints"))
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Decrypt SQL, Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             .AddCaption("Database")
@@ -2167,12 +2191,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         {
             var nc = new NativeAdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
             nc.OpenScriptsRequested += openScripts;
+            nc.AiCatalogRequested += OpenQuickListWithAi;
             control = nc;
         }
         else
         {
             var wc = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
             wc.OpenScriptsRequested += openScripts;
+            wc.AiCatalogRequested += OpenQuickListWithAi;
             control = wc;
         }
         _advanceNoteTab = AddDocumentTab("Note (New)", control);
@@ -2574,6 +2600,20 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         return id is not null && RunAppShortcut(id);
     }
 
+    /// <summary>Control kiểu <typeparamref name="T"/> đầu tiên trong vài lớp con đầu của <paramref name="root"/> (như HelpTopicForActiveTab).</summary>
+    private static T? FindDescendant<T>(Control root) where T : Control
+    {
+        var queue = new Queue<(Control c, int depth)>();
+        foreach (Control c in root.Controls) queue.Enqueue((c, 0));
+        while (queue.Count > 0)
+        {
+            var (c, depth) = queue.Dequeue();
+            if (c is T hit) return hit;
+            if (depth < 3) foreach (Control k in c.Controls) queue.Enqueue((k, depth + 1));
+        }
+        return null;
+    }
+
     /// <summary>Chạy chức năng phạm vi App theo id ("tree.toggle", "tab.close", "tool:sql_query"...). Trả false nếu id không chạy được lúc này.</summary>
     private bool RunAppShortcut(string id)
     {
@@ -2630,6 +2670,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.refreshWebConfig": RefreshWebConfig(); return true;
             case "app.clearStructure": ClearStructureApp(); return true;
             case "app.createMenu": _ = CreateMenuAsync(); return true;
+            case "note.aiCatalog":
+            {
+                // Chỉ có tác dụng khi đang ở tab Note (New); tab khác thì để phím đi tiếp.
+                if (_advanceNoteTab is null || _documentTabs.SelectedTab != _advanceNoteTab) return false;
+                var note = FindDescendant<AdvanceNoteControl>(_advanceNoteTab);
+                var nativeNote = FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab);
+                if (note is not null) note.RequestAiCatalog();
+                else if (nativeNote is not null) nativeNote.RequestAiCatalog();
+                else return false;
+                return true;
+            }
             case "tab.next":
             case "tab.prev":
             {

@@ -694,8 +694,6 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         return line.Length > 300 ? line[^300..] : line;
     }
 
-    private static readonly HttpClient _aiEditHttpClient = new() { Timeout = TimeSpan.FromSeconds(90) };
-
     /// <summary>Ctrl+I trong SQL Query: sửa đoạn đang chọn (hoặc sinh SQL tại con trỏ) theo yêu cầu, có kèm cấu trúc bảng.
     /// Dùng Claude — cần Anthropic API key (menu ⚙). Kết quả trả về trang qua window.setAiEditResult.</summary>
     private async Task HandleAiEditAsync(int requestId, string instruction, string selection, string script)
@@ -740,64 +738,13 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         });
     }
 
-    /// <summary>Ctrl+I bằng Claude (Anthropic Messages API).</summary>
-    private async Task<string> CallClaudeEditAsync(string system, string user)
-    {
-        var payload = new
-        {
-            model = string.IsNullOrWhiteSpace(_settings.ClaudeEditModel) ? "claude-sonnet-5-5" : _settings.ClaudeEditModel,
-            max_tokens = 4096,
-            system,
-            messages = new[] { new { role = "user", content = user } },
-        };
-        using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
-        req.Headers.Add("x-api-key", _settings.AnthropicApiKey);
-        req.Headers.Add("anthropic-version", "2023-06-01");
-        req.Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
-
-        var res = await _aiEditHttpClient.SendAsync(req);
-        var body = await res.Content.ReadAsStringAsync();
-        using var doc = System.Text.Json.JsonDocument.Parse(body);
-        if (!res.IsSuccessStatusCode)
-        {
-            var msg = doc.RootElement.TryGetProperty("error", out var e) && e.TryGetProperty("message", out var m) ? m.GetString() : res.ReasonPhrase;
-            throw new InvalidOperationException($"Lỗi Claude API ({(int)res.StatusCode}): {msg}");
-        }
-        var text = "";
-        if (doc.RootElement.TryGetProperty("content", out var blocks))
-            foreach (var b in blocks.EnumerateArray())
-                if (b.TryGetProperty("type", out var t) && t.GetString() == "text" && b.TryGetProperty("text", out var tx))
-                    text += tx.GetString();
-        return text;
-    }
+    /// <summary>Ctrl+I bằng Claude (Anthropic Messages API) — gọi qua <see cref="AiChatService"/> dùng chung (hẹn giờ 90s).</summary>
+    private Task<string> CallClaudeEditAsync(string system, string user) =>
+        AiChatService.ClaudeAsync(_settings.AnthropicApiKey, _settings.ClaudeEditModel, system, user, maxTokens: 4096);
 
     /// <summary>Ctrl+I bằng Gemini (generateContent) — cùng prompt với bản Claude; system prompt đi qua systemInstruction.</summary>
-    private async Task<string> CallGeminiEditAsync(string system, string user)
-    {
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={_settings.GeminiApiKey}";
-        var payload = new
-        {
-            systemInstruction = new { parts = new[] { new { text = system } } },
-            contents = new[] { new { role = "user", parts = new[] { new { text = user } } } },
-            generationConfig = new { temperature = 0.2, maxOutputTokens = 8192 },
-        };
-        using var content = new StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json");
-        var res = await _aiEditHttpClient.PostAsync(url, content);
-        var body = await res.Content.ReadAsStringAsync();
-        using var doc = System.Text.Json.JsonDocument.Parse(body);
-        if (!res.IsSuccessStatusCode)
-        {
-            var msg = doc.RootElement.TryGetProperty("error", out var e) && e.TryGetProperty("message", out var m) ? m.GetString() : res.ReasonPhrase;
-            throw new InvalidOperationException($"Lỗi Gemini API ({(int)res.StatusCode}): {msg}");
-        }
-        var text = "";
-        if (doc.RootElement.TryGetProperty("candidates", out var cands) && cands.GetArrayLength() > 0
-            && cands[0].TryGetProperty("content", out var c) && c.TryGetProperty("parts", out var parts))
-            foreach (var part in parts.EnumerateArray())
-                if (part.TryGetProperty("text", out var tx)) text += tx.GetString();
-        if (text.Length == 0) throw new InvalidOperationException("Gemini không trả về nội dung (có thể bị chặn bởi bộ lọc an toàn hoặc hết quota).");
-        return text;
-    }
+    private Task<string> CallGeminiEditAsync(string system, string user) =>
+        AiChatService.GeminiAsync(_settings.GeminiApiKey, system, user, maxTokens: 8192);
 
     private void PushCopilotAuto()
     {

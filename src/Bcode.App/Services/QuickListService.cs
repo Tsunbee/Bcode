@@ -135,6 +135,49 @@ public class QuickListService
         return list;
     }
 
+    /// <summary>
+    /// Spec từ JSON của trang quicklist.html (payload().spec — cũng là dạng lưu ở QuickListConfigStore và dạng "AI tạo danh mục" điền):
+    /// keys / linkKeys / detailKeys là chuỗi ngăn bằng dấu phẩy, width là chuỗi số, lookup = { controller, reference, key, check, information }.
+    /// </summary>
+    public static QuickListSpec FromPageJson(System.Text.Json.JsonElement s)
+    {
+        const System.Text.Json.JsonValueKind True = System.Text.Json.JsonValueKind.True;
+        string S(string n) => s.TryGetProperty(n, out var p) ? (p.GetString() ?? "").Trim() : "";
+        bool B(string n) => s.TryGetProperty(n, out var p) && p.ValueKind == True;
+        bool CB(System.Text.Json.JsonElement c, string n) => c.TryGetProperty(n, out var p) && p.ValueKind == True;
+        string CS(System.Text.Json.JsonElement c, string n) => c.TryGetProperty(n, out var p) ? p.GetString() ?? "" : "";
+        List<string> L(string n) => S(n).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        List<QuickListColumn> Cols(string n) => !s.TryGetProperty(n, out var arr) || arr.ValueKind != System.Text.Json.JsonValueKind.Array ? new() :
+            arr.EnumerateArray().Select(c => new QuickListColumn
+            {
+                Name = CS(c, "name"), SqlType = CS(c, "sqlType"), HeaderV = CS(c, "headerV"), HeaderE = CS(c, "headerE"), Type = CS(c, "type"),
+                Width = int.TryParse(CS(c, "width"), out var w) ? w : 150,
+                InGrid = CB(c, "inGrid"), InForm = CB(c, "inForm"), InLookup = CB(c, "inLookup"), InFilter = CB(c, "inFilter"), InImport = CB(c, "inImport"),
+                AllowNulls = CB(c, "allowNulls"), ReadOnly = CB(c, "readOnly"),
+                Hidden = CB(c, "hidden"), HideName = CB(c, "hideName"),
+                Lookup = c.TryGetProperty("lookup", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.Object && CS(l, "controller") != ""
+                    ? new FieldLookup(CS(l, "controller"), CS(l, "reference"), CS(l, "key"), CS(l, "check"), CS(l, "information"))
+                    : null,
+            }).ToList();
+        var hasDetail = B("detail");
+
+        return new QuickListSpec
+        {
+            Controller = S("controller"), MainName = S("main"), Table = S("table"), Order = S("order"), NameField = S("nameField"),
+            Keys = L("keys"),
+            TitleV = S("titleV"), TitleE = S("titleE"), SubTitleV = S("subV"), SubTitleE = S("subE"),
+            FuncNew = B("funcNew"), FuncEdit = B("funcEdit"), FuncDelete = B("funcDelete"), FuncFilter = B("funcFilter"),
+            CreateLookup = B("lookup"), CreateFilter = B("filter"), ImportData = B("import"), Import2262 = B("import2262"),
+            Comment = B("comment"), Irregular = B("irregular"),
+            OldKeyFormat = S("oldKeyFormat") is { Length: > 0 } f ? f : DefaultOldKeyFormat,
+            Columns = Cols("columns"),
+            DetailTable = hasDetail ? S("detailTable") : "",
+            DetailId = S("detailId"), DetailTitleV = S("detailTitleV"), DetailTitleE = S("detailTitleE"), DetailOrder = S("detailOrder"),
+            DetailKeys = L("detailKeys"), LinkKeys = L("linkKeys"), DetailImport = B("detailImport"),
+            DetailColumns = hasDetail ? Cols("detailColumns") : new(),
+        };
+    }
+
     public static string? Validate(QuickListSpec s)
     {
         if (string.IsNullOrWhiteSpace(s.Controller)) return "Chưa nhập Controller (tên file).";

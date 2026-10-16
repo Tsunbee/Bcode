@@ -223,6 +223,12 @@ Trên ảnh: **①** ▶ Execute (`F5` / `Ctrl+Enter`) · **②** chọn databas
 - Chuột phải ô: Copy (`Ctrl+C`) · Copy kèm tên cột (`Ctrl+Shift+C`) · Copy cả bảng · Goto Column (`Ctrl+G`) · Copy tên cột · Filter · Add Index Column Order · Generate Design Fields · Maxlength Column Content · Compare Column Content · Set Color Cell. Chuột phải tiêu đề cột: **Thống kê** Sum / Max / Min / Avg.
 - Bật **Result Tab** (⚙ Tùy chọn) để mỗi lần chạy ra một tab kết quả riêng ("Command Result").
 - Tab **Pivot** có nút **Tạo file Excel pivot…** (mở Create RPT & XML ở chế độ Pivot — cần key).
+- Bcode nhận diện pivot theo thứ tự:
+  1. `<pivot rowField columnField dataFields>` trong Grid controller của báo cáo (Source Path của workspace). Tên controller lấy từ lệnh `exec` cuối của script, bỏ tiền tố `rs_`; đọc được cả file controller `.xml` lẫn `.f`.
+  2. Không đọc được controller thì đoán theo **quy tắc** trong file `pivot-rules.txt`. Mở file này ở **Settings → Pivot SQL Query: quy tắc đoán cấu trúc...**; chưa có file thì Bcode tạo từ mẫu mặc định.
+- Mỗi dòng trong `pivot-rules.txt` là `khoá dòng | khoá cột | cột tiêu đề cột | field giá trị`. Ví dụ `ma_vt | ma_kho | ten_kho | so_luong, tien`.
+  - Khoá dòng `*` = tự đoán: lấy cột chữ đầu tiên không phải cột hệ thống. Quy tắc `*` chỉ áp khi có thêm bảng định nghĩa kiểu Fast (cột `id`, `name` có dạng `so_luong$1`). Ví dụ có sẵn: `* | sysColumn`.
+  - Lưu file rồi chạy lại script là áp dụng, không cần mở lại Bcode. Xoá file = quay về mẫu mặc định.
 
 ### Thanh nút (chế độ Web)
 
@@ -616,8 +622,30 @@ Quản lý từng yêu cầu (request) và sinh gói update cho yêu cầu đó:
 3. **🔍 Xem trước gói** → cây gói update (double-click file để mở trong tab Query); **▶ Mở tất cả script vào tab Query** để rà lại.
 4. **Generate Update**: Save At Path, Folder Name, **Tách theo từng y/c** (mỗi yêu cầu một thư mục con) → **⚙ Generate Update**. Tick nhiều yêu cầu ở cột đầu danh sách để sinh chung.
 5. **📄 Request Content** xem nội dung yêu cầu.
+6. **🤖 AI tạo danh mục** (bản thử, `Ctrl+Alt+I` khi đang ở tab Note (New)): xem [AI tạo danh mục từ yêu cầu](#ai-danh-muc).
 
 Dữ liệu lưu ở `%AppData%\Bcode\AdvanceNotes\<workspace>.json`.
+
+<a id="ai-danh-muc"></a>
+### AI tạo danh mục từ yêu cầu (bản thử)
+
+Dùng khi yêu cầu là **tạo một danh mục mới** (màn hình thêm / sửa / xoá / tìm các mã của một bảng, có thể kèm lưới chi tiết). AI chỉ **điền sẵn** màn [Tạo nhanh danh mục](#tool-mo-rong) — không tự ghi file, không chạy SQL.
+
+1. Ở **Note (New)**, Sync yêu cầu (hoặc tự nhập Request Content), chọn yêu cầu → bấm **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`; đổi phím ở Template → Phím tắt).
+2. Màn **Tạo nhanh danh mục** mở ra (đang mở thì dùng lại) với khung **🤖 AI tạo danh mục** ở trên: AI đọc nội dung yêu cầu + tên bảng / tên cột / kiểu cột của App Data (không gửi dữ liệu dòng nào), rồi điền Bảng, Controller, File Main, Key, Title (v/e), các cột (header, tick Grid / Dir / Lookup / Filter / Import, AutoComplete), bảng chi tiết nếu có.
+3. Thiếu thông tin thì khung AI hiện **câu hỏi** — gõ trả lời (để trống = AI tự chọn) → **Gửi trả lời & hỏi lại AI**. **Hỏi lại AI** = hỏi lại với nội dung hiện có.
+4. Bảng AI đề xuất **chưa có** trong App Data: cột lấy theo đề xuất của AI, khung AI có **script tạo bảng** (Copy script) — tự xem lại và chạy trước khi dùng danh mục; Bcode không chạy.
+5. Kiểm tra lại các ô, **Xem XML**, rồi **Tạo file** như bình thường (hỏi trước khi ghi đè), sau đó **Tạo menu…** nếu cần.
+
+Yêu cầu không phải tạo danh mục (sửa màn hình có sẵn, báo cáo, chứng từ...) thì khung AI báo "chưa hỗ trợ". Dùng **Claude (Anthropic) API key** (hoặc Gemini) nhập ở tab **SQL Query → ⚙ Tùy chọn → Copilot / AI** (dùng chung với Ctrl+I); mỗi lượt hỏi AI tốn token của key đó và được lưu ở **Lịch sử gợi ý AI** (loại "Danh mục").
+
+**Chưa có API key** → Bcode tự **gợi ý theo cấu trúc Fast** (khung ghi "Luật Fast (không AI)", không gọi AI, không tốn token):
+- Đọc tốt nhất câu dạng `Thêm danh mục <tên>: Mã, Tên, Khách hàng, Ngày hiệu lực, Ghi chú` (hoặc "… gồm …", hoặc gạch đầu dòng mỗi cột một dòng).
+- Bảng mới đặt theo quy ước FBO: `dm` + chữ đầu các từ (hình thức bán hàng → `dmhtbh`, mã `ma_htbh`, tên `ten_htbh`, `ten_htbh2`), luôn thêm `status` và các cột hệ thống `datetime0/2`, `user_id0/2`. Ghi rõ tên bảng trong yêu cầu (vd `dmhtbh`) thì theo đó.
+- Cột khác tra theo tiêu đề: lookup thường dùng (Khách hàng → `ma_kh` / Customer, Vật tư → `ma_vt` / Item, Kho, Ngoại tệ, Bộ phận, Đơn vị → `ma_dvcs` / Unit…), rồi từ điển field của Bcode (header.xml); "Nhóm …" → `nh_xxx1`; không tra được thì đoán tên + kiểu (Ngày → smalldatetime, Tiền/Giá/Tỷ lệ → numeric) và **hỏi lại** tên field.
+- "1 hoặc nhiều <X>" / "chi tiết" → có lưới chi tiết (bảng `ct<bảng>`, khoá `ma_xxx, line_nbr`); "import / nhập từ Excel" → bật Import.
+- Bảng `dm…` đã có trong App Data → dùng đủ cột thật; source đã có danh mục cùng tên → hỏi có tạo màn mới không.
+- Luật không hiểu câu văn tự do như AI — kiểm tra kỹ tên bảng / cột trước khi Tạo file. Nhập API key xong thì lần bấm sau dùng lại AI.
 
 <a id="create-rpt"></a>
 ## Create RPT & XML, Excel → FRX, Tạo báo cáo

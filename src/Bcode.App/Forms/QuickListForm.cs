@@ -24,6 +24,14 @@ public class QuickListForm : WebDialogForm
     private readonly AppSettings _settings;
     private List<WCommandItem>? _menus;
 
+    // ---- "AI tạo danh mục" (bản thử): yêu cầu đang làm + câu hỏi/trả lời các lượt trước + bảng AI đề xuất chưa có trong DB ----
+    private (string Name, string Content)? _aiRequest;
+    private readonly List<(string Question, string Answer)> _aiAnswers = new();
+    private List<string> _aiQuestions = new();
+    private AiCatalogService? _aiService;
+    private bool _aiBusy, _ready;
+    private readonly Dictionary<string, List<AiTableColumn>> _aiNewTables = new(StringComparer.OrdinalIgnoreCase);
+
     public QuickListForm(SqlObjectBrowserService sqlObjects, TableDataService tableData, DbConnectionService connections,
         WCommandService wcommand, AppSettings settings)
         : base(Title, "quicklist.html", 1400, 880, 900, 600)
@@ -50,6 +58,8 @@ public class QuickListForm : WebDialogForm
         var src = _connections.Current?.SourcePath ?? "";
         Js($"quick.init({J(new { template = QuickListService.DefaultTemplateDir, output = src, oldKeyFormat = QuickListService.DefaultOldKeyFormat })})");
         _ = LoadTablesAsync();
+        _ready = true;
+        if (_aiRequest is not null) _ = RunAiAsync();
         // Từ điển field FCode (header.xml ~2MB) nạp sẵn ở nền để lúc "Nạp cột" không phải chờ.
         _ = Task.Run(() =>
         {
@@ -102,6 +112,74 @@ public class QuickListForm : WebDialogForm
             case "findMenus": await FindMenusAsync(msg); break;
             case "editMenu": await EditMenuAsync((msg.GetProperty("id").GetString() ?? "").Trim()); break;
             case "createMenu": await CreateMenuAsync(msg); break;
+            case "aiAnswer":
+            {
+                // Trả lời câu hỏi lượt trước (trang gửi theo đúng thứ tự câu hỏi) rồi hỏi lại AI.
+                var answers = msg.TryGetProperty("answers", out var arr) && arr.ValueKind == JsonValueKind.Array
+                    ? arr.EnumerateArray().Select(a => a.GetString() ?? "").ToList() : new List<string>();
+                for (var i = 0; i < _aiQuestions.Count; i++) _aiAnswers.Add((_aiQuestions[i], i < answers.Count ? answers[i] : ""));
+                _aiQuestions = new();
+                await RunAiAsync();
+                break;
+            }
+            case "aiRetry": await RunAiAsync(); break;
+            case "aiClose": _aiRequest = null; break;
+        }
+    }
+
+    // ---- AI tạo danh mục ------------------------------------------------------------------------
+
+    /// <summary>
+    /// Bắt đầu "AI tạo danh mục" cho 1 yêu cầu (từ Note (New)): form đã mở thì chạy ngay, chưa thì chạy khi trang sẵn sàng.
+    /// AI chỉ điền các ô của màn này — không ghi file, không chạy SQL; người dùng duyệt rồi bấm Tạo file như thường.
+    /// </summary>
+    public void StartAi(string requestName, string content)
+    {
+        _aiRequest = (requestName, content);
+        _aiAnswers.Clear();
+        _aiQuestions = new();
+        _aiService = null;   // đọc lại danh sách bảng (có thể đã đổi workspace)
+        if (_ready) _ = RunAiAsync();
+    }
+
+    private async Task RunAiAsync()
+    {
+        if (_aiRequest is not { } req || _aiBusy) return;
+        _aiBusy = true;
+        void State(object o) => Js($"quick.aiState({J(o)})");
+        State(new { name = req.Name, content = req.Content, busy = true, message = "Đang chuẩn bị..." });
+        try
+        {
+            if (_connections.Current is null) throw new InvalidOperationException("Chưa chọn workspace.");
+            _aiService ??= new AiCatalogService(_sqlObjects, _tableData, _settings, _connections.Current.SourcePath ?? "");
+            var r = await _aiService.SuggestAsync(req.Name, req.Content, _aiAnswers.ToList(),
+                m => State(new { name = req.Name, content = req.Content, busy = true, message = m }));
+            if (_aiRequest != req) return;   // trong lúc chờ đã chọn y/c khác / đóng khung AI → bỏ kết quả cũ
+            _aiQuestions = r.Questions;
+            foreach (var (t, cols) in r.NewTables) _aiNewTables[t] = cols;
+            var by = r.Engine == FastCatalogRules.Engine ? "theo luật Fast (chưa có API key)" : "theo AI";
+            State(new
+            {
+                name = req.Name, content = req.Content, busy = false, kind = r.Kind, engine = r.Engine, summary = r.Summary,
+                notes = r.Notes, questions = r.Questions, createSql = r.CreateTableSql, hasSpec = r.Spec is not null,
+                answered = _aiAnswers.Select(a => new { q = a.Question, a = a.Answer }),
+                message = r.Kind switch
+                {
+                    "loi" => r.Summary,
+                    "khac" => "Yêu cầu này không phải tạo danh mục mới — bản thử mới hỗ trợ loại \"tạo danh mục\".",
+                    _ when r.Spec is null => "Chưa điền được spec — trả lời câu hỏi rồi bấm Gửi trả lời.",
+                    _ when r.Questions.Count > 0 => $"Đã điền nháp {by} — còn câu hỏi bên dưới; trả lời để điền lại, hoặc tự sửa rồi Tạo file.",
+                    _ => $"Đã điền {by} — kiểm tra lại cột / tiêu đề / tuỳ chọn rồi bấm Tạo file.",
+                },
+            });
+            if (r.Spec is not null) Js($"quick.aiLoad({r.Spec.ToJsonString()})");
+        }
+        catch (TaskCanceledException) { if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, kind = "loi", message = "Hết thời gian chờ AI." }); }
+        catch (Exception ex) { if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, kind = "loi", message = ex.Message }); }
+        finally
+        {
+            _aiBusy = false;
+            if (_aiRequest is { } next && next != req) _ = RunAiAsync();   // y/c mới đến trong lúc đang chạy
         }
     }
 
@@ -124,8 +202,18 @@ public class QuickListForm : WebDialogForm
         try
         {
             var cols = await _sqlObjects.GetColumnsAsync(false, "dbo", table);
-            if (cols.Count == 0) { Js($"quick.onStatus({J($"Không thấy cột nào của bảng '{table}'.")}, 'err')"); return; }
-            var types = await _tableData.GetColumnTypesAsync(false, "dbo", table);
+            Dictionary<string, string> types;
+            if (cols.Count == 0 && _aiNewTables.TryGetValue(table, out var aiCols))
+            {
+                // Bảng mới AI đề xuất (chưa có trong App Data): nạp cột theo spec AI để duyệt / xem XML; script tạo bảng ở khung AI.
+                cols = aiCols.Select(c => (c.Name, c.IsPrimaryKey)).ToList();
+                types = aiCols.ToDictionary(c => c.Name, c => c.SqlType, StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                if (cols.Count == 0) { Js($"quick.onStatus({J($"Không thấy cột nào của bảng '{table}'.")}, 'err')"); return; }
+                types = await _tableData.GetColumnTypesAsync(false, "dbo", table);
+            }
             var keys = cols.Where(c => c.IsPrimaryKey).Select(c => c.Name).ToList();
             if (keys.Count == 0) keys.Add(cols[0].Name);
             var list = cols.Select(c =>
@@ -147,43 +235,7 @@ public class QuickListForm : WebDialogForm
         catch (Exception ex) { Js($"quick.onStatus({J("Không nạp được cột: " + ex.Message)}, 'err')"); }
     }
 
-    private static QuickListSpec ReadSpec(JsonElement s)
-    {
-        string S(string n) => s.TryGetProperty(n, out var p) ? (p.GetString() ?? "").Trim() : "";
-        bool B(string n) => s.TryGetProperty(n, out var p) && p.ValueKind == JsonValueKind.True;
-        bool CB(JsonElement c, string n) => c.TryGetProperty(n, out var p) && p.ValueKind == JsonValueKind.True;
-        string CS(JsonElement c, string n) => c.TryGetProperty(n, out var p) ? p.GetString() ?? "" : "";
-        List<string> L(string n) => S(n).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
-        List<QuickListColumn> Cols(string n) => !s.TryGetProperty(n, out var arr) || arr.ValueKind != JsonValueKind.Array ? new() :
-            arr.EnumerateArray().Select(c => new QuickListColumn
-            {
-                Name = CS(c, "name"), SqlType = CS(c, "sqlType"), HeaderV = CS(c, "headerV"), HeaderE = CS(c, "headerE"), Type = CS(c, "type"),
-                Width = int.TryParse(CS(c, "width"), out var w) ? w : 150,
-                InGrid = CB(c, "inGrid"), InForm = CB(c, "inForm"), InLookup = CB(c, "inLookup"), InFilter = CB(c, "inFilter"), InImport = CB(c, "inImport"),
-                AllowNulls = CB(c, "allowNulls"), ReadOnly = CB(c, "readOnly"),
-                Hidden = CB(c, "hidden"), HideName = CB(c, "hideName"),
-                Lookup = c.TryGetProperty("lookup", out var l) && l.ValueKind == JsonValueKind.Object && CS(l, "controller") != ""
-                    ? new FieldLookup(CS(l, "controller"), CS(l, "reference"), CS(l, "key"), CS(l, "check"), CS(l, "information"))
-                    : null,
-            }).ToList();
-        var hasDetail = B("detail");
-
-        return new QuickListSpec
-        {
-            Controller = S("controller"), MainName = S("main"), Table = S("table"), Order = S("order"), NameField = S("nameField"),
-            Keys = L("keys"),
-            TitleV = S("titleV"), TitleE = S("titleE"), SubTitleV = S("subV"), SubTitleE = S("subE"),
-            FuncNew = B("funcNew"), FuncEdit = B("funcEdit"), FuncDelete = B("funcDelete"), FuncFilter = B("funcFilter"),
-            CreateLookup = B("lookup"), CreateFilter = B("filter"), ImportData = B("import"), Import2262 = B("import2262"),
-            Comment = B("comment"), Irregular = B("irregular"),
-            OldKeyFormat = S("oldKeyFormat") is { Length: > 0 } f ? f : QuickListService.DefaultOldKeyFormat,
-            Columns = Cols("columns"),
-            DetailTable = hasDetail ? S("detailTable") : "",
-            DetailId = S("detailId"), DetailTitleV = S("detailTitleV"), DetailTitleE = S("detailTitleE"), DetailOrder = S("detailOrder"),
-            DetailKeys = L("detailKeys"), LinkKeys = L("linkKeys"), DetailImport = B("detailImport"),
-            DetailColumns = hasDetail ? Cols("detailColumns") : new(),
-        };
-    }
+    private static QuickListSpec ReadSpec(JsonElement s) => QuickListService.FromPageJson(s);
 
     private List<(string Target, string Content)>? Render(QuickListSpec spec, string template, bool showErrors)
     {

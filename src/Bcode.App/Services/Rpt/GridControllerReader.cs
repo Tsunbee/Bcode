@@ -32,9 +32,13 @@ public class GridControllerReader
         }
 
         var ctl = Path.Combine(root, "App_Data", "Controllers");
-        var gridPath = Path.Combine(ctl, "Grid", name + ".xml");
-        var filterPath = Path.Combine(ctl, "Filter", name + ".xml");
+        var gridPath = XmlOrF(Path.Combine(ctl, "Grid", name));
+        var filterPath = XmlOrF(Path.Combine(ctl, "Filter", name));
         var reportPath = Path.Combine(ctl, "Report", name + ".xml");
+        // Tên đoán từ "exec rs_<controller> ..." là tên procedure: không thấy controller đó thì thử bỏ tiền tố rs_ (quy ước Fast).
+        if (!File.Exists(gridPath) && note.Length == 0 && name.StartsWith("rs_", StringComparison.OrdinalIgnoreCase) && name.Length > 3
+            && Load(sourcePath, name[3..]) is { GridPath: not null } stripped)
+            return stripped with { Note = $"{name} → Controller \"{stripped.Controller}\" (bỏ tiền tố rs_). {stripped.Note}".Trim() };
         if (!File.Exists(gridPath)) return Empty(name, note + $" Không thấy {gridPath}");
 
         var gridText = Regex.Replace(File.ReadAllText(gridPath), @"<!--.*?-->", "", RegexOptions.Singleline); // bỏ phần đã comment (vd field ảnh bị tắt)
@@ -74,6 +78,10 @@ public class GridControllerReader
         var m = ViewRx.Match(xml);
         return m.Success ? ViewFieldRx.Matches(m.Groups[1].Value).Select(x => x.Groups[1].Value).ToList() : new List<string>();
     }
+
+    /// <summary>&lt;base&gt;.xml; không có mà có &lt;base&gt;.f (bản Fast mới lưu controller Grid/Filter dạng .f, cùng nội dung XML) thì dùng .f.</summary>
+    private static string XmlOrF(string basePath) =>
+        !File.Exists(basePath + ".xml") && File.Exists(basePath + ".f") ? basePath + ".f" : basePath + ".xml";
 
     private static ControllerInfo Empty(string name, string note) =>
         new(name, "", "", new(), new(StringComparer.OrdinalIgnoreCase), null, null, note.Trim());

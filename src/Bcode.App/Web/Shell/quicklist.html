@@ -31,6 +31,18 @@
   .banner .files a:hover { color: var(--accent); }
   .x { border: 0; background: transparent; padding: 0 .3rem; font-size: 1.1rem; }
 
+  /* ---- AI tạo danh mục (mở từ Note (New)) ---- */
+  .aibox { flex-direction: column; flex-wrap: nowrap; align-items: stretch; flex: none; max-height: 40vh; overflow: auto; }
+  .aibox.err { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--panel)); }
+  .aibox .ah { display: flex; align-items: center; gap: .5rem; }
+  .aibox .ah .grow { flex: 1; min-width: 0; }
+  .aibox ul { margin: .1rem 0; padding-left: 1.2rem; }
+  .aibox .q { display: flex; flex-direction: column; gap: .2rem; margin: .25rem 0; }
+  .aibox .q textarea { width: 100%; box-sizing: border-box; min-height: 2.2rem; resize: vertical; }
+  .aibox details pre { margin: .3rem 0; padding: .4rem .6rem; background: var(--input); border-radius: var(--r); white-space: pre-wrap; font-family: Consolas, monospace; font-size: .82rem; max-height: 14rem; overflow: auto; }
+  .aibox .spin { display: inline-block; width: .8rem; height: .8rem; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: aispin .8s linear infinite; }
+  @keyframes aispin { to { transform: rotate(360deg); } }
+
   /* ---- Vùng làm việc: bảng cột (trái) + xem trước form (phải) ---- */
   .work { flex: 1; min-height: 0; display: flex; }
   .left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
@@ -208,6 +220,19 @@
     <div class="fld"><label>Tiêu đề lưới (v)</label><input type="text" id="detailTitleV"></div>
     <div class="fld"><label>Tiêu đề lưới (e)</label><div class="pick"><input type="text" id="detailTitleE"><button data-tr="detailTitleV:detailTitleE" title="Dịch tiêu đề lưới (v) sang tiếng Anh">Dịch</button></div></div>
     <label class="chk" style="padding-bottom:.35rem"><input type="checkbox" id="detailImport"> Import</label>
+  </div>
+  <!-- AI tạo danh mục: yêu cầu đang làm, tóm tắt AI hiểu, ghi chú, câu hỏi cần trả lời, script tạo bảng mới (chỉ để copy) -->
+  <div class="banner aibox" id="aiBox" hidden>
+    <div class="ah"><b>🤖 AI tạo danh mục</b><span class="muted" id="aiReq"></span><span class="grow"></span>
+      <button id="aiRetry" title="Hỏi lại AI với nội dung yêu cầu + các câu đã trả lời">Hỏi lại AI</button>
+      <button class="x" id="aiClose" title="Ẩn khung AI">✕</button></div>
+    <div id="aiMsg"></div>
+    <div id="aiSummary" class="muted"></div>
+    <ul id="aiNotes"></ul>
+    <div id="aiQs"></div>
+    <div id="aiQBar" hidden><button id="aiSend" class="primary">Gửi trả lời &amp; hỏi lại AI</button></div>
+    <details id="aiSqlBox" hidden><summary>Bảng mới chưa có trong App Data — script tạo bảng (KHÔNG tự chạy) <button id="aiCopySql">Copy script</button></summary><pre id="aiSql"></pre></details>
+    <details><summary>Nội dung yêu cầu đã gửi AI</summary><pre id="aiContent"></pre><div id="aiAnswered"></div></details>
   </div>
   <!-- Khôi phục cấu hình lần trước / kết quả tạo file -->
   <div class="banner" id="restoreBanner" hidden>
@@ -958,6 +983,28 @@
     renderAll();
     say('Đã khôi phục cấu hình lần trước.', 'ok');
   }
+  // ---- AI tạo danh mục: C# gửi trạng thái (aiState) + spec đã chuẩn hoá (aiLoad); spec nạp như "khôi phục cấu hình" sau khi nạp cột bảng ----
+  let pendingAi = null, aiQuestions = [];
+  function renderAi(d) {
+    const box = $('aiBox'); box.hidden = false;
+    box.classList.toggle('err', d.kind === 'loi' || d.kind === 'khac');
+    $('aiReq').textContent = d.name ? '— y/c ' + d.name + (d.engine ? ' · ' + d.engine : '') : '';
+    $('aiMsg').innerHTML = (d.busy ? '<span class="spin"></span> ' : '') + esc(d.message || '');
+    $('aiSummary').textContent = d.summary ? (/không AI/.test(d.engine || '') ? 'Bcode hiểu: ' : 'AI hiểu: ') + d.summary : '';
+    $('aiNotes').innerHTML = (d.notes || []).map((n) => '<li>' + esc(n) + '</li>').join('');
+    aiQuestions = d.busy ? aiQuestions : (d.questions || []);
+    $('aiQs').innerHTML = d.busy ? '' : aiQuestions.map((q, i) => '<div class="q"><label>' + (i + 1) + '. ' + esc(q) + '</label><textarea data-ai="' + i + '" placeholder="Trả lời (để trống = AI tự chọn hợp lý)"></textarea></div>').join('');
+    $('aiQBar').hidden = d.busy || !aiQuestions.length;
+    $('aiSqlBox').hidden = !d.createSql; $('aiSql').textContent = d.createSql || '';
+    $('aiContent').textContent = d.content || '';
+    $('aiAnswered').innerHTML = (d.answered || []).map((x) => '<div><b>Hỏi:</b> ' + esc(x.q) + '<br><b>Đáp:</b> ' + esc(x.a || '(để AI tự chọn)') + '</div>').join('');
+    $('aiRetry').disabled = $('aiSend').disabled = !!d.busy;
+  }
+  $('aiSend').onclick = () => post('aiAnswer', { answers: aiQuestions.map((_, i) => (document.querySelector('[data-ai="' + i + '"]') || {}).value || '') });
+  $('aiRetry').onclick = () => post('aiRetry');
+  $('aiClose').onclick = () => { $('aiBox').hidden = true; post('aiClose'); };
+  $('aiCopySql').onclick = (e) => { e.preventDefault(); post('copy', { text: $('aiSql').textContent }); };
+
   $('bRestore').onclick = () => { $('restoreBanner').hidden = true; if (savedSpec) applySaved(savedSpec); };
   $('bRestoreSkip').onclick = () => { $('restoreBanner').hidden = true; };
 
@@ -1173,6 +1220,20 @@
       $('restoreBanner').hidden = !savedSpec;
       if (savedSpec) $('restoreAt').textContent = d.saved.savedAt || '';
       $('doneBanner').hidden = true;
+      // Spec AI đang chờ đúng bảng này → điền luôn (thay cho hỏi khôi phục cấu hình cũ).
+      if (pendingAi && pendingAi.table.toLowerCase() === d.table.toLowerCase()) {
+        const s = pendingAi; pendingAi = null;
+        $('restoreBanner').hidden = true;
+        applySaved(s);
+        say('Đã điền theo AI — kiểm tra lại rồi bấm Tạo file.', 'ok');
+      }
+    },
+    aiState(d) { renderAi(d); },
+    aiLoad(spec) {
+      if (!spec || !spec.table) return;
+      pendingAi = spec;
+      $('table').value = spec.table;
+      post('loadColumns', { table: spec.table });
     },
     onDetailColumns(d) {
       const names = d.columns.map((c) => c.name.toLowerCase());

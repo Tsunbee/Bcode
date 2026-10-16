@@ -14,12 +14,11 @@ public record PivotPayload(List<RptColumn> Columns, List<string?[]> Rows, int To
 /// Khi nào 1 procedure "pivot được" theo quy ước Fast (rút ra từ các mẫu): bảng dữ liệu dạng DÀI có cặp cột khoá dòng/cột
 /// (<c>xRow</c>+<c>xColumn</c>, <c>sysRow</c>+<c>sysColumn</c>), thường kèm cột tiêu đề cột (<c>xHeader</c>, <c>sysColumnName</c>) và 1 bảng định nghĩa
 /// (<c>id, name, header</c>, name dạng <c>so_luong$1</c>). Nếu Grid controller của báo cáo có khai <c>&lt;pivot rowField columnField dataFields&gt;</c>
-/// thì lấy theo đó (chính xác nhất), không thì đoán theo tên cột.
+/// thì lấy theo đó (chính xác nhất), không thì đoán theo tên cột theo quy tắc trong <see cref="PivotRules"/> (pivot-rules.txt, sửa được ở Settings).
 /// </summary>
 public static class PivotDetector
 {
     public const int MaxRows = 5000;
-    private static readonly (string Row, string Col)[] KeyPairs = { ("xRow", "xColumn"), ("sysRow", "sysColumn"), ("KeyRow", "KeyCol") };
     private static readonly string[] SystemCols = { "sysorder", "sysprint", "systotal", "stt", "line_nbr", "stt_rec", "stt_rec0" };
 
     /// <summary>Như RawSqlControl.UpdatePivotTab: đoán tên controller từ script, đọc &lt;pivot&gt; của Grid controller trong <paramref name="sourcePath"/> (nếu có) rồi
@@ -43,35 +42,48 @@ public static class PivotDetector
 
     public static PivotPayload? Detect(IReadOnlyList<DataTable> tables, ControllerInfo? info)
     {
-        for (int pass = 0; pass < 2; pass++)
+        // pass 0 = <pivot> của controller; 1 = quy tắc ghi tên khoá dòng (pivot-rules.txt); 2 = quy tắc khoá dòng "*" (cần bảng định nghĩa field$N)
+        var rules = PivotRules.Load();
+        for (int pass = 0; pass < 3; pass++)
             for (int i = 0; i < tables.Count; i++)
             {
                 var t = tables[i];
-                string? rk = null, ck = null; var source = "";
+                string? rk = null, ck = null; var source = ""; PivotRule? rule = null;
                 if (pass == 0 && info?.Pivot is { } p && p.RowField.Length > 0 && p.ColumnField.Length > 0
                     && Find(t, p.RowField) is { } r0 && Find(t, p.ColumnField) is { } c0)
                 { rk = r0; ck = c0; source = $"cấu hình <pivot> của controller {info.Controller}"; }
                 else if (pass == 1)
-                    foreach (var (r, c) in KeyPairs)
-                        if (Find(t, r) is { } r1 && Find(t, c) is { } c1) { rk = r1; ck = c1; source = "đoán theo tên cột khoá (" + r1 + " / " + c1 + ")"; break; }
-                if (rk is null || ck is null) continue;
-                return Build(tables, i, rk, ck, info, source);
+                    foreach (var r in rules.Where(r => !r.AutoRow))
+                        if (FindAny(t, r.RowKeys) is { } r1 && FindAny(t, r.ColKeys) is { } c1) { rk = r1; ck = c1; rule = r; source = "đoán theo tên cột khoá (" + r1 + " / " + c1 + ")"; break; }
+                if (pass == 2 && HasDefinitionTable(tables, t))
+                    foreach (var r in rules.Where(r => r.AutoRow))
+                        if (FindAny(t, r.ColKeys) is { } c2) { ck = c2; rule = r; source = "đoán theo quy tắc \"* | " + c2 + "\" (khoá dòng tự đoán)"; break; }
+                if (ck is null || (rk is null && rule is not { AutoRow: true })) continue;
+                if (Build(tables, i, rk, ck, info, source, rule) is { } built) return built;
             }
         return null;
     }
 
-    private static PivotPayload Build(IReadOnlyList<DataTable> tables, int idx, string rk, string ck, ControllerInfo? info, string source)
+    /// <summary>Có bảng khác dạng định nghĩa cột pivot của Fast: cột id + name, có name dạng field$N.</summary>
+    private static bool HasDefinitionTable(IReadOnlyList<DataTable> tables, DataTable t) =>
+        tables.Any(o => o != t && Find(o, "id") is not null && Find(o, "name") is { } n
+            && o.Rows.Cast<DataRow>().Any(r => (Convert.ToString(r[n]) ?? "").Contains('$')));
+
+    private static PivotPayload? Build(IReadOnlyList<DataTable> tables, int idx, string? rk, string ck, ControllerInfo? info, string source, PivotRule? rule = null)
     {
         var t = tables[idx];
-        var header = new[] { ck + "Name", "xHeader", "sysColumnName", "xColumnName", "header" }.Select(n => Find(t, n)).FirstOrDefault(n => n is not null && n != rk && n != ck);
+        var headerNames = rule is { Headers.Count: > 0 } ? rule.Headers : new List<string> { ck + "Name", "xHeader", "sysColumnName", "xColumnName", "header" };
+        var header = headerNames.Select(n => Find(t, n)).FirstOrDefault(n => n is not null && n != rk && n != ck);
 
-        // field giá trị: controller → bảng định nghĩa (name = <field>$N) → cột số còn lại
+        // field giá trị: controller → quy tắc → bảng định nghĩa (name = <field>$N) → cột số còn lại
         var data = new List<string>();
         if (info?.Pivot is { DataFields.Count: > 0 } pv)
         {
             var df = pv.DataFields.Select(d => Find(t, d)).Where(d => d is not null).Select(d => d!).ToList();
             data = df.Where(d => !(d.EndsWith("_nt", StringComparison.OrdinalIgnoreCase) && df.Any(x => x.Equals(d[..^3], StringComparison.OrdinalIgnoreCase)))).ToList();
         }
+        if (data.Count == 0 && rule is { DataFields.Count: > 0 })
+            data = rule.DataFields.Select(d => Find(t, d)).Where(d => d is not null).Select(d => d!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (data.Count == 0)
             foreach (var other in tables.Where(x => x != t))
             {
@@ -84,6 +96,14 @@ public static class PivotDetector
         var keys = new HashSet<string>(new[] { rk, ck, header }.Where(s => s is not null)!, StringComparer.OrdinalIgnoreCase);
         if (data.Count == 0)
             data = t.Columns.Cast<DataColumn>().Where(c => IsNumeric(c.DataType) && !keys.Contains(c.ColumnName) && !IsSystem(c.ColumnName)).Select(c => c.ColumnName).Take(1).ToList();
+        if (rk is null)   // quy tắc "*": khoá dòng = cột chữ đầu tiên không phải cột hệ thống / khoá / giá trị
+        {
+            rk = t.Columns.Cast<DataColumn>().Where(c => !keys.Contains(c.ColumnName) && !data.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase)
+                && !IsSystem(c.ColumnName) && !IsNumeric(c.DataType) && (Nullable.GetUnderlyingType(c.DataType) ?? c.DataType) != typeof(DateTime)).Select(c => c.ColumnName).FirstOrDefault();
+            if (rk is null) return null;
+            keys.Add(rk);
+            source += " → khoá dòng " + rk;
+        }
 
         // field dòng hiển thị: view Grid của controller; không có thì các cột chữ/ngày còn lại (bỏ cột hệ thống, khoá, giá trị)
         var skip = new HashSet<string>(keys.Concat(data), StringComparer.OrdinalIgnoreCase);
@@ -102,6 +122,8 @@ public static class PivotDetector
 
     private static string? Find(DataTable t, string name) =>
         t.Columns.Cast<DataColumn>().FirstOrDefault(c => c.ColumnName.Equals(name, StringComparison.OrdinalIgnoreCase))?.ColumnName;
+
+    private static string? FindAny(DataTable t, IEnumerable<string> names) => names.Select(n => Find(t, n)).FirstOrDefault(n => n is not null);
 
     private static bool IsSystem(string n) => n.StartsWith("sys", StringComparison.OrdinalIgnoreCase) || SystemCols.Contains(n, StringComparer.OrdinalIgnoreCase);
 

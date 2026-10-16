@@ -105,6 +105,7 @@
     <input type="text" id="syncProg" placeholder="Tên lập trình (ma_lt1)" title="Tên lập trình cần đồng bộ yêu cầu về" spellcheck="false" style="width:170px" />
     <button id="btnSync" title="Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có">⟳ Sync yêu cầu</button>
     <button id="btnContent" title="Xem / sửa nội dung y/c &amp; những gì đã sửa (đi kèm gói update) — Ctrl+Shift+4">📄 Request Content</button>
+    <button id="btnAiCatalog" title="Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)">🤖 AI tạo danh mục</button>
     <span class="grow"></span>
     <span id="status"></span>
   </div>
@@ -594,6 +595,14 @@
   $('cModal').addEventListener('mousedown', (e) => { if (e.target === $('cModal')) closeContent(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeContent(); });
   $('btnSync').onclick = () => { flushSave(); post('sync', { programmer: $('syncProg').value }); };
+  // AI tạo danh mục: gửi y/c đang chọn (tên + nội dung đang thấy) — C# mở Tạo nhanh danh mục và hỏi AI ở đó.
+  $('btnAiCatalog').onclick = () => {
+    flushSave();
+    const r = cur();
+    if (!r) { setStatus('Chọn 1 y/c trước.', 'err'); return; }
+    if (!(r.content || '').trim()) { setStatus('Y/c chưa có nội dung — Sync yêu cầu hoặc nhập Request Content trước.', 'err'); return; }
+    post('aiCatalog', { name: r.name || '', content: r.content || '' });
+  };
   $('syncProg').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSync').click(); });
   // Có y/c được TICK thì xoá TẤT CẢ y/c đã tick (hỏi xác nhận 1 lần, nêu số lượng); không tick gì thì xoá y/c đang chọn như cũ.
   $('btnDelete').onclick = () => {
@@ -617,6 +626,7 @@
 
   // ---- Host gọi vào -------------------------------------------------------------------------------
   window.advNote = {
+    aiCatalog() { $('btnAiCatalog').click(); },
     init(state) {
       S.ws = state.workspace || {}; S.requests = state.requests || []; S.defaultFolder = state.defaultFolder || '';
       $('gSave').value = S.ws.savePath || ''; folderTouched = false; refreshFolder(); $('syncProg').value = state.programmer || '';

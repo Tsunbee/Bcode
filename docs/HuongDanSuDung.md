@@ -492,7 +492,21 @@ Trên ảnh: **①** ô lọc theo tên / ID / link · **②** ô (C) chỉ menu
 | Lấy source chuẩn | **Copy source standard** / **Cấp source (Add Source)...** (xem [Cấp source](#cap-source)) |
 | Đổi tên hiển thị | **Menu Name: Bar2 (tiếng Anh)** / **Menu Name: Bar (tiếng Việt)** — đổi cho cả cây WCommand và Mobile, được nhớ lại |
 | Copy đường dẫn menu | `Ctrl+C` → copy dạng "Phải thu \ Tạo hóa đơn … (C)" |
+| Xem yêu cầu QLYC của menu | Chuột phải → **Yêu cầu liên quan (QLYC)…** (phím: chưa gán, đặt ở Template → Phím tắt, nhóm Cây menu) → mở tab **Yêu cầu FSG** lọc sẵn các yêu cầu của **dự án đang chọn** liên quan menu đó (xem bên dưới) |
 | Nạp lại | `F5` **Refresh** |
+
+### Yêu cầu liên quan (QLYC)
+
+Chuột phải một menu → **Yêu cầu liên quan (QLYC)…**: mở tab **Yêu cầu FSG** (Báo cáo yêu cầu FSG), bỏ các lọc khác và chỉ hiện yêu cầu (chỉ đọc) của dự án đang chọn liên quan menu đó. Chip **📌 Menu: … ✕** trên hàng lọc trạng thái cho biết đang lọc theo menu nào — bấm ✕ để bỏ. Cột **Liên quan** đầu bảng ghi lý do khớp; bấm ô Nội dung để mở khung chi tiết (có **🤖 AI tạo danh mục**).
+
+- Dữ liệu: dùng yêu cầu đã kéo lưu trên máy (`%AppData%\Bcode\fsg-requirements.json`). Dự án chưa kéo lần nào thì Bcode tự kéo theo Mã dự án (cần mạng / VPN tới FSG; lỗi thì báo ở dòng trên bảng, sửa xong bấm **⟳ Kéo về**). Muốn cập nhật mới nhất: bấm **⟳ Kéo về** với Mã dự án = dự án đó.
+- Mã dự án = **Project ID** của project (trống thì dùng tên project) — phải trùng `ma_da` trên FSG (Ctrl+F5 Synchronize project tự điền đúng).
+- Cách khớp yêu cầu ↔ menu (`menu_id` của yêu cầu FSG chính là **WMenu Id** của cây, vd `09.30.03`), theo thứ tự hiện:
+  1. **Đúng menu** — menu_id = WMenu Id của menu.
+  2. **Menu con** — chuột phải menu nhóm (vd "Phải trả") thì lấy cả yêu cầu của mọi menu con / cháu.
+  3. **Trùng tên menu** — tên menu của yêu cầu = Bar hoặc Bar2 (bỏ hoa / dấu, bỏ "(C)" "(*)") dù menu_id khác.
+  4. **Nhắc trong nội dung** / **Đường dẫn trong nội dung** — yêu cầu gắn ở menu chung (`xx.00.00` hoặc menu cha) mà nội dung ghi trọn tên menu, hoặc tên menu nằm trên dòng "Đường dẫn: …".
+- Không tìm được: yêu cầu gắn menu chung mà nội dung không ghi tên menu (hoặc ghi tắt / khác chữ); menu đã xoá khỏi wcommand; tên menu quá ngắn (dưới 2 từ / 10 ký tự) không dùng để dò nội dung; cây Mobile không có mục này.
 
 ### Form WCOMMAND - New / Edit
 
@@ -693,7 +707,7 @@ Nút **Triển khai ▾** trên thanh trên. Các công cụ này không có ph�
 | **Thiết kế màn hình** | Mở BcodeScreenDesigner (thiết kế / xem trước màn hình Dir có dữ liệu mẫu) cho dự án hiện tại; từ cây WCommand thì mở thẳng controller của menu. Không thấy exe → khai ở Template → Đường dẫn. |
 | **Khai báo API** | Khai báo & quản lý API chuẩn LT3: **＋ Mới từ mẫu LT3**, **Nhập Postman…**, **Xuất Postman…**; kết nối (địa chỉ gốc, tài khoản, mật khẩu — mã hoá theo máy) → **Lấy token**. Phím: `Ctrl+Shift+Enter` gửi, `Ctrl+S` lưu, `Ctrl+Shift+T` lấy token, `Ctrl+Shift+F` format, `Ctrl+Shift+K` validate. |
 | **Tạo cấu trúc API** | Chọn bảng / cột → xuất tài liệu Word "TÀI LIỆU ĐẶC TẢ TỔNG HỢP API". |
-| **Báo cáo yêu cầu FSG** | Kéo yêu cầu từ FSG (chỉ đọc): lọc Mã dự án, bộ phận, người, mã YC, lập trình (ma_lt1), triển khai (ma_nv1) → **⟳ Kéo về**; xem Chi tiết / Dashboard / Gợi ý ưu tiên. Bấm ô Nội dung để mở khung chi tiết y/c → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) như ở Note (New) — xem [AI tạo danh mục](#ai-danh-muc). |
+| **Báo cáo yêu cầu FSG** | Kéo yêu cầu từ FSG (chỉ đọc): lọc Mã dự án, bộ phận, người, mã YC, lập trình (ma_lt1), triển khai (ma_nv1) → **⟳ Kéo về**; xem Chi tiết / Dashboard / Gợi ý ưu tiên. Bấm ô Nội dung để mở khung chi tiết y/c → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) như ở Note (New) — xem [AI tạo danh mục](#ai-danh-muc). Từ cây WCommand: chuột phải menu → **Yêu cầu liên quan (QLYC)…** mở tab này lọc sẵn theo menu (xem [WCommand](#wcommand)). |
 | **Mail kế hoạch tuần** | Mẫu mail theo dự án (＋ Mới / Nhân bản / Xoá mẫu), máy chủ SMTP dùng chung với Check Mail, **⟳ Tính theo hôm nay** điền ngày trong tuần → **✉ Gửi mail** / **💾 Lưu mẫu**. |
 
 <a id="tool-mo-rong"></a>

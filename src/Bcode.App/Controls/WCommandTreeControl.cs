@@ -36,6 +36,22 @@ public class WCommandTreeControl : UserControl
     /// <summary>Menu "Thiết kế màn hình": mở Screen Designer (exe riêng) ngay controller của menu đang chọn.</summary>
     public event Action<WCommandItem>? DesignRequested;
 
+    /// <summary>Menu "Yêu cầu liên quan (QLYC)…": mở tab Yêu cầu FSG lọc sẵn các y/c của dự án đang chọn liên quan tới menu này (quy tắc map: xem fsgreq.html, menuWhy).</summary>
+    public event Action<FsgRequirementReportControl.MenuQuery>? RequirementsRequested;
+
+    private void RequestRequirements()
+    {
+        if (IsMenuTable || _tree.SelectedNode is not { Tag: WCommandItem item } node) return;
+        // Menu con (kể cả nhánh chưa bung — Children luôn đủ) và menu cha của node: để khớp y/c gắn ở menu con / y/c chung ở cấp cha.
+        var childIds = new List<string>();
+        void Walk(WCommandItem it) { foreach (var c in it.Children) { if (!string.IsNullOrWhiteSpace(c.WMenuId)) childIds.Add(c.WMenuId.Trim()); Walk(c); } }
+        Walk(item);
+        var ancestorIds = new List<string>();
+        for (var n = node.Parent; n is not null; n = n.Parent)
+            if (n.Tag is WCommandItem p && !string.IsNullOrWhiteSpace(p.WMenuId)) ancestorIds.Add(p.WMenuId.Trim());
+        RequirementsRequested?.Invoke(new FsgRequirementReportControl.MenuQuery(item.WMenuId.Trim(), item.Bar ?? "", item.Bar2 ?? "", childIds, ancestorIds, BuildFullBarPath(node)));
+    }
+
     private void OpenInNewLookup()
     {
         if (SelectedItem is { } item) NewLookupRequested?.Invoke(item);
@@ -126,6 +142,7 @@ public class WCommandTreeControl : UserControl
             if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.newLookup")) { e.Handled = true; OpenInNewLookup(); return; }
             if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.new")) { e.Handled = true; await NewAsync(); return; }
             if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.menuName")) { e.Handled = true; ToggleMenuName(); return; }
+            if (combo is not null && !IsMenuTable && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.requirements")) { e.Handled = true; RequestRequirements(); return; }
             switch (e.KeyCode)
             {
                 case Keys.F3: e.Handled = true; await EditSelectedAsync(); break;
@@ -169,6 +186,8 @@ public class WCommandTreeControl : UserControl
                 .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)
                 .Add("Browse Source Folder", BrowseSourceFolder, enabled: _tree.SelectedNode?.Tag is WCommandItem { IsAppCommand: true })
                 .Add("Cấp source (Add Source)...", ShowAddSource, enabled: hasSelection && _settings is not null)
+                .AddSeparator()
+                .Add("Yêu cầu liên quan (QLYC)…", RequestRequirements, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.requirements"), enabled: hasSelection && RequirementsRequested is not null)
                 .AddSeparator()
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
                 .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)

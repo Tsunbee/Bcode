@@ -140,6 +140,7 @@ public static class ShortcutRegistry
             new("wcommand.run", "Cây menu: chạy menu đang chọn (mở web của project, vào đúng menu đó)", "Cây menu WCommand", ShortcutScope.Tree, "Ctrl+F5"),
             new("wcommand.new", "Cây menu: thêm menu mới (New)", "Cây menu WCommand", ShortcutScope.Tree, "Insert"),
             new("wcommand.menuName", "Cây menu: đổi Menu Name — hiện tên Bar (tiếng Việt) ↔ Bar2 (tiếng Anh)", "Cây menu WCommand", ShortcutScope.Tree, ""),
+            new("wcommand.requirements", "Cây menu: Yêu cầu liên quan (QLYC) — mở Yêu cầu FSG lọc theo menu đang chọn", "Cây menu WCommand", ShortcutScope.Tree, ""),
             new("wcommand.newLookup", "Mở thêm 1 tab File Lookup mới (ở cây menu: cho menu đang chọn; ở cây file: nhân bản góc nhìn đang xem)", "Cây menu WCommand", ShortcutScope.Tree, "F4"),
 
             // ---- Lưới Table ----

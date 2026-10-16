@@ -37,6 +37,36 @@ public class FsgRequirementReportControl : UserControl
 
     private static string J(object? o) => JsonSerializer.Serialize(o, JsonOpts);
 
+    /// <summary>Menu đang chọn trên cây WCommand (chuột phải → "Yêu cầu liên quan (QLYC)…"): wmenu_id, tên Bar / Bar2, wmenu_id các menu con
+    /// và menu cha, đường dẫn hiển thị. Trang lọc y/c theo quy tắc ở fsgreq.html (menuWhy): menu_id của y/c FSG CÓ DẠNG wmenu_id ("09.30.03").</summary>
+    public sealed record MenuQuery(string WMenuId, string Bar, string Bar2, List<string> ChildIds, List<string> AncestorIds, string Path);
+
+    // Chờ trang sẵn sàng (tab vừa mở). Trang gửi "ready" TRƯỚC khi WebBarHost nhận lệnh JS (NavigationCompleted) nên xét _web.IsReady.
+    private MenuQuery? _pendingMenu;
+
+    private string ProjectCode()
+    {
+        var ws = _workspace();
+        return ws is null ? "" : (string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId).Trim();
+    }
+
+    /// <summary>Lọc sẵn theo menu cho dự án đang chọn. Ưu tiên dữ liệu đã lưu (fsg-requirements.json); dự án chưa kéo lần nào thì tự kéo
+    /// (chỉ theo mã dự án, chỉ đọc, KHÔNG đổi các ô lọc đã lưu của tab).</summary>
+    public void ShowForMenu(MenuQuery menu)
+    {
+        if (!_web.IsReady) { _pendingMenu = menu; return; }
+        ApplyMenu(menu);
+    }
+
+    private void ApplyMenu(MenuQuery menu)
+    {
+        var code = ProjectCode();
+        Js($"fsgReq.menuFilter({J(new { maDa = code, id = menu.WMenuId, bar = menu.Bar, bar2 = menu.Bar2, childIds = menu.ChildIds, ancestorIds = menu.AncestorIds, path = menu.Path })})");
+        if (code.Length == 0) return;
+        var st = LoadStore();
+        if (!st.Projects.ContainsKey(code)) _ = FetchAsync(code, "", "", "", "", "", "", keepFilters: true);
+    }
+
     private void Js(string script)
     {
         if (IsDisposed) return;
@@ -105,16 +135,15 @@ public class FsgRequirementReportControl : UserControl
 
     private void SendInit()
     {
-        var ws = _workspace();
-        var code = ws is null ? "" : (string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId).Trim();
+        var code = ProjectCode();
         var st = LoadStore();
         if (st.Projects.Count > 0)
         {
             Js($"fsgReq.init({J(st.Filters.Count > 0 ? st.Filters : new Dictionary<string, string> { ["maDa"] = code, ["programmer"] = _programmer() ?? "" })})");
             SendAll(st, null, cached: true);
-            return;
         }
-        Js($"fsgReq.init({J(new { maDa = code, programmer = _programmer() ?? "" })})");
+        else Js($"fsgReq.init({J(new { maDa = code, programmer = _programmer() ?? "" })})");
+        if (_web.IsReady && _pendingMenu is { } m) { _pendingMenu = null; ApplyMenu(m); }
     }
 
     private async Task HandleAsync(string rawJson)
@@ -140,7 +169,8 @@ public class FsgRequirementReportControl : UserControl
         catch (Exception ex) { Js($"fsgReq.onData({J(new { rows = (object?)null, error = ex.Message })})"); }
     }
 
-    private async Task FetchAsync(string maDa, string bpLt, string programmer, string deployer, string person, string fcode, string content)
+    /// <param name="keepFilters">true = kéo ngầm cho "Yêu cầu liên quan" — không ghi đè các ô lọc đã lưu của tab.</param>
+    private async Task FetchAsync(string maDa, string bpLt, string programmer, string deployer, string person, string fcode, string content, bool keepFilters = false)
     {
         if (_busy) return;
         _busy = true;
@@ -157,7 +187,9 @@ public class FsgRequirementReportControl : UserControl
                 foreach (var code in maDa.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) st.Projects.Remove(code);
                 foreach (var g in data.GroupBy(r => r.MaDa, StringComparer.OrdinalIgnoreCase))
                     st.Projects[g.Key] = new ProjectData { FetchedAt = now, Rows = g.ToList() };
-                st.Filters = new Dictionary<string, string> { ["maDa"] = maDa, ["bpLt"] = bpLt, ["person"] = person, ["programmer"] = programmer, ["deployer"] = deployer, ["fcode"] = fcode, ["content"] = content };
+                // Kéo ngầm cho "Yêu cầu liên quan" mà FSG không có y/c nào: lưu mục rỗng — trang báo "không có" thay vì kéo lại mỗi lần chuột phải.
+                if (keepFilters && data.Count == 0 && maDa.Trim().Length > 0) st.Projects[maDa.Trim()] = new ProjectData { FetchedAt = now };
+                if (!keepFilters) st.Filters = new Dictionary<string, string> { ["maDa"] = maDa, ["bpLt"] = bpLt, ["person"] = person, ["programmer"] = programmer, ["deployer"] = deployer, ["fcode"] = fcode, ["content"] = content };
                 SaveStore(st);
             }
             SendAll(st, error, cached: false);

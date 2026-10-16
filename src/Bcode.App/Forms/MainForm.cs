@@ -346,6 +346,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.NodeActivated += item => OpenWCommandItem(item);
         wcommandTree.NewLookupRequested += item => OpenWCommandItemInNewLookup(item);
         wcommandTree.DesignRequested += item => LaunchScreenDesigner(item.SysId);
+        wcommandTree.RequirementsRequested += menu => OpenFsgRequirementReportTab(menu);
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,
@@ -2040,11 +2041,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private TabPage? _fsgReqTab;
 
     /// <summary>Tab "Báo cáo yêu cầu FSG": kéo yêu cầu từ database FSG, lọc theo nhóm trạng thái, tô màu yêu cầu tới hạn chưa hoàn thành. Một tab duy nhất.</summary>
-    private void OpenFsgRequirementReportTab()
+    /// <param name="menu">Khác null = chuột phải cây WCommand → "Yêu cầu liên quan (QLYC)…": lọc sẵn các y/c của dự án đang chọn liên quan tới menu đó.</param>
+    private void OpenFsgRequirementReportTab(FsgRequirementReportControl.MenuQuery? menu = null)
     {
-        if (_fsgReqTab is not null && _documentTabs.TabPages.Contains(_fsgReqTab)) { _documentTabs.SelectedTab = _fsgReqTab; return; }
+        if (_fsgReqTab is not null && _documentTabs.TabPages.Contains(_fsgReqTab))
+        {
+            _documentTabs.SelectedTab = _fsgReqTab;
+            if (menu is not null && FindDescendant<FsgRequirementReportControl>(_fsgReqTab) is { } open) open.ShowForMenu(menu);
+            return;
+        }
         var fsgReq = new FsgRequirementReportControl(() => _connections.Current, () => _settings.NoteProgrammer ?? "");
         fsgReq.AiCatalogRequested += OpenQuickListWithAi;
+        if (menu is not null) fsgReq.ShowForMenu(menu);
         _fsgReqTab = AddDocumentTab("Yêu cầu FSG", fsgReq);
         _fsgReqTab.Disposed += (_, _) => _fsgReqTab = null;
     }

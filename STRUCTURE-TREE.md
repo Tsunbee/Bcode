@@ -28,7 +28,7 @@ Bcode.App/
 │   ├── FileLookupControl.cs  1415
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
-│   ├── FsgRequirementReportControl.cs  167
+│   ├── FsgRequirementReportControl.cs  199
 │   ├── GenUpdatePackageControl.cs  443
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  154
@@ -107,7 +107,7 @@ Bcode.App/
 │   ├── TableEditControl.cs  1896
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
-│   ├── WCommandTreeControl.cs  814
+│   ├── WCommandTreeControl.cs  833
 │   ├── WebActionBar.cs  264
 │   ├── WebBarHost.cs  209
 │   ├── WebFrameHost.cs  200
@@ -143,7 +143,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3492
+│   ├── MainForm.cs  3500
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  373
 │   ├── MainForm.ToolGroups.cs  101
@@ -302,7 +302,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  321
+│   ├── ShortcutRegistry.cs  322
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  715
 │   ├── TreeColorOptions.cs  50
@@ -348,7 +348,7 @@ Bcode.App/
 │       ├── filereference.html  108
 │       ├── findbar.html  60
 │       ├── framehost.html  49
-│       ├── fsgreq.html  401
+│       ├── fsgreq.html  444
 │       ├── genupdate.html  594
 │       ├── grantsource.html  113
 │       ├── help.html  425

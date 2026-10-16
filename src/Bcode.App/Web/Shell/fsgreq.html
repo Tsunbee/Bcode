@@ -167,6 +167,36 @@
   const qOk = (r) => { const w = qWords(); if (!w.length) return true; const h = nrm([r.maDa, r.menuId, r.tenMenuNgan, r.bpLt, r.fcode1, r.noiDung, r.ghiChu, r.maLt1, r.maNv1, r.trangThai].join(' ')); return w.every((x) => h.includes(x)); };
   const hl = (txt) => { const w = qWords(); const e = esc(txt); if (!w.length) return e; const n = nrm(txt); if (n.length !== String(txt).length) return e; const mark = new Array(n.length).fill(false); w.forEach((x) => { let i = n.indexOf(x); while (i >= 0) { for (let k = i; k < i + x.length; k++) mark[k] = true; i = n.indexOf(x, i + x.length); } }); let o = '', on2 = false; const t = String(txt); for (let k = 0; k < t.length; k++) { if (mark[k] && !on2) { o += '<mark>'; on2 = true; } if (!mark[k] && on2) { o += '</mark>'; on2 = false; } o += esc(t[k]); } return o + (on2 ? '</mark>' : ''); };
   const vfOk = (r) => Object.keys(vfil).every((k) => !vfil[k] || String(r[k] || '') === vfil[k]);
+
+  // ---- "Yêu cầu liên quan (QLYC)…" (chuột phải cây WCommand): lọc y/c của dự án đang chọn theo menu ----
+  // Quy tắc map y/c ↔ menu (menu_id của nvphyc CÓ DẠNG wmenu_id của wcommand, vd "09.30.03"; chỉ xét y/c có ma_da = dự án đang chọn):
+  //  1. Đúng menu      — menu_id = wmenu_id của menu đang chọn.
+  //  2. Menu con       — menu_id = wmenu_id của một menu con/cháu (khi chuột phải menu nhóm).
+  //  3. Trùng tên menu — ten_menu_ngan = Bar hoặc Bar2 của menu (bỏ hoa/dấu, bỏ "(C)" "(*)" "..."): menu_id khác (đánh số khác giữa các bản).
+  //  4. Nhắc trong nội dung — nội dung chứa trọn tên menu (Bar, ≥ 2 từ, ≥ 10 ký tự sau chuẩn hoá) VÀ y/c gắn ở menu chung (menu_id dạng xx.00.00
+  //     hoặc menu cha của menu đang chọn) hoặc tên nằm trên dòng "Đường dẫn: …". Thứ tự hiện: 1 → 4.
+  // Không map được: y/c gắn menu chung mà nội dung không ghi tên menu; tên menu trong nội dung viết khác / viết tắt; menu ngoài wcommand (APP, Mobile).
+  let mf = null, savedSet = new Set();   // savedSet: các dự án đã kéo (kể cả kéo ra 0 y/c)   // { maDa, id, bar, bar2, childIds, ancestorIds, path }
+  const mKey = (t) => nrm(t).replace(/\((c|\*)\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+  const idKey = (t) => String(t || '').trim().toUpperCase();
+  const menuWhy = (r) => {
+    if (!mf) return null;
+    if (mf.maDa && idKey(r.maDa) !== idKey(mf.maDa)) return null;
+    const id = idKey(r.menuId);
+    if (id && id === idKey(mf.id)) return { t: 1, l: 'Đúng menu' };
+    if (id && mf.childSet.has(id)) return { t: 2, l: 'Menu con ' + r.menuId };
+    const tn = mKey(r.tenMenuNgan);
+    if (tn.length >= 4 && mf.names.includes(tn)) return { t: 3, l: 'Trùng tên menu' };
+    if (mf.long) {
+      const pad = (x) => ' ' + mKey(x) + ' ', key = ' ' + mf.long + ' ';
+      if (pad(r.noiDung).includes(key)) {
+        if (/\.00\.00$/.test(id) || mf.ancSet.has(id)) return { t: 4, l: 'Nhắc trong nội dung' };
+        if (String(r.noiDung || '').split(/\n|-\t/).some((ln) => /duong dan/.test(nrm(ln)) && pad(ln).includes(key))) return { t: 4, l: 'Đường dẫn trong nội dung' };
+      }
+    }
+    return null;
+  };
+  const mfOk = (r) => !mf || !!menuWhy(r);
   // Lọc nhanh trên dữ liệu đã kéo: dự án / lập trình / triển khai (chọn trong danh sách các giá trị có trong dữ liệu, kèm số yêu cầu)
   const renderVf = () => {
     const defs = [['maDa', 'Dự án'], ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai'], ['trangThai', 'Trạng thái']];
@@ -178,9 +208,10 @@
   $('vf').addEventListener('change', (e) => { const k = e.target.dataset.vf; if (k) { vfil[k] = e.target.value; render(); } });
   $('vf').addEventListener('click', (e) => { if (e.target.id === 'vfClear') { vfil = { maDa: '', maLt1: '', maNv1: '', trangThai: '' }; render(); } });
   const visible = () => {
-    let v = rows.filter((r) => dimF.every((f) => String(r[f.k] || '') === f.v) && vfOk(r) && (!tlksF || tlksOf(r) === tlksF) && on.has(stOf(r).group) && (!onlyLate || dueOf(r) === 'late' || dueOf(r) === 'due')
+    let v = rows.filter((r) => mfOk(r) && dimF.every((f) => String(r[f.k] || '') === f.v) && vfOk(r) && (!tlksF || tlksOf(r) === tlksF) && on.has(stOf(r).group) && (!onlyLate || dueOf(r) === 'late' || dueOf(r) === 'due')
       && qOk(r));
     if (sortKey) v = v.slice().sort((a, b) => (String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''), 'vi', { numeric: true })) * sortDir);
+    else if (mf) v = v.map((r, i) => [r, i]).sort((a, b) => menuWhy(a[0]).t - menuWhy(b[0]).t || a[1] - b[1]).map((x) => x[0]);
     return v;
   };
 
@@ -190,7 +221,7 @@
   const renderChips = () => {
     const cnt = (g) => rows.filter((r) => stOf(r).group === g).length;
     const late = rows.filter((r) => dueOf(r) === 'late').length, due = rows.filter((r) => dueOf(r) === 'due').length;
-    $('chips').innerHTML = GROUPS.map(([g, t, codes]) => `<span class="chip${on.has(g) ? ' on' : ''}" data-g="${g}" title="${codes}">${t} <small>${cnt(g)}</small></span>`).join('')
+    $('chips').innerHTML = (mf ? `<span class="chip on" data-unmf="1" title="Yêu cầu liên quan menu ${esc(mf.path || mf.bar)} (${esc(mf.id)}) của dự án ${esc(mf.maDa || '(mọi dự án)')} — bấm để bỏ lọc">📌 Menu: ${esc(mf.bar || mf.id)} (${esc(mf.id)}) · ${esc(mf.maDa || 'mọi dự án')} <small>${rows.filter(mfOk).length}</small> ✕</span>` : '') + GROUPS.map(([g, t, codes]) => `<span class="chip${on.has(g) ? ' on' : ''}" data-g="${g}" title="${codes}">${t} <small>${cnt(g)}</small></span>`).join('')
       + (rows.some((r) => stOf(r).group === 'other') ? `<span class="chip${on.has('other') ? ' on' : ''}" data-g="other" title="Trạng thái khác">Khác <small>${cnt('other')}</small></span>` : '')
       + (tlksF ? `<span class="chip on" data-untl="1" title="Bỏ lọc TLKS">${TL[tlksF]} ✕</span>` : '')
       + dimF.map((f, i) => `<span class="chip on" data-undim="${i + 1}" title="Bỏ lọc theo chiều này">${esc((DIMS.find((d) => d[0] === f.k) || [0, f.k])[1])}: ${esc(f.v || '(trống)')} ✕</span>`).join('')
@@ -203,10 +234,11 @@
     const v = visible(); shown = v;
     $('info').textContent = rows.length ? `${v.length}/${rows.length} yêu cầu` + (fetchedAt ? ' · kéo lúc ' + fmtAt(fetchedAt) : '') : '';
     if (!rows.length) { $('tbl').hidden = true; $('empty').hidden = false; return; }
-    $('empty').hidden = v.length > 0; $('empty').textContent = 'Không có yêu cầu nào khớp bộ lọc.'; $('tbl').hidden = !v.length;
-    $('tbl').innerHTML = '<thead><tr>' + COLS.map(([k, t]) => `<th data-k="${k}">${t}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>'
+    $('empty').hidden = v.length > 0; $('tbl').hidden = !v.length;
+    $('empty').textContent = mf && !rows.some(mfOk) ? (mf.maDa && !rows.some((r) => idKey(r.maDa) === idKey(mf.maDa)) ? (savedSet.has(idKey(mf.maDa)) ? `FSG không có yêu cầu nào của dự án ${mf.maDa} — Mã dự án (Project ID) của project phải trùng ma_da trên FSG.` : `Chưa có dữ liệu yêu cầu đã lưu của dự án ${mf.maDa} — Bcode tự kéo (chỉ đọc); lỗi kết nối (VPN / mạng) thì xem dòng báo phía trên rồi bấm “Kéo về”.`) : `Không có yêu cầu nào của dự án ${mf.maDa} liên quan menu ${mf.bar} (${mf.id}) — đã so menu_id, tên menu và nội dung.`) : 'Không có yêu cầu nào khớp bộ lọc.';
+    $('tbl').innerHTML = '<thead><tr>' + (mf ? '<th title="Vì sao y/c này liên quan menu đang lọc">Liên quan</th>' : '') + COLS.map(([k, t]) => `<th data-k="${k}">${t}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>'
       + v.map((r, i) => { const s = stOf(r), d = dueOf(r); return `<tr data-i="${i}" class="${d} g-${s.group}" title="${d === 'late' ? 'Quá hạn hoàn thành' : d === 'due' ? 'Đến hạn hôm nay' : ''}">`
-        + `<td class="nw">${esc(r.maDa)}</td><td class="nw">${esc(r.menuId)}</td><td>${esc(r.tenMenuNgan)}</td><td class="c">${esc(r.trangTlks)}</td><td class="c" title="tlks_yn = ${esc(r.tlksYn)}">${tlksOf(r) === 'yes' ? '✓' : tlksOf(r) === 'no' ? '✗' : ''}</td><td class="nw">${esc(r.bpLt)}</td><td class="nw">${hl(r.fcode1)}</td>`
+        + (mf ? `<td class="nw"><span class="why${menuWhy(r).t <= 2 ? ' g' : ''}">${esc(menuWhy(r).l)}</span></td>` : '') + `<td class="nw">${esc(r.maDa)}</td><td class="nw">${esc(r.menuId)}</td><td>${esc(r.tenMenuNgan)}</td><td class="c">${esc(r.trangTlks)}</td><td class="c" title="tlks_yn = ${esc(r.tlksYn)}">${tlksOf(r) === 'yes' ? '✓' : tlksOf(r) === 'no' ? '✗' : ''}</td><td class="nw">${esc(r.bpLt)}</td><td class="nw">${hl(r.fcode1)}</td>`
         + `<td class="nd" title="${esc(r.noiDung + (r.ghiChu ? '\n\nGhi chú:\n' + r.ghiChu : ''))}">${hl(String(r.noiDung || '').replace(/\s+/g, ' '))}${r.ghiChu ? ' <span class="gc">┃ Ghi chú: ' + hl(String(r.ghiChu).replace(/\s+/g, ' ')) + '</span>' : ''}</td><td class="nw">${esc(r.maLt1)}</td><td class="nw">${esc(r.maNv1)}</td><td class="c">${esc(fmtDate(r.ngayHt))}</td>`
         + `<td class="st nw"><span class="tag" title="${esc(s.code)}">${esc(s.label)}</span></td></tr>`; }).join('') + '</tbody>';
   };
@@ -214,7 +246,7 @@
   // ---- Dashboard: tổng quan + thống kê theo bộ phận / lập trình / triển khai / dự án (bấm một dòng để xem chi tiết) ----
   const renderDash = () => {
     if (view !== 'dash') return;
-        const base = rows.filter((r) => (!scope || scope === '*' || r.maDa === scope) && qOk(r));
+        const base = rows.filter((r) => mfOk(r) && (!scope || scope === '*' || r.maDa === scope) && qOk(r));
     const tot = base.length, g = (x) => base.filter((r) => stOf(r).group === x).length;
     const late = base.filter((r) => dueOf(r) === 'late').length, due = base.filter((r) => dueOf(r) === 'due').length;
     const pct = tot ? Math.round(100 * (g('done') + g('up')) / tot) : 0;
@@ -288,7 +320,7 @@
   let prioTab = 'all';
   const renderPrio = () => {
     if (view !== 'prio') return;
-        const todo = rows.filter((r) => ['DD', 'TH'].includes(stOf(r).code) && vfOk(r) && dimF.every((f) => String(r[f.k] || '') === f.v) && qOk(r)).map(assess);
+        const todo = rows.filter((r) => ['DD', 'TH'].includes(stOf(r).code) && mfOk(r) && vfOk(r) && dimF.every((f) => String(r[f.k] || '') === f.v) && qOk(r)).map(assess);
     const sorted = todo.slice().sort((a, b) => b.score - a.score || a.diff - b.diff);
     const list = prioTab === 'easy' ? sorted.filter((a) => a.level === 'e').sort((a, b) => b.score - a.score) : prioTab === 'hard' ? sorted.filter((a) => a.level === 'h') : sorted;
     const cnt = (l) => todo.filter((a) => a.level === l).length;
@@ -320,7 +352,7 @@
   $('saved').addEventListener('click', (e) => { const b = e.target.closest('[data-drop]'); if (b && confirm('Bỏ dữ liệu đã lưu của dự án ' + b.dataset.drop + '? (kéo lại là có)')) post('drop', { ma: b.dataset.drop }); });
   $('chips').addEventListener('click', (e) => {
     const c = e.target.closest('.chip'); if (!c) return;
-    if (c.dataset.untl) tlksF = ''; else if (c.dataset.undim) dimF.splice(+c.dataset.undim - 1, 1); else if (c.dataset.late) onlyLate = !onlyLate; else { const g = c.dataset.g; if (on.has(g)) on.delete(g); else on.add(g); }
+    if (c.dataset.unmf) mf = null; else if (c.dataset.untl) tlksF = ''; else if (c.dataset.undim) dimF.splice(+c.dataset.undim - 1, 1); else if (c.dataset.late) onlyLate = !onlyLate; else { const g = c.dataset.g; if (on.has(g)) on.delete(g); else on.add(g); }
     render();
   });
   // Bấm vào ô "Nội dung yêu cầu" (hoặc nhấp đúp dòng) → xem đầy đủ nội dung + thông tin yêu cầu; không cắt chữ, chọn / copy được.
@@ -380,12 +412,23 @@
       if ($('dtModal').classList.contains('show') && curDetail) { $('dtAi').click(); return; }
       $('msg').className = 'on note'; $('msg').textContent = 'Bấm vào ô Nội dung của 1 yêu cầu để mở khung chi tiết, rồi bấm 🤖 AI tạo danh mục (hoặc Ctrl+Alt+I).';
     },
+    // Chuột phải cây WCommand → "Yêu cầu liên quan (QLYC)…": bỏ các lọc khác, chỉ hiện y/c của dự án liên quan menu (quy tắc: menuWhy ở trên).
+    menuFilter(m) {
+      const bars = [m.bar, m.bar2].map(mKey).filter((x) => x.length >= 4);
+      const long = mKey(m.bar);
+      mf = Object.assign({}, m, { names: bars, childSet: new Set((m.childIds || []).map(idKey)), ancSet: new Set((m.ancestorIds || []).map(idKey)), long: long.length >= 10 && long.includes(' ') ? long : '' });
+      vfil = { maDa: '', maLt1: '', maNv1: '', trangThai: '' }; dimF = []; tlksF = ''; onlyLate = false; sortKey = ''; on = new Set(GROUPS.map((g) => g[0]).concat(['other'])); $('q').value = '';
+      closeDetail(); $('msg').className = ''; $('msg').textContent = '';
+      if (m.maDa && !savedSet.has(idKey(m.maDa))) $('maDa').value = m.maDa;   // chưa kéo dự án này: điền sẵn để bấm “Kéo về”
+      setView('list');
+    },
     init(i) { $('maDa').value = i.maDa || ''; $('bpLt').value = i.bpLt || ''; $('person').value = i.person || ''; $('lt').value = i.programmer || ''; $('nv').value = i.deployer || ''; $('fcode').value = i.fcode || ''; $('content').value = i.content || ''; },
     setBusy(b) { $('btnFetch').disabled = b; $('btnFetch').textContent = b ? 'Đang kéo…' : '⟳ Kéo về'; },
     onData(r) {
       $('msg').className = r.error ? 'on' : ''; $('msg').textContent = r.error || '';
       if (r.rows) rows = r.rows; today = r.today || today; fetchedAt = r.fetchedAt || fetchedAt;
       const pj = r.projects || [];
+      if (r.projects) savedSet = new Set(pj.map((x) => idKey(x.ma)));
       $('saved').className = pj.length ? 'on' : '';
       $('saved').innerHTML = pj.length ? '<span>Dữ liệu đã lưu:</span>' + pj.map((x) => `<span class="sv" title="Kéo lúc ${esc(fmtAt(x.at))}"><b>${esc(x.ma || '(trống)')}</b> ${x.n} yêu cầu · ${esc(fmtAt(x.at))}<button data-drop="${esc(x.ma)}" title="Bỏ dữ liệu đã lưu của dự án này">✕</button></span>`).join('') : '';
       render();

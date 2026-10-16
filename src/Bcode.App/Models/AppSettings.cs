@@ -191,6 +191,9 @@ public class AppSettings
     /// 0 = mặc định như FCode (Consolas 11px, xem Web/Shell/sqleditor.html).</summary>
     public double SqlEditorFontSize { get; set; } = 0;
 
+    /// <summary>Mức zoom của editor SQL Query ở chế độ App (Scintilla: số bước so với cỡ mặc định, 0 = mặc định) — Ctrl+lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0, dùng chung mọi tab SQL.</summary>
+    public int SqlEditorZoom { get; set; } = 0;
+
     private static string SettingsDir =>
         Path.Combine(BcodePaths.AppData, "Bcode");
 

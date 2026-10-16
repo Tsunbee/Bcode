@@ -426,6 +426,11 @@ public class RawSqlControl : UserControl, ISqlTab
                 ShowEditorContextMenu(x, y);
                 break;
 
+            case "peek-var-missing":
+                _statusLabel.ForeColor = Color.DarkOrange;
+                _statusLabel.Text = "F12: không thấy khai báo của biến " + (root.TryGetProperty("word", out var mv) ? mv.GetString() : "") + " trong lô script hiện tại (tham số store hoặc DECLARE).";
+                break;
+
             case "peek-object":
                 {
                     var peekMode = root.TryGetProperty("mode", out var pm) ? pm.GetString() ?? "peek" : "peek";

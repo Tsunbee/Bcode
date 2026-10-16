@@ -73,8 +73,7 @@ Bcode có 2 chế độ, chọn lúc mở chương trình (hộp "Bcode — ch�
 | | **Web / WebView2** | **App / WinForms** |
 |---|---|---|
 | Đặc điểm | Mỗi màn hình là một trang web trong WebView2 — **đầy đủ tính năng nhất** | Giao diện Windows tự vẽ — **nhẹ, mở nhanh, ít bộ nhớ** |
-| Editor SQL | Monaco (giống VS Code): gợi ý code, AI `Ctrl+I`, ghost text, peek `F12`, Debug từng bước, tuỳ biến thanh nút | Scintilla: tô màu, gợi ý code (`Ctrl+Space`), `F12` / `Ctrl+F12` mở object ở tab mới, `Ctrl+F` thanh tìm |
-| Chưa có ở App | — | Debug từng bước, AI `Ctrl+I` / ghost text, peek `F12`, tuỳ biến thanh SQL, Check Fields, kéo thả file vào editor |
+| Editor SQL | Monaco (giống VS Code): gợi ý code, AI `Ctrl+I`, ghost text, peek `F12`, Debug từng bước, tuỳ biến thanh nút | Scintilla: đủ tính năng như Web — gợi ý code (`Ctrl+Space`), AI `Ctrl+I`, ghost text (hiện thành khối chữ xám dưới dòng con trỏ, `Tab` nhận / `Esc` bỏ), peek `F12`, Debug từng bước, tuỳ biến thanh nút, Check Fields, kéo thả file `.sql` vào editor, `Ctrl+F` thanh tìm |
 | Công cụ vẫn dùng WebView2 | — | Create RPT & XML, Tạo báo cáo, Tạo nhanh danh mục, Template giao diện, Báo cáo yêu cầu FSG, Biên bản xác nhận, Check Mail, Excel → FRX, Claude / Gemini, Trợ giúp (tự dựng khi mở, đóng tab là giải phóng) |
 
 - Tick "Hỏi lại mỗi lần mở Bcode" để lần sau vẫn hỏi; bỏ tick thì vào thẳng chế độ đã chọn. Đóng hộp chọn = thoát Bcode.
@@ -256,8 +255,11 @@ Trên ảnh: **①** ▶ Execute · **②** ✦ Beauty · **③** Script ▾ (Wr
 | Phím / thao tác | Tác dụng |
 |---|---|
 | Gõ | Gợi ý bảng, cột, procedure, function, snippet theo database đang chọn. Bảng "gõ gì ra gì": ⚙ Settings → **Hướng dẫn gợi ý code SQL**. |
+| `Ctrl+/` | Bật / tắt chú thích dòng `--` cho dòng hiện tại hoặc các dòng đang chọn (như VS Code) |
+| `Ctrl+K` rồi `Ctrl+C` / `Ctrl+K` rồi `Ctrl+U` | **Comment** / **Uncomment** các dòng đang chọn (chuỗi phím như VS Code) |
+| `Alt+Shift+A` | Chú thích khối `/* ... */` quanh đoạn chọn (bấm lần nữa để gỡ) |
 | `F7` | **Beauty** — định dạng lại đoạn chọn / cả script |
-| `F12` | Xem nhanh (peek) object dưới con trỏ hoặc mọi tên trong đoạn chọn (tối đa 40): bảng → cấu trúc, procedure / function / view / trigger → code. Tìm database đang chọn trước, rồi database kia. (Chế độ App: mở sang tab mới.) |
+| `F12` | Xem nhanh (peek) object dưới con trỏ hoặc mọi tên trong đoạn chọn (tối đa 40): bảng → cấu trúc, procedure / function / view / trigger → code. Tìm database đang chọn trước, rồi database kia. (Chế độ App: mở sang tab mới.) Đứng trên **biến** `@x` thì khung peek hiện cả script, cuộn tới **chỗ khai báo** (tham số store hoặc `DECLARE`) trong lô hiện tại và tô xanh dòng đó. |
 | `Ctrl+F12` | Mở object dưới con trỏ sang tab SQL Query mới |
 | `Ctrl`+chuột phải lên tên procedure / function | Chèn định nghĩa của nó lên **đầu script** + `GO` (đã có thì nhảy tới); `Ctrl+Z` để bỏ |
 | `Ctrl+I` | AI sửa / sinh SQL theo yêu cầu (gõ yêu cầu, `Ctrl+Enter` gửi, xem lại rồi **Insert**). Cần API key: ⚙ Options → Cấu hình Claude / Gemini API Key. |

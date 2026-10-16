@@ -20,6 +20,7 @@
         .bcodeBp::before { content: '●'; color: #e51400; font-size: 15px; line-height: 18px; }
         .bcodeDbgArrow::before { content: '▶'; color: #ffcc00; font-size: 12px; line-height: 18px; margin-left: 2px; }
         .bcodeDbgLine { background: rgba(255, 204, 0, 0.22); }
+        .bcodePeekDecl { background: rgba(47, 178, 106, 0.30); }
         #dbgBar { position: absolute; top: 6px; right: 26px; z-index: 30; display: none; align-items: center; gap: 4px;
                   padding: 4px 6px; border-radius: 8px; font: 12px 'Segoe UI', sans-serif; color: #ddd;
                   background: #2d2d30; border: 1px solid #f5a623; box-shadow: 0 4px 16px rgba(0,0,0,.5); }
@@ -738,9 +739,41 @@
                 }
                 return out;
             }
+            // F12 trên biến @x: hiện chỗ khai báo của biến (tham số store / DECLARE) trong lô hiện tại — khung peek chứa cả script, cuộn tới dòng khai báo và tô sáng.
+            var VAR_TYPES = 'int|bigint|smallint|tinyint|bit|decimal|numeric|money|smallmoney|float|real|char|varchar|nchar|nvarchar|text|ntext|date|datetime|datetime2|smalldatetime|time|datetimeoffset|uniqueidentifier|xml|varbinary|binary|image|sql_variant|table|cursor|sysname|timestamp|rowversion|hierarchyid|geography|geometry';
+            function rawIdentAtCaret(ed) {
+                var pos = ed.getPosition(); if (!pos) return '';
+                var line = ed.getModel().getLineContent(pos.lineNumber);
+                var isId = function (c) { return /[A-Za-z0-9_$#.@\[\]]/.test(c); };
+                var from = pos.column - 1, to = pos.column - 1;
+                while (from > 0 && isId(line.charAt(from - 1))) from--;
+                while (to < line.length && isId(line.charAt(to))) to++;
+                return line.substring(from, to);
+            }
+            // Dòng khai báo (từ 1) của biến `name` trong lô (giữa 2 dòng GO) chứa dòng caretLine: khai báo gần nhất phía trên con trỏ, không có thì khai báo đầu tiên của lô; 0 = không thấy.
+            function findVarDecl(text, name, caretLine) {
+                var lines = text.split(/\r?\n/), s = 0, e = lines.length - 1, i, j;
+                for (i = caretLine - 2; i >= 0; i--) if (/^\s*GO\s*$/i.test(lines[i])) { s = i + 1; break; }
+                for (j = caretLine; j < lines.length; j++) if (/^\s*GO\s*$/i.test(lines[j])) { e = j - 1; break; }
+                var re = new RegExp('(^|[\\s,(])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w@#$])\\s+(?:as\\s+)?(?:' + VAR_TYPES + ')\\b', 'i');
+                var before = 0, first = 0;
+                for (var k = s; k <= e; k++) {
+                    if (/^\s*--/.test(lines[k]) || !re.test(lines[k])) continue;
+                    if (!first) first = k + 1;
+                    if (k + 1 <= caretLine) before = k + 1;
+                }
+                return before || first;
+            }
+            function peekVariable(ed, name) {
+                var text = ed.getModel().getValue(), at = findVarDecl(text, name, ed.getPosition().lineNumber);
+                if (!at) { dbgPost('peek-var-missing', { word: name }); return; }
+                window.showPeekMulti([{ title: name + ' — khai báo ở dòng ' + at, text: text, line: at }]);
+            }
             function requestPeek(ed, mode) {
                 var ws = wordsInSelection(ed);
                 if (ws.length > 1) { dbgPost('peek-object', { words: ws.slice(0, 40), mode: mode }); return; }
+                var raw = ws.length === 1 ? ws[0] : rawIdentAtCaret(ed);
+                if (/^@[A-Za-z_#$][\w#$]*$/.test(raw)) { peekVariable(ed, raw); return; }   // biến (không phải @@ biến hệ thống)
                 var id = ws.length === 1 ? ws[0] : identAtCaret(ed);
                 if (id) dbgPost('peek-object', { word: id, mode: mode });
             }
@@ -758,7 +791,7 @@
                 if (!items || !items.length) return;
                 if (_peek) { if (!fromBack) _peekStack.push({ items: _peek.items }); if (_peek.ed) _peek.ed.dispose(); _peek.el.remove(); _peek = null; }
                 var mode = 'each'; try { mode = localStorage.getItem('bcode.peekMode') || 'each'; } catch (e) { }
-                var cur = 0;
+                var cur = 0, declDeco = [];
                 var el = document.createElement('div');
                 el.style.cssText = 'position:absolute;left:48px;right:24px;top:36px;bottom:36px;z-index:2000;background:#1e1e1e;border:2px solid #2fb26a;box-shadow:0 6px 24px rgba(0,0,0,.6);display:flex;flex-direction:column';
                 var head = document.createElement('div');
@@ -789,6 +822,13 @@
                     var all = items.length > 1 && mode === 'all';
                     tt.textContent = all ? items.length + ' object (gộp 1 trang)' : items[cur].title;
                     ped.setValue(all ? merged() : items[cur].text); ped.setScrollTop(0); ped.setPosition({ lineNumber: 1, column: 1 });
+                    var declLine = !all && items[cur].line ? items[cur].line : 0;
+                    declDeco = ped.deltaDecorations(declDeco, declLine ? [{ range: new monaco.Range(declLine, 1, declLine, 1), options: { isWholeLine: true, className: 'bcodePeekDecl' } }] : []);
+                    if (declLine) {
+                        var dm = ped.getModel(), dtxt = dm.getLineContent(declLine), dcol = dtxt.toLowerCase().indexOf((items[cur].title.split(' — ')[0] || '').toLowerCase());
+                        ped.revealLineInCenter(declLine);
+                        ped.setPosition({ lineNumber: declLine, column: dcol >= 0 ? dcol + 1 : 1 });
+                    }
                 }
                 modeBtn.onclick = function () { mode = mode === 'all' ? 'each' : 'all'; try { localStorage.setItem('bcode.peekMode', mode); } catch (e) { } render(); ped.focus(); };
                 ped.addCommand(monaco.KeyCode.Escape, function () { closePeek(false); });
@@ -799,9 +839,11 @@
                 _peek = { el: el, ed: ped, items: items };
                 render(); ped.focus();
             };
-            var KEY_DEFAULTS = { 'editor.peek': 'F12', 'editor.openObject': 'Ctrl+F12', 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.cancel': 'Alt+F5', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
+            var KEY_DEFAULTS = { 'editor.toggleComment': 'Ctrl+/', 'editor.blockComment': 'Alt+Shift+A', 'editor.peek': 'F12', 'editor.openObject': 'Ctrl+F12', 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.cancel': 'Alt+F5', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
                 'editor.suggest': 'Alt+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5' };
             var KEY_ACTIONS = {
+                'editor.toggleComment': function () { window.toggleComment(); },
+                'editor.blockComment': function () { var a = editor.getAction('editor.action.blockComment'); if (a) a.run(); },
                 'editor.peek': function () { requestPeek(editor, 'peek'); },
                 'editor.openObject': function () { requestPeek(editor, 'open'); },
                 'editor.run': function () { dbgPost('run'); },       // đang debug thì C# hiểu là Continue

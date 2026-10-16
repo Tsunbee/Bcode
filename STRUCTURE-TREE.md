@@ -79,7 +79,7 @@ Bcode.App/
 │   ├── NativeQueryHistoryControl.cs  344
 │   ├── NativeResultPane.cs  301
 │   ├── NativeShellBars.cs  254
-│   ├── NativeSqlControl.cs  849
+│   ├── NativeSqlControl.cs  1763
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -96,6 +96,7 @@ Bcode.App/
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  467
+│   ├── SqlPeekPanel.cs  100
 │   ├── SqlProfilerControl.cs  1565
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
@@ -159,6 +160,7 @@ Bcode.App/
 │   ├── ScriptPopupForm.cs  155
 │   ├── SetupEInvoiceForm.cs  356
 │   ├── SimplePromptForm.cs  78
+│   ├── SqlAiEditForm.cs  107
 │   ├── SqlHistoryForm.cs  329
 │   ├── StepParamsForm.cs  85
 │   ├── StringBeautyForm.cs  170
@@ -174,7 +176,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  46
-│   ├── AppSettings.cs  282
+│   ├── AppSettings.cs  285
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -269,6 +271,7 @@ Bcode.App/
 │   ├── SnippetLibraryService.cs  67
 │   ├── SourceGrantService.cs  262
 │   ├── SourceIndexService.cs  262
+│   ├── SqlAiAssist.cs  349
 │   ├── SqlDefinitionIndex.cs  181
 │   ├── SqlFieldTransform.cs  133
 │   ├── SqlFormatterService.cs  144

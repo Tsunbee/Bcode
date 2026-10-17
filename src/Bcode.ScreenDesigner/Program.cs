@@ -13,6 +13,13 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+        // Cần key bản quyền như khi mở từ Bcode (Triển khai → Thiết kế màn hình): chạy thẳng exe mà chưa kích hoạt thì không mở.
+        if (!Bcode.App.Services.LicenseService.IsUnlocked)
+        {
+            MessageBox.Show("Thiết kế màn hình cần key bản quyền.\n\nMở Bcode → Settings → Key bản quyền... để kích hoạt trên máy này, rồi mở lại.",
+                "Bcode Screen Designer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
         var opts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < args.Length - 1; i++)
             if (args[i].StartsWith("--")) { opts[args[i][2..]] = args[i + 1]; i++; }

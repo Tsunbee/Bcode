@@ -38,9 +38,10 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     private readonly TextBox _txtUser = new() { Width = 130 };
     private readonly TextBox _txtPass = new() { Width = 130, UseSystemPasswordChar = true };
     private readonly CheckBox _chkRemember = new() { Text = "Lưu vào Workspace", AutoSize = true, Checked = true };
-    private readonly Button _btnLogin = new() { Text = "▶ Đăng nhập", AutoSize = true, Height = 28 };
+    // Nút kiểu Bcode (bo tròn, theo theme) — trông như thanh SQL Query khi form nằm trong tab, thay cho Button WinForms thô.
+    private readonly Bcode.App.Controls.PillButton _btnLogin = Bcode.App.Controls.PillButton.Flat("▶ Đăng nhập", primary: true);
 
-    private readonly Button _btnCapture = new() { Text = "💾 Lưu HTML form", AutoSize = true, Height = 28 };
+    private readonly Bcode.App.Controls.PillButton _btnCapture = Bcode.App.Controls.PillButton.Flat("Lưu HTML form");
 
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly StatusStrip _statusStrip = new();
@@ -145,35 +146,52 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         _txtUser.Text = ws.WebLoginUser ?? "";
         _txtPass.Text = ws.WebLoginPassword ?? "";
 
-        var topBar = new FlowLayoutPanel
+        // ---- 2 thanh trên cùng, cùng kiểu thanh SQL Query: nền theo theme, nút bo tròn, mọi thứ cao bằng nhau và thẳng hàng ----
+        var rowH = Bcode.App.UI.NativeSkin.RowHeight(this);
+        Bcode.App.Controls.PillButton Pill(string text, string tip, bool primary = false)
         {
-            Dock = DockStyle.Top,
-            Height = 42,
-            Padding = new Padding(6, 6, 6, 4),
-            WrapContents = false,
-            AutoScroll = true
+            var b = Bcode.App.Controls.PillButton.Flat(text, primary);
+            b.OnPanelAlt = true;
+            b.Height = rowH;
+            b.Margin = new Padding(0, 0, 6, 0);
+            b.TabStop = false;
+            if (tip.Length > 0) Bcode.App.Controls.NK.Tip(b, tip);
+            return b;
+        }
+        // TextBox cao hơn / thấp hơn nút tuỳ font: canh giữa theo chiều cao hàng.
+        Padding Mid(Control c, int left = 0, int right = 6) { var top = Math.Max(0, (rowH - c.PreferredSize.Height) / 2); return new Padding(left, top, right, 0); }
+        Label Caption(string text, int left = 0) { var l = new Bcode.App.Controls.MutedLabel { Text = text, AutoSize = true, BackColor = Color.Transparent }; l.Margin = Mid(l, left, 4); return l; }
+
+        // Hàng 1 — đăng nhập: [dự án] User [__] Pass [__] ☑ Lưu vào Workspace  [▶ Đăng nhập] [➡ Menu] [Lưu HTML form]
+        var topBar = new Bcode.App.Controls.BarFlow
+        {
+            Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Padding = new Padding(8, 5, 8, 4),
         };
-
-        void AddLabel(string text) =>
-            topBar.Controls.Add(new Label { Text = text, AutoSize = true, Margin = new Padding(4, 7, 2, 0) });
-
-        AddLabel($"[{ws.Name}]  User:");
+        var project = new Label { Text = ws.Name, AutoSize = true, BackColor = Color.Transparent, Font = new Font(Font, FontStyle.Bold) };
+        project.Margin = Mid(project, 0, 14);
+        topBar.Controls.Add(project);
+        topBar.Controls.Add(Caption("User"));
+        _txtUser.Margin = Mid(_txtUser, 0, 12);
         topBar.Controls.Add(_txtUser);
-        AddLabel("Pass:");
+        topBar.Controls.Add(Caption("Pass"));
+        _txtPass.Margin = Mid(_txtPass, 0, 12);
         topBar.Controls.Add(_txtPass);
-        _chkRemember.Margin = new Padding(10, 8, 4, 0);
+        _chkRemember.BackColor = Color.Transparent;
+        _chkRemember.Margin = Mid(_chkRemember, 0, 14);
         topBar.Controls.Add(_chkRemember);
-        _btnLogin.Margin = new Padding(10, 5, 4, 0);
+        _btnLogin.OnPanelAlt = true; _btnLogin.Height = rowH; _btnLogin.Margin = new Padding(0, 0, 6, 0);
+        Bcode.App.Controls.NK.Tip(_btnLogin, "Điền User / Pass vào trang đăng nhập và đăng nhập (Enter ở ô Pass)");
         topBar.Controls.Add(_btnLogin);
         _btnLogin.Click += async (_, _) => await AutoLoginAsync();
-        _btnCapture.Margin = new Padding(10, 5, 4, 0);
-        topBar.Controls.Add(_btnCapture);
-        _btnCapture.Click += async (_, _) => await CaptureFormAsync();
 
         // Tự đăng nhập tay (không có sẵn User/Pass) thì bấm nút này để đi tới menu của file đang chạy từ BcodeViewer.
-        var btnMenu = new Button { Text = "➡ Menu", AutoSize = true, Height = 28, Margin = new Padding(10, 5, 4, 0) };
+        var btnMenu = Pill("➡ Menu", "Đi tới menu của file đang chạy từ BcodeViewer (khi đã tự đăng nhập tay)");
         btnMenu.Click += async (_, _) => { _loggedIn = true; _menuNavigatedOnce = true; await GoToPendingMenuAsync(); };
         topBar.Controls.Add(btnMenu);
+        _btnCapture.OnPanelAlt = true; _btnCapture.Height = rowH; _btnCapture.Margin = new Padding(0, 0, 6, 0);
+        Bcode.App.Controls.NK.Tip(_btnCapture, "Lưu HTML của form đang mở (để dựng lại màn hình / gửi hỗ trợ)");
+        topBar.Controls.Add(_btnCapture);
+        _btnCapture.Click += async (_, _) => await CaptureFormAsync();
 
         // Enter ở ô Pass cũng kích hoạt đăng nhập luôn, khỏi phải với chuột lên nút.
         _txtPass.KeyDown += async (_, e) =>
@@ -188,33 +206,33 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
 
         _statusStrip.Items.Add(_statusLabel);
 
-        // Thanh địa chỉ như trình duyệt: Back / Forward / Reload + ô URL (Enter để đi) + nút ẩn/hiện thanh đăng nhập.
+        // Hàng 2 — thanh địa chỉ như trình duyệt: ◀ ▶ ⟳ + ô URL (Enter để đi) giãn hết chỗ + nút ẩn/hiện hàng đăng nhập.
+        var btnBack = Pill("◀", "Quay lại (Alt+←)");
+        var btnForward = Pill("▶", "Tiến tới (Alt+→)");
+        var btnReload = Pill("⟳", "Tải lại (F5)");
+        var btnToggleLogin = Pill("▲ Ẩn đăng nhập", "Ẩn / hiện hàng đăng nhập để trang web rộng hơn");
+        btnToggleLogin.Margin = new Padding(6, 0, 0, 0);
+        _txtUrl.Margin = Mid(_txtUrl, 0, 0);
+        _txtUrl.Dock = DockStyle.Fill;
         var navBar = new TableLayoutPanel
         {
-            Dock = DockStyle.Top, Height = 32, ColumnCount = 5, RowCount = 1, Padding = new Padding(4, 2, 4, 2),
+            Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 5, RowCount = 1,
+            Padding = new Padding(8, 3, 8, 5), BackColor = Bcode.App.UI.AppColors.PanelAlt,
         };
-        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        for (var i = 0; i < 3; i++) navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         navBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-        Button NavButton(string text, string tip)
-        {
-            var b = new Button { Text = text, Width = 34, Height = 26, Margin = new Padding(1, 0, 1, 0), TabStop = false };
-            new ToolTip().SetToolTip(b, tip);
-            return b;
-        }
-        var btnBack = NavButton("◀", "Quay lại (Alt+←)");
-        var btnForward = NavButton("▶", "Tiến tới (Alt+→)");
-        var btnReload = NavButton("⟳", "Tải lại (F5)");
-        _txtUrl.Dock = DockStyle.Fill;
-        _txtUrl.Margin = new Padding(4, 3, 4, 0);
-        var btnToggleLogin = new Button { Text = "▲ Ẩn đăng nhập", AutoSize = true, Height = 26, Margin = new Padding(1, 0, 1, 0), TabStop = false };
+        navBar.RowStyles.Add(new RowStyle(SizeType.Absolute, rowH));
         navBar.Controls.Add(btnBack, 0, 0);
         navBar.Controls.Add(btnForward, 1, 0);
         navBar.Controls.Add(btnReload, 2, 0);
         navBar.Controls.Add(_txtUrl, 3, 0);
         navBar.Controls.Add(btnToggleLogin, 4, 0);
+        // ThemeManager đặt lại màu nền cho control khi đổi theme / khi form vào tab: giữ nền thanh = màu thanh công cụ.
+        void KeepBarColor() { navBar.BackColor = Bcode.App.UI.AppColors.PanelAlt; }
+        navBar.HandleCreated += (_, _) => BeginInvoke(new Action(KeepBarColor));
+        Bcode.App.UI.ThemeManager.ThemeChanged += KeepBarColor;
+        Disposed += (_, _) => Bcode.App.UI.ThemeManager.ThemeChanged -= KeepBarColor;
 
         btnBack.Click += (_, _) => { if (_web.CoreWebView2?.CanGoBack == true) _web.CoreWebView2.GoBack(); };
         btnForward.Click += (_, _) => { if (_web.CoreWebView2?.CanGoForward == true) _web.CoreWebView2.GoForward(); };
@@ -249,6 +267,10 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
                 return;
             }
 
+            // Mỗi workspace 1 hồ sơ trình duyệt riêng (cookie riêng): các web FBO cùng máy chủ (172.168.5.14/VPMILK, /KOG...) dùng chung tên cookie
+            // phiên ở đường dẫn "/" — chung hồ sơ thì đăng nhập workspace này đè phiên của workspace kia (kể cả ở 1 Bcode khác) → bị văng ra.
+            _web.CreationProperties ??= new CoreWebView2CreationProperties();
+            _web.CreationProperties.ProfileName = ProfileNameFor(_ws);
             await _web.EnsureCoreWebView2Async();
             Bcode.App.UI.UiScale.BindZoom(_web);
             _web.CoreWebView2.Settings.IsScriptEnabled = true;
@@ -273,6 +295,16 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     }
 
     private void SetStatus(string text) => _statusLabel.Text = text;
+
+    /// <summary>Tên hồ sơ WebView2 hợp lệ (chữ/số/-_.; tối đa 64 ký tự) cho workspace.</summary>
+    private static string ProfileNameFor(Workspace ws)
+    {
+        var raw = string.IsNullOrWhiteSpace(ws.Name) ? "default" : ws.Name.Trim();
+        var sb = new System.Text.StringBuilder("fbo_");
+        foreach (var ch in raw) sb.Append(ch < 128 && (char.IsLetterOrDigit(ch) || ch is '-' or '_') ? ch : '_');
+        var name = sb.ToString();
+        return name.Length > 64 ? name[..64] : name;
+    }
 
     /// <summary>F5 từ BcodeViewer khi cửa sổ này đang mở sẵn: đã đăng nhập thì đi thẳng tới URL menu (nạp lại luôn bản
     /// source vừa lưu); chưa đăng nhập thì đặt lại URL chờ, đăng nhập xong sẽ tự đi tới.</summary>

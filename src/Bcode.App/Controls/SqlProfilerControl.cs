@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Bcode.App.Models;
 using Bcode.App.Services;
+using Bcode.App.UI;
 using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Controls;
@@ -1491,6 +1492,7 @@ public class SqlProfilerControl : UserControl
         var hwnd = _profilerHwnd;
         _profilerProcess = null;
         _profilerHwnd = IntPtr.Zero;
+        RemoveKeyHook();
 
         if (hwnd != IntPtr.Zero)
         {
@@ -1547,9 +1549,99 @@ public class SqlProfilerControl : UserControl
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
+    // ---- Phím tắt của Bcode khi focus đang ở cửa sổ Profiler nhúng ----
+    // Profiler.exe là tiến trình khác (nhúng bằng SetParent): phím bấm trong đó đi thẳng vào Profiler, ProcessCmdKey của Bcode và script phím của các trang
+    // WebView2 đều không thấy → Ctrl+Tab, Ctrl+W, Ctrl+Shift+<chữ>… "chết" khi đang đứng trong tab Profiler. Hook bàn phím mức thấp (chỉ cài khi đã nhúng Profiler,
+    // gỡ khi đóng) bắt các tổ hợp thuộc phạm vi App của bảng phím tắt — CHỈ khi Bcode đang là cửa sổ đứng trước và focus nằm trong cửa sổ Profiler nhúng
+    // (hộp thoại riêng của Profiler như Trace Properties là cửa sổ khác → không bắt) — rồi chuyển cho MainForm như phím bấm trong trang web. Phím khác để Profiler.
+
+    private const int WH_KEYBOARD_LL = 13, WM_KEYDOWN = 0x0100, WM_SYSKEYDOWN = 0x0104, WM_KEYUP = 0x0101, WM_SYSKEYUP = 0x0105;
+    private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+    [StructLayout(LayoutKind.Sequential)] private struct KBDLLHOOKSTRUCT { public uint vkCode, scanCode, flags, time; public IntPtr dwExtraInfo; }
+    [StructLayout(LayoutKind.Sequential)] private struct RECTL { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GUITHREADINFO { public int cbSize, flags; public IntPtr hwndActive, hwndFocus, hwndCapture, hwndMenuOwner, hwndMoveSize, hwndCaret; public RECTL rcCaret; }
+    [DllImport("user32.dll", SetLastError = true)] private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+    [DllImport("user32.dll")] private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+    [DllImport("user32.dll")] private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr GetModuleHandle(string? lpModuleName);
+    [DllImport("user32.dll")] private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] private static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO lpgui);
+    [DllImport("user32.dll")] private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
+
+    private IntPtr _keyHook = IntPtr.Zero;
+    private LowLevelKeyboardProc? _keyHookProc;   // giữ tham chiếu: GC thu delegate là hook gọi vào vùng nhớ đã giải phóng
+    private long _ctrlDownAt;
+
+    private void InstallKeyHook()
+    {
+        if (_keyHook != IntPtr.Zero) return;
+        _keyHookProc = KeyHookProc;
+        _keyHook = SetWindowsHookEx(WH_KEYBOARD_LL, _keyHookProc, GetModuleHandle(null), 0);
+    }
+
+    private void RemoveKeyHook()
+    {
+        if (_keyHook == IntPtr.Zero) return;
+        UnhookWindowsHookEx(_keyHook);
+        _keyHook = IntPtr.Zero;
+        _ctrlDownAt = 0;
+    }
+
+    /// <summary>Focus bàn phím đang ở cửa sổ Profiler nhúng (hoặc control con của nó) và Bcode là cửa sổ đứng trước.</summary>
+    private bool ProfilerHasFocus()
+    {
+        var hwnd = _profilerHwnd;
+        if (hwnd == IntPtr.Zero || IsDisposed || !Visible || FindForm() is not { } form || !form.IsHandleCreated) return false;
+        if (GetForegroundWindow() != form.Handle) return false;
+        var tid = GetWindowThreadProcessId(hwnd, out _);
+        var gti = new GUITHREADINFO { cbSize = Marshal.SizeOf<GUITHREADINFO>() };
+        if (tid == 0 || !GetGUIThreadInfo(tid, ref gti)) return false;
+        return gti.hwndFocus != IntPtr.Zero && (gti.hwndFocus == hwnd || IsChild(hwnd, gti.hwndFocus));
+    }
+
+    private IntPtr KeyHookProc(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        try
+        {
+            if (nCode >= 0 && ProfilerHasFocus())
+            {
+                var kb = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
+                var msg = (int)wParam;
+                var down = msg is WM_KEYDOWN or WM_SYSKEYDOWN;
+                var vk = (Keys)kb.vkCode;
+                if (vk is Keys.ControlKey or Keys.LControlKey or Keys.RControlKey)
+                {
+                    if (down) { if (_ctrlDownAt == 0) _ctrlDownAt = Environment.TickCount64; }
+                    else if (msg is WM_KEYUP or WM_SYSKEYUP) _ctrlDownAt = 0;
+                }
+                else if (down)
+                {
+                    bool Held(int k) => (GetAsyncKeyState(k) & 0x8000) != 0;
+                    var mods = (Held(0x11) ? Keys.Control : 0) | (Held(0x10) ? Keys.Shift : 0) | (Held(0x12) ? Keys.Alt : 0);
+                    string? combo = null;
+                    // Giữ Ctrl một lúc rồi Tab = hộp chọn tab (như ở trang web / control WinForms); Ctrl+Tab bấm nhanh = chuyển tab (phím tắt tab.next).
+                    if (vk == Keys.Tab && (mods & Keys.Control) != 0 && (mods & Keys.Alt) == 0 && _ctrlDownAt != 0 && Environment.TickCount64 - _ctrlDownAt >= WebViewEnvironment.CtrlHoldMs)
+                        combo = (mods & Keys.Shift) != 0 ? "@ctrl-hold-prev" : "@ctrl-hold";
+                    else if (ShortcutRegistry.FromKeys(vk | mods) is { } c && ShortcutRegistry.AppIdFor(c) is not null)
+                        combo = c;
+                    if (combo is not null)
+                    {
+                        BeginInvoke(new Action(() => WebViewEnvironment.RaiseGlobalShortcut(combo)));
+                        return (IntPtr)1;   // nuốt phím: không để Profiler nhận (vd Ctrl+O mở file của Profiler)
+                    }
+                }
+            }
+        }
+        catch { /* không chặn được thì để phím đi tiếp như bình thường */ }
+        return CallNextHookEx(_keyHook, nCode, wParam, lParam);
+    }
+
     private void EmbedWindow(IntPtr hwnd)
     {
         _profilerHwnd = hwnd;
+        InstallKeyHook();
         var style = GetWindowLong(hwnd, GWL_STYLE);
         style &= ~WS_POPUP; style &= ~WS_CAPTION; style &= ~WS_THICKFRAME; style |= WS_CHILD;
         SetWindowLong(hwnd, GWL_STYLE, style);

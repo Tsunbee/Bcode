@@ -133,7 +133,7 @@ public static class LicenseService
     {
         var key = (pasted ?? "").Trim();
         if (key.Length == 0) return (false, "Chưa dán mã.");
-        if (!Check(key)) return (false, "Mã không đúng cho máy này (hoặc tên máy đã đổi / đã cài lại Windows). Kiểm tra lại chuỗi đã dán, hoặc gửi lại Mã máy để được cấp mã mới.");
+        if (!Check(key)) return (false, "Mã không đúng cho máy này. Kiểm tra lại chuỗi đã dán, hoặc gửi lại Mã máy để được cấp mã mới.");
         _unlocked = true;
         try
         {

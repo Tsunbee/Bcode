@@ -52,7 +52,7 @@ public static class ShortcutRegistry
 
             // ---- Tab ----
             new("tab.next", "Chuyển sang tab kế", "Tab", ShortcutScope.App, "Ctrl+Tab"),
-            new("tab.prev", "Chuyển về tab trước", "Tab", ShortcutScope.App, "Ctrl+Shift+Bab"),
+            new("tab.prev", "Chuyển về tab trước", "Tab", ShortcutScope.App, "Ctrl+Shift+Tab"),
             new("tab.close", "Đóng tab đang mở (Close Tab)", "Tab", ShortcutScope.App, "Ctrl+W"),
             new("tab.reopen", "Mở lại tab vừa đóng (Reopen Closed Tab)", "Tab", ShortcutScope.App, "Ctrl+Shift+B"),
             new("tab.pin", "Ghim / bỏ ghim tab đang mở (Pin Tab)", "Tab", ShortcutScope.App, ""),
@@ -140,6 +140,7 @@ public static class ShortcutRegistry
 
             // ---- Cây menu WCommand ----
             new("wcommand.run", "Cây menu: chạy menu đang chọn (mở web của project, vào đúng menu đó)", "Cây menu WCommand", ShortcutScope.Tree, "Ctrl+F5"),
+            new("wcommand.runFbo", "Cây menu: mở FSG FBO (tab), tự đăng nhập rồi vào đúng menu đang chọn", "Cây menu WCommand", ShortcutScope.Tree, "Ctrl+4"),
             new("wcommand.new", "Cây menu: thêm menu mới (New)", "Cây menu WCommand", ShortcutScope.Tree, "Insert"),
             new("wcommand.menuName", "Cây menu: đổi Menu Name — hiện tên Bar (tiếng Việt) ↔ Bar2 (tiếng Anh)", "Cây menu WCommand", ShortcutScope.Tree, ""),
             new("wcommand.requirements", "Cây menu: Yêu cầu liên quan (QLYC) — mở Yêu cầu FSG lọc theo menu đang chọn", "Cây menu WCommand", ShortcutScope.Tree, ""),

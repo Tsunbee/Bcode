@@ -144,7 +144,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3500
+│   ├── MainForm.cs  3504
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  373
 │   ├── MainForm.ToolGroups.cs  101
@@ -351,7 +351,7 @@ Bcode.App/
 │       ├── filereference.html  108
 │       ├── findbar.html  60
 │       ├── framehost.html  49
-│       ├── fsgreq.html  444
+│       ├── fsgreq.html  714
 │       ├── genupdate.html  594
 │       ├── grantsource.html  113
 │       ├── help.html  425
@@ -501,10 +501,10 @@ Bcode.ScreenDesigner/
 │   ├── designer.js  1279
 │   ├── dp.css  135
 │   └── shim.js  102
-├── Bcode.ScreenDesigner.csproj  34
+├── Bcode.ScreenDesigner.csproj  41
 ├── DesignerBridge.cs  461
 ├── MainForm.cs  61
-└── Program.cs  21
+└── Program.cs  28
 ```
 ```
 Bcode.ReportBuilder/
@@ -536,10 +536,10 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  94
+└── Program.cs  90
 ```
 ```
 Shared/
 ├── AiWebHelper.cs  373
-└── LicenseCodec.cs  99
+└── LicenseCodec.cs  93
 ```

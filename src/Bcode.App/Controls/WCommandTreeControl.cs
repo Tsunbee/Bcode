@@ -36,6 +36,9 @@ public class WCommandTreeControl : UserControl
     /// <summary>Menu "Thiết kế màn hình": mở Screen Designer (exe riêng) ngay controller của menu đang chọn.</summary>
     public event Action<WCommandItem>? DesignRequested;
 
+    /// <summary>Ctrl+4 (wcommand.runFbo): mở menu đang chọn trong tab FSG FBO — MainForm đăng nhập rồi đi tới trang của menu.</summary>
+    public event Action<WCommandItem>? RunInFboRequested;
+
     /// <summary>Menu "Yêu cầu liên quan (QLYC)…": mở tab Yêu cầu FSG lọc sẵn các y/c của dự án đang chọn liên quan tới menu này (quy tắc map: xem fsgreq.html, menuWhy).</summary>
     public event Action<FsgRequirementReportControl.MenuQuery>? RequirementsRequested;
 
@@ -183,6 +186,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Thiết kế màn hình (Screen Designer)", () => { if (SelectedItem is { } d && !string.IsNullOrWhiteSpace(d.SysId)) DesignRequested?.Invoke(d); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 })
                 .Add("Mở File Lookup mới", OpenInNewLookup, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.newLookup"), enabled: hasSelection)
                 .Add("Run...", RunSelectedMenu, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.run"), enabled: hasSelection)
+                .Add("Run trong FSG FBO (tự đăng nhập)", () => { if (SelectedItem is { } it) RunInFboRequested?.Invoke(it); }, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.runFbo"), enabled: hasSelection && RunInFboRequested is not null)
                 .Add("Copy source standard", async () => await CopySourceStandardAsync(), enabled: hasSelection)
                 .Add("Browse Source Folder", BrowseSourceFolder, enabled: _tree.SelectedNode?.Tag is WCommandItem { IsAppCommand: true })
                 .Add("Cấp source (Add Source)...", ShowAddSource, enabled: hasSelection && _settings is not null)
@@ -286,8 +290,14 @@ public class WCommandTreeControl : UserControl
     public async Task ReloadAsync(bool force = false)
     {
         var version = ++_reloadVersion;
-        _tree.Nodes.Clear();
         var filter = string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim();
+        // Nhớ các nhánh đang bung / menu đang chọn / dòng đầu đang xem để dựng lại y như cũ (trước đây mỗi lần quay lại mục Menu là cây gập hết).
+        // Đổi workspace thì bỏ (cây của dự án khác).
+        var wsNow = _getCurrentWorkspace();
+        if (!ReferenceEquals(wsNow, _stateWorkspace)) { _expanded.Clear(); _selectedKey = _topKey = null; _stateWorkspace = wsNow; }
+        else if (_tree.Nodes.Count > 0 && _stateFilter == filter) CaptureTreeState();
+        _stateFilter = filter;
+        _tree.Nodes.Clear();
 
         if (_menuTable is not null)
         {
@@ -316,6 +326,7 @@ public class WCommandTreeControl : UserControl
             var cachedRoots = _service.TreeFromFlat(cachedFlat!);
             _rootsAll = cachedRoots;
             RenderRoots(Shown(cachedRoots), ExpandKey(null));
+            RestoreTreeState();
         }
 
         // Bản lưu còn đúng (chữ ký nhẹ do database tính trùng) → giữ cây đang hiện, khỏi tải cả bảng wcommand.
@@ -338,9 +349,60 @@ public class WCommandTreeControl : UserControl
         }
         if (version != _reloadVersion) return;
         if (cacheSignature is not null && _service.LastSignature == cacheSignature) return;   // database giống bản lưu — cây đang hiện đã đúng
-        if (cacheSignature is not null) _tree.Nodes.Clear();                                    // khác: dựng lại theo bản mới
+        if (cacheSignature is not null) { CaptureTreeState(); _tree.Nodes.Clear(); }           // khác: dựng lại theo bản mới (giữ nhánh đang bung)
         if (filter is null) _rootsAll = roots;   // bản đầy đủ (không lọc) — Command Palette tìm menu trong đây
         RenderRoots(Shown(roots), ExpandKey(filter));
+        if (filter is null) RestoreTreeState();
+    }
+
+    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
+    private string? _selectedKey, _topKey, _stateFilter;
+    private Workspace? _stateWorkspace;
+
+    private static string NodeKey(TreeNode n) => n.Tag is WCommandItem w ? w.WMenuId + "\u0001" + w.Bar : n.Text;
+
+    private void CaptureTreeState()
+    {
+        if (_tree.Nodes.Count == 0) return;
+        _expanded.Clear();
+        void Walk(TreeNodeCollection nodes)
+        {
+            foreach (TreeNode n in nodes)
+            {
+                if (!n.IsExpanded) continue;
+                _expanded.Add(NodeKey(n));
+                Walk(n.Nodes);
+            }
+        }
+        Walk(_tree.Nodes);
+        _selectedKey = _tree.SelectedNode is { } sel ? NodeKey(sel) : null;
+        _topKey = _tree.TopNode is { } top ? NodeKey(top) : null;
+    }
+
+    private void RestoreTreeState()
+    {
+        if (_expanded.Count == 0 && _selectedKey is null) return;
+        TreeNode? selected = null, top = null;
+        _tree.BeginUpdate();
+        try
+        {
+            void Walk(TreeNodeCollection nodes)
+            {
+                foreach (TreeNode n in nodes)
+                {
+                    var key = NodeKey(n);
+                    if (key == _selectedKey) selected = n;
+                    if (key == _topKey) top = n;
+                    if (!_expanded.Contains(key)) continue;
+                    n.Expand();          // tạo node con thật (BeforeExpand) rồi đi tiếp xuống
+                    Walk(n.Nodes);
+                }
+            }
+            Walk(_tree.Nodes);
+            if (selected is not null) _tree.SelectedNode = selected;
+        }
+        finally { _tree.EndUpdate(); }
+        if (top is not null) { try { _tree.TopNode = top; } catch { /* node chưa hiện */ } }
     }
 
     // Nút "(C)" của thanh lọc: chỉ hiện menu customize (tên có (C) / (*)) kèm menu cha — lọc trên bản sao, cây đầy đủ (_rootsAll) giữ nguyên.
@@ -446,6 +508,12 @@ public class WCommandTreeControl : UserControl
             && combo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.run") && SelectedItem is not null)
         {
             RunSelectedMenu();
+            return true;
+        }
+        if (!IsMenuTable && _tree.ContainsFocus && RunInFboRequested is not null && SelectedItem is { } fboItem
+            && Bcode.App.UI.ShortcutRegistry.FromKeys(keyData) is { } fboCombo && fboCombo == Bcode.App.UI.ShortcutRegistry.Get("wcommand.runFbo"))
+        {
+            RunInFboRequested(fboItem);
             return true;
         }
         return base.ProcessCmdKey(ref msg, keyData);

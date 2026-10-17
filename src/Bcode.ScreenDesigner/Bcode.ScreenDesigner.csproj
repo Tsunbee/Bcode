@@ -18,6 +18,8 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
     <!-- Dữ liệu mẫu từ DB FastBusiness trên máy (chỉ SELECT) — cùng phiên bản với Bcode.App. -->
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <!-- Kiểm tra key bản quyền (LicenseCodec dùng bcrypt) — cùng phiên bản với Bcode.App / Bcode.KeyGen. -->
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- Trang giao diện riêng của Designer. -->
@@ -30,5 +32,10 @@
   <ItemGroup>
     <!-- Đọc include theo lô / cả cây (entity.js BeginReadFiles / BeginReadIncludeTree) — dùng LẠI code của BcodeViewer. -->
     <Compile Include="..\BcodeViewer.App\Host\IncludeTree.cs" Link="Shared\IncludeTree.cs" />
+    <!-- Key bản quyền: chạy thẳng BcodeScreenDesigner.exe (không qua Bcode) cũng phải có key như khi mở từ Bcode. -->
+    <Compile Include="..\Bcode.App\Services\LicenseService.cs" Link="Shared\LicenseService.cs" />
+    <Compile Include="..\Bcode.App\Services\LicenseSecret.cs" Link="Shared\LicenseSecret.cs" />
+    <Compile Include="..\Bcode.App\BcodePaths.cs" Link="Shared\BcodePaths.cs" />
+    <Compile Include="..\Shared\LicenseCodec.cs" Link="Shared\LicenseCodec.cs" />
   </ItemGroup>
 </Project>

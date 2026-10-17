@@ -28,12 +28,6 @@ internal static class LicenseCodec
         return true;
     }
 
-    /// <summary>Loại định danh để người cấp biết: G- = MachineGuid của Windows, U- = UUID bo mạch, còn lại = IP (bản Bcode cũ).</summary>
-    public static string DescribeMachineId(string machineId) =>
-        machineId.StartsWith("G-", StringComparison.OrdinalIgnoreCase) ? "MachineGuid Windows"
-        : machineId.StartsWith("U-", StringComparison.OrdinalIgnoreCase) ? "UUID bo mạch"
-        : "IP — mã từ Bcode bản cũ, đổi mạng sẽ mất key";
-
     // ---- Mã máy dạng chuỗi mờ: người dùng chỉ thấy "BM1-xxxx", người cấp (có key gốc) mới giải ra được "TÊN_MÁY|ĐỊNH_DANH" -------------------------------
 
     private const string MachinePrefix = "BM1-";

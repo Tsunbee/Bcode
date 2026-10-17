@@ -123,6 +123,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>"Tạo nhanh danh mục" mở song song (modeless) — vẫn quay lại Bcode được trong lúc làm; mở lại khi đang mở thì chỉ đưa cửa sổ đó lên.</summary>
     private void OpenQuickList()
     {
+        if (!RequireLicense("Tạo nhanh danh mục")) return;
         if (_quickListForm is { IsDisposed: false } open)
         {
             if (open.WindowState == FormWindowState.Minimized) open.WindowState = FormWindowState.Normal;
@@ -141,7 +142,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void OpenQuickListWithAi(string requestName, string content)
     {
         OpenQuickList();
-        _quickListForm?.StartAi(requestName, content);
+        if (_quickListForm is not { IsDisposed: false }) return;   // chưa có key — RequireLicense đã báo
+        _quickListForm.StartAi(requestName, content);
     }
     /// <summary>MainForm tự dàn bằng Dock + thanh web báo chiều cao, nên không nhân bố cục thêm theo UiScale.</summary>
     protected override bool ScaleLayoutWithUiScale => false;
@@ -294,12 +296,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => OpenCreateRptTab()));
         _toolSpecs.Add(("report_builder", "Tạo báo cáo", null, (_, _) => OpenReportBuilderTab()));        _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
-        _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => new FsgRequirementCrawlerForm().Show()));
-        _toolSpecs.Add(("quick_launch", "FSG FBO", null, (_, _) => OpenQuickLaunchLogin()));
+        _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => OpenFsgCrawlerTab()));
+        _toolSpecs.Add(("quick_launch", "FSG FBO", "Ctrl+4", (_, _) => OpenQuickLaunchLogin()));
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
-        _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => new ApiDeclarationForm().ShowDialog(this)));
-        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this)));
-        _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this)));
+        _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm().ShowDialog(this); }));
+        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this); }));
+        _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
         _toolSpecs.Add(("claude_web", "Claude", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Claude, null)));
         _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
@@ -347,6 +349,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.NewLookupRequested += item => OpenWCommandItemInNewLookup(item);
         wcommandTree.DesignRequested += item => LaunchScreenDesigner(item.SysId);
         wcommandTree.RequirementsRequested += menu => OpenFsgRequirementReportTab(menu);
+        wcommandTree.RunInFboRequested += item => _ = RunMenuInFboAsync(item);
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,
@@ -1369,6 +1372,68 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         return page;
     }
 
+    /// <summary>
+    /// Nhúng 1 Form có sẵn (FSG Yêu cầu, FSG FBO…) vào tab tài liệu thay vì mở cửa sổ riêng — Ctrl+Tab / bấm tab để qua lại như mọi công cụ khác.
+    /// Form giữ nguyên logic (WebView2, nút, đăng nhập…); chỉ bỏ viền / phóng to và lấp đầy tab. Đóng tab = đóng form; form tự Close() thì tab cũng đóng.
+    /// </summary>
+    private TabPage AddFormTab(string title, Form form)
+    {
+        form.TopLevel = false;
+        form.FormBorderStyle = FormBorderStyle.None;
+        form.ShowInTaskbar = false;
+        form.WindowState = FormWindowState.Normal;   // form tự đặt Maximized cho lúc là cửa sổ riêng — trong tab thì Dock lo kích thước
+        var page = AddDocumentTab(title, form);
+        form.Visible = true;
+        // WebView2 trong form (FSG FBO, FSG Yêu cầu) không qua WebViewEnvironment.InitAsync → focus nằm trong trang web là mất Ctrl+Tab, Ctrl+W...
+        AttachShortcutsToWebViews(form);
+        form.FormClosed += (_, _) =>
+        {
+            if (page.IsDisposed || !_documentTabs.TabPages.Contains(page)) return;
+            _documentTabs.TabPages.Remove(page);
+            page.Dispose();
+        };
+        return page;
+    }
+
+    private static void AttachShortcutsToWebViews(Control root)
+    {
+        foreach (Control c in root.Controls)
+        {
+            if (c is Microsoft.Web.WebView2.WinForms.WebView2 web) WebViewEnvironment.AttachGlobalShortcuts(web, acceleratorOnly: true);
+            else AttachShortcutsToWebViews(c);
+        }
+    }
+
+    /// <summary>Đưa tab chứa form nhúng (AddFormTab) lên trước; false = form không còn nằm trong tab nào.</summary>
+    private bool SelectFormTab(Form? form)
+    {
+        if (form is not { IsDisposed: false } || form.Parent is not TabPage page || !_documentTabs.TabPages.Contains(page)) return false;
+        _documentTabs.SelectedTab = page;
+        return true;
+    }
+
+    private FsgRequirementCrawlerForm? _fsgCrawlerForm;
+
+    /// <summary>"FSG Yêu cầu" (cập nhật &amp; tra cứu y/c trên web FSG): 1 tab duy nhất — mở lại thì chuyển tới tab đang có.</summary>
+    private void OpenFsgCrawlerTab()
+    {
+        if (SelectFormTab(_fsgCrawlerForm)) return;
+        _fsgCrawlerForm = new FsgRequirementCrawlerForm();
+        var page = AddFormTab("FSG Yêu cầu", _fsgCrawlerForm);
+        page.Disposed += (_, _) => _fsgCrawlerForm = null;
+    }
+
+    /// <summary>"FSG FBO" (đăng nhập web chương trình của workspace): mỗi workspace 1 tab; mở lại cùng workspace thì chuyển tới tab đó.</summary>
+    private QuickLaunchLoginForm ShowQuickLaunchTab(Workspace ws, string? url = null, string note = "")
+    {
+        if (_quickLaunchForm is { IsDisposed: false } existing && ReferenceEquals(existing.Workspace, ws) && SelectFormTab(existing)) return existing;
+        var form = url is null && note.Length == 0 ? new QuickLaunchLoginForm(ws, _settings) : new QuickLaunchLoginForm(ws, _settings, url, note);
+        _quickLaunchForm = form;
+        var page = AddFormTab("FSG FBO · " + ws.Name, form);
+        page.Disposed += (_, _) => { if (ReferenceEquals(_quickLaunchForm, form)) _quickLaunchForm = null; };
+        return form;
+    }
+
     /// <summary>Menu chuột phải trên 1 tab: Pin Tab, Close Tab, Close Other Tabs, Close Tabs to the Right, Close All Tabs.
     /// Close Other/Right/All bỏ qua tab đã ghim (muốn đóng thì Close Tab hoặc bỏ ghim trước).</summary>
     private ContextMenuStrip BuildTabContextMenu(TabPage page)
@@ -1650,6 +1715,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Mở Screen Designer (exe riêng) kèm project đang chọn (gốc source) và — nếu bấm từ cây menu — controller của menu đó.</summary>
     private void LaunchScreenDesigner(string? controller)
     {
+        if (!RequireLicense("Thiết kế màn hình")) return;
         var exe = FindScreenDesignerExe(_settings.ScreenDesignerExePath);
         if (exe is null)
         {
@@ -2044,6 +2110,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <param name="menu">Khác null = chuột phải cây WCommand → "Yêu cầu liên quan (QLYC)…": lọc sẵn các y/c của dự án đang chọn liên quan tới menu đó.</param>
     private void OpenFsgRequirementReportTab(FsgRequirementReportControl.MenuQuery? menu = null)
     {
+        if (!RequireLicense("Báo cáo yêu cầu FSG")) return;
         if (_fsgReqTab is not null && _documentTabs.TabPages.Contains(_fsgReqTab))
         {
             _documentTabs.SelectedTab = _fsgReqTab;
@@ -3137,6 +3204,34 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
+    /// <summary>Tab FSG FBO của <paramref name="ws"/>: đang mở thì chuyển tới và đi tới menu (chưa đăng nhập thì chờ đăng nhập xong); chưa có thì mở mới, tự đăng nhập rồi vào menu.</summary>
+    private async Task OpenMenuInFboTabAsync(Workspace ws, string? url, string note)
+    {
+        if (_quickLaunchForm is { IsDisposed: false } existing && ReferenceEquals(existing.Workspace, ws) && SelectFormTab(existing))
+        {
+            await existing.RunMenuAsync(url, note);
+            return;
+        }
+        ShowQuickLaunchTab(ws, url, note);
+    }
+
+    /// <summary>Ctrl+4 trên cây menu: mở FSG FBO, đăng nhập rồi vào trang của menu đang chọn (menu nhóm / không có link: chỉ mở FSG FBO).</summary>
+    private async Task RunMenuInFboAsync(WCommandItem item)
+    {
+        var ws = _connections.Current;
+        if (ws is null || string.IsNullOrWhiteSpace(ws.LoginWLink)) { OpenQuickLaunchLogin(); return; }   // tự báo thiếu Workspace / Login WLink
+        try
+        {
+            var url = BuildMenuUrl(ws.LoginWLink, item);
+            var note = url is null ? $"Menu \"{item.Bar}\" không có link — chỉ mở FSG FBO." : $"Menu: {item.Bar} ({item.WMenuId})";
+            await OpenMenuInFboTabAsync(ws, url, note);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "Bcode — FSG FBO", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
     private void OpenQuickLaunchLogin()
     {
         var ws = _connections.Current;
@@ -3152,7 +3247,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 "Bcode — Bung link chương trình", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
-        new QuickLaunchLoginForm(ws, _settings).Show();
+        ShowQuickLaunchTab(ws);
     }
 
     /// <summary>Actions &gt; Create Menu: chạy NGAY <c>exec ns_createCommand N'mã dự án'</c> trên FSG_A cho project đang chọn (không hỏi lại).</summary>
@@ -3215,17 +3310,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 note = "Không tra được menu (wcommand): " + ex.Message;
             }
 
-            if (_quickLaunchForm is { IsDisposed: false } existing && ReferenceEquals(existing.Workspace, ws))
-            {
-                existing.WindowState = FormWindowState.Maximized;
-                existing.Activate();
-                await existing.RunMenuAsync(url, note);
-                return;
-            }
-
-            _quickLaunchForm = new QuickLaunchLoginForm(ws, _settings, url, note);
-            _quickLaunchForm.Show();
-            _quickLaunchForm.Activate();
+            await OpenMenuInFboTabAsync(ws, url, note);
+            Activate();
         }
         catch (Exception ex)
         {
@@ -3411,7 +3497,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripMenuItem("New Bcode window", null, (_, _) => RunAppShortcut("window.new")) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("window.new") });
         menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => ToggleActiveDatabase()) { ShortcutKeyDisplayString = "Ctrl+1" });
         menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tool:sql_profiler") });
-        menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }) { ShortcutKeyDisplayString = "Ctrl+4" });
+        menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }));
         menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => OpenProgramPath()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.programPath") });
         
         menu.Items.Add(new ToolStripSeparator());

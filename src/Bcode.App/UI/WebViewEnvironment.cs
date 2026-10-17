@@ -108,7 +108,11 @@ internal static class WebViewEnvironment
     public static event Action<string>? GlobalShortcut;
 
     private static long _ctrlDownAt;       // Environment.TickCount64 lúc Ctrl vừa nhấn (0 = không giữ) — dùng chung cho mọi WebView2
-    private const int CtrlHoldMs = 350;    // khớp MainForm.CtrlHoldMs
+    internal const int CtrlHoldMs = 350;    // khớp MainForm.CtrlHoldMs
+
+    /// <summary>Báo 1 phím tắt toàn cửa sổ (tổ hợp "Ctrl+W"… hoặc "@ctrl-hold" / "@ctrl-hold-prev") như khi bấm trong trang WebView2 —
+    /// dùng cho cửa sổ ngoài tiến trình được nhúng vào tab (SQL Profiler) mà WinForms không nhận được phím.</summary>
+    public static void RaiseGlobalShortcut(string combo) => GlobalShortcut?.Invoke(combo);
 
     /// <summary>Bật khi trang Template đang chờ người dùng bấm phím để gán — tạm không chặn phím ở tầng WebView2.</summary>
     public static volatile bool SuspendAccelerators;
@@ -161,13 +165,14 @@ internal static class WebViewEnvironment
     /// <summary>Gắn phím tắt toàn cục (Ctrl+W, Ctrl+Tab, Ctrl+Shift+Q/T...) cho 1 WebView2 do thư viện ngoài tạo (vd tab Excel → FRX trong ExcelToFrx.dll):
     /// <see cref="InitAsync"/> chỉ gắn cho WebView2 do Bcode tự khởi tạo, còn WebView2 do DLL tạo thì focus nằm trong đó là mất hết phím tắt của cửa sổ chính.
     /// An toàn khi gọi trước hoặc sau khi WebView2 khởi tạo xong, và gọi nhiều lần cho cùng 1 control.</summary>
-    public static void AttachGlobalShortcuts(Microsoft.Web.WebView2.WinForms.WebView2 web)
+    /// <paramref name="acceleratorOnly"/>: trang web bên ngoài (FSG FBO, FSG Yêu cầu) — chỉ bắt phím ở tầng WebView2, không chèn script / nghe web message từ trang lạ.
+    public static void AttachGlobalShortcuts(Microsoft.Web.WebView2.WinForms.WebView2 web, bool acceleratorOnly = false)
     {
         if (web is null || !ShortcutAttached.TryAdd(web, new object())) return;
         void Hook()
         {
             if (web.IsDisposed || web.CoreWebView2 is null) return;
-            InstallGlobalShortcuts(web.CoreWebView2);
+            if (!acceleratorOnly) InstallGlobalShortcuts(web.CoreWebView2);
             InstallAcceleratorShortcuts(web);
         }
         if (web.CoreWebView2 is not null) Hook();

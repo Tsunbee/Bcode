@@ -462,7 +462,7 @@ Trên ảnh: **①** mục SQL Object ở cột icon · **②** chọn database 
 | **Compare Structure** | Thanh công cụ | So cấu trúc một bảng giữa 2 workspace (Chỉ có ở trái / phải, Khác nhau, Giống nhau). |
 | **Change Owner** | `Ctrl+Shift+O` | Chuyển object sang schema khác (`ALTER SCHEMA TRANSFER`) — không hoàn tác từ Bcode được. |
 | **Decrypt SQL Object** | Thanh công cụ (cần key) | Giải mã object bị mã hoá: cần quyền sysadmin và kết nối DAC (mỗi instance chỉ 1 kết nối DAC); luôn rollback. |
-| **SQL Profiler** | `Ctrl+3` | Nhúng SQL Profiler thật vào tab: khai đường dẫn Profiler.exe, đăng nhập, chọn trace template → **▶ Bung & Đăng nhập**; **📋 Copy SQL Command** lấy câu SQL của dòng đang chọn. Trace lọc theo Database của dự án và theo **ID (ApplicationName) = u_id**: gõ user cần theo dõi (u_name) → **Tra u_id** (gõ tên mà chưa tra thì lúc bung Bcode tự tra). Ô **u_id** sửa / xoá được: bấm **✕** (hoặc xoá trống) khi ứng dụng không gắn ApplicationName = u_id → trace không lọc theo ID, template đã có filter ID cũng được gỡ (bản cũ giữ thành `.tdf.bak`); Tra u_id hoặc đổi tên user là lọc lại như cũ. |
+| **SQL Profiler** | `Ctrl+3` | Nhúng SQL Profiler thật vào tab: khai đường dẫn Profiler.exe, đăng nhập, chọn trace template → **▶ Bung & Đăng nhập**; **📋 Copy SQL Command** lấy câu SQL của dòng đang chọn. Trace lọc theo Database của dự án và theo **ID (ApplicationName) = u_id**: gõ user cần theo dõi (u_name) → **Tra u_id** (gõ tên mà chưa tra thì lúc bung Bcode tự tra). Ô **u_id** sửa / xoá được: bấm **✕** (hoặc xoá trống) khi ứng dụng không gắn ApplicationName = u_id → trace không lọc theo ID, template đã có filter ID cũng được gỡ (bản cũ giữ thành `.tdf.bak`); Tra u_id hoặc đổi tên user là lọc lại như cũ. Đang đứng trong cửa sổ Profiler vẫn dùng được phím tắt của Bcode (`Ctrl+Tab`, `Ctrl+W`, `Ctrl+Shift+<chữ>`…); các phím khác vẫn thuộc về Profiler. |
 
 <a id="wcommand"></a>
 ## WCommand — cây menu ERP
@@ -488,6 +488,7 @@ Trên ảnh: **①** ô lọc theo tên / ID / link · **②** ô (C) chỉ menu
 | Thêm menu | `Insert` hoặc chuột phải → **New** (điền sẵn mọi thông tin của menu đang chọn + tự gợi ý WMenu Id / Menu Id còn trống) |
 | Sửa / xoá | `F3` **Edit** · `F8` **Delete** (hỏi xác nhận) |
 | Chạy menu trên web | `Ctrl+F5` hoặc **Run...** → mở `{Login WLink}/Main/{Link}` bằng trình duyệt mặc định |
+| Chạy menu trong FSG FBO | `Ctrl+4` hoặc **Run trong FSG FBO** → mở tab FSG FBO, tự đăng nhập rồi vào đúng trang của menu (tab đã mở và đã đăng nhập thì vào menu luôn) |
 | Sinh script menu | `F12` **Gen Script Menu** → cửa sổ "Script — {WMenuId}" (DELETE + INSERT cho wcommand và command, mỗi câu kết thúc GO) |
 | Kiểm tra trùng | **Check WCommand** → hộp "Duplicate Menu" (tab "Not exists in Command" và "Difference Sysid") |
 | Thiết kế màn hình | **Thiết kế màn hình (Screen Designer)** — chỉ bật khi menu có SysId |
@@ -735,8 +736,8 @@ Nút **Triển khai ▾** trên thanh trên. Các công cụ này không có ph�
 | **Library...** | Thư viện script hay dùng (snippet) theo dự án: New / Save / Delete / Copy / **Insert vào Script Editor**. Gọi nhanh trong `Ctrl+P` bằng tiền tố `$`. |
 | **Setup eInvoice (FE)** | Cấu hình hoá đơn điện tử: kết nối (link trung gian, CSDL Proxy), Portal Key từ mail, link portal, tài khoản → **Step 1: View UpdateKey Script** → **Step 2: Exec Insert in Server (SQL)** → **Cập nhật / Update Key**. Mật khẩu không được lưu. |
 | **Check Mail** | Thử gửi mail: **⟳ Lấy từ Message.xml** (hoặc nhập Host / Port / tài khoản), người nhận → **⚡ Test kết nối** / **✉ Send**; xem log. Mật khẩu không được lưu. |
-| **FSG FBO** | Mở web đăng nhập của dự án (Login WLink) và tự điền tài khoản. |
-| **FSG Yêu cầu** | Cập nhật & tra cứu yêu cầu FSG. |
+| **FSG FBO** | Mở web đăng nhập của dự án (Login WLink) và tự điền tài khoản — mở trong **tab** (mỗi dự án 1 tab, phím tắt `Ctrl+4`; mở lại = chuyển tới tab đó; `Ctrl+Tab` để qua lại). Mỗi dự án giữ phiên đăng nhập riêng: đăng nhập dự án này (kể cả ở 1 Bcode khác) không làm văng phiên của dự án kia. |
+| **FSG Yêu cầu** | Cập nhật & tra cứu yêu cầu FSG — mở trong **tab** (1 tab, mở lại = chuyển tới tab đó). |
 | **Create Processing**, **View Rpt in FEC** | Chưa làm (chỉ hiện form trống). |
 
 ### Hành động trong menu Actions / Settings
@@ -825,6 +826,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+Shift+N` | Cửa sổ Bcode mới |
 | `Ctrl+Shift+H` | Ẩn / hiện cây bên trái |
 | `Ctrl+1` | Đổi database App ↔ Sys |
+| `Ctrl+4` | Mở FSG FBO (web đăng nhập của dự án, trong tab) — trong cây WCommand: mở FSG FBO, đăng nhập rồi vào menu đang chọn |
 | `Ctrl+5` | Mở thư mục Program Path |
 | `Ctrl+Alt+U` | Ai đang dùng object (tab SQL mở từ cây SQL Object) |
 | `Ctrl+Tab` / giữ `Ctrl` + `Tab` | Tab kế / hộp chọn tab |
@@ -850,20 +852,20 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 
 **Lưới Table**: `F1` chi tiết dòng · `F3` khai báo nhanh danh sách · `F4` thêm · `F8` xoá · `Ctrl+I` nhân bản · `Ctrl+N` chèn sau · `Ctrl+'` copy giá trị · `Ctrl+0` NULL · `Ctrl+G` tới cột · `F5` tải lại.
 
-**Cây WCommand**: `Insert` New · `F3` Edit · `F8` Delete · `F4` File Lookup mới · `F12` Gen Script Menu · `F5` Refresh · `Ctrl+F5` Run · `Ctrl+C` copy đường dẫn menu.
+**Cây WCommand**: `Insert` New · `F3` Edit · `F8` Delete · `F4` File Lookup mới · `F12` Gen Script Menu · `F5` Refresh · `Ctrl+F5` Run · `Ctrl+4` Run trong FSG FBO · `Ctrl+C` copy đường dẫn menu. Các nhánh đang bung được giữ nguyên khi chuyển sang mục khác (Object…) rồi quay lại, hoặc khi `F5`.
 
 **Khai báo API**: `Ctrl+Shift+Enter` gửi · `Ctrl+S` lưu · `Ctrl+Shift+T` lấy token · `Ctrl+Shift+F` format · `Ctrl+Shift+K` validate.
 
 <a id="key-ban-quyen"></a>
 ## Key bản quyền
 
-Các tính năng **Decrypt SQL Object**, **Create RPT & XML**, **Excel → FRX** và **Tạo báo cáo** cần key bản quyền gắn theo máy.
+Các tính năng sau cần key bản quyền gắn theo máy: **Decrypt SQL Object**, **Create RPT & XML**, **Excel → FRX**, **Tạo báo cáo**, **Báo cáo yêu cầu FSG** (kể cả chuột phải cây WCommand → Yêu cầu liên quan), **Thiết kế màn hình** (kể cả nút Design ở cây WCommand), **Khai báo API**, **Tạo cấu trúc API**, **Tạo nhanh danh mục** (kể cả 🤖 AI tạo danh mục) và **Clone danh mục**. Chưa có key thì mở các tính năng này sẽ hiện hộp nhập key.
 
 1. ⚙ Settings → **Key bản quyền...** (hoặc bấm vào tính năng bị khoá — hộp key tự mở).
-2. **Bước 1**: bấm **Copy mã máy** và gửi mã cho người cấp key. Mã gắn với **tên máy + định danh phần cứng** (MachineGuid của Windows, máy không có thì UUID bo mạch) — không phụ thuộc mạng, nên mang laptop về nhà, đổi Wi-Fi hay bật VPN vẫn dùng được key. Key cấp theo IP ở bản Bcode cũ vẫn dùng được; muốn hết bị mất key khi đổi mạng thì gửi lại mã máy mới để xin key mới.
+2. **Bước 1**: bấm **Copy mã máy** và gửi mã cho người cấp key. Mỗi máy có một mã riêng.
 3. **Bước 2**: dán key nhận được (hoặc **Dán từ clipboard**) → **Xác nhận**. Chỉ cần dán một lần — key lưu ở `%AppData%\Bcode\license.key`.
 
-Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt". "Key đã lưu không còn khớp" hoặc "Mã không đúng cho máy này" = đã đổi máy, đổi tên máy hoặc cài lại Windows (với key cũ theo IP: đổi mạng) → xin key mới với mã máy hiện tại. **Xoá key đã lưu** để gỡ.
+Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt". "Key đã lưu không còn hợp lệ trên máy này" hoặc "Mã không đúng cho máy này" → gửi lại **Mã máy** hiện tại để xin key mới. **Xoá key đã lưu** để gỡ.
 
 <a id="loi-thuong-gap"></a>
 ## Lỗi hay gặp (Bcode)
@@ -1202,7 +1204,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | Debug SQL | `F10` · `Ctrl+F10` · `Shift+F5` | **Debug trong Bcode** (gửi sang Bcode) |
 | Xem trước màn hình | — | `Alt+P` Dir / mail |
 
-**Chỉ có ở Bcode**: `Ctrl+Shift+Q` SQL Query · `Ctrl+Shift+T` Table · `Ctrl+Shift+C` Command · `Ctrl+Shift+L` Lookup · `Ctrl+Shift+W` WCommand · `Ctrl+Shift+F` File Lookup · `Ctrl+Shift+G` Gen Update · `Ctrl+Shift+R` File Reference · `Ctrl+Shift+O` Change Owner · `Ctrl+Shift+U` Gen Update (Result) · `Ctrl+Shift+E` Note · `Ctrl+Shift+4` Note (New) · `Ctrl+Shift+Y` Lịch sử SQL · `Ctrl+Shift+J` So sánh object · `Ctrl+3` SQL Profiler · `Ctrl+Shift+P` Projects · `Ctrl+O` Choose Server · `Ctrl+F5` Synchronize · `Ctrl+Shift+N` cửa sổ mới · `Ctrl+1` App ↔ Sys · `Ctrl+5` Program Path · `Ctrl+Alt+U` Ai đang dùng · `Alt+1..5` nhóm công cụ · `Ctrl+Alt+Shift+A / V` Add / View Script · lưới Table `F1 F3 F4 F8 Ctrl+I Ctrl+N Ctrl+' Ctrl+0 Ctrl+G` · cây WCommand `Insert F3 F4 F8 F12 F5`.
+**Chỉ có ở Bcode**: `Ctrl+Shift+Q` SQL Query · `Ctrl+Shift+T` Table · `Ctrl+Shift+C` Command · `Ctrl+Shift+L` Lookup · `Ctrl+Shift+W` WCommand · `Ctrl+Shift+F` File Lookup · `Ctrl+Shift+G` Gen Update · `Ctrl+Shift+R` File Reference · `Ctrl+Shift+O` Change Owner · `Ctrl+Shift+U` Gen Update (Result) · `Ctrl+Shift+E` Note · `Ctrl+Shift+4` Note (New) · `Ctrl+Shift+Y` Lịch sử SQL · `Ctrl+Shift+J` So sánh object · `Ctrl+3` SQL Profiler · `Ctrl+Shift+P` Projects · `Ctrl+O` Choose Server · `Ctrl+F5` Synchronize · `Ctrl+Shift+N` cửa sổ mới · `Ctrl+1` App ↔ Sys · `Ctrl+4` FSG FBO · `Ctrl+5` Program Path · `Ctrl+Alt+U` Ai đang dùng · `Alt+1..5` nhóm công cụ · `Ctrl+Alt+Shift+A / V` Add / View Script · lưới Table `F1 F3 F4 F8 Ctrl+I Ctrl+N Ctrl+' Ctrl+0 Ctrl+G` · cây WCommand `Insert F3 F4 F8 F12 F5`.
 
 **Chỉ có ở BcodeViewer**: `Ctrl+N` New from Template · `Ctrl+G` Go to tag · `F11` tới function · `Shift+F12` tìm nơi sử dụng · `Ctrl+Shift+M` Problems · `Ctrl+Shift+U` Outline · `Ctrl+\` tách đôi khung · `Ctrl+/` comment · `Ctrl+D` nhân đôi dòng · `Ctrl+Shift+D` thêm con trỏ ở chỗ giống tiếp theo · `Ctrl+Alt+T` dịch caption · `Ctrl+F` / `Ctrl+H` tìm / thay trong file · `Alt+↑/↓` di chuyển dòng · `F1` bảng lệnh Monaco.
 

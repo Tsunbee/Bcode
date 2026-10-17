@@ -23,6 +23,10 @@ public static class FastCatalogRules
     private const string QColumns = "Danh mục cần những cột nào";
     private const string QDetail = "Lưới chi tiết gồm những cột nào";
     private const string QField = "Cột “";
+    private const string QKeys = "Khoá của màn";
+    private const string QMonthly = "Các chỉ tiêu theo tháng";
+    /// <summary>Đánh dấu (trong mô tả cột) cụm "theo 12 tháng / mỗi tháng" — tách 12 cột hoặc lưới theo tháng.</summary>
+    private const string MonthlyTag = "⟨12 tháng⟩";
 
     /// <summary>Lookup thường dùng của FBO (khoá đã bỏ dấu) → (field, controller). Ưu tiên trước header.xml vì header.xml có nhiều biến thể.</summary>
     private static readonly (string[] Words, string Field, string Controller, string V, string E)[] CommonLookups =
@@ -50,7 +54,15 @@ public static class FastCatalogRules
     private static readonly Regex ManyRx = new(@"(?i)\b(g[ắa]n|thu[ộo]c|c[óo]|g[ồo]m|[áa]p d[ụu]ng)\s+(v[ớo]i\s+|cho\s+)?(1|m[ộo]t)\s+ho[ặa]c\s+nhi[ềe]u\s+(?<y>[^,.;:\n\r()]+)", RegexOptions.Compiled);
     private static readonly Regex DetailRx = new(@"(?i)l[ưu][ớo]i\s+(nh[ậa]p|chi\s+ti[ếe]t)|(b[ảa]ng|ph[ầa]n)\s+chi\s+ti[ếe]t|chi\s+ti[ếe]t\s+(g[ồo]m|c[óo]\s+c[áa]c)|\bdetail\b|nhi[ềe]u\s+d[òo]ng", RegexOptions.Compiled);
 
-    private sealed record Col(string Name, string SqlType, string V, string E, string Controller, string Note);
+    // Tên màn ghi rõ: 'Thiết kế menu mới "Cập nhật dự toán"', 'tạo màn hình “…”', 'menu mới: Cập nhật dự toán'.
+    private static readonly Regex ScreenQuotedRx = new(@"(?i)\b(thi[ếe]t\s+k[ếe]|t[ạa]o|th[êe]m|x[âa]y\s+d[ựu]ng|l[àa]m|b[ổo]\s+sung)\s+(m[ớo]i\s+)?((1|m[ộo]t)\s+)?(menu|m[àa]n\s*h[ìi]nh|form|ch[ứu]c\s+n[ăa]ng)(\s+m[ớo]i)?(\s+t[êe]n)?\s*:?\s*[“""'](?<name>[^“”""'\n\r]{2,80})[”""']", RegexOptions.Compiled);
+    private static readonly Regex ScreenNewRx = new(@"(?i)\b(menu|m[àa]n\s*h[ìi]nh)\s+m[ớo]i\s*:?\s*(?<name>[^:\n\r,.;()“”""]+)", RegexOptions.Compiled);
+    // "Lookup từ Danh mục X" / "chọn từ danh mục X" mô tả 1 CỘT tra cứu — không phải màn cần tạo.
+    private static readonly Regex LookupPhraseRx = new(@"(?i)\b(lookup|ch[ọo]n|tra|l[ấa]y)\s+(t[ừu]|theo|trong)\s+(danh\s*m[ụu]c|dm)[^\n\r,.;:]*", RegexOptions.Compiled);
+    private static readonly Regex MonthlyRx = new(@"(?i)\s*\b(theo|trong|cho)\s+(c[áa]c\s+)?12\s+th[áa]ng(\s+(trong|c[ủu]a)\s+(1\s+)?n[ăa]m)?|\s*\b(m[ỗo]i|h[àa]ng|t[ừu]ng)\s+th[áa]ng", RegexOptions.Compiled);
+
+    /// <param name="Required">true = "bắt buộc nhập" (allowNulls false), false = "không bắt buộc", null = không nói.</param>
+    private sealed record Col(string Name, string SqlType, string V, string E, string Controller, string Note, bool? Required = null);
 
     public static async Task<string> SuggestAsync(string content, IReadOnlyList<(string Question, string Answer)> answers,
         IReadOnlyCollection<string> tables, Func<string, Task<List<AiTableColumn>>> getColumns, string sourcePath, string tablePrefix = "zdm")
@@ -64,43 +76,66 @@ public static class FastCatalogRules
 
         // Dòng "Menu: …" (Yêu cầu FSG gửi kèm tên menu) chỉ là ngữ cảnh — tên menu hay là "Danh mục …" có sẵn, không phải danh mục cần tạo.
         content = Regex.Replace(content, @"^Menu:[^\n]*\n", "");
+        // "Lookup từ Danh mục hàng hoá vật tư" là mô tả 1 cột tra cứu → che đi (giữ nguyên vị trí ký tự) khi tìm tên màn cần tạo.
+        var scan = LookupPhraseRx.Replace(content, x => new string(' ', x.Length));
         // Bỏ cụm không phải tên ("thêm mới danh mục này", "danh mục như yêu cầu"…) — lấy cụm kế tiếp.
         static bool GoodName(Match x) => x.Success && CleanName(x.Groups["name"].Value) is { Length: > 1 } n && char.IsLetter(n[0])
             && !Regex.IsMatch(Fold(n), @"^(nay|nhu|tren|do|kia|khac|tuong ung|chuan|co san|hien co|duoi|sau|ben)\b");
-        var create = CreateRx.Matches(content).FirstOrDefault(GoodName);
+        // Tên màn ghi rõ (menu mới "X") ưu tiên nhất; không phải "Danh mục …" thì là màn khai báo / cập nhật số liệu (không có cặp mã - tên).
+        var screen = ScreenQuotedRx.Matches(scan).FirstOrDefault(GoodName) ?? ScreenNewRx.Matches(scan).FirstOrDefault(GoodName);
+        var create = screen is null ? CreateRx.Matches(scan).FirstOrDefault(GoodName) : null;
+        var isCatalog = true;
         Match m;
-        if (create is not null)
+        if (screen is not null)
+        {
+            m = screen;
+            isCatalog = Regex.IsMatch(Fold(m.Groups["name"].Value.Trim('“', '”', '"', '\'', ' ')), @"^(danh muc|dm)\b");
+        }
+        else if (create is not null)
         {
             m = create;
-            if (ModifyRx.IsMatch(content))
+            if (ModifyRx.IsMatch(scan))
                 notes.Add("Y/c còn việc khác ngoài tạo danh mục (thêm trường vào màn hình khác, báo cáo…) — phần đó làm tay; ở đây chỉ gợi ý màn danh mục.");
         }
         else
         {
             // Có "thêm mới danh mục này" (tên đứng chỗ khác, vd "Danh mục X" ở dòng trên) thì vẫn là tạo mới.
-            var createIntent = CreateRx.IsMatch(content);
-            m = CatalogRx.Matches(content).FirstOrDefault(GoodName) ?? Match.Empty;
-            if (!m.Success || (!createIntent && ModifyRx.IsMatch(content)))
+            var createIntent = CreateRx.IsMatch(scan);
+            m = CatalogRx.Matches(scan).FirstOrDefault(GoodName) ?? Match.Empty;
+            if (!m.Success || (!createIntent && ModifyRx.IsMatch(scan)))
                 return Reply("khac", m.Success
                     ? "Yêu cầu có vẻ là sửa / bổ sung cho màn hình có sẵn, không phải tạo danh mục mới."
-                    : "Không thấy cụm “danh mục …” / “khai báo …” trong yêu cầu — bộ luật chỉ nhận yêu cầu tạo danh mục mới.", notes, questions, null);
+                    : "Không thấy cụm “danh mục …” / “khai báo …” / menu mới “…” trong yêu cầu — bộ luật chỉ nhận yêu cầu tạo màn danh mục / khai báo mới.", notes, questions, null);
         }
 
-        // ---- tên danh mục + mã viết tắt ----
+        // ---- tên màn + mã viết tắt ----
         var name = CleanName(m.Groups["name"].Value);
         var folded = Fold(name);
-        // Y/c ghi rõ tên bảng (zdmxxx / dmxxx) thì theo đó, không thì tiền tố (mặc định zdm — dễ phân biệt với bảng dm* chuẩn) + chữ đầu các từ.
-        var explicitTable = ExplicitTable(content);
-        var code = explicitTable is { } et ? Regex.Replace(et, "^(" + Regex.Escape(tablePrefix) + "|z?dm)", "") : Abbrev(folded);
-        if (code.Length == 0) code = Abbrev(folded);
-        var table = explicitTable ?? tablePrefix + code;
-        var titleV = "Danh mục " + name;
+        var explicitTable = ExplicitTable(scan, tablePrefix);
+        string code, table;
+        if (isCatalog)
+        {
+            // Y/c ghi rõ tên bảng (zdmxxx / dmxxx) thì theo đó, không thì tiền tố (mặc định zdm — dễ phân biệt với bảng dm* chuẩn) + chữ đầu các từ.
+            code = explicitTable is { } et ? Regex.Replace(et, "^(" + Regex.Escape(tablePrefix) + "|z?dm)", "") : Abbrev(folded);
+            if (code.Length == 0) code = Abbrev(folded);
+            table = explicitTable ?? tablePrefix + code;
+        }
+        else
+        {
+            // Màn khai báo số liệu: tiền tố bỏ "dm" (zdm → z) + tên menu bỏ động từ: "Cập nhật dự toán" → dự toán → zdutoan (chữ đầu quá ngắn thì ghép cả từ).
+            var core = Regex.Replace(folded, @"^(cap nhat|khai bao|nhap|theo doi|quan ly|thiet lap|thiet ke)\s+", "");
+            code = Abbrev(core);
+            if (code.Length < 3) code = Regex.Replace(core, "[^a-z0-9]", "");
+            if (code.Length > 16) code = code[..16];
+            table = DataPrefix(tablePrefix) + code;
+        }
+        var titleV = isCatalog ? "Danh mục " + name : Cap(name);
         var titleE = new[] { titleV, Cap(name), name }.Select(t => HeaderTranslator.Instance.Translate(t)).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t)) ?? "";
         notes.Add(titleE.Length == 0 ? "Chưa dịch được tiêu đề tiếng Anh — bấm Dịch cạnh ô Title (e) hoặc tự nhập."
             : $"Tiêu đề tiếng Anh dịch tự động theo từ điển (“{titleE}”) — kiểm tra lại.");
 
         // Danh mục cùng tên đã có trong source → hỏi (có thể là y/c sửa danh mục có sẵn).
-        if (FindExistingCatalog(sourcePath, folded) is { } found)
+        if (isCatalog && FindExistingCatalog(sourcePath, folded) is { } found)
         {
             var ans = Answer(QExisting);
             if (ans is not null && IsNo(ans))
@@ -115,7 +150,8 @@ public static class FastCatalogRules
         {
             ["table"] = table, ["controller"] = table, ["main"] = table.ToLowerInvariant(),
             ["titleV"] = titleV, ["titleE"] = titleE, ["subV"] = "", ["subE"] = "",
-            ["funcNew"] = true, ["funcEdit"] = true, ["funcDelete"] = true, ["funcFilter"] = true, ["lookup"] = true,
+            // Màn khai báo số liệu không có cột tên → không tạo file Lookup.
+            ["funcNew"] = true, ["funcEdit"] = true, ["funcDelete"] = true, ["funcFilter"] = true, ["lookup"] = isCatalog,
             ["filter"] = FilterRx.IsMatch(allText), ["import"] = ImportRx.IsMatch(allText), ["import2262"] = true,
             ["irregular"] = false, ["comment"] = false,
         };
@@ -142,6 +178,10 @@ public static class FastCatalogRules
             }).ToArray());
             notes.Add($"Bảng {table} đã có trong App Data — dùng đủ {real.Count} cột thật; nếu đây là danh mục khác thì đổi tên bảng.");
         }
+        else if (!isCatalog)
+        {
+            await DataScreenAsync(spec, content, m.Index + m.Length, name, code, folded, table, answers, tableSet, getColumns, sourcePath, notes, questions, mapped);
+        }
         else
         {
             // Bảng mới: cột theo danh sách trong y/c (hoặc câu trả lời), luôn có mã + tên.
@@ -165,7 +205,7 @@ public static class FastCatalogRules
             Add(new Col("ten_" + code + "2", "nvarchar(256)", "Tên 2", "Name 2", "", ""));
             foreach (var (p, desc) in listed ? phrases : phrases.Concat(new[] { ("Ghi chú", ""), ("Trạng thái", "") }))
             {
-                var c = WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc);
+                var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc, sourcePath), desc);
                 var ans = Answer(QField + p + "”");
                 if (ans is { Length: > 0 } && Regex.Match(ans, @"^(?<n>[A-Za-z_][A-Za-z0-9_]*)\s*(?<t>[a-z]+(\(\s*\d+(\s*,\s*\d+)?\s*\))?)?", RegexOptions.IgnoreCase) is { Success: true } am)
                     c = c with { Name = am.Groups["n"].Value.ToLowerInvariant(), SqlType = am.Groups["t"].Success ? am.Groups["t"].Value : c.SqlType, Note = "" };
@@ -177,7 +217,7 @@ public static class FastCatalogRules
                     else guessed.Add($"{p} → {c.Name}");
                 }
                 if (c.Note.Length > 1) mapped.Add(c.Note);
-                Add(c with { Note = "" });
+                Add(await LookupTypeAsync(c with { Note = "" }, tableSet, getColumns));
             }
             if (guessed.Count > 0) notes.Add("Cột đoán tên (sửa thẳng trong bảng cột nếu sai): " + string.Join("; ", guessed) + ".");
             // Cột chuẩn của danh mục FBO (status + 4 cột hệ thống) luôn có, kể cả khi y/c không ghi.
@@ -197,7 +237,7 @@ public static class FastCatalogRules
         var many = ManyRx.Match(allText);
         var detailPhrases = many.Success ? SplitPhrases(many.Groups["y"].Value) : new List<(string P, string D)>();
         if (Answer(QDetail) is { Length: > 0 } detAns && !IsNo(detAns)) detailPhrases = SplitPhrases(detAns);
-        var wantDetail = (many.Success || DetailRx.IsMatch(content) || detailPhrases.Count > 0) && !(Answer(QDetail) is { } dn && IsNo(dn));
+        var wantDetail = isCatalog && (many.Success || DetailRx.IsMatch(content) || detailPhrases.Count > 0) && !(Answer(QDetail) is { } dn && IsNo(dn));
         if (wantDetail)
         {
             var key = (spec["keys"]?.GetValue<string>() ?? "").Split(',')[0].Trim();
@@ -206,7 +246,7 @@ public static class FastCatalogRules
             var groupNo = 0;
             foreach (var (p, desc) in detailPhrases)
             {
-                var c = WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc);
+                var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc, sourcePath), desc);
                 if (!dcols.Any(x => x.Name == c.Name)) dcols.Add(c with { Note = "" });
             }
             if (detailPhrases.Count == 0 && Answer(QDetail) is null)
@@ -234,12 +274,240 @@ public static class FastCatalogRules
             }).ToArray());
             if (!tableSet.Contains(detailTable)) notes.Add($"Lưới chi tiết: đề xuất bảng mới {detailTable} (khoá {key}, line_nbr).");
         }
-        else spec["detail"] = false;
+        else spec["detail"] ??= false;   // màn khai báo số liệu có thể đã tự đặt lưới theo tháng
 
         var ncols = (spec["columns"] as JsonArray)?.Count ?? 0;
-        var summary = $"Danh mục {name}: bảng {table} ({(exists ? "có sẵn" : "mới")}), {ncols} cột"
-            + (wantDetail ? $", lưới chi tiết {spec["detailTable"]}" : "") + (spec["import"]!.GetValue<bool>() ? ", có import Excel" : "") + ".";
+        var hasDetail = spec["detail"]?.GetValue<bool>() == true;
+        var summary = $"{(isCatalog ? "Danh mục " + name : "Màn “" + titleV + "” (khai báo số liệu, không phải danh mục mã - tên)")}: bảng {table} ({(exists ? "có sẵn" : "mới")}), {ncols} cột, khoá {spec["keys"]}"
+            + (hasDetail ? $", lưới chi tiết {spec["detailTable"]}" : "") + (spec["import"]!.GetValue<bool>() ? ", có import Excel" : "") + ".";
         return Reply("danh_muc", summary, notes, questions, spec);
+    }
+
+    /// <summary>
+    /// Màn khai báo / cập nhật số liệu (vd "Cập nhật dự toán"): không có cặp mã - tên; khoá = các cột chiều xác định 1 dòng (đơn vị, năm, bộ phận,
+    /// vật tư, …, lần cập nhật — bỏ cột "không bắt buộc"), hỏi lại để người dùng xác nhận. Chỉ tiêu "theo 12 tháng / mỗi tháng" → 12 cột (ns_dt01..12)
+    /// hoặc lưới chi tiết theo tháng nếu người dùng trả lời "lưới". Không thêm status (không phải danh mục).
+    /// </summary>
+    private static async Task DataScreenAsync(JsonObject spec, string content, int from, string name, string code, string folded, string table,
+        IReadOnlyList<(string Question, string Answer)> answers, HashSet<string> tableSet, Func<string, Task<List<AiTableColumn>>> getColumns,
+        string sourcePath, List<string> notes, List<string> questions, List<string> mapped)
+    {
+        string? Answer(string prefix) => answers.Where(a => a.Question.StartsWith(prefix, StringComparison.Ordinal)).Select(a => a.Answer.Trim()).LastOrDefault();
+        var phrases = ColumnPhrases(content, from);
+        if (phrases.Count == 0 && Answer(QColumns) is { Length: > 0 } colAns && !IsNo(colAns)) phrases = SplitPhrases(colAns);
+        if (phrases.Count == 0 && Answer(QColumns) is null)
+            questions.Add($"{QColumns}? (ghi cách nhau bằng dấu phẩy, vd: Đơn vị, Năm, Bộ phận, Mã vật tư, Số tiền)");
+
+        var cols = new List<Col>();
+        var monthly = new List<Col>();
+        var groupNo = 0;
+        void Add(Col c) { if (!cols.Any(x => x.Name.Equals(c.Name, StringComparison.OrdinalIgnoreCase))) cols.Add(c); }
+        foreach (var (p, d0) in phrases)
+        {
+            var isMonthly = d0.Contains(MonthlyTag);
+            var desc = d0.Replace(MonthlyTag, "").Trim();
+            var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc, sourcePath), desc);
+            if (Answer(QField + p + "”") is { Length: > 0 } ans
+                && Regex.Match(ans, @"^(?<n>[A-Za-z_][A-Za-z0-9_]*)\s*(?<t>[a-z]+(\(\s*\d+(\s*,\s*\d+)?\s*\))?)?", RegexOptions.IgnoreCase) is { Success: true } am)
+                c = c with { Name = am.Groups["n"].Value.ToLowerInvariant(), SqlType = am.Groups["t"].Success ? am.Groups["t"].Value : c.SqlType, Note = "" };
+            if (isMonthly)
+            {
+                // Chỉ tiêu theo tháng: luôn là số (tiền / số lượng / đơn giá) — tên ngắn để còn chỗ cho hậu tố 01..12.
+                monthly.Add(c with { Name = MonthBase(p), SqlType = "numeric(19,4)", Controller = "", Note = "", V = Cap(p) });
+                continue;
+            }
+            if (c.Note.Length > 1) mapped.Add(c.Note);
+            Add(await LookupTypeAsync(c with { Note = "" }, tableSet, getColumns));
+        }
+
+        // ---- khoá: cột chiều (có lookup / năm / tháng / kỳ / lần …) không ghi "không bắt buộc" ----
+        static bool IsDim(Col c) => c.Controller.Length > 0 || Regex.IsMatch(c.Name, @"^(nam|thang|ky|quy|lan|lan_\w+|so_lan\w*|ngay_hl\w*)$", RegexOptions.IgnoreCase);
+        var keys = cols.Where(c => c.Required != false && IsDim(c)).Select(c => c.Name).ToList();
+        var keyAns = Answer(QKeys);
+        if (keyAns is { Length: > 0 } && !Regex.IsMatch(Fold(keyAns), @"^(dung|ok|co|giu|dong y|u|uh|yes|y)\b"))
+        {
+            var picked = Regex.Split(keyAns, @"[\s,;]+").Select(x => x.Trim().ToLowerInvariant()).Where(x => cols.Any(c => c.Name.Equals(x, StringComparison.OrdinalIgnoreCase))).ToList();
+            if (picked.Count > 0) keys = picked;
+            else notes.Add($"Câu trả lời khoá “{keyAns}” không khớp tên cột nào — giữ khoá đề xuất, sửa ở ô Key nếu cần.");
+        }
+        if (keys.Count == 0 && cols.Count > 0) keys.Add(cols[0].Name);
+        if (keyAns is null)
+            questions.Add($"{QKeys}: đang đề xuất {string.Join(", ", keys)} (mỗi bộ giá trị này chỉ có 1 dòng). Đúng không? (trả lời danh sách field cách nhau dấu phẩy để đổi; để trống = giữ)");
+        cols = cols.Select(c => keys.Contains(c.Name, StringComparer.OrdinalIgnoreCase) ? c with { Required = true } : c).ToList();
+        var optionalDims = cols.Where(c => c.Required == false && IsDim(c)).Select(c => c.Name).ToList();
+        if (optionalDims.Count > 0) notes.Add($"Không đưa vào khoá vì y/c ghi “không bắt buộc”: {string.Join(", ", optionalDims)}.");
+
+        // ---- chỉ tiêu theo tháng: 12 cột (mặc định) hay lưới chi tiết theo tháng ----
+        var monthAns = Answer(QMonthly);
+        var monthGrid = monthAns is not null && Regex.IsMatch(Fold(monthAns), @"luoi|chi tiet|dong|grid|detail");
+        if (monthly.Count > 0 && monthAns is null)
+            questions.Add($"{QMonthly}: tách mỗi chỉ tiêu thành 12 cột (đang làm: {string.Join(", ", monthly.Select(x => x.Name + "01.." + x.Name + "12"))}) hay làm lưới chi tiết theo tháng (mỗi dòng 1 tháng)? (trả lời “lưới” để đổi)");
+        var monthCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!monthGrid)
+            foreach (var mc in monthly)
+                for (var i = 1; i <= 12; i++)
+                {
+                    var c = mc with { Name = $"{mc.Name}{i:00}", V = $"{mc.V} tháng {i}", E = $"{mc.E} M{i:00}" };
+                    monthCols.Add(c.Name);
+                    Add(c);
+                }
+        foreach (var s in SystemCols) Add(s);
+
+        spec["keys"] = string.Join(", ", keys);
+        spec["order"] = spec["keys"]!.GetValue<string>();
+        spec["nameField"] = "";
+        spec["columns"] = new JsonArray(cols.Select(c =>
+        {
+            var j = ColumnJson(c, keys.Contains(c.Name, StringComparer.OrdinalIgnoreCase), false);
+            j["autoComplete"] = c.Controller;   // khoá ở đây là cột chiều tra cứu (đơn vị, vật tư…) — khác khoá mã của danh mục, vẫn cần AutoComplete
+            if (monthCols.Contains(c.Name)) j["inGrid"] = false;   // 12 × n cột chỉ hiện ở form Dir, lưới danh sách gọn
+            return (JsonNode)j;
+        }).ToArray());
+        notes.Add($"Đề xuất bảng mới {table} — màn khai báo số liệu nên dùng tiền tố không có “dm” (đổi tiền tố bảng danh mục ở Settings thì phần này đổi theo); đổi tên nếu dự án đặt khác.");
+        if (mapped.Count > 0) notes.Add("Cột tra theo từ điển: " + string.Join("; ", mapped) + ".");
+        if (monthly.Count > 0 && !monthGrid)
+            notes.Add($"Chỉ tiêu theo tháng tách 12 cột: {string.Join(", ", monthly.Select(x => $"{x.V} → {x.Name}01..{x.Name}12"))} (ẩn trên lưới, nhập ở form).");
+
+        if (monthGrid && monthly.Count > 0)
+        {
+            var detailTable = table + "ct";
+            var dcols = cols.Where(c => keys.Contains(c.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+            dcols.Add(new Col("thang", "int", "Tháng", "Month", "", "", true));
+            dcols.AddRange(monthly);
+            dcols.AddRange(SystemCols);
+            var dkeys = keys.Concat(new[] { "thang" }).ToList();
+            spec["detail"] = true;
+            spec["detailTable"] = detailTable;
+            spec["detailId"] = table + "Detail";
+            spec["detailTitleV"] = "Theo tháng";
+            spec["detailTitleE"] = "By month";
+            spec["detailKeys"] = string.Join(", ", dkeys);
+            spec["linkKeys"] = string.Join(", ", keys);
+            spec["detailOrder"] = "thang";
+            spec["detailImport"] = false;
+            spec["detailColumns"] = new JsonArray(dcols.Select(c =>
+            {
+                var isLink = keys.Contains(c.Name, StringComparer.OrdinalIgnoreCase);
+                var j = ColumnJson(c, isLink || c.Name == "thang", false);
+                j["autoComplete"] = c.Controller;
+                if (isLink) j["inGrid"] = false;
+                return (JsonNode)j;
+            }).ToArray());
+            notes.Add($"Chỉ tiêu theo tháng làm lưới chi tiết {detailTable} (khoá {string.Join(", ", dkeys)}): {string.Join(", ", monthly.Select(x => x.Name))}.");
+        }
+    }
+
+    private static readonly Col[] SystemCols =
+    {
+        new("datetime0", "datetime", "Ngày tạo", "Created date", "", ""), new("datetime2", "datetime", "Ngày sửa", "Modified date", "", ""),
+        new("user_id0", "int", "Người tạo", "Created by", "", ""), new("user_id2", "int", "Người sửa", "Modified by", "", ""),
+    };
+
+    /// <summary>Tiền tố bảng màn khai báo số liệu: tiền tố danh mục bỏ "dm" (zdm → z); rỗng thì "z".</summary>
+    private static string DataPrefix(string catalogPrefix) => Regex.Replace(catalogPrefix, "dm$", "") is { Length: > 0 } p ? p : "z";
+
+    /// <summary>Mô tả sau dấu ":" của 1 cột: "bắt buộc nhập" / "không bắt buộc" → Required; "Nhập số tiền", "số lượng", "ngày" → kiểu (Fast: tiền/SL/giá numeric(19,4)).</summary>
+    private static Col ApplyDesc(Col c, string desc)
+    {
+        if (desc.Length == 0) return c;
+        var d = Fold(desc);
+        bool? req = Regex.IsMatch(d, @"\bkhong\s+(bat buoc|can|phai)\b") ? false : Regex.IsMatch(d, @"\b(bat buoc|phai nhap|khong de trong|khong duoc de trong)\b") ? true : c.Required;
+        var type = c.SqlType;
+        if (c.Controller.Length == 0)
+        {
+            if (Regex.IsMatch(d, @"\b(so tien|tien|gia tri|so luong|don gia|ty le|phan tram|nhap so)\b")) type = "numeric(19,4)";
+            else if (Regex.IsMatch(d, @"\b(nhap ngay|ngay thang|chon ngay)\b")) type = "smalldatetime";
+        }
+        return c with { Required = req, SqlType = type };
+    }
+
+    /// <summary>Cột có lookup: kiểu lấy theo cột mã của bảng nguồn thật (Information "ma_nh$dmnhphi.ten_nh" → dmnhphi.ma_nh varchar(8)).</summary>
+    private static async Task<Col> LookupTypeAsync(Col c, HashSet<string> tableSet, Func<string, Task<List<AiTableColumn>>> getColumns)
+    {
+        if (c.Controller.Length == 0) return c;
+        var lk = FieldDictionaryService.Instance.Lookups(c.Name).FirstOrDefault(l => l.Controller.Equals(c.Controller, StringComparison.OrdinalIgnoreCase));
+        var (t, k) = lk?.Source ?? ("", "");
+        if (t.Length == 0 || !tableSet.Contains(t)) return c;
+        try
+        {
+            var real = (await getColumns(t)).FirstOrDefault(x => x.Name.Equals(k, StringComparison.OrdinalIgnoreCase));
+            return real is { SqlType.Length: > 0 } ? c with { SqlType = real.SqlType } : c;
+        }
+        catch { return c; }
+    }
+
+    /// <summary>
+    /// "Danh mục X" của mô tả lookup → (field, controller) chuẩn: lookup thường dùng → header.xml theo tiêu đề ("nhóm phí" → "Nhóm phí 1" = nh_phi1 / ExpenseGroup)
+    /// → danh mục cùng tiêu đề trong source (Controllers\Dir) rồi field header.xml tra vào bảng đó.
+    /// </summary>
+    internal static (string Field, string Controller)? ResolveLookupNoun(string noun, string sourcePath)
+    {
+        noun = Regex.Replace(noun.Trim(), @"\s+(bat buoc|khong bat buoc|khong)\b.*$", "").Trim();
+        if (noun.Length == 0) return null;
+        foreach (var l in CommonLookups)
+            if (l.Words.Any(w => noun == w || noun.StartsWith(w + " ")))
+                return (l.Field, l.Controller);
+        foreach (var h in new[] { noun, noun + " 1", "ma " + noun })
+            if (BestHeaderField(h) is { Lookup: { } hl } e && hl.Controller.Length > 0)
+                return (e.Name, hl.Controller);
+        if (FindExistingCatalog(sourcePath, noun) is { } cat)
+        {
+            var e = FieldDictionaryService.Instance.Entries
+                .Where(x => x.Lookup is { } l && l.Information.Contains("$" + cat.Table + ".", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(x => (x.Lookup!.IsSimple ? 0 : 5) + x.Name.Length / 4.0).FirstOrDefault();
+            if (e is not null) return (e.Name, e.Lookup!.Controller);
+        }
+        return null;
+    }
+
+    private static readonly Regex LookupDescRx = new(@"(lookup|chon|lay|tra)\s+(tu|theo|trong)\s+(danh muc\s+|dm\s*)?(?<n>[a-z0-9 /]+)", RegexOptions.Compiled);
+
+    /// <summary>Gợi ý lookup chuẩn cho các cụm "Lookup từ Danh mục X" trong y/c — gửi kèm cho AI (đường có API key) để chọn đúng field / controller.</summary>
+    public static List<string> LookupHints(string content, string sourcePath) =>
+        LookupDescRx.Matches(Fold(content))
+            .Select(m => Regex.Replace(m.Groups["n"].Value, @"\s+(bat buoc|khong bat buoc|khong)\b.*$", "").Trim())
+            .Where(n => n.Length > 1).Distinct()
+            .Select(n => (n, r: ResolveLookupNoun(n, sourcePath)))
+            .Where(x => x.r is not null)
+            .Select(x => $"“danh mục {x.n}” → field {x.r!.Value.Field}, autoComplete {x.r.Value.Controller}")
+            .ToList();
+
+    /// <summary>
+    /// Tên ngắn cho chỉ tiêu theo tháng (thêm hậu tố 01..12): ngân sách dự toán → ns_dt, số lượng dự toán → sl_dt, đơn giá dự toán → gia_dt,
+    /// số tiền phát sinh ngoài dự toán → ps_ndt. Từ lạ lấy chữ đầu.
+    /// </summary>
+    internal static string MonthBase(string phrase)
+    {
+        var f = Fold(phrase);
+        var map = new (string W, string A)[]
+        {
+            ("ngoai du toan", "ndt"), ("ngoai ke hoach", "nkh"), ("du toan", "dt"), ("ke hoach", "kh"), ("ngan sach", "ns"), ("so luong", "sl"),
+            ("don gia", "gia"), ("gia", "gia"), ("phat sinh", "ps"), ("chi phi", "cp"), ("thuc te", "tt"), ("doanh thu", "doanh_thu"),
+            ("so tien", "tien"), ("tien", "tien"), ("phe duyet", "pd"),
+        };
+        var parts = new List<string>();
+        var letters = "";
+        var rest = Regex.Replace(Regex.Replace(f, @"[^a-z0-9 ]+", " "), @"\s+", " ").Trim();
+        while (rest.Length > 0)
+        {
+            var hit = map.FirstOrDefault(x => rest == x.W || rest.StartsWith(x.W + " "));
+            if (hit.W is not null)
+            {
+                if (letters.Length > 0) { parts.Add(letters); letters = ""; }
+                parts.Add(hit.A);
+                rest = rest[hit.W.Length..].TrimStart();
+                continue;
+            }
+            var sp = rest.IndexOf(' ');
+            var word = sp < 0 ? rest : rest[..sp];
+            if (word is not ("cua" or "cac" or "va" or "theo" or "trong")) letters += word[0];
+            rest = sp < 0 ? "" : rest[(sp + 1)..];
+        }
+        if (letters.Length > 0) parts.Add(letters);
+        if (parts.Count > 1 && parts[0] == "tien") parts.RemoveAt(0);   // "số tiền phát sinh …" → ps_…
+        var s = string.Join('_', parts);
+        if (s.Length == 0) s = "ct";
+        return s.Length > 12 ? s[..12].TrimEnd('_') : s;
     }
 
     private static string Reply(string kind, string summary, List<string> notes, List<string> questions, JsonObject? spec) =>
@@ -262,7 +530,7 @@ public static class FastCatalogRules
         {
             ["name"] = c.Name, ["sqlType"] = c.SqlType, ["headerV"] = c.V, ["headerE"] = c.E, ["width"] = width,
             ["inGrid"] = !sys && !second, ["inForm"] = !sys, ["inLookup"] = isKey || isName, ["inFilter"] = isKey || isName,
-            ["inImport"] = !sys, ["allowNulls"] = !isKey, ["readOnly"] = false, ["hidden"] = false,
+            ["inImport"] = !sys, ["allowNulls"] = !isKey && c.Required != true, ["readOnly"] = false, ["hidden"] = false,
             ["autoComplete"] = isKey || isName ? "" : c.Controller,
         };
     }
@@ -289,7 +557,8 @@ public static class FastCatalogRules
         // "Gồm các trường:" / "Thông tin khai báo:" gần tên danh mục ưu tiên hơn dấu ":" ngay sau tên (sau đó hay là "Mục đích: …").
         if (IntroRx.Match(rest) is { Success: true } intro && intro.Index < 600) start = intro.Index + intro.Length - 1;
         else if (Regex.Match(rest, @"^[ \t]*[“”""']?[ \t]*:") is { Success: true } here) start = here.Index + here.Length - 1;
-        else if (rest.IndexOf('\n') is var nl and >= 0 && Regex.IsMatch(rest[(nl + 1)..], @"^[ \t]*" + Bullet + @"[ \t]*\S")) start = nl;
+        // Gạch đầu dòng ở dòng sau (có thể cách vài dòng trống — y/c FSG hay có).
+        else if (rest.IndexOf('\n') is var nl and >= 0 && Regex.IsMatch(rest[(nl + 1)..], @"^([ \t]*\n)*[ \t]*" + Bullet + @"[ \t]*\S")) start = nl;
         else return new();
 
         var lines = rest[(start + 1)..].Split('\n');
@@ -320,6 +589,15 @@ public static class FastCatalogRules
             var desc = "";
             if (text.IndexOf(':') is var colon and > 0) { desc = text[(colon + 1)..].Trim(); text = text[..colon]; }
             text = Regex.Replace(text, @"\([^)]*\)|\[[^\]]*\]", "").Trim().TrimEnd('.', ',', ';').Trim();
+            // "Khai báo ngân sách dự toán theo 12 tháng trong năm để so sánh với …" → "ngân sách dự toán" + đánh dấu theo tháng.
+            text = Regex.Replace(text, @"(?i)^(khai\s*b[áa]o|nh[ậa]p|theo\s*d[õo]i|c[ậa]p\s*nh[ậa]t)\s+", "");
+            text = Regex.Replace(text, @"(?i)\s+(đ[ểe]|d[ùu]ng\s+đ[ểe]|nh[ằa]m|nh[ưu]ng)\s.*$", "");
+            if (MonthlyRx.IsMatch(text))
+            {
+                text = Regex.Replace(MonthlyRx.Replace(text, " "), @"(?i)\s+c[ủu]a\s+.*$", "");
+                desc = (desc + " " + MonthlyTag).Trim();
+            }
+            text = Regex.Replace(text, @"\s+", " ").Trim();
             // Dòng mô tả ("Mục đích…", "Màn hình…", "Gồm các trường") không phải cột.
             if (text.Length is 0 or > 60 || IntroRx.IsMatch(text + ":")
                 || Regex.IsMatch(Fold(text), @"^(muc dich|man hinh|duong dan|yeu cau|link|luu y|chuc nang|thuc hien|master|detail|cho phep|mo ta|giai phap|vi du)\b")) return false;
@@ -330,7 +608,7 @@ public static class FastCatalogRules
 
     private const string Bullet = @"(?:[-+*•–▪●◦·]|o(?=[ \t])|\d+[.)])";
     private static readonly Regex BulletRx = new(@"^[ \t]*(?<m>" + Bullet + @")[ \t]*", RegexOptions.Compiled);
-    private static readonly Regex IntroRx = new(@"(?i)(th[ôo]ng tin(\s+(khai b[áa]o|theo d[õo]i|g[ồo]m|qu[ảa]n l[ýy]))?|(g[ồo]m\s+)?c[áa]c\s+(tr[ườu][ờo]ng|c[ộo]t|th[ôo]ng tin)|bao g[ồo]m|g[ồo]m|chi ti[ếe]t\s+g[ồo]m)\s*:", RegexOptions.Compiled);
+    private static readonly Regex IntroRx = new(@"(?i)(th[ôo]ng tin(\s+(khai b[áa]o|theo d[õo]i|g[ồo]m|qu[ảa]n l[ýy]))?|(g[ồo]m\s+)?c[áa]c\s+(tr[ườu][ờo]ng|c[ộo]t|th[ôo]ng tin)|bao g[ồo]m|g[ồo]m|chi ti[ếe]t\s+g[ồo]m)(\s+sau(\s+đ[âa]y)?)?\s*:", RegexOptions.Compiled);
 
     private static List<(string P, string D)> SplitPhrases(string list) =>
         Regex.Split(list, @"\s*(?:,|;|\s+v[àa]\s+|\s+ho[ặa]c\s+)\s*")
@@ -342,25 +620,23 @@ public static class FastCatalogRules
             })
             .Where(p => p.P.Length is > 0 and <= 60).DistinctBy(p => p.P, StringComparer.OrdinalIgnoreCase).ToList();
 
-    /// <summary>Mô tả "Lookup từ danh mục quốc gia" / "chọn từ danh mục đơn vị" → gắn lookup thường dùng nếu cụm chưa có lookup.</summary>
-    private static Col WithLookupHint(Col c, string desc)
+    /// <summary>Mô tả "Lookup từ Danh mục nhóm phí" / "chọn từ danh mục kho hàng" → gắn lookup chuẩn (<see cref="ResolveLookupNoun"/>) nếu cụm chưa có lookup.
+    /// Tên cột giữ nguyên khi field đó (header.xml) có lookup cùng controller; không thì dùng field chuẩn của lookup ("Trạm" lookup kho → ma_kho).</summary>
+    private static Col WithLookupHint(Col c, string desc, string sourcePath)
     {
         if (c.Controller.Length > 0 || desc.Length == 0) return c;
-        var m = Regex.Match(Fold(desc), @"(lookup|chon|lay)\s+(tu|theo|trong)\s+(danh muc\s+|dm\s*)?(?<n>[a-z /]+)");
-        if (!m.Success) return c;
-        var noun = m.Groups["n"].Value.Trim();
-        foreach (var l in CommonLookups)
-            if (l.Words.Any(w => noun == w || noun.StartsWith(w + " ")))
-            {
-                // Tên đoán (?) → dùng field chuẩn của lookup; tên đã tra được từ điển → giữ, chỉ gắn lookup.
-                var field = c.Note == "?" ? l.Field : c.Name;
-                return c with { Name = field, SqlType = "varchar(32)", Controller = l.Controller, Note = $"{c.V} → {field} ({l.Controller})" };
-            }
-        return c;
+        var m = LookupDescRx.Match(Fold(desc));
+        if (!m.Success || ResolveLookupNoun(m.Groups["n"].Value, sourcePath) is not { } l) return c;
+        var keep = FieldDictionaryService.Instance.Lookups(c.Name).Any(x => x.Controller.Equals(l.Controller, StringComparison.OrdinalIgnoreCase));
+        var field = keep ? c.Name : l.Field;
+        return c with { Name = field, SqlType = "varchar(32)", Controller = l.Controller, Note = $"{c.V} → {field} ({l.Controller})" };
     }
 
-    private static string? ExplicitTable(string content) =>
-        Regex.Matches(content, @"\b(z?dm[a-z0-9_]{1,30})\b", RegexOptions.IgnoreCase).Select(m => m.Value.ToLowerInvariant()).FirstOrDefault();
+    /// <summary>Tên bảng y/c ghi rõ: "bảng / table zdmxxx" hoặc 1 từ bắt đầu bằng tiền tố bảng mới (zdm…). Tên bảng chuẩn nhắc tới trong
+    /// mô tả ("dmvt.nh_vt9", "lấy từ dmkh") KHÔNG tính — trước đây "Danh mục dự án" bị gán nhầm bảng dmvt.</summary>
+    private static string? ExplicitTable(string content, string prefix) =>
+        Regex.Match(content, @"(?i)\b(b[ảa]ng|table)\s+(dbo\.)?(?<t>z?dm[a-z0-9_]{1,30})\b") is { Success: true } bm ? bm.Groups["t"].Value.ToLowerInvariant()
+        : Regex.Matches(content, @"\b" + Regex.Escape(prefix) + @"[a-z0-9_]{1,30}\b", RegexOptions.IgnoreCase).Select(m => m.Value.ToLowerInvariant()).FirstOrDefault();
 
     /// <summary>Chữ đầu mỗi từ (hình thức bán hàng → htbh); 1 từ thì giữ nguyên; "nhóm" → nh, "loại"/"kiểu" giữ cả từ (nhóm khách hàng → nhkh, loại hợp đồng → loaihd).</summary>
     internal static string Abbrev(string folded)
@@ -378,13 +654,17 @@ public static class FastCatalogRules
         var p = Cap(phrase);
         var f = Fold(phrase);
         // "Mã" / "Mã loại" (đầu của tên danh mục "loại hợp đồng") / "Mã loại hợp đồng" = khoá; tương tự "Tên ...".
-        bool Own(string prefix) => f == prefix || f == prefix + " so" || (f.StartsWith(prefix + " ") && (catFolded + " ").StartsWith(f[(prefix.Length + 1)..] + " "));
+        // "Mã liên doanh" của "loại hình liên doanh": phần sau Mã/Tên là đầu HOẶC đuôi tên danh mục.
+        bool Own(string prefix) => f == prefix || f == prefix + " so" || (f.StartsWith(prefix + " ") && (catFolded + " ").StartsWith(f[(prefix.Length + 1)..] + " "))
+            || (f.StartsWith(prefix + " ") && (" " + catFolded).EndsWith(" " + f[(prefix.Length + 1)..]));
         if (Own("ma")) return new Col("ma_" + code, "varchar(32)", p, "Code", "", "");
         if (Own("ten")) return new Col("ten_" + code, "nvarchar(256)", p, "Name", "", "");
         if (f is "ten tieng anh" or "ten 2" or "ten khac" or "ten english" or "ten thu 2" or "ten thu hai" || (f.StartsWith("ten ") && Regex.IsMatch(f, @" (khac|2|tieng anh)$"))) return new Col("ten_" + code + "2", "nvarchar(256)", "Tên 2", "Name 2", "", "");
         if (f is "ghi chu" or "chu thich") return new Col("ghi_chu", "nvarchar(512)", "Ghi chú", "Note", "", "");
         if (f is "dien giai" or "mo ta" or "noi dung") return new Col("dien_giai", "nvarchar(512)", p, "Description", "", "");
         if (f is "trang thai" or "tinh trang" or "su dung" or "con su dung" or "ngung su dung" or "status") return new Col("status", "char(1)", "Trạng thái", "Status", "", "");
+        if (f.StartsWith("nhom") && BestHeaderField(f + " 1") is { Lookup: { Controller.Length: > 0 } gl } ge)
+            return new Col(ge.Name, "varchar(32)", p, ge.HeaderE.Length > 0 ? ge.HeaderE : HeaderTranslator.Instance.Translate(p) ?? p, gl.Controller, $"{p} → {ge.Name} ({gl.Controller})");
         if (f.StartsWith("nhom") && !f.StartsWith("nhom kh") && !f.StartsWith("nhom vt"))
         {
             groupNo++;
@@ -426,6 +706,7 @@ public static class FastCatalogRules
             case "Int16": case "Int32": return "int";
             case "Byte": return "tinyint";
         }
+        if (Regex.IsMatch(folded, @"^(nam|thang|ky|quy|lan|so lan|lan cap nhat|lan dieu chinh)\b") && !folded.StartsWith("nam ")) return "int";   // Năm / Lần cập nhật (Fast: nam int)
         if (name.StartsWith("ngay", StringComparison.OrdinalIgnoreCase) || folded.StartsWith("ngay") || folded.Contains("thoi gian")) return "smalldatetime";
         if (Regex.IsMatch(folded, @"\b(so luong|sl|tien|gia|don gia|ty le|ty gia|phan tram|chiet khau|thue suat|tri gia|gia tri)\b") || folded.Contains('%')) return "numeric(19,4)";
         if (Regex.IsMatch(folded, @"^(co |cho phep|la |kiem tra)") || name.EndsWith("_yn", StringComparison.OrdinalIgnoreCase)) return "bit";

@@ -79,7 +79,7 @@ Bcode.App/
 │   ├── NativeQueryHistoryControl.cs  344
 │   ├── NativeResultPane.cs  301
 │   ├── NativeShellBars.cs  254
-│   ├── NativeSqlControl.cs  1763
+│   ├── NativeSqlControl.cs  1859
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -89,14 +89,14 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  491
-│   ├── RawSqlControl.cs  2451
+│   ├── RawSqlControl.cs  2456
 │   ├── ResultGridMenu.cs  477
 │   ├── ScriptEditorControl.cs  1210
 │   ├── SetupEInvoiceControl.cs  121
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  467
-│   ├── SqlPeekPanel.cs  100
+│   ├── SqlPeekPanel.cs  128
 │   ├── SqlProfilerControl.cs  1565
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
@@ -207,7 +207,7 @@ Bcode.App/
 │   │   └── XsdSchemaWriter.cs  110
 │   ├── AdvanceNoteService.cs  154
 │   ├── AdvancePackageBuilder.cs  170
-│   ├── AiCatalogService.cs  434
+│   ├── AiCatalogService.cs  449
 │   ├── AiChatService.cs  79
 │   ├── AiHistoryStore.cs  76
 │   ├── AppCommandService.cs  382
@@ -235,7 +235,7 @@ Bcode.App/
 │   ├── DiffService.cs  207
 │   ├── EInvoiceSetupService.cs  179
 │   ├── EntityCheckService.cs  263
-│   ├── FastCatalogRules.cs  533
+│   ├── FastCatalogRules.cs  814
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
 │   ├── FileLookupService.cs  1165
@@ -305,7 +305,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  322
+│   ├── ShortcutRegistry.cs  324
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  715
 │   ├── TreeColorOptions.cs  50
@@ -377,7 +377,7 @@ Bcode.App/
 │       ├── searchbox.html  161
 │       ├── setupeinvoice.html  146
 │       ├── shell.css  255
-│       ├── sqleditor.html  1474
+│       ├── sqleditor.html  1516
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  595
 │       ├── sqlhistory.html  317

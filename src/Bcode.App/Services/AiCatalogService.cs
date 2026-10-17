@@ -132,8 +132,9 @@ public sealed class AiCatalogService
             }
 
             progress?.Invoke(round == 1 ? "Đang hỏi AI..." : $"Đang hỏi AI (lượt {round}, đã gửi thêm cột bảng được xin)...");
-            var user = BuildUserPrompt(requestName, content, tables, columns, answers);
-            var (raw, engine) = await _ask(SystemPrompt.Replace("@@PREFIX@@", _tablePrefix), user);
+            var user = BuildUserPrompt(requestName, content, tables, columns, answers, FastCatalogRules.LookupHints(content, _sourcePath));
+            var dataPrefix = Regex.Replace(_tablePrefix, "dm$", "") is { Length: > 0 } dp ? dp : "z";
+            var (raw, engine) = await _ask(SystemPrompt.Replace("@@PREFIX@@", _tablePrefix).Replace("@@DATAPREFIX@@", dataPrefix), user);
             AiHistoryStore.Add("Danh mục", engine, $"[{requestName}] AI tạo danh mục", Clip(content, 300), raw);
 
             var parsed = Parse(raw);
@@ -221,11 +222,18 @@ ghi_chu nvarchar(512) when useful, status char(1) (1 = đang sử dụng), datet
 A NEW detail table is named catalog table + "ct" (e.g. "@@PREFIX@@loaihdct") and has the catalog key columns + line_nbr int + its own columns + the same system columns.
 Headers: Vietnamese with full diacritics ("Mã ...", "Tên ...", "Tên 2", "Ghi chú", "Trạng thái"), English short.
 Never invent existing tables or columns: use only names from the schema you were given.
+DATA-ENTRY SCREENS: the same tool also builds a NEW single-table screen for declaring / updating figures (e.g. menu "Cập nhật dự toán", "Khai báo kế hoạch / ngân sách / định mức"). Answer loai "danh_muc" for it too. For such a screen:
+  - table: prefix "@@DATAPREFIX@@" (the catalog prefix without "dm") + a short name from the menu title without the verb, e.g. "Cập nhật dự toán" → "@@DATAPREFIX@@dutoan". Never use the catalog prefix "@@PREFIX@@" for it.
+  - no code/name pair (no ma_xxx / ten_xxx / ten_xxx2 of its own, no status): keys = the dimension columns that identify one row (unit ma_dvcs, year nam, department ma_bp, item ma_vt, ..., update number lan_cap_nhat), leaving out columns the requirement says are optional ("không bắt buộc"); nameField "", lookup false. Ask once in cau_hoi to confirm the key.
+  - values "theo 12 tháng" / "mỗi tháng" → 12 numeric columns per measure named short code + 01..12 (e.g. ns_dt01..ns_dt12, sl_dt01..sl_dt12, gia_dt01..gia_dt12, ps_ndt01..ps_ndt12) with inGrid false, unless the developer answered to use a detail grid by month (then detail table = table + "ct", detail keys = keys + thang). Ask once which layout they prefer.
+For every screen: a phrase like "Lookup từ Danh mục X" / "chọn từ danh mục X" describes the lookup of ONE COLUMN, never the screen to create; use the standard field / controller given under "LOOKUP CHUẨN" when present.
+"bắt buộc nhập" → allowNulls false. Money ("Nhập số tiền"), quantity and price: numeric(19,4); year (nam) and counters (lan_cap_nhat): int.
 The menu entry is created afterwards in the tool's Menu tab, so do not ask or note about it. Behaviour beyond the standard catalog (auto-filling fields, formulas, special checks) is coded by hand later: mention it once in ghi_chu, do not ask about it.
 """;
 
     public static string BuildUserPrompt(string requestName, string content, IReadOnlyList<string> tables,
-        IReadOnlyDictionary<string, List<AiTableColumn>> columns, IReadOnlyList<(string Question, string Answer)> answers)
+        IReadOnlyDictionary<string, List<AiTableColumn>> columns, IReadOnlyList<(string Question, string Answer)> answers,
+        IReadOnlyList<string>? lookupHints = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"--- YÊU CẦU (mã {requestName}) ---");
@@ -251,6 +259,13 @@ The menu entry is created afterwards in the tool's Menu tab, so do not ask or no
                 var ac = FieldDictionaryService.Instance.Lookups(c.Name).Select(l => l.Controller).Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList();
                 sb.AppendLine($"  {c.Name} {c.SqlType}{(c.IsPrimaryKey ? " PK" : "")}{(ac.Count > 0 ? " ac: " + string.Join(" | ", ac) : "")}");
             }
+        }
+
+        if (lookupHints is { Count: > 0 })
+        {
+            sb.AppendLine();
+            sb.AppendLine("--- LOOKUP CHUẨN (tra từ header.xml / source cho các cụm \"Lookup từ danh mục …\" trong yêu cầu) ---");
+            foreach (var h in lookupHints) sb.AppendLine(h);
         }
 
         if (answers.Count > 0)

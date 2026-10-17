@@ -32,7 +32,12 @@
   .chip.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 22%, var(--button-back)); font-weight: 600; }
   .chip small { color: var(--text-muted); }
   .chip.late { border-color: #d9534f; } .chip.late.on { background: color-mix(in srgb, #d9534f 28%, var(--button-back)); }
-  #saved { flex: none; display: none; flex-wrap: wrap; align-items: center; gap: .35rem; padding: .3rem .8rem; border-bottom: var(--bw) solid var(--border); color: var(--text-muted); font-size: .9rem; } #saved.on { display: flex; }
+  #saved { flex: none; display: none; padding: .3rem .8rem; border-bottom: var(--bw) solid var(--border); color: var(--text-muted); font-size: .9rem; } #saved.on { display: block; }
+  /* Mặc định chỉ 1 dòng tóm tắt + chip dự án đang chọn; "Xem tất cả" mở danh sách (có lọc, cao tối đa ~5 dòng, cuộn) — hàng trăm dự án không còn che màn hình. */
+  #saved .svhead { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem; }
+  #saved .svhead input { width: 12rem; padding: .05rem .4rem; }
+  #saved .svlist { display: flex; flex-wrap: wrap; align-content: flex-start; gap: .35rem; margin-top: .35rem; max-height: 8.6rem; overflow: auto; }
+  #saved .svnone { font-style: italic; }
   #saved .sv { display: inline-flex; align-items: center; gap: .3rem; padding: 0 .55rem; border: var(--bw) solid var(--border); border-radius: 999px; background: var(--button-back); color: var(--text); } #saved .sv b { font-weight: 600; } #saved .sv button { padding: 0 .3rem; border: none; background: none; color: var(--text-muted); } #saved .sv button:hover { color: #e66; }
   #vf { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .9rem; padding: .35rem .8rem; border-bottom: var(--bw) solid var(--border); } body.dash #vf { display: none; }
   #vf label { color: var(--text-muted); display: inline-flex; align-items: center; gap: .35rem; } #vf select { max-width: 13rem; } #vf button { padding: .1rem .6rem; }
@@ -349,7 +354,42 @@
   });
   $('auto').addEventListener('change', () => { clearInterval(timer); const m = +$('auto').value; if (m > 0) timer = setInterval(fetchNow, m * 60000); });
 
-  $('saved').addEventListener('click', (e) => { const b = e.target.closest('[data-drop]'); if (b && confirm('Bỏ dữ liệu đã lưu của dự án ' + b.dataset.drop + '? (kéo lại là có)')) post('drop', { ma: b.dataset.drop }); });
+  // ---- Dữ liệu đã lưu: thu gọn 1 dòng (tổng + dự án đang nhập ở ô Mã dự án), "Xem tất cả" mở danh sách có lọc + cuộn ----
+  let savedProjects = [], savedOpen = false, savedFilter = '';
+  try { savedOpen = localStorage.getItem('fsgreq.savedOpen') === '1'; } catch { /* không có localStorage */ }
+  const savedChip = (x) => `<span class="sv" title="Kéo lúc ${esc(fmtAt(x.at))}"><b>${esc(x.ma || '(trống)')}</b> ${x.n} yêu cầu · ${esc(fmtAt(x.at))}<button data-drop="${esc(x.ma)}" title="Bỏ dữ liệu đã lưu của dự án này">✕</button></span>`;
+  function renderSavedList() {
+    const box = $('svList'); if (!box) return;
+    const q = savedFilter.trim().toLowerCase();
+    const list = q ? savedProjects.filter((x) => (x.ma || '').toLowerCase().includes(q)) : savedProjects;
+    box.innerHTML = list.length ? list.map(savedChip).join('') : '<span class="svnone">Không có dự án nào khớp.</span>';
+  }
+  function renderSaved() {
+    const pj = savedProjects;
+    $('saved').className = pj.length ? 'on' : '';
+    if (!pj.length) { $('saved').innerHTML = ''; return; }
+    const total = pj.reduce((s, x) => s + (x.n || 0), 0);
+    const curKey = idKey($('maDa').value || '');
+    const cur = curKey ? pj.find((x) => idKey(x.ma) === curKey) : null;
+    $('saved').innerHTML = '<div class="svhead"><span>Dữ liệu đã lưu: <b>' + pj.length + '</b> dự án · ' + total + ' yêu cầu</span>'
+      + (cur && !savedOpen ? savedChip(cur) : '')
+      + '<button id="svToggle" title="' + (savedOpen ? 'Ẩn danh sách dự án đã lưu' : 'Hiện mọi dự án đã lưu (lọc được, bỏ từng dự án bằng ✕)') + '">' + (savedOpen ? 'Thu gọn ▴' : 'Xem tất cả ▾') + '</button>'
+      + (savedOpen ? '<input id="svFilter" type="search" placeholder="Lọc mã dự án…" spellcheck="false" value="' + esc(savedFilter) + '">' : '')
+      + '</div>' + (savedOpen ? '<div class="svlist" id="svList"></div>' : '');
+    renderSavedList();
+  }
+  $('saved').addEventListener('click', (e) => {
+    if (e.target.closest('#svToggle')) {
+      savedOpen = !savedOpen;
+      try { localStorage.setItem('fsgreq.savedOpen', savedOpen ? '1' : '0'); } catch { /* bỏ qua */ }
+      renderSaved();
+      if (savedOpen && $('svFilter')) $('svFilter').focus();
+      return;
+    }
+    const b = e.target.closest('[data-drop]'); if (b && confirm('Bỏ dữ liệu đã lưu của dự án ' + b.dataset.drop + '? (kéo lại là có)')) post('drop', { ma: b.dataset.drop });
+  });
+  $('saved').addEventListener('input', (e) => { if (e.target.id === 'svFilter') { savedFilter = e.target.value; renderSavedList(); } });
+  $('maDa').addEventListener('input', () => { if (!savedOpen) renderSaved(); });
   $('chips').addEventListener('click', (e) => {
     const c = e.target.closest('.chip'); if (!c) return;
     if (c.dataset.unmf) mf = null; else if (c.dataset.untl) tlksF = ''; else if (c.dataset.undim) dimF.splice(+c.dataset.undim - 1, 1); else if (c.dataset.late) onlyLate = !onlyLate; else { const g = c.dataset.g; if (on.has(g)) on.delete(g); else on.add(g); }
@@ -429,8 +469,8 @@
       if (r.rows) rows = r.rows; today = r.today || today; fetchedAt = r.fetchedAt || fetchedAt;
       const pj = r.projects || [];
       if (r.projects) savedSet = new Set(pj.map((x) => idKey(x.ma)));
-      $('saved').className = pj.length ? 'on' : '';
-      $('saved').innerHTML = pj.length ? '<span>Dữ liệu đã lưu:</span>' + pj.map((x) => `<span class="sv" title="Kéo lúc ${esc(fmtAt(x.at))}"><b>${esc(x.ma || '(trống)')}</b> ${x.n} yêu cầu · ${esc(fmtAt(x.at))}<button data-drop="${esc(x.ma)}" title="Bỏ dữ liệu đã lưu của dự án này">✕</button></span>`).join('') : '';
+      if (r.projects) savedProjects = pj;
+      renderSaved();
       render();
       if (r.cached && !r.error) { $('msg').className = 'on note'; $('msg').textContent = 'Đang hiện dữ liệu đã lưu lần kéo trước' + (fetchedAt ? ' (' + fmtAt(fetchedAt) + ')' : '') + ' — bấm “Kéo về” để cập nhật.'; }
       if (!r.error && !rows.length) { $('empty').hidden = false; $('empty').textContent = 'Không có yêu cầu nào theo điều kiện đã nhập.'; }

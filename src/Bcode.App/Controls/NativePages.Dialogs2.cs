@@ -131,9 +131,9 @@ internal sealed class LicenseKeyPage : DialogPage
         var body = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(14, 8, 14, 8) };
         var h = new Label { Text = "Key bản quyền", AutoSize = true, Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 3, FontStyle.Bold), BackColor = Color.Transparent };
         var feats = NK.Muted("Key mở khoá: Decrypt SQL Object (giải mã object WITH ENCRYPTION) · Create RPT & XML (Excel / Pivot Excel mẫu + header report XML) · Excel → FRX (Excel mẫu in → FastReport .frx).", true);
-        var s1 = NK.Muted("Bước 1. Gửi Mã máy này cho người cấp key (gắn với tên máy + IP, mỗi máy một mã riêng):", true);
+        var s1 = NK.Muted("Bước 1. Gửi Mã máy này cho người cấp key (gắn với tên máy + định danh phần cứng, mỗi máy một mã riêng; đổi mạng / mang laptop về nhà vẫn dùng được):", true);
         _bPaste = NK.Button("Dán từ clipboard", () => Post(new { action = "paste" })); _bSave = NK.Button("Xác nhận", SaveKey, primary: true); _bClear = NK.Button("Xoá key đã lưu", () => Post(new { action = "clear" }));
-        var s2 = NK.Muted("Bước 2. Dán key nhận lại rồi bấm Xác nhận. Chỉ cần dán một lần: key được nhớ lại. Key chỉ dùng được trên máy đã gửi mã; đổi tên máy hoặc IP thì cần xin cấp lại.", true);
+        var s2 = NK.Muted("Bước 2. Dán key nhận lại rồi bấm Xác nhận. Chỉ cần dán một lần: key được nhớ lại. Key chỉ dùng được trên máy đã gửi mã; đổi tên máy hoặc cài lại Windows thì cần xin cấp lại.", true);
         var copyRow = NK.Row(_machine, NK.Button("Copy mã máy", () => { Post(new { action = "copy", text = _machine.Text }); Say("Đã copy mã máy.", "ok"); }));
         _machine.Width = NativeSkin.S(380);
         foreach (var c in new Control[] { h, feats, s1, copyRow, s2, _key, NK.Row(_bPaste, _bSave, _bClear) }) body.Controls.Add(c);
@@ -164,7 +164,7 @@ internal sealed class LicenseKeyPage : DialogPage
                 var o = Arg(a, 0);
                 Busy(false);
                 var unlocked = PB(o, "unlocked"); var hasKey = PB(o, "hasKey");
-                _state.Text = unlocked ? "✓ Đã kích hoạt trên máy này." : hasKey ? "✗ Key đã lưu không còn khớp (đổi máy / tên máy / IP hoặc bản Bcode mới) — các tính năng đang bị khoá." : "✗ Chưa kích hoạt — các tính năng đang bị khoá.";
+                _state.Text = unlocked ? "✓ Đã kích hoạt trên máy này." : hasKey ? "✗ Key đã lưu không còn khớp (đổi máy / tên máy / cài lại Windows hoặc bản Bcode mới) — các tính năng đang bị khoá." : "✗ Chưa kích hoạt — các tính năng đang bị khoá.";
                 _state.ForeColor = unlocked ? AppColors.Success : AppColors.Accent;
                 _machine.Text = P(o, "machine");
                 var reason = P(o, "reason"); _reason.Text = reason; _reason.Height = reason.Length > 0 ? 42 : 0;

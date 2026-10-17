@@ -45,11 +45,11 @@
   <div class="hint">Key mở khoá các tính năng:
     <ul><li><b>Decrypt SQL Object</b> (giải mã object WITH ENCRYPTION)</li><li><b>Create RPT &amp; XML</b> (tạo Excel / Pivot Excel mẫu + khai báo header trong report XML)</li><li><b>Excel → FRX</b> (chuyển Excel mẫu in thành FastReport .frx)</li></ul></div>
   <div>
-    <div class="hint" style="margin-bottom:.3rem"><b>Bước 1.</b> Gửi <b>Mã máy</b> này cho người cấp key (mã gắn với tên máy + IP, mỗi máy một mã riêng):</div>
+    <div class="hint" style="margin-bottom:.3rem"><b>Bước 1.</b> Gửi <b>Mã máy</b> này cho người cấp key (mã gắn với tên máy + định danh phần cứng, mỗi máy một mã riêng; đổi mạng / mang laptop về nhà vẫn dùng được):</div>
     <div class="row"><input type="text" id="machine" readonly class="grow"><button id="bCopyMachine">Copy mã máy</button></div>
   </div>
   <div>
-    <div class="hint" style="margin-bottom:.3rem"><b>Bước 2.</b> Dán key nhận lại rồi bấm <b>Xác nhận</b>. Chỉ cần dán <b>một lần</b>: key được nhớ lại, mở lại Bcode không phải dán lại. Key chỉ dùng được trên máy đã gửi mã; đổi tên máy hoặc IP thì cần xin cấp lại.</div>
+    <div class="hint" style="margin-bottom:.3rem"><b>Bước 2.</b> Dán key nhận lại rồi bấm <b>Xác nhận</b>. Chỉ cần dán <b>một lần</b>: key được nhớ lại, mở lại Bcode không phải dán lại. Key chỉ dùng được trên máy đã gửi mã; đổi tên máy hoặc cài lại Windows thì cần xin cấp lại.</div>
     <textarea id="key" rows="3" spellcheck="false" placeholder="Dán key vào đây..."></textarea>
   </div>
   <div class="row"><button id="bPaste">Dán từ clipboard</button><button id="bSave" class="primary">Xác nhận</button><button id="bClear">Xoá key đã lưu</button><span class="grow"></span></div>
@@ -76,7 +76,7 @@
       setBusy(false);
       const s = $('state');
       s.className = o.unlocked ? 'ok' : 'no';
-      s.textContent = o.unlocked ? '✓ Đã kích hoạt trên máy này.' : (o.hasKey ? '✗ Key đã lưu không còn khớp (đổi máy / tên máy / IP hoặc bản Bcode mới) — các tính năng đang bị khoá.' : '✗ Chưa kích hoạt — các tính năng đang bị khoá.');
+      s.textContent = o.unlocked ? '✓ Đã kích hoạt trên máy này.' : (o.hasKey ? '✗ Key đã lưu không còn khớp (đổi máy / tên máy / cài lại Windows hoặc bản Bcode mới) — các tính năng đang bị khoá.' : '✗ Chưa kích hoạt — các tính năng đang bị khoá.');
       $('machine').value = o.machine || '';
       $('reason').style.display = o.reason ? 'block' : 'none'; $('reason').textContent = o.reason || '';
       if (o.unlocked) $('key').value = '';

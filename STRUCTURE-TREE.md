@@ -250,7 +250,7 @@ Bcode.App/
 │   ├── IDecryptionProvider.cs  26
 │   ├── IncludeCheckService.cs  443
 │   ├── LicenseSecret.cs  14
-│   ├── LicenseService.cs  96
+│   ├── LicenseService.cs  163
 │   ├── LookupService.cs  53
 │   ├── MailSettingsReader.cs  85
 │   ├── MailTestService.cs  164
@@ -536,10 +536,10 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  90
+└── Program.cs  94
 ```
 ```
 Shared/
 ├── AiWebHelper.cs  373
-└── LicenseCodec.cs  92
+└── LicenseCodec.cs  99
 ```

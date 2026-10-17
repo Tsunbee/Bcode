@@ -860,10 +860,10 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 Các tính năng **Decrypt SQL Object**, **Create RPT & XML**, **Excel → FRX** và **Tạo báo cáo** cần key bản quyền gắn theo máy.
 
 1. ⚙ Settings → **Key bản quyền...** (hoặc bấm vào tính năng bị khoá — hộp key tự mở).
-2. **Bước 1**: bấm **Copy mã máy** và gửi mã cho người cấp key (mã gắn với tên máy + IP).
+2. **Bước 1**: bấm **Copy mã máy** và gửi mã cho người cấp key. Mã gắn với **tên máy + định danh phần cứng** (MachineGuid của Windows, máy không có thì UUID bo mạch) — không phụ thuộc mạng, nên mang laptop về nhà, đổi Wi-Fi hay bật VPN vẫn dùng được key. Key cấp theo IP ở bản Bcode cũ vẫn dùng được; muốn hết bị mất key khi đổi mạng thì gửi lại mã máy mới để xin key mới.
 3. **Bước 2**: dán key nhận được (hoặc **Dán từ clipboard**) → **Xác nhận**. Chỉ cần dán một lần — key lưu ở `%AppData%\Bcode\license.key`.
 
-Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt". "Key đã lưu không còn khớp" hoặc "Mã không đúng cho máy này" = đã đổi máy, tên máy hoặc IP → xin key mới với mã máy hiện tại. **Xoá key đã lưu** để gỡ.
+Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt". "Key đã lưu không còn khớp" hoặc "Mã không đúng cho máy này" = đã đổi máy, đổi tên máy hoặc cài lại Windows (với key cũ theo IP: đổi mạng) → xin key mới với mã máy hiện tại. **Xoá key đã lưu** để gỡ.
 
 <a id="loi-thuong-gap"></a>
 ## Lỗi hay gặp (Bcode)

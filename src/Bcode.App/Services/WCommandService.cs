@@ -589,6 +589,7 @@ SELECT w.wmenu_id, w.wmenu_id0, w.menu_id, w.bar, w.bar2, w.link, w.sysid
 FROM wcommand w
 JOIN command c ON c.menu_id = w.menu_id
 WHERE ISNULL(w.sysid, '') <> ISNULL(c.sysid, '')
+  AND LTRIM(RTRIM(ISNULL(w.sysid, ''))) <> ''   -- menu không khai sysid (menu nhóm, dòng kẻ '-') thì bỏ qua
 ORDER BY w.wmenu_id;";
 
         await using (var cmd = new SqlCommand(notExistsSql, conn))

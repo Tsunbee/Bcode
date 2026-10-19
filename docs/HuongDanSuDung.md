@@ -127,7 +127,7 @@ Hộp **Synchronize** có 3 chế độ: **Thêm mới 1 mã dự án (ma_da)** 
 
 ### Chọn database đang làm việc
 
-- Ô **WS:** trên thanh trên liệt kê các database **của dự án hiện tại**: "<WS> — <AppDB> (App)", "<WS> — <SysDB> (Sys)" và từng database trong DB Access. Chọn ô nào thì tab SQL Query / Table đang dùng chuyển theo.
+- Ô **WS:** trên thanh trên liệt kê các database **của dự án hiện tại**: "<AppDB> (App)", "<SysDB> (Sys)" và từng database trong DB Access "<DB> (DB)" — chỉ ghi tên database, không kèm mã dự án. Chọn ô nào thì tab SQL Query / Table đang dùng chuyển theo.
 - Nút **Sys** / **App** (hoặc `Ctrl+1` — Switch Database) đổi nhanh giữa 2 database chính.
 - Nút **⟳** cạnh WS = **Refresh database**: nạp lại danh sách object / bảng / cột (dùng sau khi tạo bảng, procedure mới mà gợi ý chưa thấy).
 
@@ -389,6 +389,34 @@ Trên ảnh: **①** DB · **②** ô Table (gợi ý tên bảng) · **③** Fi
 5. `Enter`, **Load** hoặc `F5` → tải dữ liệu. Bảng chỉ có ở database kia → Bcode tự chuyển DB.
 
 Trên lưới hiện khoá chính ("Primary Key: …"); bảng không có khoá chính thì không lưu / xoá được an toàn.
+
+### Menu của bảng
+
+Khi gõ tên bảng hoặc tải bảng, dưới ô Where / Order hiện thêm dòng **Menu:** là màn hình dùng bảng đó. Ví dụ `i74$000000` → *Phiếu nhập kho (inctpnd.aspx)*, `dmkh` → *Danh mục khách hàng (arkh.aspx)*.
+
+- **Bấm** vào một menu → cây **WCommand** bên trái được hiện ra, các nhánh cha mở sẵn và menu đó được chọn, giống như bấm chọn trên cây.
+- Đưa chuột lên một menu để xem mã menu (wmenu_id), đường dẫn trên cây và nguồn tra được.
+- Một bảng có thể ra nhiều menu, ví dụ cùng một danh mục khai ở nhiều phân hệ. Khi đó tên phân hệ hiện trong ngoặc vuông, như *Hóa đơn bán hàng [Bán hàng]*. Tên chỉ khác nhau ở dấu customize `(*)` / `(C)` cũng tính là trùng, ví dụ *Hóa đơn bán hàng (\*) [Bán hàng]* và *Hóa đơn bán hàng [Phải thu]*. Hai bản cùng một phân hệ thì ghi cả đường dẫn cha. Dòng hiện tối đa 4 menu, phần còn lại là "+N" (đưa chuột lên để xem).
+- Cách tra: tên bảng bỏ đuôi kỳ (`$202601`, `$000000`, `$log`). Bcode tìm theo hai nguồn:
+  - Bảng **dmct9** (chứng từ): cột c$ / m$ / d$ / i$ chứa tên bảng, cột url là trang aspx, rồi tìm menu có link trỏ tới trang đó.
+  - Controller của menu trong Source Path: `Dir\<sysid>.f` khai `table="…"` (kể cả khai qua entity như `&Tag;`), cùng các Grid chi tiết mà Dir trỏ tới.
+- Chữ mờ *(fxctcc1.aspx) — chưa thấy menu*: dmct9 có trang aspx nhưng cây WCommand không có menu nào trỏ tới trang đó. Không tra được gì thì dòng Menu không hiện.
+- Kết quả được nhớ theo dự án. Bấm nút ⟳ (Refresh database) để tra lại sau khi sửa dmct9 hoặc source.
+
+### Check Partitions Struct — kiểm cấu trúc bảng phân kỳ
+
+Khi ô **Table** đang là bảng phân kỳ (`i74$000000`, `i74$202601`…), **chuột phải vào ô Table** → **Check Partitions Struct**. Bảng không phân kỳ thì chuột phải vẫn ra menu Cắt / Chép / Dán như cũ.
+
+Bcode so mọi bảng cùng tiền tố (`i74$yyyymm`, kể cả kỳ đặc biệt như `$999999`) với bảng mẫu `i74$000000` (không có bảng mẫu thì so với bảng kỳ đầu tiên), theo DB đang chọn ở ô **DB:**. Bảng `$log` không được xét. Hộp kết quả gồm:
+
+- Dòng đầu: **Tables are same structure** (chữ xanh) khi mọi bảng giống nhau, hoặc chữ đỏ "N/M bảng kỳ khác cấu trúc so với …".
+- Lưới **Table | Description**: `OK` = giống bảng mẫu. Bảng khác thì tên bảng in đỏ, cột Description ghi rõ:
+  - **Thiếu cột** / **Thừa cột**;
+  - **Khác kiểu**: kiểu, độ dài, `null` / `not null` của bảng đó so với bảng mẫu;
+  - **Khác thứ tự cột**: cùng bộ cột nhưng xếp khác. Lỗi này cũng cần sửa, vì tra `xxx$000000` ghép các kỳ bằng UNION ALL theo vị trí cột, lệch thứ tự là sai dữ liệu.
+- **Copy** chép kết quả (Table / Description, cách nhau bằng Tab) để dán vào Excel. **OK** hoặc `Esc` để đóng.
+
+Chỉ đọc cấu trúc (INFORMATION_SCHEMA), không sửa bảng nào. Muốn thêm hoặc sửa cột cho mọi kỳ, dùng chuột phải tab Structure → **Gen Add Column** / **Gen Alter Column**.
 
 ### Khung trái: Structure / Fields
 

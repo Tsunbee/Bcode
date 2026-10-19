@@ -68,12 +68,24 @@ public sealed class NativeTableBar : Panel
 
         Controls.Add(grid);
         Controls.Add(actions);
+        _menuRow.Height = NativeSkin.RowHeight(this, 20);
+        Controls.Add(_menuRow);   // thêm sau cùng = dock trước: trải hết bề ngang dưới cả khối nút
         Height = NativeSkin.RowHeight(this, 84);
 
         // ---- ô Table: gợi ý tên bảng ----
         _table.TextChanged += (_, _) => { if (_programmatic) return; var r = Rect(_table); Action?.Invoke(new { action = "table-input", value = _table.Text, x = (double)r.Left, y = (double)r.Top, w = (double)r.Width, h = (double)r.Height }); };
         _table.InputKeyDown += (_, e) => OnKey(e, _suggestOpen, "table-key", () => TriggerLoad(), isTable: true);
         _table.Inner.Leave += (_, _) => { _suggestOpen = false; Action?.Invoke(new { action = "table-blur" }); };
+        // Chuột phải ô Table khi đang là bảng phân kỳ → {action:"table-context"} (chủ hiện menu Check Partitions Struct); bảng khác giữ menu sửa chữ mặc định.
+        var hook = new ContextMenuHook(() =>
+        {
+            if (!PeriodTable.IsMatch(_table.Text)) return false;
+            Action?.Invoke(new { action = "table-context", value = _table.Text });
+            return true;
+        });
+        if (_table.Inner.IsHandleCreated) hook.AssignHandle(_table.Inner.Handle);
+        _table.Inner.HandleCreated += (_, _) => hook.AssignHandle(_table.Inner.Handle);
+        _table.Inner.HandleDestroyed += (_, _) => hook.ReleaseHandle();
 
         // ---- Fields / Where / Order / Top: gợi ý tên cột ----
         foreach (var f in new[] { _fields, _where, _order, _top })
@@ -83,6 +95,18 @@ public sealed class NativeTableBar : Panel
             if (field == _top) continue;
             field.TextChanged += (_, _) => { if (!_programmatic) OnColInput(field); };
             field.Inner.Leave += (_, _) => { _colSuggestOpen = false; Action?.Invoke(new { action = "col-blur" }); };
+        }
+    }
+
+    private static readonly Regex PeriodTable = new(@"\$\d{6}\]?\s*$", RegexOptions.Compiled);
+
+    /// <summary>Bắt WM_CONTEXTMENU của ô nhập: hàm trả true = đã xử lý (không hiện menu Cắt/Chép/Dán của Windows).</summary>
+    private sealed class ContextMenuHook(Func<bool> handle) : NativeWindow
+    {
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == 0x007B /* WM_CONTEXTMENU */ && handle()) return;
+            base.WndProc(ref m);
         }
     }
 
@@ -139,6 +163,47 @@ public sealed class NativeTableBar : Panel
     public void SetSuggestOpen(bool open) => _suggestOpen = open;
     public void SetColSuggestOpen(bool open) => _colSuggestOpen = open;
     public void FocusTable() { _table.Inner.Focus(); _table.Inner.SelectAll(); }
+
+    // ---- Menu của bảng (như .menu-row của tablebar.html): "Menu: Phiếu nhập kho (inctpnd.aspx) · …", bấm = {action:"menu-open", index} ----
+    private readonly FlowLayoutPanel _menuRow = new() { Dock = DockStyle.Bottom, Visible = false, WrapContents = false, AutoScroll = false, BackColor = Color.Transparent, Padding = new Padding(0) };
+    private readonly ToolTip _menuTip = new();
+    private Font? _menuFont;
+
+    /// <summary>Hiện / ẩn dòng menu của bảng. <paramref name="items"/> rỗng = ẩn (thanh về chiều cao cũ).</summary>
+    public void SetMenus(IReadOnlyList<(string Text, string Aspx, string Title, bool Ok)> items, int more, string moreTitle)
+    {
+        _menuRow.SuspendLayout();
+        foreach (Control c in _menuRow.Controls.Cast<Control>().ToList()) { _menuTip.SetToolTip(c, null); c.Dispose(); }
+        _menuRow.Controls.Clear();
+        var italic = _menuFont ??= new Font(Font.FontFamily, Font.Size * 0.9f, FontStyle.Italic);
+        Label Muted(string t) => new MutedLabel { Text = t, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 0, 4, 0), Font = italic };
+        if (items.Count > 0) _menuRow.Controls.Add(new MutedLabel { Text = "Menu:", AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 0, 6, 0) });
+        for (var i = 0; i < items.Count; i++)
+        {
+            var it = items[i];
+            if (i > 0) _menuRow.Controls.Add(Muted("·"));
+            Control c;
+            if (it.Ok)
+            {
+                var index = i;
+                var link = new LinkLabel { Text = $"{it.Text} ({it.Aspx})", AutoSize = true, BackColor = Color.Transparent, Font = italic, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(0, 0, 4, 0),
+                    LinkColor = AppColors.Accent, ActiveLinkColor = AppColors.AccentHover, VisitedLinkColor = AppColors.Accent };
+                link.LinkClicked += (_, _) => Action?.Invoke(new { action = "menu-open", index });
+                c = link;
+            }
+            else c = Muted($"({it.Aspx}) — chưa thấy menu");
+            _menuTip.SetToolTip(c, it.Title);
+            _menuRow.Controls.Add(c);
+        }
+        if (more > 0) { var m = Muted("+" + more); _menuTip.SetToolTip(m, moreTitle); _menuRow.Controls.Add(m); }
+        _menuRow.ResumeLayout();
+        var show = items.Count > 0;
+        if (_menuRow.Visible != show)
+        {
+            _menuRow.Visible = show;
+            Height = NativeSkin.RowHeight(this, 84) + (show ? _menuRow.Height : 0);
+        }
+    }
 
     /// <summary>Thay chữ đang gõ (vị trí đã nhớ lúc hiện gợi ý) bằng tên cột được chọn.</summary>
     public void InsertColumn(string name)

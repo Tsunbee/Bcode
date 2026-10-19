@@ -70,9 +70,10 @@ Bcode.App/
 │   ├── NativePages.IncludeCheck.cs  371
 │   ├── NativePages.Note.cs  90
 │   ├── NativePages.Palette.cs  211
+│   ├── NativePages.PartitionCheck.cs  43
 │   ├── NativePages.Profiler.cs  78
 │   ├── NativePages.QuickAccess.cs  215
-│   ├── NativePages.Register.cs  50
+│   ├── NativePages.Register.cs  51
 │   ├── NativePages.RptSchema.cs  186
 │   ├── NativePages.SqlHistory.cs  299
 │   ├── NativePages.Usages.cs  132
@@ -83,7 +84,7 @@ Bcode.App/
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
-│   ├── NativeTableBar.cs  163
+│   ├── NativeTableBar.cs  228
 │   ├── NativeWeeklyMailControl.cs  366
 │   ├── NoteControl.cs  79
 │   ├── PillButton.cs  190
@@ -97,7 +98,7 @@ Bcode.App/
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  467
 │   ├── SqlPeekPanel.cs  128
-│   ├── SqlProfilerControl.cs  1565
+│   ├── SqlProfilerControl.cs  1657
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
 │   ├── SqlScintilla.cs  137
@@ -105,10 +106,10 @@ Bcode.App/
 │   ├── SqlTabSnapshot.cs  19
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  1896
+│   ├── TableEditControl.cs  1976
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
-│   ├── WCommandTreeControl.cs  833
+│   ├── WCommandTreeControl.cs  901
 │   ├── WebActionBar.cs  264
 │   ├── WebBarHost.cs  209
 │   ├── WebFrameHost.cs  200
@@ -144,15 +145,16 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3504
+│   ├── MainForm.cs  3604
 │   ├── MainForm.Hibernate.cs  64
-│   ├── MainForm.Session.cs  373
+│   ├── MainForm.Session.cs  374
 │   ├── MainForm.ToolGroups.cs  101
 │   ├── NativeProjectPickerForm.cs  183
+│   ├── PartitionCheckForm.cs  58
 │   ├── ProjectActions.cs  52
 │   ├── ProjectPickerForm.cs  102
 │   ├── QuickAccessForm.cs  165
-│   ├── QuickLaunchLoginForm.cs  509
+│   ├── QuickLaunchLoginForm.cs  541
 │   ├── QuickListForm.cs  491
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
@@ -284,10 +286,11 @@ Bcode.App/
 │   ├── SqlObjectBrowserService.cs  632
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  325
-│   ├── TableDataService.cs  449
+│   ├── TableDataService.cs  511
+│   ├── TableMenuService.cs  191
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  59
-│   ├── WCommandService.cs  811
+│   ├── WCommandService.cs  812
 │   ├── WeeklyMailStore.cs  48
 │   └── XlsxExportService.cs  22
 ├── Templates/  (3317 file — không liệt kê)
@@ -305,7 +308,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  324
+│   ├── ShortcutRegistry.cs  325
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  715
 │   ├── TreeColorOptions.cs  50
@@ -314,7 +317,7 @@ Bcode.App/
 │   ├── UiScale.cs  60
 │   ├── UiTemplate.cs  475
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  250
+│   └── WebViewEnvironment.cs  255
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
@@ -362,6 +365,7 @@ Bcode.App/
 │       ├── listeditor.html  79
 │       ├── lookup.html  157
 │       ├── note.html  51
+│       ├── partitioncheck.html  49
 │       ├── projects.html  100
 │       ├── queryhistory.html  189
 │       ├── quickaccess.html  253
@@ -390,7 +394,7 @@ Bcode.App/
 │       ├── statusbar.html  60
 │       ├── stepparams.html  43
 │       ├── stringbeauty.html  189
-│       ├── tablebar.html  237
+│       ├── tablebar.html  283
 │       ├── tablestruct.html  139
 │       ├── topbar.html  170
 │       ├── ui-designer.js  446
@@ -536,7 +540,7 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  90
+└── Program.cs  94
 ```
 ```
 Shared/

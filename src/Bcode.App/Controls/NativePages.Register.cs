@@ -10,6 +10,7 @@ internal static class Pages
         NativePages.Register("uiscale.html", () => new UiScalePage());
         NativePages.Register("listeditor.html", () => new ListEditorPage());
         NativePages.Register("rowdetail.html", () => new RowDetailPage());
+        NativePages.Register("partitioncheck.html", () => new PartitionCheckPage());
         NativePages.Register("columndesign.html", () => new ColumnDesignPage());
         NativePages.Register("stepparams.html", () => new StepParamsPage());
         NativePages.Register("copysourcestandard.html", () => new CopySourceStandardPage());

@@ -173,6 +173,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _snippets = new SnippetLibraryService(_settings.LibraryPath);
         _rawSqlService = new RawSqlService(_connections);
         _tableDataService = new TableDataService(_connections, _periods);
+        _tableMenu = new TableMenuService(_connections, () => _wcommandTree?.FlatLeaves() ?? new());
         _genAllService.TableData = _tableDataService;   // Note (New) → "Table liên quan": đọc dữ liệu để sinh script
         _genAllService.DataScript = _dataScript;
         _lookupService = new LookupService(_connections);
@@ -667,6 +668,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         hints.Forget(false);
         hints.Forget(true);
         SqlHintEngine.Shared.Invalidate();
+        _tableMenu.Forget();
         foreach (TabPage p in _documentTabs.TabPages)
         {
             foreach (var sql in p.Controls.OfType<ISqlTab>()) if (!sql.IsDisposed) sql.RefreshSchema();
@@ -795,13 +797,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var names = new List<string>();
         if (_connections.Current is { } ws)
         {
-            if (!string.IsNullOrWhiteSpace(ws.AppDatabase)) { names.Add($"{ws.Name} — {ws.AppDatabase}  (App)"); _topDbEntries.Add((false, null)); }
-            if (!string.IsNullOrWhiteSpace(ws.SysDatabase)) { names.Add($"{ws.Name} — {ws.SysDatabase}  (Sys)"); _topDbEntries.Add((true, null)); }
+            if (!string.IsNullOrWhiteSpace(ws.AppDatabase)) { names.Add($"{ws.AppDatabase}  (App)"); _topDbEntries.Add((false, null)); }
+            if (!string.IsNullOrWhiteSpace(ws.SysDatabase)) { names.Add($"{ws.SysDatabase}  (Sys)"); _topDbEntries.Add((true, null)); }
+            // Ô WS chỉ ghi tên database (+ App/Sys/DB) — không nối mã dự án: vào dự án nào thì đã biết database của dự án đó.
             // Các database khai trong "DB Access" (Proxy {mã_dự_án}_eInv, _C...) ngoài App/Sys — chọn để làm việc trên database đó.
             foreach (var extra in ws.AccessDatabases())
             {
                 if (extra.Equals(ws.AppDatabase, StringComparison.OrdinalIgnoreCase) || extra.Equals(ws.SysDatabase, StringComparison.OrdinalIgnoreCase)) continue;
-                names.Add($"{ws.Name} — {extra}  (DB)"); _topDbEntries.Add((false, extra));
+                names.Add($"{extra}  (DB)"); _topDbEntries.Add((false, extra));
             }
         }
         var over = _connections.Current?.ActiveAppDatabaseOverride;
@@ -2025,9 +2028,25 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void OpenTableTab()
     {
         var control = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate);
+        WireTableMenu(control);
         var page = AddDocumentTab(NumberedTabTitle("Table"), control);
         // Lọc/tải bảng nào thì tab đổi tên thành bảng đó (dmkh, r00$000000...).
         control.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; OnTabTitleChanged(); } };
+    }
+
+    private readonly TableMenuService _tableMenu;
+
+    /// <summary>Tab Table: dòng "Menu: Phiếu nhập kho (inctpnd.aspx)" theo bảng đang nhập (dmct9 + controller Dir/Grid của menu) —
+    /// bấm vào thì hiện cây WCommand, mở các nhánh cha và chọn đúng menu (như chọn menu trên cây).</summary>
+    private void WireTableMenu(TableEditControl control)
+    {
+        control.MenuLookup = _tableMenu.FindAsync;
+        control.MenuRevealRequested += item =>
+        {
+            if (_mainSplit is { Panel1Collapsed: true }) ToggleMenuTree();
+            SelectWCommandTab();
+            _ = _wcommandTree.RevealAsync(item);
+        };
     }
 
     private void OpenFileReferenceTab()

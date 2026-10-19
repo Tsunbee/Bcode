@@ -156,6 +156,68 @@ ORDER BY ORDINAL_POSITION;";
         return result;
     }
 
+    /// <summary>1 dòng kết quả "Check Partitions Struct": bảng kỳ, mô tả khác biệt so với bảng mẫu ("OK" = giống), true = giống.</summary>
+    public sealed record PartitionCheckRow(string Table, string Description, bool Same, bool IsReference);
+
+    /// <summary>
+    /// Check Partitions Struct (chuột phải ô Table của bảng phân kỳ): so cấu trúc mọi bảng <c>{prefix}$yyyymm</c> với bảng mẫu
+    /// <c>{prefix}$000000</c> (không có thì lấy bảng kỳ đầu tiên) — thiếu / thừa cột, khác kiểu hoặc NULL / NOT NULL, khác thứ tự cột
+    /// (bảng kỳ ghép UNION ALL theo vị trí cột nên lệch thứ tự là sai dữ liệu). Bảng $log không xét. Một câu truy vấn cho tất cả bảng.
+    /// </summary>
+    public async Task<List<PartitionCheckRow>> CheckPartitionStructureAsync(bool useSysDatabase, string schema, string prefix)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        const string sql = @"
+SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = @schema AND TABLE_NAME LIKE @pattern ESCAPE '\'
+  AND OBJECTPROPERTY(OBJECT_ID(QUOTENAME(TABLE_SCHEMA) + '.' + QUOTENAME(TABLE_NAME)), 'IsUserTable') = 1
+ORDER BY TABLE_NAME, ORDINAL_POSITION;";
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
+        cmd.Parameters.AddWithValue("@schema", schema);
+        var escaped = prefix.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Replace("[", "\\[");
+        cmd.Parameters.AddWithValue("@pattern", escaped + "$[0-9][0-9][0-9][0-9][0-9][0-9]");
+
+        var tables = new SortedDictionary<string, List<(string Name, string Sig)>>(StringComparer.OrdinalIgnoreCase);
+        await using (var r = await cmd.ExecuteReaderAsync())
+            while (await r.ReadAsync())
+            {
+                var t = r.GetString(0);
+                if (!tables.TryGetValue(t, out var cols)) tables[t] = cols = new();
+                int? maxLen = r.IsDBNull(3) ? null : r.GetInt32(3);
+                int? precision = r.IsDBNull(4) ? null : Convert.ToInt32(r.GetValue(4));
+                int? scale = r.IsDBNull(5) ? null : Convert.ToInt32(r.GetValue(5));
+                cols.Add((r.GetString(1), FormatSqlType(r.GetString(2), maxLen, precision, scale) + (r.GetString(6) == "YES" ? " null" : " not null")));
+            }
+
+        var result = new List<PartitionCheckRow>();
+        if (tables.Count == 0) return result;
+        var refName = tables.Keys.FirstOrDefault(k => k.EndsWith("$000000", StringComparison.Ordinal)) ?? tables.Keys.First();
+        var refCols = tables[refName];
+        var refMap = refCols.ToDictionary(c => c.Name, c => c.Sig, StringComparer.OrdinalIgnoreCase);
+        result.Add(new PartitionCheckRow(refName, "", true, true));
+        foreach (var (name, cols) in tables)
+        {
+            if (name.Equals(refName, StringComparison.OrdinalIgnoreCase)) continue;
+            var map = cols.ToDictionary(c => c.Name, c => c.Sig, StringComparer.OrdinalIgnoreCase);
+            var parts = new List<string>();
+            var missing = refCols.Where(c => !map.ContainsKey(c.Name)).Select(c => c.Name).ToList();
+            var extra = cols.Where(c => !refMap.ContainsKey(c.Name)).Select(c => c.Name).ToList();
+            var changed = cols.Where(c => refMap.TryGetValue(c.Name, out var s) && !s.Equals(c.Sig, StringComparison.OrdinalIgnoreCase))
+                .Select(c => $"{c.Name} {c.Sig} (mẫu: {refMap[c.Name]})").ToList();
+            if (missing.Count > 0) parts.Add("Thiếu cột: " + string.Join(", ", missing));
+            if (extra.Count > 0) parts.Add("Thừa cột: " + string.Join(", ", extra));
+            if (changed.Count > 0) parts.Add("Khác kiểu: " + string.Join("; ", changed));
+            // Cùng bộ cột mà khác thứ tự → UNION ALL theo vị trí sẽ ghép sai cột.
+            var commonRef = refCols.Select(c => c.Name).Where(map.ContainsKey);
+            var commonHere = cols.Select(c => c.Name).Where(refMap.ContainsKey);
+            if (!commonRef.SequenceEqual(commonHere, StringComparer.OrdinalIgnoreCase)) parts.Add("Khác thứ tự cột");
+            result.Add(new PartitionCheckRow(name, parts.Count == 0 ? "OK" : string.Join(" | ", parts), parts.Count == 0, false));
+        }
+        return result;
+    }
+
     /// <summary>Chạy 1 câu SELECT trả 1 dòng nhiều cột số (vd SUM(CASE…)) → tên cột → giá trị (NULL = 0).</summary>
     public async Task<Dictionary<string, long>> QueryCountsAsync(bool useSysDatabase, string sql)
     {

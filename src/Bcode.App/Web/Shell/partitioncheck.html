@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  #head { font-weight: 600; }
+  #head.ok { color: var(--success); } #head.warn, #head.err { color: var(--danger); }
+  table.tbl td.n { width: 2.5rem; text-align: right; color: var(--text-muted); }
+  table.tbl td.t { width: 12rem; font-family: Consolas, 'Cascadia Mono', monospace; }
+  table.tbl td.d { white-space: normal; max-width: none; }
+  tr.ref td.t { color: var(--accent); }
+  tr.diff td.t { color: var(--danger); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <div id="head" class="muted">Đang kiểm tra cấu trúc các bảng phân kỳ...</div>
+  <div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th>Table</th><th>Description</th></tr></thead><tbody id="rows"></tbody></table></div>
+</div>
+<div class="dlg-bar"><span id="status" class="status"></span><button id="bCopy">Copy</button><button id="bOk" class="primary">OK</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let rows = [];
+  $('bOk').onclick = () => post('close');
+  $('bCopy').onclick = () => post('copy');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' || e.key === 'Enter') post('close'); });
+  window.partCheck = {
+    // d = { head, kind: 'ok'|'warn'|'err', rows: [{table, description, same, isReference}], status }
+    show(d) {
+      $('head').textContent = d.head || '';
+      $('head').className = d.kind || '';
+      rows = d.rows || [];
+      $('rows').innerHTML = rows.map((r, i) => '<tr class="' + (r.isReference ? 'ref' : r.same ? '' : 'diff') + '" title="' + esc(r.isReference ? 'Bảng mẫu để so' : r.description) + '">'
+        + '<td class="n">' + (i + 1) + '</td><td class="t">' + esc(r.table) + '</td><td class="d">' + esc(r.isReference ? '(bảng mẫu)' : r.description) + '</td></tr>').join('');
+      $('status').textContent = d.status || '';
+      $('bOk').focus();
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

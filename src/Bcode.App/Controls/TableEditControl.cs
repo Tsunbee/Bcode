@@ -106,9 +106,26 @@ public class TableEditControl : UserControl
                     var y = msg.TryGetProperty("y", out var yVal) ? yVal.GetDouble() : 0;
                     var w = msg.TryGetProperty("w", out var wwVal) ? wwVal.GetDouble() : 0;
                     var h = msg.TryGetProperty("h", out var hVal) ? hVal.GetDouble() : 0;
+                    ScheduleMenuHint(text);
                     await ShowTableSuggestionsAsync(text, x, y, w, h);
                     break;
                 }
+                case "table-context":
+                {
+                    var (ctxSchema, ctxTable) = ParseTableRef(msg.TryGetProperty("value", out var cv) ? cv.GetString() ?? "" : "");
+                    if (PartitionPrefix(ctxTable) is not { } ctxPrefix) break;
+                    var useSys = _dbIndex == 1;
+                    HideTableSuggest();
+                    BeginInvoke(() => new WebMenu()
+                        .Add("Check Partitions Struct", () => ShowPartitionCheck(useSys, ctxSchema, ctxPrefix))
+                        .Show(BarControl, Cursor.Position));
+                    break;
+                }
+                case "menu-open":
+                    if (msg.TryGetProperty("index", out var miVal) && miVal.TryGetInt32(out var mi) && mi >= 0 && mi < _menuHits.Count
+                        && _menuHits[mi].Menu is { } menuItem)
+                        MenuRevealRequested?.Invoke(menuItem);
+                    break;
                 case "table-key":
                     HandleTableSuggestKey(msg.TryGetProperty("key", out var kVal) ? kVal.GetString() ?? "" : "");
                     break;
@@ -343,6 +360,75 @@ public class TableEditControl : UserControl
     private void BarSetWhere(string t) { if (_barNative is not null) _barNative.SetWhere(t); else _barWeb!.Call($"window.setWhere && window.setWhere({WebBarHost.Json(t)})"); }
     private void BarSetOrder(string t) { if (_barNative is not null) _barNative.SetOrder(t); else _barWeb!.Call($"window.setOrder && window.setOrder({WebBarHost.Json(t)})"); }
     private void BarSetTop(string t) { if (_barNative is not null) _barNative.SetTop(t); else _barWeb!.Call($"window.setTop && window.setTop({WebBarHost.Json(t)})"); }
+
+    /// <summary>Chuột phải ô Table (bảng phân kỳ) → "Check Partitions Struct": các bảng {prefix}$yyyymm có cùng cấu trúc với {prefix}$000000 chưa.</summary>
+    private void ShowPartitionCheck(bool useSys, string schema, string prefix)
+    {
+        using var form = new PartitionCheckForm(_service, useSys, schema, prefix);
+        form.ShowDialog(FindForm());
+    }
+
+    // ---- Menu của bảng: dòng "Phiếu nhập kho (inctpnd.aspx)" dưới thanh nhập, bấm = mở node đó trên cây WCommand ----
+
+    /// <summary>MainForm gán (TableMenuService.FindAsync): tra menu theo tên bảng. null = không hiện dòng menu (hành vi cũ).</summary>
+    public Func<string, Task<List<TableMenuService.Hit>>>? MenuLookup { get; set; }
+    /// <summary>Bấm 1 menu ở dòng menu của bảng.</summary>
+    public event Action<WCommandItem>? MenuRevealRequested;
+    private const int MaxMenuHints = 4;
+    private List<TableMenuService.Hit> _menuHits = new();
+    private int _menuHintVersion;
+    private string _menuHintPending = "";
+    private System.Windows.Forms.Timer? _menuHintTimer;
+
+    /// <summary>Tra lại menu cho bảng <paramref name="table"/>: lúc gõ thì chờ ngừng gõ 300 ms, lúc tải xong bảng thì tra ngay.</summary>
+    private void ScheduleMenuHint(string table, bool now = false)
+    {
+        if (MenuLookup is null) return;
+        _menuHintPending = table;
+        if (_menuHintTimer is null)
+        {
+            _menuHintTimer = new System.Windows.Forms.Timer { Interval = 300 };
+            _menuHintTimer.Tick += (_, _) => { _menuHintTimer.Stop(); _ = UpdateMenuHintAsync(_menuHintPending); };
+            Disposed += (_, _) => _menuHintTimer.Dispose();
+        }
+        _menuHintTimer.Stop();
+        if (now) _ = UpdateMenuHintAsync(table); else _menuHintTimer.Start();
+    }
+
+    private async Task UpdateMenuHintAsync(string table)
+    {
+        var version = ++_menuHintVersion;
+        List<TableMenuService.Hit> hits;
+        try { hits = await MenuLookup!(ParseTableRef(table).table); } catch { hits = new(); }
+        if (version != _menuHintVersion || IsDisposed) return;
+        _menuHits = hits;
+        string Name(WCommandItem m) => string.IsNullOrWhiteSpace(m.Bar) ? m.Bar2 : m.Bar;
+        string Title(TableMenuService.Hit h) => h.Menu is { } m
+            ? $"{m.WMenuId} · {(h.Path.Length > 0 ? h.Path + " \\ " : "")}{Name(m)}\n{m.Link}\nTheo {h.Via} — bấm để mở menu trên cây WCommand"
+            : $"Trang {h.Aspx} (theo {h.Via}) — không thấy menu nào trong cây WCommand trỏ tới trang này";
+        var items = hits.Take(MaxMenuHints).Select(h => (Text: h.Menu is { } m ? Name(m).Trim() : "", h.Aspx, Title: Title(h), Ok: h.Menu is not null)).ToList();
+        // Cùng 1 menu khai ở nhiều phân hệ (Hóa đơn bán hàng ở "Bán hàng" và "Công nợ phải thu"...) → thêm tên phân hệ cho dễ phân biệt.
+        // So tên bỏ dấu customize "(*)" / "(C)": "Hóa đơn bán hàng (*)" và "Hóa đơn bán hàng" vẫn tính là trùng.
+        static string Plain(string s) => System.Text.RegularExpressions.Regex.Replace(s, @"\s*\((\*|C)\)\s*", " ", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+        var dup = items.Select(it => it.Ok && items.Count(x => x.Ok && Plain(x.Text).Equals(Plain(it.Text), StringComparison.OrdinalIgnoreCase)) > 1).ToArray();
+        string Root(int i) => hits[i].Path.Split(" \\ ")[0].Trim();
+        var labels = Enumerable.Range(0, items.Count).Select(i =>
+            // 2 bản trùng nằm cùng phân hệ → ghi cả đường dẫn cha (Phân hệ \ Nhóm) thay vì chỉ tên phân hệ.
+            dup[i] && Enumerable.Range(0, items.Count).Any(j => j != i && dup[j] && Root(j) == Root(i)
+                && Plain(items[j].Text).Equals(Plain(items[i].Text), StringComparison.OrdinalIgnoreCase)) ? hits[i].Path.Trim() : Root(i)).ToList();
+        for (var i = 0; i < items.Count; i++)
+            if (dup[i] && labels[i].Length > 0)
+                items[i] = items[i] with { Text = $"{items[i].Text} [{labels[i]}]" };
+        var more = hits.Count - items.Count;
+        var moreTitle = string.Join("\n", hits.Skip(MaxMenuHints).Select(h => h.Menu is { } m ? $"{m.WMenuId} {Name(m).Trim()} ({h.Aspx})" : h.Aspx));
+        if (_barNative is not null) _barNative.SetMenus(items, more, moreTitle);
+        else _barWeb!.Call("window.setMenus && window.setMenus(" + JsonSerializer.Serialize(new
+        {
+            items = items.Select(x => new { text = x.Text, aspx = x.Aspx, title = x.Title, ok = x.Ok }),
+            more,
+            moreTitle,
+        }) + ")");
+    }
     private void BarSetSuggestOpen(bool o) { if (_barNative is not null) _barNative.SetSuggestOpen(o); else _barWeb!.Call($"window.setSuggestOpen && window.setSuggestOpen({(o ? "true" : "false")})"); }
     private void BarSetColSuggestOpen(bool o) { if (_barNative is not null) _barNative.SetColSuggestOpen(o); else _barWeb!.Call($"window.setColSuggestOpen && window.setColSuggestOpen({(o ? "true" : "false")})"); }
     private void BarInsertColumn(string n) { if (_barNative is not null) _barNative.InsertColumn(n); else _barWeb!.Call($"window.insertColumn && window.insertColumn({WebBarHost.Json(n)})"); }
@@ -1657,6 +1743,7 @@ public class TableEditControl : UserControl
             var filterInfo = (string.IsNullOrWhiteSpace(_whereInputText) ? "" : $" — Where: {_whereInputText.Trim()}")
                            + (string.IsNullOrWhiteSpace(_orderInputText) ? "" : $" — Order: {_orderInputText.Trim()}");
             TableLoaded?.Invoke(_schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}");
+            ScheduleMenuHint(_table, now: true);
             _statusLabel.Text = structureOnly ? "Đã nạp structure — Enter / Load để tải dữ liệu." : ""; // dòng "N dòng đã tải ..." đã ẩn theo yêu cầu (filterInfo/fieldsToSelect không còn hiển thị)
         }
         catch (Exception ex)

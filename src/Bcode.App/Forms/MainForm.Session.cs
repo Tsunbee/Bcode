@@ -161,6 +161,7 @@ public partial class MainForm
         {
             page.Tag = null;
             var table = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate) { Dock = DockStyle.Fill };
+            WireTableMenu(table);
             table.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; OnTabTitleChanged(); } };
             page.Controls.Add(table);
             Bcode.App.UI.ThemeManager.Apply(page);

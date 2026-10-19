@@ -32,6 +32,16 @@
   .top-box { display: flex; align-items: center; gap: 6px; }
   .top-box input { width: 64px; height: 100%; text-align: center; box-sizing: border-box; }
   button { flex: 0 0 auto; }
+  /* Menu của bảng đang nhập ("Phiếu nhập kho (inctpnd.aspx)") — chỉ hiện khi tra được; không làm thanh tràn ngang (cắt "…"). */
+  .menu-row { display: none; align-items: baseline; gap: 6px; padding: 0 0 5px; margin-top: -2px; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-row.show { display: flex; }
+  .menu-row .muted { flex: 0 0 auto; }
+  .menu-row .items { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-style: italic; }
+  .menu-row a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  .menu-row a:hover { text-decoration: underline; }
+  .menu-row .aspx { opacity: .75; }
+  .menu-row .none { color: var(--text-muted); cursor: default; }
+  .menu-row .msep { color: var(--text-muted); padding: 0 4px; font-style: normal; }
 </style>
 </head>
 <body>
@@ -62,6 +72,7 @@
       <button class="btn" id="btnAddScript">Add Script</button>
     </div>
   </div>
+  <div class="menu-row" id="menuRow"><span class="muted">Menu:</span><span class="items" id="menuItems"></span></div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
@@ -84,9 +95,12 @@
           bar.style.zoom = String(z);
         }
       }
-      var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
+      var row = document.getElementById('menuRow');
+      var rowH = row && row.classList.contains('show') ? row.getBoundingClientRect().height : 0;
+      var h = Math.ceil((bar.getBoundingClientRect().height + rowH) * (window.devicePixelRatio || 1));
       if (h && h !== lastH) { lastH = h; post({ action: '__height', height: h }); }
     }
+    window.fitBar = fit; // setMenus gọi lại khi dòng menu hiện / ẩn (body cao cố định nên ResizeObserver không thấy đổi)
     window.addEventListener('resize', fit);
     window.addEventListener('load', fit);
     if (window.ResizeObserver) new ResizeObserver(fit).observe(document.body);
@@ -132,6 +146,12 @@
       if (e.key === 'Escape') { e.preventDefault(); post({ action: 'table-key', key: 'escape' }); return; }
     }
     if (e.key === 'Enter') triggerLoad();
+  });
+  // Chuột phải ô Table khi đang là bảng phân kỳ (xxx$yyyymm / xxx$000000) → C# hiện menu "Check Partitions Struct"; bảng khác giữ menu mặc định.
+  tableInput.addEventListener('contextmenu', function (e) {
+    if (!/\$\d{6}\]?\s*$/.test(tableInput.value)) return;
+    e.preventDefault();
+    post({ action: 'table-context', value: tableInput.value });
   });
   tableInput.addEventListener('blur', function () {
     suggestOpen = false;
@@ -228,6 +248,32 @@
   window.focusTable = function () {
     tableInput.focus();
     tableInput.select();
+  };
+  // Menu của bảng: { items: [{text, aspx, title, ok}], more, moreTitle } — bấm 1 menu = mở node đó trên cây WCommand (C# nhận 'menu-open').
+  window.setMenus = function (data) {
+    var row = document.getElementById('menuRow'), box = document.getElementById('menuItems');
+    var items = (data && data.items) || [];
+    box.textContent = '';
+    items.forEach(function (it, i) {
+      if (i > 0) { var s = document.createElement('span'); s.className = 'msep'; s.textContent = '·'; box.appendChild(s); }
+      var a = document.createElement(it.ok ? 'a' : 'span');
+      a.title = it.title || '';
+      if (it.ok) {
+        a.textContent = it.text + ' ';
+        var p = document.createElement('span'); p.className = 'aspx'; p.textContent = '(' + it.aspx + ')'; a.appendChild(p);
+        a.addEventListener('mousedown', function (e) { e.preventDefault(); }); // giữ focus ở ô đang gõ
+        a.addEventListener('click', function () { post({ action: 'menu-open', index: i }); });
+      } else {
+        a.className = 'none';
+        a.textContent = '(' + it.aspx + ') — chưa thấy menu';
+      }
+      box.appendChild(a);
+    });
+    if (data && data.more > 0) {
+      var m = document.createElement('span'); m.className = 'msep'; m.textContent = '+' + data.more; m.title = data.moreTitle || ''; box.appendChild(m);
+    }
+    row.classList.toggle('show', items.length > 0);
+    if (window.fitBar) window.fitBar();
   };
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

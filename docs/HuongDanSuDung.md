@@ -168,7 +168,7 @@ Trên ảnh: **①** ⚙ Settings · **②** Actions · **③** giỏ script: Ad
 
 Trên ảnh: **①** ＋ Nhóm mới · **②** Gợi ý nhóm (chia sẵn) · **③** vùng 📌 Ghim trên thanh · **④** một nhóm (Alt+1…5 thả menu nhóm) · **⑤** OK để lưu.
 
-Hàng nút dưới thanh trên, chia vùng bằng dấu "|": SQL (SQL Query, Lookup, Table, Command, Lịch sử SQL, SQL Profiler) · Object & source (WCommand, File Lookup, File Reference, Change Owner, So sánh object, Compare Structure, Decrypt SQL Object) · Gói & báo cáo (Gen Update, Gen Update (Result), Create *.rpt *.xlsx, Excel → FRX, Clone danh mục…) · Văn bản (Note, Note (New), Compare Text, String Beauty) · Khác (Check Mail, Setup eInvoice, FSG Yêu cầu, FSG FBO, Library). Rê chuột lên nút để xem phím tắt.
+Hàng nút dưới thanh trên, chia vùng bằng dấu "|": SQL (SQL Query, Lookup, Table, Command, Lịch sử SQL, SQL Profiler) · Object & source (WCommand, File Lookup, File Reference, Change Owner, So sánh object, Compare Structure) · Gói & báo cáo (Gen Update, Gen Update (Result), Create *.rpt *.xlsx, Excel → FRX, Clone danh mục…) · Văn bản (Note, Note (New), Compare Text, String Beauty) · Khác (Check Mail, Setup eInvoice, FSG Yêu cầu, FSG FBO, Library). Rê chuột lên nút để xem phím tắt.
 
 **Quick Access** (★ trên thanh trên): kéo từng công cụ vào **📌 Ghim trên thanh** (nút riêng, nên 4–6 nút), vào **Nhóm** (gộp thành nút "Tên ▾"; `Alt+1`…`Alt+5` thả menu nhóm thứ 1…5) hoặc **🚫 Ẩn**. Nút **Gợi ý nhóm** chia sẵn nhóm SQL / Đối tượng / Gói & báo cáo / Văn bản / Dự án. Công cụ ẩn vẫn gọi được bằng phím tắt và `Ctrl+P`.
 
@@ -489,7 +489,6 @@ Trên ảnh: **①** mục SQL Object ở cột icon · **②** chọn database 
 | **So sánh object** | `Ctrl+Shift+J` | So code procedure / view / function / trigger giữa 2 database (vd bản dev ↔ bản khách): lọc Khác nhau / Chỉ bên trái / Chỉ bên phải / Chỉ khác khoảng trắng / Mã hoá → chọn mục → **Sinh script ALTER** (Bcode chỉ sinh, không chạy). |
 | **Compare Structure** | Thanh công cụ | So cấu trúc một bảng giữa 2 workspace (Chỉ có ở trái / phải, Khác nhau, Giống nhau). |
 | **Change Owner** | `Ctrl+Shift+O` | Chuyển object sang schema khác (`ALTER SCHEMA TRANSFER`) — không hoàn tác từ Bcode được. |
-| **Decrypt SQL Object** | Thanh công cụ (cần key) | Giải mã object bị mã hoá: cần quyền sysadmin và kết nối DAC (mỗi instance chỉ 1 kết nối DAC); luôn rollback. |
 | **SQL Profiler** | `Ctrl+3` | Nhúng SQL Profiler thật vào tab: khai đường dẫn Profiler.exe, đăng nhập, chọn trace template → **▶ Bung & Đăng nhập**; **📋 Copy SQL Command** lấy câu SQL của dòng đang chọn. Trace lọc theo Database của dự án và theo **ID (ApplicationName) = u_id**: gõ user cần theo dõi (u_name) → **Tra u_id** (gõ tên mà chưa tra thì lúc bung Bcode tự tra). Ô **u_id** sửa / xoá được: bấm **✕** (hoặc xoá trống) khi ứng dụng không gắn ApplicationName = u_id → trace không lọc theo ID, template đã có filter ID cũng được gỡ (bản cũ giữ thành `.tdf.bak`); Tra u_id hoặc đổi tên user là lọc lại như cũ. Đang đứng trong cửa sổ Profiler vẫn dùng được phím tắt của Bcode (`Ctrl+Tab`, `Ctrl+W`, `Ctrl+Shift+<chữ>`…); các phím khác vẫn thuộc về Profiler. |
 
 <a id="wcommand"></a>
@@ -887,7 +886,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 <a id="key-ban-quyen"></a>
 ## Key bản quyền
 
-Các tính năng sau cần key bản quyền gắn theo máy: **Decrypt SQL Object**, **Create RPT & XML**, **Excel → FRX**, **Tạo báo cáo**, **Báo cáo yêu cầu FSG** (kể cả chuột phải cây WCommand → Yêu cầu liên quan), **Thiết kế màn hình** (kể cả nút Design ở cây WCommand), **Khai báo API**, **Tạo cấu trúc API**, **Tạo nhanh danh mục** (kể cả 🤖 AI tạo danh mục) và **Clone danh mục**. Chưa có key thì mở các tính năng này sẽ hiện hộp nhập key.
+Các tính năng sau cần key bản quyền gắn theo máy: **Create RPT & XML**, **Excel → FRX**, **Tạo báo cáo**, **Báo cáo yêu cầu FSG** (kể cả chuột phải cây WCommand → Yêu cầu liên quan), **Thiết kế màn hình** (kể cả nút Design ở cây WCommand), **Khai báo API**, **Tạo cấu trúc API**, **Tạo nhanh danh mục** (kể cả 🤖 AI tạo danh mục) và **Clone danh mục**. Chưa có key thì mở các tính năng này sẽ hiện hộp nhập key.
 
 1. ⚙ Settings → **Key bản quyền...** (hoặc bấm vào tính năng bị khoá — hộp key tự mở).
 2. **Bước 1**: bấm **Copy mã máy** và gửi mã cho người cấp key. Mỗi máy có một mã riêng.

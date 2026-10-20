@@ -98,8 +98,16 @@ public class SqlFormatterService
     public string FormatJson(string json)
     {
         using var doc = JsonDocument.Parse(json);
-        return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        return JsonSerializer.Serialize(doc.RootElement, JsonIndentedOpts);
     }
+
+    /// <summary>Encoder mặc định escape mọi ký tự ngoài ASCII ("tầng" → "tầng"); UnsafeRelaxedJsonEscaping giữ nguyên
+    /// tiếng Việt / &lt; &gt; &amp; như nội dung gốc, vẫn escape " \ và ký tự điều khiển. Kết quả chỉ để xem/copy, không nhúng HTML.</summary>
+    private static readonly JsonSerializerOptions JsonIndentedOpts = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     /// <summary>Pretty-prints XML via XDocument — throws on invalid/malformed XML, same
     /// error-to-caller contract as FormatJson.</summary>

@@ -10,6 +10,8 @@ namespace Bcode.App.Controls;
 /// Tab "Mail kế hoạch tuần" ở chế độ App/WinForms (thay weeklymail.html): danh sách mẫu mail theo dự án (To/Cc/Bcc, tiêu đề, nội dung Text hoặc HTML, chữ ký HTML), biến tự thay
 /// ({du_an}, {tuan_truoc_tu/den}, {tuan_sau_tu/den}, {ngay}), ngày tuần vừa rồi / tuần tới tự điền, Xem trước, Gửi (luôn hỏi xác nhận người nhận) qua cùng cấu hình SMTP với Check Mail.
 /// Khác bản Web: chữ ký HTML nhập bằng nút "Dán chữ ký từ clipboard" (lấy HTML Outlook/Gmail giữ nguyên định dạng) hoặc sửa mã HTML; xem trước hiện chữ thuần (chữ ký HTML không dựng hình).
+/// Tab con "Đã gửi &amp; phản hồi" (như weeklymail.html, logic ở <see cref="WeeklyMailHistory"/>): thư đã gửi, Kiểm tra phản hồi (IMAP), xem thư (dạng chữ — "Mở .eml" để xem HTML),
+/// Reply / Reply all, Gửi lại; IMAP + "Nhớ mật khẩu" (DPAPI) ở mục Máy chủ mail.
 /// </summary>
 public sealed class NativeWeeklyMailControl : UserControl
 {
@@ -43,6 +45,32 @@ public sealed class NativeWeeklyMailControl : UserControl
     private List<string> _filterValues = new();
     private string _signature = "";
 
+    // ---- IMAP + nhớ mật khẩu (weeklymail-imap.json) ----
+    private readonly CheckBox _rememberPw = NK.Check("Nhớ mật khẩu (mã hoá DPAPI)"), _imapSsl = NK.Check("SSL (993) / STARTTLS (143)"), _copySent = NK.Check("Chép thư đã gửi lên thư mục Sent của hộp thư");
+    private readonly RoundedInput _imapHost = NK.Input("(trống = cùng host SMTP)");
+    private readonly NumericUpDown _imapPort = new() { Minimum = 1, Maximum = 65535, Value = 993, Width = NativeSkin.S(90) };
+    private readonly System.Windows.Forms.Timer _imapTimer = new() { Interval = 600 };
+
+    // ---- tab con "Đã gửi & phản hồi" ----
+    private readonly Panel _composeView = new() { Dock = DockStyle.Fill }, _histView = new() { Dock = DockStyle.Fill, Visible = false };
+    private readonly SegmentedBar _tabs = new(("compose", "✎ Soạn mail"), ("hist", "📨 Đã gửi & phản hồi"));
+    private readonly RoundedInput _hSearch = NK.Input("Tìm theo tiêu đề / người nhận / dự án...");
+    private readonly ThemedListBox _hList = new() { Dock = DockStyle.Top }, _thList = new() { Dock = DockStyle.Top };
+    private readonly Label _hLast = NK.Muted("", wrap: true), _vHead = NK.Muted("Chưa chọn thư.", wrap: true), _rSigInfo = NK.Muted("");
+    private readonly RichTextBox _vText = new() { Dock = DockStyle.Top, Height = NativeSkin.S(320), ReadOnly = true, BorderStyle = BorderStyle.None };
+    private readonly RichTextBox _rQuote = new() { Dock = DockStyle.Top, Height = NativeSkin.S(140), ReadOnly = true, BorderStyle = BorderStyle.None };
+    private readonly RichTextBox _log2 = new() { Dock = DockStyle.Top, Height = NativeSkin.S(130), ReadOnly = true, BorderStyle = BorderStyle.None, WordWrap = false };
+    private readonly RoundedInput _rTo = NK.Input(), _rCc = NK.Input(), _rSubject = NK.Input(), _rBody = NK.Memo(8, "Nội dung trả lời (chữ thuần — tự xuống dòng đúng khi gửi)...", mono: false);
+    private readonly CheckBox _rSig = NK.Check("Kèm chữ ký của mẫu");
+    private readonly CardPanel _cReply = new("Trả lời");
+    private readonly PillButton _bCheck, _bReply, _bReplyAll, _bResend, _bEml, _bDel, _rSend;
+    private WeeklyMailIndex _idx = new();
+    private List<WeeklyMailSentEntry> _hRows = new();
+    private List<(string Type, string Id, bool Seen)> _thRows = new();
+    private WeeklyMailSentEntry? _curThread;
+    private (string Type, string Id)? _curMsg, _replyTarget;
+    private WeeklyMailReplyDraft? _draft;
+
     public NativeWeeklyMailControl(Func<IReadOnlyList<string>> projects, Func<string?> currentProject)
     {
         _projects = projects; _currentProject = currentProject;
@@ -58,7 +86,7 @@ public sealed class NativeWeeklyMailControl : UserControl
         var listBtns = NK.Row(NK.Button("Nhân bản", Duplicate), NK.Button("Xoá mẫu", DeleteTemplate)); listBtns.Dock = DockStyle.Top;
         cList.Body.Controls.Add(listBtns); cList.Body.Controls.Add(_list); cList.Body.Controls.Add(NK.Spacer(4)); cList.Body.Controls.Add(_filter);
 
-        _cSmtp = new CardPanel("▸ Máy chủ gửi mail (SMTP)");
+        _cSmtp = new CardPanel("▸ Máy chủ mail (SMTP / IMAP)");
         _cSmtp.TitleLabel.Cursor = Cursors.Hand;
         _password.Inner.UseSystemPasswordChar = true; _showPw.CheckedChanged += (_, _) => _password.Inner.UseSystemPasswordChar = !_showPw.Checked;
         var portRow = NK.Row(_port, _ssl, _tls, _ignoreCert);
@@ -66,12 +94,15 @@ public sealed class NativeWeeklyMailControl : UserControl
         pwRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); pwRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _password.Dock = DockStyle.Fill; pwRow.Controls.Add(_password, 0, 0); pwRow.Controls.Add(_showPw, 1, 0);
         var smtpBody = new Panel { Dock = DockStyle.Top, AutoSize = true, Visible = false };
-        var smtpGrid = NK.FormGrid(90, ("Host", _host), ("Port", portRow), ("Email gửi", _senderEmail), ("Tên hiển thị", _alias), ("Tài khoản", _account), ("Mật khẩu", pwRow));
-        var smtpHint = NK.Wrap("Dùng chung với tab Check Mail (cùng file cấu hình). Mật khẩu không được lưu — nhập lại mỗi lần mở tab.", _cSmtp.Body, 30); smtpHint.Dock = DockStyle.Top;
+        _imapSsl.Checked = true; _copySent.Checked = true;
+        NK.Tip(_copySent, "SMTP không tự lưu vào Sent nên Outlook / webmail không thấy thư Bcode gửi — tick để chép thư lên thư mục Sent của hộp thư qua IMAP");
+        var smtpGrid = NK.FormGrid(90, ("Host", _host), ("Port", portRow), ("Email gửi", _senderEmail), ("Tên hiển thị", _alias), ("Tài khoản", _account), ("Mật khẩu", pwRow), ("", _rememberPw),
+            ("Host IMAP", _imapHost), ("Port IMAP", NK.Row(_imapPort, _imapSsl)), ("", _copySent));
+        var smtpHint = NK.Wrap("SMTP dùng chung với tab Check Mail (cùng file cấu hình). IMAP (đọc phản hồi, chép thư lên Sent) dùng cùng tài khoản / mật khẩu. Mật khẩu không được lưu — trừ khi tick “Nhớ mật khẩu” (mã hoá theo tài khoản Windows, chỉ máy này đọc được).", _cSmtp.Body, 30); smtpHint.Dock = DockStyle.Top;
         smtpBody.Controls.Add(smtpGrid); smtpBody.Controls.Add(smtpHint);
         _cSmtp.Body.Controls.Add(smtpBody); _cSmtp.Body.Controls.Add(_smtpSum);
         _smtpSum.Dock = DockStyle.Top;
-        void ToggleSmtp() { smtpBody.Visible = !smtpBody.Visible; _cSmtp.TitleLabel.Text = (smtpBody.Visible ? "▾ " : "▸ ") + "Máy chủ gửi mail (SMTP)"; }
+        void ToggleSmtp() { smtpBody.Visible = !smtpBody.Visible; _cSmtp.TitleLabel.Text = (smtpBody.Visible ? "▾ " : "▸ ") + "Máy chủ mail (SMTP / IMAP)"; }
         _cSmtp.TitleLabel.Click += (_, _) => ToggleSmtp();
         _cSmtp.OpenToggle = ToggleSmtp;
 
@@ -117,9 +148,59 @@ public sealed class NativeWeeklyMailControl : UserControl
         _bSend = NK.Button("✉ Gửi mail", () => _ = SendAsync(), primary: true, tip: "Gửi mail (sẽ hỏi xác nhận người nhận trước)");
         _bCancel = NK.Button("Huỷ", () => { try { _cts?.Cancel(); } catch { } }); _bCancel.Visible = false;
         var bar = new BarFlow { Dock = DockStyle.Bottom, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(10, 7, 10, 7) };
-        bar.Controls.AddRange(new Control[] { _bSend, NK.Button("💾 Lưu mẫu", () => { Persist(); RenderFilter(); RenderList(); }, tip: "Lưu mẫu đang soạn"), _bCancel, _state });
+        var bSave = NK.Button("💾 Lưu mẫu", () => { Persist(); RenderFilter(); RenderList(); }, tip: "Lưu mẫu đang soạn");
+        _bCheck = NK.Button("🔍 Kiểm tra phản hồi", () => _ = CheckRepliesAsync(), primary: true, tip: "Đăng nhập hộp thư (IMAP), tìm ở INBOX các thư trả lời thư đã gửi từ Bcode"); _bCheck.Visible = false;
+        bar.Controls.AddRange(new Control[] { _bSend, bSave, _bCheck, _bCancel, _state });
 
-        Controls.Add(rightCol); Controls.Add(leftCol); Controls.Add(bar);
+        // ---- tab con Đã gửi & phản hồi ----
+        _bReply = NK.Button("↩ Reply", () => StartReply(false), tip: "Soạn thư trả lời người gửi");
+        _bReplyAll = NK.Button("↩ Reply all", () => StartReply(true), tip: "Soạn thư trả lời mọi người trong thư");
+        _bResend = NK.Button("⟳ Gửi lại", () => _ = ResendAsync(), tip: "Gửi lại thư này (cùng người nhận, tiêu đề, nội dung — sẽ hỏi xác nhận)");
+        _bEml = NK.Button("Mở .eml", OpenEml, tip: "Mở file .eml bằng chương trình mặc định (Outlook...) — xem đúng định dạng HTML, ảnh, đính kèm");
+        _bDel = NK.Button("Xoá", DeleteMsg, tip: "Xoá khỏi mục Đã gửi của Bcode (không đụng hộp thư)");
+        _rSend = NK.Button("✉ Gửi trả lời", () => _ = SendReplyAsync(), primary: true, tip: "Gửi thư trả lời (sẽ hỏi xác nhận người nhận trước)");
+
+        var cSent = new CardPanel("Đã gửi");
+        cSent.RightBar.Controls.Add(NK.Button("📁", () => { Directory.CreateDirectory(WeeklyMailHistory.Dir); NK.OpenFolder(WeeklyMailHistory.Dir); }, tip: "Mở thư mục lưu thư đã gửi (.eml)"));
+        _hSearch.TextChanged += (_, _) => RenderHist();
+        _hList.SelectedIndexChanged += (_, _) => { if (!_loading && _hList.SelectedIndex >= 0 && _hList.SelectedIndex < _hRows.Count) SelectThread(_hRows[_hList.SelectedIndex]); };
+        NK.Stack(cSent.Body, _hSearch, NK.Spacer(4), _hList, _hLast);
+        var leftHist = new FlowLayoutPanel { Dock = DockStyle.Left, Width = NativeSkin.S(400), FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(10, 10, 4, 10) };
+        leftHist.Controls.Add(cSent);
+        leftHist.SizeChanged += (_, _) => { cSent.Width = Math.Max(200, leftHist.ClientSize.Width - 20 - SystemInformation.VerticalScrollBarWidth); };
+
+        var cThread = new CardPanel("Chuỗi thư");
+        _thList.SelectedIndexChanged += (_, _) => { if (!_loading && _thList.SelectedIndex >= 0 && _thList.SelectedIndex < _thRows.Count) OpenMsg(_thRows[_thList.SelectedIndex].Type, _thRows[_thList.SelectedIndex].Id); };
+        cThread.Body.Controls.Add(_thList);
+        var cView = new CardPanel("Nội dung");
+        var viewBtns = NK.Row(_bReply, _bReplyAll, _bResend, _bEml, _bDel); viewBtns.Dock = DockStyle.Top;
+        NK.Stack(cView.Body, viewBtns, _vHead, NK.Spacer(4), _vText);
+        _cReply.RightBar.Controls.Add(NK.Button("✕", () => { _cReply.Visible = false; _replyTarget = null; }, tip: "Bỏ thư trả lời"));
+        var sigRow2 = NK.Row(_rSig, _rSigInfo); _rBody.Dock = DockStyle.Top;
+        var sendRow = NK.Row(_rSend);
+        NK.Stack(_cReply.Body, NK.FormGrid(90, ("To", _rTo), ("Cc", _rCc), ("Tiêu đề", _rSubject)), _rBody, sigRow2, NK.Muted("Trích dẫn thư gốc (gửi dạng HTML như thư gốc):"), _rQuote, sendRow);
+        _cReply.Visible = false;
+        var cLog2 = new CardPanel("Kết quả");
+        cLog2.RightBar.Controls.Add(NK.Button("Xoá log", () => { _log.Clear(); _log2.Clear(); SetState(""); }));
+        _log2.Font = ThemeManager.MonoFont; cLog2.Body.Controls.Add(_log2);
+        var rightHist = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(4, 10, 10, 10) };
+        var histCards = new Control[] { cThread, cView, _cReply, cLog2 };
+        foreach (var c in histCards) rightHist.Controls.Add(c);
+        NK.FitWidth(rightHist, histCards);
+        _histView.Controls.Add(rightHist); _histView.Controls.Add(leftHist);
+
+        _composeView.Controls.Add(rightCol); _composeView.Controls.Add(leftCol);
+        var tabBar = new BarFlow { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(10, 7, 10, 7) };
+        tabBar.Controls.Add(_tabs);
+        _tabs.Changed += v =>
+        {
+            var h = v == "hist";
+            _composeView.Visible = !h; _histView.Visible = h;
+            _bSend.Visible = !h; bSave.Visible = !h; _bCheck.Visible = h;
+            if (h) LoadHistory();
+        };
+
+        Controls.Add(_composeView); Controls.Add(_histView); Controls.Add(tabBar); Controls.Add(bar);
 
         foreach (var r in new[] { _to, _cc, _bcc, _subject, _body, _project }) r.TextChanged += (_, _) => Refresh();
         foreach (var d in new[] { _d1, _d2, _d3, _d4 }) d.ValueChanged += (_, _) => Refresh();
@@ -129,9 +210,13 @@ public sealed class NativeWeeklyMailControl : UserControl
         foreach (var c in new[] { _ssl, _tls, _ignoreCert }) c.CheckedChanged += (_, _) => SmtpChanged();
         _port.ValueChanged += (_, _) => SmtpChanged();
         _smtpTimer.Tick += (_, _) => { _smtpTimer.Stop(); WeeklyMailStore.SaveSmtp(ReadSmtp(false)); };
+        _imapHost.TextChanged += (_, _) => ImapChanged(); _password.TextChanged += (_, _) => ImapChanged(); _imapPort.ValueChanged += (_, _) => ImapChanged();
+        foreach (var c in new[] { _imapSsl, _copySent, _rememberPw }) c.CheckedChanged += (_, _) => ImapChanged();
+        _imapSsl.CheckedChanged += (_, _) => { if (!_loading && _imapPort.Value is 993 or 143) _imapPort.Value = _imapSsl.Checked ? 993 : 143; };
+        _imapTimer.Tick += (_, _) => { _imapTimer.Stop(); SaveImapNow(); };
 
         HandleCreated += (_, _) => BeginInvoke(new Action(Init));
-        Disposed += (_, _) => { try { _cts?.Cancel(); } catch { } _smtpTimer.Dispose(); };
+        Disposed += (_, _) => { try { _cts?.Cancel(); } catch { } _smtpTimer.Dispose(); _imapTimer.Dispose(); };
     }
 
     // =====================================================================  khởi tạo / ngày
@@ -143,6 +228,9 @@ public sealed class NativeWeeklyMailControl : UserControl
         var s = WeeklyMailStore.LoadSmtp() ?? new MailConfig();
         _host.Text = s.Host; _port.Value = s.Port > 0 ? Math.Clamp(s.Port, 1, 65535) : 587; _ssl.Checked = s.Ssl; _tls.Checked = s.Tls; _ignoreCert.Checked = s.IgnoreCert;
         _senderEmail.Text = s.SenderEmail; _alias.Text = s.Alias; _account.Text = s.Account;
+        var im = WeeklyMailStore.LoadImap();
+        _imapHost.Text = im.Host; _imapPort.Value = im.Port is > 0 and <= 65535 ? im.Port : 993; _imapSsl.Checked = im.Ssl; _copySent.Checked = im.CopyToSent; _rememberPw.Checked = im.RememberPassword;
+        if (im.RememberPassword) _password.Text = WeeklyMailStore.LoadRememberedPassword();
         SmtpSummary();
         RenderFilter();
         var cur = _currentProject() ?? "";
@@ -150,6 +238,7 @@ public sealed class NativeWeeklyMailControl : UserControl
         _loading = false;
         var first = VisibleTemplates().FirstOrDefault();
         _cur = first; WriteForm(first); RenderList(); AutoDates();
+        LoadHistory();
     }
 
     private void AutoDates()
@@ -332,10 +421,15 @@ public sealed class NativeWeeklyMailControl : UserControl
     {
         if (IsDisposed) return;
         var color = kind switch { "err" => AppColors.Danger, "ok" => AppColors.Success, "dim" => AppColors.TextMuted, _ => AppColors.Text };
-        _log.SelectionStart = _log.TextLength; _log.SelectionLength = 0; _log.SelectionColor = color;
-        _log.AppendText((kind == "dim" ? "" : DateTime.Now.ToString("HH:mm:ss") + "  ") + text + Environment.NewLine);
-        _log.ScrollToCaret();
+        foreach (var log in new[] { _log, _log2 })   // 2 tab con mỗi tab 1 khung kết quả — ghi cả hai
+        {
+            log.SelectionStart = log.TextLength; log.SelectionLength = 0; log.SelectionColor = color;
+            log.AppendText((kind == "dim" ? "" : DateTime.Now.ToString("HH:mm:ss") + "  ") + text + Environment.NewLine);
+            log.ScrollToCaret();
+        }
     }
+
+    private void LogAsync(string line, string kind) { try { if (!IsDisposed) BeginInvoke(new Action(() => AddLog(line, kind))); } catch { /* đang đóng */ } }
 
     private async Task SendAsync()
     {
@@ -351,16 +445,236 @@ public sealed class NativeWeeklyMailControl : UserControl
         var summary = $"Người gửi: {c.SenderEmail}\nTo: {c.To}" + (string.IsNullOrWhiteSpace(c.Cc) ? "" : $"\nCc: {c.Cc}") + (string.IsNullOrWhiteSpace(c.Bcc) ? "" : $"\nBcc: {c.Bcc}") + $"\nTiêu đề: {c.Subject}";
         if (MessageBox.Show(FindForm(), "Gửi mail này?\n\n" + summary, "Bcode — Mail kế hoạch tuần", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) { AddLog("Đã huỷ — chưa gửi.", "dim"); return; }
         WeeklyMailStore.SaveSmtp(c);
+        var imap = SaveImapNow();
+        var meta = new WeeklyMailSendMeta { Project = _project.Text.Trim(), TemplateId = _cur?.Id ?? "", TemplateName = _name.Text.Trim() };
         _cts = new CancellationTokenSource();
         _bSend.Enabled = false; _bCancel.Visible = true; SetState("Đang gửi...");
         var ok = false;
-        try { ok = await MailTestService.RunAsync(c, sendMail: true, (line, kind) => { try { if (!IsDisposed) BeginInvoke(new Action(() => AddLog(line, kind))); } catch { } }, _cts.Token); }
+        try { ok = await WeeklyMailHistory.SendAndSaveAsync(c, meta, imap, null, LogAsync, _cts.Token); }
         catch (Exception ex) { AddLog(ex.Message, "err"); }
         finally
         {
             _cts?.Dispose(); _cts = null;
             _bSend.Enabled = true; _bCancel.Visible = false;
             SetState(ok ? "✔ Đã gửi" : "✘ Không thành công", error: !ok, ok: ok);
+            LoadHistory();
         }
+    }
+
+    // =====================================================================  IMAP + nhớ mật khẩu
+
+    private WeeklyMailImapSettings ReadImap() => new()
+    {
+        Host = _imapHost.Text.Trim(), Port = (int)_imapPort.Value, Ssl = _imapSsl.Checked, CopyToSent = _copySent.Checked, RememberPassword = _rememberPw.Checked,
+    };
+
+    private void ImapChanged() { if (_loading) return; _imapTimer.Stop(); _imapTimer.Start(); }
+
+    /// <summary>Lưu cấu hình IMAP (kèm mật khẩu mã hoá nếu đang tick "Nhớ mật khẩu"; bỏ tick = xoá mật khẩu đã nhớ).</summary>
+    private WeeklyMailImapSettings SaveImapNow()
+    {
+        var s = ReadImap();
+        try { WeeklyMailStore.SaveImap(s, _rememberPw.Checked ? _password.Text : ""); } catch { /* không lưu được thì lần sau nhập lại */ }
+        return s;
+    }
+
+    // =====================================================================  Đã gửi & phản hồi
+
+    private void LoadHistory()
+    {
+        try { _idx = WeeklyMailHistory.Load(); } catch { _idx = new(); }
+        if (_curThread is not null) _curThread = _idx.Sent.FirstOrDefault(e => e.Id == _curThread.Id);
+        if (_curThread is null) { _curMsg = null; ShowMsg(null); }
+        RenderHist(); RenderThread();
+    }
+
+    private void RenderHist()
+    {
+        var q = _hSearch.Text.Trim();
+        _hRows = _idx.Sent.Where(e => e.ThreadId == e.Id)
+            .Where(e => q.Length == 0 || (e.Subject + " " + e.To + " " + e.Cc + " " + e.Project + " " + e.TemplateName).Contains(q, StringComparison.CurrentCultureIgnoreCase))
+            .OrderByDescending(e => e.SentAt).ToList();
+        var wasLoading = _loading; _loading = true;
+        _hList.BeginUpdate(); _hList.Items.Clear();
+        foreach (var e in _hRows)
+        {
+            var reps = _idx.Replies.Where(r => r.ThreadId == e.Id).ToList();
+            var unseen = reps.Count(r => !r.Seen);
+            // số phản hồi đứng trước tiêu đề — dòng dài bị cắt "…" ở cuối
+            _hList.Items.Add($"{e.SentAt.LocalDateTime:dd/MM HH:mm}   " + (reps.Count > 0 ? $"💬 {reps.Count}" + (unseen > 0 ? $" ({unseen} mới)" : "") + "   " : "")
+                + $"{(e.Kind == "resend" ? "⟳ " : "")}{(string.IsNullOrEmpty(e.Subject) ? "(không tiêu đề)" : e.Subject)}" + (string.IsNullOrEmpty(e.Project) ? "" : "   · " + e.Project));
+        }
+        if (_hRows.Count == 0) _hList.Items.Add(_idx.Sent.Count == 0 ? "Chưa có thư nào — thư gửi từ tab Soạn mail sẽ được lưu ở đây." : "Không có thư khớp.");
+        _hList.EndUpdate();
+        var i = _curThread is null ? -1 : _hRows.FindIndex(e => e.Id == _curThread.Id);
+        _hList.SelectedIndex = i;
+        _loading = wasLoading;
+        _hList.Height = Math.Clamp(Math.Max(1, _hList.Items.Count), 6, 20) * _hList.ItemHeight + 6;
+        var unseenAll = _idx.Replies.Count(r => !r.Seen);
+        _hLast.Text = (_idx.LastCheck is { } lc ? $"Kiểm tra phản hồi lần cuối: {lc.LocalDateTime:dd/MM/yyyy HH:mm}" : "Chưa kiểm tra phản hồi lần nào.") + (unseenAll > 0 ? $"  ·  {unseenAll} phản hồi chưa xem." : "");
+    }
+
+    private void SelectThread(WeeklyMailSentEntry e)
+    {
+        _curThread = e; RenderThread();
+        var pick = _thRows.FirstOrDefault(x => x.Type == "reply" && !x.Seen);
+        if (pick.Id is null && _thRows.Count > 0) pick = _thRows[^1];
+        if (pick.Id is not null) OpenMsg(pick.Type, pick.Id); else { _curMsg = null; ShowMsg(null); }
+    }
+
+    private void RenderThread()
+    {
+        var wasLoading = _loading; _loading = true;
+        _thList.BeginUpdate(); _thList.Items.Clear(); _thRows.Clear();
+        if (_curThread is { } t)
+        {
+            var rows = _idx.Sent.Where(s => s.ThreadId == t.Id).Select(s => (At: s.SentAt, Type: "sent", s.Id, Seen: true,
+                    Text: $"→  {s.SentAt.LocalDateTime:dd/MM HH:mm}   {(s.Kind == "reply" ? "Bcode trả lời" : s.Kind == "resend" ? "Bcode gửi lại" : "Bcode gửi")} · Tới: {s.To}"))
+                .Concat(_idx.Replies.Where(r => r.ThreadId == t.Id).Select(r => (At: r.Date, Type: "reply", r.Id, r.Seen,
+                    Text: $"←  {r.Date.LocalDateTime:dd/MM HH:mm}   {(r.Seen ? "" : "● MỚI · ")}Phản hồi · {r.From}{(r.ByHeader ? "" : " · đoán theo tiêu đề")}")))
+                .OrderBy(x => x.At).ToList();
+            foreach (var r in rows) { _thRows.Add((r.Type, r.Id, r.Seen)); _thList.Items.Add(r.Text); }
+        }
+        else _thList.Items.Add("Chọn 1 thư ở danh sách “Đã gửi”.");
+        _thList.EndUpdate();
+        _thList.SelectedIndex = _curMsg is { } m ? _thRows.FindIndex(x => x.Type == m.Type && x.Id == m.Id) : -1;
+        _loading = wasLoading;
+        _thList.Height = Math.Clamp(Math.Max(1, _thList.Items.Count), 3, 8) * _thList.ItemHeight + 6;
+    }
+
+    private void OpenMsg(string type, string id)
+    {
+        _curMsg = (type, id);
+        var v = WeeklyMailHistory.View(type, id);   // phản hồi: đánh dấu đã xem
+        if (type == "reply") { foreach (var r in _idx.Replies.Where(r => r.Id == id)) r.Seen = true; RenderHist(); }
+        RenderThread();
+        ShowMsg(v);
+    }
+
+    private void ShowMsg(WeeklyMailView? v)
+    {
+        foreach (var b in new[] { _bReply, _bReplyAll, _bEml, _bDel }) b.Enabled = v is not null;
+        _bResend.Enabled = v is not null && _curMsg?.Type == "sent";
+        _vText.BackColor = AppColors.Input; _vText.ForeColor = AppColors.Text;
+        if (v is null) { _vHead.Text = _curMsg is null ? "Chưa chọn thư." : "Không đọc được file .eml của thư này."; _vText.Clear(); return; }
+        _vHead.Text = $"{(string.IsNullOrEmpty(v.Subject) ? "(không tiêu đề)" : v.Subject)}\r\nTừ: {v.From}   ·   {v.Date}\r\nTo: {v.To}" + (v.Cc.Length > 0 ? $"\r\nCc: {v.Cc}" : "") + (v.Bcc.Length > 0 ? $"\r\nBcc: {v.Bcc}" : "")
+            + (v.Attachments.Count > 0 ? $"\r\n📎 Đính kèm: {string.Join(", ", v.Attachments)}" : "") + (v.Html.Length > 0 ? "\r\n(Thư HTML — đang hiện dạng chữ; bấm “Mở .eml” để xem đúng định dạng.)" : "");
+        _vText.Text = v.Text;
+    }
+
+    private void StartReply(bool all)
+    {
+        if (_curMsg is not { } m) return;
+        var d = WeeklyMailHistory.DraftReply(m.Type, m.Id, all, _senderEmail.Text.Trim());
+        if (d is null) { AddLog("Không đọc được thư gốc để trả lời.", "err"); return; }
+        _draft = d; _replyTarget = m;
+        _rTo.Text = d.To; _rCc.Text = d.Cc; _rSubject.Text = d.Subject; _rBody.Text = "";
+        _rSig.Checked = d.Signature.Length > 0; _rSig.Enabled = d.Signature.Length > 0;
+        _rSigInfo.Text = d.Signature.Length > 0 ? "" : "(mẫu của thư này không có chữ ký)";
+        _rQuote.BackColor = AppColors.Input; _rQuote.ForeColor = AppColors.TextMuted; _rQuote.Text = d.QuoteText;
+        _cReply.Visible = true;
+        _rBody.Inner.Focus();
+        (_cReply.Parent as ScrollableControl)?.ScrollControlIntoView(_cReply);
+    }
+
+    /// <summary>Kiểm tra thông tin máy chủ trước khi gửi / đọc hộp thư; thiếu thì mở mục máy chủ ở tab Soạn.</summary>
+    private MailConfig? NeedServer(bool needPassword)
+    {
+        var c = ReadSmtp(true);
+        var miss = c.Host.Length == 0 ? "Chưa khai báo máy chủ mail" : c.SenderEmail.Length == 0 ? "Chưa nhập Email gửi" : needPassword && c.Password.Length == 0 ? "Chưa nhập mật khẩu (IMAP luôn cần đăng nhập)" : "";
+        if (miss.Length == 0) return c;
+        AddLog(miss + " — mở mục “Máy chủ mail (SMTP / IMAP)” ở tab Soạn mail.", "err");
+        _tabs.Select("compose", raise: true);
+        if (!_cSmtp.TitleLabel.Text.StartsWith("▾")) _cSmtp.OpenToggle?.Invoke();
+        (c.Host.Length == 0 ? _host : c.SenderEmail.Length == 0 ? _senderEmail : _password).Inner.Focus();
+        return null;
+    }
+
+    private static string Summary(MailConfig c) =>
+        $"Người gửi: {c.SenderEmail}\nTo: {c.To}" + (string.IsNullOrWhiteSpace(c.Cc) ? "" : $"\nCc: {c.Cc}") + (string.IsNullOrWhiteSpace(c.Bcc) ? "" : $"\nBcc: {c.Bcc}") + $"\nTiêu đề: {c.Subject}";
+
+    /// <summary>Chạy 1 việc dài (gửi lại / trả lời / kiểm tra phản hồi) — 1 việc 1 lúc, nút Huỷ, log về 2 khung kết quả. <paramref name="op"/> trả chữ trạng thái khi thành công, null khi lỗi.</summary>
+    private async Task RunOpAsync(string busy, Func<CancellationToken, Task<string?>> op)
+    {
+        if (_cts is not null) return;
+        _cts = new CancellationTokenSource();
+        foreach (var b in new[] { _bSend, _bCheck, _rSend, _bResend }) b.Enabled = false;
+        _bCancel.Visible = true; SetState(busy);
+        string? done = null;
+        try { done = await op(_cts.Token); }
+        catch (OperationCanceledException) { AddLog("Đã huỷ.", "err"); }
+        catch (Exception ex) { AddLog(ex.Message, "err"); }
+        finally
+        {
+            _cts?.Dispose(); _cts = null;
+            foreach (var b in new[] { _bSend, _bCheck, _rSend }) b.Enabled = true;
+            _bCancel.Visible = false;
+            SetState(done ?? "✘ Không thành công", error: done is null, ok: done is not null);
+            LoadHistory();
+            ShowMsg(_curMsg is { } m ? WeeklyMailHistory.View(m.Type, m.Id) : null);
+        }
+    }
+
+    private async Task CheckRepliesAsync()
+    {
+        if (_cts is not null || NeedServer(true) is not { } c) return;
+        var imap = SaveImapNow();
+        await RunOpAsync("Đang kiểm tra phản hồi...", async ct =>
+        {
+            try { var n = await WeeklyMailHistory.CheckRepliesAsync(c, imap, LogAsync, ct); return n > 0 ? $"✔ {n} phản hồi mới" : "Không có phản hồi mới"; }
+            catch (Exception ex) when (ex is not OperationCanceledException) { LogAsync("Không kiểm tra được phản hồi: " + ex.Message, "err"); return null; }
+        });
+    }
+
+    private async Task ResendAsync()
+    {
+        if (_cts is not null || _curMsg is not { Type: "sent" } m || NeedServer(false) is not { } server) return;
+        if (WeeklyMailHistory.ResendConfig(m.Id, server) is not { } c) { AddLog("Không đọc được file .eml của thư này.", "err"); return; }
+        if (MessageBox.Show(FindForm(), "Gửi lại thư này?\n\n" + Summary(c), "Bcode — Mail kế hoạch tuần", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) { AddLog("Đã huỷ — chưa gửi.", "dim"); return; }
+        WeeklyMailStore.SaveSmtp(c);
+        var imap = SaveImapNow();
+        await RunOpAsync("Đang gửi lại...", async ct => await WeeklyMailHistory.SendAndSaveAsync(c, WeeklyMailHistory.MetaOf("sent", m.Id, "resend"), imap, null, LogAsync, ct) ? "✔ Đã gửi lại" : null);
+    }
+
+    private async Task SendReplyAsync()
+    {
+        if (_cts is not null || _replyTarget is not { } t || _draft is null || NeedServer(false) is not { } c) return;
+        if (_rTo.Text.Trim().Length == 0) { AddLog("Chưa nhập người nhận (To).", "err"); _rTo.Inner.Focus(); return; }
+        c.To = _rTo.Text.Trim(); c.Cc = _rCc.Text.Trim(); c.Bcc = ""; c.Subject = _rSubject.Text; c.Html = true;
+        c.Body = WeeklyMailHistory.ComposeReply(_rBody.Text, _rSig.Checked ? _draft.Signature : "", _draft.QuoteHtml);
+        if (MessageBox.Show(FindForm(), "Gửi thư trả lời này?\n\n" + Summary(c), "Bcode — Mail kế hoạch tuần", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) { AddLog("Đã huỷ — chưa gửi.", "dim"); return; }
+        WeeklyMailStore.SaveSmtp(c);
+        var imap = SaveImapNow();
+        var headers = WeeklyMailHistory.ReplyHeaders(t.Type, t.Id);
+        await RunOpAsync("Đang gửi trả lời...", async ct =>
+        {
+            var ok = await WeeklyMailHistory.SendAndSaveAsync(c, WeeklyMailHistory.MetaOf(t.Type, t.Id, "reply"), imap, headers, LogAsync, ct);
+            if (ok) BeginInvoke(new Action(() => { _cReply.Visible = false; _replyTarget = null; }));
+            return ok ? "✔ Đã gửi trả lời" : null;
+        });
+    }
+
+    private void OpenEml()
+    {
+        if (_curMsg is not { } m) return;
+        var p = WeeklyMailHistory.PathOf(m.Type, m.Id);
+        try
+        {
+            if (p.Length > 0 && File.Exists(p)) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(p) { UseShellExecute = true });
+            else AddLog("Không thấy file .eml.", "err");
+        }
+        catch (Exception ex) { AddLog("Không mở được file .eml: " + ex.Message, "err"); }
+    }
+
+    private void DeleteMsg()
+    {
+        if (_curMsg is not { } m) return;
+        var isRoot = m.Type == "sent" && _idx.Sent.FirstOrDefault(e => e.Id == m.Id) is { } e && e.ThreadId == e.Id;
+        var ask = m.Type == "reply" ? "Xoá phản hồi này khỏi Bcode?" : isRoot ? "Xoá thư này cùng cả chuỗi trả lời / phản hồi khỏi mục Đã gửi của Bcode?" : "Xoá thư này khỏi mục Đã gửi của Bcode?";
+        if (MessageBox.Show(FindForm(), ask + "\n\n(Chỉ xoá bản lưu trong Bcode, không đụng hộp thư trên máy chủ.)", "Bcode — Mail kế hoạch tuần", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        WeeklyMailHistory.Delete(m.Type, m.Id);
+        _curMsg = null; ShowMsg(null);
+        if (isRoot) _curThread = null;
+        LoadHistory();
     }
 }

@@ -42,9 +42,17 @@ internal sealed class GrantSourcePage : DialogPage
         _allf.CheckedChanged += (_, _) => { if (!_loading) Resolve(); };
         _bGrant = NK.Button("Cấp source", () => Post(new { action = "grant", data = new { version = Ver, overwrite = _ow.Checked, indexes = Selected() } }), primary: true);
         Bottom.FlowDirection = FlowDirection.RightToLeft;
-        Bottom.Controls.Add(_bGrant); Bottom.Controls.Add(NK.Button("Đóng", () => Post(new { action = "close" })));
+        _bView = NK.Button("View source", View, tip: "Xem nội dung file source (.xml) sắp được cấp của dòng đang chọn — nhấn đúp vào dòng cũng mở");
+        Bottom.Controls.Add(_bGrant); Bottom.Controls.Add(NK.Button("Đóng", () => Post(new { action = "close" }))); Bottom.Controls.Add(_bView);
+        _grid.CurrentCellChanged += (_, _) => { if (!_loading) Summary(); };
+        _grid.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0 && _grid.Columns[Math.Max(0, e.ColumnIndex)].Name != "chk") View(); };
         Layout(top, _grid);
     }
+
+    private readonly PillButton _bView;
+    private readonly List<bool> _hasSource = new();
+    private int Cur => _grid.CurrentCell?.RowIndex ?? -1;
+    private void View() { var i = Cur; if (i >= 0 && i < _hasSource.Count && _hasSource[i]) Post(new { action = "view", data = new { index = i } }); }
 
     private string Ver => _versions.Count > 0 && _ver.SelectedIndex >= 0 ? _versions[_ver.SelectedIndex] : "";
     private void Resolve() { Say("Đang tìm source ở phiên bản " + Ver + "..."); Post(new { action = "resolve", data = new { version = Ver, all = _allf.Checked } }); }
@@ -55,6 +63,7 @@ internal sealed class GrantSourcePage : DialogPage
         var n = Selected().Count;
         Say(_total + " file — tìm thấy source cho " + _found + (_fb > 0 ? " (" + _fb + " lấy từ phiên bản khác)" : "") + (_total - _found > 0 ? ", " + (_total - _found) + " không có" : "") + " · đang chọn " + n + (_extra.Length > 0 ? " · " + _extra : ""));
         _bGrant.Enabled = n > 0;
+        _bView.Enabled = Cur >= 0 && Cur < _hasSource.Count && _hasSource[Cur];
     }
 
     protected override bool HandleKey(Keys k) { if (k == Keys.Escape) { Post(new { action = "close" }); return true; } return false; }
@@ -79,7 +88,9 @@ internal sealed class GrantSourcePage : DialogPage
             case "grant.onRows":
             {
                 _loading = true;
+                var keep = Cur;
                 _grid.Rows.Clear();
+                _hasSource.Clear();
                 _total = _found = _fb = 0;
                 if (a.Count > 0 && a[0].ValueKind == JsonValueKind.Array)
                     foreach (var r in a[0].EnumerateArray())
@@ -91,7 +102,11 @@ internal sealed class GrantSourcePage : DialogPage
                         row.Cells["file"].ToolTipText = P(r, "projectFile");
                         row.Cells["chk"].ReadOnly = !found;
                         row.DefaultCellStyle.ForeColor = !found ? AppColors.TextMuted : fb ? AppColors.Warning : AppColors.Text;
+                        _hasSource.Add(found);
                     }
+                // Làm mới thì giữ dòng đang chọn, không thì chọn dòng có source đầu tiên (cho View source).
+                var pick = keep >= 0 && keep < _hasSource.Count && _hasSource[keep] ? keep : _hasSource.IndexOf(true);
+                if (pick >= 0) _grid.CurrentCell = _grid.Rows[pick].Cells["file"];
                 _extra = Str(a, 1);
                 _loading = false;
                 Summary();
@@ -124,12 +139,14 @@ internal sealed class AddSourcePage : DialogPage
         tools.Controls.AddRange(new Control[]
         {
             NK.Button("Tick tất cả", () => SetAll(true)), NK.Button("Bỏ tick tất cả", () => SetAll(false)),
-            NK.Button("Bỏ tick file đã có", UntickExisting, tip: "Bỏ tick những file đã có sẵn ở thư mục đích — chỉ cấp file còn thiếu"), _count,
+            NK.Button("Bỏ tick file đã có", UntickExisting, tip: "Bỏ tick những file đã có sẵn ở thư mục đích — chỉ cấp file còn thiếu"),
+            NK.Button("View source", ViewSource, tip: "Xem nội dung file source sắp được cấp của dòng đang chọn — nhấn đúp vào dòng cũng mở"), _count,
         });
         _grid = NK.Grid(("file", "File", 0), ("sub", "Thư mục con", 220), ("mod", "Ngày sửa (kho)", 130), ("ex", "Đích", 70), ("nn", "New Name", 220));
         GridKit.AddCheck(_grid);
         _grid.Columns["nn"]!.ReadOnly = false;
         _grid.CellValueChanged += (_, e) => { if (_loading || e.RowIndex < 0) return; if (_grid.Columns[e.ColumnIndex].Name == "nn") Schedule(); else UpdateCount(); };
+        _grid.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && _grid.Columns[e.ColumnIndex].Name is not ("chk" or "nn")) ViewSource(); };
         _version.SelectionChanged += _ => { if (!_loading) Find(); };
         _name.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Find(); } };
         _dest.TextChanged += (_, _) => { if (!_loading) Schedule(); };
@@ -154,6 +171,14 @@ internal sealed class AddSourcePage : DialogPage
     }
 
     private void Schedule() { _timer.Stop(); _timer.Start(); }
+
+    private void ViewSource()
+    {
+        var i = _grid.CurrentCell?.RowIndex ?? -1;
+        if (i < 0 || i >= _meta.Count) return;
+        var v = _versions.Count > 0 && _version.SelectedIndex >= 0 ? _versions[_version.SelectedIndex] : "";
+        Post(new { action = "view", data = new { path = _meta[i].Path, subpath = _meta[i].Sub, version = v } });
+    }
 
     private void PostExisting() => Post(new { action = "existing", data = new { dest = _dest.Text, items = _grid.Rows.Cast<DataGridViewRow>().Select(r => new { subpath = _meta[r.Index].Sub, newName = (r.Cells["nn"].Value as string) ?? "" }).ToList() } });
 

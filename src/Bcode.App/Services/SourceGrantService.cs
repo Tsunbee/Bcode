@@ -93,7 +93,7 @@ public static class SourceGrantService
             var cv = ParseVersion(code);
             if (cv.Length > 0)
             {
-                var byNumber = versions.FirstOrDefault(v => CompareVersion(ParseVersion(v), cv) == 0);
+                var byNumber = PreferFamily(versions.Where(v => CompareVersion(ParseVersion(v), cv) == 0), code);
                 if (byNumber is not null) { note = $"theo số phiên bản {string.Join('.', cv)} của mã đã khai báo \"{code}\""; return byNumber; }
             }
         }
@@ -106,13 +106,22 @@ public static class SourceGrantService
         var pv = ParseVersion(projectName);
         if (pv.Length > 0)
         {
-            var sameNumber = versions.Where(v => CompareVersion(ParseVersion(v), pv) == 0).ToList();
-            var family = projectName.Length >= 3 ? projectName[..3] : projectName;
-            var pick = sameNumber.FirstOrDefault(v => v.StartsWith(family, StringComparison.OrdinalIgnoreCase)) ?? sameNumber.FirstOrDefault();
+            var pick = PreferFamily(versions.Where(v => CompareVersion(ParseVersion(v), pv) == 0), projectName);
             if (pick is not null) { note = $"cùng số phiên bản {string.Join('.', pv)} với \"{projectName}\""; return pick; }
         }
         note = $"không tìm thấy phiên bản khớp \"{projectName}\" — chọn thủ công";
         return null;
+    }
+
+    /// <summary>Trong các phiên bản cùng số, ưu tiên cùng dòng sản phẩm với <paramref name="hint"/>: trùng 3 chữ đầu (FBO), rồi 2 chữ đầu (FB — dự án
+    /// FBISP24 dùng kho FBOR2SP24), cuối cùng mới tới tên khác hẳn (vd "TT24" của kho bổ sung FAP).</summary>
+    private static string? PreferFamily(IEnumerable<string> sameNumber, string hint)
+    {
+        var list = sameNumber.ToList();
+        string f3 = hint.Length >= 3 ? hint[..3] : hint, f2 = hint.Length >= 2 ? hint[..2] : hint;
+        return list.FirstOrDefault(v => v.StartsWith(f3, StringComparison.OrdinalIgnoreCase))
+            ?? list.FirstOrDefault(v => v.StartsWith(f2, StringComparison.OrdinalIgnoreCase))
+            ?? list.FirstOrDefault();
     }
 
     /// <summary>Cắt đường dẫn file dự án tại App_Data / Main: trả về (gốc site, phần tương đối). null nếu file không nằm trong 2 thư mục đó.</summary>
@@ -211,6 +220,46 @@ public static class SourceGrantService
             rows.Add(row);
         }
         return rows;
+    }
+
+    /// <summary>Cấp nhanh 1 file từ thanh xem trước của File Lookup: lấy ở <paramref name="chosenVersion"/>; không có thì lấy ở phiên bản
+    /// THẤP HƠN GẦN NHẤT có file — chỉ xét các phiên bản cùng dòng sản phẩm (3 chữ đầu tên, vd FBO) và có số phiên bản; cùng số thì theo
+    /// thứ tự của <paramref name="allVersions"/> (đã sắp mới → cũ bởi <see cref="ListVersions(IReadOnlyList{string})"/>).
+    /// Khác <see cref="Resolve(IReadOnlyList{string}, string, IReadOnlyList{string}, IEnumerable{string}, string)"/> (hộp thoại Cấp source):
+    /// ở đó lấy bản sửa mới nhất trong các phiên bản cũ hơn.</summary>
+    public static GrantRow ResolveNearestLower(IReadOnlyList<string> collectionRoots, string chosenVersion, IReadOnlyList<string> allVersions, string projectFile, string destRoot)
+    {
+        var split = SplitProjectPath(projectFile);
+        var srcRel = SourceRelative(split is null ? Path.GetFileName(projectFile) : split.Value.Relative);
+        var row = new GrantRow { ProjectFile = projectFile, RelativeSource = srcRel, DestPath = Path.Combine(destRoot, srcRel) };
+        row.DestExists = SafeExists(row.DestPath);
+
+        if (FindInRoots(collectionRoots, chosenVersion, srcRel) is { } inChosen)
+        {
+            row.SourcePath = inChosen; row.FromVersion = chosenVersion; row.Modified = SafeTime(inChosen);
+            return row;
+        }
+        var chosenVer = ParseVersion(chosenVersion);
+        if (chosenVer.Length == 0) return row;
+        var family = chosenVersion.Length >= 3 ? chosenVersion[..3] : chosenVersion;
+        var lower = allVersions
+            .Where(v => !v.Equals(chosenVersion, StringComparison.OrdinalIgnoreCase) && v.StartsWith(family, StringComparison.OrdinalIgnoreCase))
+            .Select(v => (Name: v, Ver: ParseVersion(v)))
+            .Where(v => v.Ver.Length > 0 && CompareVersion(v.Ver, chosenVer) <= 0)
+            .OrderByDescending(v => v.Ver, Comparer<int[]>.Create(CompareVersion))   // OrderBy ổn định: cùng số giữ thứ tự của allVersions
+            .Select(v => v.Name).ToList();
+        // Kho ở ổ mạng: kiểm từng lô 8 phiên bản song song, dừng ở lô đầu tiên có file, lấy phiên bản đứng trước nhất trong lô.
+        for (var i = 0; i < lower.Count; i += 8)
+        {
+            var batch = lower.Skip(i).Take(8).ToList();
+            var hits = new string?[batch.Count];
+            Parallel.For(0, batch.Count, k => hits[k] = FindInRoots(collectionRoots, batch[k], srcRel));
+            var at = Array.FindIndex(hits, h => h is not null);
+            if (at < 0) continue;
+            row.SourcePath = hits[at]; row.FromVersion = batch[at]; row.Modified = SafeTime(hits[at]!); row.FromFallback = true;
+            break;
+        }
+        return row;
     }
 
     /// <summary>Khoảng cách thô giữa hai phiên bản (để chọn bản gần nhất khi giờ sửa trùng nhau).</summary>

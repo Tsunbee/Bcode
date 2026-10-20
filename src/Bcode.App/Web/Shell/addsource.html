@@ -29,6 +29,7 @@
               font-weight: 600; text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid var(--border); padding-top: 8px; }
   .row:not(.head):hover { background: var(--panel-alt); }
   .row.off { opacity: .55; }
+  .row.cur, .row.cur:hover { background: var(--selection); }
   .file .n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .file .p { font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mod { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
@@ -71,6 +72,7 @@
   <button class="btn btn-border" id="btnAll">Tick tất cả</button>
   <button class="btn btn-border" id="btnNone">Bỏ tick tất cả</button>
   <button class="btn btn-border" id="btnUntickExisting" title="Bỏ tick những file đã có sẵn ở thư mục đích — chỉ cấp file còn thiếu">Bỏ tick file đã có</button>
+  <button class="btn btn-border" id="btnView" title="Xem nội dung file source sắp được cấp của dòng đang chọn — nhấn đúp vào dòng cũng mở">View source</button>
   <span class="sp"></span>
   <span class="count" id="count"></span>
 </div>
@@ -96,6 +98,7 @@
   const PLACEHOLDER = '<SELECT VERSION>';
   let rows = [];            // { path, name, subpath, modified, existing, selected, newName }
   let existTimer = null;
+  let cur = -1;             // dòng đang chọn cho View source
 
   const $ = (id) => document.getElementById(id);
   function post(action, data) { window.chrome.webview.postMessage(JSON.stringify({ action, data })); }
@@ -105,7 +108,9 @@
     host.textContent = '';
     rows.forEach((r, i) => {
       const el = document.createElement('div');
-      el.className = 'row' + (r.selected ? '' : ' off');
+      el.className = 'row' + (r.selected ? '' : ' off') + (i === cur ? ' cur' : '');
+      el.onclick = () => pick(i);
+      el.ondblclick = (e) => { if (!e.target.closest('input')) { pick(i); view(); } };
 
       const cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = r.selected;
@@ -136,6 +141,13 @@
     $('empty').style.display = rows.length ? 'none' : 'block';
     updateCount();
   }
+
+  function pick(i) {
+    cur = i;
+    [...$('rows').children].forEach((el, k) => el.classList.toggle('cur', k === i));
+    $('btnView').disabled = !rows[cur];
+  }
+  function view() { const r = rows[cur]; if (r) post('view', { path: r.path, subpath: r.subpath, version: $('version').value }); }
 
   function updateCount() {
     const sel = rows.filter((r) => r.selected).length;
@@ -173,6 +185,8 @@
     post('copy', { dest: $('dest').value, items });
   };
   $('btnClose').onclick = () => post('close');
+  $('btnView').onclick = view;
+  $('btnView').disabled = true;
 
   function setStatus(text, kind) { const s = $('status'); s.textContent = text; s.className = kind || ''; }
 
@@ -190,7 +204,9 @@
   };
   window.setRows = (list, msg) => {
     rows = list.map((r) => ({ ...r, selected: true, newName: r.name }));
+    cur = rows.length ? 0 : -1;
     render();
+    $('btnView').disabled = cur < 0;
     setStatus(msg, rows.length ? 'ok' : '');
   };
   // Chỉ cập nhật nhãn, KHÔNG dựng lại hàng — người dùng có thể đang gõ dở trong ô New Name.

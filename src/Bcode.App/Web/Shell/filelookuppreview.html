@@ -23,7 +23,14 @@
     flex: 1;
     min-width: 0;
   }
-  #modifiedLabel { color: var(--text-muted); font-size: 12px; flex: 1; min-width: 0; }
+  #modifiedLabel { color: var(--text-muted); font-size: 12px; flex: none; white-space: nowrap; }
+  /* Source sắp cấp cho file .f đang chọn (phiên bản trong kho) + nút cấp nhanh — chiếm khoảng trống giữa ngày sửa và breadcrumb. */
+  #srcBox { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  #srcLabel { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  #srcLabel b { font-weight: 600; }
+  #srcLabel.ok b { color: var(--success); } #srcLabel.fb b { color: var(--warning); } #srcLabel.no { color: var(--text-muted); cursor: default; }
+  #srcLabel:not(.no):hover { text-decoration: underline; }
+  #btnGrantOne { padding: 0 10px; height: 20px; line-height: 18px; font-size: 12px; }
   #breadcrumbLabel {
     color: var(--text-muted);
     font-size: 12px;
@@ -44,6 +51,7 @@
   </div>
   <div class="row">
     <span id="modifiedLabel"></span>
+    <span id="srcBox"><span id="srcLabel"></span><button class="btn btn-border" id="btnGrantOne" style="display:none">Cấp source</button></span>
     <span id="breadcrumbLabel"></span>
   </div>
 
@@ -61,6 +69,26 @@
     document.getElementById('modifiedLabel').textContent = modified;
     document.getElementById('breadcrumbLabel').textContent = breadcrumb;
     document.getElementById('btnEdit').disabled = !editEnabled;
+  };
+  document.getElementById('srcLabel').addEventListener('click', function (e) {
+    if (!e.currentTarget.classList.contains('no') && e.currentTarget.textContent) post({ action: 'view-source' });
+  });
+  document.getElementById('btnGrantOne').addEventListener('click', function (e) {
+    if (!e.target.disabled) post({ action: 'grant-one' });
+  });
+  // s = null → ẩn; { version, text, kind: 'ok'|'fb'|'no'|'', tip, can }
+  window.setSource = function (s) {
+    var lbl = document.getElementById('srcLabel'), btn = document.getElementById('btnGrantOne');
+    lbl.textContent = '';
+    lbl.className = s ? (s.kind || '') : '';
+    lbl.title = s ? (s.tip || '') : '';
+    if (s) {
+      if (s.version) { var b = document.createElement('b'); b.textContent = s.version; lbl.append('Source ', b, ' '); }
+      lbl.append(s.text || '');
+    }
+    btn.style.display = s ? '' : 'none';   // .btn của shell.css đặt display nên thuộc tính hidden không ẩn được
+    btn.disabled = !(s && s.can);
+    btn.title = s && s.can ? 'Cấp file source này vào dự án (hỏi xác nhận trước khi ghi)' : '';
   };
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

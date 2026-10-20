@@ -7,7 +7,7 @@ using Bcode.App.UI;
 namespace Bcode.App.Controls;
 
 
-public class FileLookupControl : UserControl
+public partial class FileLookupControl : UserControl
 {
     private readonly TreeView _tree;
     /// <summary>Right-click menu on <see cref="_tree"/> — "Go to File/Folder" and "Copy
@@ -303,7 +303,15 @@ public class FileLookupControl : UserControl
                         break;
                 }
             };
-            _previewBarWeb.Message += root => { if (root.GetProperty("action").GetString() == "edit") OpenInViewer(); };
+            _previewBarWeb.Message += root =>
+            {
+                switch (root.GetProperty("action").GetString())
+                {
+                    case "edit": OpenInViewer(); break;
+                    case "view-source": ViewQuickGrantSource(); break;            // xem file source sắp cấp (FileLookupControl.QuickGrant.cs)
+                    case "grant-one": BeginInvoke(new Action(GrantSelectedNow)); break; // cấp nhanh file .f đang chọn
+                }
+            };
             _previewBarWeb.Ready += ShowNoSelection;
         }
 
@@ -820,6 +828,7 @@ public class FileLookupControl : UserControl
 
     private void PreviewFile(string path, TreeNode? treeNode)
     {
+        UpdateQuickGrant(path); // source sắp cấp + nút "Cấp source" nhanh ở dòng 2 thanh xem trước (FileLookupControl.QuickGrant.cs)
         var breadcrumb = treeNode is not null
             ? BuildBreadcrumb(treeNode)
             : Path.GetFileName(Path.GetDirectoryName(path) ?? "");
@@ -994,6 +1003,7 @@ public class FileLookupControl : UserControl
     private void ShowNoSelection()
     {
         PushPreview("(chưa chọn file nào)", "", "", editEnabled: false);
+        ClearQuickGrant();
         _previewEditor.Clear();
     }
 

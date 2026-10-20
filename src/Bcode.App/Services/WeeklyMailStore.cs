@@ -45,4 +45,33 @@ public static class WeeklyMailStore
         Directory.CreateDirectory(Dir);
         File.WriteAllText(SmtpPath, JsonSerializer.Serialize(cur, JsonOpts));
     }
+
+    // ---------------------------------------------------------------- IMAP (đọc phản hồi / chép lên Sent) + nhớ mật khẩu
+    // File riêng weeklymail-imap.json: tab Check Mail ghi đè cả checkmail.json theo trang của nó, thêm khoá IMAP vào đó sẽ bị mất.
+    private static string ImapPath => Path.Combine(Dir, "weeklymail-imap.json");
+
+    public static WeeklyMailImapSettings LoadImap()
+    {
+        try { if (File.Exists(ImapPath)) return JsonSerializer.Deserialize<WeeklyMailImapSettings>(File.ReadAllText(ImapPath), JsonOpts) ?? new(); }
+        catch { /* file hỏng → mặc định */ }
+        return new();
+    }
+
+    /// <summary>Lưu host/cổng/SSL/tuỳ chọn; mật khẩu: <paramref name="password"/> null = giữ như cũ, còn lại = lưu mã hoá nếu đang tick nhớ (bỏ tick = xoá).</summary>
+    public static void SaveImap(WeeklyMailImapSettings s, string? password = null)
+    {
+        var cur = LoadImap();
+        cur.Host = s.Host?.Trim() ?? ""; cur.Port = s.Port is > 0 and <= 65535 ? s.Port : 993; cur.Ssl = s.Ssl; cur.CopyToSent = s.CopyToSent; cur.RememberPassword = s.RememberPassword;
+        if (!s.RememberPassword) cur.PasswordProtected = "";
+        else if (!string.IsNullOrEmpty(password)) cur.PasswordProtected = Api.ApiProjectStore.Protect(password);
+        Directory.CreateDirectory(Dir);
+        File.WriteAllText(ImapPath, JsonSerializer.Serialize(cur, JsonOpts));
+    }
+
+    /// <summary>Mật khẩu đã nhớ (giải mã DPAPI) hoặc "" nếu không nhớ / giải mã không được (file chép từ máy khác).</summary>
+    public static string LoadRememberedPassword()
+    {
+        var s = LoadImap();
+        return s.RememberPassword ? Api.ApiProjectStore.Unprotect(s.PasswordProtected) : "";
+    }
 }

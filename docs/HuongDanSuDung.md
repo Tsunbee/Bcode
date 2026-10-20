@@ -593,6 +593,7 @@ Trên ảnh: **①** Path + Load · **②** loại file · Only Show · SearchBo
 2. Bấm một file → khung xem trước (Monaco, chỉ đọc) bên phải, kèm "Last Modified". `F12` trên `&Entity;` để peek nội dung entity; `Ctrl+F` tìm trong file.
 3. File **tô đỏ** = thiếu entity / include: chọn file để xem danh sách "✖ …" bị thiếu. Dòng trạng thái: "Kết quả n file(s) — ⚠ k file lỗi entity/include…".
 4. **Edit in BcodeViewer** (hoặc double-click file) để sửa. Lần đầu Bcode hỏi đường dẫn BcodeViewer.exe. File `.rpt` / `.xlsx` mở bằng chương trình Windows.
+5. **Cấp source nhanh**: chọn 1 file `.f` của Dir / Grid / Filter → dòng dưới đường dẫn hiện **Source <phiên bản> · <thư mục trong kho>**: phiên bản của dự án; dự án không có file đó thì tự lùi về **phiên bản thấp hơn gần nhất** có file (chữ màu cam + ↓, rê chuột xem giải thích). Bấm vào nhãn để xem file .xml trong kho (chỉ đọc). Bấm **Cấp source** cạnh nhãn → hỏi xác nhận (báo rõ nếu sẽ ghi đè) rồi chép luôn file đó vào dự án. Nút **Cấp source** ở thanh trên vẫn mở hộp thoại cấp nhiều file như cũ.
 
 ### Tìm nội dung (SearchBox)
 
@@ -612,8 +613,8 @@ Phím trong cây file: `F5` quét lại (giữ cache), `F4` nhân bản tab File
 | Công cụ | Mở ở đâu | Dùng để |
 |---|---|---|
 | **Copy files to...** | File Lookup → tick file → **Copy to...** | Chép nhiều file sang thư mục / dự án khác: giữ cấu trúc thư mục con; file đích đã có → Bỏ qua / Ghi đè / Tự đổi tên (_1, _2…); đổi tên hàng loạt (Tiền tố / Hậu tố / Tìm → Thay). |
-| **Cấp source (tự động theo phiên bản)** | File Lookup → **Cấp source** hoặc chuột phải file | Lấy đúng bản file chuẩn trong kho SourceCollection theo **Phiên bản** của dự án. Mỗi file gắn nhãn "đúng phiên bản / phiên bản khác / không tìm thấy / đã có / mới". Tick "Ghi đè file đã có ở đích" nếu muốn thay. |
-| **Cấp source (Add Source)** | Chuột phải file / menu → Cấp source thủ công | Tìm theo mẫu tên (`;` ngăn cách, hỗ trợ `*` `?`), chọn Version, tick file, **OK — cấp source**. Lần đầu hỏi đường dẫn kho các phiên bản source. |
+| **Cấp source (tự động theo phiên bản)** | File Lookup → **Cấp source** hoặc chuột phải file | Lấy đúng bản file chuẩn trong kho SourceCollection theo **Phiên bản** của dự án. Mỗi file gắn nhãn "đúng phiên bản / phiên bản khác / không tìm thấy / đã có / mới". Tick "Ghi đè file đã có ở đích" nếu muốn thay. Chọn 1 dòng rồi bấm **View source** (hoặc nhấn đúp dòng) để xem trước nội dung file .xml trong kho sắp được cấp — chỉ đọc, `Ctrl+F` tìm, `F12` mở file Include/entity, `Esc` đóng. |
+| **Cấp source (Add Source)** | Chuột phải file / menu → Cấp source thủ công | Tìm theo mẫu tên (`;` ngăn cách, hỗ trợ `*` `?`), chọn Version, tick file, **OK — cấp source**. **View source** (hoặc nhấn đúp dòng) xem trước nội dung file sắp cấp. Lần đầu hỏi đường dẫn kho các phiên bản source. |
 | **Copy source standard** | Cây WCommand → chuột phải menu | Chọn file chuẩn của menu, đổi tên hàng loạt rồi **Clone** sang dự án. |
 | **File Reference** (`Ctrl+Shift+R`) | Thanh công cụ | Tìm mọi nơi tham chiếu một tên link / từ khoá trong App_Data; double-click kết quả để mở đúng dòng. |
 
@@ -739,7 +740,18 @@ Nút **Triển khai ▾** trên thanh trên. Các công cụ này không có ph�
 | **Khai báo API** | Khai báo & quản lý API chuẩn LT3: **＋ Mới từ mẫu LT3**, **Nhập Postman…**, **Xuất Postman…**; kết nối (địa chỉ gốc, tài khoản, mật khẩu — mã hoá theo máy) → **Lấy token**. Phím: `Ctrl+Shift+Enter` gửi, `Ctrl+S` lưu, `Ctrl+Shift+T` lấy token, `Ctrl+Shift+F` format, `Ctrl+Shift+K` validate. |
 | **Tạo cấu trúc API** | Chọn bảng / cột → xuất tài liệu Word "TÀI LIỆU ĐẶC TẢ TỔNG HỢP API". |
 | **Báo cáo yêu cầu FSG** | **Kéo** yêu cầu từ FSG (chỉ đọc): nhập Mã dự án → **⟳ Kéo về** (Enter); bộ phận, người, mã YC, nội dung, lập trình, triển khai nằm trong **Điều kiện kéo khác ▾** (gập lại thì hiện thành thẻ). **Lọc tại chỗ** trên dữ liệu đã kéo, không gọi lại FSG: ô **Tìm** (`Ctrl+F`; gõ tên người / dự án sẽ gợi ý lọc nhanh, ↓ Enter để chọn), nút **Dự án ▾ / Lập trình ▾ / Triển khai ▾ / Trạng thái ▾** (số yêu cầu đếm theo các lọc đang chọn), chip trạng thái (bấm = chỉ xem nhóm đó, bấm lại = tất cả, `Ctrl`+bấm = chọn nhiều), **⚠ Tới hạn**, **✕ Bỏ lọc**; lọc được nhớ cho lần mở sau. **Đã lưu ▾**: các dự án đã kéo — bấm 1 dự án để chỉ xem dự án đó, ✕ để bỏ dữ liệu đã lưu. Xem Chi tiết / Dashboard / Gợi ý ưu tiên (chỉ xét y/c Đã duyệt / Đang thực hiện; bảng trống thì ghi rõ đang lọc gì). Bấm ô Nội dung để mở khung chi tiết y/c → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) như ở Note (New) — xem [AI tạo danh mục](#ai-danh-muc). Từ cây WCommand: chuột phải menu → **Yêu cầu liên quan (QLYC)…** mở tab này lọc sẵn theo menu (xem [WCommand](#wcommand)). |
-| **Mail kế hoạch tuần** | Mẫu mail theo dự án (＋ Mới / Nhân bản / Xoá mẫu), máy chủ SMTP dùng chung với Check Mail, **⟳ Tính theo hôm nay** điền ngày trong tuần → **✉ Gửi mail** / **💾 Lưu mẫu**. |
+| **Mail kế hoạch tuần** | Tab con **✎ Soạn mail**: mẫu mail theo dự án (＋ Mới / Nhân bản / Xoá mẫu), máy chủ SMTP dùng chung với Check Mail, **⟳ Tính theo hôm nay** điền ngày trong tuần → **✉ Gửi mail** / **💾 Lưu mẫu**. Tab con **📨 Đã gửi & phản hồi**: xem lại thư đã gửi, **🔍 Kiểm tra phản hồi**, Reply / Reply all, gửi lại — xem [bên dưới](#mail-da-gui). |
+
+<a id="mail-da-gui"></a>
+### Mail kế hoạch tuần — Đã gửi & phản hồi
+
+- **Lưu thư đã gửi:** mỗi thư gửi thành công được lưu bản đầy đủ (.eml) trong Bcode. Nút 📁 mở thư mục lưu thư. Thư Bcode gửi đi bằng SMTP **không tự vào thư mục Sent** của hộp thư. Muốn Outlook / webmail thấy thì tick **Chép thư đã gửi lên thư mục Sent của hộp thư** ở mục **Máy chủ mail (SMTP / IMAP)** (bật sẵn). Nếu chép lỗi, Bcode chỉ báo trong Kết quả; thư vẫn đã gửi.
+- **IMAP:** khai ở mục **Máy chủ mail (SMTP / IMAP)** của tab Soạn mail. Host IMAP để trống thì dùng cùng host SMTP. Mặc định cổng **993 + SSL**; bỏ tick SSL thì dùng **143** STARTTLS. IMAP dùng cùng tài khoản và mật khẩu với SMTP, và luôn cần mật khẩu.
+- **Nhớ mật khẩu:** tick **Nhớ mật khẩu** thì lần sau mở tab không phải nhập lại. Mật khẩu được mã hoá theo tài khoản Windows, chỉ máy này đọc được. Bỏ tick là xoá mật khẩu đã nhớ.
+- **Danh sách Đã gửi:** mỗi dòng là 1 thư gốc. 💬 *n* = số phản hồi, *(m mới)* = số phản hồi chưa xem. Lọc theo dự án, tìm theo tiêu đề / người nhận. Chọn 1 thư thì ô **Chuỗi thư** hiện các thư cùng chuỗi theo thời gian: → thư Bcode gửi / trả lời, ← phản hồi nhận về. Bấm 1 dòng để xem nội dung. Chế độ App hiện nội dung dạng chữ; bấm **Mở .eml** để xem đủ định dạng bằng Outlook.
+- **🔍 Kiểm tra phản hồi** (thanh dưới, ở tab Đã gửi): Bcode đăng nhập hộp thư, tìm ở INBOX các thư trả lời thư đã gửi từ Bcode rồi tải về. Thư Bcode chỉ đọc, không đánh dấu, không xoá. Phản hồi có dòng “đoán theo tiêu đề” là thư không mang thông tin trả lời mà chỉ khớp tiêu đề “Re: / TL: + tiêu đề gốc”. Mẫu tuần nào cũng cùng tiêu đề, nên loại này có thể bị gắn nhầm tuần.
+- **↩ Reply / ↩ Reply all:** mở khung **Trả lời**, điền sẵn người nhận, tiêu đề “Re: …”, trích dẫn thư gốc và chữ ký của mẫu (bỏ tick **Kèm chữ ký của mẫu** nếu không muốn). Reply thư của chính mình = gửi tiếp cho người nhận cũ. Gõ nội dung → **✉ Gửi trả lời**. Bcode luôn hỏi xác nhận và hiện rõ người nhận. Thư trả lời nằm cùng chuỗi trong mục Đã gửi, nên phản hồi tiếp theo vẫn về đúng chuỗi.
+- **⟳ Gửi lại:** gửi lại 1 thư Bcode đã gửi, cùng người nhận, tiêu đề và nội dung. Bcode hỏi xác nhận trước khi gửi. **Xoá** chỉ xoá bản lưu trong Bcode (thư gốc thì xoá cả chuỗi), không đụng hộp thư trên máy chủ.
 
 <a id="tool-mo-rong"></a>
 ## Menu Tool mở rộng

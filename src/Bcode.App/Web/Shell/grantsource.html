@@ -24,6 +24,7 @@
   td.c, th.c { text-align: center; width: 34px; max-width: none; }
   tr.miss td { color: var(--text-muted); }
   tr:hover td { background: rgba(255,255,255,.04); }
+  tr.cur td { background: var(--selection); }
   .tag { display: inline-block; padding: 0 7px; border-radius: 9px; font-size: 11px; background: var(--button-back); }
   .tag.ok { background: #1f5a3a; color: #cdf3dd; } .tag.fb { background: #6a4b12; color: #ffe2a8; } .tag.no { background: #6b2a2a; color: #ffd0d0; } .tag.ex { background: #2d4a7a; color: #cfe0ff; }
   html[data-theme="light"] .tag.ok { background: #d6f2e1; color: #1e5a39; } html[data-theme="light"] .tag.fb { background: #ffeccb; color: #6a4b12; }
@@ -50,6 +51,7 @@
   </div>
   <div id="foot">
     <span id="status"></span>
+    <button id="btnView" title="Xem nội dung file source (.xml) sắp được cấp của dòng đang chọn — nhấn đúp vào dòng cũng mở">View source</button>
     <button id="btnClose">Đóng</button>
     <button id="btnGrant" class="primary">Cấp source</button>
   </div>
@@ -60,7 +62,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  let rows = [], extra = '';
+  let rows = [], extra = '', cur = -1;
 
   function setStatus(t, level) { const s = $('status'); s.textContent = t || ''; s.className = level || ''; s.title = t || ''; }
   function busy(on, msg) { $('busy').style.display = on ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; }
@@ -71,7 +73,7 @@
         ? (r.fallback ? '<span class="tag fb" title="Không có ở phiên bản đã chọn — lấy bản có giờ sửa mới nhất ở phiên bản khác">phiên bản khác</span>' : '<span class="tag ok">đúng phiên bản</span>')
         : '<span class="tag no">không tìm thấy</span>';
       const dest = !r.found ? '' : (r.destExists ? '<span class="tag ex" title="Đã có file ở đích — chỉ ghi đè khi tick “Ghi đè”">đã có</span>' : '<span class="muted">mới</span>');
-      return '<tr class="' + (r.found ? '' : 'miss') + '"><td class="c"><input type="checkbox" class="ck" data-i="' + i + '"' + (r.found ? ' checked' : ' disabled') + '></td>' +
+      return '<tr data-i="' + i + '" class="' + (r.found ? '' : 'miss') + (i === cur ? ' cur' : '') + '"><td class="c"><input type="checkbox" class="ck" data-i="' + i + '"' + (r.found ? ' checked' : ' disabled') + '></td>' +
         '<td title="' + esc(r.projectFile) + '">' + esc(r.rel) + '</td><td>' + nameTag + '</td><td title="' + esc(r.sourcePath || '') + '">' + esc(r.version || '') + '</td>' +
         '<td class="muted">' + esc(r.modified || '') + '</td><td>' + dest + '</td></tr>';
     }).join('');
@@ -82,10 +84,23 @@
     const found = rows.filter((r) => r.found).length, fb = rows.filter((r) => r.found && r.fallback).length, n = selected().length;
     setStatus(rows.length + ' file — tìm thấy source cho ' + found + (fb ? ' (' + fb + ' lấy từ phiên bản khác)' : '') + (rows.length - found ? ', ' + (rows.length - found) + ' không có' : '') + ' · đang chọn ' + n + (extra ? ' · ' + extra : ''));
     $('btnGrant').disabled = n === 0;
+    $('btnView').disabled = !(rows[cur] && rows[cur].found);
     const boxes = [...document.querySelectorAll('.ck:not(:disabled)')];
     $('all').checked = boxes.length > 0 && boxes.every((b) => b.checked);
   }
   $('rows').addEventListener('change', updateSummary);
+  // Chọn dòng (click) → View source xem file source trong kho của dòng đó; nhấn đúp = xem luôn.
+  function pick(tr) {
+    if (!tr) return;
+    cur = parseInt(tr.dataset.i, 10);
+    document.querySelectorAll('#rows tr.cur').forEach((t) => t.classList.remove('cur'));
+    tr.classList.add('cur');
+    updateSummary();
+  }
+  const view = () => { if (rows[cur] && rows[cur].found) post('view', { index: cur }); };
+  $('rows').addEventListener('click', (e) => pick(e.target.closest('tr')));
+  $('rows').addEventListener('dblclick', (e) => { if (e.target.closest('input')) return; pick(e.target.closest('tr')); view(); });
+  $('btnView').onclick = view;
   $('all').onchange = (e) => { document.querySelectorAll('.ck:not(:disabled)').forEach((b) => { b.checked = e.target.checked; }); updateSummary(); };
   const resolve = () => { busy(true, 'Đang tìm source ở phiên bản ' + $('ver').value + '...'); post('resolve', { version: $('ver').value, all: $('allf').checked }); };
   $('ver').onchange = resolve;
@@ -101,7 +116,11 @@
       $('allf').checked = !!d.all;
       if (d.error) setStatus(d.error, 'err');
     },
-    onRows(list, info) { busy(false); rows = list || []; extra = info || ''; render(); },
+    onRows(list, info) {
+      busy(false); rows = list || []; extra = info || '';
+      if (!(rows[cur] && rows[cur].found)) cur = rows.findIndex((r) => r.found); // làm mới thì giữ dòng đang chọn, không thì chọn dòng có source đầu tiên
+      render();
+    },
     onDone(msg, ok) { busy(false); setStatus(msg, ok ? 'ok' : 'err'); },
     onError(msg) { busy(false); setStatus(msg, 'err'); },
   };

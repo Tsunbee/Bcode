@@ -120,20 +120,42 @@ internal sealed class FileLookupPreviewBarPage : NativePage
 {
     private readonly Label _path = new() { Text = "(chưa chọn file nào)", AutoSize = false, Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.Transparent };
     private readonly Label _mod = NK.Muted(""), _bread = NK.Muted("");
-    private readonly PillButton _edit;
+    private readonly PillButton _edit, _grantOne;
+    // Source sắp cấp cho file .f đang chọn (window.setSource) — bấm nhãn = xem file trong kho, nút = cấp nhanh.
+    private readonly Label _src = new() { AutoSize = false, AutoEllipsis = true, BackColor = Color.Transparent, UseMnemonic = false, Margin = new Padding(6, 9, 6, 3), Cursor = Cursors.Hand };
+    private readonly ToolTip _tip = new();
+    private bool _srcViewable;
 
     public FileLookupPreviewBarPage()
     {
         _edit = NK.Button("Edit in BcodeViewer", () => Post(new { action = "edit" }), primary: true); _edit.Enabled = false; _edit.Dock = DockStyle.Right;
+        _grantOne = NK.Button("Cấp source", () => Post(new { action = "grant-one" }), tip: "Cấp file source này vào dự án (hỏi xác nhận trước khi ghi)"); _grantOne.Visible = false;
+        _src.Click += (_, _) => { if (_srcViewable) Post(new { action = "view-source" }); };
+        Disposed += (_, _) => _tip.Dispose();
         var row1 = new Panel { Dock = DockStyle.Top, Height = NativeSkin.RowHeight(this, 30), Padding = new Padding(8, 3, 8, 0) };
         row1.Controls.Add(_path); row1.Controls.Add(_edit);
         var row2 = new BarFlow { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8, 0, 8, 2) };
-        row2.Controls.Add(_mod); row2.Controls.Add(_bread);
+        row2.Controls.Add(_mod); row2.Controls.Add(_src); row2.Controls.Add(_grantOne); row2.Controls.Add(_bread);
         Controls.Add(row2); Controls.Add(row1);
     }
 
     public override void Dispatch(string path, IReadOnlyList<JsonElement> a)
     {
+        if (path == "window.setSource")
+        {
+            var s = Arg(a, 0);
+            var on = s.ValueKind == JsonValueKind.Object;
+            var kind = on ? P(s, "kind") : "";
+            _src.Text = !on ? "" : (P(s, "version").Length > 0 ? "Source " + P(s, "version") + " " : "") + P(s, "text");
+            // 1 dòng: rộng theo chữ, tối đa ~620px (dài hơn thì "…", đường dẫn đủ ở tooltip).
+            _src.Size = new Size(Math.Min(TextRenderer.MeasureText(_src.Text, _src.Font).Width + 4, NativeSkin.S(620)), _mod.PreferredHeight);
+            _src.ForeColor = kind switch { "ok" => AppColors.Success, "fb" => AppColors.Warning, _ => AppColors.TextMuted };
+            _srcViewable = on && kind is "ok" or "fb";
+            _src.Cursor = _srcViewable ? Cursors.Hand : Cursors.Default;
+            _tip.SetToolTip(_src, on ? P(s, "tip") : "");
+            _grantOne.Visible = on; _grantOne.Enabled = on && PB(s, "can");
+            return;
+        }
         if (path != "window.setPreview") return;
         _path.Text = Str(a, 0); _mod.Text = Str(a, 1); _bread.Text = Str(a, 2); _edit.Enabled = Bool(a, 3);
     }

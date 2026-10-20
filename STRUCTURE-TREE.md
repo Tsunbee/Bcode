@@ -25,7 +25,8 @@ Bcode.App/
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  230
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1415
+│   ├── FileLookupControl.cs  1425
+│   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
 │   ├── FsgRequirementReportControl.cs  199
@@ -61,9 +62,9 @@ Bcode.App/
 │   ├── NativePages.Dialogs.cs  443
 │   ├── NativePages.Dialogs2.cs  180
 │   ├── NativePages.Dialogs3.cs  199
-│   ├── NativePages.Dialogs4.cs  368
+│   ├── NativePages.Dialogs4.cs  393
 │   ├── NativePages.EInvoice.cs  136
-│   ├── NativePages.FileLookup.cs  140
+│   ├── NativePages.FileLookup.cs  162
 │   ├── NativePages.FileTools.cs  76
 │   ├── NativePages.GenUpdate.cs  355
 │   ├── NativePages.HintsHelp.cs  123
@@ -85,7 +86,7 @@ Bcode.App/
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
 │   ├── NativeTableBar.cs  228
-│   ├── NativeWeeklyMailControl.cs  366
+│   ├── NativeWeeklyMailControl.cs  680
 │   ├── NoteControl.cs  79
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
@@ -114,9 +115,9 @@ Bcode.App/
 │   ├── WebBarHost.cs  209
 │   ├── WebFrameHost.cs  200
 │   ├── WebMenu.cs  332
-│   └── WeeklyMailControl.cs  116
+│   └── WeeklyMailControl.cs  245
 ├── Forms/
-│   ├── AddSourceForm.cs  305
+│   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
 │   ├── ApiDeclarationForm.cs  163
 │   ├── ApiSchemaBuilderForm.cs  274
@@ -139,13 +140,13 @@ Bcode.App/
 │   ├── EntityMultiPeekForm.Native.cs  153
 │   ├── FsgRequirementCrawlerForm.cs  618
 │   ├── GotoColumnForm.cs  84
-│   ├── GrantSourceForm.cs  187
+│   ├── GrantSourceForm.cs  198
 │   ├── LibrarySnippetForm.cs  171
 │   ├── LibrarySnippetForm.Native.cs  176
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3607
+│   ├── MainForm.cs  3608
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
 │   ├── MainForm.ToolGroups.cs  101
@@ -162,6 +163,7 @@ Bcode.App/
 │   ├── ScriptPopupForm.cs  155
 │   ├── SetupEInvoiceForm.cs  356
 │   ├── SimplePromptForm.cs  78
+│   ├── SourceViewForm.cs  58
 │   ├── SqlAiEditForm.cs  107
 │   ├── SqlHistoryForm.cs  329
 │   ├── StepParamsForm.cs  85
@@ -187,6 +189,7 @@ Bcode.App/
 │   ├── SqlObjectInfo.cs  17
 │   ├── ToolBarGroup.cs  17
 │   ├── WCommandItem.cs  45
+│   ├── WeeklyMailSent.cs  68
 │   ├── WeeklyMailTemplate.cs  20
 │   └── Workspace.cs  105
 ├── Services/
@@ -255,7 +258,7 @@ Bcode.App/
 │   ├── LicenseService.cs  163
 │   ├── LookupService.cs  53
 │   ├── MailSettingsReader.cs  85
-│   ├── MailTestService.cs  164
+│   ├── MailTestService.cs  168
 │   ├── MobilePathService.cs  53
 │   ├── NoteService.cs  66
 │   ├── ObjectCompareService.cs  209
@@ -271,7 +274,7 @@ Bcode.App/
 │   ├── ScriptFileService.cs  69
 │   ├── SessionStore.cs  69
 │   ├── SnippetLibraryService.cs  67
-│   ├── SourceGrantService.cs  262
+│   ├── SourceGrantService.cs  311
 │   ├── SourceIndexService.cs  262
 │   ├── SqlAiAssist.cs  349
 │   ├── SqlDefinitionIndex.cs  181
@@ -291,7 +294,8 @@ Bcode.App/
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  59
 │   ├── WCommandService.cs  812
-│   ├── WeeklyMailStore.cs  48
+│   ├── WeeklyMailHistory.cs  483
+│   ├── WeeklyMailStore.cs  77
 │   └── XlsxExportService.cs  22
 ├── Templates/  (3317 file — không liệt kê)
 ├── UI/
@@ -321,7 +325,7 @@ Bcode.App/
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
-│       ├── addsource.html  210
+│       ├── addsource.html  226
 │       ├── advnote.html  700
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  376
@@ -349,14 +353,14 @@ Bcode.App/
 │       ├── editproject.html  121
 │       ├── entitypeek.html  182
 │       ├── filelookupbar.html  165
-│       ├── filelookuppreview.html  70
+│       ├── filelookuppreview.html  98
 │       ├── filepreview.html  157
 │       ├── filereference.html  108
 │       ├── findbar.html  60
 │       ├── framehost.html  49
 │       ├── fsgreq.html  714
 │       ├── genupdate.html  594
-│       ├── grantsource.html  113
+│       ├── grantsource.html  132
 │       ├── help.html  425
 │       ├── iconrail.html  72
 │       ├── includecheck.html  328
@@ -404,7 +408,7 @@ Bcode.App/
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
-│       └── weeklymail.html  353
+│       └── weeklymail.html  556
 ├── Bcode.App.csproj  140
 ├── BcodePaths.cs  48
 └── Program.cs  37

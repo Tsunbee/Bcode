@@ -71,7 +71,7 @@ public sealed class GrantSourceForm : ThemedForm
     private async Task HandleAsync(string json0)
     {
         // Đọc hết giá trị trước khi await (JsonElement không dùng được sau khi tài liệu bị giải phóng).
-        string? action, version = null; bool overwrite = false, allFlag = false; List<int> indexes = new();
+        string? action, version = null; bool overwrite = false, allFlag = false; List<int> indexes = new(); int index = -1;
         try
         {
             using var doc = JsonDocument.Parse(json0);
@@ -81,6 +81,7 @@ public sealed class GrantSourceForm : ThemedForm
                 if (d.TryGetProperty("version", out var v)) version = v.GetString();
                 if (d.TryGetProperty("overwrite", out var o)) overwrite = o.ValueKind == JsonValueKind.True;
                 if (d.TryGetProperty("all", out var al)) allFlag = al.ValueKind == JsonValueKind.True;
+                if (d.TryGetProperty("index", out var one) && one.ValueKind == JsonValueKind.Number) index = one.GetInt32();
                 if (d.TryGetProperty("indexes", out var ix) && ix.ValueKind == JsonValueKind.Array)
                     indexes = ix.EnumerateArray().Select(x => x.GetInt32()).ToList();
             }
@@ -94,6 +95,7 @@ public sealed class GrantSourceForm : ThemedForm
                 case "ready": await OnReadyAsync(); break;
                 case "resolve": if (version is not null) { _all = allFlag; await ResolveAsync(version); } break;
                 case "grant": await GrantAsync(overwrite, indexes); break;
+                case "view": ViewSource(index); break;
                 case "close": Close(); break;
             }
         }
@@ -167,6 +169,15 @@ public sealed class GrantSourceForm : ThemedForm
             version = r.FromVersion, sourcePath = r.SourcePath, modified = r.Modified?.ToString("dd/MM/yyyy HH:mm"), destExists = r.DestExists,
         });
         await Js($"grant.onRows({JsonSerializer.Serialize(view)}, ''); grant.onDone({Json(msg)}, {(errors.Count == 0 ? "true" : "false")})");
+    }
+
+    /// <summary>"View source": mở file source trong kho sắp được cấp cho dòng <paramref name="index"/> (chỉ đọc, không khoá hộp thoại này).</summary>
+    private void ViewSource(int index)
+    {
+        if (index < 0 || index >= _rows.Count || _rows[index].SourcePath is not { } path) return;
+        var r = _rows[index];
+        var note = "Phiên bản " + r.FromVersion + (r.FromFallback ? " (phiên bản khác)" : "") + " → " + r.RelativeSource + (r.DestExists ? " (đích đã có)" : "");
+        new SourceViewForm(path, note).Show(this);
     }
 
     private static string Json(string s) => JsonSerializer.Serialize(s);

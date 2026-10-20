@@ -38,6 +38,7 @@
   @media (max-width: 560px) { .f { grid-template-columns: minmax(0, 1fr); gap: .15rem; } }
   .row { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
   .chk { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; white-space: nowrap; }
+  .chk.wrap { white-space: normal; align-items: flex-start; } .chk.wrap input { margin-top: .15rem; flex: none; }
   .hint { color: var(--text-muted); font-size: .88rem; line-height: 1.45; }
   .hint code { background: var(--input); padding: 0 .25rem; border-radius: .25rem; color: var(--text); cursor: pointer; }
   .dates { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem .8rem; }
@@ -58,10 +59,31 @@
   #sig img { max-width: 100%; }
   #preview { white-space: pre-wrap; line-height: 1.5; border: var(--bw) dashed var(--border); border-radius: var(--r); padding: .6rem .8rem; max-height: 22rem; overflow: auto; }
   #preview b { color: var(--accent); }
-  #log { height: 9rem; min-height: 4rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; white-space: pre-wrap; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); padding: .4rem .6rem; background: var(--input); }
-  #log div.ok { color: var(--success); } #log div.err { color: var(--danger); } #log div.dim { color: var(--text-muted); }
-  #log .ts { color: var(--text-muted); margin-right: .5rem; }
-  #log:empty::before { content: 'Kết quả gửi sẽ hiện ở đây...'; color: var(--text-muted); }
+  .logbox { height: 9rem; min-height: 4rem; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; white-space: pre-wrap; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); padding: .4rem .6rem; background: var(--input); }
+  .logbox div.ok { color: var(--success); } .logbox div.err { color: var(--danger); } .logbox div.dim { color: var(--text-muted); }
+  .logbox .ts { color: var(--text-muted); margin-right: .5rem; }
+  .logbox:empty::before { content: 'Kết quả gửi sẽ hiện ở đây...'; color: var(--text-muted); }
+
+  /* Tab con: Soạn mail | Đã gửi & phản hồi */
+  #tabs { display: flex; gap: .3rem; padding: .5rem .8rem 0; flex: none; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  #tabs button { border-radius: var(--r) var(--r) 0 0; border-bottom: none; margin-bottom: calc(-1 * var(--bw)); background: transparent; color: var(--text-muted); }
+  #tabs button.on { background: var(--bg); color: var(--text); font-weight: 600; border-color: var(--border); }
+  #tabs .badge { background: var(--accent); color: var(--on-accent); border-radius: 1rem; padding: 0 .45rem; font-size: .8rem; margin-left: .3rem; }
+  #hist { flex: 1; min-height: 0; overflow: auto; padding: .8rem; display: grid; gap: .8rem; grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { #hist { grid-template-columns: minmax(0, 1fr); } }
+  .off { display: none !important; }
+  #hList, #thList { display: flex; flex-direction: column; gap: .3rem; max-height: 30rem; overflow: auto; }
+  #thList { max-height: 18rem; }
+  .item .p .new { color: var(--accent); font-weight: 600; }
+  .item.unseen .n { color: var(--accent); }
+  .item .dir { display: inline-block; width: 1.2rem; color: var(--text-muted); }
+  #vFrame, #rQuote { width: 100%; height: 26rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: #fff; }
+  #rQuote { height: 14rem; }
+  #vText { white-space: pre-wrap; margin: 0; font-family: inherit; line-height: 1.5; border: var(--bw) solid var(--border); border-radius: var(--r); padding: .6rem .8rem; max-height: 26rem; overflow: auto; background: var(--input); }
+  #vHead { line-height: 1.6; }
+  #vHead b { color: var(--text); }
+  #rBody { min-height: 9rem; }
+  .sub { color: var(--text-muted); font-size: .9rem; font-weight: 600; margin-top: .3rem; }
   #bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .8rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); flex: none; }
   #bar .grow { flex: 1; }
   #state { font-weight: 600; }
@@ -70,6 +92,7 @@
 </style>
 </head>
 <body>
+<div id="tabs"><button id="tCompose" class="on">✎ Soạn mail</button><button id="tHist" title="Thư đã gửi từ Bcode, phản hồi nhận về, trả lời / gửi lại">📨 Đã gửi &amp; phản hồi<span class="badge off" id="tBadge"></span></button></div>
 <div id="main">
   <div class="col">
     <div class="card">
@@ -81,9 +104,9 @@
       </div>
     </div>
     <div class="card" id="smtpCard">
-      <div class="ct" style="cursor:pointer" id="smtpHead">▸ Máy chủ gửi mail (SMTP)<span class="sp"></span><span class="hint" id="smtpSum"></span></div>
+      <div class="ct" style="cursor:pointer" id="smtpHead">▸ Máy chủ mail (SMTP / IMAP)<span class="sp"></span><span class="hint" id="smtpSum"></span></div>
       <div class="cb">
-        <div class="hint">Dùng chung với tab Check Mail (cùng file cấu hình). Mật khẩu không được lưu — nhập lại mỗi lần mở tab.</div>
+        <div class="hint">SMTP dùng chung với tab Check Mail (cùng file cấu hình). Mật khẩu không được lưu — trừ khi tick “Nhớ mật khẩu” (mã hoá theo tài khoản Windows, chỉ máy này đọc được).</div>
         <div class="f"><label for="host">Host</label><input type="text" id="host" placeholder="mail.domain.com" spellcheck="false" /></div>
         <div class="f"><label for="port">Port</label><div class="row"><input type="number" id="port" style="width:6.5rem" min="1" max="65535" value="587" />
           <label class="chk"><input type="checkbox" id="ssl" /> SSL</label><label class="chk"><input type="checkbox" id="tls" /> TLS</label>
@@ -93,6 +116,12 @@
         <div class="f"><label for="account">Tài khoản</label><input type="text" id="account" placeholder="(để trống nếu không cần đăng nhập)" spellcheck="false" /></div>
         <div class="f"><label for="password">Mật khẩu</label><div class="row" style="flex-wrap:nowrap"><input type="password" id="password" autocomplete="new-password" spellcheck="false" />
           <label class="chk"><input type="checkbox" id="showPw" /> Hiện</label></div></div>
+        <label class="chk wrap" title="Mật khẩu mã hoá bằng DPAPI theo tài khoản Windows — chỉ máy này đọc được; bỏ tick = xoá mật khẩu đã nhớ"><input type="checkbox" id="rememberPw" /> Nhớ mật khẩu (mã hoá, chỉ máy này đọc được)</label>
+        <div class="sub">IMAP — đọc phản hồi, chép thư lên Sent (cùng tài khoản / mật khẩu)</div>
+        <div class="f"><label for="imapHost">Host IMAP</label><input type="text" id="imapHost" placeholder="(trống = cùng host SMTP)" spellcheck="false" /></div>
+        <div class="f"><label for="imapPort">Port</label><div class="row"><input type="number" id="imapPort" style="width:6.5rem" min="1" max="65535" value="993" />
+          <label class="chk"><input type="checkbox" id="imapSsl" checked /> SSL (993) / STARTTLS (143)</label></div></div>
+        <label class="chk wrap" title="SMTP không tự lưu vào Sent nên Outlook / webmail không thấy thư Bcode gửi — tick để chép thư lên thư mục Sent của hộp thư qua IMAP"><input type="checkbox" id="copySent" checked /> Chép thư đã gửi lên thư mục Sent của hộp thư (để Outlook / webmail thấy)</label>
       </div>
     </div>
   </div>
@@ -138,7 +167,50 @@
 
     <div class="card">
       <div class="ct">Kết quả <span class="sp"></span><button class="ghost" id="bClear">Xoá log</button></div>
-      <div class="cb"><div id="log"></div></div>
+      <div class="cb"><div id="log" class="logbox"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="hist" class="off">
+  <div class="col">
+    <div class="card">
+      <div class="ct">Đã gửi <span class="sp"></span><button class="ghost" id="hFolder" title="Mở thư mục lưu thư đã gửi (.eml)">📁</button></div>
+      <div class="cb">
+        <select id="hFilter" title="Lọc theo dự án"></select>
+        <input type="text" id="hSearch" placeholder="Tìm theo tiêu đề / người nhận..." spellcheck="false" />
+        <div id="hList"></div>
+        <div class="hint" id="hLast"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card">
+      <div class="ct">Chuỗi thư <span class="sp"></span><span class="hint" id="thInfo"></span></div>
+      <div class="cb"><div id="thList"><div class="hint">Chọn 1 thư ở danh sách “Đã gửi”.</div></div></div>
+    </div>
+    <div class="card">
+      <div class="ct">Nội dung <span class="sp"></span>
+        <button class="ghost" id="vReply" title="Soạn thư trả lời người gửi">↩ Reply</button><button class="ghost" id="vReplyAll" title="Soạn thư trả lời mọi người trong thư">↩ Reply all</button>
+        <button class="ghost" id="vResend" title="Gửi lại thư này (cùng người nhận, tiêu đề, nội dung — sẽ hỏi xác nhận)">⟳ Gửi lại</button>
+        <button class="ghost" id="vEml" title="Mở file .eml bằng chương trình mặc định (Outlook...)">Mở .eml</button><button class="ghost danger" id="vDel" title="Xoá khỏi mục Đã gửi của Bcode (không đụng hộp thư)">Xoá</button></div>
+      <div class="cb"><div class="hint" id="vHead">Chưa chọn thư.</div><iframe id="vFrame" class="off" sandbox title="Nội dung thư"></iframe><pre id="vText" class="off"></pre><div class="hint" id="vAtt"></div></div>
+    </div>
+    <div class="card off" id="cReply">
+      <div class="ct">Trả lời <span class="sp"></span><button class="ghost" id="rClose" title="Bỏ thư trả lời">✕</button></div>
+      <div class="cb">
+        <div class="f"><label for="rTo">To</label><input type="text" id="rTo" spellcheck="false" /></div>
+        <div class="f"><label for="rCc">Cc</label><input type="text" id="rCc" spellcheck="false" /></div>
+        <div class="f"><label for="rSubject">Tiêu đề</label><input type="text" id="rSubject" spellcheck="false" /></div>
+        <div class="f top"><label for="rBody">Nội dung</label><textarea id="rBody" rows="8" spellcheck="false" placeholder="Nội dung trả lời (chữ thuần — tự xuống dòng đúng khi gửi)..."></textarea></div>
+        <div class="f"><label></label><div class="row"><label class="chk"><input type="checkbox" id="rSig" checked /> Kèm chữ ký của mẫu</label><span class="hint" id="rSigInfo"></span></div></div>
+        <div class="f top"><label>Trích dẫn</label><iframe id="rQuote" sandbox title="Thư gốc được trích dẫn"></iframe></div>
+        <div class="row"><button class="primary" id="rSend" title="Gửi thư trả lời (sẽ hỏi xác nhận người nhận trước)">✉ Gửi trả lời</button></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">Kết quả <span class="sp"></span><button class="ghost" id="bClear2">Xoá log</button></div>
+      <div class="cb"><div id="log2" class="logbox"></div></div>
     </div>
   </div>
 </div>
@@ -146,6 +218,7 @@
 <div id="bar">
   <button class="primary big" id="bSend" title="Gửi mail (sẽ hỏi xác nhận người nhận trước)">✉ Gửi mail</button>
   <button class="big" id="bSave" title="Lưu mẫu đang soạn">💾 Lưu mẫu</button>
+  <button class="primary big off" id="bCheck" title="Đăng nhập hộp thư (IMAP), tìm ở INBOX các thư trả lời thư đã gửi từ Bcode">🔍 Kiểm tra phản hồi</button>
   <button class="big" id="bCancel" style="display:none">Huỷ</button>
   <span class="grow"></span>
   <span id="state"></span>
@@ -298,19 +371,28 @@
     timeoutSeconds: 30, senderEmail: $('senderEmail').value.trim(), alias: $('alias').value.trim(), account: $('account').value.trim(), password: withPw ? $('password').value : '',
   });
   function smtpSummary() { const h = $('host').value.trim(); $('smtpSum').textContent = h ? h + ':' + $('port').value : 'chưa khai báo'; }
-  $('smtpHead').onclick = () => { const c = $('smtpCard'); c.classList.toggle('open'); $('smtpHead').firstChild.textContent = (c.classList.contains('open') ? '▾ ' : '▸ ') + 'Máy chủ gửi mail (SMTP)'; };
+  $('smtpHead').onclick = () => { const c = $('smtpCard'); c.classList.toggle('open'); $('smtpHead').firstChild.textContent = (c.classList.contains('open') ? '▾ ' : '▸ ') + 'Máy chủ mail (SMTP / IMAP)'; };
   [...SMTP_TEXT, 'port', 'ssl', 'tls', 'ignoreCert'].forEach((k) => $(k).addEventListener('input', () => {
     smtpSummary(); clearTimeout(smtpTimer); smtpTimer = setTimeout(() => post('saveSmtp', { cfg: smtp(false) }), 600);
   }));
   $('showPw').onchange = () => { $('password').type = $('showPw').checked ? 'text' : 'password'; };
+  // IMAP + nhớ mật khẩu: lưu riêng (weeklymail-imap.json); mật khẩu chỉ gửi về Bcode để lưu khi đang tick “Nhớ mật khẩu”.
+  const imapCfg = () => ({ host: $('imapHost').value.trim(), port: parseInt($('imapPort').value, 10) || 993, ssl: $('imapSsl').checked, copyToSent: $('copySent').checked, rememberPassword: $('rememberPw').checked });
+  let imapTimer = null;
+  const saveImap = () => { clearTimeout(imapTimer); imapTimer = setTimeout(() => post('saveImap', { imap: imapCfg(), password: $('rememberPw').checked ? $('password').value : '' }), 600); };
+  ['imapHost', 'imapPort', 'imapSsl', 'copySent', 'rememberPw', 'password'].forEach((k) => $(k).addEventListener('input', saveImap));
+  ['imapSsl', 'copySent', 'rememberPw'].forEach((k) => $(k).addEventListener('change', saveImap));
+  $('imapSsl').addEventListener('change', () => { const p = $('imapPort'); if (p.value === '993' || p.value === '143') p.value = $('imapSsl').checked ? '993' : '143'; });
 
   // ---- Gửi ----
   function setState(text, kind) { const s = $('state'); s.textContent = text || ''; s.className = kind || ''; }
   const stamp = () => { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
   function addLog(text, kind) {
-    const box = $('log'), line = document.createElement('div'); if (kind) line.className = kind;
-    const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = kind === 'dim' ? '' : stamp();
-    line.append(ts, document.createTextNode(text)); box.appendChild(line); box.scrollTop = box.scrollHeight;
+    ['log', 'log2'].forEach((id) => { // 2 tab con mỗi tab 1 khung kết quả — ghi cả hai
+      const box = $(id), line = document.createElement('div'); if (kind) line.className = kind;
+      const ts = document.createElement('span'); ts.className = 'ts'; ts.textContent = kind === 'dim' ? '' : stamp();
+      line.append(ts, document.createTextNode(text)); box.appendChild(line); box.scrollTop = box.scrollHeight;
+    });
   }
   $('bSend').onclick = () => {
     if (running) return;
@@ -320,10 +402,108 @@
     if (!$('to').value.trim()) { addLog('Chưa nhập người nhận (To).', 'err'); $('to').focus(); return; }
     persist();
     Object.assign(c, { to: $('to').value.trim(), cc: $('cc').value.trim(), bcc: $('bcc').value.trim(), subject: fill($('subject').value), body: compose().body, html: compose().html });
-    post('send', { cfg: c });
+    post('send', { cfg: c, project: $('project').value.trim(), templateId: current ? current.id : '', templateName: $('name').value.trim(), imap: imapCfg() });
   };
   $('bCancel').onclick = () => post('cancel');
-  $('bClear').onclick = () => { $('log').textContent = ''; setState(''); };
+  $('bClear').onclick = $('bClear2').onclick = () => { $('log').textContent = ''; $('log2').textContent = ''; setState(''); };
+
+  // ---- Đã gửi & phản hồi ----
+  let hist = { threads: [] }, curThread = null, curMsg = null, replyTarget = null;
+  function setTab(t) {
+    const h = t === 'hist';
+    $('tCompose').classList.toggle('on', !h); $('tHist').classList.toggle('on', h);
+    $('main').classList.toggle('off', h); $('hist').classList.toggle('off', !h);
+    ['bSend', 'bSave'].forEach((k) => $(k).classList.toggle('off', h)); $('bCheck').classList.toggle('off', !h);
+    if (h) post('history');
+  }
+  $('tCompose').onclick = () => setTab('compose');
+  $('tHist').onclick = () => setTab('hist');
+  // Cần đăng nhập (IMAP / SMTP có tài khoản): thiếu mật khẩu thì mở mục máy chủ ở tab Soạn.
+  function needServer(needPw) {
+    const c = smtp(true);
+    const miss = !c.host ? 'Chưa khai báo máy chủ mail' : !c.senderEmail ? 'Chưa nhập Email gửi' : needPw && !c.password ? 'Chưa nhập mật khẩu (IMAP luôn cần đăng nhập)' : '';
+    if (!miss) return c;
+    addLog(miss + ' — mở mục “Máy chủ mail (SMTP / IMAP)” ở tab Soạn mail.', 'err');
+    setTab('compose'); $('smtpCard').classList.add('open'); $('smtpHead').firstChild.textContent = '▾ Máy chủ mail (SMTP / IMAP)';
+    (!c.host ? $('host') : !c.senderEmail ? $('senderEmail') : $('password')).focus();
+    return null;
+  }
+  function renderHist() {
+    const ths = hist.threads || [];
+    const projects = [...new Set(ths.map((t) => t.project).filter(Boolean))];
+    const f = $('hFilter'), keep = f.value;
+    f.innerHTML = '<option value="*">Tất cả dự án</option>' + projects.map((p) => '<option value="' + esc(p) + '">' + esc(p) + '</option>').join('');
+    f.value = projects.includes(keep) ? keep : '*';
+    const q = $('hSearch').value.trim().toLowerCase();
+    const rows = ths.filter((t) => (f.value === '*' || t.project === f.value) && (!q || (t.subject + ' ' + t.to + ' ' + t.cc + ' ' + t.templateName).toLowerCase().includes(q)));
+    const list = $('hList'); list.innerHTML = rows.length ? '' : '<div id="empty">' + (ths.length ? 'Không có thư khớp.' : 'Chưa có thư nào — thư gửi từ tab Soạn mail sẽ được lưu ở đây.') + '</div>';
+    rows.forEach((t) => {
+      const d = document.createElement('div'); d.className = 'item' + (curThread && curThread.id === t.id ? ' on' : '') + (t.unseen ? ' unseen' : '');
+      d.title = 'To: ' + t.to + (t.cc ? '\nCc: ' + t.cc : '') + (t.copiedToServer ? '\nĐã chép lên Sent của hộp thư' : '');
+      // số phản hồi đứng đầu dòng 2 — dòng dài bị cắt "…" ở cuối nên không được để sau người nhận
+      const rep = t.replies ? '<span class="' + (t.unseen ? 'new' : '') + '">💬 ' + t.replies + (t.unseen ? ' (' + t.unseen + ' mới)' : '') + '</span> · ' : '';
+      d.innerHTML = '<span class="n">' + (t.kind === 'resend' ? '⟳ ' : '') + esc(t.subject || '(không tiêu đề)') + '</span><span class="p">' + rep + esc(t.sentAt + ' · ' + (t.project || t.templateName || '') + ' · ' + t.to) + '</span>';
+      d.onclick = () => selectThread(t);
+      list.appendChild(d);
+    });
+    const unseen = ths.reduce((n, t) => n + (t.unseen || 0), 0);
+    $('tBadge').textContent = unseen; $('tBadge').classList.toggle('off', !unseen);
+    $('hLast').textContent = hist.lastCheck ? 'Kiểm tra phản hồi lần cuối: ' + hist.lastCheck : 'Chưa kiểm tra phản hồi lần nào.';
+  }
+  $('hFilter').onchange = renderHist; $('hSearch').addEventListener('input', renderHist);
+  $('hFolder').onclick = () => post('openFolder');
+  function selectThread(t, keepMsg) {
+    curThread = t; renderHist();
+    const items = t.items || [];
+    const same = keepMsg && curMsg && items.find((x) => x.type === curMsg.type && x.id === curMsg.id);
+    if (same) { curMsg = same; renderThread(); return; } // làm mới danh sách: giữ thư đang xem
+    const pick = items.find((x) => x.type === 'reply' && !x.seen) || items[items.length - 1];
+    if (pick) openMsg(pick); else { curMsg = null; renderThread(); showMsg(null); }
+  }
+  function renderThread() {
+    const box = $('thList'), t = curThread;
+    if (!t) { box.innerHTML = '<div class="hint">Chọn 1 thư ở danh sách “Đã gửi”.</div>'; $('thInfo').textContent = ''; return; }
+    $('thInfo').textContent = (t.items || []).length + ' thư';
+    box.innerHTML = '';
+    (t.items || []).forEach((it) => {
+      const mine = it.type === 'sent', d = document.createElement('div');
+      d.className = 'item' + (curMsg && curMsg.type === it.type && curMsg.id === it.id ? ' on' : '') + (!it.seen ? ' unseen' : '');
+      const label = mine ? (it.kind === 'reply' ? 'Bcode trả lời' : it.kind === 'resend' ? 'Bcode gửi lại' : 'Bcode gửi') : 'Phản hồi';
+      d.innerHTML = '<span class="n"><span class="dir">' + (mine ? '→' : '←') + '</span>' + esc(mine ? 'Tới: ' + it.to : it.from) + '</span><span class="p">' + esc(it.date + ' · ' + label + (it.byHeader ? '' : ' · đoán theo tiêu đề')) + (!it.seen ? ' · <span class="new">mới</span>' : '') + '</span>';
+      d.onclick = () => openMsg(it);
+      box.appendChild(d);
+    });
+  }
+  function openMsg(it) { curMsg = it; renderThread(); post('view', { kind: it.type, id: it.id }); }
+  function showMsg(v) {
+    const fr = $('vFrame'), tx = $('vText'), mine = curMsg && curMsg.type === 'sent';
+    ['vReply', 'vReplyAll', 'vEml', 'vDel'].forEach((k) => { $(k).disabled = !v; }); $('vResend').disabled = !v || !mine;
+    if (!v) { $('vHead').textContent = curMsg ? 'Không đọc được file .eml của thư này.' : 'Chưa chọn thư.'; fr.classList.add('off'); tx.classList.add('off'); $('vAtt').textContent = ''; return; }
+    $('vHead').innerHTML = '<b>' + esc(v.subject || '(không tiêu đề)') + '</b><br>' + esc('Từ: ' + v.from + '   ·   ' + v.date) + '<br>' + esc('To: ' + v.to) + (v.cc ? '<br>' + esc('Cc: ' + v.cc) : '') + (v.bcc ? '<br>' + esc('Bcc: ' + v.bcc) : '');
+    // Khung sandbox (không chạy script, không gọi được về Bcode): nội dung thư nhận về là của người khác.
+    if (v.html) { fr.srcdoc = '<!doctype html><meta charset="utf-8"><style>body{font-family:Calibri,Arial,sans-serif;font-size:14px;margin:10px;color:#222;background:#fff}img{max-width:100%}</style>' + v.html; fr.classList.remove('off'); tx.classList.add('off'); }
+    else { tx.textContent = v.text || ''; tx.classList.remove('off'); fr.classList.add('off'); }
+    $('vAtt').textContent = v.attachments && v.attachments.length ? '📎 Đính kèm: ' + v.attachments.join(', ') + ' (bấm “Mở .eml” để xem)' : '';
+  }
+  const target = () => curMsg ? { kind: curMsg.type, id: curMsg.id } : null;
+  function startReply(all) {
+    const t = target(); if (!t) return;
+    replyTarget = t; post('draftReply', Object.assign({ all, me: $('senderEmail').value.trim() }, t));
+  }
+  $('vReply').onclick = () => startReply(false);
+  $('vReplyAll').onclick = () => startReply(true);
+  $('vResend').onclick = () => { if (running || !curMsg || curMsg.type !== 'sent') return; const c = needServer(false); if (c) post('resend', { id: curMsg.id, cfg: c, imap: imapCfg() }); };
+  $('vEml').onclick = () => { const t = target(); if (t) post('openEml', t); };
+  $('vDel').onclick = () => { const t = target(); if (t) post('delete', t); };
+  $('rClose').onclick = () => { $('cReply').classList.add('off'); replyTarget = null; };
+  $('rSend').onclick = () => {
+    if (running || !replyTarget) return;
+    const c = needServer(false); if (!c) return;
+    if (!$('rTo').value.trim()) { addLog('Chưa nhập người nhận (To).', 'err'); $('rTo').focus(); return; }
+    Object.assign(c, { to: $('rTo').value.trim(), cc: $('rCc').value.trim(), bcc: '', subject: $('rSubject').value, body: '', html: true });
+    post('reply', Object.assign({ cfg: c, text: $('rBody').value, withSig: $('rSig').checked, imap: imapCfg() }, replyTarget));
+  };
+  $('bCheck').onclick = () => { if (running) return; const c = needServer(true); if (c) post('checkReplies', { cfg: c, imap: imapCfg() }); };
 
   window.weeklyMail = {
     init(d) {
@@ -332,18 +512,41 @@
       const s = d.smtp || {};
       $('host').value = s.host || ''; $('port').value = s.port || 587; $('ssl').checked = !!s.ssl; $('tls').checked = !!s.tls; $('ignoreCert').checked = !!s.ignoreCert;
       SMTP_TEXT.forEach((k) => { $(k).value = s[k] || ''; }); smtpSummary();
+      const im = d.imap || {};
+      $('imapHost').value = im.host || ''; $('imapPort').value = im.port || 993; $('imapSsl').checked = im.ssl !== false; $('copySent').checked = im.copyToSent !== false;
+      $('rememberPw').checked = !!im.rememberPassword; if (d.password) $('password').value = d.password;
       renderFilter();
       if (currentProject && templates.some((t) => t.project === currentProject)) $('filter').value = currentProject; // mở lên: ưu tiên mẫu của dự án đang chọn
       const first = templates.find((t) => $('filter').value === '*' || t.project === $('filter').value);
       current = first || null; writeForm(current); renderList(); autoDates();
+      if (d.history) this.onHistory(d.history);
     },
     onSaved() { setState('Đã lưu mẫu', 'ok'); setTimeout(() => { if ($('state').textContent === 'Đã lưu mẫu') setState(''); }, 2000); },
-    onStart() { running = true; $('bSend').disabled = true; $('bCancel').style.display = ''; setState('Đang gửi...', 'run'); },
+    onStart(text) { running = true; ['bSend', 'bCheck', 'rSend', 'vResend'].forEach((k) => { $(k).disabled = true; }); $('bCancel').style.display = ''; setState(text || 'Đang gửi...', 'run'); },
     onLog(text, kind) { addLog(text, kind); },
-    onDone(ok) {
-      running = false; $('bSend').disabled = false; $('bCancel').style.display = 'none';
-      setState(ok ? '✔ Đã gửi' : '✘ Không thành công', ok ? 'ok' : 'err');
+    onDone(ok, text) {
+      running = false; ['bSend', 'bCheck', 'rSend'].forEach((k) => { $(k).disabled = false; }); $('vResend').disabled = !(curMsg && curMsg.type === 'sent'); $('bCancel').style.display = 'none';
+      setState(text || (ok ? '✔ Đã gửi' : '✘ Không thành công'), ok ? 'ok' : 'err');
     },
+    onHistory(h) {
+      hist = h || { threads: [] };
+      const t = curThread && (hist.threads || []).find((x) => x.id === curThread.id);
+      if (t) selectThread(t, true); else { curThread = null; curMsg = null; renderHist(); renderThread(); showMsg(null); }
+    },
+    onView(kind, id, v) {
+      if (!curMsg || curMsg.type !== kind || curMsg.id !== id) return; // đã chọn thư khác
+      if (v && kind === 'reply' && !curMsg.seen) { curMsg.seen = true; if (curThread) curThread.unseen = Math.max(0, (curThread.unseen || 0) - 1); renderHist(); renderThread(); }
+      showMsg(v);
+    },
+    onDraft(dr) {
+      if (!dr) { addLog('Không đọc được thư gốc để trả lời.', 'err'); return; }
+      $('rTo').value = dr.to || ''; $('rCc').value = dr.cc || ''; $('rSubject').value = dr.subject || ''; $('rBody').value = '';
+      $('rSig').checked = !!dr.signature; $('rSig').disabled = !dr.signature;
+      $('rSigInfo').textContent = dr.signature ? '' : '(mẫu của thư này không có chữ ký)';
+      $('rQuote').srcdoc = '<!doctype html><meta charset="utf-8"><style>body{font-family:Calibri,Arial,sans-serif;font-size:13px;margin:8px;color:#222;background:#fff}img{max-width:100%}</style>' + (dr.quoteHtml || '');
+      $('cReply').classList.remove('off'); $('cReply').scrollIntoView({ block: 'nearest' }); $('rBody').focus();
+    },
+    onReplied() { $('cReply').classList.add('off'); replyTarget = null; },
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   post('ready');

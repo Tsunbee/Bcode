@@ -40,8 +40,10 @@ public static class MailTestService
 {
     /// <param name="sendMail">true = kết nối + đăng nhập + gửi mail; false = chỉ kiểm tra kết nối + đăng nhập.</param>
     /// <param name="log">Nhận từng dòng tiến trình: (nội dung, loại: info / ok / err).</param>
+    /// <param name="prepare">Tuỳ chọn: chỉnh thư ngay trước khi gửi (Message-ID, In-Reply-To... — tool Mail kế hoạch tuần).</param>
+    /// <param name="sent">Tuỳ chọn: nhận thư vừa gửi thành công (để lưu bản sao).</param>
     /// <returns>true nếu mọi bước thành công.</returns>
-    public static async Task<bool> RunAsync(MailConfig c, bool sendMail, Action<string, string> log, CancellationToken ct)
+    public static async Task<bool> RunAsync(MailConfig c, bool sendMail, Action<string, string> log, CancellationToken ct, Action<MimeMessage>? prepare = null, Action<MimeMessage>? sent = null)
     {
         var problem = Validate(c, sendMail);
         if (problem is not null) { log(problem, "err"); return false; }
@@ -72,9 +74,11 @@ public static class MailTestService
             if (sendMail)
             {
                 var message = Build(c);
+                prepare?.Invoke(message);
                 log($"Đang gửi tới {string.Join(", ", message.To.Concat(message.Cc).Concat(message.Bcc).Select(a => a.ToString()))}...", "info");
                 var response = await client.SendAsync(message, ct);
                 log($"Gửi thành công. Phản hồi của máy chủ: {response}", "ok");
+                sent?.Invoke(message);
             }
             else log("Kết nối và đăng nhập đều ổn (chưa gửi thư).", "ok");
 

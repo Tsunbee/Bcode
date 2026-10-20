@@ -153,6 +153,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         // Giữ Shift lúc mở Bcode = chế độ an toàn cho phiên này: bỏ qua CSS riêng và bản HTML ghi đè (xem UiOverrides).
         Bcode.App.UI.UiOverrides.SessionSafe = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
         Bcode.App.UI.UiOverrides.Notice += msg => { if (!IsDisposed && IsHandleCreated) BeginInvoke(() => PushStatus(msg)); };
+        Bcode.App.UI.WebViewEnvironment.TempProfileNotice += msg => { if (!IsDisposed && IsHandleCreated) BeginInvoke(() => PushStatus(msg)); };   // thư mục WebView2 chính bận → phiên này dùng hồ sơ tạm
         _settings = AppSettings.Load();
         Bcode.App.UI.UiThemes.ApplyPalettes(); // theme/màu người dùng chọn — trước khi dựng control
         // Giữ con trỏ chuột luôn hiện khi gõ (tắt "Hide pointer while typing" của Windows trong lúc chạy; trả lại khi thoát).
@@ -517,6 +518,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     PushThemeToShell();
                     PushProjectInfo();
                     if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
+                    if (Bcode.App.UI.WebViewEnvironment.TempProfileNote is { } wvNote) PushStatus(wvNote);   // báo lúc tạo môi trường thì thanh trạng thái chưa nạp xong
                 };
 
                 _topBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("topbar.html"));

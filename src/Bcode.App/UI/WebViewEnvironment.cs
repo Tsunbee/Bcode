@@ -32,15 +32,145 @@ internal static class WebViewEnvironment
         return _envTask ??= CreateAsync();
     }
 
-    private static Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> CreateAsync()
+    private static Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> CreateAsync() => CreateForStepAsync();
+
+    // ---- Thư mục dữ liệu bận (0x800700AA "The requested resource is in use") ----
+    // Thư mục chính đang bị một trình duyệt msedgewebview2 khác giữ: trình duyệt của lần mở trước chưa thoát hẳn, Bcode trước bị treo/kill
+    // để lại trình duyệt mồ côi, hoặc 1 Bcode khác chạy với tham số khác. Lỗi thường chỉ lộ ra lúc tạo controller (EnsureCoreWebView2Async),
+    // không phải lúc tạo môi trường → InitAsync báo thất bại về đây (RecoverBusyAsync). Các bước: thử lại thư mục chính BusyRetries lần,
+    // cách nhau BusyRetryDelayMs (chờ trình duyệt cũ thoát) → hồ sơ phụ WebView2-1, -2... (thư mục phụ đang bị giữ cũng báo bận ngay → số kế tiếp).
+    // Không bao giờ vì thư mục bận mà mất WebView2. Tạo thành công ngay lần đầu thì không có gì khác trước.
+    private const int BusyRetries = 5, BusyRetryDelayMs = 600, MaxTempFolders = 30;
+    private const string TempFolderPrefix = "WebView2-";
+    private static int _busyStep;                     // 0..BusyRetries-1 = thư mục chính; từ BusyRetries = hồ sơ phụ số (_busyStep - BusyRetries + 1)
+    private static string? _envFolder;                // thư mục của môi trường hiện tại
+    private static bool _tempNoted, _cleanupStarted;
+    private static readonly SemaphoreSlim RecoverLock = new(1, 1);
+
+    private static string DataRoot => Path.Combine(BcodePaths.AppData, "Bcode");
+    private static string FolderForStep(int step) =>
+        Path.Combine(DataRoot, step < BusyRetries ? "WebView2" : TempFolderPrefix + (step - BusyRetries + 1));
+
+    private static async Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> CreateForStepAsync()
     {
-        var userDataFolder = Path.Combine(
-            BcodePaths.AppData, "Bcode", "WebView2");
-        return CreateWithProfileAsync(userDataFolder);
+        while (true)
+        {
+            var folder = FolderForStep(_busyStep);
+            try
+            {
+                var env = await CreateWithProfileAsync(folder);
+                _envFolder = folder;
+                return env;
+            }
+            catch (Exception ex) when (IsFolderBusy(ex)) { if (!await AdvanceBusyStepAsync(folder, ex)) throw; }
+        }
+    }
+
+    /// <summary>Thư mục <paramref name="folder"/> vừa báo bận: sang bước kế (chờ nếu còn thử lại thư mục chính). false = hết cách, để lỗi bay ra.</summary>
+    private static async Task<bool> AdvanceBusyStepAsync(string folder, Exception ex)
+    {
+        if (_busyStep + 1 >= BusyRetries + MaxTempFolders) { Log($"Hết hồ sơ phụ để thử ({folder}): {ex.Message}"); return false; }
+        _busyStep++;
+        if (_busyStep < BusyRetries) await Task.Delay(BusyRetryDelayMs);
+        else Log($"{folder} bận ({ex.Message}) — thử {FolderForStep(_busyStep)}.");
+        return true;
+    }
+
+    /// <summary>Gọi khi tạo controller trên <paramref name="failed"/> báo thư mục bận: trả về môi trường để thử lại (nhiều control cùng lỗi
+    /// với 1 môi trường thì chỉ chuyển bước 1 lần — control đến sau nhận luôn môi trường mới).</summary>
+    private static async Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> RecoverBusyAsync(
+        Microsoft.Web.WebView2.Core.CoreWebView2Environment failed, Exception ex)
+    {
+        await RecoverLock.WaitAsync();
+        try
+        {
+            if (_envTask is { IsCompletedSuccessfully: true } cur && !ReferenceEquals(cur.Result, failed)) return cur.Result;
+            if (!await AdvanceBusyStepAsync(_envFolder ?? FolderForStep(_busyStep), ex)) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex).Throw();
+            _envTask = CreateForStepAsync();
+            return await _envTask;
+        }
+        finally { RecoverLock.Release(); }
+    }
+
+    /// <summary>Controller đầu tiên đã tạo xong: báo nếu đang dùng hồ sơ tạm, rồi dọn hồ sơ phụ cũ (1 lần mỗi phiên).</summary>
+    private static void OnControllerReady()
+    {
+        if (_busyStep >= BusyRetries && !_tempNoted && _envFolder is { } folder)
+        {
+            _tempNoted = true;
+            TempProfileNote = $"WebView2: thư mục dữ liệu chính đang bị trình duyệt WebView2 khác giữ — phiên này dùng hồ sơ tạm {Path.GetFileName(folder)} " +
+                "(dữ liệu web lưu trong trang của Bcode có thể phải làm lại). Đóng hết Bcode rồi mở lại để về hồ sơ chính.";
+            Log(TempProfileNote);
+            try { TempProfileNotice?.Invoke(TempProfileNote); } catch { }
+        }
+        if (_cleanupStarted) return;
+        _cleanupStarted = true;
+        if (_busyStep is > 0 and < BusyRetries) Log($"{_envFolder} bận, thử lại {_busyStep} lần thì được.");
+        var inUse = _envFolder;
+        _ = Task.Run(() => CleanupTempFolders(DataRoot, inUse));
+    }
+
+    /// <summary>Khác null khi phiên này dùng hồ sơ WebView2 tạm (thư mục chính bận) — câu thông báo cho thanh trạng thái.</summary>
+    public static string? TempProfileNote { get; private set; }
+
+    /// <summary>Báo lúc vừa chuyển sang hồ sơ tạm (gọi trên luồng bất kỳ).</summary>
+    public static event Action<string>? TempProfileNotice;
+
+    /// <summary>0x800700AA (ERROR_BUSY: "The requested resource is in use") hoặc 0x8007139F (ERROR_INVALID_STATE): thư mục dữ liệu đang bị
+    /// một tiến trình trình duyệt WebView2 khác giữ, với tham số khác.</summary>
+    private static bool IsFolderBusy(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+            if (e.HResult is unchecked((int)0x800700AA) or unchecked((int)0x8007139F)) return true;
+        return false;
+    }
+
+    /// <summary>Xoá các hồ sơ phụ WebView2-n cũ không còn trình duyệt nào giữ. Không bao giờ đụng thư mục chính WebView2 và hồ sơ phiên này
+    /// đang dùng. Trình duyệt đang chạy giữ độc quyền file EBWebView\lockfile (thoát êm thì tự xoá file đó) → mở/tạo được lockfile độc quyền
+    /// nghĩa là không ai dùng; giữ khoá đó trong lúc xoá để trình duyệt của Bcode khác không chiếm đúng thư mục giữa chừng (nó sẽ báo bận → số kế tiếp).</summary>
+    private static void CleanupTempFolders(string root, string? inUse)
+    {
+        try
+        {
+            foreach (var dir in Directory.GetDirectories(root, TempFolderPrefix + "*"))
+            {
+                if (!int.TryParse(Path.GetFileName(dir)[TempFolderPrefix.Length..], out _)) continue;
+                if (inUse is not null && string.Equals(Path.GetFullPath(dir), Path.GetFullPath(inUse), StringComparison.OrdinalIgnoreCase)) continue;
+                try
+                {
+                    var eb = Path.Combine(dir, "EBWebView");
+                    if (!Directory.Exists(eb))
+                    {
+                        // Chưa có EBWebView: hồ sơ hỏng, hoặc 1 Bcode khác vừa chọn thư mục này và đang khởi động — chỉ xoá khi đã cũ.
+                        if (DateTime.Now - Directory.GetLastWriteTime(dir) > TimeSpan.FromMinutes(10)) Directory.Delete(dir, true);
+                        continue;
+                    }
+                    var lockPath = Path.Combine(eb, "lockfile");
+                    using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))   // đang bị giữ → IOException, bỏ qua
+                    {
+                        foreach (var sub in Directory.GetDirectories(dir)) if (!string.Equals(sub, eb, StringComparison.OrdinalIgnoreCase)) Directory.Delete(sub, true);
+                        foreach (var f in Directory.GetFiles(dir)) File.Delete(f);
+                        foreach (var sub in Directory.GetDirectories(eb)) Directory.Delete(sub, true);
+                        foreach (var f in Directory.GetFiles(eb)) if (!string.Equals(f, lockPath, StringComparison.OrdinalIgnoreCase)) File.Delete(f);
+                    }
+                    Directory.Delete(dir, true);
+                    Log($"Đã dọn hồ sơ WebView2 tạm cũ {Path.GetFileName(dir)}.");
+                }
+                catch { /* đang được dùng / không xoá được — để lần sau */ }
+            }
+        }
+        catch { }
+    }
+
+    private static void Log(string message)
+    {
+        try { File.AppendAllText(Path.Combine(BcodePaths.AppData, "Bcode", "webview2.log"), $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  [pid {Environment.ProcessId}]  {message}{Environment.NewLine}"); }
+        catch { }
     }
 
     /// <summary>Tạo môi trường kèm tham số của Chế độ hiệu năng (vd giới hạn số tiến trình hiển thị). Không tạo được với tham số
-    /// (vd 1 Bcode khác đang chạy chung thư mục dữ liệu với tham số khác) thì tạo như cũ — không bao giờ vì cài đặt này mà mất WebView2.</summary>
+    /// (vd 1 Bcode khác đang chạy chung thư mục dữ liệu với tham số khác) thì tạo như cũ — không bao giờ vì cài đặt này mà mất WebView2.
+    /// Cả hai đều báo thư mục bận thì ném lỗi bận để <see cref="CreateForStepAsync"/> chờ/thử lại hoặc dùng hồ sơ phụ.</summary>
     private static async Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> CreateWithProfileAsync(string userDataFolder)
     {
         string args = "";
@@ -74,7 +204,12 @@ internal static class WebViewEnvironment
         ThemeManager.ThemeChanged += Recolor;
         web.Disposed += (_, _) => ThemeManager.ThemeChanged -= Recolor;
         var environment = await GetAsync();
-        await web.EnsureCoreWebView2Async(environment);
+        while (true)
+        {
+            try { await web.EnsureCoreWebView2Async(environment); break; }
+            catch (Exception ex) when (IsFolderBusy(ex)) { environment = await RecoverBusyAsync(environment, ex); }   // thư mục dữ liệu bận — xem RecoverBusyAsync
+        }
+        OnControllerReady();
         web.CoreWebView2.SetVirtualHostNameToFolderMapping(
             Host, WebFolder, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
         // Tắt phím tắt của trình duyệt (F5/Ctrl+R = tải lại trang, Ctrl+P, F12...): trước đây bấm F5 khi Monaco/thanh công cụ chưa kịp

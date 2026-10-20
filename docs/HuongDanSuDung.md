@@ -901,6 +901,7 @@ Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt
 |---|---|
 | "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm." | Dự án chưa có Source Path — vào ⚙ Settings → **Choose Server / Workspaces...** (hoặc `Ctrl+O` → Edit) khai đường dẫn UNC tới site. |
 | Không khởi tạo được giao diện / trang trắng (WebView2) | Máy thiếu **WebView2 Runtime** — cài "WebView2 Runtime (Evergreen)" của Microsoft; hoặc dùng chế độ App. |
+| Thanh trạng thái báo "WebView2: thư mục dữ liệu chính đang bị trình duyệt WebView2 khác giữ — phiên này dùng hồ sơ tạm WebView2-1…" (bản cũ: hộp lỗi "The requested resource is in use. (0x800700AA)") | Trình duyệt WebView2 của lần mở trước chưa thoát hẳn (vừa tắt đã mở lại, hoặc Bcode trước bị treo / tắt cưỡng bức), hoặc một Bcode khác đang mở. Bcode tự chờ vài giây rồi thử lại; vẫn bận thì dùng tạm hồ sơ `%AppData%\Bcode\WebView2-<số>` để vẫn mở được — dữ liệu lưu trong các trang của Bcode có thể phải làm lại cho phiên đó. Đóng hết Bcode rồi mở lại để về hồ sơ chính; hồ sơ tạm cũ được tự dọn. Chi tiết ghi ở `%AppData%\Bcode\webview2.log`. |
 | Giao diện vỡ sau khi tuỳ chỉnh HTML / CSS | Giữ **Shift** khi mở Bcode (chế độ an toàn), rồi sửa / tắt tuỳ chỉnh ở Template → HTML & CSS. |
 | Gợi ý không thấy bảng / procedure mới tạo | Bấm **⟳ Refresh database** cạnh ô WS. |
 | `Ctrl+Shift+Tab` không chuyển tab | Phím mặc định đang sai — gán lại ở Template → Phím tắt "Chuyển về tab trước". |

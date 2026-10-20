@@ -106,7 +106,7 @@ Bcode.App/
 │   ├── SqlTabSnapshot.cs  19
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  1976
+│   ├── TableEditControl.cs  1983
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
 │   ├── WCommandTreeControl.cs  901
@@ -145,7 +145,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3604
+│   ├── MainForm.cs  3607
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
 │   ├── MainForm.ToolGroups.cs  101
@@ -317,7 +317,7 @@ Bcode.App/
 │   ├── UiScale.cs  60
 │   ├── UiTemplate.cs  475
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  255
+│   └── WebViewEnvironment.cs  390
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99

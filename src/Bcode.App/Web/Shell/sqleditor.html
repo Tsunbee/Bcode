@@ -64,6 +64,15 @@
         window.setDatabaseTables = function (tables) {
             _dbTables = tables || [];
         };
+        // Tên thường + phần số của từng bảng, tính 1 lần cho mỗi danh sách bảng (gợi ý tên bảng dùng ở mỗi phím gõ)
+        var _dbTableInfos = null, _dbTableInfosOf = null;
+        function dbTableInfos() {
+            if (_dbTableInfosOf !== _dbTables) {
+                _dbTableInfosOf = _dbTables;
+                _dbTableInfos = _dbTables.map(function (item) { var l = String(item.name).toLowerCase(); return { lower: l, digits: l.replace(/[^0-9]/g, '') }; });
+            }
+            return _dbTableInfos;
+        }
 
         // ================================================================
         // CẢNH BÁO SAI DẤU TRONG SQL — dấu nháy đơn ' chưa đóng, dấu ngoặc
@@ -546,35 +555,43 @@
                     var existingTables = getExistingTablesInQuery(fullSql);
                     var commonCatalogs = ['dmkh', 'dmvt', 'dmkho', 'dmnv', 'dmtk', 'dmnt', 'dmbp', 'dmplvt'];
 
-                    var suggestions = _dbTables.map(function (item) {
+                    // Tra "bảng liên quan" bằng bảng băm thay vì so từng bảng database (15.000+) với từng bảng đã có trong query (cả trăm, kèm regex):
+                    // cách cũ chặn trang ~1,3 giây mỗi phím ở procedure dài. Kết quả giữ y như cũ: bảng xuất hiện TRƯỚC trong query thắng,
+                    // cùng một bảng thì luật "cùng phần số" thắng luật ph/ct, h/d, m/d.
+                    var exAt = {}, exByDigits = {}, exCount = 0;
+                    existingTables.forEach(function (ex) {
+                        if (exAt[ex] !== undefined) return;
+                        exAt[ex] = exCount++;
+                        var d = ex.replace(/[^0-9]/g, '');
+                        if (d.length >= 2) (exByDigits[d] || (exByDigits[d] = [])).push(ex);
+                    });
+                    var infos = dbTableInfos(), isJoin = /\bJOIN\s+/i.test(textBefore);
+
+                    var suggestions = _dbTables.map(function (item, k) {
                         var tableName = item.name;
-                        var lowerName = tableName.toLowerCase();
+                        var lowerName = infos[k].lower;
                         var isRelated = false;
                         var relationNote = "";
 
-                        for (var i = 0; i < existingTables.length; i++) {
-                            var ex = existingTables[i];
-                            if (ex === lowerName) continue;
-
-                            var exDigits = ex.replace(/[^0-9]/g, '');
-                            var curDigits = lowerName.replace(/[^0-9]/g, '');
-
-                            if (exDigits.length >= 2 && exDigits === curDigits) {
-                                isRelated = true;
-                                relationNote = "⭐ Chi tiết / Cùng bộ chứng từ (" + ex + ")";
-                                break;
-                            }
-
-                            if ((ex.startsWith('ph') && lowerName.startsWith('ct') && ex.slice(2) === lowerName.slice(2)) ||
-                                (ex.startsWith('h') && lowerName.startsWith('d') && ex.slice(1) === lowerName.slice(1)) ||
-                                (ex.startsWith('m') && lowerName.startsWith('d') && ex.slice(1) === lowerName.slice(1))) {
-                                isRelated = true;
-                                relationNote = "⭐ Bảng chi tiết của " + ex;
+                        var best = -1, sameDigits = infos[k].digits.length >= 2 ? exByDigits[infos[k].digits] : null;
+                        if (sameDigits) {
+                            for (var i = 0; i < sameDigits.length; i++) {
+                                if (sameDigits[i] === lowerName) continue;
+                                best = exAt[sameDigits[i]];
+                                relationNote = "⭐ Chi tiết / Cùng bộ chứng từ (" + sameDigits[i] + ")";
                                 break;
                             }
                         }
+                        var heads = [];
+                        if (lowerName.startsWith('ct')) heads.push('ph' + lowerName.slice(2));
+                        if (lowerName.startsWith('d')) heads.push('h' + lowerName.slice(1), 'm' + lowerName.slice(1));
+                        for (var h = 0; h < heads.length; h++) {
+                            var at = exAt[heads[h]];
+                            if (at !== undefined && (best < 0 || at < best)) { best = at; relationNote = "⭐ Bảng chi tiết của " + heads[h]; }
+                        }
+                        if (best >= 0) isRelated = true;
 
-                        if (!isRelated && /\bJOIN\s+/i.test(textBefore) && commonCatalogs.indexOf(lowerName) >= 0) {
+                        if (!isRelated && isJoin && commonCatalogs.indexOf(lowerName) >= 0) {
                             isRelated = true;
                             relationNote = "⭐ Danh mục hay dùng";
                         }

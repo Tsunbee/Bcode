@@ -77,6 +77,8 @@ public partial class ScriptEditorControl
             if (FileCache.TryGetValue(actual, out var c) && c.Stamp == stamp) return (actual, c);
             var text = File.ReadAllText(actual);
             var entry = new CachedFile(stamp, text, ParseEntityDeclarations(text));
+            // Giới hạn bộ nhớ: quá ~4000 file (vài chục MB) thì bỏ hết bản nhớ — chỉ mục đã dựng vẫn giữ khai báo của nó, lần dựng sau đọc lại từ đĩa.
+            if (FileCache.Count > 4000) FileCache.Clear();
             FileCache[actual] = entry;
             return (actual, entry);
         }

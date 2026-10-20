@@ -448,7 +448,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             SelectWorkspace(last >= 0 ? last : 0);
         }
         // Màn hình Projects khi mới mở Bcode: lọc/chọn nhanh project đã khai báo (đóng đi thì giữ project dùng gần nhất).
-        Shown += (_, _) => BeginInvoke(new Action(() => { if (startupProject < 0) ShowProjectPicker(); TryRestoreSession(); }));
+        Shown += (_, _) => BeginInvoke(new Action(() => { if (startupProject < 0) ShowProjectPicker(skipIfSame: true); TryRestoreSession(); }));
         InitSession();
         InitHibernation();
         // Dựng sẵn 1 tab SQL Query ở nền sau khi cửa sổ đã lên hình (xem TakeSqlControl).
@@ -716,10 +716,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Màn hình Projects: lọc / chọn nhanh project đã khai báo (mở lúc khởi động và qua Actions &gt; Projects).</summary>
     /// <param name="newWindowIfTabs">Ctrl+O / Choose Server: cửa sổ này đang có tab mà chọn dự án KHÁC → mở Bcode mới cho dự án đó, cửa sổ này giữ nguyên
     /// dự án + các tab đang làm. Không có tab (hoặc chọn lại đúng dự án đang vào) thì đổi dự án ngay tại cửa sổ này như trước.</param>
-    private void ShowProjectPicker(bool newWindowIfTabs = false)
+    /// <param name="skipIfSame">Màn Projects lúc mới mở Bcode: Bcode đã tự vào project dùng gần nhất — chọn lại đúng project đó thì KHÔNG nạp lại
+    /// (trước đây cây WCommand + SQL Object bị nạp 2 lần mỗi lần mở Bcode, xem apply-timing.log).</param>
+    private void ShowProjectPicker(bool newWindowIfTabs = false, bool skipIfSame = false)
     {
         if (IsDisposed) return;
         using IProjectPicker picker = Bcode.App.UI.UiMode.IsNative ? new NativeProjectPickerForm(_settings, _connections) : new ProjectPickerForm(_settings, _connections);
+        string Snapshot(Workspace? w) { try { return w is null ? "" : System.Text.Json.JsonSerializer.Serialize(w); } catch { return Guid.NewGuid().ToString(); } }
+        var before = skipIfSame ? Snapshot(_connections.Current) : "";
         var result = picker.ShowDialog(this);
         PushWorkspacesToTopBar(); // New/Edit/Delete trong màn hình có thể đã đổi danh sách
         if (result == DialogResult.OK && picker.Chosen is { } chosen)
@@ -730,6 +734,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 StartNewBcodeWindow(chosen.Name);
                 return;
             }
+            // Edit chính project này trong màn Projects (đổi server, database...) thì vẫn nạp lại.
+            if (skipIfSame && ReferenceEquals(chosen, _connections.Current) && Snapshot(chosen) == before) return;
             var idx = _settings.Workspaces.IndexOf(chosen);
             if (idx >= 0) SelectWorkspace(idx);
         }

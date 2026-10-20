@@ -14,7 +14,7 @@ namespace Bcode.App.Controls;
 /// DeclaringPath = file khai báo (để F12 tiếp trong nội dung), Missing = không tìm thấy / không đọc được.</summary>
 public sealed record EntityPreviewItem(string Name, string Title, string Subtitle, string Text, string? FilePath, string? DeclaringPath, bool Missing);
 
-public class ScriptEditorControl : UserControl
+public partial class ScriptEditorControl : UserControl
 {
     private readonly RichTextBox _textBox;
     private readonly LineNumberGutter _gutter;
@@ -67,11 +67,8 @@ public class ScriptEditorControl : UserControl
     // problem this control used to have: instead of parsing "this file's own declarations,
     // optionally topped up with whatever the caller manually passed down from its parent"
     // (fragile — anything opened directly, not via a chain of F12s, only ever saw its own
-    // DOCTYPE), F12 now walks the SYSTEM-include chain fresh, from disk, every time it's
-    // pressed: this file's own declarations first, then each file it SYSTEM-includes,
-    // breadth-first, up to EntityIncludeDepth levels — the same order an XML parser would
-    // actually apply them in. No state to keep in sync between popups, and it resolves
-    // correctly even for a controller opened straight from the tree.
+    // DOCTYPE), F12 resolves against the file's whole SYSTEM-include tree — read once into an
+    // index (ScriptEditorControl.EntityIndex.cs), every later F12 is a dictionary lookup.
     //
     // It also resolves VALUE entities now, not just SYSTEM ones. Most "&Name;" references
     // in a FastBusiness controller are entities whose declaration IS the code
@@ -79,7 +76,6 @@ public class ScriptEditorControl : UserControl
     // own comment on this: "which is what most &Name; references in a controller are". The
     // old SYSTEM-only version of this control silently did nothing on every one of those,
     // which is most of what F12 gets pressed on in practice.
-    private const int EntityIncludeDepth = 4;
 
     /// <summary>One &lt;!ENTITY ...&gt; declaration, either SYSTEM (Value is null, SystemPath
     /// set) or a value entity (Value set, SystemPath is null).</summary>
@@ -607,6 +603,7 @@ public class ScriptEditorControl : UserControl
     {
         CurrentPath = path;
         _entityResolveBasePath = entityResolveBasePath ?? path;
+        PrewarmEntityIndex(_entityResolveBasePath, content);
         _pathLabel.Text = path ?? "(nội dung tạm)";
         _hideBarButton.Visible = path is null; // only offer to hide for generated/temp content
         _textBox.Text = content;
@@ -715,49 +712,53 @@ public class ScriptEditorControl : UserControl
         return (text.Substring(i + 1, end - i - 1), end + 1);
     }
 
-    /// <summary>Finds <paramref name="name"/> in <paramref name="path"/>'s own declarations,
-    /// then in each file it SYSTEM-includes, breadth-first (nearest declaration wins — the
-    /// same order an XML parser applies them in), up to <paramref name="depth"/> levels. A
-    /// file that includes itself (directly or indirectly) is skipped via <paramref
-    /// name="seen"/> rather than turning one F12 into an endless walk.</summary>
-    private static ResolvedEntity? ResolveEntity(string name, string path, string text, HashSet<string> seen, int depth)
+    /// <summary>Gốc Source Path / Program Path của dự án đang chọn (MainForm gán) — cho <see cref="ProgramFallback"/>.</summary>
+    internal static Func<(string? Source, string? Program)>? ProjectRoots;
+
+    /// <summary><paramref name="fullPath"/> nếu có trên đĩa, không thì bản tương ứng ở Program Path (<see cref="ProgramFallback"/>), không có nữa thì null.</summary>
+    internal static string? ExistingOrProgram(string fullPath) => File.Exists(fullPath) ? fullPath : ProgramFallback(fullPath);
+
+    /// <summary>File include không có trong source (kho SourceCollection, Source Path...) → tìm file cùng đường dẫn tương đối trong Program Path của dự án đang
+    /// chọn: nằm dưới Source Path thì ghép phần sau Source Path; không thì thử các đuôi đường dẫn từ dài tới ngắn (…\Controllers\Include\X.ent → Include\X.ent).
+    /// null = không có (hoặc file vốn đã nằm trong Program Path).</summary>
+    internal static string? ProgramFallback(string fullPath)
     {
-        var key = path.ToLowerInvariant();
-        if (seen.Contains(key)) return null;
-        seen.Add(key);
-
-        var decls = ParseEntityDeclarations(text);
-        foreach (var d in decls)
-            if (string.Equals(d.Name, name, StringComparison.Ordinal))
-                return new ResolvedEntity(d, path, text);
-
-        if (depth <= 0) return null;
-
-        var dir = Path.GetDirectoryName(path);
-        if (string.IsNullOrEmpty(dir)) return null;
-
-        foreach (var include in decls)
+        try
         {
-            if (!include.IsSystem || include.SystemPath is null) continue;
-
-            string resolved;
-            try
+            var (src, prog) = ProjectRoots?.Invoke() ?? default;
+            if (string.IsNullOrWhiteSpace(prog)) return null;
+            static string Root(string p) => Path.GetFullPath(p.Trim()).TrimEnd('\\') + "\\";
+            var progRoot = Root(prog);
+            if (fullPath.StartsWith(progRoot, StringComparison.OrdinalIgnoreCase)) return null;
+            if (!string.IsNullOrWhiteSpace(src))
             {
-                resolved = Path.GetFullPath(Path.Combine(dir, include.SystemPath.Replace('/', '\\')));
+                var srcRoot = Root(src);
+                if (fullPath.StartsWith(srcRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    var c = Path.Combine(progRoot, fullPath[srcRoot.Length..]);
+                    if (File.Exists(c)) return c;
+                }
             }
-            catch (Exception)
+            var parts = fullPath.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            for (var k = Math.Min(parts.Length - 1, 8); k >= 2; k--)
             {
-                continue; // malformed path in that declaration — skip it, keep looking elsewhere
+                var c = Path.Combine(progRoot, string.Join('\\', parts[^k..]));
+                if (File.Exists(c)) return c;
             }
-            if (seen.Contains(resolved.ToLowerInvariant())) continue;
-
-            var includedText = TryReadFile(resolved);
-            if (includedText is null) continue; // missing/unreadable include — not this branch's answer
-
-            var found = ResolveEntity(name, resolved, includedText, seen, depth - 1);
-            if (found is not null) return found;
         }
+        catch { /* đường dẫn lạ / mất mạng — coi như không có */ }
         return null;
+    }
+
+    /// <summary>File nằm trong Program Path của dự án đang chọn.</summary>
+    internal static bool IsInProgram(string path)
+    {
+        try
+        {
+            var (_, prog) = ProjectRoots?.Invoke() ?? default;
+            return !string.IsNullOrWhiteSpace(prog) && path.StartsWith(Path.GetFullPath(prog.Trim()).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
     }
 
     private static string? TryReadFile(string path)
@@ -851,7 +852,7 @@ public class ScriptEditorControl : UserControl
         var items = new List<EntityPreviewItem>();
         foreach (var name in names)
         {
-            var found = ResolveEntity(name, basePath, text, new HashSet<string>(), EntityIncludeDepth);
+            var found = LookupEntity(name, basePath, text);
             var title = "&" + name + ";";
             if (found is null)
             {
@@ -876,6 +877,7 @@ public class ScriptEditorControl : UserControl
                 items.Add(new EntityPreviewItem(name, title, "Đường dẫn khai báo không hợp lệ", "(đường dẫn khai báo không hợp lệ)", null, null, true));
                 continue;
             }
+            if (ExistingOrProgram(fullPath) is { } existingFile) fullPath = existingFile;
             var content = TryReadFile(fullPath);
             items.Add(content is null
                 ? new EntityPreviewItem(name, title, fullPath, $"(file không tồn tại hoặc không đọc được)\r\n{fullPath}", null, null, true)
@@ -912,17 +914,17 @@ public class ScriptEditorControl : UserControl
             {
                 // malformed path text under the caret — fall through to name-based resolution
             }
-            if (target is not null && File.Exists(target))
-                return new F12Result(target, null, null, null, null, false);
+            if (target is not null && ExistingOrProgram(target) is { } existing)
+                return new F12Result(existing, null, null, null, null, false);
         }
 
         var name = GetWordAt(text, caretIndex);
         if (string.IsNullOrEmpty(name)) return default;
 
-        var found = ResolveEntity(name, basePath, text, new HashSet<string>(), EntityIncludeDepth);
+        var found = LookupEntity(name, basePath, text);
         if (found is null)
             return new F12Result(null, null, null, null,
-                $"Không tìm thấy khai báo cho entity \"{name}\" (đã tìm trong file này và tối đa {EntityIncludeDepth} cấp Include).", false);
+                $"Không tìm thấy khai báo cho entity \"{name}\" (đã tìm trong file này, mọi file Include của nó và file cha đã mở).", false);
 
         var decl = found.Value.Decl;
         if (!decl.IsSystem)
@@ -938,9 +940,11 @@ public class ScriptEditorControl : UserControl
         {
             return default; // malformed path in the declaration
         }
-        return File.Exists(fullPath)
-            ? new F12Result(fullPath, null, null, null, null, false)
-            : new F12Result(null, null, null, null, $"Entity \"{name}\" khai báo trỏ tới file không tồn tại:\n{fullPath}", true);
+        var (_, prog) = ProjectRoots?.Invoke() ?? default;
+        return ExistingOrProgram(fullPath) is { } file
+            ? new F12Result(file, null, null, null, null, false)
+            : new F12Result(null, null, null, null, $"Entity \"{name}\" khai báo trỏ tới file không tồn tại:\n{fullPath}"
+                + (string.IsNullOrWhiteSpace(prog) ? "" : $"\n\nĐã tìm cả trong Program Path của dự án đang chọn:\n{prog}"), true);
     }
 
     // ---- Ctrl+G "Go to" — structural navigation for FastBusiness Dir/Grid XML files ----

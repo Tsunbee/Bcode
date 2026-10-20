@@ -301,6 +301,7 @@ public class SqlProfilerControl : UserControl
         // trước đây mọi lần huỷ handle đều đóng Profiler và chờ tới 6 giây trên UI thread → Bcode treo một lúc rồi Profiler "bay mất" khỏi tab.
         HandleDestroyed += (_, _) => { if (IsClosingForGood()) CloseProfiler(wait: true); else DetachProfiler(); };
         HandleCreated += (_, _) => ReattachProfiler();
+        VisibleChanged += (_, _) => RefreshHookState();     // đổi tab: Profiler ẩn/hiện — hook (luồng riêng) đọc cờ này thay vì hỏi control
         Disposed += (_, _) =>
         {
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
@@ -1603,32 +1604,74 @@ public class SqlProfilerControl : UserControl
     [DllImport("user32.dll")] private static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO lpgui);
     [DllImport("user32.dll")] private static extern bool IsChild(IntPtr hWndParent, IntPtr hWnd);
     [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
+    [StructLayout(LayoutKind.Sequential)] private struct MSG { public IntPtr hwnd; public uint message; public IntPtr wParam, lParam; public uint time; public int x, y; }
+    [DllImport("user32.dll")] private static extern int GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+    [DllImport("user32.dll")] private static extern bool PostThreadMessage(uint idThread, uint msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("kernel32.dll")] private static extern uint GetCurrentThreadId();
+    private const uint WM_QUIT = 0x0012;
 
+    // Hook chạy trên LUỒNG RIÊNG (có vòng nhận message của nó), không phải UI thread: hook bàn phím mức thấp chặn MỌI phím của Windows cho tới khi hàm hook trả lời —
+    // đặt trên UI thread thì lúc Bcode bận (vừa bấm phím tắt mở tab mới: tạo WebView2, nạp trang...) cả bàn phím lẫn Profiler khựng theo, giữ phím lâu là "treo".
+    // Hàm hook vì vậy không đụng control WinForms: chỉ đọc các giá trị UI thread ghi sẵn (_formHwnd, _hostShown) + API Win32 an toàn đa luồng.
     private IntPtr _keyHook = IntPtr.Zero;
     private LowLevelKeyboardProc? _keyHookProc;   // giữ tham chiếu: GC thu delegate là hook gọi vào vùng nhớ đã giải phóng
+    private Thread? _keyHookThread;
+    private uint _keyHookThreadId;
     private long _ctrlDownAt;
+    private volatile IntPtr _formHwnd;            // cửa sổ chính chứa tab Profiler (ghi ở UI thread)
+    private volatile bool _hostShown;              // tab Profiler đang hiện (ghi ở UI thread)
+    private uint _firedVk;                         // phím vừa bắn phím tắt — keydown lặp (giữ phím) của nó bị nuốt, không bắn lại (trước đây mỗi lần lặp mở thêm 1 tab)
+
+    private void RefreshHookState()
+    {
+        try
+        {
+            _hostShown = !IsDisposed && Visible;
+            _formHwnd = FindForm() is { IsHandleCreated: true } f ? f.Handle : IntPtr.Zero;
+        }
+        catch { _hostShown = false; }
+    }
 
     private void InstallKeyHook()
     {
-        if (_keyHook != IntPtr.Zero) return;
-        _keyHookProc = KeyHookProc;
-        _keyHook = SetWindowsHookEx(WH_KEYBOARD_LL, _keyHookProc, GetModuleHandle(null), 0);
+        RefreshHookState();
+        if (_keyHookThread is not null) return;
+        using var ready = new ManualResetEventSlim();
+        var thread = new Thread(() =>
+        {
+            _keyHookThreadId = GetCurrentThreadId();
+            _keyHookProc = KeyHookProc;
+            _keyHook = SetWindowsHookEx(WH_KEYBOARD_LL, _keyHookProc, GetModuleHandle(null), 0);
+            ready.Set();
+            if (_keyHook == IntPtr.Zero) return;
+            while (GetMessage(out _, IntPtr.Zero, 0, 0) > 0) { }   // hook LL chỉ cần luồng có vòng nhận message; WM_QUIT (RemoveKeyHook) thì thoát
+            UnhookWindowsHookEx(_keyHook);
+            _keyHook = IntPtr.Zero;
+        }) { IsBackground = true, Name = "Bcode Profiler key hook" };
+        _keyHookThread = thread;
+        thread.Start();
+        ready.Wait(2000);
     }
 
     private void RemoveKeyHook()
     {
-        if (_keyHook == IntPtr.Zero) return;
-        UnhookWindowsHookEx(_keyHook);
-        _keyHook = IntPtr.Zero;
+        var thread = _keyHookThread;
+        _keyHookThread = null;
         _ctrlDownAt = 0;
+        _firedVk = 0;
+        if (thread is null) return;
+        if (_keyHookThreadId != 0) PostThreadMessage(_keyHookThreadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
+        thread.Join(500);
+        _keyHookThreadId = 0;
     }
 
-    /// <summary>Focus bàn phím đang ở cửa sổ Profiler nhúng (hoặc control con của nó) và Bcode là cửa sổ đứng trước.</summary>
+    /// <summary>Focus bàn phím đang ở cửa sổ Profiler nhúng (hoặc control con của nó) và Bcode là cửa sổ đứng trước. Gọi được từ luồng hook.</summary>
     private bool ProfilerHasFocus()
     {
         var hwnd = _profilerHwnd;
-        if (hwnd == IntPtr.Zero || IsDisposed || !Visible || FindForm() is not { } form || !form.IsHandleCreated) return false;
-        if (GetForegroundWindow() != form.Handle) return false;
+        var formHwnd = _formHwnd;
+        if (hwnd == IntPtr.Zero || formHwnd == IntPtr.Zero || !_hostShown) return false;
+        if (GetForegroundWindow() != formHwnd) return false;
         var tid = GetWindowThreadProcessId(hwnd, out _);
         var gti = new GUITHREADINFO { cbSize = Marshal.SizeOf<GUITHREADINFO>() };
         if (tid == 0 || !GetGUIThreadInfo(tid, ref gti)) return false;
@@ -1645,11 +1688,13 @@ public class SqlProfilerControl : UserControl
                 var msg = (int)wParam;
                 var down = msg is WM_KEYDOWN or WM_SYSKEYDOWN;
                 var vk = (Keys)kb.vkCode;
+                if (!down && kb.vkCode == _firedVk) _firedVk = 0;
                 if (vk is Keys.ControlKey or Keys.LControlKey or Keys.RControlKey)
                 {
                     if (down) { if (_ctrlDownAt == 0) _ctrlDownAt = Environment.TickCount64; }
-                    else if (msg is WM_KEYUP or WM_SYSKEYUP) _ctrlDownAt = 0;
+                    else if (msg is WM_KEYUP or WM_SYSKEYUP) { _ctrlDownAt = 0; _firedVk = 0; }
                 }
+                else if (down && kb.vkCode == _firedVk) return (IntPtr)1;   // phím lặp do đang giữ: đã bắn rồi — nuốt, không mở thêm tab
                 else if (down)
                 {
                     bool Held(int k) => (GetAsyncKeyState(k) & 0x8000) != 0;
@@ -1660,8 +1705,9 @@ public class SqlProfilerControl : UserControl
                         combo = (mods & Keys.Shift) != 0 ? "@ctrl-hold-prev" : "@ctrl-hold";
                     else if (ShortcutRegistry.FromKeys(vk | mods) is { } c && ShortcutRegistry.AppIdFor(c) is not null)
                         combo = c;
-                    if (combo is not null)
+                    if (combo is not null && IsHandleCreated)
                     {
+                        _firedVk = kb.vkCode;
                         BeginInvoke(new Action(() => WebViewEnvironment.RaiseGlobalShortcut(combo)));
                         return (IntPtr)1;   // nuốt phím: không để Profiler nhận (vd Ctrl+O mở file của Profiler)
                     }

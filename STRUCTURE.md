@@ -74,7 +74,7 @@
 - **Claude / Gemini nhúng** — Controls/AiWebPanel.cs; Shared/AiWebHelper.cs — _Tab web claude.ai / gemini, profile riêng._
 - **Giao tiếp với BcodeViewer** — Services/ViewerControlServer.cs; FileLookupControl (mở Viewer); MainForm.RunMenuForFileAsync, OpenViewerScriptTab — _Pipe Bcode.Control.<session>: "sql|..." đang dùng; "fsg|..." còn handler nhưng Viewer không gửi nữa_
 ### 8. Control/helper nền (ít khi phải sửa)
-- **Khung xem/sửa script (RichTextBox)** — Controls/ScriptEditorControl.cs, SqlSyntaxHighlighter.cs, UndoRedoTracker.cs, SuggestPopup.cs; UI/LineNumberGutter.cs — _Dùng cho script SQL Object, WCommand script popup; Undo tự viết vì RichTextBox tô màu._
+- **Khung xem/sửa script (RichTextBox)** — Controls/ScriptEditorControl.cs (+ .EntityIndex.cs: chỉ mục entity cho F12), SqlSyntaxHighlighter.cs, UndoRedoTracker.cs, SuggestPopup.cs; UI/LineNumberGutter.cs — _Dùng cho script SQL Object, WCommand script popup; Undo tự viết vì RichTextBox tô màu._
 - **Lưới & hiển thị** — UI/GridDisplayHelper.cs, GridDragScroll.cs, ControlPerf.cs, FlatToolStripRenderer.cs, ThemedForm.cs — _Autosize 1 lần, kéo chọn tự cuộn, double buffer._
 - **Tuỳ chọn giao diện lẻ** — UI/MousePointer.cs (giữ con trỏ chuột khi gõ), TreeColorOptions.cs (màu cây WCommand/File Lookup), IconGlyphs.cs, AppIcons.cs, NativeAppLauncher.cs (mở .rpt/.xlsx bằng app Windows) — _Cấu hình trong Template giao diện._
 - **Form WinForms cũ còn dùng** — Forms/LookupForm.cs, StringBeautyForm.cs, SetupEInvoiceForm.cs, SimplePromptForm.cs — _Phần lớn đã có bản tab WebView2 tương ứng; form cũ chỉ còn cho luồng phụ._

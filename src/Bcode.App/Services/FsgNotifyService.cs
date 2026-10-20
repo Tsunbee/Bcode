@@ -55,6 +55,11 @@ public sealed class FsgNotifyService : IDisposable
         public int AutoPullMinutes { get; set; }
         public string LastAutoPull { get; set; } = "";
         public string AutoPullError { get; set; } = "";
+        /// <summary>Khoá (MA_DA|FCODE1) mọi y/c CỦA MÌNH đã từng thấy — mốc để biết y/c nào thật sự "mới giao". Không dựa vào fsg-requirements.json:
+        /// bản đó chỉ giữ kết quả lần "Kéo về" gần nhất (có điều kiện lọc), y/c cũ bị lọc ra rồi kéo lại trước đây bị báo nhầm là "mới giao".</summary>
+        public List<string> SeenMine { get; set; } = new();
+        /// <summary>Người (tên lập trình) mà SeenMine đang theo — đổi tên thì làm lại mốc.</summary>
+        public string SeenFor { get; set; } = "";
     }
 
     private const int MaxItems = 500;
@@ -125,6 +130,7 @@ public sealed class FsgNotifyService : IDisposable
             catch { /* file hỏng / đang ghi: giữ bản trong bộ nhớ */ }
             _data.Settings ??= new Settings();
             _data.Items ??= new List<Item>();
+            _data.SeenMine ??= new List<string>();
         }
     }
 
@@ -274,7 +280,7 @@ public sealed class FsgNotifyService : IDisposable
             lock (StoreLock)
             {
                 var st = FsgRequirementReportControl.LoadStore();
-                found = Diff(st, fetched, me, s);
+                found = DiffAndRemember(st, fetched, me, s);
                 foreach (var g in fetched.GroupBy(r => r.MaDa, StringComparer.OrdinalIgnoreCase))
                 {
                     if (!st.Projects.TryGetValue(g.Key, out var pd)) continue;
@@ -355,7 +361,7 @@ public sealed class FsgNotifyService : IDisposable
             var s = CurrentSettings;
             var me = (_programmer() ?? "").Trim();
             if (!s.Enabled || me.Length == 0 || fetched.Count == 0) return;
-            var found = Diff(before, fetched, me, s);
+            var found = DiffAndRemember(before, fetched, me, s);
             if (found.Count == 0) return;
             Mutate(d => d.Items.AddRange(found));
             NewItems?.Invoke(found);
@@ -364,6 +370,31 @@ public sealed class FsgNotifyService : IDisposable
     }
 
     // ---- So sánh ----
+
+    /// <summary><see cref="Diff"/> kèm mốc "y/c của mình đã thấy" (SeenMine), rồi ghi thêm các y/c vừa thấy vào mốc.</summary>
+    private List<Item> DiffAndRemember(FsgRequirementReportControl.Store before, List<Req> fetched, string me, Settings s)
+    {
+        HashSet<string> seen;
+        lock (FileLock)
+        {
+            Reload();
+            seen = Eq(_data.SeenFor, me) ? new HashSet<string>(_data.SeenMine, StringComparer.Ordinal) : new HashSet<string>(StringComparer.Ordinal);
+        }
+        var found = Diff(before, fetched, me, s, seen);
+        bool Mine(Req r) => Eq(r.MaLt1, me) || (s.Deployer && Eq(r.MaNv1, me));
+        var add = fetched.Where(Mine).Select(Key).Where(k => !seen.Contains(k)).Distinct().ToList();
+        if (add.Count > 0 || !Eq(_data.SeenFor, me))
+            Mutate(d =>
+            {
+                if (!Eq(d.SeenFor, me)) { d.SeenFor = me; d.SeenMine = new List<string>(); }
+                var set = new HashSet<string>(d.SeenMine, StringComparer.Ordinal);
+                foreach (var k in add) if (set.Add(k)) d.SeenMine.Add(k);
+            });
+        return found;
+    }
+
+    /// <summary>Y/c đã xong (Đã up / Đã test / Không làm): không bao giờ báo "mới giao".</summary>
+    private static bool IsDone(string? status) => (status ?? "").Trim().ToUpperInvariant() is "UP" or "OK" or "KL";
 
     private static readonly Dictionary<string, string> StatusLabel = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -387,8 +418,12 @@ public sealed class FsgNotifyService : IDisposable
     /// Chỉ y/c của mình, chỉ dự án đã có trong bản lưu. Tránh báo ồ ạt lần đầu: dự án mà bản lưu chưa có y/c nào của mình (vd lần kéo trước lọc theo
     /// người khác) → không báo "y/c mới giao"; dự án mà bản lưu không có dòng ghi chú nào (kéo từ bản Bcode chưa lấy ghi chú) → không so ghi chú.
     /// </summary>
-    internal static List<Item> Diff(FsgRequirementReportControl.Store before, IEnumerable<Req> fetched, string me, Settings s)
+    /// <paramref name="seen"/>: khoá các y/c của mình đã từng thấy (null = chỉ dựa vào bản lưu như trước). Có mốc thì "mới giao" = khoá chưa từng thấy,
+    /// và dự án chưa có khoá nào trong mốc (lần đầu theo dõi) thì chỉ ghi mốc, không báo.
+    internal static List<Item> Diff(FsgRequirementReportControl.Store before, IEnumerable<Req> fetched, string me, Settings s, ISet<string>? seen = null)
     {
+        var seenProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (seen is not null) foreach (var k in seen) { var bar = k.IndexOf('|'); if (bar > 0) seenProjects.Add(k[..bar]); }
         bool Mine(Req r) => Eq(r.MaLt1, me) || (s.Deployer && Eq(r.MaNv1, me));
         var oldByKey = new Dictionary<string, List<Req>>();
         var mineProjects = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -427,7 +462,11 @@ public sealed class FsgNotifyService : IDisposable
 
             if (o is null || !Mine(o))
             {
-                if (s.New && mineProjects.Contains((n.MaDa ?? "").Trim()))
+                var project = (n.MaDa ?? "").Trim();
+                var isNew = seen is null
+                    ? mineProjects.Contains(project)
+                    : seenProjects.Contains(project.ToUpperInvariant()) && !seen.Contains(Key(n));
+                if (s.New && isNew && !IsDone(n.TrangThai))
                 {
                     var first = NoteLines(n.NoiDung).FirstOrDefault() ?? "";
                     var prev = o is null ? "" : $" (trước: {(role == "lt" ? o.MaLt1 : o.MaNv1)})";

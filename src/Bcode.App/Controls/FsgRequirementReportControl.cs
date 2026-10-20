@@ -186,6 +186,20 @@ public class FsgRequirementReportControl : UserControl
                     var st = LoadStore(); st.Projects.Remove(Str("ma")); SaveStore(st); SendAll(st, null, cached: true);
                     break;
                 }
+                case "dropMany":    // bỏ dữ liệu đã lưu của nhiều dự án (các dự án đang khớp ô tìm) hoặc tất cả
+                {
+                    Store st;
+                    lock (FsgNotifyService.StoreLock)   // kéo ngầm (thông báo / tự làm mới) cũng đọc-sửa-ghi file này
+                    {
+                        st = LoadStore();
+                        if (root.TryGetProperty("all", out var allV) && allV.ValueKind == JsonValueKind.True) st.Projects.Clear();
+                        else if (root.TryGetProperty("mas", out var mas) && mas.ValueKind == JsonValueKind.Array)
+                            foreach (var m in mas.EnumerateArray()) if (m.ValueKind == JsonValueKind.String) st.Projects.Remove(m.GetString() ?? "");
+                        SaveStore(st);
+                    }
+                    SendAll(st, null, cached: true);
+                    break;
+                }
                 case "copy": try { Clipboard.SetText(Str("text")); } catch { /* clipboard bận */ } break;
                 case "aiCatalog": AiCatalogRequested?.Invoke(Str("name"), Str("content")); break;
             }

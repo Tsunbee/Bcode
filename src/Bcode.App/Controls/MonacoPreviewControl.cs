@@ -152,6 +152,7 @@ public partial class MonacoPreviewControl : UserControl
         if (_ed is not null) { LoadNative(path, content, entityResolveBasePath); return; }
         CurrentPath = path;
         _entityResolveBasePath = entityResolveBasePath ?? path;
+        if (path is not null) ScriptEditorControl.PrewarmEntityIndex(_entityResolveBasePath, content);
         if (path is null)
         {
             _text = "";

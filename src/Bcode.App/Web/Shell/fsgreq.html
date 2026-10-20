@@ -46,6 +46,7 @@
   #saved { width: min(30rem, 92vw); padding: .45rem; }
   #saved .svhead { display: flex; align-items: center; gap: .5rem; }
   #saved .svhead input { flex: 1; min-width: 0; }
+  #saved #svDrop { white-space: nowrap; } #saved #svDrop:hover { color: #e66; border-color: #e66; }
   #saved .svhint { color: var(--text-muted); font-size: .8rem; margin: .3rem .2rem .25rem; display: flex; justify-content: space-between; gap: .5rem; }
   #saved .svlist { max-height: min(20rem, 55vh); overflow: auto; border-top: var(--bw) solid var(--border); padding-top: .2rem; }
   #saved .svnone { font-style: italic; color: var(--text-muted); padding: .4rem .5rem; }
@@ -519,6 +520,14 @@
       ? savedShown.slice(0, 500).map((x, i) => `<div class="svr${i === savedIx ? ' hi' : ''}${cur && idKey(x.ma) === cur ? ' on' : ''}" data-pick="${esc(x.ma)}" data-ix="${i}" title="Chỉ xem dự án ${esc(x.ma || '(trống)')} · kéo lúc ${esc(fmtAt(x.at))}"><b>${markMa(x.ma)}</b><span class="n">${x.n} yêu cầu</span><span class="t">${esc(fmtAt(x.at))}</span><button data-drop="${esc(x.ma)}" title="Bỏ dữ liệu đã lưu của dự án này">✕</button></div>`).join('')
       : '<div class="svnone">Không có dự án nào khớp “' + esc(savedFilter.trim()) + '”.</div>';
     $('svCount').textContent = (savedFilter.trim() ? savedShown.length + '/' : '') + savedProjects.length + ' dự án';
+    // Đang gõ tìm: nút xoá chỉ xoá các dự án đang khớp; ô tìm trống: xoá tất cả.
+    const d = $('svDrop');
+    if (d) {
+      const n = savedFilter.trim() ? savedShown.length : savedProjects.length;
+      d.hidden = n === 0;
+      d.textContent = savedFilter.trim() ? '🗑 Xoá ' + n + ' dự án khớp' : '🗑 Xoá tất cả';
+      d.title = savedFilter.trim() ? 'Bỏ dữ liệu đã lưu của ' + n + ' dự án đang khớp ô tìm' : 'Bỏ dữ liệu đã lưu của mọi dự án (' + savedProjects.length + ' dự án)';
+    }
     const hi = box.querySelector('.svr.hi'); if (hi) hi.scrollIntoView({ block: 'nearest' });
   }
   function renderSaved() {
@@ -528,7 +537,7 @@
     const total = pj.reduce((s2, x) => s2 + (x.n || 0), 0);
     $('svBtn').textContent = 'Đã lưu: ' + pj.length + ' dự án · ' + total + ' yêu cầu ▾';
     $('saved').innerHTML = '<div class="svhead"><input id="svFilter" type="search" placeholder="Tìm mã dự án… (Enter = xem, ↑ ↓ chọn)" spellcheck="false" autocomplete="off" value="' + esc(savedFilter) + '">'
-      + (vfil.maDa ? '<button id="svAll" title="Bỏ lọc dự án">Mọi dự án</button>' : '') + '</div>'
+      + (vfil.maDa ? '<button id="svAll" title="Bỏ lọc dự án">Mọi dự án</button>' : '') + '<button id="svDrop"></button></div>'
       + '<div class="svhint"><span>Bấm 1 dự án để chỉ xem dự án đó · ✕ bỏ dữ liệu đã lưu</span><span id="svCount"></span></div>'
       + '<div class="svlist" id="svList"></div>';
     renderSavedList();
@@ -559,6 +568,17 @@
     const b = e.target.closest('[data-drop]');
     if (b) { if (confirm('Bỏ dữ liệu đã lưu của dự án ' + b.dataset.drop + '? (kéo lại là có)')) post('drop', { ma: b.dataset.drop }); return; }
     if (e.target.closest('#svAll')) { vfil.maDa = ''; closeSaved(); render(); return; }
+    if (e.target.closest('#svDrop')) {
+      const filtered = !!savedFilter.trim();
+      const list = (filtered ? savedShown : savedProjects).map((x) => x.ma);
+      if (!list.length) return;
+      const what = filtered ? list.length + ' dự án đang khớp “' + savedFilter.trim() + '”' + (list.length <= 8 ? ' (' + list.join(', ') + ')' : '') : 'TẤT CẢ ' + list.length + ' dự án';
+      if (!confirm('Bỏ dữ liệu đã lưu của ' + what + '? (kéo lại là có)')) return;
+      savedFilter = ''; if (list.some((m) => idKey(m) === idKey(vfil.maDa))) vfil.maDa = '';
+      closeSaved();
+      post('dropMany', filtered ? { mas: list } : { all: true });
+      return;
+    }
     const c = e.target.closest('[data-pick]');
     if (c) pickSaved(c.dataset.pick);
   });

@@ -108,7 +108,7 @@ public partial class FileLookupControl
     private void ViewQuickGrantSource()
     {
         if (_quickGrantRow is not { SourcePath: { } src } r) return;
-        new SourceViewForm(src, "Phiên bản " + r.FromVersion + (r.FromFallback ? " (thấp hơn gần nhất)" : "") + " → " + r.RelativeSource).Show(FindForm());
+        SourceViewForm.Open(src, "Phiên bản " + r.FromVersion + (r.FromFallback ? " (thấp hơn gần nhất)" : "") + " → " + r.RelativeSource, FindForm());
     }
 
     /// <summary>Nút "Cấp source" ở thanh xem trước: cấp file source đã tìm cho file .f đang chọn — luôn hỏi xác nhận (nói rõ khi sẽ ghi đè).</summary>

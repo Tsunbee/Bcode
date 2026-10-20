@@ -44,6 +44,7 @@ public partial class MonacoPreviewControl
         var ed = _ed!;
         CurrentPath = path;
         _entityResolveBasePath = entityResolveBasePath ?? path;
+        if (path is not null) ScriptEditorControl.PrewarmEntityIndex(_entityResolveBasePath, content);
         _text = path is null ? "" : content.Replace("\r\n", "\n").Replace('\r', '\n');
         var show = path is null ? content : _text;
         var lang = path is null ? "None" : show.TrimStart().StartsWith('<') ? "XML" : "SQL";

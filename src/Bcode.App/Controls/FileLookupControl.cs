@@ -891,102 +891,17 @@ public partial class FileLookupControl : UserControl
         });
     }
 
-    /// <summary>F12 "peek" for a SYSTEM entity (or a directly-clicked Include path): shows the
-    /// target file in its own floating window instead of swapping it into the main preview —
-    /// the file the user was just reading is exactly why they pressed F12, so it should stay
-    /// put. Non-modal (owned by the main window so it doesn't get lost behind it) and
-    /// re-entrant: F12 works inside the popup too, for both a further SYSTEM file
-    /// (another ShowEntityPopup, opening on top) and a VALUE entity (ShowEntityValuePeek).
-    ///
-    /// Resolution itself (which file/entity F12 lands on) is entirely ScriptEditorControl's
-    /// job now — it walks the SYSTEM-include chain fresh from disk on every press, so this
-    /// popup doesn't need to be handed any inherited state; it just shows whatever path it's
-    /// given.</summary>
-    private void ShowEntityPopup(string path)
-    {
-        var popup = new Bcode.App.UI.DpiForm
-        {
-            Text = Path.GetFileName(path),
-            Width = 900,
-            Height = 650,
-            StartPosition = FormStartPosition.CenterParent,
-            ShowIcon = false
-        };
+    /// <summary>F12 trên entity SYSTEM (hoặc đường dẫn Include): mở file đó ở cửa sổ xem riêng (<see cref="Bcode.App.Forms.SourceViewForm"/> — cùng khung xem
+    /// Monaco/Scintilla tô FCode như khung xem trước, thay cho khung chữ WinForms cũ), khung xem trước giữ nguyên. F12 trong cửa sổ đó mở tiếp cửa sổ mới.
+    /// BeginInvoke: F12 đến từ callback của trang WebView2 — tạo cửa sổ có WebView2 mới ngay trong callback đó dễ lỗi E_ABORT.</summary>
+    private void ShowEntityPopup(string path) =>
+        BeginInvoke(new Action(() => Bcode.App.Forms.SourceViewForm.Open(path, null,
+            FindForm(), multiPeek: ShowEntityMultiPeek)));
 
-        var editor = new ScriptEditorControl { ShowPathBar = true, ReadOnly = true };
-        editor.EntityNavigationRequested += ShowEntityPopup;
-        editor.EntityValuePeekRequested += ShowEntityValuePeek;
-        editor.EntityMultiPeekRequested += ShowEntityMultiPeek;
-        editor.LoadContent(path, "Đang tải...");
-        popup.Controls.Add(editor);
-        // New control tree created outside the normal tab-open path (AddDocumentTab already
-        // themes new tabs) — ThemeManager.Apply must be called explicitly here or this popup
-        // keeps WinForms' default white/black colors while the syntax highlighter still
-        // paints its text in the app's (typically dark) theme colors, reading as broken.
-        ThemeManager.Apply(popup);
-        popup.Show(FindForm());
-
-        Task.Run(() =>
-        {
-            string? content = null;
-            Exception? error = null;
-            try
-            {
-                content = _scriptFileService.ReadFile(path);
-            }
-            catch (Exception ex)
-            {
-                error = ex;
-            }
-
-            if (popup.IsDisposed) return;
-            try
-            {
-                popup.BeginInvoke(() =>
-                {
-                    if (popup.IsDisposed) return;
-                    editor.LoadContent(path, error is null ? content! : $"Không đọc được file:\r\n{error.Message}");
-                    editor.ReadOnly = true;
-                    editor.MarkSaved();
-                });
-            }
-            catch (ObjectDisposedException)
-            {
-                // popup was closed while the read was in flight — nothing to update
-            }
-        });
-    }
-
-    /// <summary>F12 "peek" for a VALUE entity — most "&amp;Name;" references in a FastBusiness
-    /// controller are this kind: the declaration itself IS the code (a whole SQL routine or
-    /// JS block), not a reference to a file. There's nothing to open, so this shows the
-    /// declared text directly in the same kind of floating window ShowEntityPopup uses for
-    /// SYSTEM entities — read-only, themed, non-modal — except loaded from
-    /// <paramref name="value"/> straight away (no async file read needed) and with
-    /// <paramref name="declaringPath"/> passed as the resolve base so F12 pressed again inside
-    /// this peeked text can keep resolving whatever entities IT references, walking onward
-    /// from the file that declared this one.</summary>
-    private void ShowEntityValuePeek(string name, string value, string declaringPath)
-    {
-        var popup = new Bcode.App.UI.DpiForm
-        {
-            Text = $"&{name}; — {Path.GetFileName(declaringPath)}",
-            Width = 900,
-            Height = 650,
-            StartPosition = FormStartPosition.CenterParent,
-            ShowIcon = false
-        };
-
-        var editor = new ScriptEditorControl { ShowPathBar = true, ReadOnly = true };
-        editor.EntityNavigationRequested += ShowEntityPopup;
-        editor.EntityValuePeekRequested += ShowEntityValuePeek;
-        editor.EntityMultiPeekRequested += ShowEntityMultiPeek;
-        editor.LoadContent(null, value, declaringPath);
-        editor.ReadOnly = true;
-        popup.Controls.Add(editor);
-        ThemeManager.Apply(popup);
-        popup.Show(FindForm());
-    }
+    /// <summary>F12 trên entity GIÁ TRỊ (phần lớn &amp;Tên; trong controller FastBusiness: khai báo chính là đoạn SQL/JS): hiện nội dung khai báo ở cửa sổ xem riêng;
+    /// F12 bên trong tiếp tục tra từ file đã khai báo nó (<paramref name="declaringPath"/>).</summary>
+    private void ShowEntityValuePeek(string name, string value, string declaringPath) =>
+        BeginInvoke(new Action(() => Bcode.App.Forms.SourceViewForm.OpenSnippet(name, value, declaringPath, FindForm(), multiPeek: ShowEntityMultiPeek)));
 
     /// <summary>F12 khi bôi đen nhiều entity: cửa sổ xem trước nội dung từng entity (1 trang hoặc từng trang) — xem EntityMultiPeekForm.</summary>
     private void ShowEntityMultiPeek(List<EntityPreviewItem> items)

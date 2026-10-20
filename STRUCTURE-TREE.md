@@ -29,7 +29,7 @@ Bcode.App/
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
-│   ├── FsgRequirementReportControl.cs  234
+│   ├── FsgRequirementReportControl.cs  248
 │   ├── GenUpdatePackageControl.cs  443
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  154
@@ -38,8 +38,8 @@ Bcode.App/
 │   ├── ISqlTab.cs  57
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
-│   ├── MonacoPreviewControl.cs  214
-│   ├── MonacoPreviewControl.Native.cs  101
+│   ├── MonacoPreviewControl.cs  215
+│   ├── MonacoPreviewControl.Native.cs  102
 │   ├── MultiResultView.cs  163
 │   ├── NativeAdvanceNoteControl.cs  1075
 │   ├── NativeCheckMailControl.cs  237
@@ -93,13 +93,14 @@ Bcode.App/
 │   ├── QuickReportControl.cs  491
 │   ├── RawSqlControl.cs  2456
 │   ├── ResultGridMenu.cs  477
-│   ├── ScriptEditorControl.cs  1210
+│   ├── ScriptEditorControl.cs  1214
+│   ├── ScriptEditorControl.EntityIndex.cs  176
 │   ├── SetupEInvoiceControl.cs  121
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  467
 │   ├── SqlPeekPanel.cs  128
-│   ├── SqlProfilerControl.cs  1657
+│   ├── SqlProfilerControl.cs  1737
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
 │   ├── SqlScintilla.cs  137
@@ -147,7 +148,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3615
+│   ├── MainForm.cs  3617
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -165,7 +166,7 @@ Bcode.App/
 │   ├── ScriptPopupForm.cs  155
 │   ├── SetupEInvoiceForm.cs  356
 │   ├── SimplePromptForm.cs  78
-│   ├── SourceViewForm.cs  58
+│   ├── SourceViewForm.cs  81
 │   ├── SqlAiEditForm.cs  107
 │   ├── SqlHistoryForm.cs  329
 │   ├── StepParamsForm.cs  85
@@ -248,7 +249,7 @@ Bcode.App/
 │   ├── FileLookupService.cs  1165
 │   ├── FileParseCache.cs  373
 │   ├── FileReferenceService.cs  46
-│   ├── FsgNotifyService.cs  511
+│   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  490
 │   ├── GenAllService.cs  789
 │   ├── GenInsertService.cs  47
@@ -363,7 +364,7 @@ Bcode.App/
 │       ├── findbar.html  60
 │       ├── framehost.html  49
 │       ├── fsgnotify.html  136
-│       ├── fsgreq.html  726
+│       ├── fsgreq.html  746
 │       ├── genupdate.html  594
 │       ├── grantsource.html  132
 │       ├── help.html  425
@@ -549,7 +550,7 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  94
+└── Program.cs  90
 ```
 ```
 Shared/

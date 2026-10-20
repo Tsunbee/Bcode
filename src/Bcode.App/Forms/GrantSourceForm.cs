@@ -177,7 +177,7 @@ public sealed class GrantSourceForm : ThemedForm
         if (index < 0 || index >= _rows.Count || _rows[index].SourcePath is not { } path) return;
         var r = _rows[index];
         var note = "Phiên bản " + r.FromVersion + (r.FromFallback ? " (phiên bản khác)" : "") + " → " + r.RelativeSource + (r.DestExists ? " (đích đã có)" : "");
-        new SourceViewForm(path, note).Show(this);
+        SourceViewForm.Open(path, note, this);
     }
 
     private static string Json(string s) => JsonSerializer.Serialize(s);

@@ -209,6 +209,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Text = "Bcode";
         // Tiêu đề cửa sổ kèm tên dự án (workspace) đang mở → phân biệt được khi mở nhiều Bcode (thanh tác vụ, Alt+Tab).
         _connections.WorkspaceChanged += UpdateWindowTitle;
+        // F12 trong khung xem XML: include không có trong source thì tìm tiếp ở Program Path của dự án đang chọn.
+        Bcode.App.Controls.ScriptEditorControl.ProjectRoots = () => (_connections.Current?.SourcePath, _connections.Current?.ProgramPath);
         UpdateWindowTitle();
         Width = 1280;
         Height = 820;

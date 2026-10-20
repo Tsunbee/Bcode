@@ -89,7 +89,7 @@ BCODE = [
   ('Giao tiếp với BcodeViewer', 'Services/ViewerControlServer.cs; FileLookupControl (mở Viewer); MainForm.RunMenuForFileAsync, OpenViewerScriptTab', 'Pipe Bcode.Control.<session>: "sql|..." đang dùng; "fsg|..." còn handler nhưng Viewer không gửi nữa'),
  ]),
  ('8. Control/helper nền (ít khi phải sửa)', [
-  ('Khung xem/sửa script (RichTextBox)', 'Controls/ScriptEditorControl.cs, SqlSyntaxHighlighter.cs, UndoRedoTracker.cs, SuggestPopup.cs; UI/LineNumberGutter.cs', 'Dùng cho script SQL Object, WCommand script popup; Undo tự viết vì RichTextBox tô màu.'),
+  ('Khung xem/sửa script (RichTextBox)', 'Controls/ScriptEditorControl.cs (+ .EntityIndex.cs: chỉ mục entity cho F12), SqlSyntaxHighlighter.cs, UndoRedoTracker.cs, SuggestPopup.cs; UI/LineNumberGutter.cs', 'Dùng cho script SQL Object, WCommand script popup; Undo tự viết vì RichTextBox tô màu.'),
   ('Lưới & hiển thị', 'UI/GridDisplayHelper.cs, GridDragScroll.cs, ControlPerf.cs, FlatToolStripRenderer.cs, ThemedForm.cs', 'Autosize 1 lần, kéo chọn tự cuộn, double buffer.'),
   ('Tuỳ chọn giao diện lẻ', 'UI/MousePointer.cs (giữ con trỏ chuột khi gõ), TreeColorOptions.cs (màu cây WCommand/File Lookup), IconGlyphs.cs, AppIcons.cs, NativeAppLauncher.cs (mở .rpt/.xlsx bằng app Windows)', 'Cấu hình trong Template giao diện.'),
   ('Form WinForms cũ còn dùng', 'Forms/LookupForm.cs, StringBeautyForm.cs, SetupEInvoiceForm.cs, SimplePromptForm.cs', 'Phần lớn đã có bản tab WebView2 tương ứng; form cũ chỉ còn cho luồng phụ.'),

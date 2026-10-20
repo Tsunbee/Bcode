@@ -311,7 +311,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3;
         // Trợ giúp = Ctrl+F1 — không lấy F1 vì F1 đang là "chi tiết dòng" của lưới Table, phím phạm vi App sẽ chặn mất).
         Bcode.App.UI.ShortcutRegistry.SetTools(_toolSpecs.Select(t => (t.key, t.label,
-            t.shortcut is not null ? $"Ctrl+Shift+{t.shortcut}" : t.key == "sql_profiler" ? "Ctrl+3" : t.key == "help" ? "Ctrl+F1" : (string?)null)));
+            // 1 ký tự ("Q") = Ctrl+Shift+Q; đã ghi đủ tổ hợp ("Ctrl+4" của FSG FBO) thì giữ nguyên — trước đây thành Ctrl+Shift+4, trùng Note (New).
+            t.shortcut is not null ? (t.shortcut.Contains('+') ? t.shortcut : $"Ctrl+Shift+{t.shortcut}") : t.key == "sql_profiler" ? "Ctrl+3" : t.key == "help" ? "Ctrl+F1" : (string?)null)));
         RebuildToolsBar();
         void OnTemplateChanged()
         {

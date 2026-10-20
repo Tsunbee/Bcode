@@ -29,7 +29,7 @@ Bcode.App/
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
-│   ├── FsgRequirementReportControl.cs  221
+│   ├── FsgRequirementReportControl.cs  234
 │   ├── GenUpdatePackageControl.cs  443
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  154
@@ -157,7 +157,7 @@ Bcode.App/
 │   ├── ProjectActions.cs  52
 │   ├── ProjectPickerForm.cs  102
 │   ├── QuickAccessForm.cs  165
-│   ├── QuickLaunchLoginForm.cs  541
+│   ├── QuickLaunchLoginForm.cs  558
 │   ├── QuickListForm.cs  491
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
@@ -248,7 +248,7 @@ Bcode.App/
 │   ├── FileLookupService.cs  1165
 │   ├── FileParseCache.cs  373
 │   ├── FileReferenceService.cs  46
-│   ├── FsgNotifyService.cs  445
+│   ├── FsgNotifyService.cs  511
 │   ├── FsgProjectLookupService.cs  490
 │   ├── GenAllService.cs  789
 │   ├── GenInsertService.cs  47
@@ -305,6 +305,7 @@ Bcode.App/
 │   ├── AppIcons.cs  142
 │   ├── ColorPalette.cs  136
 │   ├── ControlPerf.cs  18
+│   ├── DevToolsDock.cs  190
 │   ├── DpiForm.cs  53
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
@@ -315,7 +316,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  326
+│   ├── ShortcutRegistry.cs  329
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  715
 │   ├── TreeColorOptions.cs  50
@@ -324,7 +325,7 @@ Bcode.App/
 │   ├── UiScale.cs  60
 │   ├── UiTemplate.cs  475
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  390
+│   └── WebViewEnvironment.cs  395
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
@@ -362,7 +363,7 @@ Bcode.App/
 │       ├── findbar.html  60
 │       ├── framehost.html  49
 │       ├── fsgnotify.html  136
-│       ├── fsgreq.html  724
+│       ├── fsgreq.html  726
 │       ├── genupdate.html  594
 │       ├── grantsource.html  132
 │       ├── help.html  425
@@ -389,9 +390,9 @@ Bcode.App/
 │       ├── searchbox.html  161
 │       ├── setupeinvoice.html  146
 │       ├── shell.css  255
-│       ├── sqleditor.html  1516
+│       ├── sqleditor.html  1533
 │       ├── sqlhints-help.html  109
-│       ├── sqlhints.js  595
+│       ├── sqlhints.js  609
 │       ├── sqlhistory.html  317
 │       ├── sqlmessages.html  93
 │       ├── sqlobjectbar.html  50

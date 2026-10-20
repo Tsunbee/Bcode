@@ -140,7 +140,7 @@
     <span id="moreSum"></span>
     <span class="sp"></span>
     <button id="svBtn" hidden title="Các dự án đã kéo về và lưu trên máy — bấm 1 dự án để chỉ xem dự án đó"></button>
-    <label class="auto" title="Tự kéo lại để theo dõi">Tự làm mới <select id="auto"><option value="0">Tắt</option><option value="2">2 phút</option><option value="5">5 phút</option><option value="10">10 phút</option></select></label>
+    <label class="auto" title="Kéo ngầm tự động theo điều kiện của lần “Kéo về” gần nhất — vẫn chạy khi đã đóng tab này (đóng Bcode thì thôi); chọn Tắt để dừng">Tự làm mới <select id="auto"><option value="0">Tắt</option><option value="2">2 phút</option><option value="5">5 phút</option><option value="10">10 phút</option><option value="15">15 phút</option><option value="30">30 phút</option><option value="60">60 phút</option></select></label>
   </div>
   <div id="more" hidden>
     <div class="note">Các điều kiện dưới đây dùng khi <b>kéo</b> dữ liệu từ FSG (bấm “Kéo về”). Muốn lọc trong dữ liệu đã kéo thì dùng ô <b>Tìm</b> và các nút <b>Dự án ▾ / Lập trình ▾ / Triển khai ▾</b> bên dưới.</div>
@@ -492,7 +492,8 @@
     if (tr) { const vs = tr.dataset.v.split('\u0001'); const ks = dim2 && dim2 !== dim ? [dim, dim2] : [dim]; dimF = ks.map((k, i) => ({ k, v: vs[i] || '' })); setView('list'); return; }
     if (kp) { const a = kp.dataset.act; if (a.startsWith('tl:')) { tlksF = a.slice(3); onlyLate = false; on = ALL_ON(); setView('list'); return; } onlyLate = a === 'late'; if (a.startsWith('g:')) { on = new Set([a.slice(2)]); } else on = ALL_ON(); setView('list'); }
   });
-  $('auto').addEventListener('change', () => { clearInterval(timer); const m = +$('auto').value; if (m > 0) timer = setInterval(fetchNow, m * 60000); });
+  // Tự làm mới = kéo ngầm ở C# (FsgNotifyService), nhớ qua lần mở sau và chạy cả khi đóng tab; trang chỉ báo lựa chọn.
+  $('auto').addEventListener('change', () => post('autoPull', { minutes: +$('auto').value }));
 
   // ---- "Đã lưu ▾": các dự án đã kéo về (lưu trên máy). Bấm 1 dự án = chỉ xem dự án đó (lọc tại chỗ); ✕ = bỏ dữ liệu đã lưu của dự án ----
   let savedProjects = [], savedFilter = '';
@@ -703,6 +704,7 @@
       const ix = shown.indexOf(r), tr = ix >= 0 && document.querySelector('#tbl tr[data-i="' + ix + '"]'); if (tr) tr.scrollIntoView({ block: 'center' });
     },
     init(i) { $('maDa').value = i.maDa || ''; $('bpLt').value = i.bpLt || ''; $('person').value = i.person || ''; $('lt').value = i.programmer || ''; $('nv').value = i.deployer || ''; $('fcode').value = i.fcode || ''; $('content').value = i.content || ''; renderMore(); },
+    setAuto(m) { const v = String(m || 0); if (![...$('auto').options].some((o) => o.value === v)) $('auto').add(new Option(v + ' phút', v)); $('auto').value = v; },
     setBusy(b) { $('btnFetch').disabled = b; $('btnFetch').textContent = b ? 'Đang kéo…' : '⟳ Kéo về'; },
     onData(r) {
       $('msg').className = r.error ? 'on' : ''; $('msg').textContent = r.error || '';

@@ -258,11 +258,7 @@ internal static class WebViewEnvironment
     {
         try
         {
-            // WinForms WebView2 không công khai controller → lấy qua reflection (field/property nội bộ).
-            var t = typeof(Microsoft.Web.WebView2.WinForms.WebView2);
-            const System.Reflection.BindingFlags bf = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
-            var controller = (t.GetProperty("CoreWebView2Controller", bf)?.GetValue(web) ?? t.GetField("_coreWebView2Controller", bf)?.GetValue(web))
-                as Microsoft.Web.WebView2.Core.CoreWebView2Controller;
+            var controller = ControllerOf(web);
             if (controller is null) return;
             controller.AcceleratorKeyPressed += (_, e) =>
             {
@@ -293,6 +289,15 @@ internal static class WebViewEnvironment
             };
         }
         catch { /* WebView2 đang đóng */ }
+    }
+
+    /// <summary>CoreWebView2Controller của control WinForms — không công khai nên lấy qua reflection (field/property nội bộ); null nếu chưa khởi tạo.</summary>
+    internal static Microsoft.Web.WebView2.Core.CoreWebView2Controller? ControllerOf(Microsoft.Web.WebView2.WinForms.WebView2 web)
+    {
+        var t = typeof(Microsoft.Web.WebView2.WinForms.WebView2);
+        const System.Reflection.BindingFlags bf = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+        return (t.GetProperty("CoreWebView2Controller", bf)?.GetValue(web) ?? t.GetField("_coreWebView2Controller", bf)?.GetValue(web))
+            as Microsoft.Web.WebView2.Core.CoreWebView2Controller;
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Microsoft.Web.WebView2.WinForms.WebView2, object> ShortcutAttached = new();

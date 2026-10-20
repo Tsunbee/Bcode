@@ -162,6 +162,7 @@ public class FsgRequirementReportControl : UserControl
             SendAll(st, null, cached: true);
         }
         else Js($"fsgReq.init({J(new { maDa = code, programmer = _programmer() ?? "" })})");
+        Js($"fsgReq.setAuto && fsgReq.setAuto({FsgNotifyService.Instance?.AutoPullMinutes ?? 0})");
         if (_web.IsReady && _pendingMenu is { } m) { _pendingMenu = null; ApplyMenu(m); }
         if (_web.IsReady && _pendingReq is { } q) { _pendingReq = null; Js($"fsgReq.openReq({J(new { maDa = q.MaDa, fcode1 = q.Fcode1 })})"); }
     }
@@ -176,6 +177,9 @@ public class FsgRequirementReportControl : UserControl
             switch (root.GetProperty("action").GetString())
             {
                 case "ready": SendInit(); break;
+                case "autoPull":    // ô "Tự làm mới": kéo ngầm tự động cả khi đóng tab (FsgNotifyService), 0 = tắt
+                    FsgNotifyService.Instance?.SetAutoPull(root.TryGetProperty("minutes", out var mv) && mv.TryGetInt32(out var mi) ? mi : 0);
+                    break;
                 case "fetch": await FetchAsync(Str("maDa"), Str("bpLt"), Str("programmer"), Str("deployer"), Str("person"), Str("fcode"), Str("content")); break;
                 case "drop":    // bỏ dữ liệu đã lưu của một dự án
                 {
@@ -187,6 +191,18 @@ public class FsgRequirementReportControl : UserControl
             }
         }
         catch (Exception ex) { Js($"fsgReq.onData({J(new { rows = (object?)null, error = ex.Message })})"); }
+    }
+
+    internal static Req ToReq(FsgProjectLookupService.RequirementRow r) =>
+        new(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu);
+
+    /// <summary>Ghép lần kéo vào bản lưu: chỉ thay dữ liệu của các dự án vừa kéo (có trong kết quả hoặc nằm trong ô Mã dự án); dự án khác đã lưu giữ nguyên.
+    /// Dùng chung cho "Kéo về" và kéo ngầm tự động (<see cref="FsgNotifyService"/>).</summary>
+    internal static void ApplyFetched(Store st, string maDa, List<Req> data, string now)
+    {
+        foreach (var code in maDa.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) st.Projects.Remove(code);
+        foreach (var g in data.GroupBy(r => r.MaDa, StringComparer.OrdinalIgnoreCase))
+            st.Projects[g.Key] = new ProjectData { FetchedAt = now, Rows = g.ToList() };
     }
 
     /// <param name="keepFilters">true = kéo ngầm cho "Yêu cầu liên quan" — không ghi đè các ô lọc đã lưu của tab.</param>
@@ -202,13 +218,10 @@ public class FsgRequirementReportControl : UserControl
             if (error is null)
             {
                 var now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
-                var data = rows.Select(r => new Req(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu)).ToList();
+                var data = rows.Select(ToReq).ToList();
                 // Thông báo y/c (chuông 🔔): so lần kéo tay này với dữ liệu đã lưu trước đó — thay đổi trên y/c của mình không bị "nuốt" mất vì mốc so đã dời.
                 FsgNotifyService.Instance?.RecordFetch(st, data);
-                // Chỉ thay dữ liệu của các dự án vừa kéo (có trong kết quả hoặc nằm trong ô Mã dự án); dự án khác đã lưu giữ nguyên.
-                foreach (var code in maDa.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) st.Projects.Remove(code);
-                foreach (var g in data.GroupBy(r => r.MaDa, StringComparer.OrdinalIgnoreCase))
-                    st.Projects[g.Key] = new ProjectData { FetchedAt = now, Rows = g.ToList() };
+                ApplyFetched(st, maDa, data, now);
                 // Kéo ngầm cho "Yêu cầu liên quan" mà FSG không có y/c nào: lưu mục rỗng — trang báo "không có" thay vì kéo lại mỗi lần chuột phải.
                 if (keepFilters && data.Count == 0 && maDa.Trim().Length > 0) st.Projects[maDa.Trim()] = new ProjectData { FetchedAt = now };
                 if (!keepFilters) st.Filters = new Dictionary<string, string> { ["maDa"] = maDa, ["bpLt"] = bpLt, ["person"] = person, ["programmer"] = programmer, ["deployer"] = deployer, ["fcode"] = fcode, ["content"] = content };

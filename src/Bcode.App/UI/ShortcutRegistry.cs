@@ -163,6 +163,9 @@ public static class ShortcutRegistry
             new("debug.next", "Debug: chạy dòng kế (Step)", "Debug từng bước", ShortcutScope.Editor, "F10"),
             new("debug.cursor", "Debug: chạy tới dòng con trỏ", "Debug từng bước", ShortcutScope.Editor, "Ctrl+F10"),
             new("debug.stop", "Debug: dừng", "Debug từng bước", ShortcutScope.Editor, "Shift+F5"),
+
+            // ---- Tab FSG FBO (trang web của project) — chỉ có tác dụng khi con trỏ đang ở trang web trong tab đó ----
+            new("fbo.devtools", "FSG FBO: mở / đóng DevTools gắn bên phải trang (như F12 của Chrome)", "FSG FBO", ShortcutScope.Editor, "F12"),
         });
         return l;
     }

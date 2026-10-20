@@ -44,6 +44,8 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     private readonly Bcode.App.Controls.PillButton _btnCapture = Bcode.App.Controls.PillButton.Flat("Lưu HTML form");
 
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
+    // F12 (phím fbo.devtools trong Setting → Phím tắt): DevTools gắn bên phải trang như Chrome, thay cho cửa sổ nổi mặc định của WebView2.
+    private readonly Bcode.App.UI.DevToolsDock _devTools;
     private readonly StatusStrip _statusStrip = new();
     private readonly ToolStripStatusLabel _statusLabel = new("Đang mở...");
 
@@ -255,6 +257,8 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         _txtUrl.GotFocus += (_, _) => _txtUrl.SelectAll();
 
         Controls.Add(_web);
+        _devTools = new Bcode.App.UI.DevToolsDock(this, _web);
+        Controls.AddRange(_devTools.DockControls);   // ngay sau _web: khung DevTools nằm bên phải, dưới 2 thanh trên
         Controls.Add(navBar);
         Controls.Add(topBar);
         Controls.Add(_statusStrip);
@@ -274,6 +278,19 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
             await _web.EnsureCoreWebView2Async();
             Bcode.App.UI.UiScale.BindZoom(_web);
             _web.CoreWebView2.Settings.IsScriptEnabled = true;
+            // Bắt phím DevTools ở tầng WebView2 (trước khi trình duyệt tự mở cửa sổ DevTools nổi). Phím tắt bị tắt trong Setting thì F12 như mặc định của WebView2.
+            if (Bcode.App.UI.WebViewEnvironment.ControllerOf(_web) is { } controller)
+            {
+                controller.AcceleratorKeyPressed += (_, e) =>
+                {
+                    if (e.KeyEventKind is not (CoreWebView2KeyEventKind.KeyDown or CoreWebView2KeyEventKind.SystemKeyDown)) return;
+                    var combo = Bcode.App.UI.ShortcutRegistry.FromKeys((Keys)e.VirtualKey | ModifierKeys);
+                    var want = Bcode.App.UI.ShortcutRegistry.Get("fbo.devtools");
+                    if (combo is null || want.Length == 0 || combo != want) return;
+                    e.Handled = true;
+                    if (e.PhysicalKeyStatus.WasKeyDown == 0) BeginInvoke(new Action(_devTools.Toggle));   // giữ phím (lặp) thì không bật/tắt liên tục
+                };
+            }
             // Ô URL luôn phản ánh trang đang xem (kể cả khi trang tự chuyển hướng / bấm link trong web).
             _web.CoreWebView2.SourceChanged += (_, _) =>
             {

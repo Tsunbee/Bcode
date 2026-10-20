@@ -12,7 +12,7 @@ namespace Bcode.App.Services;
 /// Chỉ ĐỌC database FSG (<see cref="FsgProjectLookupService.FetchRequirementReportAsync"/>). Lỗi mạng / VPN: im lặng, lần sau thử lại.
 /// Kéo xong thì cập nhật luôn các dòng đó vào fsg-requirements.json (tab đang mở tự vẽ lại qua <see cref="StoreUpdated"/>); "Kéo về" bằng tay ở tab cũng được so
 /// (<see cref="RecordFetch"/>) để thay đổi không bị nuốt mất. Cài đặt + lịch sử thông báo: %AppData%\Bcode\fsg-notify.json — dùng chung giữa các cửa sổ Bcode
-/// (mỗi cửa sổ là 1 tiến trình): chỉ 1 tiến trình kéo mỗi chu kỳ (mutex + giờ kéo lưu trong file), các tiến trình khác thấy file đổi thì nạp lại.
+/// (mỗi cửa sổ là 1 tiến trình): chỉ 1 tiến trình kéo mỗi chu kỳ (khoá file fsg-notify.lock + giờ kéo lưu trong file), các tiến trình khác thấy file đổi thì nạp lại.
 /// </summary>
 public sealed class FsgNotifyService : IDisposable
 {
@@ -51,12 +51,29 @@ public sealed class FsgNotifyService : IDisposable
         public string LastOk { get; set; } = "";        // lần kéo thành công gần nhất
         public string LastError { get; set; } = "";
         public List<Item> Items { get; set; } = new();
+        /// <summary>Ô "Tự làm mới" của tab Yêu cầu FSG: kéo ngầm cả dữ liệu (theo điều kiện của lần "Kéo về" gần nhất) mỗi N phút, cả khi đóng tab; 0 = tắt.</summary>
+        public int AutoPullMinutes { get; set; }
+        public string LastAutoPull { get; set; } = "";
+        public string AutoPullError { get; set; } = "";
     }
 
     private const int MaxItems = 500;
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = false };
     private static string FilePath => Path.Combine(BcodePaths.AppData, "Bcode", "fsg-notify.json");
     private static readonly object FileLock = new();
+    private static string LockPath => Path.Combine(BcodePaths.AppData, "Bcode", "fsg-notify.lock");
+
+    /// <summary>Khoá giữa các tiến trình Bcode (chỉ 1 cửa sổ kéo mỗi lượt). Dùng file mở độc quyền thay cho Mutex: Mutex gắn với LUỒNG, mà sau await
+    /// code chạy tiếp ở luồng khác → ReleaseMutex lỗi, mutex bị giữ mãi và các lượt sau không chạy. File tự nhả khi tiến trình thoát. null = đang bị giữ.</summary>
+    private static FileStream? TryLock()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(LockPath)!);
+            return new FileStream(LockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None, 1, FileOptions.DeleteOnClose);
+        }
+        catch { return null; }
+    }
     /// <summary>Khoá đọc-sửa-ghi fsg-requirements.json trong tiến trình.</summary>
     internal static readonly object StoreLock = new();
 
@@ -131,6 +148,14 @@ public sealed class FsgNotifyService : IDisposable
     }
 
     public Settings CurrentSettings { get { lock (FileLock) return _data.Settings; } }
+    public int AutoPullMinutes { get { lock (FileLock) return _data.AutoPullMinutes; } }
+
+    /// <summary>Ô "Tự làm mới" của tab Yêu cầu FSG (0 = tắt). Bật thì lần kéo đầu chạy ở lượt kiểm tra kế (≤ 30 giây).</summary>
+    public void SetAutoPull(int minutes)
+    {
+        minutes = Math.Clamp(minutes, 0, 24 * 60);
+        Mutate(d => { if (d.AutoPullMinutes != minutes) { d.AutoPullMinutes = minutes; d.LastAutoPull = ""; } });
+    }
     public int UnseenCount { get { lock (FileLock) return _data.Items.Count(i => !i.Seen); } }
 
     /// <summary>Ảnh chụp cho khung Thông báo.</summary>
@@ -198,8 +223,9 @@ public sealed class FsgNotifyService : IDisposable
             if (File.Exists(FilePath) && File.GetLastWriteTimeUtc(FilePath) != _fileStamp) { Reload(); Changed?.Invoke(); }
         }
         catch { }
-        Settings s; string last;
-        lock (FileLock) { s = _data.Settings; last = _data.LastPoll; }
+        Settings s; string last; int auto; string lastAuto;
+        lock (FileLock) { s = _data.Settings; last = _data.LastPoll; auto = _data.AutoPullMinutes; lastAuto = _data.LastAutoPull; }
+        if (auto > 0 && !(DateTime.TryParse(lastAuto, out var la) && DateTime.Now - la < TimeSpan.FromMinutes(auto))) await AutoPullAsync();
         if (!s.Enabled) return;
         if (DateTime.TryParse(last, out var lp) && DateTime.Now - lp < TimeSpan.FromMinutes(Math.Max(1, s.Minutes))) return;
         await PollAsync(force: false);
@@ -209,8 +235,7 @@ public sealed class FsgNotifyService : IDisposable
     public async Task<string?> PollAsync(bool force)
     {
         if (Interlocked.Exchange(ref _polling, 1) == 1) return "Đang kiểm tra…";
-        Mutex? mutex = null;
-        var owned = false;
+        FileStream? gate = null;
         try
         {
             Changed?.Invoke();
@@ -224,9 +249,7 @@ public sealed class FsgNotifyService : IDisposable
             if (projects.Count == 0) return "Chưa có dự án nào đã lưu — mở Yêu cầu FSG, nhập Mã dự án rồi Kéo về một lần.";
 
             // Nhiều cửa sổ Bcode: chỉ 1 tiến trình kéo; tiến trình khác thấy LastPoll mới trong file thì bỏ lượt này.
-            mutex = new Mutex(false, @"Local\Bcode.FsgNotify");
-            try { owned = mutex.WaitOne(0); } catch (AbandonedMutexException) { owned = true; }
-            if (!owned) return "Cửa sổ Bcode khác đang kiểm tra.";
+            if ((gate = TryLock()) is null) return "Cửa sổ Bcode khác đang kiểm tra.";
             if (!force)
             {
                 Reload();
@@ -274,10 +297,53 @@ public sealed class FsgNotifyService : IDisposable
         }
         finally
         {
-            if (owned) try { mutex!.ReleaseMutex(); } catch { }
-            mutex?.Dispose();
+            gate?.Dispose();
             Interlocked.Exchange(ref _polling, 0);
             Changed?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// Kéo ngầm tự động (ô "Tự làm mới" của tab Yêu cầu FSG): kéo lại theo đúng điều kiện của lần "Kéo về" gần nhất (Filters trong fsg-requirements.json),
+    /// ghép vào bản lưu như "Kéo về" (<see cref="FsgRequirementReportControl.ApplyFetched"/>), so để thông báo (<see cref="RecordFetch"/>), tab đang mở tự vẽ lại.
+    /// Chạy cả khi không mở tab. Lỗi mạng / VPN: im lặng (AutoPullError), lần sau thử lại. Nhiều cửa sổ Bcode: chỉ 1 tiến trình kéo mỗi chu kỳ.
+    /// </summary>
+    private async Task AutoPullAsync()
+    {
+        if (!_licensed()) return;
+        if (Interlocked.Exchange(ref _polling, 1) == 1) return;
+        FileStream? gate = null;
+        try
+        {
+            Dictionary<string, string> f;
+            lock (StoreLock) f = FsgRequirementReportControl.LoadStore().Filters;
+            if (f.Count == 0) return;   // chưa "Kéo về" lần nào: không biết kéo gì
+            if ((gate = TryLock()) is null) return;
+            Reload();
+            if (_data.AutoPullMinutes <= 0 || (DateTime.TryParse(_data.LastAutoPull, out var la) && DateTime.Now - la < TimeSpan.FromMinutes(_data.AutoPullMinutes))) return;
+            var startedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
+            Mutate(d => d.LastAutoPull = startedAt);
+
+            string F(string k) => f.TryGetValue(k, out var v) ? v ?? "" : "";
+            var maDa = F("maDa");
+            var (rows, error) = await new FsgProjectLookupService().FetchRequirementReportAsync(maDa, F("bpLt"), F("programmer"), F("deployer"), F("person"), F("fcode"), F("content"));
+            if (error is not null) { Mutate(d => d.AutoPullError = error); return; }
+            var data = rows.Select(FsgRequirementReportControl.ToReq).ToList();
+            lock (StoreLock)
+            {
+                var st = FsgRequirementReportControl.LoadStore();
+                RecordFetch(st, data);
+                FsgRequirementReportControl.ApplyFetched(st, maDa, data, DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"));
+                FsgRequirementReportControl.SaveStore(st);
+            }
+            Mutate(d => d.AutoPullError = "");
+            StoreUpdated?.Invoke();
+        }
+        catch (Exception ex) { var msg = ex.Message; Mutate(d => d.AutoPullError = msg); }
+        finally
+        {
+            gate?.Dispose();
+            Interlocked.Exchange(ref _polling, 0);
         }
     }
 

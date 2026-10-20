@@ -297,7 +297,10 @@ public class SqlProfilerControl : UserControl
         _connections.WorkspaceChanged += PushConfigToBar;
         // Tháo Profiler khỏi host TRƯỚC khi handle bị huỷ (HandleDestroyed chạy trước khi huỷ control con).
         // wait: đóng tab / tắt Bcode phải CHỜ tự bấm Yes xong — trước đây việc đó chạy ở luồng nền nên tắt app là luồng bị cắt, hộp "traces still running" của Profiler ở lại.
-        HandleDestroyed += (_, _) => CloseProfiler(wait: true);
+        // Handle bị huỷ mà KHÔNG phải đóng tab / tắt Bcode (handle tạo lại khi mở/đổi tab...) thì chỉ tháo tạm Profiler ra rồi nhúng lại ở HandleCreated —
+        // trước đây mọi lần huỷ handle đều đóng Profiler và chờ tới 6 giây trên UI thread → Bcode treo một lúc rồi Profiler "bay mất" khỏi tab.
+        HandleDestroyed += (_, _) => { if (IsClosingForGood()) CloseProfiler(wait: true); else DetachProfiler(); };
+        HandleCreated += (_, _) => ReattachProfiler();
         Disposed += (_, _) =>
         {
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
@@ -1482,6 +1485,36 @@ public class SqlProfilerControl : UserControl
         return clicked;
     }
 
+    private bool _detached;   // Profiler đang được tháo tạm vì handle của tab bị huỷ (chưa đóng) — chờ HandleCreated nhúng lại
+
+    /// <summary>Handle bị huỷ vì tab / cửa sổ đang bị huỷ thật (đóng tab: TabPage.Dispose; tắt Bcode: Form.Dispose) — Disposing được bật trước khi huỷ handle.</summary>
+    private bool IsClosingForGood()
+    {
+        for (Control? c = this; c is not null; c = c.Parent)
+            if (c.Disposing || c.IsDisposed) return true;
+        return false;
+    }
+
+    private void DetachProfiler()
+    {
+        var hwnd = _profilerHwnd;
+        if (hwnd == IntPtr.Zero || _profilerProcess is not { HasExited: false }) return;
+        // Tháo khỏi _hostPanel trước khi Windows huỷ nó (huỷ cửa sổ cha là huỷ luôn cửa sổ Profiler con); giữ tiến trình, trace vẫn chạy.
+        try { ShowWindow(hwnd, SW_HIDE); SetParent(hwnd, IntPtr.Zero); } catch { }
+        _detached = true;
+    }
+
+    private void ReattachProfiler()
+    {
+        if (!_detached) return;
+        _detached = false;
+        BeginInvoke(new Action(() =>
+        {
+            if (IsDisposed || _profilerHwnd == IntPtr.Zero || _profilerProcess is not { HasExited: false }) return;
+            EmbedWindow(_profilerHwnd);
+        }));
+    }
+
     // Profiler được nhúng bằng SetParent nên chia sẻ hàng đợi input với UI thread của Bcode: chờ nó thoát
     // (WaitForExit) ngay trên UI thread khiến cả 2 chờ nhau → treo; và nếu để cửa sổ còn là con của
     // _hostPanel thì khi tab bị huỷ Windows huỷ luôn cửa sổ Profiler (lỗi/crash). Vì vậy: tháo ra khỏi
@@ -1492,6 +1525,7 @@ public class SqlProfilerControl : UserControl
         var hwnd = _profilerHwnd;
         _profilerProcess = null;
         _profilerHwnd = IntPtr.Zero;
+        _detached = false;
         RemoveKeyHook();
 
         if (hwnd != IntPtr.Zero)

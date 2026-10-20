@@ -132,7 +132,11 @@
     return set;
   }
 
+  /* Script quá lớn (vd INSERT hàng loạt hàng chục triệu ký tự — không phải procedure): quét cả văn bản chặn trang ~0,5–1 giây mỗi lần ngừng gõ → bỏ qua,
+     cùng ngưỡng với cảnh báo sai dấu của sqleditor.html (LINT_MAX_CHARS). */
+  var ANALYZE_MAX_CHARS = 1500000;
   H.analyze = function (text) {
+    if (text.length > ANALYZE_MAX_CHARS) return [];
     var clean = stripSql(text), hdr = parseHeader(clean);
     if (!hdr) return [];
     var declared = declaredNames(clean, hdr), body = clean.substring(hdr.asIndex + 2), issues = [];
@@ -180,13 +184,22 @@
   }
 
   /* Các bảng tạm / biến bảng được khai báo trong script: SELECT … INTO #t FROM …, CREATE TABLE #t (…), DECLARE @t TABLE (…) → { 'tênthường': {name, cols} } */
+  /* Vị trí mọi chữ SELECT trong văn bản (đã stripSql), tìm 1 lần; lastSelectBefore = SELECT cuối cùng đứng trước vị trí at (-1 nếu không có).
+     Thay cho việc quét lại cả phần văn bản phía trước ở MỖI chỗ khớp — cách đó tăng theo bình phương độ dài (script 20.000 dòng: vài giây). */
+  function selectPositions(clean) { var out = [], re = /\bselect\b/ig, s; while ((s = re.exec(clean)) !== null) out.push(s.index); return out; }
+  function lastSelectBefore(pos, at) {
+    var lo = 0, hi = pos.length - 1, best = -1;
+    while (lo <= hi) { var mid = (lo + hi) >> 1; if (pos[mid] < at) { best = pos[mid]; lo = mid + 1; } else hi = mid - 1; }
+    return best;
+  }
+
   H.scriptTables = function (text) {
-    var clean = stripSql(text), tabs = {}, m, re;
+    var clean = stripSql(text), tabs = {}, m, re, sels = selectPositions(clean);
     re = /\binto\s+(#[\w$]+)/ig;
     while ((m = re.exec(clean)) !== null) {
-      var before = clean.substring(0, m.index), selRe = /\bselect\b/ig, last = -1, s;
-      while ((s = selRe.exec(before)) !== null) last = s.index;
+      var last = lastSelectBefore(sels, m.index);
       if (last < 0) continue;
+      var before = clean.substring(0, m.index);
       var list = before.substring(last + 6).replace(/^\s*(?:distinct\b|all\b)?\s*(?:top\s*\(?\s*\d+\s*\)?(?:\s+percent)?)?/i, '');
       var cols = splitTop(list).map(colName).filter(function (c) { return c; });
       var ref = /^\s*from\s+([#\w$.\[\]]+)/i.exec(clean.substring(m.index + m[0].length));
@@ -257,9 +270,10 @@
     // Câu lệnh chỉ có 1 nguồn là bảng này: lấy cột trơn ở SELECT / SET / WHERE / GROUP BY / HAVING (bỏ subquery, bỏ chuỗi, bỏ tên hàm, biến @, từ khoá)
     var STMT_END = /\n[ \t]*(?:select|insert|update|delete|if|set|exec|execute|declare|drop|create|return|end|begin|with|print|truncate|alter|go)\b/i;
     re = new RegExp('\\b(?:from|update|delete\\s+from|insert\\s+into)\\s+' + esc + '(?![\\w$#])', 'gi');
+    var sels = null;
     while ((m = re.exec(clean)) !== null) {
       var kw = /^\w+/.exec(m[0])[0].toLowerCase(), startAt = m.index;
-      if (kw === 'from') { var pre = clean.substring(0, m.index), ls = pre.search(/\b(?:select)\b(?![\s\S]*\bselect\b)/i); if (ls < 0) continue; startAt = ls; }
+      if (kw === 'from') { var ls = lastSelectBefore(sels || (sels = selectPositions(clean)), m.index); if (ls < 0) continue; startAt = ls; }
       var rest = clean.substring(m.index), cut = STMT_END.exec(rest), end = m.index + (cut ? cut.index : rest.length);
       var stmt = clean.substring(startAt, end), prev;
       do { prev = stmt; stmt = stmt.replace(/\(\s*select\b[^()]*\)/ig, ' '); } while (stmt !== prev);        // subquery lồng nhau: bóc từ trong ra
@@ -536,7 +550,7 @@
     function lint() {
       var model = editor.getModel(); if (!model) return;
       var issues = [];
-      try { issues = H.analyze(model.getValue()); } catch (e) { issues = []; }
+      try { if (model.getValueLength() <= ANALYZE_MAX_CHARS) issues = H.analyze(model.getValue()); } catch (e) { issues = []; }
       monaco.editor.setModelMarkers(model, 'bcode-hints', issues.map(function (it) {
         var s = model.getPositionAt(it.offset), e = model.getPositionAt(it.offset + it.length);
         return { severity: monaco.MarkerSeverity.Warning, message: it.name + ' được dùng nhưng chưa khai báo (không có trong tham số, cũng không DECLARE). Bấm bóng đèn / Ctrl+. để thêm tham số.',

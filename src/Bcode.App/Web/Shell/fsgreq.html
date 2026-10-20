@@ -692,6 +692,16 @@
       if (m.maDa && !savedSet.has(idKey(m.maDa))) $('maDa').value = m.maDa;   // chưa kéo dự án này: điền sẵn để bấm “Kéo về”
       setView('list');
     },
+    // Khung Thông báo y/c FSG (chuông 🔔): mở khung chi tiết của y/c (mã dự án + mã YC). Lọc đang che y/c đó thì bỏ lọc tại chỗ + gõ mã YC vào ô Tìm.
+    openReq(k) {
+      const r = rows.find((x) => idKey(x.maDa) === idKey(k.maDa) && String(x.fcode1 || '').trim() === String(k.fcode1 || '').trim());
+      if (!r) { $('msg').className = 'on note'; $('msg').textContent = 'Không thấy y/c ' + k.fcode1 + ' của dự án ' + k.maDa + ' trong dữ liệu đã lưu — bấm “Kéo về” để kéo lại.'; return; }
+      if ($('msg').classList.contains('note')) { $('msg').className = ''; $('msg').textContent = ''; }
+      if (view !== 'list') setView('list');
+      if (!visible().includes(r)) { mf = null; clearLocal(); $('q').value = String(r.fcode1 || '').trim(); render(); }
+      openDetail(r);
+      const ix = shown.indexOf(r), tr = ix >= 0 && document.querySelector('#tbl tr[data-i="' + ix + '"]'); if (tr) tr.scrollIntoView({ block: 'center' });
+    },
     init(i) { $('maDa').value = i.maDa || ''; $('bpLt').value = i.bpLt || ''; $('person').value = i.person || ''; $('lt').value = i.programmer || ''; $('nv').value = i.deployer || ''; $('fcode').value = i.fcode || ''; $('content').value = i.content || ''; renderMore(); },
     setBusy(b) { $('btnFetch').disabled = b; $('btnFetch').textContent = b ? 'Đang kéo…' : '⟳ Kéo về'; },
     onData(r) {

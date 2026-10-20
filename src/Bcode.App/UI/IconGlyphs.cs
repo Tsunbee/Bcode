@@ -13,6 +13,7 @@ public enum IconGlyph
     Star,       // Quick Access
     Plus,       // generic "add"
     Refresh,    // Refresh database — vòng cung có mũi tên
+    Bell,       // Thông báo y/c FSG
 }
 
 /// <summary>
@@ -54,6 +55,7 @@ public static class IconGlyphs
             case IconGlyph.Star: DrawStar(g, brush, box); break;
             case IconGlyph.Plus: DrawPlus(g, pen, box); break;
             case IconGlyph.Refresh: DrawRefresh(g, pen, brush, box); break;
+            case IconGlyph.Bell: DrawBell(g, pen, brush, box); break;
         }
 
         g.SmoothingMode = oldSmoothing;
@@ -142,6 +144,21 @@ public static class IconGlyphs
         using var cutout = new SolidBrush(backColor);
         var offset = r * 0.55f;
         g.FillEllipse(cutout, cx - r + offset, cy - r - offset * 0.25f, r * 2, r * 2);
+    }
+
+    private static void DrawBell(Graphics g, Pen pen, Brush brush, Rectangle box)
+    {
+        // Thân chuông: vòm trên + hai cạnh loe xuống vành; vành ngang; quả lắc tròn bên dưới.
+        float l = box.X, t = box.Y, w = box.Width, h = box.Height, cx = l + w / 2f;
+        var rimY = t + h * 0.74f;
+        using var path = new GraphicsPath();
+        path.AddArc(cx - w * 0.28f, t + h * 0.06f, w * 0.56f, h * 0.56f, 180, 180);
+        path.AddLine(cx + w * 0.28f, t + h * 0.34f, l + w * 0.92f, rimY);
+        path.AddLine(l + w * 0.08f, rimY, cx - w * 0.28f, t + h * 0.34f);
+        path.CloseFigure();
+        g.DrawPath(pen, path);
+        var cr = Math.Max(1.5f, w * 0.11f);
+        g.FillEllipse(brush, cx - cr, t + h * 0.84f - cr * 0.6f, cr * 2, cr * 2);
     }
 
     private static void DrawStar(Graphics g, Brush brush, Rectangle box)

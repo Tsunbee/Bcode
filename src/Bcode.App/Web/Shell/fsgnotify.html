@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  /* Khung Thông báo y/c FSG (chuông 🔔 trên thanh trên) — Forms/FsgNotifyForm.cs; dữ liệu do Services/FsgNotifyService.cs gửi xuống. */
+  .dlg-top { align-items: center; }
+  .dlg-top h3 { margin: 0; font-size: 1.1rem; }
+  .cnt { display: inline-block; min-width: 1.3rem; padding: 0 .4rem; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: .85rem; text-align: center; }
+  .cnt:empty { display: none; }
+  .seg { display: inline-flex; } .seg button { border-radius: 0; margin-left: -1px; } .seg button:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; } .seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+  .seg button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  #cfg { flex: none; display: none; padding: .6rem .8rem; border-bottom: var(--bw) solid var(--border); background: var(--panel); gap: .55rem 1.2rem; flex-wrap: wrap; align-items: center; }
+  #cfg.on { display: flex; }
+  #cfg .grp { display: inline-flex; flex-wrap: wrap; gap: .4rem 1rem; align-items: center; }
+  #cfg .sep { width: 100%; height: 0; }
+  #prog { width: 9rem; } #mins { width: 4.5rem; }
+  #state { flex: none; padding: .35rem .8rem; color: var(--text-muted); font-size: .9rem; border-bottom: var(--bw) solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #state.err { color: var(--warning); }
+  #list { flex: 1; min-height: 0; overflow: auto; }
+  .it { display: grid; grid-template-columns: .6rem minmax(0, 1fr) auto; gap: .2rem .6rem; padding: .5rem .8rem; border-bottom: var(--bw) solid color-mix(in srgb, var(--border) 70%, transparent); cursor: pointer; }
+  .it:hover { background: var(--selection); }
+  .it .dot { width: .55rem; height: .55rem; border-radius: 50%; margin-top: .45rem; background: transparent; }
+  .it.unseen .dot { background: var(--accent); }
+  .it.unseen .hd b { font-weight: 700; }
+  .it .hd { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .6rem; min-width: 0; }
+  .it .hd b { font-weight: 500; }
+  .it .mn { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 24rem; }
+  .it .tx { grid-column: 2 / 4; white-space: pre-wrap; word-break: break-word; line-height: 1.45; max-height: 6.2em; overflow: hidden; }
+  .it:not(.unseen) .tx { color: var(--text-muted); }
+  .it .side { display: flex; align-items: center; gap: .5rem; color: var(--text-muted); font-size: .85rem; white-space: nowrap; }
+  .it .side button { padding: 0 .45rem; visibility: hidden; }
+  .it:hover .side button { visibility: visible; }
+  .k { display: inline-block; padding: 0 .5rem; border-radius: 999px; font-size: .82rem; border: var(--bw) solid var(--border); white-space: nowrap; }
+  .k.k-note { border-color: #3b7dd8; } .k.k-status { border-color: #e0a800; } .k.k-new { border-color: #2e9a5b; } .k.k-due { border-color: #d9534f; }   /* tiền tố k-: .status đã là class của dialog.css */
+  .who { color: var(--accent); }
+  .empty { padding: 2rem 1rem; text-align: center; color: var(--text-muted); line-height: 1.6; }
+</style>
+</head>
+<body data-area="result">
+<div class="dlg-top">
+  <h3>🔔 Thông báo y/c FSG</h3><span id="cnt" class="cnt"></span>
+  <span class="seg"><button id="fAll" class="on">Tất cả</button><button id="fNew">Chưa xem</button></span>
+  <span class="grow" style="flex:1"></span>
+  <button id="btnPoll" title="Kéo lại y/c của bạn từ FSG ngay (chỉ đọc)">⟳ Kiểm tra ngay</button>
+  <button id="btnAll" title="Đánh dấu mọi thông báo là đã xem">✓ Đã xem tất cả</button>
+  <button id="btnCfg" title="Bật / tắt, chu kỳ, loại thay đổi cần báo, toast Windows">⚙ Cài đặt</button>
+</div>
+<div id="cfg">
+  <label class="chk"><input type="checkbox" id="en"> Bật thông báo</label>
+  <label class="chk">Lập trình <input type="text" id="prog" placeholder="vd THINHBM" title="Tên lập trình của bạn (ma_lt1) — dùng chung với ô Lập trình của Note (New) / Yêu cầu FSG" spellcheck="false"></label>
+  <label class="chk">Kiểm tra mỗi <input type="number" id="mins" min="1" max="1440"> phút</label>
+  <span class="sep"></span>
+  <span class="grp"><span class="muted">Báo khi:</span>
+    <label class="chk"><input type="checkbox" id="kNote"> Ghi chú mới</label>
+    <label class="chk"><input type="checkbox" id="kStatus"> Đổi trạng thái</label>
+    <label class="chk"><input type="checkbox" id="kNew"> Y/c mới giao cho mình</label>
+    <label class="chk"><input type="checkbox" id="kDue"> Đổi hạn hoàn thành</label>
+  </span>
+  <span class="sep"></span>
+  <label class="chk" title="Ngoài y/c mình lập trình (ma_lt1), báo cả y/c mình là triển khai (ma_nv1)"><input type="checkbox" id="dep"> Báo cả y/c mình là triển khai</label>
+  <label class="chk"><input type="checkbox" id="toast"> Hiện thông báo Windows khi Bcode không ở trước</label>
+  <button id="btnClear" title="Xoá khỏi lịch sử các thông báo đã xem">Xoá thông báo đã xem</button>
+</div>
+<div id="state"></div>
+<div id="list"></div>
+<script>
+(() => {
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const KIND = { note: 'Ghi chú mới', status: 'Đổi trạng thái', new: 'Y/c mới giao', due: 'Đổi hạn HT' };
+  const fmt = (t) => t ? t.slice(8, 10) + '/' + t.slice(5, 7) + ' ' + t.slice(11, 16) : '';
+  let d = { items: [], settings: {} }, onlyNew = false, cfgOpen = false;
+  try { cfgOpen = localStorage.getItem('fsgnotify.cfg') === '1'; } catch { /* bỏ qua */ }
+
+  const render = () => {
+    const s = d.settings || {};
+    const unseen = d.items.filter((x) => !x.seen).length;
+    $('cnt').textContent = unseen ? String(unseen) : '';
+    $('btnAll').disabled = !unseen;
+    $('cfg').classList.toggle('on', cfgOpen); $('btnCfg').classList.toggle('primary', cfgOpen);
+    if (document.activeElement !== $('prog')) $('prog').value = d.programmer || '';
+    if (document.activeElement !== $('mins')) $('mins').value = s.minutes || 10;
+    $('en').checked = !!s.enabled; $('kNote').checked = !!s.note; $('kStatus').checked = !!s.status; $('kNew').checked = !!s.new; $('kDue').checked = !!s.due;
+    $('dep').checked = !!s.deployer; $('toast').checked = !!s.toast;
+    $('btnPoll').disabled = !!d.polling; $('btnPoll').textContent = d.polling ? 'Đang kiểm tra…' : '⟳ Kiểm tra ngay';
+    const pj = d.projects || [];
+    const st = !d.licensed ? 'Cần key bản quyền (Báo cáo yêu cầu FSG) để kiểm tra.'
+      : !(d.programmer || '').trim() ? 'Chưa khai tên lập trình — mở ⚙ Cài đặt, nhập ô Lập trình.'
+      : !pj.length ? 'Chưa có dự án nào đã lưu — mở Yêu cầu FSG, nhập Mã dự án rồi “Kéo về” một lần; Bcode sẽ theo dõi các dự án đã lưu.'
+      : (s.enabled ? `Theo dõi y/c của ${esc(d.programmer)} ở ${pj.length} dự án đã lưu (${esc(pj.slice(0, 6).join(', '))}${pj.length > 6 ? '…' : ''}) · mỗi ${s.minutes || 10} phút` : 'Đang TẮT tự kiểm tra (vẫn bấm “Kiểm tra ngay” được)')
+        + (d.lastOk ? ' · kiểm tra xong lúc ' + fmt(d.lastOk) : '')
+        + (d.lastError ? ' · lần gần nhất lỗi: ' + esc(d.lastError) : '');
+    $('state').innerHTML = st; $('state').title = $('state').textContent;
+    $('state').classList.toggle('err', !!d.lastError);
+    const v = d.items.filter((x) => !onlyNew || !x.seen);
+    $('list').innerHTML = v.length ? v.map((x) => `<div class="it${x.seen ? '' : ' unseen'}" data-id="${esc(x.id)}" title="Bấm để mở y/c ở tab Yêu cầu FSG (khung chi tiết)">`
+      + `<span class="dot"></span><div class="hd"><b>${esc(x.maDa)} · ${esc(x.fcode1)}</b><span class="k k-${esc(x.kind)}">${esc(KIND[x.kind] || x.kind)}</span>`
+      + (x.who ? `<span class="who">${esc(x.who)}</span>` : '') + (x.role === 'nv' ? '<span class="muted">(bạn triển khai)</span>' : '')
+      + `<span class="mn" title="${esc(x.menuId)}">${esc(x.tenMenu || x.menuId)}</span></div>`
+      + `<span class="side">${esc(fmt(x.at))}${x.seen ? '' : `<button data-seen="${esc(x.id)}" title="Đánh dấu đã xem">✓</button>`}</span>`
+      + `<div class="tx">${esc(x.text)}</div></div>`).join('')
+      : `<div class="empty">${onlyNew ? 'Không có thông báo chưa xem.' : 'Chưa có thông báo nào.'}<br>Bcode báo khi y/c bạn lập trình có ghi chú mới, đổi trạng thái, đổi hạn hoàn thành hoặc y/c mới giao cho bạn.</div>`;
+  };
+
+  const saveCfg = () => post('settings', { settings: {
+    enabled: $('en').checked, minutes: Math.max(1, Math.min(1440, parseInt($('mins').value, 10) || 10)),
+    note: $('kNote').checked, status: $('kStatus').checked, new: $('kNew').checked, due: $('kDue').checked, deployer: $('dep').checked, toast: $('toast').checked,
+  }, programmer: $('prog').value.trim() });
+  ['en', 'kNote', 'kStatus', 'kNew', 'kDue', 'dep', 'toast'].forEach((id) => $(id).addEventListener('change', saveCfg));
+  $('mins').addEventListener('change', saveCfg);
+  $('prog').addEventListener('change', saveCfg);
+  $('prog').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('prog').blur(); } });
+  $('btnCfg').addEventListener('click', () => { cfgOpen = !cfgOpen; try { localStorage.setItem('fsgnotify.cfg', cfgOpen ? '1' : '0'); } catch { /* bỏ qua */ } render(); });
+  $('btnPoll').addEventListener('click', () => post('poll'));
+  $('btnAll').addEventListener('click', () => post('seenAll'));
+  $('btnClear').addEventListener('click', () => post('clearSeen'));
+  $('fAll').addEventListener('click', () => { onlyNew = false; $('fAll').classList.add('on'); $('fNew').classList.remove('on'); render(); });
+  $('fNew').addEventListener('click', () => { onlyNew = true; $('fNew').classList.add('on'); $('fAll').classList.remove('on'); render(); });
+  $('list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-seen]'); if (b) { e.stopPropagation(); post('seen', { ids: [b.dataset.seen] }); return; }
+    const it = e.target.closest('.it[data-id]'); if (it) post('open', { id: it.dataset.id });
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('close'); });
+
+  window.fsgNotify = { load(x) { d = Object.assign({ items: [], settings: {} }, x || {}); render(); } };
+  window.setTheme = window.setTheme || function () {};
+  post('ready');
+})();
+</script>
+</body>
+</html>

@@ -63,12 +63,12 @@ public sealed class NativeTopBar : Panel
     private readonly Dictionary<string, PillButton> _scriptButtons = new();
     private readonly Dictionary<string, string> _scriptOrigText = new();
     private readonly DropDownButton _ws = new() { Width = NativeSkin.S(260), OnPanelAlt = true };
-    private readonly PillButton _sys, _app, _theme;
+    private readonly PillButton _sys, _app, _theme, _bell;
     private readonly Label _dbName = new MutedLabel { AutoSize = true, Margin = new Padding(2, 8, 4, 0), BackColor = Color.Transparent };
     private string _sysName = "", _appName = "";
     private bool _sysView;
 
-    /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | quickaccess | theme | refresh-db.</summary>
+    /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | quickaccess | theme | refresh-db | notify.</summary>
     public event Action<string>? Action;
     public event Action<string>? ToolClicked;      // claude_web / gemini_web / help
     public event Action<string>? ScriptClicked;    // add | view | clear | save | copy
@@ -106,8 +106,9 @@ public sealed class NativeTopBar : Panel
         _sys = Btn("Sys", null, () => { _sysView = true; RenderDb(); DatabaseSelected?.Invoke(true); });
         _app = Btn("App", null, () => { _sysView = false; RenderDb(); DatabaseSelected?.Invoke(false); });
         _theme = Btn("", "Đổi giao diện sáng/tối", () => Action?.Invoke("theme"), icon: AppColors.IsDark ? IconGlyph.Moon : IconGlyph.Sun, width: 30);
+        _bell = Btn("", BellTip, () => Action?.Invoke("notify"), icon: IconGlyph.Bell, width: 30);
         var quick = Btn("Quick Access", "Chọn tính năng hiển thị trên toolbar", () => Action?.Invoke("quickaccess"), icon: IconGlyph.Star, primary: true, pill: true);
-        foreach (var c in new Control[] { new MutedLabel { Text = "WS:", AutoSize = true, Margin = new Padding(0, 8, 2, 0), BackColor = Color.Transparent }, _ws, refresh, _sys, _app, _dbName, _theme, quick })
+        foreach (var c in new Control[] { new MutedLabel { Text = "WS:", AutoSize = true, Margin = new Padding(0, 8, 2, 0), BackColor = Color.Transparent }, _ws, refresh, _sys, _app, _dbName, _theme, _bell, quick })
             _right.Controls.Add(c);
 
         Controls.Add(_left);
@@ -166,6 +167,22 @@ public sealed class NativeTopBar : Panel
     {
         _ws.SetItems(names, selected);
         _sysView = sysView; RenderDb();
+    }
+
+    private const string BellTip = "Thông báo y/c FSG: ghi chú mới, đổi trạng thái / hạn, y/c mới giao cho bạn";
+
+    /// <summary>Số thông báo y/c FSG chưa xem: &gt; 0 thì chuông thành nút nhấn (màu nhấn) kèm số.</summary>
+    public void SetNotifyCount(int n)
+    {
+        var text = n > 0 ? (n > 99 ? "99+" : n.ToString()) : "";
+        if (_bell.Text == text) return;
+        _bell.IsPrimary = n > 0;
+        _bell.AutoWidth = n > 0;      // trước khi đổi Text: PillButton tự đo lại bề rộng khi Text đổi
+        _bell.Text = text;
+        if (n == 0) _bell.Width = 30; // như các nút icon khác của thanh (Btn width: 30)
+        NK.Tip(_bell, (n > 0 ? n + " thông báo chưa xem — " : "") + BellTip);
+        _bell.Invalidate();
+        _right.PerformLayout();
     }
 
     public void SetDbNames(string sys, string app) { _sysName = sys ?? ""; _appName = app ?? ""; RenderDb(); }

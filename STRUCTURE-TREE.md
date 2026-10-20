@@ -29,7 +29,7 @@ Bcode.App/
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
-│   ├── FsgRequirementReportControl.cs  199
+│   ├── FsgRequirementReportControl.cs  221
 │   ├── GenUpdatePackageControl.cs  443
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  154
@@ -80,7 +80,7 @@ Bcode.App/
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  344
 │   ├── NativeResultPane.cs  301
-│   ├── NativeShellBars.cs  254
+│   ├── NativeShellBars.cs  271
 │   ├── NativeSqlControl.cs  1859
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
@@ -107,7 +107,7 @@ Bcode.App/
 │   ├── SqlTabSnapshot.cs  19
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  1983
+│   ├── TableEditControl.cs  1986
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
 │   ├── WCommandTreeControl.cs  901
@@ -138,6 +138,7 @@ Bcode.App/
 │   ├── EditProjectForm.cs  183
 │   ├── EntityMultiPeekForm.cs  164
 │   ├── EntityMultiPeekForm.Native.cs  153
+│   ├── FsgNotifyForm.cs  75
 │   ├── FsgRequirementCrawlerForm.cs  618
 │   ├── GotoColumnForm.cs  84
 │   ├── GrantSourceForm.cs  198
@@ -146,7 +147,8 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3608
+│   ├── MainForm.cs  3615
+│   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
 │   ├── MainForm.ToolGroups.cs  101
@@ -246,6 +248,7 @@ Bcode.App/
 │   ├── FileLookupService.cs  1165
 │   ├── FileParseCache.cs  373
 │   ├── FileReferenceService.cs  46
+│   ├── FsgNotifyService.cs  445
 │   ├── FsgProjectLookupService.cs  490
 │   ├── GenAllService.cs  789
 │   ├── GenInsertService.cs  47
@@ -279,7 +282,7 @@ Bcode.App/
 │   ├── SqlAiAssist.cs  349
 │   ├── SqlDefinitionIndex.cs  181
 │   ├── SqlFieldTransform.cs  133
-│   ├── SqlFormatterService.cs  144
+│   ├── SqlFormatterService.cs  152
 │   ├── SqlHintCatalog.cs  226
 │   ├── SqlHintEngine.cs  205
 │   ├── SqlHintPopular.cs  209
@@ -290,7 +293,7 @@ Bcode.App/
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  325
 │   ├── TableDataService.cs  511
-│   ├── TableMenuService.cs  191
+│   ├── TableMenuService.cs  194
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  59
 │   ├── WCommandService.cs  812
@@ -306,13 +309,13 @@ Bcode.App/
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
 │   ├── GridDragScroll.cs  67
-│   ├── IconGlyphs.cs  191
+│   ├── IconGlyphs.cs  208
 │   ├── LineNumberGutter.cs  116
 │   ├── MousePointer.cs  55
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  325
+│   ├── ShortcutRegistry.cs  326
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  715
 │   ├── TreeColorOptions.cs  50
@@ -358,7 +361,8 @@ Bcode.App/
 │       ├── filereference.html  108
 │       ├── findbar.html  60
 │       ├── framehost.html  49
-│       ├── fsgreq.html  714
+│       ├── fsgnotify.html  136
+│       ├── fsgreq.html  724
 │       ├── genupdate.html  594
 │       ├── grantsource.html  132
 │       ├── help.html  425
@@ -400,7 +404,7 @@ Bcode.App/
 │       ├── stringbeauty.html  189
 │       ├── tablebar.html  283
 │       ├── tablestruct.html  139
-│       ├── topbar.html  170
+│       ├── topbar.html  183
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1094

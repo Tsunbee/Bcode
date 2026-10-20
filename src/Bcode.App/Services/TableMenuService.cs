@@ -68,10 +68,13 @@ public sealed class TableMenuService
     }
 
     /// <summary>Các menu ứng với bảng (đã bỏ trùng; nguồn dmct9 trước, rồi Dir master, rồi Grid). Rỗng khi không tra được.</summary>
-    public async Task<List<Hit>> FindAsync(string table)
+    /// <param name="useSys">Tab Table đang ở Sys Data. App Data mà đang chọn database phụ trong DB Access (vd ..._einv) thì không tra:
+    /// menu / dmct9 / controller là của App Data gốc của dự án, không thuộc database phụ.</param>
+    public async Task<List<Hit>> FindAsync(string table, bool useSys = false)
     {
         var key = BaseName(table);
         if (key.Length == 0 || _connections.Current is not { } ws) return new();
+        if (!useSys && !string.IsNullOrWhiteSpace(ws.ActiveAppDatabaseOverride)) return new();
         List<(WCommandItem Item, string Path)> leaves;
         try { leaves = _menus(); } catch { leaves = new(); }
 

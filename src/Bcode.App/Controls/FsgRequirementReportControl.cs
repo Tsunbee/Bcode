@@ -27,6 +27,25 @@ public class FsgRequirementReportControl : UserControl
         Controls.Add(_web);
         _web.Message += root => _ = HandleAsync(root.GetRawText());
         _web.Ready += SendInit;
+        // Thông báo y/c (chuông 🔔) kéo nền xong và cập nhật fsg-requirements.json → vẽ lại dữ liệu đã lưu (giữ các lọc đang chọn).
+        FsgNotifyService.StoreUpdated += OnStoreUpdated;
+        Disposed += (_, _) => FsgNotifyService.StoreUpdated -= OnStoreUpdated;
+    }
+
+    private void OnStoreUpdated()
+    {
+        if (IsDisposed || !_web.IsReady || _busy) return;
+        SendAll(LoadStore(), null, cached: true);
+    }
+
+    // Bấm 1 dòng ở khung Thông báo → mở khung chi tiết của y/c đó (chờ trang sẵn sàng như ShowForMenu).
+    private (string MaDa, string Fcode1)? _pendingReq;
+
+    /// <summary>Khung Thông báo y/c FSG: mở khung chi tiết của y/c (mã dự án + mã YC) — có nút 🤖 AI tạo danh mục như thường.</summary>
+    public void ShowRequirement(string maDa, string fcode1)
+    {
+        if (!_web.IsReady) { _pendingReq = (maDa, fcode1); return; }
+        Js($"fsgReq.openReq({J(new { maDa, fcode1 })})");
     }
 
     /// <summary>"🤖 AI tạo danh mục" cho y/c đang mở ở khung chi tiết (mã y/c, nội dung) — MainForm mở Tạo nhanh danh mục, như Note (New).</summary>
@@ -75,15 +94,15 @@ public class FsgRequirementReportControl : UserControl
     }
 
     // ---- Dữ liệu đã lưu theo từng dự án (%AppData%\Bcode\fsg-requirements.json) ----
-    private sealed record Req(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1, string NoiDung, string MaLt1, string MaNv1, string TrangThai, string? NgayHt, string GhiChu = "");
+    internal sealed record Req(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1, string NoiDung, string MaLt1, string MaNv1, string TrangThai, string? NgayHt, string GhiChu = "");
 
-    private sealed class ProjectData
+    internal sealed class ProjectData
     {
         public string FetchedAt { get; set; } = "";
         public List<Req> Rows { get; set; } = new();
     }
 
-    private sealed class Store
+    internal sealed class Store
     {
         public Dictionary<string, string> Filters { get; set; } = new();
         public Dictionary<string, ProjectData> Projects { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -91,7 +110,7 @@ public class FsgRequirementReportControl : UserControl
 
     private static string CachePath => Path.Combine(BcodePaths.AppData, "Bcode", "fsg-requirements.json");
 
-    private static Store LoadStore()
+    internal static Store LoadStore()
     {
         try
         {
@@ -114,7 +133,7 @@ public class FsgRequirementReportControl : UserControl
         catch { return new Store(); /* file hỏng: coi như chưa có */ }
     }
 
-    private static void SaveStore(Store st)
+    internal static void SaveStore(Store st)
     {
         try
         {
@@ -144,6 +163,7 @@ public class FsgRequirementReportControl : UserControl
         }
         else Js($"fsgReq.init({J(new { maDa = code, programmer = _programmer() ?? "" })})");
         if (_web.IsReady && _pendingMenu is { } m) { _pendingMenu = null; ApplyMenu(m); }
+        if (_web.IsReady && _pendingReq is { } q) { _pendingReq = null; Js($"fsgReq.openReq({J(new { maDa = q.MaDa, fcode1 = q.Fcode1 })})"); }
     }
 
     private async Task HandleAsync(string rawJson)
@@ -183,6 +203,8 @@ public class FsgRequirementReportControl : UserControl
             {
                 var now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
                 var data = rows.Select(r => new Req(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu)).ToList();
+                // Thông báo y/c (chuông 🔔): so lần kéo tay này với dữ liệu đã lưu trước đó — thay đổi trên y/c của mình không bị "nuốt" mất vì mốc so đã dời.
+                FsgNotifyService.Instance?.RecordFetch(st, data);
                 // Chỉ thay dữ liệu của các dự án vừa kéo (có trong kết quả hoặc nằm trong ô Mã dự án); dự án khác đã lưu giữ nguyên.
                 foreach (var code in maDa.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) st.Projects.Remove(code);
                 foreach (var g in data.GroupBy(r => r.MaDa, StringComparer.OrdinalIgnoreCase))

@@ -46,6 +46,7 @@ public static class ShortcutRegistry
             new("app.usages", "Ai đang dùng object của tab SQL đang mở?", "Cửa sổ", ShortcutScope.App, "Ctrl+Alt+U"),
             new("app.restoreSession", "Bật / tắt khôi phục tab khi mở lại Bcode", "Cửa sổ", ShortcutScope.App, ""),
             new("app.quickAccess", "Mở Quick Access (chọn nút hiện trên thanh công cụ)", "Cửa sổ", ShortcutScope.App, ""),
+            new("app.fsgNotify", "Mở / đóng khung Thông báo y/c FSG (chuông 🔔 trên thanh trên)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.settingsMenu", "Mở menu Settings (bánh răng)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.template", "Mở màn Giao diện (Template)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.customUi", "Bật / tắt tuỳ chỉnh giao diện web (chế độ an toàn)", "Cửa sổ", ShortcutScope.App, ""),

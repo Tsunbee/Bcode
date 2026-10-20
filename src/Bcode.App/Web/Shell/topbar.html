@@ -26,6 +26,11 @@
   #dbNameLabel { user-select: text; -webkit-user-select: text; cursor: text; }
   .group { flex-wrap: wrap; }
   /* Hẹp thì thu gọn (không ẩn): nút nhỏ lại, bỏ chữ phụ; phần còn lại tự xuống dòng. */
+  /* Chuông Thông báo y/c FSG (cạnh Quick Access): số chưa xem nổi ở góc. */
+  #btnNotify { position: relative; }
+  #btnNotify .bell { font-size: 14px; line-height: 1; filter: grayscale(.2); }
+  #btnNotify .ncnt { position: absolute; top: -4px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; box-sizing: border-box; border-radius: 999px; background: #d9534f; color: #fff; font-size: 10px; font-weight: 700; line-height: 15px; text-align: center; }
+  #btnNotify .ncnt:empty { display: none; }
   @media (max-width: 900px) {
     .ws-group .muted { display: none; } /* chữ "WS:" */
     #scriptGroup button { padding: 4px 6px; font-size: 11px; }
@@ -67,6 +72,7 @@
     <span class="muted" id="dbNameLabel"></span>
   </div>
   <button class="btn btn-icon" id="btnTheme" title="Đổi giao diện sáng/tối"><span class="icon icon-theme dark" id="themeIcon"></span></button>
+  <button class="btn btn-icon" id="btnNotify" title="Thông báo y/c FSG: ghi chú mới, đổi trạng thái / hạn, y/c mới giao cho bạn"><span class="bell">🔔</span><span id="notifyCnt" class="ncnt"></span></button>
   <button class="btn btn-pill btn-primary" id="btnQuickAccess" title="Chọn tính năng hiển thị trên toolbar"><span class="icon icon-star"></span>Quick Access</button>
 
 </div>
@@ -95,6 +101,7 @@
   document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => post({ action: 'tool', key: b.getAttribute('data-tool') })));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
+  document.getElementById('btnNotify').addEventListener('click', () => post({ action: 'notify' }));
   document.getElementById('btnRefreshDb').addEventListener('click', () => post({ action: 'refresh-db' }));
   document.getElementById('dbGroup').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-db]');
@@ -160,6 +167,12 @@
     _dbNames.sys = sysDb || '';
     _dbNames.app = appDb || '';
     renderDbLabel();
+  };
+  // Số thông báo y/c FSG chưa xem (0 = ẩn số).
+  window.setNotify = function (n) {
+    var el = document.getElementById('notifyCnt');
+    el.textContent = n > 0 ? (n > 99 ? '99+' : String(n)) : '';
+    document.getElementById('btnNotify').title = (n > 0 ? n + ' thông báo chưa xem — ' : '') + 'Thông báo y/c FSG: ghi chú mới, đổi trạng thái / hạn, y/c mới giao cho bạn';
   };
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

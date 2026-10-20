@@ -25,7 +25,9 @@ public class TableEditControl : UserControl
 
     // Gợi ý tên bảng cho ô "Table" (giống gợi ý bảng bên SQL Query): danh sách bảng/view của
     // từng DB (0 = App, 1 = Sys) nạp 1 lần rồi cache, lọc ngay trong bộ nhớ theo từng phím gõ.
-    private readonly Dictionary<int, Task<List<string>>> _tableNamesCache = new();
+    // Khoá cache kèm "WS|Server|Database" (TableDataService.CurrentStamp): chọn database phụ trong DB Access (vd ..._einv) hay đổi dự án
+    // thì ô "App Data" trỏ sang database khác — danh sách cũ không còn đúng, phải nạp lại theo database mới.
+    private readonly Dictionary<int, (string Stamp, Task<List<string>> Task)> _tableNamesCache = new();
     private SuggestPopup? _tableSuggest;
     private SuggestPopup? _colSuggest;   // gợi ý tên cột cho ô Where/Order/Fields
     private int _tableSuggestRequest; // chỉ hiện kết quả của lần gõ mới nhất
@@ -1034,9 +1036,10 @@ public class TableEditControl : UserControl
 
     private Task<List<string>> GetTableNamesAsync(int dbIndex)
     {
-        if (!_tableNamesCache.TryGetValue(dbIndex, out var task) || task.IsFaulted || task.IsCanceled)
-            _tableNamesCache[dbIndex] = task = LoadTableNamesAsync(dbIndex == 1);
-        return task;
+        var stamp = _service.CurrentStamp(dbIndex == 1);
+        if (!_tableNamesCache.TryGetValue(dbIndex, out var hit) || hit.Stamp != stamp || hit.Task.IsFaulted || hit.Task.IsCanceled)
+            _tableNamesCache[dbIndex] = hit = (stamp, LoadTableNamesAsync(dbIndex == 1));
+        return hit.Task;
     }
 
     private async Task<List<string>> LoadTableNamesAsync(bool useSysDatabase)

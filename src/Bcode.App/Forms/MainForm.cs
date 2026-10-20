@@ -453,6 +453,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _spareTimer.Tick += (_, _) => PrepareSpareSql();
         Controls.Add(_spareHost);
         Shown += (_, _) => QueueSpareSql(2500);
+        Shown += (_, _) => InitFsgNotify();   // Thông báo y/c FSG (chuông 🔔): kéo nền định kỳ — MainForm.FsgNotify.cs
         Disposed += (_, _) => _spareTimer.Dispose();
 
         if (Bcode.App.UI.UiMode.IsNative) Load += (_, _) => { PushWorkspacesToTopBar(); PushThemeToShell(); PushProjectInfo(); };   // khung native dựng đồng bộ, không phải chờ trang nạp
@@ -497,6 +498,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 {
                     PushWorkspacesToTopBar();
                     PushThemeToShell();
+                    PushNotifyCount();
                 };
                 _iconRailWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToShell();
                 _statusBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
@@ -538,7 +540,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
-    /// <summary>Lệnh từ thanh trên — dùng chung cho thanh web (topbar.html gửi JSON) và thanh native (NativeTopBar). action: settings | ext | tool | deploy | quickaccess | theme | script | select-ws | select-db | show-actions-menu.</summary>
+    /// <summary>Lệnh từ thanh trên — dùng chung cho thanh web (topbar.html gửi JSON) và thanh native (NativeTopBar). action: settings | ext | tool | deploy | quickaccess | notify | theme | script | select-ws | select-db | show-actions-menu.</summary>
     private void OnTopBarCommand(string action, string? key = null, string? which = null, int index = -1)
     {
         var bar = TopBarControl;
@@ -561,6 +563,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "deploy":
                 if (WebMenu.JustDismissed) break; // cú bấm này vừa đóng menu đang mở → coi như "bấm lần nữa để đóng"
                 ShowDeployMenu();
+                break;
+            case "notify":
+                // Chuông Thông báo y/c FSG — như Quick Access: không mở form có WebView2 ngay trong handler message của WebView2 thanh trên.
+                BeginInvoke(new Action(OpenFsgNotifyPanel));
                 break;
             case "quickaccess":
                 // Không mở hộp thoại (có WebView2 riêng) NGAY trong handler message của WebView2 thanh trên: tạo WebView2 mới
@@ -2043,7 +2049,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// bấm vào thì hiện cây WCommand, mở các nhánh cha và chọn đúng menu (như chọn menu trên cây).</summary>
     private void WireTableMenu(TableEditControl control)
     {
-        control.MenuLookup = _tableMenu.FindAsync;
+        control.MenuLookup = table => _tableMenu.FindAsync(table, control.UseSysDatabase);
         control.MenuRevealRequested += item =>
         {
             if (_mainSplit is { Panel1Collapsed: true }) ToggleMenuTree();
@@ -2754,6 +2760,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.sqlHints": OpenSqlHintsHelpTab(); return true;
             case "app.restoreSession": ToggleRestoreSession(); return true;
             case "app.quickAccess": BeginInvoke(new Action(OpenQuickAccess)); return true;
+            case "app.fsgNotify": BeginInvoke(new Action(OpenFsgNotifyPanel)); return true;
             case "app.settingsMenu": _settingsMenu().Show(TopBarControl, 10, TopBarControl.Height); return true;
             case "app.template": BeginInvoke(new Action(OpenUiTemplate)); return true;
             case "app.customUi": ToggleCustomUi(); return true;

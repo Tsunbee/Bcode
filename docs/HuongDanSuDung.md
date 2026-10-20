@@ -154,6 +154,7 @@ Trên ảnh: **①** ⚙ Settings · **②** Actions · **③** giỏ script: Ad
 | **Trợ giúp** | Tab hướng dẫn này — mở đúng mục của tab đang dùng (`Ctrl+F1`) |
 | **WS:** · ⟳ · **Sys / App** | Chọn database, Refresh database (xem [Chọn dự án](#du-an)) |
 | ☀/☾ | Đổi giao diện sáng / tối |
+| 🔔 (chuông) | **Thông báo y/c FSG**: số đỏ = số thông báo chưa xem; bấm để mở khung Thông báo (xem [Thông báo y/c FSG](#fsg-thong-bao)) |
 | ★ **Quick Access** | Chọn nút nào hiện trên thanh công cụ |
 
 > **Lưu ý:** trong Actions có vài mục giữ chỗ chưa làm gì: SQL SMS, Refresh, Database, Document, Create Source, Get Key Data/Value.
@@ -739,8 +740,22 @@ Nút **Triển khai ▾** trên thanh trên. Các công cụ này không có ph�
 | **Thiết kế màn hình** | Mở BcodeScreenDesigner (thiết kế / xem trước màn hình Dir có dữ liệu mẫu) cho dự án hiện tại; từ cây WCommand thì mở thẳng controller của menu. Không thấy exe → khai ở Template → Đường dẫn. |
 | **Khai báo API** | Khai báo & quản lý API chuẩn LT3: **＋ Mới từ mẫu LT3**, **Nhập Postman…**, **Xuất Postman…**; kết nối (địa chỉ gốc, tài khoản, mật khẩu — mã hoá theo máy) → **Lấy token**. Phím: `Ctrl+Shift+Enter` gửi, `Ctrl+S` lưu, `Ctrl+Shift+T` lấy token, `Ctrl+Shift+F` format, `Ctrl+Shift+K` validate. |
 | **Tạo cấu trúc API** | Chọn bảng / cột → xuất tài liệu Word "TÀI LIỆU ĐẶC TẢ TỔNG HỢP API". |
-| **Báo cáo yêu cầu FSG** | **Kéo** yêu cầu từ FSG (chỉ đọc): nhập Mã dự án → **⟳ Kéo về** (Enter); bộ phận, người, mã YC, nội dung, lập trình, triển khai nằm trong **Điều kiện kéo khác ▾** (gập lại thì hiện thành thẻ). **Lọc tại chỗ** trên dữ liệu đã kéo, không gọi lại FSG: ô **Tìm** (`Ctrl+F`; gõ tên người / dự án sẽ gợi ý lọc nhanh, ↓ Enter để chọn), nút **Dự án ▾ / Lập trình ▾ / Triển khai ▾ / Trạng thái ▾** (số yêu cầu đếm theo các lọc đang chọn), chip trạng thái (bấm = chỉ xem nhóm đó, bấm lại = tất cả, `Ctrl`+bấm = chọn nhiều), **⚠ Tới hạn**, **✕ Bỏ lọc**; lọc được nhớ cho lần mở sau. **Đã lưu ▾**: các dự án đã kéo — bấm 1 dự án để chỉ xem dự án đó, ✕ để bỏ dữ liệu đã lưu. Xem Chi tiết / Dashboard / Gợi ý ưu tiên (chỉ xét y/c Đã duyệt / Đang thực hiện; bảng trống thì ghi rõ đang lọc gì). Bấm ô Nội dung để mở khung chi tiết y/c → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) như ở Note (New) — xem [AI tạo danh mục](#ai-danh-muc). Từ cây WCommand: chuột phải menu → **Yêu cầu liên quan (QLYC)…** mở tab này lọc sẵn theo menu (xem [WCommand](#wcommand)). |
+| **Báo cáo yêu cầu FSG** | **Kéo** yêu cầu từ FSG (chỉ đọc): nhập Mã dự án → **⟳ Kéo về** (Enter); bộ phận, người, mã YC, nội dung, lập trình, triển khai nằm trong **Điều kiện kéo khác ▾** (gập lại thì hiện thành thẻ). **Lọc tại chỗ** trên dữ liệu đã kéo, không gọi lại FSG: ô **Tìm** (`Ctrl+F`; gõ tên người / dự án sẽ gợi ý lọc nhanh, ↓ Enter để chọn), nút **Dự án ▾ / Lập trình ▾ / Triển khai ▾ / Trạng thái ▾** (số yêu cầu đếm theo các lọc đang chọn), chip trạng thái (bấm = chỉ xem nhóm đó, bấm lại = tất cả, `Ctrl`+bấm = chọn nhiều), **⚠ Tới hạn**, **✕ Bỏ lọc**; lọc được nhớ cho lần mở sau. **Đã lưu ▾**: các dự án đã kéo — bấm 1 dự án để chỉ xem dự án đó, ✕ để bỏ dữ liệu đã lưu. Xem Chi tiết / Dashboard / Gợi ý ưu tiên (chỉ xét y/c Đã duyệt / Đang thực hiện; bảng trống thì ghi rõ đang lọc gì). Bấm ô Nội dung để mở khung chi tiết y/c → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) như ở Note (New) — xem [AI tạo danh mục](#ai-danh-muc). Từ cây WCommand: chuột phải menu → **Yêu cầu liên quan (QLYC)…** mở tab này lọc sẵn theo menu (xem [WCommand](#wcommand)). Thay đổi trên y/c của bạn được báo ở chuông 🔔 — xem [Thông báo y/c FSG](#fsg-thong-bao). |
 | **Mail kế hoạch tuần** | Tab con **✎ Soạn mail**: mẫu mail theo dự án (＋ Mới / Nhân bản / Xoá mẫu), máy chủ SMTP dùng chung với Check Mail, **⟳ Tính theo hôm nay** điền ngày trong tuần → **✉ Gửi mail** / **💾 Lưu mẫu**. Tab con **📨 Đã gửi & phản hồi**: xem lại thư đã gửi, **🔍 Kiểm tra phản hồi**, Reply / Reply all, gửi lại — xem [bên dưới](#mail-da-gui). |
+
+<a id="fsg-thong-bao"></a>
+### Thông báo y/c FSG (chuông 🔔)
+
+Khi tester / triển khai ghi chú hay ghi lỗi vào y/c trên QLYC (FSG), Bcode tự báo cho lập trình — không cần mở tab Báo cáo yêu cầu FSG.
+
+- **Theo dõi gì:** các y/c có **Lập trình (ma_lt1) = tên lập trình của bạn** (ô Lập trình — dùng chung với Note (New)), ở các **dự án đã lưu** của Báo cáo yêu cầu FSG (đã “Kéo về” ít nhất 1 lần — xem **Đã lưu ▾**). Tuỳ chọn báo cả y/c bạn là **triển khai** (ma_nv1).
+- **Báo khi:** ghi chú có **dòng mới** (bỏ qua dòng do chính bạn ghi), **đổi trạng thái**, **y/c mới giao cho bạn**, **đổi hạn hoàn thành**. So với dữ liệu đã lưu lần trước theo mã dự án + mã YC; kéo xong Bcode cập nhật luôn các y/c đó vào dữ liệu đã lưu (tab Yêu cầu FSG đang mở tự vẽ lại).
+- **Chạy ngầm:** mặc định mỗi **10 phút** (chỉnh được, tắt được), cả khi không mở tab; chỉ đọc FSG, không chặn giao diện. Mất mạng / VPN thì im lặng, lần sau thử lại (lỗi gần nhất ghi ở dòng trạng thái của khung). Mở nhiều cửa sổ Bcode thì chỉ 1 cửa sổ kéo, các cửa sổ khác dùng chung kết quả. “Kéo về” bằng tay ở tab Yêu cầu FSG cũng được so để không sót thay đổi.
+- **Chuông 🔔** trên thanh trên (cạnh Quick Access, cả chế độ Web và App): số = thông báo chưa xem. Bấm → khung **Thông báo y/c FSG**: mỗi dòng gồm mã dự án · mã YC, loại thay đổi, ai ghi, tên menu, giờ phát hiện, nội dung mới. **Tất cả / Chưa xem** để lọc; **✓** ở cuối dòng hoặc **✓ Đã xem tất cả** để đánh dấu đã xem; **⟳ Kiểm tra ngay** kéo ngay không chờ chu kỳ.
+- **Bấm 1 dòng** → mở tab **Yêu cầu FSG** + khung chi tiết của y/c đó (vẫn có **🤖 AI tạo danh mục**). Lọc đang che y/c đó thì Bcode bỏ lọc tại chỗ và gõ mã YC vào ô Tìm.
+- **⚙ Cài đặt** (ngay trên khung): Bật thông báo · ô **Lập trình** · Kiểm tra mỗi … phút · loại thay đổi cần báo · Báo cả y/c mình là triển khai · **Hiện thông báo Windows khi Bcode không ở trước** (bấm vào thông báo Windows để mở khung) · Xoá thông báo đã xem.
+- Phím tắt mở / đóng khung: mục “Mở / đóng khung Thông báo y/c FSG” ở Template → Phím tắt (mặc định chưa gán). Cần key bản quyền như Báo cáo yêu cầu FSG.
+- Lần đầu theo dõi: dự án mà dữ liệu đã lưu chưa có y/c nào của bạn thì không báo “y/c mới giao”; dự án lưu từ bản Bcode chưa lấy ghi chú thì không so ghi chú — tránh báo ồ ạt. Lịch sử + cài đặt lưu ở `%AppData%\Bcode\fsg-notify.json` (giữ 500 thông báo gần nhất).
 
 <a id="mail-da-gui"></a>
 ### Mail kế hoạch tuần — Đã gửi & phản hồi

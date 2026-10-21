@@ -82,7 +82,7 @@ public partial class FileLookupControl : UserControl
             Text = ""
         };
 
-        _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true, CheckBoxes = true };
+        _tree = new SafeTreeView { Dock = DockStyle.Fill, HideSelection = false, ShowNodeToolTips = true, CheckBoxes = true };
         _tree.AfterCheck += OnTreeAfterCheck;
         _issueBox = new TextBox
         {

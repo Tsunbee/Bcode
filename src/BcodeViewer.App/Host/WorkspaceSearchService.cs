@@ -95,53 +95,75 @@ internal static class WorkspaceSearchService
         var filesScanned = 0;
         var truncated = false;
 
-        foreach (var file in EnumerateFiles(root))
+        // Đọc 12 file cùng lúc (ổ mạng chậm do độ trễ từng lần đọc, không do băng thông) + dùng nội dung đã nhớ cho file không đổi (SearchFileCache).
+        // AsOrdered: kết quả vẫn đúng thứ tự duyệt cây như bản đọc lần lượt trước đây; đủ maxResults thì thoát vòng foreach → PLINQ tự dừng các luồng.
+        // Đo 21/10/2026 (App_Data ~11.000 file / 65 MB trên UNC), tìm 1 từ không có: đọc lần lượt 378 s → song song lần đầu 39 s,
+        // lần sau 0,2 s, lần đầu sau khi mở lại Viewer (nạp bản nhớ trên đĩa) 1,5 s.
+        SearchFileCache.EnsureLoaded(root);
+        var perFile = EnumerateFileInfos(root)
+            .Where(f => IsSearchable(f.Name, patterns) && f.Length <= MaxFileBytes)
+            .AsParallel().AsOrdered().WithDegreeOfParallelism(12)
+            .Select(f => FindInFile(f, root, regex));
+        try
         {
-            if (truncated) break;
-            if (!IsSearchable(file, patterns)) continue;
-
-            string[] lines;
-            try
+            foreach (var hits in perFile)
             {
-                var info = new FileInfo(file);
-                if (info.Length > MaxFileBytes) continue;
-                lines = File.ReadAllLines(file, Encoding.UTF8);
-            }
-            catch
-            {
-                continue; // locked, deleted between the walk and the read, or not text
-            }
-
-            filesScanned++;
-            var name = Path.GetFileName(file);
-            for (var i = 0; i < lines.Length; i++)
-            {
-                // How much the preview trims off the front, so the page can place the
-                // highlight: the result row shows the trimmed line, and its columns no
-                // longer line up with the file's.
-                var indent = lines[i].Length - lines[i].TrimStart().Length;
-                foreach (Match m in regex.Matches(lines[i]))
+                if (hits == null) continue; // locked, deleted between the walk and the read, or not text
+                filesScanned++;
+                foreach (var hit in hits)
                 {
-                    // A zero-width pattern (e.g. "^" or "\b") matches at every position and
-                    // would fill the cap with results that point at nothing.
-                    if (m.Length == 0) continue;
-                    matches.Add(new
-                    {
-                        path = file,
-                        name,
-                        line = i + 1,
-                        column = m.Index + 1,
-                        length = m.Length,
-                        preview = Preview(lines[i]),
-                        previewOffset = indent,
-                    });
+                    matches.Add(hit);
                     if (matches.Count >= maxResults) { truncated = true; break; }
                 }
                 if (truncated) break;
             }
         }
+        finally { SearchFileCache.SaveLater(root); }
 
         return JsonSerializer.Serialize(new { root, truncated, filesScanned, matches });
+    }
+
+    /// <summary>Các chỗ khớp trong 1 file (null = không đọc được). Thử cả file 1 lần trước — đa số file không khớp, khỏi tách dòng.</summary>
+    private static List<object>? FindInFile(FileInfo info, string root, Regex regex)
+    {
+        string text;
+        try { text = SearchFileCache.ReadText(info, root); }
+        catch { return null; }
+        var hits = new List<object>();
+        try { if (!regex.IsMatch(text)) return hits; }
+        catch (RegexMatchTimeoutException) { /* quá thời gian trên cả file: vẫn thử từng dòng như trước */ }
+
+        var file = info.FullName;
+        var name = info.Name;
+        using var reader = new StringReader(text);
+        var i = 0;
+        for (var lineText = reader.ReadLine(); lineText != null; lineText = reader.ReadLine(), i++)
+        {
+            // How much the preview trims off the front, so the page can place the
+            // highlight: the result row shows the trimmed line, and its columns no
+            // longer line up with the file's.
+            var indent = lineText.Length - lineText.TrimStart().Length;
+            MatchCollection found;
+            try { found = regex.Matches(lineText); _ = found.Count; }
+            catch (RegexMatchTimeoutException) { continue; }
+            foreach (Match m in found)
+            {
+                // A zero-width pattern (e.g. "^" or "\b") matches at every position and
+                // would fill the cap with results that point at nothing.
+                if (m.Length == 0) continue;
+                hits.Add(new
+                {
+                    path = file,
+                    name,
+                    line = i + 1,
+                    column = m.Index + 1,
+                    length = m.Length,
+                    preview = Preview(lineText),
+                    previewOffset = indent,
+                });
+            }
+        }
+        return hits;
     }
 
     /// <summary>
@@ -165,24 +187,26 @@ internal static class WorkspaceSearchService
         var found = new System.Collections.Concurrent.ConcurrentQueue<string>();
         var scanned = 0;
         var clock = System.Diagnostics.Stopwatch.StartNew(); // quá 6 giây thì dừng, trả phần đã tìm được: tra entity không đáng để treo cả phút trên ổ mạng chậm
-        var candidates = EnumerateFiles(root).Where(f => IsSearchable(f, patterns));
+        // Kích thước + giờ sửa lấy sẵn từ lúc liệt kê thư mục; file không đổi đọc từ bản đã nhớ (SearchFileCache) — dùng chung với Tìm trong project.
+        SearchFileCache.EnsureLoaded(root);
+        var candidates = EnumerateFileInfos(root).Where(f => IsSearchable(f.Name, patterns) && f.Length <= MaxFileBytes);
         try
         {
-            Parallel.ForEach(candidates, new ParallelOptions { MaxDegreeOfParallelism = 12 }, (file, state) =>
+            Parallel.ForEach(candidates, new ParallelOptions { MaxDegreeOfParallelism = 12 }, (info, state) =>
             {
                 if (found.Count >= maxFiles || clock.Elapsed.TotalSeconds > 6) { state.Stop(); return; }
                 try
                 {
-                    if (new FileInfo(file).Length > MaxFileBytes) return;
-                    var text = File.ReadAllText(file, Encoding.UTF8);
+                    var text = SearchFileCache.ReadText(info, root);
                     Interlocked.Increment(ref scanned);
-                    if (regex.IsMatch(text)) found.Enqueue(file);
+                    if (regex.IsMatch(text)) found.Enqueue(info.FullName);
                 }
                 catch { /* khoá / xoá giữa chừng / regex quá thời gian: bỏ qua file này */ }
                 if (found.Count >= maxFiles) state.Stop();
             });
         }
         catch (AggregateException) { /* lỗi lẻ ở 1 luồng — giữ phần đã tìm được */ }
+        finally { SearchFileCache.SaveLater(root); }
 
         var matches = found.Take(maxFiles).Select(f => new { path = f, name = Path.GetFileName(f), line = 1, column = 1, length = 0, preview = "", previewOffset = 0 }).ToList();
         return JsonSerializer.Serialize(new { root, truncated = found.Count >= maxFiles, filesScanned = scanned, matches });
@@ -278,24 +302,25 @@ internal static class WorkspaceSearchService
     /// AllDirectories aborts the whole enumeration on the first access-denied subfolder,
     /// which on a customer share is close to guaranteed.
     /// </summary>
-    private static IEnumerable<string> EnumerateFiles(string root)
+    /// Trả FileInfo lấy từ chính lượt liệt kê thư mục (đã có Length / LastWriteTimeUtc) — trước đây mỗi file còn 1 lượt hỏi kích thước riêng qua mạng.
+    private static IEnumerable<FileInfo> EnumerateFileInfos(string root)
     {
-        var stack = new Stack<string>();
-        stack.Push(root);
+        var stack = new Stack<DirectoryInfo>();
+        stack.Push(new DirectoryInfo(root));
         while (stack.Count > 0)
         {
             var dir = stack.Pop();
-            string[] files;
-            try { files = Directory.GetFiles(dir); }
+            FileInfo[] files;
+            try { files = dir.GetFiles(); }
             catch { continue; }
             foreach (var f in files) yield return f;
 
-            string[] subdirs;
-            try { subdirs = Directory.GetDirectories(dir); }
+            DirectoryInfo[] subdirs;
+            try { subdirs = dir.GetDirectories(); }
             catch { continue; }
             foreach (var d in subdirs)
             {
-                if (SkippedFolders.Contains(Path.GetFileName(d))) continue;
+                if (SkippedFolders.Contains(d.Name)) continue;
                 stack.Push(d);
             }
         }

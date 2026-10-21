@@ -48,18 +48,20 @@
   <div class="brand">Bcode</div>
   <button class="btn btn-icon" id="btnSettings" title="Settings (File / Actions)"><span class="icon icon-gear"></span></button>
   <button class="btn" id="btnActions" title="Các hành động nhanh">Actions ▾</button>
+  <!-- Các nút thanh trên đổi thứ tự / chữ / màu được ở Template (data-top = id trong UiTemplate.TopButtons); nút thanh công cụ kéo lên
+       thanh trên được thêm vào nhóm này lúc chạy (data-top="tool:key"). -->
   <div class="group" id="scriptGroup">
-    <button class="btn" data-script="add">Add Script</button>
-    <button class="btn" data-script="view">View Script</button>
-    <button class="btn" data-script="clear">Clear Script</button>
-    <button class="btn" data-script="save">Save Script</button>
-    <button class="btn" data-script="copy">Copy Script</button>
+    <button class="btn" data-top="add" data-script="add">Add Script</button>
+    <button class="btn" data-top="view" data-script="view">View Script</button>
+    <button class="btn" data-top="clear" data-script="clear">Clear Script</button>
+    <button class="btn" data-top="save" data-script="save">Save Script</button>
+    <button class="btn" data-top="copy" data-script="copy">Copy Script</button>
+    <button class="btn" data-top="deploy" id="btnDeploy" title="Công cụ triển khai: Check LCTT / CĐKT, Biên bản, Thiết kế màn hình, Khai báo API, Tạo cấu trúc API">Triển khai ▾</button>
+    <button class="btn" data-top="ext" id="btnExt" title="Công cụ mở rộng: Check Include, Tạo báo cáo, Tạo nhanh danh mục">Tool mở rộng ▾</button>
+    <button class="btn" data-top="claude" id="btnClaude" data-tool="claude_web" title="Mở Claude trong một tab">Claude</button>
+    <button class="btn" data-top="gemini" id="btnGemini" data-tool="gemini_web" title="Mở Gemini trong một tab">Gemini</button>
+    <button class="btn" data-top="help" id="btnHelp" data-tool="help" title="Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)">Trợ giúp</button>
   </div>
-  <button class="btn" id="btnDeploy" title="Công cụ triển khai: Check LCTT / CĐKT, Biên bản, Thiết kế màn hình, Khai báo API, Tạo cấu trúc API">Triển khai ▾</button>
-  <button class="btn" id="btnExt" title="Công cụ mở rộng: Check Include, Tạo báo cáo, Tạo nhanh danh mục">Tool mở rộng ▾</button>
-  <button class="btn" id="btnClaude" data-tool="claude_web" title="Mở Claude trong một tab">Claude</button>
-  <button class="btn" id="btnGemini" data-tool="gemini_web" title="Mở Gemini trong một tab">Gemini</button>
-  <button class="btn" id="btnHelp" data-tool="help" title="Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)">Trợ giúp</button>
   <div class="spacer"></div>
   <div class="ws-group">
     <span class="muted">WS:</span>
@@ -98,7 +100,6 @@
   document.getElementById('btnActions').addEventListener('click', () => post({ action: 'show-actions-menu' }));
   document.getElementById('btnDeploy').addEventListener('click', () => post({ action: 'deploy' }));
   document.getElementById('btnExt').addEventListener('click', () => post({ action: 'ext' }));
-  document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => post({ action: 'tool', key: b.getAttribute('data-tool') })));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
   document.getElementById('btnNotify').addEventListener('click', () => post({ action: 'notify' }));
@@ -109,7 +110,9 @@
   });
   document.getElementById('scriptGroup').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-script]');
-    if (btn) post({ action: 'script', which: btn.getAttribute('data-script') });
+    if (btn) { post({ action: 'script', which: btn.getAttribute('data-script') }); return; }
+    var tool = e.target.closest('[data-tool]');   // Claude / Gemini / Trợ giúp + nút thanh công cụ đã kéo lên thanh trên
+    if (tool) post({ action: 'tool', key: tool.getAttribute('data-tool') });
   });
   document.getElementById('wsSelect').addEventListener('change', function (e) {
     setTimeout(function () { e.target.blur(); }, 0); // ô chọn không giữ focus — C# trả focus về vùng làm việc (RestoreContentFocus)
@@ -117,18 +120,34 @@
   });
 
   // ---- Called from C# (MainForm) ----
-  // Template giao diện: sắp lại thứ tự + đổi chữ/font/màu các nút Script. cfg = { order:[id...], items:{ id:{ text, css:{...} } } }.
+  // Template giao diện: sắp lại thứ tự + đổi chữ/font/màu các nút thanh trên. cfg = { order:[id...], items:{ id:{ text, css:{...}, label, tip } } };
+  // id "tool:key" = nút thanh công cụ kéo lên thanh trên (label/tip = chữ + tooltip gốc của công cụ).
   window.applyLayout = function (json) {
-    var cfg = JSON.parse(json), grp = document.getElementById('scriptGroup'), btns = {};
-    grp.querySelectorAll('[data-script]').forEach(function (b) {
-      if (b.dataset.orig === undefined) { b.dataset.orig = b.textContent; b.dataset.pos = Object.keys(btns).length; }
-      btns[b.getAttribute('data-script')] = b;
+    var cfg = JSON.parse(json), grp = document.getElementById('scriptGroup'), btns = {}, pos = 0;
+    grp.querySelectorAll('[data-top]').forEach(function (b) {
+      if (b.dataset.orig === undefined) { b.dataset.orig = b.textContent; b.dataset.pos = pos; }
+      pos++;
+      btns[b.getAttribute('data-top')] = b;
     });
-    var ids = (cfg.order || []).filter(function (id) { return btns[id]; });
-    Object.keys(btns).sort(function (a, b) { return btns[a].dataset.pos - btns[b].dataset.pos; })
-      .forEach(function (id) { if (ids.indexOf(id) < 0) ids.push(id); });
+    var items = cfg.items || {}, ids = [];
+    (cfg.order || []).forEach(function (id) {
+      if (ids.indexOf(id) >= 0) return;
+      if (btns[id] || (id.indexOf('tool:') === 0 && items[id] && items[id].label)) ids.push(id);
+    });
+    Object.keys(btns).filter(function (id) { return id.indexOf('tool:') !== 0 && ids.indexOf(id) < 0; })
+      .sort(function (a, b) { return btns[a].dataset.pos - btns[b].dataset.pos; })
+      .forEach(function (id) { ids.push(id); });
+    // Nút công cụ không còn trên thanh trên: bỏ đi.
+    Object.keys(btns).forEach(function (id) { if (id.indexOf('tool:') === 0 && ids.indexOf(id) < 0) btns[id].remove(); });
     ids.forEach(function (id) {
-      var b = btns[id], it = (cfg.items || {})[id] || {};
+      var b = btns[id], it = items[id] || {};
+      if (!b) {
+        b = document.createElement('button');
+        b.className = 'btn';
+        b.setAttribute('data-top', id);
+        b.setAttribute('data-tool', id.slice(5));
+      }
+      if (it.label) { b.dataset.orig = it.label; b.title = it.tip || it.label; }
       grp.appendChild(b);
       b.textContent = it.text || b.dataset.orig;
       b.removeAttribute('style');

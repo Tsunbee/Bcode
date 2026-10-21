@@ -118,12 +118,7 @@ public partial class MonacoPreviewControl : UserControl
             case "f12":
                 OnF12(offset, selStart, selEnd);
                 break;
-            case "goto":
-                // Ctrl+G — same "Go to" dialog as the old preview; the page moves the caret.
-                if (CurrentPath is not null && ScriptEditorControl.ShowGoToDialog(FindForm(), _text, offset) is int target)
-                    Post(JsonSerializer.Serialize(new { type = "reveal", offset = target }));
-                else _web.Focus();
-                break;
+            // Ctrl+G không còn qua host: trang dùng hộp "Go to" của BcodeViewer (viewer/goto.js) — xem filepreview.html.
         }
     }
 

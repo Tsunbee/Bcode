@@ -591,7 +591,7 @@ Trên ảnh: **①** Path + Load · **②** loại file · Only Show · SearchBo
 
 1. **Theo menu**: double-click menu ở cây WCommand → cây hiện trang Main + các file `App_Data\Controllers\*\<sysid>*` của menu, mở sẵn hết.
    **Duyệt tự do**: gõ Path rồi **Load**. (Đổi dự án xong cây chưa quét — chọn menu hoặc bấm Load.)
-2. Bấm một file → khung xem trước (Monaco, chỉ đọc) bên phải, kèm "Last Modified". `F12` trên `&Entity;` để peek nội dung entity — tìm trong cả cây Include của file (không giới hạn số cấp), kể cả F12 bên trong giá trị entity đang peek hay trong file .txt/.ent vừa mở ra từ F12 (vẫn thấy entity khai báo ở file Dir/Grid cha). Mở file xong Bcode đọc sẵn cây Include ở nền, các lần F12 sau gần như tức thì; `Ctrl+F` tìm trong file.
+2. Bấm một file → khung xem trước (Monaco, chỉ đọc) bên phải, kèm "Last Modified". `F12` trên `&Entity;` để peek nội dung entity — tìm trong cả cây Include của file (không giới hạn số cấp), kể cả F12 bên trong giá trị entity đang peek hay trong file .txt/.ent vừa mở ra từ F12 (vẫn thấy entity khai báo ở file Dir/Grid cha). Mở file xong Bcode đọc sẵn cây Include ở nền, các lần F12 sau gần như tức thì; `Ctrl+F` tìm trong file; `Ctrl+G` hộp **Go to** giống hệt BcodeViewer (TAG fields / command / script / response / css / ENTITY — DETAIL, tô cam/đỏ command Inserted/Updated, `on$…$ExecuteCommand` / `ResponseComplete`, `onChange$Grid…`, cả trong hộp lẫn trong khung xem — chế độ Web và App như nhau).
 3. File **tô đỏ** = thiếu entity / include: chọn file để xem danh sách "✖ …" bị thiếu. Dòng trạng thái: "Kết quả n file(s) — ⚠ k file lỗi entity/include…".
 4. **Edit in BcodeViewer** (hoặc double-click file) để sửa. Lần đầu Bcode hỏi đường dẫn BcodeViewer.exe. File `.rpt` / `.xlsx` mở bằng chương trình Windows.
 5. **Cấp source nhanh**: chọn 1 file `.f` của Dir / Grid / Filter → dòng dưới đường dẫn hiện **Source <phiên bản> · <thư mục trong kho>**: phiên bản của dự án; dự án không có file đó thì tự lùi về **phiên bản thấp hơn gần nhất** có file (chữ màu cam + ↓, rê chuột xem giải thích). Bấm vào nhãn để xem file .xml trong kho (chỉ đọc). Bấm **Cấp source** cạnh nhãn → hỏi xác nhận (báo rõ nếu sẽ ghi đè) rồi chép luôn file đó vào dự án. Nút **Cấp source** ở thanh trên vẫn mở hộp thoại cấp nhiều file như cũ.
@@ -825,6 +825,8 @@ Mở: ⚙ Settings → **Giao diện (Template)...** (cả 2 chế độ đều 
 | Tìm file | Quy tắc file được tìm nội dung (File Lookup) |
 | Màu cây | Kiểu tô màu cây WCommand / File Lookup |
 
+**Sắp xếp nút (tab Bố cục & font):** khung **Thanh trên** chứa mọi nút giữa Actions và ô WS (Add / View / Clear / Save / Copy Script, Triển khai, Tool mở rộng, Claude, Gemini, Trợ giúp) — kéo để đổi thứ tự, bấm một nút để đổi chữ / font / màu. Kéo một nút từ khung **Thanh công cụ** (hoặc **Ẩn**) lên **Thanh trên** để nút đó nằm trên thanh trên thay vì thanh công cụ; kéo xuống lại để trả về. Nhóm của Quick Access không đổi: công cụ đã nằm trong nhóm vẫn hiện trong menu nhóm.
+
 Nút dưới: **Áp dụng** (xem thử — "bấm Lưu để giữ lại") · **Lưu** · **Hủy** · **Mặc định** · Mở file JSON / Nạp lại từ file.
 
 > **Lưu ý:** đóng Template mà chưa **Lưu** là các thay đổi đã Áp dụng bị **trả lại**. (Riêng Đường dẫn, Hiệu năng, Khôi phục phiên, CSS được lưu ngay.)
@@ -964,7 +966,7 @@ Trên ảnh: **①** thanh menu · **②** thanh công cụ · **③** đường
 | **Actions** | Clear Structure App · **Open Web.config** (mở web.config của site thành 1 tab, tô màu XML — giống Bcode) · Refresh Web.config |
 | **Help** | Giới thiệu… · Log độ mượt (viewer-perf.log)… |
 | **Theme** | Danh sách theme Tối / Sáng có sẵn · theme đã nhập · Nhập theme (VS Code .json / .vsix, Fcode .xml)… · Theo Windows (sáng/tối) |
-| **⚙ Toolbar** | Tick để ẩn / hiện từng nút · Hiện tất cả · Sắp xếp / thêm nút… (chuột phải thanh công cụ cũng ra menu này) |
+| **⚙ Toolbar** | Tick = ghim (hiện) / bỏ ghim từng nút, nhóm và nút trong nhóm · Hiện tất cả · **Nút chưa ghim** ▸ (chạy ngay nút đang ẩn) · Kiểu nút ▸ · Vị trí thanh ▸ · Nhóm mới… · Gợi ý nhóm… · Tuỳ chỉnh thanh công cụ… · Khôi phục mặc định (chuột phải chỗ trống của thanh công cụ cũng ra menu này) |
 
 "Tự ẩn Menu/Toolbar": thanh trên tự ẩn, đưa chuột sát mép trên cửa sổ là hiện lại.
 
@@ -973,6 +975,18 @@ Trên ảnh: **①** thanh menu · **②** thanh công cụ · **③** đường
 Save (`Ctrl+S`) · Save As · ⚠ Check (so `<fields>` với `<views>` của Dir/Grid) · Undo · Redo · Comment (`Ctrl+/`) · Bookmark · ● Next · Refresh (tải lại file từ đĩa) · Hint (Hint Code) · Tìm project · Problems · Outline · Xem Dir · Chạy SQL · Tách đôi · Wrap (`Alt+Z`) · 🤖 Claude Sidebar · ✨ Gemini Sidebar · 📎 Đính kèm file · Clear Structure · Reset WebConfig · Open WebConfig (mở web.config của site).
 
 Dưới thanh công cụ là **đường dẫn** (breadcrumb) của file đang mở — bấm vào một đoạn để mở thư mục đó trong Explorer.
+
+### Tuỳ biến thanh công cụ (ghim, nhóm, vị trí)
+
+Giống Quick Access + nhóm công cụ của Bcode. Chưa chỉnh gì thì thanh y như danh sách mặc định ở trên.
+
+- **Bỏ ghim / ghim**: chuột phải 1 nút → **Bỏ ghim**, hoặc bỏ tick ở menu **⚙ Toolbar**. Nút bỏ ghim không hiện trên thanh nhưng vẫn chạy được: ⚙ Toolbar → **Nút chưa ghim** ▸, menu chính và phím tắt của nó.
+- **Nhóm nút**: chuột phải 1 nút → **Chuyển vào nhóm** → *Nhóm mới…* (đặt tên; tên bắt đầu bằng 1 ký hiệu như "🛠 Công cụ" thì kiểu "Chỉ icon" chỉ hiện ký hiệu). Nhóm hiện thành nút **Tên ▾** — bấm để thả menu các nút trong nhóm. `Alt+1` … `Alt+5` mở nhóm thứ 1…5 tính từ trái (trong menu: ↑/↓ + Enter hoặc gõ số 1–9 để chọn); đổi / thêm phím (tới nhóm thứ 9) ở Settings → Phím tắt → *Thanh công cụ*. Chuột phải 1 mục trong menu nhóm: đưa ra thanh, chuyển sang nhóm khác, lên / xuống, bỏ ghim. Chuột phải nút nhóm: đổi tên, **Tách nhóm** (đưa các nút ra thanh), **Xoá nhóm** (bỏ ghim các nút).
+- **Gợi ý nhóm** (như nút cùng tên ở Quick Access của Bcode): ⚙ Toolbar / chuột phải thanh → *Gợi ý nhóm (chia sẵn theo chức năng)…* — ghim Save, Check, Undo, Redo, Xem Dir, Chạy SQL, Wrap; các nút còn lại vào 5 nhóm 📄 Tệp · ✎ Soạn · 🔍 Xem · 🤖 AI · 🌐 Site (`Alt+1`…`Alt+5`). Settings → Bố cục cũng có nút **Gợi ý nhóm** (nạp vào bản nháp, bấm OK mới áp dụng). Sửa tiếp tuỳ ý sau đó; không vừa ý thì Khôi phục mặc định.
+- **Kéo thả trên thanh**: giữ chuột kéo 1 nút / nhóm / vạch ngăn sang chỗ khác (vạch xanh = chỗ thả); thả vào **giữa** nút nhóm = cho nút vào nhóm. Bấm Esc khi đang kéo để huỷ.
+- **Kiểu nút**: Chữ (mặc định) · Icon + chữ · Chỉ icon (tên nút hiện ở tooltip). **Vị trí thanh**: Trên — dưới thanh menu (mặc định) · Cùng hàng với thanh menu · Dưới cùng cửa sổ. Chọn ở chuột phải thanh công cụ hoặc Settings → Bố cục.
+- **Settings → Bố cục** có danh sách đầy đủ: kéo ☰ đổi thứ tự (thả lên nửa dưới dòng nhóm ▦ = cho vào nhóm), tick ghim, sửa tên nhóm ngay trên dòng, ✕ bỏ nhóm, "+ Nhóm mới", "+ Vạch ngăn", "+ Thêm nút" cho bất kỳ chức năng nào của bảng phím tắt.
+- **Khôi phục mặc định**: ⚙ Toolbar / chuột phải thanh → *Khôi phục mặc định* (hoặc Settings → Bố cục → "Đưa toolbar về mặc định"). Cấu hình lưu theo người dùng trong `%AppData%\Bcode\viewer-settings.json`, giữ qua các lần mở lại và đi kèm Settings → Sao lưu / chuyển máy.
 
 ### Cây file bên trái (Projects)
 
@@ -1060,8 +1074,10 @@ Trên ảnh: **①** tên entity + file khai báo · **②** nội dung (chỉ x
 | `Ctrl`+bấm chuột | Nhảy tới khai báo **trong cùng file** (entity, `function X(`, `<view|action id>`, `<field name>`). |
 | `F11` | Tới `function` của handler trên dòng hiện tại (vd `onchange="X(this)"`); không có thì nhảy tới `<script>`. |
 | `Shift+F12` | Tìm nơi sử dụng từ tại con trỏ trong toàn project (khớp trọn từ, tối đa 2000 kết quả, hiện ở bảng Tìm kiếm). |
-| `Ctrl+G` | Go to: cột trái là thẻ (fields, command, script, response, css, ENTITY), cột phải là chi tiết; `Enter` / double-click để nhảy. Mục hay dùng (command Inserted/Updated, `onChange$GridVoucherDetail`, `on$Voucher$ExecuteCommand`…) tô cam / đỏ. |
+| `Ctrl+G` | Go to: cột trái là thẻ (fields, command, script, response, css, ENTITY), cột phải là chi tiết; `Enter` / double-click để nhảy. Mục hay dùng tô cam / đỏ (cả trong hộp lẫn ngay trong editor): command Inserted (cam) / Updated (đỏ); `on$<đối tượng>$ExecuteCommand` (đỏ) và `on$<đối tượng>$ResponseComplete` (cam) của mọi đối tượng — `on$Voucher$…`, `on$GridVoucherDetail$…`, lưới chi tiết khác; `onChange$Grid…` (cam). |
 | `Ctrl+Shift+U` | Outline: ENTITY / View / Field / Command / Action / Function kèm số dòng, có ô lọc. |
+
+F12 trên ký tự có sẵn của XML (`&lt;` `&gt;` `&amp;` `&quot;` `&apos;`, `&#123;`) hay từ khoá khai báo (`<!ENTITY`, `SYSTEM`…) chỉ báo ngay "không phải entity" — không còn đi tra cả project.
 
 Trong cửa sổ peek: **Mở nơi khai báo (Ctrl+F12)** · **Copy code**; `F12` tra tiếp entity bên trong, `Alt+←` quay lại, `Esc` đóng. Bôi đen nhiều entity rồi `F12` → xem "Một trang" hoặc "Từng entity" (◀ ▶ để chuyển, Copy entity này / Copy tất cả).
 
@@ -1103,6 +1119,7 @@ Bấm một dòng để nhảy tới chỗ lỗi; `Ctrl`+bấm dòng thiếu ent
 
 - Ô **Tìm…** + nút **Tìm**, ô **Thay bằng…** + **Thay tất cả**, tuỳ chọn **Aa** (phân biệt hoa thường), **ab|** (trọn từ), **.\*** (regex), ô **Lọc file** (vd `*.xml, *.sql`).
 - Phạm vi: App_Data của file đang mở, tối đa 2000 kết quả. `Enter` chỉ tìm, không bao giờ thay.
+- Lần tìm **đầu tiên** trong 1 dự án phải đọc hết file qua mạng (vd ~11.000 file: khoảng 40 giây); Viewer nhớ nội dung lại nên các lần sau chỉ còn dưới 1 giây — chỉ file mới / đã sửa (theo kích thước + giờ sửa) mới đọc lại. Bản nhớ lưu ở `%LocalAppData%\BcodeViewer\searchcache` (xoá thư mục này là quét lại từ đầu), mở lại Viewer vẫn dùng được. F12 / Shift+F12 khi phải tra cả project cũng dùng bản nhớ này.
 - **Thay tất cả** hỏi xác nhận số vị trí / số file; bản cũ của mỗi file được lưu vào Lịch sử file trước khi ghi. File đang mở mà chưa lưu thì không cho thay.
 
 <a id="viewer-dir-preview"></a>
@@ -1124,6 +1141,15 @@ Trên ảnh: **①** khung Xem trước Dir (⟳ vẽ lại, ✕ đóng) · **�
 - `Ctrl`+bấm chọn nhiều ô; kéo ô để đổi chỗ trong dòng design (sửa thẳng vào source, `Ctrl+Z` để hoàn tác).
 - Khay "Biến / nhãn chưa dùng": kéo biến vào form hoặc vào "＋ thả biến vào đây để tạo dòng mới".
 - Chỉ là mô phỏng: không chạy script, không có dữ liệu, lưới chi tiết chỉ là khung giữ chỗ; nút Lưu / Hủy chỉ vẽ cho giống.
+
+### Dòng thiết kế `<item value="mặt nạ: [biến], ...">` ngay trong code
+
+Không cần mở Alt+P, trong `<views>` của file Dir/Grid:
+
+- **Mặt nạ** (dãy `1` / `0` / `-` trước dấu `:`) ứng với các cột của dòng bề rộng: `1` = mở 1 ô mới, các `0` liền sau = ô đó kéo dài thêm cột (colspan), `-` = cột trống. Biến thứ n ứng với chữ `1` thứ n.
+- **Trỏ chuột vào một biến** (`[ma_kh]`, `[ten_kh%l]`, `[x].Label`…): hover cho biết bề rộng, Header V/E và dòng **Cờ** — biến ứng với vị trí nào trong mặt nạ, giá trị ở đó (vd `vị trí 2–3 = 10`), kèm mặt nạ có ngoặc `[ ]` quanh phần của biến.
+- Chuột hoặc con trỏ soạn thảo đứng trên một biến → các chữ số của nó trong mặt nạ được **tô khung**; ngược lại đứng trên một chữ số → biến tương ứng được tô. Cách ghép giống hệt Xem trước Dir.
+- **Khung viền đứt / "Cờ: không xác định"**: dòng có `&entity;` chèn thêm phần tử lúc chạy (vd `&DetailTaxFormViewAccountLine;` hoặc `[x]&ddDir2Views;` đứng trước biến, hay entity nằm giữa mặt nạ) — vị trí chỉ tính theo phần viết trực tiếp, lúc chạy có thể lệch. Biến thừa so với số chữ `1` → "Cờ: không có" (Xem trước Dir bỏ qua biến đó).
 
 ### Xem trước mail / SMS
 
@@ -1174,7 +1200,7 @@ Mở: **File → Settings…** (hoặc **File → Phím tắt…** để vào th
 | Trang | Nội dung chính |
 |---|---|
 | **Giao diện** | Phông chữ editor · Kiểu theme Fcode (.xml) · minimap · tự thu nhỏ cỡ chữ khi khung hẹp (cỡ nhỏ nhất) · Wrap · **Chế độ nhẹ (máy yếu)** Tự động / Bật / Tắt · vị trí khung Claude / Gemini (phải / dưới / trên) |
-| **Bố cục** | Ẩn / hiện thanh menu, thanh công cụ, đường dẫn, thanh tab · **Ctrl+Tab bấm nhanh** · vị trí và độ rộng cây file · sắp xếp / ẩn / thêm nút thanh công cụ (kéo ☰, "+ Vạch ngăn", "+ Thêm nút") · đưa về mặc định |
+| **Bố cục** | Ẩn / hiện thanh menu, thanh công cụ, đường dẫn, thanh tab · **Ctrl+Tab bấm nhanh** · vị trí và độ rộng cây file · thanh công cụ: vị trí (trên / cùng hàng menu / dưới), kiểu nút (chữ / icon + chữ / chỉ icon), sắp xếp / ghim / nhóm / thêm nút (kéo ☰, "+ Nhóm mới", "+ Vạch ngăn", "+ Thêm nút") · đưa về mặc định |
 | **Phím tắt** | Bảng mọi lệnh: **Đổi** (bấm tổ hợp mới, `Esc` huỷ) · **Xoá phím** · **Mặc định**; ô lọc theo tên / phím; "Đưa TẤT CẢ phím tắt về mặc định" |
 | **AI (chat + gợi ý)** | Anthropic API key · Gemini API key · model chat · bật gợi ý AI khi gõ (tắt mặc định) · model / engine ghost text · engine dịch caption (Google / Gemini / Claude) |
 | **Template dùng chung** | Thư mục chung (UNC / git) chứa `*.code-snippets`, `*.json` (snippet) và thư mục `files\` (mẫu file cho `Ctrl+N`) — Viewer chỉ đọc |
@@ -1249,6 +1275,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | Gọi gợi ý | `Alt+\` (gợi ý AI) | `Ctrl+Space` |
 | Định dạng code | `F7` Beauty | — |
 | Wrap (tự xuống dòng) | `Alt+Z` | `Alt+Z` |
+| Mở nhóm nút thứ N trên thanh công cụ | `Alt+1..5` | `Alt+1..5` |
 | Tab kế / hộp chọn tab | `Ctrl+Tab` / giữ `Ctrl` + `Tab` | `Ctrl+Tab` / giữ `Ctrl` + `Tab` |
 | Tab trước | (gán lại — mặc định đang lỗi) | `Ctrl+Shift+Tab` |
 | Đóng tab | `Ctrl+W` | `Ctrl+W` |
@@ -1260,7 +1287,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | Debug SQL | `F10` · `Ctrl+F10` · `Shift+F5` | **Debug trong Bcode** (gửi sang Bcode) |
 | Xem trước màn hình | — | `Alt+P` Dir / mail |
 
-**Chỉ có ở Bcode**: `Ctrl+Shift+Q` SQL Query · `Ctrl+Shift+T` Table · `Ctrl+Shift+C` Command · `Ctrl+Shift+L` Lookup · `Ctrl+Shift+W` WCommand · `Ctrl+Shift+F` File Lookup · `Ctrl+Shift+G` Gen Update · `Ctrl+Shift+R` File Reference · `Ctrl+Shift+O` Change Owner · `Ctrl+Shift+U` Gen Update (Result) · `Ctrl+Shift+E` Note · `Ctrl+Shift+4` Note (New) · `Ctrl+Shift+Y` Lịch sử SQL · `Ctrl+Shift+J` So sánh object · `Ctrl+3` SQL Profiler · `Ctrl+Shift+P` Projects · `Ctrl+O` Choose Server · `Ctrl+F5` Synchronize · `Ctrl+Shift+N` cửa sổ mới · `Ctrl+1` App ↔ Sys · `Ctrl+4` FSG FBO · `Ctrl+5` Program Path · `Ctrl+Alt+U` Ai đang dùng · `Alt+1..5` nhóm công cụ · `Ctrl+Alt+Shift+A / V` Add / View Script · lưới Table `F1 F3 F4 F8 Ctrl+I Ctrl+N Ctrl+' Ctrl+0 Ctrl+G` · cây WCommand `Insert F3 F4 F8 F12 F5`.
+**Chỉ có ở Bcode**: `Ctrl+Shift+Q` SQL Query · `Ctrl+Shift+T` Table · `Ctrl+Shift+C` Command · `Ctrl+Shift+L` Lookup · `Ctrl+Shift+W` WCommand · `Ctrl+Shift+F` File Lookup · `Ctrl+Shift+G` Gen Update · `Ctrl+Shift+R` File Reference · `Ctrl+Shift+O` Change Owner · `Ctrl+Shift+U` Gen Update (Result) · `Ctrl+Shift+E` Note · `Ctrl+Shift+4` Note (New) · `Ctrl+Shift+Y` Lịch sử SQL · `Ctrl+Shift+J` So sánh object · `Ctrl+3` SQL Profiler · `Ctrl+Shift+P` Projects · `Ctrl+O` Choose Server · `Ctrl+F5` Synchronize · `Ctrl+Shift+N` cửa sổ mới · `Ctrl+1` App ↔ Sys · `Ctrl+4` FSG FBO · `Ctrl+5` Program Path · `Ctrl+Alt+U` Ai đang dùng · `Ctrl+Alt+Shift+A / V` Add / View Script · lưới Table `F1 F3 F4 F8 Ctrl+I Ctrl+N Ctrl+' Ctrl+0 Ctrl+G` · cây WCommand `Insert F3 F4 F8 F12 F5`.
 
 **Chỉ có ở BcodeViewer**: `Ctrl+N` New from Template · `Ctrl+G` Go to tag · `F11` tới function · `Shift+F12` tìm nơi sử dụng · `Ctrl+Shift+M` Problems · `Ctrl+Shift+U` Outline · `Ctrl+\` tách đôi khung · `Ctrl+/` comment · `Ctrl+D` nhân đôi dòng · `Ctrl+Shift+D` thêm con trỏ ở chỗ giống tiếp theo · `Ctrl+Alt+T` dịch caption · `Ctrl+F` / `Ctrl+H` tìm / thay trong file · `Alt+↑/↓` di chuyển dòng · `F1` bảng lệnh Monaco.
 
@@ -1278,6 +1305,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" |
 | `%AppData%\Bcode\license.key` | Bcode | Key bản quyền |
 | `%AppData%\Bcode\viewer-*.json`, `viewer-hints.json`, `viewer-recent-files.json` | BcodeViewer | Settings, phím tắt, Hint Code, danh sách file của cây; `viewer-translate-dict.json` = Từ điển dịch |
+| `%LocalAppData%\BcodeViewer\searchcache\` | BcodeViewer | Bản nhớ nội dung file cho Tìm trong project (mỗi dự án 1 file nén, xoá được) |
 | `%AppData%\Bcode\history\` | BcodeViewer | Lịch sử file của máy này |
 | `<thư mục dự án>\History\` | BcodeViewer | Lịch sử chung của dự án (ai sửa gì) |
 | `<BcodeViewer.exe>\Config\*.txt` | BcodeViewer | Prompt AI ghost text |

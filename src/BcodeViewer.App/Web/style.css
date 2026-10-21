@@ -502,6 +502,11 @@ html, body {
 :root[data-theme=light] .fcd-suffix   { color: #6b7280 !important; }
 :root[data-theme=light] .fcd-w        { color: #2e7d32 !important; }
 :root[data-theme=light] .fcd-w0       { color: #9ca3af !important; }
+/* Cặp biến ↔ ký tự mặt nạ đang trỏ (chuột/con trỏ); viền đứt = không chắc vì &entity; chèn thêm phần tử. */
+.fcd-link       { background: rgba(255, 209, 102, .22); border: 1px solid rgba(255, 209, 102, .85); box-sizing: border-box; border-radius: 2px; }
+.fcd-link-guess { background: rgba(255, 209, 102, .10); border: 1px dashed rgba(255, 209, 102, .7); box-sizing: border-box; border-radius: 2px; }
+:root[data-theme=light] .fcd-link       { background: rgba(180, 83, 9, .14); border-color: rgba(180, 83, 9, .8); }
+:root[data-theme=light] .fcd-link-guess { background: rgba(180, 83, 9, .06); border-color: rgba(180, 83, 9, .6); }
 
 /* ---- Xem trước Dir (dirpreview.js) ----
    Panel luôn SÁNG, không theo theme editor: mục đích là nhìn giống màn hình FastBusiness thật (nền trắng, nhãn nhỏ,

@@ -62,6 +62,7 @@ public sealed class NativeTopBar : Panel
     private readonly BarFlow _right = new() { Dock = DockStyle.Right, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(0, 4, 8, 4) };
     private readonly Dictionary<string, PillButton> _scriptButtons = new();
     private readonly Dictionary<string, string> _scriptOrigText = new();
+    private readonly Dictionary<string, PillButton> _toolButtons = new();   // nút thanh công cụ kéo lên thanh trên, khoá "tool:key"
     private readonly DropDownButton _ws = new() { Width = NativeSkin.S(260), OnPanelAlt = true };
     private readonly PillButton _sys, _app, _theme, _bell;
     private readonly Label _dbName = new MutedLabel { AutoSize = true, Margin = new Padding(2, 8, 4, 0), BackColor = Color.Transparent };
@@ -70,7 +71,7 @@ public sealed class NativeTopBar : Panel
 
     /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | quickaccess | theme | refresh-db | notify.</summary>
     public event Action<string>? Action;
-    public event Action<string>? ToolClicked;      // claude_web / gemini_web / help
+    public event Action<string>? ToolClicked;      // claude_web / gemini_web / help / key nút công cụ đã kéo lên thanh trên
     public event Action<string>? ScriptClicked;    // add | view | clear | save | copy
     public event Action<int>? WorkspaceSelected;
     public event Action<bool>? DatabaseSelected;   // true = Sys
@@ -92,11 +93,18 @@ public sealed class NativeTopBar : Panel
             _scriptButtons[id] = b; _scriptOrigText[id] = text;
             _left.Controls.Add(b);
         }
-        _left.Controls.Add(Btn("Triển khai ▾", "Công cụ triển khai: Check LCTT / CĐKT, Biên bản, Thiết kế màn hình, Khai báo API, Tạo cấu trúc API", () => Action?.Invoke("deploy")));
-        _left.Controls.Add(Btn("Tool mở rộng ▾", "Công cụ mở rộng: Check Include, Tạo báo cáo, Tạo nhanh danh mục", () => Action?.Invoke("ext")));
-        _left.Controls.Add(Btn("Claude", "Mở Claude trong một tab", () => ToolClicked?.Invoke("claude_web")));
-        _left.Controls.Add(Btn("Gemini", "Mở Gemini trong một tab", () => ToolClicked?.Invoke("gemini_web")));
-        _left.Controls.Add(Btn("Trợ giúp", "Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)", () => ToolClicked?.Invoke("help")));
+        // Nút cố định sau nút Script (id theo UiTemplate.TopFixedButtons) — cũng đổi thứ tự / chữ / màu được ở Template như nút Script.
+        void Fixed(string id, string text, string tip, System.Action onClick)
+        {
+            var b = Btn(text, tip, onClick);
+            _scriptButtons[id] = b; _scriptOrigText[id] = text;
+            _left.Controls.Add(b);
+        }
+        Fixed("deploy", "Triển khai ▾", "Công cụ triển khai: Check LCTT / CĐKT, Biên bản, Thiết kế màn hình, Khai báo API, Tạo cấu trúc API", () => Action?.Invoke("deploy"));
+        Fixed("ext", "Tool mở rộng ▾", "Công cụ mở rộng: Check Include, Tạo báo cáo, Tạo nhanh danh mục", () => Action?.Invoke("ext"));
+        Fixed("claude", "Claude", "Mở Claude trong một tab", () => ToolClicked?.Invoke("claude_web"));
+        Fixed("gemini", "Gemini", "Mở Gemini trong một tab", () => ToolClicked?.Invoke("gemini_web"));
+        Fixed("help", "Trợ giúp", "Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)", () => ToolClicked?.Invoke("help"));
 
         _ws.SelectionChanged += i => WorkspaceSelected?.Invoke(i);
         _ws.Height = UiTemplate.Dens(26);
@@ -187,19 +195,35 @@ public sealed class NativeTopBar : Panel
 
     public void SetDbNames(string sys, string app) { _sysName = sys ?? ""; _appName = app ?? ""; RenderDb(); }
 
-    /// <summary>Template giao diện: thứ tự + chữ + font/màu các nút Script.</summary>
-    public void SetScriptLayout(IReadOnlyList<string> order, Func<string, ControlStyle?> styleOf)
+    /// <summary>Template giao diện: thứ tự + chữ + font/màu các nút thanh trên (nút có sẵn + nút thanh công cụ "tool:key" đã kéo lên).
+    /// <paramref name="toolOf"/>(id) = chữ + tooltip của nút công cụ, null nếu id không phải nút công cụ.</summary>
+    public void SetScriptLayout(IReadOnlyList<string> order, Func<string, ControlStyle?> styleOf, Func<string, (string Label, string Tip)?> toolOf)
     {
-        var ids = order.Where(_scriptButtons.ContainsKey).ToList();
+        var ids = order.Where(id => _scriptButtons.ContainsKey(id) || toolOf(id) is not null).ToList();
         foreach (var id in _scriptButtons.Keys) if (!ids.Contains(id)) ids.Add(id);
         _left.SuspendLayout();
+        // Nút công cụ không còn trên thanh trên: bỏ đi.
+        foreach (var id in _toolButtons.Keys.Where(id => !ids.Contains(id)).ToList())
+        {
+            _left.Controls.Remove(_toolButtons[id]);
+            _toolButtons[id].Dispose();
+            _toolButtons.Remove(id);
+        }
         var index = 3; // sau brand, gear, Actions
         foreach (var id in ids)
         {
-            var b = _scriptButtons[id];
+            var tool = toolOf(id);
+            if (!_scriptButtons.TryGetValue(id, out var b) && !_toolButtons.TryGetValue(id, out b))
+            {
+                var key = id[UiTemplate.TopToolPrefix.Length..];
+                b = Btn(tool!.Value.Label, null, () => ToolClicked?.Invoke(key));
+                _toolButtons[id] = b;
+                _left.Controls.Add(b);
+            }
+            if (tool is { } info) NK.Tip(b, info.Tip);
             _left.Controls.SetChildIndex(b, index++);
             var st = styleOf(id);
-            b.Text = string.IsNullOrEmpty(st?.Text) ? _scriptOrigText[id] : st!.Text!;
+            b.Text = string.IsNullOrEmpty(st?.Text) ? (tool?.Label ?? _scriptOrigText[id]) : st!.Text!;
             b.ForeOverride = UiTemplate.ParseColor(st?.ForeColor);
             b.BackOverride = UiTemplate.ParseColor(st?.BackColor);
             if (st is not null && (st.FontFamily is not null || st.FontSize is not null || st.Bold is not null))

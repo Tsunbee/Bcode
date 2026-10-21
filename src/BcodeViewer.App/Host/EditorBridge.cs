@@ -152,11 +152,12 @@ public class EditorBridge
     {
         shortcuts = _settings.ShortcutOverrides,
         toolbarOrder = _settings.ToolbarOrder,
+        toolbarGroups = _settings.ToolbarGroups.Select(g => new { id = g.Id, name = g.Name, items = g.Items }),
         layout = _settings.LayoutPrefs,
         hiddenToolbar = _settings.HiddenToolbarItems,
     });
 
-    /// <summary>Lưu tuỳ chỉnh từ Settings: {shortcuts:{id:combo}, toolbarOrder:[], layout:{}, hiddenToolbar:[]} — phần nào thiếu thì giữ nguyên.</summary>
+    /// <summary>Lưu tuỳ chỉnh từ Settings / thanh công cụ: {shortcuts:{id:combo}, toolbarOrder:[], toolbarGroups:[{id,name,items}], layout:{}, hiddenToolbar:[]} — phần nào thiếu thì giữ nguyên.</summary>
     public void SetUiPrefs(string json)
     {
         try
@@ -167,6 +168,14 @@ public class EditorBridge
                 _settings.ShortcutOverrides = sc.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.String).ToDictionary(p => p.Name, p => p.Value.GetString() ?? "");
             if (r.TryGetProperty("toolbarOrder", out var to) && to.ValueKind == JsonValueKind.Array)
                 _settings.ToolbarOrder = to.EnumerateArray().Where(v => v.ValueKind == JsonValueKind.String).Select(v => v.GetString() ?? "").ToList();
+            if (r.TryGetProperty("toolbarGroups", out var tg) && tg.ValueKind == JsonValueKind.Array)
+                _settings.ToolbarGroups = tg.EnumerateArray().Where(g => g.ValueKind == JsonValueKind.Object).Select(g => new ViewerToolbarGroup
+                {
+                    Id = g.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String ? id.GetString() ?? "" : "",
+                    Name = g.TryGetProperty("name", out var nm) && nm.ValueKind == JsonValueKind.String ? nm.GetString() ?? "" : "",
+                    Items = g.TryGetProperty("items", out var it) && it.ValueKind == JsonValueKind.Array
+                        ? it.EnumerateArray().Where(v => v.ValueKind == JsonValueKind.String).Select(v => v.GetString() ?? "").ToList() : new List<string>(),
+                }).Where(g => g.Id.Length > 0).ToList();
             if (r.TryGetProperty("layout", out var ly) && ly.ValueKind == JsonValueKind.Object)
                 _settings.LayoutPrefs = ly.EnumerateObject().Where(p => p.Value.ValueKind == JsonValueKind.String).ToDictionary(p => p.Name, p => p.Value.GetString() ?? "");
             if (r.TryGetProperty("hiddenToolbar", out var ht) && ht.ValueKind == JsonValueKind.Array)

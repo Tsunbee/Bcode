@@ -558,7 +558,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 break;
             case "tool":
             {
-                var ts = _toolSpecs.FirstOrDefault(t => t.key == key && TopBarToolKeys.Contains(t.key));
+                // Claude / Gemini / Trợ giúp, hoặc nút thanh công cụ đã kéo lên thanh trên (Template → Bố cục & font).
+                var ts = _toolSpecs.FirstOrDefault(t => t.key == key && (TopBarToolKeys.Contains(t.key) || TopToolKeys().Contains(t.key)));
                 if (ts.key is not null) { var act = ts.action; BeginInvoke(new Action(() => act(this, EventArgs.Empty))); }
                 break;
             }
@@ -788,23 +789,46 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private readonly List<(bool Sys, string? Extra)> _topDbEntries = new(); // theo thứ tự các mục trong ô chọn: Sys / App / database phụ trong DB Access
 
 
-    /// <summary>Đẩy thứ tự + chữ + font/màu các nút Script (template giao diện) xuống thanh trên.</summary>
+    /// <summary>Nút thanh công cụ đang nằm trên thanh trên (Template → kéo từ "Thanh công cụ" lên "Thanh trên").</summary>
+    private HashSet<string> TopToolKeys()
+    {
+        var bar = new HashSet<string>(BarToolKeys());
+        return Bcode.App.UI.UiTemplate.Current.TopToolKeys(bar.Contains);
+    }
+
+    /// <summary>Đẩy thứ tự + chữ + font/màu các nút thanh trên (nút Script, Triển khai, Tool mở rộng, Claude, Gemini, Trợ giúp
+    /// và nút thanh công cụ đã kéo lên — template giao diện) xuống thanh trên.</summary>
     private void PushTopBarLayout()
     {
         var t = Bcode.App.UI.UiTemplate.Current;
+        var bar = new HashSet<string>(BarToolKeys());
+        var order = t.TopOrder(bar.Contains);
+        // Nút có sẵn: style ở "script:id"; nút công cụ: id đã là "tool:key" — cùng khoá style với nút đó trên thanh công cụ.
+        Bcode.App.UI.ControlStyle? StyleOf(string id) =>
+            t.Items.TryGetValue(id.StartsWith(Bcode.App.UI.UiTemplate.TopToolPrefix) ? id : "script:" + id, out var st) ? st : null;
+        (string Label, string Tip)? ToolOf(string id)
+        {
+            if (!id.StartsWith(Bcode.App.UI.UiTemplate.TopToolPrefix)) return null;
+            var key = id[Bcode.App.UI.UiTemplate.TopToolPrefix.Length..];
+            var spec = _toolSpecs.FirstOrDefault(x => x.key == key);
+            if (spec.key is null) return null;
+            var combo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + key);
+            return (spec.label, combo.Length > 0 ? $"{spec.label} ({combo})" : spec.label);
+        }
         if (_topNative is not null)
         {
-            _topNative.SetScriptLayout(t.ScriptOrder, id => t.Items.TryGetValue("script:" + id, out var st) ? st : null);
+            _topNative.SetScriptLayout(order, StyleOf, ToolOf);
             return;
         }
         if (_topBarWeb.CoreWebView2 is null) return;
         var items = new Dictionary<string, object>();
-        foreach (var (id, _) in Bcode.App.UI.UiTemplate.ScriptButtons)
+        foreach (var id in order)
         {
-            t.Items.TryGetValue("script:" + id, out var st);
-            items[id] = new { text = string.IsNullOrEmpty(st?.Text) ? null : st.Text, css = Bcode.App.UI.UiTemplate.ToInlineCss(st) };
+            var st = StyleOf(id);
+            var tool = ToolOf(id);
+            items[id] = new { text = string.IsNullOrEmpty(st?.Text) ? null : st.Text, css = Bcode.App.UI.UiTemplate.ToInlineCss(st), label = tool?.Label, tip = tool?.Tip };
         }
-        var json = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(new { order = t.ScriptOrder, items }));
+        var json = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(new { order, items }));
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.applyLayout && window.applyLayout({json})");
     }
     private void PushWorkspacesToTopBar()
@@ -987,9 +1011,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var prevGroup = -1;
         var groups = ActiveToolGroups();
         var grouped = new HashSet<string>(groups.SelectMany(g => g.Keys));
+        var onTop = TopToolKeys();   // đã kéo lên thanh trên (Template): không hiện lại ở đây; nhóm Quick Access giữ nguyên
         foreach (var (key, label, shortcut, action) in OrderedToolSpecs())
         {
-            if (_settings.HiddenToolKeys.Contains(key) || grouped.Contains(key)) continue;   // đã vào nhóm: chỉ hiện trong menu của nhóm
+            if (_settings.HiddenToolKeys.Contains(key) || grouped.Contains(key) || onTop.Contains(key)) continue;   // đã vào nhóm: chỉ hiện trong menu của nhóm
             var grp = ToolGroupOf(key);
             if (prevGroup >= 0 && grp != prevGroup) _toolsBar.Items.Add(new ToolStripSeparator { Margin = new Padding(6, 2, 6, 2) });   // vạch | giữa hai vùng chức năng
             prevGroup = grp;

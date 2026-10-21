@@ -947,69 +947,7 @@ public partial class ScriptEditorControl : UserControl
                 + (string.IsNullOrWhiteSpace(prog) ? "" : $"\n\nĐã tìm cả trong Program Path của dự án đang chọn:\n{prog}"), true);
     }
 
-    // ---- Ctrl+G "Go to" — structural navigation for FastBusiness Dir/Grid XML files ----
-    // (<fields>, <views>, <commands><command event="...">, <script> function names,
-    // <response><action id="...">, and DOCTYPE <!ENTITY> declarations) — matches FCode's
-    // own "Go to" dialog: a TAG list of section kinds on the left, and on the right the
-    // named items within whichever TAG is selected; picking one jumps the caret there.
-
-    private static readonly Regex FieldNameRegex = new(@"<field\s+name=""([^""]+)""", RegexOptions.Compiled);
-    private static readonly Regex ViewIdRegex = new(@"<view\s+id=""([^""]+)""", RegexOptions.Compiled);
-    private static readonly Regex CommandEventRegex = new(@"<command\s+event=""([^""]+)""", RegexOptions.Compiled);
-    private static readonly Regex ScriptFunctionRegex = new(@"function\s+([A-Za-z0-9_$]+)\s*\(", RegexOptions.Compiled);
-    private static readonly Regex ResponseActionRegex = new(@"<action\s+id=""([^""]+)""", RegexOptions.Compiled);
-    private static readonly Regex EntityNameRegex = new(@"<!ENTITY\s+%?\s*([A-Za-z0-9_.]+)", RegexOptions.Compiled);
-
-    // Preferred display order — matches the order FCode's own dialog lists them in;
-    // any other category (there shouldn't normally be one) is appended after.
-    private static readonly string[] GoToCategoryOrder = { "fields", "views", "command", "script", "response", "ENTITY" };
-
-    private readonly record struct GoToItem(string Label, int Position);
-
-    private static Dictionary<string, List<GoToItem>> BuildGoToIndex(string text)
-    {
-        var result = new Dictionary<string, List<GoToItem>>();
-
-        void Add(string category, string label, int pos)
-        {
-            if (!result.TryGetValue(category, out var list)) result[category] = list = new List<GoToItem>();
-            list.Add(new GoToItem(label, pos));
-        }
-
-        foreach (Match m in FieldNameRegex.Matches(text)) Add("fields", m.Groups[1].Value, m.Index);
-
-        foreach (Match m in ViewIdRegex.Matches(text)) Add("views", m.Groups[1].Value, m.Index);
-        var categoriesIdx = text.IndexOf("<categories", StringComparison.OrdinalIgnoreCase);
-        if (categoriesIdx >= 0) Add("views", "Categories", categoriesIdx);
-        var endViewsIdx = text.IndexOf("</views>", StringComparison.OrdinalIgnoreCase);
-        if (endViewsIdx >= 0) Add("views", "End Views", endViewsIdx);
-
-        foreach (Match m in CommandEventRegex.Matches(text)) Add("command", m.Groups[1].Value, m.Index);
-        foreach (Match m in ScriptFunctionRegex.Matches(text)) Add("script", m.Groups[1].Value, m.Index);
-        foreach (Match m in ResponseActionRegex.Matches(text)) Add("response", m.Groups[1].Value, m.Index);
-        foreach (Match m in EntityNameRegex.Matches(text)) Add("ENTITY", m.Groups[1].Value, m.Index);
-
-        return result;
-    }
-
-    /// <summary>Which category the caret currently sits inside, going by which top-level
-    /// section tag started most recently before it — used to default-select that TAG (and
-    /// mark it with "●") when the dialog opens, like FCode's own does.</summary>
-    private static string? CurrentGoToCategory(string text, int caret)
-    {
-        (string Cat, int Start)[] sections =
-        {
-            ("fields", text.IndexOf("<fields", StringComparison.OrdinalIgnoreCase)),
-            ("views", text.IndexOf("<views", StringComparison.OrdinalIgnoreCase)),
-            ("command", text.IndexOf("<commands", StringComparison.OrdinalIgnoreCase)),
-            ("script", text.IndexOf("<script", StringComparison.OrdinalIgnoreCase)),
-            ("response", text.IndexOf("<response", StringComparison.OrdinalIgnoreCase)),
-        };
-        return sections.Where(s => s.Start >= 0 && s.Start <= caret)
-                        .OrderByDescending(s => s.Start)
-                        .Select(s => s.Cat)
-                        .FirstOrDefault();
-    }
+    // ---- Ctrl+G "Go to" — hộp giống hệt BcodeViewer (GoToBox.cs = bản C# của BcodeViewer.App/Web/goto.js) ----
 
     private void ShowGoToDialog()
     {
@@ -1021,74 +959,9 @@ public partial class ScriptEditorControl : UserControl
         }
     }
 
-    /// <summary>Ctrl+G "Go to" dialog over plain text — shared with the Monaco preview
-    /// (<see cref="MonacoPreviewControl"/>). Returns the chosen item's character offset in
-    /// <paramref name="text"/>, or null when cancelled / nothing to navigate.</summary>
-    internal static int? ShowGoToDialog(IWin32Window? owner, string text, int caret)
-    {
-        var index = BuildGoToIndex(text);
-        if (index.Count == 0) return null; // not a file this navigator understands — nothing to show
-
-        var current = CurrentGoToCategory(text, caret);
-
-        using var dialog = new Bcode.App.UI.DpiForm
-        {
-            Text = "Go to",
-            FormBorderStyle = FormBorderStyle.FixedToolWindow,
-            StartPosition = FormStartPosition.CenterParent,
-            Width = 620,
-            Height = 420,
-            MinimumSize = new Size(420, 260),
-            ShowInTaskbar = false,
-            ShowIcon = false,
-            KeyPreview = true
-        };
-
-        var tagList = new ListBox { Dock = DockStyle.Left, Width = 200, IntegralHeight = false };
-        var detailList = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false };
-
-        foreach (var cat in GoToCategoryOrder)
-            if (index.ContainsKey(cat)) tagList.Items.Add(cat == current ? "●  " + cat : cat);
-        foreach (var cat in index.Keys)
-            if (!GoToCategoryOrder.Contains(cat)) tagList.Items.Add(cat == current ? "●  " + cat : cat);
-
-        var currentDetails = new List<GoToItem>();
-
-        void RefreshDetails()
-        {
-            detailList.Items.Clear();
-            if (tagList.SelectedItem is not string label) return;
-            var cat = label.StartsWith('●') ? label[3..] : label;
-            if (!index.TryGetValue(cat, out var items)) return;
-            currentDetails = items;
-            foreach (var item in items) detailList.Items.Add(item.Label);
-        }
-
-        tagList.SelectedIndexChanged += (_, _) => RefreshDetails();
-
-        void JumpAndClose()
-        {
-            if (detailList.SelectedIndex < 0 || detailList.SelectedIndex >= currentDetails.Count) return;
-            dialog.Tag = currentDetails[detailList.SelectedIndex].Position;
-            dialog.DialogResult = DialogResult.OK;
-        }
-
-        detailList.DoubleClick += (_, _) => JumpAndClose();
-        detailList.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) JumpAndClose(); };
-        dialog.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) dialog.DialogResult = DialogResult.Cancel; };
-
-        dialog.Controls.Add(detailList);
-        dialog.Controls.Add(tagList);
-
-        ThemeManager.Apply(dialog);
-
-        var initialTagIndex = current is not null
-            ? tagList.Items.Cast<string>().ToList().FindIndex(t => t.EndsWith(current))
-            : 0;
-        tagList.SelectedIndex = initialTagIndex >= 0 ? initialTagIndex : (tagList.Items.Count > 0 ? 0 : -1);
-
-        return dialog.ShowDialog(owner) == DialogResult.OK && dialog.Tag is int position ? position : null;
-    }
+    /// <summary>Ctrl+G "Go to" over plain text — dùng chung với khung xem file chế độ App (<see cref="MonacoPreviewControl"/>).
+    /// Trả vị trí ký tự của mục được chọn trong <paramref name="text"/>, null = đóng không chọn.</summary>
+    internal static int? ShowGoToDialog(IWin32Window? owner, string text, int caret) => GoToBox.Show(owner, text, caret);
 
     /// <summary>The identifier touching <paramref name="index"/> — works whether the caret
     /// sits inside the name or right against its edge (e.g. just before the trailing ';' of

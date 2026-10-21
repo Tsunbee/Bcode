@@ -32,7 +32,7 @@ public class SqlObjectTreeControl : UserControl
         _barWeb.Dock = DockStyle.Top;
         _barWeb.Height = 120;
 
-        _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
+        _tree = new SafeTreeView { Dock = DockStyle.Fill, HideSelection = false };
         // Vẽ qua bộ đệm (TVS_EX_DOUBLEBUFFER) ngay khi có handle — ThemeManager chỉ bật được nếu handle đã có lúc áp theme; thiếu nó thì mỗi lần
         // dựng lại cây (gõ lọc) thấy nền xoá trắng rồi từng dòng hiện dần.
         _tree.HandleCreated += (_, _) => SendMessage(_tree.Handle, 0x112C /* TVM_SETEXTENDEDSTYLE */, (IntPtr)0x4, (IntPtr)0x4);

@@ -245,6 +245,7 @@ public class UiTemplateForm : ThemedForm
         }
         catch (Exception ex)
         {
+            ThemeManager.LogTiming("UiTemplateForm: lỗi khi xử lý lệnh từ trang — " + ex); // giữ stack để biết chỗ lỗi (trang chỉ hiện ex.Message)
             Js($"window.setStatus({JsonSerializer.Serialize(ex.Message)}, 'err')");
         }
     }
@@ -263,7 +264,7 @@ public class UiTemplateForm : ThemedForm
         foreach (var (k, v) in d.Kinds) if (v is not null) t.Controls[k] = v;
         foreach (var (k, v) in d.Items) if (v is { IsEmpty: false }) t.Items[k] = v;
         // Thứ tự mặc định thì lưu rỗng để file JSON chỉ chứa phần người dùng đã đổi.
-        var defaultScript = UiTemplate.ScriptButtons.Select(b => b.Id).ToList();
+        var defaultScript = UiTemplate.TopButtons.Select(b => b.Id).ToList();
         t.ScriptOrder = d.ScriptOrder.SequenceEqual(defaultScript) ? new List<string>() : d.ScriptOrder;
         t.DarkTheme = d.DarkTheme; t.LightTheme = d.LightTheme;
         t.DarkColors = Valid(d.DarkColors); t.LightColors = Valid(d.LightColors);
@@ -291,7 +292,9 @@ public class UiTemplateForm : ThemedForm
 
     private void Apply(Draft d)
     {
-        _settings.ToolOrder = d.ToolOrder.SequenceEqual(_defaultToolKeys) ? new List<string>() : d.ToolOrder;
+        // Nút đã kéo lên thanh trên không nằm trong khung Thanh công cụ / Ẩn — so với thứ tự mặc định đã bỏ các nút đó.
+        var onTop = d.ScriptOrder.Where(id => id.StartsWith(UiTemplate.TopToolPrefix)).Select(id => id[UiTemplate.TopToolPrefix.Length..]).ToHashSet();
+        _settings.ToolOrder = d.ToolOrder.SequenceEqual(_defaultToolKeys.Where(k => !onTop.Contains(k))) ? new List<string>() : d.ToolOrder;
         _settings.HiddenToolKeys = d.ToolHidden;
         var wasEnabled = UiTemplate.Current.CustomUiEnabled;
         _changed = true;
@@ -503,10 +506,16 @@ public class UiTemplateForm : ThemedForm
         var t = UiTemplate.Current;
         var hidden = new HashSet<string>(_settings.HiddenToolKeys);
 
-        var scriptIds = t.ScriptOrder.Where(id => UiTemplate.ScriptButtons.Any(b => b.Id == id)).ToList();
-        scriptIds.AddRange(UiTemplate.ScriptButtons.Select(b => b.Id).Where(id => !scriptIds.Contains(id)));
+        var toolKeys = new HashSet<string>(_tools.Select(x => x.key));
+        var topIds = t.TopOrder(toolKeys.Contains);
+        var onTop = t.TopToolKeys(toolKeys.Contains);
 
         object Item(string id, string text) => new { id, text };
+        // Nút thanh công cụ (ở khung nào cũng vậy) mang prefix riêng "tool:" để style đi theo nút khi kéo lên / xuống thanh trên.
+        object ToolItem(string key, string label) => new { id = key, text = label, prefix = UiTemplate.TopToolPrefix };
+        object TopItem(string id) => id.StartsWith(UiTemplate.TopToolPrefix)
+            ? ToolItem(id[UiTemplate.TopToolPrefix.Length..], _tools.First(x => x.key == id[UiTemplate.TopToolPrefix.Length..]).label)
+            : Item(id, UiTemplate.TopButtons.First(b => b.Id == id).Text);
         var state = new
         {
             fonts = new System.Drawing.Text.InstalledFontCollection().Families.Select(f => f.Name).ToArray(),
@@ -549,12 +558,12 @@ public class UiTemplateForm : ThemedForm
             items = t.Items,
             zones = new object[]
             {
-                new { id = "script", title = "Thanh trên — Script", hint = "Kéo để đổi thứ tự", prefix = "script:",
-                      items = scriptIds.Select(id => Item(id, UiTemplate.ScriptButtons.First(b => b.Id == id).Text)).ToArray() },
+                new { id = "script", title = "Thanh trên", hint = "Kéo để đổi thứ tự; kéo nút từ khung \"Thanh công cụ\" lên đây để đưa lên thanh trên (kéo xuống lại để trả về)", prefix = "script:",
+                      items = topIds.Select(TopItem).ToArray() },
                 new { id = "tools", title = "Thanh công cụ", hint = "Kéo để đổi thứ tự; kéo xuống khung \"Ẩn\" để giấu", prefix = "tool:",
-                      items = _tools.Where(x => !hidden.Contains(x.key)).Select(x => Item(x.key, x.label)).ToArray() },
+                      items = _tools.Where(x => !hidden.Contains(x.key) && !onTop.Contains(x.key)).Select(x => ToolItem(x.key, x.label)).ToArray() },
                 new { id = "hidden", title = "Ẩn khỏi thanh công cụ", hint = "Kéo ngược lên khung \"Thanh công cụ\" để hiện lại", prefix = "tool:",
-                      items = _tools.Where(x => hidden.Contains(x.key)).Select(x => Item(x.key, x.label)).ToArray() },
+                      items = _tools.Where(x => hidden.Contains(x.key) && !onTop.Contains(x.key)).Select(x => ToolItem(x.key, x.label)).ToArray() },
             },
         };
         Js($"window.init({JsonSerializer.Serialize(state, Web)}, {(AppColors.IsDark ? "true" : "false")})");

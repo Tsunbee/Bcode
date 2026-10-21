@@ -85,7 +85,7 @@ public class WCommandTreeControl : UserControl
         _barWeb.Dock = DockStyle.Top;
         _barWeb.Height = 34;
 
-        _tree = new TreeView { Dock = DockStyle.Fill, HideSelection = false };
+        _tree = new SafeTreeView { Dock = DockStyle.Fill, HideSelection = false };
         // "Fcode's lookup bars are smooth — check what makes them not lag." TreeView (like
         // DataGridView, see GridDisplayHelper) doesn't double-buffer itself by default, which
         // shows up as flicker/tearing repainting ~1600 wcommand rows' worth of nodes. This was

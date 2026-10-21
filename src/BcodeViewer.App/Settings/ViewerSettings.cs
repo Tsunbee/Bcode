@@ -140,6 +140,10 @@ public class ViewerSettings
     /// <summary>Thứ tự các nút trên thanh công cụ do người dùng sắp xếp: tên nút, "|" = vạch ngăn, "cmd:&lt;id&gt;" = nút thêm cho 1 chức năng bất kỳ. Rỗng = thứ tự mặc định.</summary>
     public List<string> ToolbarOrder { get; set; } = new();
 
+    /// <summary>Nhóm nút của thanh công cụ (Web/toolbar.js): trên thanh là 1 nút "Tên ▾" (token "grp:&lt;Id&gt;" trong <see cref="ToolbarOrder"/>), bấm hoặc
+    /// Alt+số thứ tự nhóm (phím bar.groupN ở Settings → Phím tắt) thả menu các nút trong nhóm. Rỗng = không có nhóm (thanh như cũ).</summary>
+    public List<ViewerToolbarGroup> ToolbarGroups { get; set; } = new();
+
     /// <summary>Bố cục giao diện: khoá → giá trị ("menubar"/"toolbar"/"breadcrumb"/"tabstrip" = "0" để ẩn, "sidebarSide" = "left"|"right"...). Không có khoá = mặc định.</summary>
     public Dictionary<string, string> LayoutPrefs { get; set; } = new();
 
@@ -178,4 +182,14 @@ public class ViewerSettings
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(SettingsPath, json);
     }
+}
+
+/// <summary>1 nhóm nút trên thanh công cụ của Viewer — xem <see cref="ViewerSettings.ToolbarGroups"/>.</summary>
+public sealed class ViewerToolbarGroup
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+
+    /// <summary>Token các nút trong nhóm (tên nút / "cmd:&lt;id&gt;"), theo thứ tự trong menu của nhóm.</summary>
+    public List<string> Items { get; set; } = new();
 }

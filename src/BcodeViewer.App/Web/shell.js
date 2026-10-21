@@ -6,37 +6,39 @@
 // lệnh ngược lại bằng host.ShellCommand(cmd, arg). Lệnh của editor (Save, Undo, Problems...) gọi thẳng
 // window.bcodeViewer như các phím tắt vẫn làm.
 
+// Thanh công cụ MẶC ĐỊNH (thứ tự, vạch ngăn) — người dùng ghim / nhóm / sắp xếp lại ở Web/toolbar.js. icon = dùng khi kiểu nút là "icon",
+// cmd = chức năng tương ứng trong bảng phím tắt (keys.js) để hiện phím hiện hành trong menu nhóm.
 const SHELL_TOOLBAR = [
-  { text: 'Save', run: (b) => b.saveActive(), title: 'Lưu (Ctrl+S)' },
-  { text: 'Save As', run: (b) => b.saveActiveAs() },
-  { text: '⚠ Check', run: () => window.bcodeCheckField && window.bcodeCheckField.toggle(), title: 'Check Field — đối chiếu khai báo <fields> với <views> của Grid / Dir (thiếu, trùng), copy XML của view' },
+  { text: 'Save', icon: '💾', cmd: 'file.save', run: (b) => b.saveActive(), title: 'Lưu (Ctrl+S)' },
+  { text: 'Save As', icon: '📝', cmd: 'file.saveAs', run: (b) => b.saveActiveAs() },
+  { text: '⚠ Check', icon: '⚠', cmd: 'tool.checkField', run: () => window.bcodeCheckField && window.bcodeCheckField.toggle(), title: 'Check Field — đối chiếu khai báo <fields> với <views> của Grid / Dir (thiếu, trùng), copy XML của view' },
   { sep: true },
-  { text: 'Undo', run: (b) => b.undo(), title: 'Hoàn tác (Ctrl+Z)' },
-  { text: 'Redo', run: (b) => b.redo(), title: 'Làm lại (Ctrl+Y)' },
+  { text: 'Undo', icon: '↶', cmd: 'edit.undo', run: (b) => b.undo(), title: 'Hoàn tác (Ctrl+Z)' },
+  { text: 'Redo', icon: '↷', cmd: 'edit.redo', run: (b) => b.redo(), title: 'Làm lại (Ctrl+Y)' },
   { sep: true },
-  { text: 'Comment', run: (b) => b.toggleComment(), title: 'Comment/bỏ comment dòng (Ctrl+/)' },
+  { text: 'Comment', icon: '//', cmd: 'edit.comment', run: (b) => b.toggleComment(), title: 'Comment/bỏ comment dòng (Ctrl+/)' },
   { sep: true },
-  { text: 'Bookmark', run: (b) => b.toggleBookmark() },
-  { text: '● Next', run: (b) => b.nextBookmark(), title: 'Tới bookmark kế tiếp' },
+  { text: 'Bookmark', icon: '🔖', cmd: 'edit.bookmark', run: (b) => b.toggleBookmark() },
+  { text: '● Next', icon: '⤵', cmd: 'edit.nextBookmark', run: (b) => b.nextBookmark(), title: 'Tới bookmark kế tiếp' },
   { sep: true },
-  { text: 'Refresh', run: (b) => b.refreshActive(), title: 'Tải lại file từ đĩa' },
+  { text: 'Refresh', icon: '⟳', cmd: 'file.refresh', run: (b) => b.refreshActive(), title: 'Tải lại file từ đĩa' },
   { sep: true },
-  { text: 'Hint', run: (b) => b.openHintCode(), title: 'Hint Code — thư viện snippet' },
+  { text: 'Hint', icon: '💡', cmd: 'edit.hint', run: (b) => b.openHintCode(), title: 'Hint Code — thư viện snippet' },
   { sep: true },
-  { text: 'Tìm project', run: (b) => b.openSearch(), title: 'Tìm trong toàn bộ project (Ctrl+Shift+F)' },
-  { text: 'Problems', run: (b) => b.toggleProblemsPanel(), title: 'Bảng lỗi/cảnh báo (Ctrl+Shift+M)' },
-  { text: 'Outline', run: (b) => b.toggleOutlinePanel(), title: 'Cấu trúc file (Ctrl+Shift+U)' },
-  { text: 'Xem Dir', run: (b) => b.toggleDirPreview(), title: 'Xem trước màn hình Dir (Alt+P)' },
-  { text: 'Chạy SQL', run: (b) => b.runSql(), title: 'Chạy câu SQL tại con trỏ trên WS Bcode đang chọn (Ctrl+Enter)' },
-  { text: 'Tách đôi', run: (b) => b.toggleSplit(), title: 'Tách đôi khung soạn thảo (Ctrl+\\)' },
-  { text: 'Wrap', run: (b) => b.toggleWordWrap(), toggle: (b) => b.isWordWrap(), title: 'Tự ngắt dòng dài theo bề ngang khung (Alt+Z) — nhẹ hơn tự thu nhỏ cỡ chữ' },
+  { text: 'Tìm project', icon: '🔍', cmd: 'panel.search', run: (b) => b.openSearch(), title: 'Tìm trong toàn bộ project (Ctrl+Shift+F)' },
+  { text: 'Problems', icon: '⛔', cmd: 'panel.problems', run: (b) => b.toggleProblemsPanel(), title: 'Bảng lỗi/cảnh báo (Ctrl+Shift+M)' },
+  { text: 'Outline', icon: '☰', cmd: 'panel.outline', run: (b) => b.toggleOutlinePanel(), title: 'Cấu trúc file (Ctrl+Shift+U)' },
+  { text: 'Xem Dir', icon: '🖼', cmd: 'panel.dirPreview', run: (b) => b.toggleDirPreview(), title: 'Xem trước màn hình Dir (Alt+P)' },
+  { text: 'Chạy SQL', icon: '▶', cmd: 'tool.runSql', run: (b) => b.runSql(), title: 'Chạy câu SQL tại con trỏ trên WS Bcode đang chọn (Ctrl+Enter)' },
+  { text: 'Tách đôi', icon: '◫', cmd: 'view.split', run: (b) => b.toggleSplit(), title: 'Tách đôi khung soạn thảo (Ctrl+\\)' },
+  { text: 'Wrap', icon: '↩', cmd: 'view.wrap', run: (b) => b.toggleWordWrap(), toggle: (b) => b.isWordWrap(), title: 'Tự ngắt dòng dài theo bề ngang khung (Alt+Z) — nhẹ hơn tự thu nhỏ cỡ chữ' },
   { sep: true },
-  { text: '🤖 Claude Sidebar', host: 'toggleClaude' },
-  { text: '✨ Gemini Sidebar', host: 'toggleGemini' },
-  { text: '📎 Đính kèm file', host: 'attachFile', title: 'Đính kèm file đang mở vào ô chat của sidebar AI đang hiện' },
-  { text: 'Clear Structure', host: 'clearStructure', title: 'Xoá file trong Controllers\\Structure\\App' },
-  { text: 'Reset WebConfig', host: 'refreshWebConfig', title: 'Chạm web.config để IIS nạp lại site' },
-  { text: 'Open WebConfig', host: 'openWebConfig', title: 'Mở web.config của site (thư mục chứa App_Data của file đang mở) thành 1 tab' },
+  { text: '🤖 Claude Sidebar', icon: '🤖', cmd: 'panel.claude', host: 'toggleClaude' },
+  { text: '✨ Gemini Sidebar', icon: '✨', cmd: 'panel.gemini', host: 'toggleGemini' },
+  { text: '📎 Đính kèm file', icon: '📎', cmd: 'panel.attach', host: 'attachFile', title: 'Đính kèm file đang mở vào ô chat của sidebar AI đang hiện' },
+  { text: 'Clear Structure', icon: '🧹', cmd: 'tool.clearStructure', host: 'clearStructure', title: 'Xoá file trong Controllers\\Structure\\App' },
+  { text: 'Reset WebConfig', icon: '♻', cmd: 'tool.refreshWebConfig', host: 'refreshWebConfig', title: 'Chạm web.config để IIS nạp lại site' },
+  { text: 'Open WebConfig', icon: '🌐', cmd: 'tool.openWebConfig', host: 'openWebConfig', title: 'Mở web.config của site (thư mục chứa App_Data của file đang mở) thành 1 tab' },
 ];
 
 class BcodeShell {
@@ -44,7 +46,6 @@ class BcodeShell {
     this.bcode = bcode;
     this.host = window.chrome && window.chrome.webview ? window.chrome.webview.hostObjects.host : null;
     this.tree = { header: '', nodes: [], activePath: null };
-    this.hidden = new Set();
     this.openMenu = null;
     this.autoHide = this.load('shell.autoHide') === '1';
 
@@ -57,7 +58,8 @@ class BcodeShell {
     this.applyLayout();
 
     document.addEventListener('mousedown', (e) => {
-      if (this.openMenu && !e.target.closest('.shMenu') && !e.target.closest('.shMenuTitle')) this.closeMenu();
+      // Nút nhóm của thanh công cụ tự đóng/mở menu của nó khi bấm (toolbar.js) — như tiêu đề menu.
+      if (this.openMenu && !e.target.closest('.shMenu') && !e.target.closest('.shMenuTitle, .shTbGroup')) this.closeMenu();
     }, true);
     window.addEventListener('blur', () => this.closeMenu());
     document.addEventListener('keydown', (e) => this.onKey(e), true);
@@ -77,7 +79,8 @@ class BcodeShell {
   async refreshState() {
     try {
       this.state = JSON.parse(await this.host.GetShellState());
-      this.hidden = new Set(this.state.hiddenToolbar || []);
+      // Nút đã bỏ ghim: host là bản gốc; toolbar.js đọc từ bcodePrefs (cùng ViewerSettings.HiddenToolbarItems).
+      if (window.bcodePrefs && Array.isArray(this.state.hiddenToolbar)) window.bcodePrefs.data.hiddenToolbar = this.state.hiddenToolbar;
     } catch { this.state = null; }
     this.renderToolbar();
   }
@@ -114,12 +117,8 @@ class BcodeShell {
       { label: 'Theo Windows (sáng/tối)', checked: !!st.themes.followSystem, run: () => this.cmd('themeSystem') },
     );
 
-    const toolbarItems = this.toolbarTokens().filter((t) => t !== '|').map((t) => ({
-      label: this.tokenLabel(t), checked: !this.hidden.has(t), keepOpen: true,
-      run: () => { this.hidden.has(t) ? this.hidden.delete(t) : this.hidden.add(t); this.saveHidden(); },
-    }));
-    toolbarItems.push({ sep: true }, { label: 'Hiện tất cả', keepOpen: true, run: () => { this.hidden.clear(); this.saveHidden(); } },
-      { label: 'Sắp xếp / thêm nút...', run: () => this.bcode.openSettings('layout') });
+    // Tick = ghim (hiện trên thanh); nút chưa ghim, nhóm, kiểu nút, vị trí thanh: Web/toolbar.js.
+    const toolbarItems = this.tb.gearItems();
 
     return [
       { title: 'File', items: [
@@ -168,11 +167,8 @@ class BcodeShell {
     this.menubar.className = 'shMenubar';
     this.toolbar = document.createElement('div');
     this.toolbar.className = 'shToolbar';
-    this.toolbar.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      const title = [...this.menubar.children].find((t) => t.textContent === '⚙ Toolbar');
-      if (title) this.showMenu(title, 5, e.clientX, e.clientY);
-    });
+    // Ghim / nhóm / kéo thả / chuột phải / vị trí thanh: Web/toolbar.js.
+    this.tb = new BcodeToolbar(this);
     this.breadcrumb = document.createElement('div');
     this.breadcrumb.className = 'shBreadcrumb';
     this.top.append(this.menubar, this.toolbar, this.breadcrumb);
@@ -190,6 +186,25 @@ class BcodeShell {
       this.menubar.appendChild(el);
     });
     this.renderToolbar();
+  }
+
+  /// Chuột phải chỗ trống của thanh công cụ: mở menu ⚙ Toolbar tại con trỏ (như trước).
+  showToolbarMenu(x, y) {
+    const title = [...this.menubar.children].find((t) => t.classList.contains('shMenuTitle') && t.textContent === '⚙ Toolbar');
+    if (title) this.showMenu(title, 5, x, y);
+  }
+
+  /// Menu nổi tại (x, y) — chuột phải cây file, nút trên thanh công cụ, menu nhóm. <titleEl> (nếu có) được tô "open" khi menu đang mở.
+  showMenuAt(items, x, y, titleEl) {
+    this.closeMenu();
+    const menu = this.renderMenu(items);
+    document.body.appendChild(menu);
+    menu.style.left = Math.max(0, Math.min(x, window.innerWidth - menu.offsetWidth - 4)) + 'px';
+    menu.style.top = Math.max(0, Math.min(y, window.innerHeight - menu.offsetHeight - 4)) + 'px';
+    const el = titleEl || document.createElement('span');
+    el.classList.add('open');
+    this.openMenu = { index: -1, menu, titleEl: el };
+    return menu;
   }
 
   async showMenu(titleEl, index, x, y) {
@@ -238,12 +253,17 @@ class BcodeShell {
         sub.classList.add('shSubmenu');
         row.appendChild(sub);
         row.addEventListener('mouseenter', () => {
+          // position: fixed theo toạ độ màn hình — menu cha có overflow-y (cuộn khi dài) nên menu con absolute bên trong bị cắt mất.
           sub.style.display = 'block';
+          sub.style.position = 'fixed';
           const rr = row.getBoundingClientRect();
-          sub.style.left = (rr.right + sub.offsetWidth > window.innerWidth ? -sub.offsetWidth : rr.width) + 'px';
+          sub.style.left = Math.max(0, rr.right + sub.offsetWidth > window.innerWidth ? rr.left - sub.offsetWidth : rr.right) + 'px';
+          sub.style.top = Math.max(0, Math.min(rr.top - 5, window.innerHeight - sub.offsetHeight - 4)) + 'px';
         });
         row.addEventListener('mouseleave', () => { sub.style.display = 'none'; });
       } else {
+        // Chuột phải 1 mục (menu nhóm của thanh công cụ: đưa ra thanh, chuyển nhóm, bỏ ghim...).
+        if (it.context) row.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); it.context(e); });
         row.addEventListener('click', (e) => {
           e.stopPropagation();
           if (it.keepOpen) {
@@ -271,68 +291,13 @@ class BcodeShell {
 
   // ---- toolbar -------------------------------------------------------------------------------
 
-  saveHidden() {
-    try { this.host.SetHiddenToolbar(JSON.stringify([...this.hidden])); } catch { /* no host */ }
-    this.renderToolbar();
-  }
+  /// Thứ tự nút trên thanh (đã chuẩn hoá, gồm "grp:<id>" của nhóm) — Settings → Bố cục dùng. Chi tiết token: Web/toolbar.js (BcodeTbModel).
+  defaultTokens() { return BcodeTbModel.defaults(); }
+  toolbarTokens() { return this.tb.model().order; }
+  tokenLabel(t) { return BcodeTbModel.label(t, this.tb.model()); }
 
-  /// Thứ tự nút trên thanh công cụ: theo người dùng sắp xếp (Settings → Bố cục) hoặc mặc định; nút mới của bản cập nhật chưa có trong thứ tự
-  /// thì chèn ngay sau nút đứng trước nó trong thứ tự mặc định (vd Open WebConfig cạnh Reset WebConfig), không có thì nối vào cuối.
-  /// Mỗi phần tử: tên nút (SHELL_TOOLBAR), "|" = vạch ngăn, "cmd:<id>" = nút thêm cho 1 chức năng bất kỳ của bảng phím tắt.
-  defaultTokens() { return SHELL_TOOLBAR.map((t) => (t.sep ? '|' : t.text)); }
-
-  toolbarTokens() {
-    const known = new Set(SHELL_TOOLBAR.filter((t) => !t.sep).map((t) => t.text));
-    const saved = (window.bcodePrefs && window.bcodePrefs.data.toolbarOrder) || [];
-    if (!saved.length) return this.defaultTokens();
-    const out = saved.filter((t) => t === '|' || known.has(t) || (t.startsWith('cmd:') && window.bcodeKeys && window.bcodeKeys.find(t.slice(4))));
-    const defs = SHELL_TOOLBAR.filter((t) => !t.sep).map((t) => t.text);
-    defs.forEach((t, i) => {
-      if (out.includes(t)) return;
-      let at = -1;
-      for (let j = i - 1; j >= 0 && at < 0; j--) at = out.indexOf(defs[j]);
-      if (at >= 0) out.splice(at + 1, 0, t); else out.push(t);
-    });
-    return out;
-  }
-
-  tokenLabel(t) {
-    if (t.startsWith('cmd:')) { const c = window.bcodeKeys && window.bcodeKeys.find(t.slice(4)); return c ? c.label : t; }
-    return t;
-  }
-
-  renderToolbar() {
-    if (!this.toolbar) return;
-    this.toolbar.textContent = '';
-    let pendingSep = false, any = false;
-    for (const tok of this.toolbarTokens()) {
-      if (tok === '|') { pendingSep = any; continue; }
-      if (this.hidden.has(tok)) continue;
-      let text, title, click, toggleFn = null;
-      if (tok.startsWith('cmd:')) {
-        const c = window.bcodeKeys && window.bcodeKeys.find(tok.slice(4));
-        if (!c) continue;
-        const key = window.bcodeKeys.get(c.id);
-        text = c.label; title = c.label + (key ? ` (${key})` : '');
-        click = () => c.run(this.bcode);
-      } else {
-        const t = SHELL_TOOLBAR.find((x) => x.text === tok);
-        if (!t) continue;
-        text = t.text; title = t.title; toggleFn = t.toggle || null;
-        click = () => (t.host ? this.cmd(t.host) : t.run(this.bcode));
-      }
-      if (pendingSep) { this.toolbar.appendChild(Object.assign(document.createElement('span'), { className: 'shTbSep' })); pendingSep = false; }
-      const btn = document.createElement('button');
-      btn.className = 'shTbBtn';
-      if (toggleFn) btn.classList.toggle('on', !!toggleFn(this.bcode));   // nút bật/tắt (Wrap): sáng khi đang bật
-      btn.textContent = text;
-      if (title) btn.title = title;
-      btn.addEventListener('mousedown', (e) => e.preventDefault()); // giữ focus trong editor
-      btn.onclick = click;
-      this.toolbar.appendChild(btn);
-      any = true;
-    }
-  }
+  /// Vẽ lại thanh công cụ (vd nút Wrap đổi sáng/tối theo trạng thái — editor.js gọi).
+  renderToolbar() { if (this.tb) this.tb.render(); }
 
   // ---- bố cục do người dùng chọn (Settings → Bố cục) -------------------------------------------
 
@@ -345,8 +310,10 @@ class BcodeShell {
     show(this.toolbar, P.layoutOn('toolbar'));
     show(this.breadcrumb, P.layoutOn('breadcrumb'));
     show(document.getElementById('tabStrip'), P.layoutOn('tabstrip'));
+    // Thanh công cụ trên (mặc định) / cùng hàng menu / dưới cùng cửa sổ — Settings → Bố cục hoặc chuột phải thanh công cụ.
+    const tbPos = this.tb.applyPosition();
     // Cả khung trên cùng trống thì không để lại dải rỗng.
-    if (this.top) this.top.style.display = (P.layoutOn('menubar') || P.layoutOn('toolbar') || P.layoutOn('breadcrumb')) ? '' : 'none';
+    if (this.top) this.top.style.display = (P.layoutOn('menubar') || (P.layoutOn('toolbar') && tbPos !== 'bottom') || P.layoutOn('breadcrumb')) ? '' : 'none';
     const right = P.layout('sidebarSide', 'left') === 'right';
     document.getElementById('main').classList.toggle('shSidebarRight', right);
     const w = parseInt(P.layout('sidebarWidth', ''), 10);

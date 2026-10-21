@@ -19,6 +19,15 @@ const GOTO_HOT = {
     'on$voucher$responsecomplete': 'a',
   },
 };
+// Theo mẫu (sau khi không khớp đúng tên ở trên): ExecuteCommand / ResponseComplete của MỌI đối tượng — on$Voucher$…, on$GridVoucherDetail$…,
+// lưới chi tiết khác — và onChange$Grid…[$] (có hay không có $ cuối).
+const GOTO_HOT_RULES = {
+  script: [
+    [/^on\$[\w]+\$executecommand$/, 'b'],
+    [/^on\$[\w]+\$responsecomplete$/, 'a'],
+    [/^onchange\$grid\w*\$?$/, 'a'],
+  ],
+};
 const GOTO_HOT_COLOR = { a: '#e5a00d', b: '#f14c4c' };
 
 const GOTO_TAGS = ['fields', 'command', 'script', 'response', 'css', 'ENTITY'];
@@ -77,7 +86,9 @@ class BcodeGoto {
     const out = {};
     for (const t of GOTO_TAGS) out[t] = [];
     const add = (tag, label, offset, nameOffset) => {
-      const hot = GOTO_HOT[tag] ? GOTO_HOT[tag][label.toLowerCase()] : undefined;
+      const key = label.toLowerCase();
+      let hot = GOTO_HOT[tag] ? GOTO_HOT[tag][key] : undefined;
+      if (!hot && GOTO_HOT_RULES[tag]) { const r = GOTO_HOT_RULES[tag].find(([re]) => re.test(key)); if (r) hot = r[1]; }
       out[tag].push({ label, offset, nameOffset: nameOffset == null ? offset : nameOffset, hot });
     };
     const first = (re) => { const m = re.exec(text); return m ? m.index : -1; };

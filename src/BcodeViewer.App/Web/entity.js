@@ -688,6 +688,25 @@ class BcodeEntity {
     return null;
   }
 
+  /// Chữ dưới con trỏ chắc chắn KHÔNG phải tên entity: ký tự có sẵn của XML (&lt; &gt; &amp; &quot; &apos;, &#123; / &#x1F;) hoặc
+  /// từ khoá khai báo (<!ENTITY, <!DOCTYPE, SYSTEM, PUBLIC...). Trả lý do để báo, '' = có thể là entity.
+  /// Trước đây những chữ này đi hết đường tra rồi quét cả project tới giới hạn 6 giây (đo: 6–13 giây mỗi lần bấm nhầm F12).
+  notEntityReason() {
+    const model = this.bcode.currentModel;
+    const pos = this.bcode.editor.getPosition();
+    if (!model || !pos) return '';
+    const w = this.getEntityWordAtPosition(model, pos);
+    if (!w) return '';
+    const line = model.getLineContent(pos.lineNumber);
+    const before = line.slice(0, w.startColumn - 1);
+    const after = line.slice(w.endColumn - 1);
+    if (/&$/.test(before) && /^(lt|gt|amp|quot|apos)$/.test(w.word) && after.startsWith(';')) return `&${w.word}; là ký tự có sẵn của XML, không phải entity.`;
+    if (/&#x?$/i.test(before) || /&#x?[0-9a-f]*$/i.test(before + w.word) && after.startsWith(';')) return 'Đây là mã ký tự XML (&#...;), không phải entity.';
+    if (/<!$/.test(before) && /^(ENTITY|DOCTYPE|ELEMENT|ATTLIST|NOTATION)$/.test(w.word)) return `<!${w.word} là từ khoá khai báo — đặt con trỏ lên TÊN entity hoặc đường dẫn file để F12.`;
+    if (/<!(ENTITY|DOCTYPE)\b/.test(before) && /^(SYSTEM|PUBLIC|NDATA)$/.test(w.word)) return `${w.word} là từ khoá khai báo — đặt con trỏ lên TÊN entity hoặc đường dẫn file để F12.`;
+    return '';
+  }
+
   nameAtCaret() {
     const model = this.bcode.currentModel;
     const pos = this.bcode.editor.getPosition();
@@ -766,6 +785,8 @@ class BcodeEntity {
 
     const name = this.nameAtCaret();
     if (!name) return false;
+    const notEntity = this.notEntityReason();
+    if (notEntity) { this.bcode.showToast(notEntity, 4000); return false; }
     this._noContext = false;
     let found = await this.resolveActive(name);
     if (!found && this._noContext) {

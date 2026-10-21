@@ -449,7 +449,8 @@
     return {
       fontFamily: S.global.fontFamily, fontSize: S.global.fontSize,
       kinds: S.kinds, items,
-      scriptOrder: ids('script'),
+      // Nút thanh công cụ nằm ở khung Thanh trên lưu dạng "tool:key".
+      scriptOrder: S.zones.find(x => x.id === 'script').items.map(i => (i.prefix === 'tool:' ? 'tool:' : '') + i.id),
       toolOrder: ids('tools').concat(ids('hidden')),
       toolHidden: ids('hidden'),
       darkTheme: S.theme.dark, lightTheme: S.theme.light,
@@ -489,26 +490,29 @@
     });
   }
 
+  // Khoá style của một mục: nút thanh công cụ mang prefix "tool:" riêng (đi theo nút khi kéo lên thanh trên), còn lại theo khung.
+  const keyOf = (z, it) => (it.prefix || z.prefix) + it.id;
+
   function makeChip(z, it) {
-    const key = z.prefix + it.id, st = S.items[key];
+    const key = keyOf(z, it), st = S.items[key];
     const c = document.createElement('div'); c.className = 'chip'; c.draggable = true; c.dataset.id = it.id; c.dataset.zone = z.id;
     c.textContent = (st && st.text) || it.text;
     if (hasAny(st)) c.classList.add('changed');
     if (selected && selected.id === it.id && selected.zoneId === z.id) c.classList.add('sel');
     styleChip(c, st);
     c.addEventListener('click', () => { selected = { zoneId: z.id, id: it.id }; renderFrames(); renderItemEditor(); });
-    c.addEventListener('dragstart', e => { dragging = { id: it.id, from: z.id }; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); });
+    c.addEventListener('dragstart', e => { dragging = { id: it.id, from: z.id, tool: it.prefix === 'tool:' }; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); });
     c.addEventListener('dragend', () => { dragging = null; setTimeout(renderFrames, 0); }); // thả ngoài khung/huỷ: dựng lại theo dữ liệu thật
     return c;
   }
 
-  // Khung "script" chỉ nhận nút của chính nó; "tools" và "hidden" đổi chỗ qua lại được.
-  const accepts = (target, from) => target === from || (target !== 'script' && from !== 'script');
+  // Nút có sẵn của thanh trên chỉ đổi chỗ trong khung của nó; nút thanh công cụ kéo qua lại được giữa "Thanh trên", "Thanh công cụ" và "Ẩn".
+  const accepts = (target, drag) => target === drag.from || drag.tool;
 
   function wireDrop(drop, z) {
     drop.addEventListener('dragover', e => {
       if (!dragging) return;
-      const ok = accepts(z.id, dragging.from);
+      const ok = accepts(z.id, dragging);
       drop.classList.toggle('over', ok); drop.classList.toggle('reject', !ok);
       if (!ok) return;
       e.preventDefault();
@@ -519,7 +523,7 @@
     drop.addEventListener('dragleave', () => drop.classList.remove('over', 'reject'));
     drop.addEventListener('drop', e => {
       e.preventDefault();
-      if (!dragging || !accepts(z.id, dragging.from)) return;
+      if (!dragging || !accepts(z.id, dragging)) return;
       commitFromDom();
     });
   }
@@ -600,7 +604,7 @@
     const host = $('itemEditor');
     if (!selected) { host.innerHTML = '<div class="none">Bấm một nút/nhãn ở các khung bên trái để đổi chữ, font, màu.</div>'; return; }
     const z = S.zones.find(x => x.id === selected.zoneId), it = z.items.find(i => i.id === selected.id);
-    const key = z.prefix + it.id;
+    const key = keyOf(z, it);
     const st = S.items[key] || (S.items[key] = {});
     host.innerHTML = '';
     const title = document.createElement('div'); title.className = 'muted'; title.style.marginBottom = '8px'; title.textContent = z.title + ' › ' + it.text;

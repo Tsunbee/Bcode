@@ -159,7 +159,7 @@ def diag_viewer():
 
     group(ax, 2, 38, 96, 27, 'Web/ (WebView2) — Monaco + JS thuần, nạp theo thứ tự trong index.html', 'web', fs=10)
     cols = [
-        ('Khung & tiện ích', 'shell.js (menu/toolbar/cây file)\nui.js (hộp thoại theo theme)\nkeys.js (phím tắt tuỳ chỉnh)\nsettings.js · templates.js\ntabs.js · tabswitcher.js · quickopen.js\ntheme.js · dock.js · hostcall.js\nperfwatch.js (log độ mượt)'),
+        ('Khung & tiện ích', 'shell.js (menu/toolbar/cây file)\ntoolbar.js (ghim / nhóm nút)\nui.js (hộp thoại theo theme)\nkeys.js (phím tắt tuỳ chỉnh)\nsettings.js · templates.js\ntabs.js · tabswitcher.js · quickopen.js\ntheme.js · dock.js · hostcall.js\nperfwatch.js (log độ mượt)'),
         ('Soạn thảo', 'editor.js (Monaco, tab, model,\nCtrl+Tab nhẹ)\nfcode-language.js (cú pháp FCode)\ncontextmenu.js (Goto File/Function,\nOpen Folder, Image File, Ctrl+I,\ndịch caption + Từ điển dịch, clone)\noutline.js · goto.js (Ctrl+G)\nhistory.js (lịch sử cục bộ + chung)'),
         ('IntelliSense & kiểm tra', 'completion.js (4 lớp gợi ý + AI ghost)\nentity.js (F12/Peek &Entity;)\nproblems.js + problems-worker.js\ncheckfield.js (Check Field:\nfields ↔ views, header)\nsearch.js (Find/Replace in Files)'),
         ('Xem trước & chạy', 'dirpreview.js + dirview.js (Alt+P Dir)\nmailpreview.js (Alt+P mail mẫu)\nsqlrun.js (Chạy SQL, Ctrl+Enter)\nchat.js (đã gỡ khỏi UI)'),
@@ -302,6 +302,7 @@ def diag_trees():
         ]),
         ('Khung & cấu hình', [
             ('Web shell (menu, toolbar, cây Project)', 'shell.js · MainForm.PushShellTree/HandleShellCommand'),
+            ('Thanh công cụ tuỳ biến (ghim · nhóm Alt+N · kéo thả · vị trí)', 'toolbar.js · ViewerSettings.ToolbarGroups'),
             ('Settings · phím tắt · bố cục · Template mới', 'settings.js · keys.js · templates.js · FileTemplateStore'),
             ('Theme (có import VS Code .json/.vsix)', 'ThemeCatalog · VsCodeThemeImporter · theme.js'),
             ('Sidebar Claude/Gemini + đính kèm file', 'MainForm · Shared/AiWebHelper'),

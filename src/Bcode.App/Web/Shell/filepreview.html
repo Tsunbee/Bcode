@@ -14,6 +14,33 @@
       position: absolute; inset: 0; display: none; padding: 16px; box-sizing: border-box;
       color: var(--bc-text-muted, #969696); font: 13px 'Roboto', 'Segoe UI', sans-serif; white-space: pre-wrap;
     }
+
+    /* Ctrl+G: hộp "Go to" (viewer/goto.js) — chép y phần "Ctrl+G" trong BcodeViewer.App/Web/style.css; sửa bên đó thì sửa cả đây. */
+    #gotoOverlay { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,.25); display: flex; align-items: flex-start; justify-content: center; padding-top: 60px; }
+    #gotoBox { width: 640px; max-width: 94vw; height: 400px; max-height: 80vh; display: flex; flex-direction: column; background: #fff; border: 1px solid #0078d7; outline: none; font: 12px 'Segoe UI', Tahoma, sans-serif; color: #000; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+    #gotoTitle { display: flex; align-items: center; gap: 8px; padding: 0 6px; height: 24px; background: #0078d7; color: #fff; }
+    #gotoGrip { flex: 1; height: 6px; background-image: radial-gradient(#fff6 1px, transparent 1px); background-size: 3px 3px; opacity: .6; }
+    #gotoClose { cursor: pointer; padding: 0 4px; }
+    #gotoClose:hover { background: #e81123; }
+    #gotoHead { display: flex; background: #333; color: #fff; font-weight: 600; height: 20px; line-height: 20px; }
+    #gotoHead .gotoColTag { width: 135px; flex: 0 0 135px; padding-left: 2px; }
+    #gotoHead .gotoColDetail { flex: 1 1 auto; padding-left: 4px; margin-left: 3px; }
+    #gotoBody { flex: 1 1 auto; display: flex; min-height: 0; background: #333; gap: 3px; }
+    #gotoTags { width: 135px; flex: 0 0 135px; background: #fff; overflow: auto; }
+    #gotoDetails { flex: 1 1 auto; background: #fff; overflow: auto; }
+    .gotoRow { display: flex; align-items: center; justify-content: space-between; height: 22px; padding: 0 4px; cursor: default; white-space: nowrap; user-select: none; }
+    .gotoRow.sel { background: #0078d7; color: #fff; }
+    .gotoDot { font-size: 9px; margin-right: 2px; }
+    .gotoEmpty { padding: 6px; color: #888; }
+    .gotoRow.hot { font-weight: 700; border-left: 3px solid transparent; }
+    .gotoRow.hota { color: #b86e00; border-left-color: #e5a00d; }
+    .gotoRow.hotb { color: #d32f2f; border-left-color: #f14c4c; }
+    .gotoRow.hot.sel { color: #fff; }
+    .gotoHotText { font-weight: 700; }
+    .gotoHota { color: #e5a00d !important; }
+    .gotoHotb { color: #f14c4c !important; }
+    .gotoHotLinea { background: rgba(229, 160, 13, .12); }
+    .gotoHotLineb { background: rgba(241, 76, 76, .12); }
   </style>
 </head>
 <body>
@@ -23,6 +50,7 @@
   <script src="viewer/vs/loader.js"></script>
   <script src="viewer/theme.js"></script>
   <script src="viewer/fcode-language.js"></script>
+  <script src="viewer/goto.js"></script>
   <script>
     const post = (msg) => { try { window.chrome.webview.postMessage(JSON.stringify(msg)); } catch { /* host gone */ } };
 
@@ -139,12 +167,21 @@
       };
       editor.addCommand(monaco.KeyCode.F12, () => f12(editor.getPosition(), true));
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => f12(editor.getPosition(), false));
-      // Ctrl+G — the host's "Go to" dialog (fields / views / command / script / response / ENTITY),
-      // replacing Monaco's own go-to-line, as in the old preview.
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => {
-        const model = editor.getModel();
-        if (model) post({ action: 'goto', offset: model.getOffsetAt(editor.getPosition()) });
+      // Ctrl+G — hộp "Go to" của BcodeViewer (viewer/goto.js: TAG fields / command / script / response / css / ENTITY + DETAIL,
+      // tô cam/đỏ mục hay dùng cả trong hộp lẫn trong editor), thay Monaco go-to-line — 2 bên giống hệt nhau.
+      // goto.js cần: editor, currentModel, revealPosition và bộ hẹn giờ window.bcodeTyping của Viewer (ở đây chỉ cần hẹn giờ thường).
+      const typingTimers = {};
+      window.bcodeTyping = window.bcodeTyping || { request: (id, fn, delay) => { clearTimeout(typingTimers[id]); typingTimers[id] = setTimeout(fn, delay); } };
+      const gotoBox = new BcodeGoto({
+        editor,
+        get currentModel() { return editor.getModel(); },
+        revealPosition(line, column) {
+          editor.setPosition({ lineNumber: line, column });
+          editor.revealPositionInCenter({ lineNumber: line, column });
+          editor.focus();
+        },
       });
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, () => gotoBox.open());
       editor.onMouseDown((e) => {
         if (e.event.ctrlKey && e.event.leftButton && e.target.position) f12(e.target.position);
       });

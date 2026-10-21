@@ -1,4 +1,3 @@
-using System.Text;
 using Bcode.App.UI;
 using ScintillaNET;
 
@@ -23,7 +22,7 @@ public partial class MonacoPreviewControl
             else if (e.Control && e.KeyCode == Keys.G) { e.Handled = e.SuppressKeyPress = true; GoToNative(); }
             else if (e.Control && e.KeyCode == Keys.F) { e.Handled = e.SuppressKeyPress = true; ShowFindNative(); }
         };
-        ThemeManager.Subscribe(this, () => { if (_ed is { IsDisposed: false }) { SqlScintilla.ApplyTheme(_ed); if (_lang != "None") SetLang(_ed, _lang); } });
+        ThemeManager.Subscribe(this, () => { if (_ed is { IsDisposed: false }) { SqlScintilla.ApplyTheme(_ed); if (_lang != "None") SetLang(_ed, _lang); ApplyHotNative(); } });
 
         _findBox = NK.Input("Tìm... (Enter = tiếp, Shift+Enter = lùi, Esc = đóng)"); _findBox.Dock = DockStyle.Fill;
         _findStatus = NK.Muted(""); _findStatus.Dock = DockStyle.Right; _findStatus.AutoSize = false; _findStatus.Width = 120; _findStatus.TextAlign = ContentAlignment.MiddleLeft;
@@ -51,7 +50,38 @@ public partial class MonacoPreviewControl
         if (lang != _lang) { _lang = lang; if (lang == "None") { FcodeLexer.Detach(ed); ed.Lexer = Lexer.Null; } else SetLang(ed, lang); }
         ed.ReadOnly = false; ed.Text = show; ed.ReadOnly = true;
         FcodeLexer.Restyle(ed);   // tô FCode ngay (file XML) — không đợi StyleNeeded
+        ApplyHotNative();
         ed.GotoPosition(0);
+    }
+
+    private const int HotIndicatorA = 16, HotIndicatorB = 17, HotMarkerA = 20, HotMarkerB = 21;
+
+    /// <summary>Tô mục hay dùng của Ctrl+G ngay trong khung xem (như BcodeViewer / chế độ Web — goto.js refreshHot): tên chữ cam / đỏ
+    /// (command Inserted / Updated, on$…$ExecuteCommand, on$…$ResponseComplete, onChange$Grid…) + nền nhạt cả dòng. Danh sách mục: <see cref="GoToBox.Scan"/>.</summary>
+    private void ApplyHotNative()
+    {
+        if (_ed is not { IsDisposed: false } ed) return;
+        var bg = ed.Styles[Style.Default].BackColor;
+        Color Tint(Color c) => Color.FromArgb((bg.R * 88 + c.R * 12) / 100, (bg.G * 88 + c.G * 12) / 100, (bg.B * 88 + c.B * 12) / 100);
+        foreach (var (ind, mark, color) in new[] { (HotIndicatorA, HotMarkerA, GoToBox.HotA), (HotIndicatorB, HotMarkerB, GoToBox.HotB) })
+        {
+            ed.Indicators[ind].Style = IndicatorStyle.TextFore;
+            ed.Indicators[ind].ForeColor = color;
+            ed.Markers[mark].Symbol = MarkerSymbol.Background;
+            ed.Markers[mark].SetBackColor(Tint(color));
+            ed.IndicatorCurrent = ind;
+            ed.IndicatorClearRange(0, ed.TextLength);
+            ed.MarkerDeleteAll(mark);
+        }
+        if (CurrentPath is null || _lang != "XML") return;
+        foreach (var items in GoToBox.Scan(_text).Values)
+            foreach (var it in items.Where(i => i.Hot != '\0'))
+            {
+                var start = Pos(it.NameOffset);
+                ed.IndicatorCurrent = it.Hot == 'a' ? HotIndicatorA : HotIndicatorB;
+                ed.IndicatorFillRange(start, Pos(it.NameOffset + it.Label.Length) - start);
+                ed.Lines[ed.LineFromPosition(start)].MarkerAdd(it.Hot == 'a' ? HotMarkerA : HotMarkerB);
+            }
     }
 
     /// <summary>File XML/FCode: bộ tô FCode (SQL / JS trong từng CDATA, như Monaco của chế độ Web); còn lại: lexer Scintilla thường.</summary>
@@ -61,22 +91,24 @@ public partial class MonacoPreviewControl
         else { FcodeLexer.Detach(ed); SqlScintilla.SetLanguage(ed, lang); }
     }
 
-    private int ByteOf(int charOffset) { charOffset = Math.Clamp(charOffset, 0, _text.Length); return Encoding.UTF8.GetByteCount(_text.AsSpan(0, charOffset)); }
-    private int CharOf(int bytePos) { var b = Encoding.UTF8.GetBytes(_text); bytePos = Math.Clamp(bytePos, 0, b.Length); return Encoding.UTF8.GetString(b, 0, bytePos).Length; }
+    /// <summary>Vị trí trong khung = vị trí ký tự trong <see cref="_text"/>: API của ScintillaNET (GotoPosition, CurrentPosition, IndicatorFillRange...) tính theo KÝ TỰ,
+    /// tự đổi sang byte bên trong. Trước đây đổi thêm 1 lần sang byte UTF-8 → file có tiếng Việt phía trước (gần như mọi file FCode) thì Ctrl+G nhảy lệch,
+    /// F12 đọc sai chữ dưới con trỏ (đo: tên hàm ở ký tự 7825, byte 7903).</summary>
+    private int Pos(int offset) => Math.Clamp(offset, 0, _text.Length);
 
     private void F12Native()
     {
         if (CurrentPath is null || _ed is null) return;
         var s = _ed.SelectionStart; var e = _ed.SelectionEnd;
-        OnF12(CharOf(_ed.CurrentPosition), e > s ? CharOf(s) : -1, e > s ? CharOf(e) : -1);
+        OnF12(Pos(_ed.CurrentPosition), e > s ? Pos(s) : -1, e > s ? Pos(e) : -1);
     }
 
     private void GoToNative()
     {
         if (CurrentPath is null || _ed is null) return;
-        if (ScriptEditorControl.ShowGoToDialog(FindForm(), _text, CharOf(_ed.CurrentPosition)) is int target)
+        if (ScriptEditorControl.ShowGoToDialog(FindForm(), _text, Pos(_ed.CurrentPosition)) is int target)
         {
-            var pos = ByteOf(target); _ed.GotoPosition(pos); _ed.ScrollCaret();
+            _ed.GotoPosition(Pos(target)); _ed.ScrollCaret();
         }
         _ed.Focus();
     }

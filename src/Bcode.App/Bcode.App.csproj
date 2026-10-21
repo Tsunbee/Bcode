@@ -52,7 +52,8 @@
     <Content Include="..\BcodeViewer.App\Web\fonts\**" LinkBase="Web\Shell\viewer\fonts">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="..\BcodeViewer.App\Web\theme.js;..\BcodeViewer.App\Web\fcode-language.js" LinkBase="Web\Shell\viewer">
+    <!-- goto.js = hộp Ctrl+G "Go to" (TAG / DETAIL, tô mục hay dùng) — preview dùng chung với BcodeViewer để 2 bên giống hệt. -->
+    <Content Include="..\BcodeViewer.App\Web\theme.js;..\BcodeViewer.App\Web\fcode-language.js;..\BcodeViewer.App\Web\goto.js" LinkBase="Web\Shell\viewer">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <!-- Mẫu file cho "Clone danh mục" (xem Services/CatalogCloneService.cs) — file rời để sửa

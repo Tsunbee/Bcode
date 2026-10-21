@@ -1,6 +1,6 @@
 // Phím tắt tuỳ chỉnh + tuỳ chọn giao diện do người dùng khai báo (Settings → Phím tắt / Bố cục).
 //
-//   window.bcodePrefs — {shortcuts:{id:combo}, toolbarOrder:[], layout:{}, hiddenToolbar:[]}, lưu ở host (ViewerSettings) qua GetUiPrefs/SetUiPrefs.
+//   window.bcodePrefs — {shortcuts:{id:combo}, toolbarOrder:[], toolbarGroups:[{id,name,items}], layout:{}, hiddenToolbar:[]}, lưu ở host (ViewerSettings) qua GetUiPrefs/SetUiPrefs.
 //   window.bcodeKeys  — bảng chức năng (BCODE_COMMANDS) + phím hiện hành + bộ bắt phím toàn trang.
 //
 // Bộ bắt phím chạy ở pha capture, đăng ký ngay khi file này nạp nên đứng TRƯỚC mọi bộ lắng nghe khác (editor, Quick Open, shell...):
@@ -60,6 +60,11 @@ const BCODE_COMMANDS = [
   ['Công cụ', 'tool.openWebConfig', 'Open Web.config (mở web.config của site)', '', () => window.bcodeShell && window.bcodeShell.cmd('openWebConfig')],
   ['Công cụ', 'tool.refreshWebConfig', 'Reset WebConfig', '', () => window.bcodeShell && window.bcodeShell.cmd('refreshWebConfig')],
   ['Công cụ', 'tool.translateDict', 'Từ điển dịch (Việt → Anh)', '', () => window.bcodeDialogs.showTranslateDictionary()],
+  ['Công cụ', 'tool.checkField', 'Check Field (đối chiếu <fields> với <views>)', '', () => window.bcodeCheckField && window.bcodeCheckField.toggle()],
+
+  // Nhóm nút trên thanh công cụ (Web/toolbar.js): Alt+N thả menu của nhóm thứ N tính từ trái — như Alt+1…5 của Bcode.
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ['Thanh công cụ', 'bar.group' + n, 'Mở nhóm nút thứ ' + n + ' trên thanh công cụ', n <= 5 ? 'Alt+' + n : '',
+    () => window.bcodeShell && window.bcodeShell.tb.openGroup(n - 1)]),
 ].map(([group, id, label, def, run]) => ({ group, id, label, def, run }));
 
 const BCODE_RESERVED = new Set(['Ctrl+C', 'Ctrl+V', 'Ctrl+X', 'Ctrl+Z', 'Ctrl+Y', 'Ctrl+A', 'Alt+F4', 'Ctrl+Alt+Delete', 'Ctrl+Shift+Escape']);
@@ -70,7 +75,7 @@ const BCODE_NAMED_KEYS = { Tab: 'Tab', Enter: 'Enter', NumpadEnter: 'Enter', Spa
 /// Tuỳ chọn người dùng — một bản duy nhất cho cả trang, nạp từ host trước khi dựng khung (index.html).
 class BcodePrefs {
   constructor() {
-    this.data = { shortcuts: {}, toolbarOrder: [], layout: {}, hiddenToolbar: [] };
+    this.data = { shortcuts: {}, toolbarOrder: [], toolbarGroups: [], layout: {}, hiddenToolbar: [] };
   }
 
   get host() {
@@ -83,7 +88,7 @@ class BcodePrefs {
       if (raw) {
         const d = JSON.parse(raw);
         this.data = {
-          shortcuts: d.shortcuts || {}, toolbarOrder: d.toolbarOrder || [], layout: d.layout || {}, hiddenToolbar: d.hiddenToolbar || [],
+          shortcuts: d.shortcuts || {}, toolbarOrder: d.toolbarOrder || [], toolbarGroups: d.toolbarGroups || [], layout: d.layout || {}, hiddenToolbar: d.hiddenToolbar || [],
         };
       }
     } catch { /* host chưa sẵn sàng — dùng mặc định */ }

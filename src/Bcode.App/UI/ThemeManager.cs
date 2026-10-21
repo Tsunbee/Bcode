@@ -22,8 +22,11 @@ public static class ThemeManager
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var log = new System.Text.StringBuilder();
             _baseFont = UiTemplate.BuildBaseFont();
-            foreach (Form f in Application.OpenForms)
+            // Duyệt bản chụp: áp theme có thể làm một form tạo lại / tạo mới handle → Application.OpenForms đổi giữa chừng
+            // ("Collection was modified; enumeration operation may not execute" khi bấm Áp dụng trong Template).
+            foreach (var f in Application.OpenForms.Cast<Form>().ToArray())
             {
+                if (f.IsDisposed) continue;
                 var t0 = sw.ElapsedMilliseconds;
                 ApplyBatched(f);
                 f.Invalidate(true);
@@ -37,7 +40,7 @@ public static class ThemeManager
         UiScale.Changed += Rebuild;
         UiTemplate.Changed += Rebuild;
         // Đổi sáng/tối: Toggle chỉ Apply cho cửa sổ chính → tô lại thanh tiêu đề của mọi cửa sổ đang mở (1 đăng ký tĩnh, không giữ form nào).
-        ThemeChanged += () => { if (UiMode.IsNative) foreach (Form f in Application.OpenForms) ApplyTitleBar(f); };
+        ThemeChanged += () => { if (UiMode.IsNative) foreach (var f in Application.OpenForms.Cast<Form>().ToArray()) ApplyTitleBar(f); };
     }
 
     // ---- Thanh tiêu đề cửa sổ theo theme (chế độ App) ----

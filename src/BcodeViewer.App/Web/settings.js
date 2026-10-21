@@ -17,9 +17,11 @@ class BcodeSettingsDialog {
     const COMMANDS = BCODE_COMMANDS;
 
     // ---- bản nháp của các tuỳ chỉnh (chỉ ghi khi OK) --------------------------------------------
+    const tbModel = window.bcodeShell ? window.bcodeShell.tb.model() : { order: [], groups: [] };   // bản sao mới, sửa thoải mái
     const draft = {
       shortcuts: { ...prefs.data.shortcuts },
-      toolbarOrder: window.bcodeShell ? window.bcodeShell.toolbarTokens().slice() : [],
+      toolbarOrder: tbModel.order,
+      groups: tbModel.groups,
       hidden: new Set(prefs.data.hiddenToolbar || []),
       layout: { ...prefs.data.layout },
     };
@@ -215,49 +217,128 @@ class BcodeSettingsDialog {
         return i;
       })());
 
-      sec('Thanh công cụ — sắp xếp, ẩn / hiện, thêm nút');
+      sec('Thanh công cụ — ghim, nhóm, sắp xếp, vị trí');
+      line('Vị trí thanh công cụ:', (() => {
+        const sel = select([['top', 'Trên — dưới thanh menu (mặc định)'], ['menu', 'Cùng hàng với thanh menu'], ['bottom', 'Dưới cùng cửa sổ']],
+          ['menu', 'bottom'].includes(draft.layout.toolbarPos) ? draft.layout.toolbarPos : 'top');
+        sel.onchange = () => { if (sel.value === 'top') delete draft.layout.toolbarPos; else draft.layout.toolbarPos = sel.value; };
+        return sel;
+      })());
+      line('Kiểu nút:', (() => {
+        const sel = select([['text', 'Chữ (mặc định)'], ['both', 'Icon + chữ'], ['icon', 'Chỉ icon (chữ hiện ở tooltip)']],
+          ['both', 'icon'].includes(draft.layout.toolbarStyle) ? draft.layout.toolbarStyle : 'text');
+        sel.onchange = () => { if (sel.value === 'text') delete draft.layout.toolbarStyle; else draft.layout.toolbarStyle = sel.value; };
+        return sel;
+      })());
       h.appendChild(Object.assign(document.createElement('div'), {
         className: 'setNote setNoteWide',
-        textContent: 'Kéo ☰ để đổi thứ tự. Bỏ tích để ẩn nút. Có thể thêm vạch ngăn và nút cho BẤT KỲ chức năng nào trong bảng phím tắt.',
+        textContent: 'Kéo ☰ để đổi thứ tự; thả lên NỬA DƯỚI dòng nhóm (▦) = cho vào nhóm. Bỏ tích = bỏ ghim: nút không hiện trên thanh nhưng vẫn chạy được ở menu ⚙ Toolbar → Nút chưa ghim, menu chính và phím tắt. '
+          + 'Nhóm hiện thành 1 nút thả menu; Alt+1…Alt+5 mở nhóm thứ 1…5 tính từ trái (đổi phím ở nhóm Phím tắt → Thanh công cụ). Trên thanh cũng kéo thả nút và chuột phải nút được.',
       }));
       const list = document.createElement('div');
       list.className = 'setTbList';
       h.appendChild(list);
-      let dragIdx = -1;
+      const groupOf = (id) => draft.groups.find((g) => g.id === id);
+      // Kéo: {kind:'top', idx} (trên thanh) | {kind:'item', gid, j} (trong nhóm). Thả: thêm {kind:'into', gid} (cuối nhóm).
+      let drag = null;
+      const tokOf = (d) => (d.kind === 'top' ? draft.toolbarOrder[d.idx] : groupOf(d.gid).items[d.j]);
+      const doDrop = (target) => {
+        const tok = tokOf(drag);
+        if (target.kind !== 'top') {
+          if (tok === '|') return;   // vạch ngăn chỉ đứng trên thanh
+          if (tok.startsWith('grp:')) target = { kind: 'top', idx: draft.toolbarOrder.indexOf('grp:' + target.gid) };   // nhóm không lồng nhóm
+        }
+        // Cùng 1 danh sách: phần tử kéo tới chiếm đúng chỗ dòng được thả (kéo xuống = đứng sau, kéo lên = đứng trước) — như trước khi có nhóm.
+        if (target.kind === 'top') {
+          if (drag.kind === 'top') { if (drag.idx === target.idx) return; draft.toolbarOrder.splice(drag.idx, 1); }
+          else groupOf(drag.gid).items.splice(drag.j, 1);
+          draft.toolbarOrder.splice(target.idx, 0, tok);
+        } else {
+          const g = groupOf(target.gid);
+          const to = target.kind === 'into' ? g.items.length : target.j;
+          if (drag.kind === 'item' && drag.gid === target.gid) { if (drag.j === to) return; g.items.splice(drag.j, 1); }
+          else if (drag.kind === 'top') draft.toolbarOrder.splice(drag.idx, 1);
+          else groupOf(drag.gid).items.splice(drag.j, 1);
+          g.items.splice(to, 0, tok);
+        }
+      };
+      const hiddenBox = (tok) => {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !draft.hidden.has(tok);
+        cb.title = 'Tích = ghim (hiện)';
+        cb.onchange = () => { if (cb.checked) draft.hidden.delete(tok); else draft.hidden.add(tok); };
+        return cb;
+      };
+      const mkRow = (cls, dragInfo, dropFor) => {
+        const r = document.createElement('div');
+        r.className = 'setTbRow' + (cls ? ' ' + cls : '');
+        if (dragInfo) {
+          r.draggable = true;
+          r.append(Object.assign(document.createElement('span'), { className: 'setTbGrip', textContent: '☰', title: 'Kéo để đổi vị trí' }));
+          r.addEventListener('dragstart', (e) => { drag = dragInfo; e.dataTransfer.effectAllowed = 'move'; r.classList.add('dragging'); });
+          r.addEventListener('dragend', () => { r.classList.remove('dragging'); });
+        }
+        // dropFor(e) → đích thả (hoặc null); dòng nhóm trả 'into' ở nửa dưới.
+        r.addEventListener('dragover', (e) => {
+          const t = drag && dropFor(e);
+          if (!t) return;
+          e.preventDefault();
+          r.classList.toggle('over', t.kind !== 'into');
+          r.classList.toggle('overInto', t.kind === 'into');
+        });
+        r.addEventListener('dragleave', () => r.classList.remove('over', 'overInto'));
+        r.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const t = drag && dropFor(e);
+          if (t) doDrop(t);
+          drag = null;
+          renderList();
+        });
+        list.appendChild(r);
+        return r;
+      };
+      const itemLabel = (tok) => (tok.startsWith('cmd:') ? ((keys.find(tok.slice(4)) || {}).label || tok) + '  (nút thêm)' : tok);
       const renderList = () => {
         list.textContent = '';
         draft.toolbarOrder.forEach((tok, idx) => {
-          const r = document.createElement('div');
-          r.className = 'setTbRow' + (tok === '|' ? ' sep' : '');
-          r.draggable = true;
-          r.append(Object.assign(document.createElement('span'), { className: 'setTbGrip', textContent: '☰', title: 'Kéo để đổi vị trí' }));
-          if (tok === '|') {
-            r.append(Object.assign(document.createElement('span'), { className: 'setTbLabel muted', textContent: '— vạch ngăn —' }));
-          } else {
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = !draft.hidden.has(tok);
-            cb.onchange = () => { if (cb.checked) draft.hidden.delete(tok); else draft.hidden.add(tok); };
-            const label = tok.startsWith('cmd:') ? ((keys.find(tok.slice(4)) || {}).label || tok) + '  (nút thêm)' : tok;
-            r.append(cb, Object.assign(document.createElement('span'), { className: 'setTbLabel', textContent: label }));
+          const top = { kind: 'top', idx };
+          if (tok.startsWith('grp:')) {
+            const g = groupOf(tok.slice(4));
+            if (!g) return;
+            const r = mkRow('grp', top, (e) => {
+              const rc = e.currentTarget.getBoundingClientRect();
+              return e.clientY > rc.top + rc.height / 2 ? { kind: 'into', gid: g.id } : top;
+            });
+            const name = input(g.name);
+            name.classList.add('setTbName');
+            name.title = 'Tên nhóm — bắt đầu bằng 1 ký hiệu (vd "🛠 Công cụ") thì kiểu "Chỉ icon" chỉ hiện ký hiệu đó';
+            name.oninput = () => { g.name = name.value.trim() || 'Nhóm'; };
+            r.append(hiddenBox(tok), Object.assign(document.createElement('span'), { textContent: '▦' }), name,
+              Object.assign(document.createElement('span'), { className: 'setTbLabel muted', textContent: `nhóm · ${g.items.length} nút` }),
+              button('✕', () => { BcodeTbModel.ungroup({ order: draft.toolbarOrder, groups: draft.groups }, g.id); draft.hidden.delete(tok); renderList(); }, 'setTbDel'));
+            r.lastChild.title = 'Bỏ nhóm — đưa các nút ra thanh';
+            g.items.forEach((it, j) => {
+              const at = { kind: 'item', gid: g.id, j };
+              const ir = mkRow('inGrp', at, () => at);
+              ir.append(hiddenBox(it), Object.assign(document.createElement('span'), { className: 'setTbLabel', textContent: itemLabel(it) }));
+              if (it.startsWith('cmd:')) ir.append(button('✕', () => { g.items.splice(j, 1); draft.hidden.delete(it); renderList(); }, 'setTbDel'));
+            });
+            if (!g.items.length) {
+              mkRow('inGrp sep', null, () => ({ kind: 'into', gid: g.id }))
+                .append(Object.assign(document.createElement('span'), { className: 'setTbLabel muted', textContent: '— kéo nút vào đây —' }));
+            }
+            return;
           }
+          const r = mkRow(tok === '|' ? 'sep' : '', top, () => top);
+          if (tok === '|') r.append(Object.assign(document.createElement('span'), { className: 'setTbLabel muted', textContent: '— vạch ngăn —' }));
+          else r.append(hiddenBox(tok), Object.assign(document.createElement('span'), { className: 'setTbLabel', textContent: itemLabel(tok) }));
           if (tok === '|' || tok.startsWith('cmd:')) {
             r.append(button('✕', () => { draft.toolbarOrder.splice(idx, 1); draft.hidden.delete(tok); renderList(); }, 'setTbDel'));
           }
-          r.addEventListener('dragstart', (e) => { dragIdx = idx; e.dataTransfer.effectAllowed = 'move'; r.classList.add('dragging'); });
-          r.addEventListener('dragend', () => { r.classList.remove('dragging'); });
-          r.addEventListener('dragover', (e) => { e.preventDefault(); r.classList.add('over'); });
-          r.addEventListener('dragleave', () => r.classList.remove('over'));
-          r.addEventListener('drop', (e) => {
-            e.preventDefault();
-            if (dragIdx < 0 || dragIdx === idx) return;
-            const [moved] = draft.toolbarOrder.splice(dragIdx, 1);
-            draft.toolbarOrder.splice(idx, 0, moved);
-            dragIdx = -1;
-            renderList();
-          });
-          list.appendChild(r);
         });
+        mkRow('sep end', null, () => ({ kind: 'top', idx: draft.toolbarOrder.length }))
+          .append(Object.assign(document.createElement('span'), { className: 'setTbLabel muted', textContent: '— thả vào đây để đưa xuống cuối thanh —' }));
       };
       renderList();
       const adder = document.createElement('div');
@@ -267,26 +348,47 @@ class BcodeSettingsDialog {
       for (const c of COMMANDS) cmdSel.add(new Option(`${c.group} › ${c.label}`, c.id));
       adder.append(
         button('+ Vạch ngăn', () => { draft.toolbarOrder.push('|'); renderList(); }),
+        button('+ Nhóm mới', () => {
+          const m = { order: draft.toolbarOrder, groups: draft.groups };
+          const id = BcodeTbModel.newGroupId(m);
+          draft.groups.push({ id, name: 'Nhóm ' + (draft.groups.length + 1), items: [] });
+          draft.toolbarOrder.push('grp:' + id);
+          renderList();
+          const inputs = list.querySelectorAll('.setTbName');
+          if (inputs.length) { inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
+        }),
+        button('Gợi ý nhóm', () => {
+          const sm = BcodeTbModel.suggest({ order: draft.toolbarOrder, groups: draft.groups });
+          draft.toolbarOrder = sm.order;
+          draft.groups = sm.groups;
+          renderList();
+          window.bcodeViewer.showToast('Đã chia nhóm gợi ý vào bản nháp — bấm OK để áp dụng', 3000);
+        }),
         cmdSel,
         button('+ Thêm nút', () => {
           const tok = 'cmd:' + cmdSel.value;
-          if (draft.toolbarOrder.includes(tok)) { window.bcodeUi.alert('Nút này đã có trên thanh công cụ.'); return; }
+          if (draft.toolbarOrder.includes(tok) || draft.groups.some((g) => g.items.includes(tok))) { window.bcodeUi.alert('Nút này đã có trên thanh công cụ.'); return; }
           draft.toolbarOrder.push(tok);
           draft.hidden.delete(tok);
           renderList();
         }),
       );
       h.appendChild(adder);
+      const resetToolbar = () => {
+        draft.toolbarOrder = window.bcodeShell.defaultTokens();
+        draft.groups = [];
+        draft.hidden = new Set();
+        delete draft.layout.toolbarPos;
+        delete draft.layout.toolbarStyle;
+      };
       const reset = document.createElement('div');
       reset.className = 'setTbAdd';
       reset.append(button('Đưa toolbar về mặc định', () => {
-        draft.toolbarOrder = window.bcodeShell.defaultTokens();
-        draft.hidden = new Set();
-        renderList();
+        resetToolbar();
+        pages.find((p) => p.id === 'layout').render();
       }), button('Đưa cả Bố cục về mặc định', () => {
+        resetToolbar();
         draft.layout = {};
-        draft.toolbarOrder = window.bcodeShell.defaultTokens();
-        draft.hidden = new Set();
         pages.find((p) => p.id === 'layout').render();
       }));
       h.appendChild(reset);
@@ -444,7 +546,7 @@ class BcodeSettingsDialog {
     customPage('backup', 'Sao lưu / chuyển máy', (h) => {
       h.appendChild(Object.assign(document.createElement('div'), {
         className: 'setNote setNoteWide',
-        textContent: 'Xuất phím tắt + thứ tự toolbar + bố cục thành 1 đoạn JSON để chép sang máy khác (hoặc lưu làm bản dự phòng), rồi dán vào và bấm "Nhập". Không gồm API key, mật khẩu và đường dẫn. Nhập chỉ nạp vào bản nháp — bấm OK mới có hiệu lực.',
+        textContent: 'Xuất phím tắt + thứ tự / nhóm toolbar + bố cục thành 1 đoạn JSON để chép sang máy khác (hoặc lưu làm bản dự phòng), rồi dán vào và bấm "Nhập". Không gồm API key, mật khẩu và đường dẫn. Nhập chỉ nạp vào bản nháp — bấm OK mới có hiệu lực.',
       }));
       const ta = document.createElement('textarea');
       ta.className = 'setInput setJson';
@@ -456,7 +558,7 @@ class BcodeSettingsDialog {
       bar.append(
         button('Xuất (từ bản nháp hiện tại)', () => {
           ta.value = JSON.stringify({
-            shortcuts: draft.shortcuts, toolbarOrder: draft.toolbarOrder, layout: draft.layout, hiddenToolbar: [...draft.hidden],
+            shortcuts: draft.shortcuts, toolbarOrder: draft.toolbarOrder, toolbarGroups: draft.groups, layout: draft.layout, hiddenToolbar: [...draft.hidden],
           }, null, 2);
           ta.select();
         }),
@@ -474,11 +576,13 @@ class BcodeSettingsDialog {
             }
           }
           if (Array.isArray(d.toolbarOrder)) draft.toolbarOrder = d.toolbarOrder.filter((t) => typeof t === 'string');
+          if (Array.isArray(d.toolbarGroups)) draft.groups = d.toolbarGroups;
           if (d.layout && typeof d.layout === 'object') draft.layout = Object.fromEntries(Object.entries(d.layout).filter(([, v]) => typeof v === 'string'));
           if (Array.isArray(d.hiddenToolbar)) draft.hidden = new Set(d.hiddenToolbar.filter((t) => typeof t === 'string'));
-          // Nạp lại thứ tự cho đủ nút (nút thiếu được nối vào cuối) rồi vẽ lại các nhóm.
-          const missing = window.bcodeShell.defaultTokens().filter((t) => t !== '|' && !draft.toolbarOrder.includes(t));
-          draft.toolbarOrder.push(...missing);
+          // Chuẩn hoá thứ tự + nhóm cho đủ nút (nút thiếu chèn cạnh nút đứng trước nó) rồi vẽ lại các nhóm.
+          const nm = BcodeTbModel.normalize(draft.toolbarOrder, draft.groups);
+          draft.toolbarOrder = nm.order;
+          draft.groups = nm.groups;
           for (const p of pages) if (p.custom && p.id !== 'backup') p.render();
           window.bcodeViewer.showToast('Đã nhập vào bản nháp — bấm OK để áp dụng', 3000);
         }),
@@ -545,9 +649,9 @@ class BcodeSettingsDialog {
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));
         // Chỉ lưu phần khác mặc định: thứ tự toolbar trùng mặc định → để rỗng (nút mới của bản cập nhật tự xuất hiện đúng chỗ).
-        const isDefaultOrder = JSON.stringify(draft.toolbarOrder) === JSON.stringify(window.bcodeShell.defaultTokens());
+        const isDefaultOrder = BcodeTbModel.isDefault({ order: draft.toolbarOrder, groups: draft.groups });
         await prefs.save({
-          shortcuts: draft.shortcuts, toolbarOrder: isDefaultOrder ? [] : draft.toolbarOrder, layout: draft.layout, hiddenToolbar: [...draft.hidden],
+          shortcuts: draft.shortcuts, toolbarOrder: isDefaultOrder ? [] : draft.toolbarOrder, toolbarGroups: draft.groups, layout: draft.layout, hiddenToolbar: [...draft.hidden],
         });
       } catch (e) {
         alert('Không lưu được Settings:\n' + e);

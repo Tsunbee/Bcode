@@ -123,12 +123,6 @@
         <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.Fields">
             <summary>Trường có thật để đối chiếu: ưu tiên .xsd, không có thì đọc Dictionary của mẫu .frx.</summary>
         </member>
-        <member name="F:ExcelToFrx.Hosting.ExcelToFrxSession._rpt">
-            <summary>Chữ tiếng Việt của tham số (từ report .xml) → params.json cho bản xem trước.</summary>
-        </member>
-        <member name="F:ExcelToFrx.Hosting.ExcelToFrxSession._rptFrx">
-            <summary>Chữ tiếng Việt của tham số (từ report .xml) → params.json cho bản xem trước.</summary>
-        </member>
         <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.RptAsync(System.Collections.Specialized.NameValueCollection,System.Byte[],System.Threading.CancellationToken)">
             <summary>Upload .rpt -> RptToFrx.exe dựng .frx + danh sách công thức để khai lại.</summary>
         </member>
@@ -137,6 +131,9 @@
             Ghi Expression người dùng sửa vào .frx: công thức -> Parameter.Expression ("" = "CRYSTAL FORMULA: ..."),
             điều kiện ẩn/hiện -> VisibleExpression="!ToBoolean(...)" của band/ô, điều kiện cộng của Total -> EvaluateCondition.
             </summary>
+        </member>
+        <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.ParamsFile">
+            <summary>Chữ tiếng Việt của tham số (từ report .xml) → params.json cho bản xem trước.</summary>
         </member>
         <member name="T:ExcelToFrx.Parsing.CellSyntax">
             <summary>

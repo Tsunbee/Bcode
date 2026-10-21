@@ -27,3 +27,7 @@ src/Bcode.KeyGen/
 **/Bcode.KeyGen.csproj
 BcodeKeyGen*.exe
 
+
+# Tool Excel -> FRX: repo git riêng (github thanhphong26/ConvertBCode), chỉ đặt cạnh Bcode.App để build;
+# build xong tự chép DLL vào src/Bcode.App/Libs/ExcelToFrx (phần đó vẫn nằm trong git của Bcode).
+src/ExcelToFrx/

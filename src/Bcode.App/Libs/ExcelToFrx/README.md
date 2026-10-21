@@ -1,7 +1,7 @@
 # Libs/ExcelToFrx/
 
 `ExcelToFrx.dll`: màn hình "Excel mẫu in → FastReport (.frx)" (tab **Excel → FRX**).
-Source: `D:\phongnt\ConvertBcode`. Đó là bản clone của `D:\phongnt\Convert\tool`, đã port sang C#
+Source: `src\ExcelToFrx` (repo git riêng, git của Bcode bỏ qua thư mục này). Đó là bản clone của `D:\phongnt\Convert\tool`, đã port sang C#
 và không cần Python. Xem `docs\GAN_VAO_BCODE.md` trong repo đó.
 
 - `FrxGenerator\`: FrxGenerator.exe (net48) + FastReport.dll của công ty. Csproj chép ra
@@ -9,4 +9,4 @@ và không cần Python. Xem `docs\GAN_VAO_BCODE.md` trong repo đó.
   nên DLL gọi exe này bằng tiến trình con.
 - `Templates\Frx\`: 28 mẫu .frx chuẩn (bộ FRX_Demo), chép ra <output>\ExcelToFrx\Templates\Frx\. Mẫu Excel trùng tên thì tự lấy làm mẫu.
 
-Cập nhật: build ConvertBcode ở cấu hình Release rồi chép đè lại ba thứ trên.
+Cập nhật: build `src\ExcelToFrx\ConvertBcode.sln` (Release) là tự chép đè ba thứ trên vào đây, xem `COPY_SANG_BCODE.md` trong đó.

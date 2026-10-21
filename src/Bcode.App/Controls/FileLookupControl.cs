@@ -51,6 +51,8 @@ public partial class FileLookupControl : UserControl
     private CancellationTokenSource? _contentSearchCts;
 
     private bool _menuMode;
+    /// <summary>Đang tìm tên file (ô Search) ngay sau khi xem cây của 1 menu: xoá trắng ô Search thì quay lại cây menu đó (_menuLink/_menuSysId vẫn giữ) thay vì cả thư mục.</summary>
+    private bool _menuBeforeSearch;
     private string _menuLink = "";
     private string _menuSysId = "";
 
@@ -268,7 +270,7 @@ public partial class FileLookupControl : UserControl
                 switch (root.GetProperty("action").GetString())
                 {
                     case "load":
-                        _menuMode = false;
+                        _menuMode = _menuBeforeSearch = false;
                         _pathText = root.GetProperty("path").GetString() ?? "";
                         _service.InvalidateCache();
                         _service.ResetParseCache(_pathText);
@@ -297,8 +299,10 @@ public partial class FileLookupControl : UserControl
                         SetAllChecked(root.TryGetProperty("value", out var cv) && cv.ValueKind == System.Text.Json.JsonValueKind.True);
                         break;
                     case "search":
-                        _menuMode = false;
                         _searchText = root.GetProperty("value").GetString() ?? "";
+                        // Gõ chữ: tìm cả thư mục như cũ (nhớ là vừa ở cây menu); xoá trắng: trả lại cây menu vừa xem.
+                        if (!string.IsNullOrWhiteSpace(_searchText)) { _menuBeforeSearch |= _menuMode; _menuMode = false; }
+                        else if (_menuBeforeSearch) { _menuMode = true; _menuBeforeSearch = false; }
                         Reload();
                         break;
                 }
@@ -337,7 +341,7 @@ public partial class FileLookupControl : UserControl
     /// <param name="load">false = chỉ đặt đường dẫn, KHÔNG quét / dựng cây (vào / đổi project, hoặc mở tab từ việc bấm menu): người dùng tự bấm menu (hoặc Load) mới chạy.</param>
     public void SetRootPath(string path, bool load = true)
     {
-        _menuMode = false;
+        _menuMode = _menuBeforeSearch = false;
         _pathText = path;
         PushPathToBar();
         if (!load)
@@ -421,6 +425,7 @@ public partial class FileLookupControl : UserControl
         // before for no reason visible to the user.
         _onlyShowFilteredOn = false;
         _menuMode = true;
+        _menuBeforeSearch = false;
         _menuLink = link;
         _menuSysId = sysId;
         _pathText = sourceRootPath;
@@ -648,7 +653,7 @@ public partial class FileLookupControl : UserControl
             return;
         }
 
-        _menuMode = false;
+        _menuMode = _menuBeforeSearch = false;
         var version = ++_loadVersion;
         // A content search reads every file — unlike a tree build it's worth actually
         // stopping the previous one rather than just ignoring its result.

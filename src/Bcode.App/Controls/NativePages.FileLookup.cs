@@ -23,6 +23,14 @@ internal sealed class FileLookupBarPage : NativePage
         _path.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Load(); } };
         _debounce.Tick += (_, _) => { _debounce.Stop(); Post(new { action = "search", value = _search.Text }); };
         _search.TextChanged += (_, _) => { if (_loading) return; _debounce.Stop(); _debounce.Start(); };
+        // Enter ở ô Search = lọc ngay (không chờ 200 ms), như Enter ở ô Path = Load.
+        _search.InputKeyDown += (_, e) =>
+        {
+            if (e.KeyCode != Keys.Enter) return;
+            e.Handled = e.SuppressKeyPress = true;
+            _debounce.Stop();
+            Post(new { action = "search", value = _search.Text });
+        };
         Disposed += (_, _) => _debounce.Dispose();
 
         var pathRow = NK.InputWithButton(_path, NK.Button("Load", Load, primary: true)); pathRow.Dock = DockStyle.Fill;

@@ -143,6 +143,12 @@
     var value = e.target.value;
     searchDebounce = setTimeout(function () { post({ action: 'search', value: value }); }, 200);
   });
+  // Enter = lọc ngay, không chờ hết 200 ms.
+  document.getElementById('searchInput').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    clearTimeout(searchDebounce);
+    post({ action: 'search', value: e.target.value });
+  });
 
   // ---- Called from C# (FileLookupControl) ----
   window.setOnlyShowLabel = function (text) {

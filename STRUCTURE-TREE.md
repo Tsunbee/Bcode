@@ -25,7 +25,7 @@ Bcode.App/
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  230
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1340
+│   ├── FileLookupControl.cs  1345
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
@@ -65,7 +65,7 @@ Bcode.App/
 │   ├── NativePages.Dialogs3.cs  199
 │   ├── NativePages.Dialogs4.cs  393
 │   ├── NativePages.EInvoice.cs  136
-│   ├── NativePages.FileLookup.cs  162
+│   ├── NativePages.FileLookup.cs  170
 │   ├── NativePages.FileTools.cs  76
 │   ├── NativePages.GenUpdate.cs  355
 │   ├── NativePages.HintsHelp.cs  123
@@ -360,7 +360,7 @@ Bcode.App/
 │       ├── dialog.css  43
 │       ├── editproject.html  121
 │       ├── entitypeek.html  182
-│       ├── filelookupbar.html  165
+│       ├── filelookupbar.html  171
 │       ├── filelookuppreview.html  98
 │       ├── filepreview.html  194
 │       ├── filereference.html  108
@@ -492,14 +492,14 @@ BcodeViewer.App/
 │   ├── quickopen.js  184
 │   ├── search.js  335
 │   ├── settings.js  693
-│   ├── shell.js  603
+│   ├── shell.js  615
 │   ├── sqlrun.js  631
 │   ├── style.css  961
 │   ├── tabs.js  236
 │   ├── tabswitcher.js  145
 │   ├── templates.js  428
 │   ├── theme.js  207
-│   ├── toolbar.js  594
+│   ├── toolbar.js  599
 │   └── ui.js  134
 ├── BcodePaths.cs  45
 ├── BcodeViewer.App.csproj  50

@@ -580,7 +580,7 @@ Mở: nút **File Lookup** (`Ctrl+Shift+F`), hoặc double-click một menu tron
 ### Thanh công cụ
 
 1. **Path:** + **Load** — quét lại thư mục (xoá cache phân tích).
-2. Chọn loại file (`.*`, `.f`, `.xml`, `.aspx`, `.xlsx`, `.rpt`) · **Only Show {đuôi}** · **SearchBox ▾** (mở khung tìm nội dung) · ô **Search...** (lọc tên file khi gõ).
+2. Chọn loại file (`.*`, `.f`, `.xml`, `.aspx`, `.xlsx`, `.rpt`) · **Only Show {đuôi}** · **SearchBox ▾** (mở khung tìm nội dung) · ô **Search...** (lọc tên file khi gõ, tìm trong cả thư mục Path; `Enter` = lọc ngay). Đang xem cây của 1 menu mà gõ Search thì tìm cả thư mục; xoá trắng ô Search → quay lại cây của menu vừa xem.
 3. **Copy to... (n)** · **Tick tất cả** · **Bỏ tick** · **Cấp source**.
 
 ### Các bước dùng

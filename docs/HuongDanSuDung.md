@@ -970,6 +970,8 @@ Trên ảnh: **①** thanh menu · **②** thanh công cụ · **③** đường
 
 "Tự ẩn Menu/Toolbar": thanh trên tự ẩn, đưa chuột sát mép trên cửa sổ là hiện lại.
 
+Góc phải thanh menu có nút **💡 Hint** (bóng đèn) — mở Hint Code (thư viện snippet), như nút Hint ở góc phải của Bcode; luôn hiện, không phụ thuộc ghim / nhóm của thanh công cụ.
+
 ### Thanh công cụ (mặc định)
 
 Save (`Ctrl+S`) · Save As · ⚠ Check (so `<fields>` với `<views>` của Dir/Grid) · Undo · Redo · Comment (`Ctrl+/`) · Bookmark · ● Next · Refresh (tải lại file từ đĩa) · Hint (Hint Code) · Tìm project · Problems · Outline · Xem Dir · Chạy SQL · Tách đôi · Wrap (`Alt+Z`) · 🤖 Claude Sidebar · ✨ Gemini Sidebar · 📎 Đính kèm file · Clear Structure · Reset WebConfig · Open WebConfig (mở web.config của site).

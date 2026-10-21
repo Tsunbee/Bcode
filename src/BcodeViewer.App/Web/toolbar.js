@@ -552,7 +552,7 @@ class BcodeToolbar {
       }
       if (this.el.parentElement !== bottom) bottom.appendChild(this.el);
     } else if (pos === 'menu') {
-      if (this.el.parentElement !== s.menubar) s.menubar.appendChild(this.el);
+      if (this.el.parentElement !== s.menubar) s.menubar.insertBefore(this.el, s.menuRight || null);   // nằm trước nút 💡 Hint ở góc phải
     } else if (this.el.parentElement !== s.top) s.top.insertBefore(this.el, s.breadcrumb);
     if (bottom) bottom.style.display = pos === 'bottom' && P.layoutOn('toolbar') ? '' : 'none';
     this.el.classList.toggle('shTbInline', pos === 'menu');
@@ -582,6 +582,11 @@ class BcodeToolbar {
       'body.shTbDraggingBody, body.shTbDraggingBody * { cursor: grabbing !important; }',
       '.shTbDropMark { position: fixed; width: 2px; background: var(--bc-accent); z-index: 22000; pointer-events: none; }',
       '.shItem.kb { background: var(--bc-selection); }',
+      // Nút 💡 Hint ở góc phải thanh menu (shell.js buildTop).
+      '.shMenuRight { margin-left: auto; display: flex; align-items: center; padding-right: 4px; height: 26px; flex: 0 0 auto; }',
+      '.shMenuHint { display: flex; align-items: center; gap: 5px; padding: 0 9px; height: 22px; font-size: 13px; color: var(--bc-text); cursor: pointer; border-radius: 3px; }',
+      '.shMenuHint:hover { background: var(--bc-selection); }',
+      '.shMenuHint svg { color: #e5c07b; flex: 0 0 auto; }',
       // Settings → Bố cục: danh sách nút có nhóm.
       '.setTbRow.grp { background: color-mix(in srgb, var(--bc-accent) 14%, var(--bc-panel)); font-weight: 600; }',
       '.setTbRow.inGrp { margin-left: 28px; }',

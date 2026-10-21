@@ -185,6 +185,18 @@ class BcodeShell {
       el.addEventListener('mouseenter', () => { if (this.openMenu && this.openMenu.index !== i) this.showMenu(el, i); });
       this.menubar.appendChild(el);
     });
+    // Góc phải thanh menu: nút 💡 Hint (Hint Code — thư viện snippet), như nút Hint ở góc phải của Bcode. Luôn hiện, không phụ thuộc ghim/nhóm của toolbar.
+    this.menuRight = document.createElement('div');
+    this.menuRight.className = 'shMenuRight';
+    const hint = document.createElement('div');
+    hint.className = 'shMenuHint';
+    hint.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" '
+      + 'd="M8 1.6a4.4 4.4 0 0 0-2.6 7.95c.45.33.7.8.7 1.3v.75h3.8v-.75c0-.5.25-.97.7-1.3A4.4 4.4 0 0 0 8 1.6z"/><path fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" d="M6.3 13.4h3.4M6.8 14.9h2.4"/></svg><span>Hint</span>';
+    hint.addEventListener('mousedown', (e) => e.preventDefault());   // giữ focus trong editor
+    hint.addEventListener('mouseenter', () => { const k = this.k('edit.hint'); hint.title = 'Hint Code — thư viện snippet' + (k ? ` (${k})` : ''); });
+    hint.onclick = () => this.bcode.openHintCode();
+    this.menuRight.appendChild(hint);
+    this.menubar.appendChild(this.menuRight);
     this.renderToolbar();
   }
 

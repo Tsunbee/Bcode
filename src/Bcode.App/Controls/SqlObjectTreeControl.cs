@@ -161,7 +161,22 @@ public class SqlObjectTreeControl : UserControl
         _loadVersion++;
         _renderSeq++;
         _tree.Nodes.Clear();
+        // Chọn project lúc mới mở Bcode: cửa sổ chính chưa hiện nên cây chưa Visible (chưa có handle) → nạp ở OnVisibleChanged ngay khi cây hiện ra
+        // (trước đây bỏ qua luôn nên cây trắng cho tới khi bấm đổi mục).
         if (Visible) _ = ReloadAsync(silent: true);
+        else _needsLoad = true;
+    }
+
+    private bool _needsLoad;
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible && _needsLoad && !_loadedOnce)
+        {
+            _needsLoad = false;
+            _ = EnsureLoadedAsync();
+        }
     }
 
     /// <summary>Nút "Refresh database" trên topbar: bỏ cache danh sách object của project (App + Sys, trên đĩa + cây đã nhóm trong bộ nhớ) rồi hỏi lại

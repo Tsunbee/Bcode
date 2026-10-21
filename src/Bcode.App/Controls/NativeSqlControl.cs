@@ -272,7 +272,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _ed.Zoom = s_zoom ??= AppSettings.Load().SqlEditorZoom;
         ZoomShared += OnZoomShared;
         Disposed += (_, _) => ZoomShared -= OnZoomShared;
-        _ed.UpdateUI += (_, _) => SaveZoomIfChanged();   // Ctrl+lăn chuột đổi Zoom của Scintilla
+        _ed.UpdateUI += (_, _) => { var before = s_zoom; SaveZoomIfChanged(); if (s_zoom != before) ShowZoomBar(); };   // Ctrl+lăn chuột đổi Zoom của Scintilla
     }
 
     private void SaveZoomIfChanged()
@@ -299,6 +299,50 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     {
         _ed.Zoom = delta == 0 ? 0 : Math.Clamp(_ed.Zoom + delta, -8, 20);
         SaveZoomIfChanged();
+        ShowZoomBar();
+    }
+
+    // ---- thanh phần trăm phóng to (hiện góc phải trên editor khi Ctrl + lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0; tự ẩn sau ~2,5 giây) ----
+    private Panel? _zoomPanel;
+    private Label? _zoomPct;
+    private readonly System.Windows.Forms.Timer _zoomHide = new() { Interval = 2500 };
+
+    private void ShowZoomBar()
+    {
+        if (IsDisposed || _ed.Parent is not { } host) return;
+        if (_zoomPanel is null)
+        {
+            _zoomHide.Tick += (_, _) => { _zoomHide.Stop(); if (_zoomPanel is not null) _zoomPanel.Visible = false; };
+            Disposed += (_, _) => _zoomHide.Dispose();
+            _zoomPct = new Label { AutoSize = false, Width = 52, Height = 26, Left = 10, Top = 4, TextAlign = ContentAlignment.MiddleLeft };
+            Button Btn(string text, int left, int width, Action act, bool accent = false)
+            {
+                var b = new Button { Text = text, Left = left, Top = 4, Width = width, Height = 26, FlatStyle = FlatStyle.Flat, TabStop = false, Cursor = Cursors.Hand };
+                b.FlatAppearance.BorderSize = accent ? 1 : 0;
+                b.Click += (_, _) => { act(); _ed.Focus(); };
+                return b;
+            }
+            _zoomPanel = new Panel { Width = 62 + 30 + 30 + 78 + 10, Height = 34, Visible = false };
+            _zoomPanel.Controls.AddRange(new Control[] { _zoomPct, Btn("−", 62, 30, () => ChangeZoom(-1)), Btn("+", 92, 30, () => ChangeZoom(1)), Btn("Đặt lại", 124, 78, () => ChangeZoom(0), accent: true) });
+            _zoomPanel.MouseEnter += (_, _) => _zoomHide.Stop();
+            foreach (Control c in _zoomPanel.Controls) c.MouseEnter += (_, _) => _zoomHide.Stop();
+            _zoomPanel.MouseLeave += (_, _) => { _zoomHide.Stop(); _zoomHide.Start(); };
+            host.Controls.Add(_zoomPanel);
+        }
+        _zoomPanel.BackColor = Bcode.App.UI.AppColors.PanelAlt;
+        _zoomPct!.ForeColor = Bcode.App.UI.AppColors.Text;
+        foreach (var b in _zoomPanel.Controls.OfType<Button>())
+        {
+            b.BackColor = Bcode.App.UI.AppColors.PanelAlt;
+            b.ForeColor = b.FlatAppearance.BorderSize > 0 ? Bcode.App.UI.AppColors.Accent : Bcode.App.UI.AppColors.Text;
+            b.FlatAppearance.BorderColor = Bcode.App.UI.AppColors.Accent;
+        }
+        var size = Math.Max(1, _ed.Styles[Style.Default].Size);   // 100% = cỡ chữ gốc; Zoom của Scintilla = số điểm cộng thêm
+        _zoomPct.Text = Math.Max(10, (int)Math.Round((size + _ed.Zoom) * 100.0 / size)) + "%";
+        _zoomPanel.Location = new Point(Math.Max(0, _ed.Right - _zoomPanel.Width - 30), _ed.Top + 6);
+        _zoomPanel.Visible = true;
+        _zoomPanel.BringToFront();
+        _zoomHide.Stop(); _zoomHide.Start();
     }
 
     private void ApplyEditorTheme() { if (!IsDisposed) { SqlScintilla.ApplyTheme(_ed); FcodeLexer.ApplySql(_ed); ApplyNextLineColor(); ApplyGhostStyle(); } }

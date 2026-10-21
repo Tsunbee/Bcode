@@ -83,7 +83,7 @@ Bcode.App/
 │   ├── NativeQueryHistoryControl.cs  344
 │   ├── NativeResultPane.cs  301
 │   ├── NativeShellBars.cs  295
-│   ├── NativeSqlControl.cs  1859
+│   ├── NativeSqlControl.cs  1903
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -395,7 +395,7 @@ Bcode.App/
 │       ├── searchbox.html  161
 │       ├── setupeinvoice.html  146
 │       ├── shell.css  255
-│       ├── sqleditor.html  1533
+│       ├── sqleditor.html  1577
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  317
@@ -476,14 +476,14 @@ BcodeViewer.App/
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
 │   ├── dock.js  162
-│   ├── editor.js  1718
+│   ├── editor.js  1719
 │   ├── entity.js  1344
 │   ├── fcode-language.js  451
 │   ├── goto.js  296
 │   ├── hint-editor.html  74
 │   ├── history.js  484
 │   ├── hostcall.js  106
-│   ├── index.html  232
+│   ├── index.html  233
 │   ├── keys.js  210
 │   ├── mailpreview.js  718
 │   ├── outline.js  239
@@ -501,7 +501,8 @@ BcodeViewer.App/
 │   ├── templates.js  428
 │   ├── theme.js  207
 │   ├── toolbar.js  599
-│   └── ui.js  134
+│   ├── ui.js  134
+│   └── zoombar.js  65
 ├── BcodePaths.cs  45
 ├── BcodeViewer.App.csproj  50
 ├── HintCodeForm.cs  516
@@ -556,7 +557,7 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  94
+└── Program.cs  90
 ```
 ```
 Shared/

@@ -35,6 +35,14 @@
   #stash { display: none; }
   .gbtn { flex: 0 0 auto; }
   .chip { flex: 0 0 auto; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); background: transparent; cursor: pointer; white-space: nowrap; }
+  /* Ô phần trăm phóng to chữ (Ctrl + lăn chuột ở editor): LUÔN hiện ở cuối hàng thanh — body chừa chỗ bên phải để không đè nút. */
+  body { padding-right: 232px; }
+  #zoomBox { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 4px;
+             padding: 3px 6px 3px 10px; border-radius: 10px; font-size: 12.5px; color: var(--text); background: var(--panel); border: 1px solid var(--border);
+             box-shadow: 0 2px 10px rgba(0,0,0,.35); z-index: 20; user-select: none; }
+  #zoomBox .pct { width: 52px; min-width: 52px; padding: 1px 4px; text-align: center; }
+  #zoomBox button { padding: 1px 9px; }
+  #zoomBox button.reset { border-color: var(--accent); color: var(--accent); }
   .chip.warn { border-color: #e5a50a; color: #e5a50a; }
 </style>
 </head>
@@ -93,6 +101,12 @@
     <div class="spacer"></div>
     </div>
     <div id="layout"></div>
+  </div>
+  <div id="zoomBox">
+    <input class="pct" id="zoomPct" type="text" value="100%" size="5" spellcheck="false" autocomplete="off" title="Gõ số % rồi Enter (30–500)" />
+    <button id="zoomMinus" title="Thu nhỏ chữ">−</button>
+    <button id="zoomPlus" title="Phóng to chữ">+</button>
+    <button class="reset" id="zoomReset" title="Về cỡ chữ gốc (Ctrl+0)">Đặt lại</button>
   </div>
   <div id="stash"></div>
 
@@ -200,6 +214,19 @@
     if (btn) btn.classList.toggle('active', !!on);
     if (window.__barChips) window.__barChips();
   };
+
+  // % phóng to chữ: editor báo mức hiện tại (C# chuyển sang đây), các nút gửi lệnh ngược về editor.
+  const zoomIn = document.getElementById('zoomPct');
+  let zoomLast = '100%';
+  window.showZoom = function (pct) { zoomLast = Math.round(pct) + '%'; if (document.activeElement !== zoomIn) zoomIn.value = zoomLast; };   // đang gõ thì không ghi đè
+  // Gõ số % cụ thể rồi Enter (hoặc rời ô): áp ngay cho editor; Esc huỷ.
+  const zoomApply = () => { const v = parseFloat(String(zoomIn.value).replace(',', '.').replace('%', '')); if (v > 0) post({ action: 'zoom-set', pct: Math.round(v) }); };
+  zoomIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { zoomApply(); zoomIn.blur(); } else if (e.key === 'Escape') { zoomIn.value = zoomLast; zoomIn.blur(); } });
+  zoomIn.addEventListener('focus', () => zoomIn.select());
+  zoomIn.addEventListener('blur', () => { zoomApply(); });
+  document.getElementById('zoomMinus').onclick = () => post({ action: 'zoom-act', what: 'minus' });
+  document.getElementById('zoomPlus').onclick = () => post({ action: 'zoom-act', what: 'plus' });
+  document.getElementById('zoomReset').onclick = () => post({ action: 'zoom-act', what: 'reset' });
 
   window.setDatabase = function (index) {
     document.getElementById('dbSelect').value = String(index);

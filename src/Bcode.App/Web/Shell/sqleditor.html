@@ -1464,6 +1464,7 @@
         function defaultFontSize() { return window.__userFontSize > 0 ? window.__userFontSize : Math.round(FCODE_FONT_SIZE * window.__edScale * 10) / 10; }
         function applyFontSize(size) {
             editor.updateOptions({ fontSize: size });
+            if (window.showZoom) setTimeout(window.showZoom, 0);   // cập nhật ô % trên thanh Execute (luôn hiện)
             editor.updateOptions({ lineHeight: window.__lineSpacing > 0 ? Math.round(size * window.__lineSpacing) : 0 });
         }
         window.setUserFontSize = function (size) {
@@ -1494,12 +1495,46 @@
             }, 400);
         }
 
+        // Cỡ chữ "100%" = cỡ mặc định hiện hành (Template quy định thì theo Template, không thì cỡ FCode nhân tỉ lệ font gốc).
+        function baseFontSize() {
+            var es = window.__edStyle;
+            return es && es.fontSize && parseFloat(es.fontSize) > 0 ? parseFloat(es.fontSize) : Math.round(FCODE_FONT_SIZE * window.__edScale * 10) / 10;
+        }
+        // Báo mức phóng to hiện tại (% so với cỡ gốc) cho thanh Execute — ô "150% − + Đặt lại" nằm cùng hàng với Tùy chọn (sqlquerybar.html).
+        function showZoom() {
+            if (!editor || !window.monaco || !window.chrome || !window.chrome.webview) return;
+            var pct = Math.round(editor.getOption(monaco.editor.EditorOption.fontSize) / baseFontSize() * 100);
+            window.chrome.webview.postMessage(JSON.stringify({ action: 'zoom-show', pct: pct }));
+        }
+        // Lệnh từ các nút của ô % trên thanh Execute (C# chuyển sang).
+        window.zoomAct = function (what) {
+            if (what === 'minus') window.setFontSize(-1);
+            else if (what === 'plus') window.setFontSize(1);
+            else if (what === 'reset') window.resetFontSize();
+        };
+
         window.setFontSize = function (delta) {
             if (editor) {
                 var size = Math.max(8, editor.getOption(monaco.editor.EditorOption.fontSize) + delta);
                 applyFontSize(size);
                 reportFontSize(size);
+                showZoom();
             }
+        };
+        // Đặt cỡ chữ theo % cụ thể (gõ ở ô % trên thanh Execute): 100% = cỡ gốc.
+        window.zoomSet = function (pct) {
+            if (!editor || !(pct > 0)) return;
+            pct = Math.max(30, Math.min(500, pct));
+            var size = Math.max(8, Math.round(baseFontSize() * pct / 10) / 10);
+            applyFontSize(size);
+            reportFontSize(size);
+            showZoom();
+        };
+        window.resetFontSize = function () {
+            if (!editor) return;
+            applyFontSize(baseFontSize());
+            reportFontSize(0);
+            showZoom();
         };
 
         // Ctrl + lăn chuột = Tăng/Giảm cỡ chữ editor (như menu), thay cho zoom cả trang mặc định của WebView2
@@ -1516,8 +1551,7 @@
             if (e.key !== '0' && e.code !== 'Numpad0') return;
             e.preventDefault();
             e.stopPropagation();
-            applyFontSize(FCODE_FONT_SIZE);
-            reportFontSize(0);
+            window.resetFontSize();
         }, true);
 
         window.toggleComment = function (comment) {

@@ -184,6 +184,7 @@ class BcodeEditor {
     });
 
     this.initViewConfig();
+    if (window.bcodeZoomBar) window.bcodeZoomBar.init(this.editor);   // thanh % phóng to khi Ctrl + lăn chuột (zoombar.js)
 
     monaco.languages.registerDocumentSymbolProvider(['xml', 'fcode-xml', 'fcode-js', 'fcode-sql'], {
       provideDocumentSymbols: (model) => buildSymbols(model.getValue())

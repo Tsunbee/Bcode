@@ -304,6 +304,11 @@ public class RawSqlControl : UserControl, ISqlTab
                     _scriptBoxWordWrapToggle(root2.GetProperty("value").GetBoolean());
                     break;
                 case "options": BuildOptionsMenu().Show(BarControl, 10, BarHeight); break;
+                // Ô % phóng to chữ nằm trên thanh Execute: các nút của nó gửi lệnh về editor (xem sqlquerybar.html / sqleditor.html zoomAct).
+                case "zoom-set": _ = EdExec($"window.zoomSet && window.zoomSet({root2.GetProperty("pct").GetInt32()})"); break;
+                case "zoom-act":
+                    { var zoomWhat = root2.GetProperty("what").GetString(); if (zoomWhat is "minus" or "plus" or "reset") _ = EdExec($"window.zoomAct && window.zoomAct('{zoomWhat}')"); }
+                    break;
                 case "history": BeginInvoke(new Action(OpenSqlHistory)); break;
                 case "save-history": _ = SaveToQueryHistoryAsync(); break;
                 case "ask-ai": _ = SendToAiAsync(root2.GetProperty("engine").GetString() ?? "claude"); break;
@@ -463,6 +468,11 @@ public class RawSqlControl : UserControl, ISqlTab
             // Ctrl+lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0 (0 = về mặc định FCode) — lưu settings.json, các tab SQL khác theo luôn.
             case "font-size":
                 SaveEditorFontSize(root.GetProperty("size").GetDouble());
+                break;
+
+            // Editor báo mức phóng to hiện tại (%) → hiện ở ô % trên thanh Execute, cùng hàng với "Tùy chọn".
+            case "zoom-show":
+                _ = BarExec($"window.showZoom && window.showZoom({root.GetProperty("pct").GetInt32()})");
                 break;
 
             case "global-key":

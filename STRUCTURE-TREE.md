@@ -1,4 +1,4 @@
-# Cây thư mục Bcode (số cuối = số dòng file; tự sinh 15/10/2026)
+# Cây thư mục Bcode (số cuối = số dòng file; tự sinh 21/10/2026)
 
 ```
 Bcode.App/
@@ -25,7 +25,7 @@ Bcode.App/
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  230
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1425
+│   ├── FileLookupControl.cs  1340
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
@@ -94,7 +94,7 @@ Bcode.App/
 │   ├── RawSqlControl.cs  2456
 │   ├── ResultGridMenu.cs  477
 │   ├── ScriptEditorControl.cs  1214
-│   ├── ScriptEditorControl.EntityIndex.cs  176
+│   ├── ScriptEditorControl.EntityIndex.cs  178
 │   ├── SetupEInvoiceControl.cs  121
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
@@ -148,7 +148,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3617
+│   ├── MainForm.cs  3623
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -166,7 +166,7 @@ Bcode.App/
 │   ├── ScriptPopupForm.cs  155
 │   ├── SetupEInvoiceForm.cs  356
 │   ├── SimplePromptForm.cs  78
-│   ├── SourceViewForm.cs  81
+│   ├── SourceViewForm.cs  125
 │   ├── SqlAiEditForm.cs  107
 │   ├── SqlHistoryForm.cs  329
 │   ├── StepParamsForm.cs  85
@@ -550,7 +550,7 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  90
+└── Program.cs  94
 ```
 ```
 Shared/

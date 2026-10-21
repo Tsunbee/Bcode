@@ -9,9 +9,10 @@ from docx.enum.section import WD_ORIENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-ROOT = r'D:\Bee\Tool\Bcode'
-SRC = ROOT + r'\src'
-WORK = ROOT + r'\_docwork'
+# Gốc repo = thư mục cha của _docwork (trước đây cứng D:\Bee\Tool\Bcode — repo đã chuyển sang D:\Bee\Tool\BcodeProject\Bcode-main).
+WORK = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(WORK)
+SRC = os.path.join(ROOT, 'src')
 EX = {'bin', 'obj', 'node_modules', 'vs', 'Libs', '.vs'}
 
 
@@ -270,6 +271,15 @@ for s in [
     'Project mới: Bcode.ScreenDesigner, Bcode.ReportBuilder, Bcode.KeyGen, Shared/, tools/lt3-api-docs.',
     'BcodeViewer: giao diện chuyển sang web shell (shell.js, ui.js, keys.js, quickopen.js, tabswitcher.js, mailpreview.js); thêm CaptionTranslator, IncludeTree, VsCodeThemeImporter, FcodeFieldDictionary; QuickOpenForm.cs (WinForms) đã bỏ — thay bằng quickopen.js.',
     'Sửa nhận định cũ: pipe Bcode.Control.<session> NAY ĐANG DÙNG cho lệnh "sql|" ("Debug trong Bcode"); lệnh "fsg|" vẫn còn handler nhưng F5 của Viewer đi thẳng MenuLauncher (mở trình duyệt). v2 ghi là chưa ai gọi.',
+]:
+    bullet(doc, s, 9.5)
+
+doc.add_heading('L. Thay đổi 15/10 → 21/10/2026', 1)
+for s in [
+    'Chế độ App (WinForms) gần ngang chế độ Web: SQL Query native có Debug từng bước, AI Ctrl+I + ghost, F12 peek, thanh nút tuỳ biến, Ctrl+S lưu / Ctrl+F thanh tìm nổi góc phải; gợi ý SQL chạy nguyên sqlhints.js bằng Jint (SqlHintEngine); ô chọn dài thành khung danh sách; menu dài lăn chuột được; thanh tiêu đề theo theme; sửa rò RAM (ThemeManager.Subscribe, NK.Tip, font/region/renderer dùng chung); chặn ký tự điều khiển trong mọi editor Scintilla.',
+    'Mới ở Bcode.App: Mobile (bảng dvcommand + MobileService), Trợ giúp (docs/HuongDanSuDung.md, Ctrl+F1), Thông báo yêu cầu FSG (chuông 🔔, kéo nvphyc định kỳ), lọc Yêu cầu FSG theo menu (chuột phải cây WCommand), AI tạo danh mục từ yêu cầu (+ bộ luật FastCatalogRules khi chưa có API key, màn khai báo số liệu), Write Schema .xsd d1..dN + cập nhật .rpt, Table: dòng "Menu:" của bảng + Check Partitions Struct + thiết kế cột, Lookup tìm chữ trong procedure (SqlDefinitionIndex), Mail kế hoạch tuần (Sent, phản hồi, Reply), Ctrl+O dự án khác mở cửa sổ mới, FSG FBO Ctrl+4 + F12 DevTools gắn bên phải, tự xử lý WebView2 bận (0x800700AA), Template → Tìm file có "Đuôi file được tìm".',
+    'BcodeViewer: Ctrl+Tab nhẹ (không dựng lại cây, không treo khi đang xem trước Dir), menu chuột phải Goto File / Goto Function / Open Folder / Image File, Open Web.config, Check Field, Từ điển dịch, lịch sử chung trong dự án (SharedHistoryStore), log độ mượt (perfwatch.js).',
+    'Tài liệu: script _docwork tự tính gốc repo (không còn cứng D:\\Bee\\Tool\\Bcode); sơ đồ thêm lớp Chế độ App và nhánh "Chế độ App" trong cây tính năng.',
 ]:
     bullet(doc, s, 9.5)
 

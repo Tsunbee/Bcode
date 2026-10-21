@@ -1,4 +1,4 @@
-import sys
+import os, sys
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -6,7 +6,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 sys.stdout.reconfigure(encoding='utf-8')
 plt.rcParams['font.family'] = 'Segoe UI'
-OUT = r'D:\Bee\Tool\Bcode\_docwork'
+OUT = os.path.dirname(os.path.abspath(__file__))   # ảnh ghi cạnh script (_docwork)
 
 C = dict(app='#FFF4CC', appE='#B8860B', box='#E8EEFF', boxE='#5B6FD6', lib='#E6F6EA', libE='#2E8B57',
          data='#FDE8E8', dataE='#C0392B', ext='#EEEEEE', extE='#666666', web='#E3F2FD', webE='#1976D2',
@@ -48,13 +48,13 @@ def diag_overview():
     fig, ax = canvas(100, 66, 17, 11.2)
     ax.text(50, 2, 'Bộ công cụ Bcode — sơ đồ tổng quan (solution Bcode.sln)', ha='center', fontsize=14, fontweight='bold')
 
-    group(ax, 2, 6, 44, 34, 'Bcode.exe  (src/Bcode.App — WinForms .NET 8 + WebView2)')
-    box(ax, 4, 11, 40, 5.5, 'Forms/MainForm (+ .Session / .Hibernate / .ToolGroups)\nthanh trên · cột icon · thanh tool · tab tài liệu · phím tắt', fs=9)
+    group(ax, 2, 6, 44, 34, 'Bcode.exe  (src/Bcode.App — WinForms .NET 8; 2 chế độ: Web / App)')
+    box(ax, 4, 11, 40, 5.5, 'Forms/MainForm (+ .Session / .Hibernate / .ToolGroups / .FsgNotify)\nthanh trên · cột icon · thanh tool · tab · phím tắt · Trợ giúp · chuông FSG', fs=8.6)
     box(ax, 4, 18.5, 19, 7, 'Controls/  (tab công cụ)\nUserControl bọc 1 trang\nWebBarHost / WebFrameHost', fs=8.5)
     box(ax, 25, 18.5, 19, 7, 'Forms/  (hộp thoại)\nWebDialogForm + trang HTML\nhoặc WinForms thuần', fs=8.5)
     box(ax, 4, 27.5, 19, 6, 'Services/  (nghiệp vụ, SQL,\nfile, API, báo cáo...)', fs=8.5)
-    box(ax, 25, 27.5, 19, 6, 'Web/Shell/*.html  (~90 trang)\n+ UI/ (theme, scale, template)', 'web', fs=8.5)
-    ax.text(24, 37.5, 'Models/ · Templates/ (mẫu file, mẫu LCTT/CĐKT, mẫu API) · Assets/ · Libs/', ha='center', fontsize=8, color='#555')
+    box(ax, 25, 27.5, 19, 6, 'Chế độ Web: Web/Shell (80 trang)\nChế độ App: NativePage · NK.*\n· Native*Control (WinForms tự vẽ)', 'web', fs=7.8)
+    ax.text(24, 37.5, 'Models/ · Templates/ · Assets/ · Libs/ · docs/HuongDanSuDung.md (tab Trợ giúp)', ha='center', fontsize=8, color='#555')
 
     group(ax, 54, 6, 44, 34, 'BcodeViewer.exe  (src/BcodeViewer.App — WinForms + Monaco)')
     box(ax, 56, 11, 40, 5.5, 'MainForm.cs (host cửa sổ, cây Project, sidebar Claude/Gemini,\nsingle-instance Mutex + pipe BcodeViewer.SingleInstance.<session>)', fs=8.5)
@@ -76,8 +76,8 @@ def diag_overview():
     box(ax, 78, 53.5, 18, 4.5, 'FastBusiness.Crypto.dll', 'lib', fs=8)
 
     # Data
-    box(ax, 4, 55, 42, 8, '%AppData%\\Bcode\\  settings.json (DÙNG CHUNG), viewer-*.json, session, Notes, AdvanceNotes,\nFileLookupCache, query-history, sql-history, ApiProjects, license.key, ai-history.json...', 'data', fs=8)
-    ax.text(25, 64.8, 'Source UNC (App_Data\\Controllers, Main) · SQL Server (App/Sys data, FSG_A) · claude.ai/gemini · API Anthropic/Gemini · LT3 API',
+    box(ax, 4, 55, 42, 8, '%AppData%\\Bcode\\  settings.json (DÙNG CHUNG), viewer-*.json, session, Notes, AdvanceNotes,\nFileLookupCache, sql-definitions, sql-history, ApiProjects, license.key, ai-history.json,\nfsg-requirements / fsg-notify.json, weeklymail*, WebView2 (+ hồ sơ phụ WebView2-n)', 'data', fs=7.6)
+    ax.text(25, 64.8, 'Source UNC (App_Data\\Controllers, Main, MobileService) · SQL Server (App/Sys data, FSG_A: nvphyc) · claude.ai/gemini · API Anthropic/Gemini · LT3 API · SMTP/IMAP',
             ha='center', fontsize=8.5, color='#444', fontweight='bold')
 
     # arrows
@@ -96,46 +96,48 @@ def diag_overview():
 
 # ---------------------------------------------------------------- B. Kiến trúc Bcode.App
 def diag_bcode():
-    fig, ax = canvas(100, 78, 17, 13.2)
-    ax.text(50, 2, 'Kiến trúc Bcode.App — các lớp và luồng dữ liệu', ha='center', fontsize=14, fontweight='bold')
+    fig, ax = canvas(100, 82, 17, 13.9)
+    ax.text(50, 2, 'Kiến trúc Bcode.App — các lớp và luồng dữ liệu (2 chế độ giao diện: Web / App)', ha='center', fontsize=14, fontweight='bold')
 
     # Lớp 1: cửa sổ chính
     group(ax, 2, 5, 96, 15, 'Lớp 1 — Cửa sổ chính  Forms/MainForm*.cs (không dùng DI: service được new ngay trong constructor)', 'app', fs=10)
-    box(ax, 4, 10, 22, 8, 'Thanh trên  topbar.html\nFile/Actions · Triển khai (menu)\nTool mở rộng (menu) · Claude · Gemini\nchọn WS + Sys/App', 'web', fs=8)
-    box(ax, 28, 10, 20, 8, 'Cột icon trái  iconrail\nSQL Object · WCommand · Mobile\n(IconRailControl)', 'web', fs=8)
-    box(ax, 50, 10, 22, 8, 'Thanh tool native  _toolSpecs\n(ToolStrip Flow) + nhóm (ToolGroups)\nCommand Palette Ctrl+P', fs=8)
-    box(ax, 74, 10, 22, 8, 'Vùng tab  FlatTabControl\nAddDocumentTab · Session restore\nHibernate · TabSwitcher · statusbar', fs=8)
+    box(ax, 4, 10, 22, 8, 'Thanh trên  topbar.html / NativeTopBar\nActions · Triển khai · Tool mở rộng\nClaude · Gemini · Trợ giúp (Ctrl+F1)\nWS + Refresh DB · Sys/App · chuông FSG', 'web', fs=7.6)
+    box(ax, 28, 10, 20, 8, 'Cột icon trái  iconrail\nSQL Object · WCommand\nMobile (bảng dvcommand)\n(IconRailControl)', 'web', fs=7.8)
+    box(ax, 50, 10, 22, 8, 'Thanh tool  _toolSpecs\n(ToolStrip Flow) + nhóm (ToolGroups)\nCommand Palette Ctrl+P\nShortcutRegistry (Web/App default)', fs=7.6)
+    box(ax, 74, 10, 22, 8, 'Vùng tab  FlatTabControl\nAddDocumentTab · Session restore\nHibernate · TabSwitcher · statusbar\nCtrl+O dự án khác → cửa sổ mới', fs=7.6)
 
-    # Lớp 2: Controls / Forms
-    group(ax, 2, 22, 96, 21, 'Lớp 2 — Giao diện công cụ', 'app', fs=10)
-    box(ax, 4, 27, 30, 14, 'Controls/ (tab) — ~50 file\nRawSqlControl (SQL Query, Monaco)\nTableEditControl · SqlQueryControl · LookupControl\nFileLookupControl · WCommandTreeControl\nGenUpdate/AdvanceNote · IncludeCheck · CashFlowCheck\nBbxn · QuickReport · CreateRpt · SqlProfiler ...', fs=7.8, ha='left')
-    box(ax, 36, 27, 28, 14, 'Forms/ (hộp thoại) — ~55 file\nWebDialogForm → trang HTML co giãn\nProjects/Connections · WCommandEdit\nAddSource/GrantSource · CopyMulti\nApiDeclaration · UiTemplate · CommandPalette\nReportStudio · QuickList · Catalog', fs=7.8, ha='left')
-    box(ax, 66, 27, 30, 14, 'Hạ tầng trang web (Controls/)\nIWebPage  ←  WebBarHost (1 WebView2/trang)\n                       ←  WebFrameHost (1 WebView2 + n iframe,\n                           tiết kiệm RAM)\nWebMenu (menu native theo theme) · WebActionBar\nMonacoPreviewControl (preview File Lookup)', 'web', fs=7.8, ha='left')
+    # Lớp 2: Controls / Forms / hạ tầng
+    group(ax, 2, 22, 96, 23, 'Lớp 2 — Giao diện công cụ  (UiMode.IsNative chọn nhánh; nghiệp vụ dùng chung)', 'app', fs=10)
+    box(ax, 4, 27, 22.5, 16, 'Controls/ (tab) — 101 file\nRawSqlControl (SQL, Monaco)\nTableEdit · SqlQuery · Lookup\nFileLookup (+QuickGrant)\nWCommandTree (+Mobile)\nGenUpdate · AdvanceNote\nFsgRequirementReport · Help\nCashFlow · Bbxn · Profiler…', fs=7.2, ha='left')
+    box(ax, 28.3, 27, 22.5, 16, 'Forms/ (hộp thoại) — 62 file\nWebDialogForm → trang HTML\nProjects (+Native) · Connections\nWCommandEdit · AppCommandEdit\nAddSource/GrantSource/SourceView\nQuickList (+AI danh mục)\nRptSchema · PartitionCheck\nFsgNotify · UiTemplate…', fs=7.2, ha='left')
+    box(ax, 52.6, 27, 21.5, 16, 'Chế độ Web — hạ tầng trang\nIWebPage ← WebBarHost\n   (1 WebView2 / trang)\n← WebFrameHost (1 WebView2\n   + n iframe, bớt RAM)\nWebMenu · WebActionBar\nMonacoPreviewControl\nWebViewEnvironment (+0x800700AA)', 'web', fs=7.2, ha='left')
+    box(ax, 75.9, 27, 20.1, 16, 'Chế độ App — WinForms tự vẽ\nNativePage + Register\n(WebBarHost tự thay trang)\nNK.* · CardPanel · PillButton\nDropDownButton · NativeFindBar\nNativeSql (Scintilla, peek,\n  AI, debug) · Native*Control\nFcodeLexer · SqlHintEngine(Jint)', 'lib', fs=7.2, ha='left')
 
     # Lớp 3: giao tiếp
-    group(ax, 2, 45, 96, 9, 'Lớp 3 — Giao thức C# ↔ trang HTML', 'web', fs=10)
-    ax.text(50, 51.2, 'Trang → C#: window.chrome.webview.postMessage({action, data...}) → WebBarHost.Message / WebDialogForm.OnAction\n'
-                     'C# → trang: _web.Call("hàm JS(json)")  ·  mọi trang dùng chung shell.css + dialog.css + autoscale.js (tự co giãn theo UiScale/DPI/Template)',
-            ha='center', va='center', fontsize=8.8)
+    group(ax, 2, 47, 96, 10, 'Lớp 3 — Giao thức C# ↔ giao diện (giống nhau ở 2 chế độ)', 'web', fs=10)
+    ax.text(50, 53.4, 'Trang → C#: window.chrome.webview.postMessage({action, data...}) → WebBarHost.Message / WebDialogForm.OnAction\n'
+                     'C# → trang: _web.Call("hàm JS(json)")  ·  trang dùng chung shell.css + dialog.css + autoscale.js (co giãn theo UiScale/DPI/Template)\n'
+                     'Chế độ App: NativePage.Dispatch("ns.fn", args) nhận lệnh C# · Post(new { action }) gửi lên — cùng tên action nên control chủ không phải sửa',
+            ha='center', va='center', fontsize=8.2)
 
     # Lớp 4: Services
-    group(ax, 2, 56, 96, 15, 'Lớp 4 — Services/ (không đụng UI)  +  Models/', 'app', fs=10)
+    group(ax, 2, 59, 96, 17, 'Lớp 4 — Services/ (103 file, không đụng UI)  +  Models/', 'app', fs=10)
     svc = [
-        ('SQL & dữ liệu', 'DbConnectionService (WS hiện tại)\nRawSql · SqlQuery · TableData\nSqlObjectBrowser · SqlHint*\nQueryHistory · SqlHistory · DdlTracking'),
-        ('Source & menu', 'WCommandService · FileLookupService\nFileParseCache · EntityCheck\nGenAll · SourceGrant · SourceIndex\nUsageSearch · IncludeCheck'),
-        ('Báo cáo / tạo file', 'Rpt/* (Pivot, ExcelTemplate)\nQuickReport · QuickList · CatalogClone\nBbxn (Word) · CashFlowDiagnostic/Cfs*\nReportBuilderModule'),
-        ('Tích hợp', 'Api/* (LT3, Postman, DPAPI)\nFsgProjectLookup · EInvoiceSetup\nMailTest · License · ViewerControlServer\nSessionStore · AiHistoryStore'),
+        ('SQL & dữ liệu', 'DbConnectionService (WS hiện tại)\nRawSql · SqlQuery · TableData\nTableMenu · SqlObjectBrowser\nSqlHint* · SqlDefinitionIndex\nQueryHistory · SqlHistory · DdlTracking'),
+        ('Source & menu', 'WCommand · AppCommand (+dvcommand)\nFileLookup · FileParseCache\nMobilePath · SourceGrant · SourceIndex\nGenAll · EntityCheck · IncludeCheck\nUsageSearch'),
+        ('Báo cáo / tạo file', 'Rpt/* (Pivot, Xsd, RptSchema…)\nQuickReport · QuickList · CatalogClone\nAiCatalog · FastCatalogRules\nBbxn (Word) · CashFlowDiagnostic\nReportBuilderModule'),
+        ('Tích hợp', 'Api/* (LT3, Postman, DPAPI)\nFsgProjectLookup · FsgNotify (nvphyc)\nAiChat · WeeklyMail · MailTest\nLicense · ViewerControlServer\nSessionStore · AiHistoryStore'),
     ]
     for i, (t, b) in enumerate(svc):
-        box(ax, 4 + i * 23.7, 61, 22.5, 9, t + '\n' + b, fs=7.5)
+        box(ax, 4 + i * 23.7, 64, 22.5, 11, t + '\n' + b, fs=7.3)
 
-    ax.text(2, 74.2, 'Dữ liệu ngoài:  SQL Server (App/Sys)  ·  source UNC  ·  %AppData%\\Bcode  ·  FSG_A  ·  API Anthropic/Gemini/LT3  ·  BcodeViewer.exe / ScreenDesigner.exe (Process.Start)',
-            fontsize=8.5, color='#444', fontweight='bold')
+    ax.text(2, 79.2, 'Dữ liệu ngoài:  SQL Server (App/Sys, FSG_A)  ·  source UNC (+MobileService)  ·  %AppData%\\Bcode  ·  API Anthropic/Gemini/LT3  ·  SMTP/IMAP  ·  BcodeViewer / ScreenDesigner (Process.Start)',
+            fontsize=8.2, color='#444', fontweight='bold')
     # arrows
     for x in (15, 38, 61, 85):
         arrow(ax, (x, 18), (x, 22), None, color='#555')
-    arrow(ax, (50, 43), (50, 45), None, color='#555')
-    arrow(ax, (50, 54), (50, 56), None, color='#555', both=True)
+    arrow(ax, (50, 45), (50, 47), None, color='#555')
+    arrow(ax, (50, 57), (50, 59), None, color='#555', both=True)
     fig.savefig(OUT + r'\dg_bcode.png', dpi=140, bbox_inches='tight', facecolor='white')
     plt.close(fig)
 
@@ -153,13 +155,13 @@ def diag_viewer():
     group(ax, 46, 5, 52, 31, 'Cầu nối  Host/EditorBridge.cs  ([ComVisible] host object "host")', 'web', fs=10)
     box(ax, 48, 10, 24, 12, 'Begin*(requestId,…)\nxếp hàng AsyncHostCall (thread-pool,\nCompletionGroup huỷ request cũ)\n→ kết quả: message hostCallResult\n(Web/hostcall.js bọc thành Promise)', fs=7.8)
     box(ax, 74, 10, 22, 12, 'Notify*  (đồng bộ, chỉ đổi state)\nGet*  (đẩy 1 lần: theme, snippets,\nsettings, editor config)\nShellCommand · ResolveUiDialog\nSendSqlToBcode (pipe → Bcode)', fs=7.8)
-    box(ax, 48, 24, 48, 10.5, 'Host/ services:  ClaudeChatService (Anthropic + Gemini)  ·  SqlRunnerService (chạy SQL trong file, mặc định chặn ghi)\nSqlSchemaService + WorkspaceConnection (đọc chung settings.json của Bcode)  ·  WorkspaceSearchService (Find in Files)\nIncludeTree (đọc chuỗi include, link sang ScreenDesigner)  ·  CaptionTranslator (v→e)  ·  MenuLauncher (F5)', fs=7.8)
+    box(ax, 48, 24, 48, 10.5, 'Host/ services:  ClaudeChatService (Anthropic + Gemini)  ·  SqlRunnerService (chạy SQL trong file, mặc định chặn ghi)\nSqlSchemaService + WorkspaceConnection (đọc chung settings.json của Bcode)  ·  WorkspaceSearchService (Find in Files)\nIncludeTree (đọc chuỗi include, link sang ScreenDesigner)  ·  CaptionTranslator + TranslateDictionary (v→e)\nMenuLauncher (F5)  ·  Settings/: LocalHistoryStore · SharedHistoryStore (lịch sử chung trong dự án)', fs=7.6)
 
     group(ax, 2, 38, 96, 27, 'Web/ (WebView2) — Monaco + JS thuần, nạp theo thứ tự trong index.html', 'web', fs=10)
     cols = [
-        ('Khung & tiện ích', 'shell.js (menu/toolbar/cây file)\nui.js (hộp thoại theo theme)\nkeys.js (phím tắt tuỳ chỉnh)\nsettings.js · templates.js\ntabs.js · tabswitcher.js · quickopen.js\ntheme.js · dock.js · hostcall.js'),
-        ('Soạn thảo', 'editor.js (Monaco, tab, model)\nfcode-language.js (cú pháp FCode)\ncontextmenu.js (menu chuột phải,\nCtrl+I, dịch caption, clone)\noutline.js · goto.js (Ctrl+G)\nhistory.js (lịch sử/diff)'),
-        ('IntelliSense & kiểm tra', 'completion.js (4 lớp gợi ý + AI ghost)\nentity.js (F12/Peek &Entity;)\nproblems.js + problems-worker.js\nsearch.js (Find/Replace in Files)'),
+        ('Khung & tiện ích', 'shell.js (menu/toolbar/cây file)\nui.js (hộp thoại theo theme)\nkeys.js (phím tắt tuỳ chỉnh)\nsettings.js · templates.js\ntabs.js · tabswitcher.js · quickopen.js\ntheme.js · dock.js · hostcall.js\nperfwatch.js (log độ mượt)'),
+        ('Soạn thảo', 'editor.js (Monaco, tab, model,\nCtrl+Tab nhẹ)\nfcode-language.js (cú pháp FCode)\ncontextmenu.js (Goto File/Function,\nOpen Folder, Image File, Ctrl+I,\ndịch caption + Từ điển dịch, clone)\noutline.js · goto.js (Ctrl+G)\nhistory.js (lịch sử cục bộ + chung)'),
+        ('IntelliSense & kiểm tra', 'completion.js (4 lớp gợi ý + AI ghost)\nentity.js (F12/Peek &Entity;)\nproblems.js + problems-worker.js\ncheckfield.js (Check Field:\nfields ↔ views, header)\nsearch.js (Find/Replace in Files)'),
         ('Xem trước & chạy', 'dirpreview.js + dirview.js (Alt+P Dir)\nmailpreview.js (Alt+P mail mẫu)\nsqlrun.js (Chạy SQL, Ctrl+Enter)\nchat.js (đã gỡ khỏi UI)'),
     ]
     for i, (t, b) in enumerate(cols):
@@ -167,7 +169,7 @@ def diag_viewer():
 
     arrow(ax, (40, 22), (48, 16), 'host.Begin*', both=True, color='#1976D2', loff=(0, -1.8))
     arrow(ax, (50, 36), (50, 38), None, both=True, color='#1976D2')
-    ax.text(50, 67.3, 'Lưu trữ: %AppData%\\Bcode\\viewer-*.json (settings, hints, recent files, theme) · history\\ (local history) · hint-cache · Config/*.txt (system prompt AI cạnh exe)',
+    ax.text(50, 67.3, 'Lưu trữ: %AppData%\\Bcode\\viewer-*.json (settings, hints, recent files, theme, translate-dict) · history\\ · viewer-perf.log · hint-cache · Config/*.txt (prompt AI cạnh exe)',
             ha='center', fontsize=8.5, color='#444', fontweight='bold')
     fig.savefig(OUT + r'\dg_viewer.png', dpi=140, bbox_inches='tight', facecolor='white')
     plt.close(fig)
@@ -206,23 +208,26 @@ def tree(title, groups, fname, figw=17, rowh=0.62):
 def diag_trees():
     bcode = [
         ('Khởi động & dự án', [
-            ('Projects / Choose Server', 'ProjectPickerForm · ConnectionSettingsForm · EditProjectForm (Ctrl+Shift+P / Ctrl+O)'),
+            ('Projects / Choose Server', 'ProjectPickerForm · NativeProjectPickerForm · ProjectActions (Ctrl+Shift+P / Ctrl+O → cửa sổ mới nếu đang có tab)'),
             ('Đồng bộ project FSG', 'Ctrl+F5 · FsgProjectLookupService (DB FSG_A) · FCodeConfigImportService'),
             ('Nhiều cửa sổ / khôi phục phiên', 'Ctrl+Shift+N · MainForm.Session (tab chờ) · Hibernate (chế độ hiệu năng)'),
-            ('Backup DB · Create Menu · Refresh Web.config', 'MainForm (menu Settings / Actions)'),
+            ('Backup DB · Create Menu · Open/Refresh Web.config', 'MainForm (menu Settings / Actions)'),
         ]),
         ('Khung giao diện', [
-            ('Thanh trên / cột icon / thanh tool / tab', 'topbar.html · iconrail · _toolSpecs · FlatTabControl'),
+            ('Thanh trên / cột icon / thanh tool / tab', 'topbar.html / NativeTopBar · iconrail · _toolSpecs · FlatTabControl'),
             ('Quick Access + nhóm tool', 'QuickAccessForm · MainForm.ToolGroups (Alt+1..5)'),
-            ('Command Palette · Tab switcher · phím tắt', 'CommandPaletteForm (Ctrl+P) · TabSwitcherForm · ShortcutRegistry'),
-            ('Giao diện: theme / Template / tỉ lệ / hiệu năng', 'UiThemes · UiTemplate(+Form) · UiScale · UiOverrides · PerformanceProfile'),
+            ('Command Palette · Tab switcher · phím tắt', 'CommandPaletteForm (Ctrl+P) · TabSwitcherForm · ShortcutRegistry (NativeDefault)'),
+            ('Giao diện: theme / Template / tỉ lệ / hiệu năng', 'UiThemes · UiTemplate(+Form, tab Tìm file) · UiScale · UiOverrides · PerformanceProfile'),
+            ('Trợ giúp (Ctrl+F1) · Thông báo y/c FSG (chuông)','HelpControl + docs/HuongDanSuDung.md · FsgNotifyService/Form'),
             ('Menu Triển khai · Tool mở rộng', 'DeployToolKeys / ExtToolKeys trong MainForm.cs'),
         ]),
         ('SQL & dữ liệu', [
             ('SQL Query (Monaco, AI, debug từng bước)', 'RawSqlControl · RawSqlService · SqlLineAnalyzer/SqlStepPlanner · sqleditor.html'),
-            ('Gợi ý code SQL', 'SqlHintCatalog/Service/Popular · Web/Shell/sqlhints.js'),
+            ('Write Schema (.xsd d1..dN) → cập nhật .rpt', 'Rpt/XsdSchemaWriter · RptSchemaForm · RptSchemaService (rptschema.ps1)'),
+            ('Gợi ý code SQL', 'SqlHintCatalog/Service/Popular · sqlhints.js (App: SqlHintEngine/Jint · HintPopup)'),
             ('Lịch sử SQL & lịch sử sửa object', 'QueryHistoryControl · SqlHistoryForm · DdlTrackingService'),
-            ('Table / Command / Lookup', 'TableEditControl · SqlQueryControl · LookupControl · PeriodTableQueryService'),
+            ('Table (menu của bảng, check partition, thiết kế cột)', 'TableEditControl · TableMenuService · PartitionCheckForm · ColumnDesignForm'),
+            ('Command / Lookup (tìm chữ trong procedure)', 'SqlQueryControl · LookupControl · PeriodTableQueryService · SqlDefinitionIndex'),
             ('Kết quả: MultiResultView + menu lưới', 'resultview.html · ResultGridMenu · DataScriptService (Add Script)'),
             ('SQL Object tree / Ai đang dùng / So sánh object', 'SqlObjectTreeControl · UsagesControl · CompareObjectsControl'),
             ('Decrypt SQL Object (cần key)', 'DecryptSqlObjectControl · SqlDecryptor.Core.dll · LicenseService'),
@@ -230,23 +235,24 @@ def diag_trees():
         ]),
         ('Source FCode & menu ERP', [
             ('WCommand tree + CRUD + Gen Script Menu', 'WCommandTreeControl · WCommandService · WCommandEditForm · AppCommandEditForm'),
-            ('File Lookup (+cache, Monaco preview, tìm nội dung)', 'FileLookupControl · FileLookupService · FileParseCache · EntityCheckService'),
+            ('Mobile (bảng dvcommand, MobileService)', 'WCommandTreeControl(menuTable) · AppCommandService.DvCommand · MobilePathService'),
+            ('File Lookup (cache, preview, tìm, cấp nhanh)','FileLookupControl(+QuickGrant) · FileLookupService · FileParseCache · EntityCheck'),
             ('File Reference · Check Include', 'FileReferenceControl · IncludeCheckControl/Service (Assets/includecheck)'),
-            ('Cấp source / Copy to / Clone file', 'AddSourceForm · GrantSourceForm(SourceGrantService) · CopyMultiFileForm'),
+            ('Cấp source / View source / Copy to / Clone file', 'AddSourceForm · GrantSourceForm(SourceGrantService) · SourceViewForm · CopyMultiFileForm'),
             ('Gen Update (gói) · Note (New)/Advance Note', 'GenUpdatePackageControl · AdvanceNoteControl · GenAllService'),
-            ('Tạo nhanh danh mục · Clone danh mục', 'QuickListForm/Service · CatalogCloneForm/Service (Templates/fileSource)'),
+            ('Tạo nhanh danh mục · Clone · AI tạo danh mục', 'QuickListForm/Service · CatalogClone · AiCatalogService · FastCatalogRules'),
         ]),
         ('Báo cáo & kế toán', [
             ('Tạo báo cáo (procedure có sẵn / thiết kế từ bảng)', 'ReportStudioForm · QuickReportControl · Bcode.ReportBuilder.dll'),
             ('Create RPT & XML · Excel → FRX', 'CreateRptControl · Services/Rpt/* · ExcelToFrx.dll (cần key)'),
             ('Check LCTT / CĐKT', 'CashFlowCheckControl · CashFlowDiagnosticService.* · CfsStandard/CfsFast'),
             ('Biên bản xác nhận (Word)', 'BbxnControl · BbxnService · BbxnForms'),
-            ('Setup eInvoice (FE) · Check Mail', 'SetupEInvoiceControl · EInvoiceSetupService · CheckMailControl/MailTestService'),
+            ('Setup eInvoice (FE) · Check Mail · Mail kế hoạch tuần', 'SetupEInvoiceControl · CheckMailControl · WeeklyMailControl (Sent, phản hồi, Reply)'),
         ]),
         ('API & tích hợp', [
             ('Khai báo API (chuẩn LT3) · Tạo cấu trúc API', 'ApiDeclarationForm · Services/Api/* · ApiSchemaBuilderForm'),
             ('Thiết kế màn hình (exe riêng)', 'LaunchScreenDesigner → Bcode.ScreenDesigner.exe'),
-            ('Báo cáo yêu cầu FSG · FSG Yêu cầu · FSG FBO', 'FsgRequirementReportControl · FsgRequirementCrawlerForm · QuickLaunchLoginForm'),
+            ('Yêu cầu FSG (QLYC) · FSG FBO (Ctrl+4, F12 DevTools)', 'FsgRequirementReportControl · QuickLaunchLoginForm · DevToolsDock'),
             ('Claude / Gemini (tab web nhúng)', 'AiWebPanel + Shared/AiWebHelper'),
             ('Mở BcodeViewer / nhận lệnh từ BcodeViewer', 'FileLookupControl (Process.Start) · ViewerControlServer (pipe)'),
         ]),
@@ -254,6 +260,13 @@ def diag_trees():
             ('Compare Text · String Beauty · Library · Note', 'CompareTextForm · StringBeautyControl · LibrarySnippetForm · NoteControl'),
             ('Script cart (Add/View/Clear/Save/Copy Script)', 'ScriptFileService · ScriptPopupForm'),
             ('Key bản quyền', 'LicenseKeyForm · LicenseService · Shared/LicenseCodec (Bcode.KeyGen cấp key)'),
+        ]),
+        ('Chế độ App (WinForms)', [
+            ('Chọn chế độ · khung native', 'UiMode (--web/--native) · NativeShellBars · NativeProjectPickerForm'),
+            ('Trang native thay trang HTML', 'NativePage + NativePages.Register · NativePages.*.cs (28 file)'),
+            ('Bộ control dùng chung', 'NativeKit (NK.*, CardPanel, NK.Tip) · NativeInputs · PillButton · NativeSkin'),
+            ('Tab native: SQL / Lookup / Table / Note…', 'NativeSqlControl (Scintilla, peek, AI, debug, Ctrl+S/F) · Native*Control'),
+            ('Tô màu code · tìm trong editor', 'FcodeLexer · SqlScintilla (chặn ký tự điều khiển) · NativeFindBar'),
         ]),
     ]
     tree('Bcode.App — cây tính năng', bcode, 'dg_tree_bcode.png')
@@ -263,8 +276,9 @@ def diag_trees():
             ('Monaco nhiều tab, mở/lưu, giữ encoding gốc', 'editor.js · tabs.js · BeginReadFile/BeginWriteFile'),
             ('Cú pháp FCode XML (JS / T-SQL / CSS lồng)', 'fcode-language.js'),
             ('Outline · Go to Definition · Ctrl+G tag', 'outline.js · goto.js'),
-            ('Menu chuột phải FCode', 'contextmenu.js (Goto, Open Config, Clone, Dịch caption, Ctrl+I)'),
-            ('Lịch sử cục bộ + diff + phát hiện file đổi', 'history.js · LocalHistoryStore'),
+            ('Menu chuột phải FCode', 'contextmenu.js (Goto File/Function, Open Folder, Image File, Open Config, Clone, Dịch caption, Ctrl+I)'),
+            ('Lịch sử cục bộ + lịch sử chung + diff', 'history.js · LocalHistoryStore · SharedHistoryStore'),
+            ('Dịch caption v → e + Từ điển dịch', 'CaptionTranslator · TranslateDictionary (viewer-translate-dict.json)'),
         ]),
         ('IntelliSense (4 lớp)', [
             ('Hint Code + snippet FCodeViewer', 'HintSnippetStore · FcodeXmlSnippets · Assets/snippets'),
@@ -276,6 +290,7 @@ def diag_trees():
         ('Entity & kiểm tra', [
             ('F12 / Peek &Entity; xuyên include', 'entity.js · IncludeTree · BeginReadIncludeTree'),
             ('Problems (XML, biến, entity, trùng field)', 'problems.js · problems-worker.js (Web Worker)'),
+            ('Check Field (fields ↔ views, header)', 'checkfield.js'),
             ('Find / Replace in Files', 'search.js · WorkspaceSearchService'),
             ('Quick Open Ctrl+P', 'quickopen.js · BeginListFiles'),
         ]),
@@ -291,7 +306,8 @@ def diag_trees():
             ('Theme (có import VS Code .json/.vsix)', 'ThemeCatalog · VsCodeThemeImporter · theme.js'),
             ('Sidebar Claude/Gemini + đính kèm file', 'MainForm · Shared/AiWebHelper'),
             ('Hộp thoại theo theme', 'ui.js · EditorBridge.ResolveUiDialog'),
-            ('Clear Structure App · Refresh Web.config', 'MainForm'),
+            ('Clear Structure App · Open / Refresh Web.config', 'MainForm'),
+            ('Log độ mượt (long task ≥ 100 ms)', 'perfwatch.js → viewer-perf.log (Help → Log độ mượt)'),
         ]),
     ]
     tree('BcodeViewer.App — cây tính năng', viewer, 'dg_tree_viewer.png')

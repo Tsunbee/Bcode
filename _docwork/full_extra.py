@@ -1,7 +1,7 @@
 import os, re, html, sys
 
-SRC = r'D:\Bee\Tool\Bcode\src'
 HERE = os.path.dirname(os.path.abspath(__file__))
+SRC = os.path.join(os.path.dirname(HERE), 'src')   # gốc repo = thư mục cha của _docwork
 EX = {'bin', 'obj', 'node_modules', 'vs', 'Libs', 'Templates', 'fonts'}
 STALE = ('QuickOpenForm', 'ViewerControlServer', 'không còn gửi lệnh', 'Ngược lại Bcode.App vẫn lắng nghe', 'DecryptSqlObjectConfigService')
 

@@ -288,6 +288,24 @@ public class FileLookupService
                                         && templateNames.Contains(Path.GetFileNameWithoutExtension(f))))
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+                // File trong Controllers\Lookup mà các file của menu dùng (controller="…Lookup" / "&Identity;Lookup", @$relType = 'Lookup') —
+                // CHỈ lấy trong thư mục Lookup: RDTran khai quan hệ Lookup thì là Lookup\RDTran, không kéo theo Dir\RDTran, Grid\RDTran...
+                var lookupPrefix = Path.Combine(controllersKey, "Lookup") + Path.DirectorySeparatorChar;
+                var lookupSources = scannedFiles.Where(f => ScannableExtensions.Contains(Path.GetExtension(f))).ToList();
+                var lookupLists = new IEnumerable<string>[lookupSources.Count];
+                if (useCache)
+                    Parallel.For(0, lookupSources.Count, new ParallelOptions { MaxDegreeOfParallelism = 8 }, i =>
+                        lookupLists[i] = session!.Cache.GetOrCompute("lkp", lookupSources[i], session, rd => ExtractLookupControllerNames(lookupSources[i], rd)));
+                else
+                    for (var i = 0; i < lookupSources.Count; i++)
+                        lookupLists[i] = ExtractLookupControllerNames(lookupSources[i], DirectRead);
+                var lookupNames = lookupLists.SelectMany(l => l).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (lookupNames.Count > 0)
+                    templateFiles.UnionWith((useCache
+                            ? lookupNames.SelectMany(n => index.MenuByName[n])
+                            : index.MenuFiles.Where(f => lookupNames.Contains(Path.GetFileNameWithoutExtension(f))))
+                        .Where(f => f.StartsWith(lookupPrefix, StringComparison.OrdinalIgnoreCase)));
+
                 // File upload (Templates\Upload\SVTran.xml) kéo field/template từ các file
                 // include qua SYSTEM entity — trực tiếp (Include\SVTranFields.txt) hoặc qua .ent
                 // dùng chung (..\..\Include\DiscountRate.ent → ..\Templates\Upload\Include\
@@ -609,7 +627,8 @@ public class FileLookupService
     // in — only style="Grid" (an embedded sub-grid) counts.
     private static readonly Regex GridItemsTagRegex = new(@"<items\b[^>]*>", RegexOptions.Compiled);
     private static readonly Regex StyleGridRegex = new(@"\bstyle\s*=\s*""Grid""", RegexOptions.Compiled);
-    private static readonly Regex ControllerAttrRegex = new(@"\bcontroller\s*=\s*""([A-Za-z0-9_]+)""", RegexOptions.Compiled);
+    // Giá trị có thể ghép entity: controller="&DiscountPromotion.Pre;DiscountPromotionGift", controller="&Identity;Lookup" — thay entity rồi mới xét (ExpandName).
+    private static readonly Regex ControllerAttrRegex = new(@"\bcontroller\s*=\s*""([^""<>]+)""", RegexOptions.Compiled);
 
     private static readonly Regex UploadFormQueryRegex = new(@"[?&;]form=([A-Za-z0-9_]+)", RegexOptions.Compiled);
     private static readonly Regex ShowFormRegex = new(@"show\$?Form\s*\(\s*(?:[A-Za-z0-9_$.]+\s*,\s*)?['""]([A-Za-z0-9_]+)['""]", RegexOptions.Compiled);
@@ -627,6 +646,51 @@ public class FileLookupService
         catch (Exception) { return null; }
     }
 
+    // showForm(']]>&Controller;<![CDATA[Filter') / showForm(']]>&MailTemplate;<![CDATA[') — tên form ghép từ entity, cắt ngoài CDATA: thay giá trị vào rồi mới dò.
+    // CHỈ trong nội dung của chính file (Grid\SVTran.xml, Grid\SVDiscountPromotionGift.xml), không trong file include: Include\XML\DPGrid.txt của
+    // Grid\SVDownPayment có showForm(']]>&f1;<![CDATA[') → CRDownPaymentFilter mà FCode không hiện (đối chiếu menu SVTran của VPMILK).
+    private static readonly Regex CdataEntityRegex = new(@"\]\]>\s*&([A-Za-z0-9_.$]+);\s*<!\[CDATA\[", RegexOptions.Compiled);
+
+    /// <summary>Tên controller sau khi thay entity (controller="&amp;DiscountPromotion.Pre;DiscountPromotionGift" + &lt;!ENTITY DiscountPromotion.Pre "SV"&gt;
+    /// → SVDiscountPromotionGift); null nếu còn entity không biết hoặc không phải tên hợp lệ.</summary>
+    private static string? ExpandName(string raw, Dictionary<string, string> entities)
+    {
+        raw = ExpandEntities(raw, entities).Trim();
+        return IdentifierRegex.IsMatch(raw) ? raw : null;
+    }
+
+    /// <summary>Thay &amp;X; bằng giá trị, cả entity lồng (&lt;!ENTITY Controller "&amp;DiscountPromotion.Pre;DiscountPromotionGift"&gt;), tối đa 5 lớp; X không biết thì giữ nguyên.</summary>
+    private static string ExpandEntities(string raw, Dictionary<string, string> entities)
+    {
+        for (var i = 0; i < 5 && raw.Contains('&'); i++)
+            raw = EntityRefRegex.Replace(raw, m => entities.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value);
+        return raw;
+    }
+
+    // File trong Controllers\Lookup mà FCode đưa vào cây của menu (đối chiếu với FCode, menu SVTran của VPMILK, 21/10/2026):
+    //   • controller có ĐUÔI "Lookup" (sau khi thay entity): <items style="AutoComplete" controller="ViewFIFOBalanceLookup">,
+    //     controller="&Identity;Lookup" (Filter\SVOrderFilter khai <!ENTITY Identity "SVOrder"> → Lookup\SVOrderLookup);
+    //   • khai quan hệ kiểu Lookup trong command: select @$relController = 'RDTran', @$relType = 'Lookup' → Lookup\RDTran.
+    // AutoComplete thường (controller="Customer", "Item"... dù có file trong Lookup) FCode KHÔNG lấy — giữ như vậy.
+    // (Bảng sysrelative của DB Sys KHÔNG phải nguồn FCode dùng: có SVGoodsIssueLookup... FCode không hiện, thiếu zSVPXBLookup... FCode có.)
+    private static readonly Regex RelLookupRegex = new(@"@\$relController\s*=\s*'([A-Za-z0-9_]+)'\s*,\s*@\$relType\s*=\s*'Lookup'", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>Tên các file trong Controllers\Lookup mà file này (và include của nó) dùng — xem ghi chú ở <see cref="RelLookupRegex"/>.</summary>
+    private static List<string> ExtractLookupControllerNames(string filePath, Func<string, string?> read)
+    {
+        var found = new List<string>();
+        if (!ScannableExtensions.Contains(Path.GetExtension(filePath)) || read(filePath) is not { } content) return found;
+        var (texts, entities) = DtdIncludeResolver.Resolve(filePath, content, read);
+        foreach (var text in texts)
+        {
+            foreach (Match m in ControllerAttrRegex.Matches(text))
+                if (ExpandName(m.Groups[1].Value, entities) is { } name && name.EndsWith("Lookup", StringComparison.OrdinalIgnoreCase))
+                    found.Add(name);
+            foreach (Match m in RelLookupRegex.Matches(text)) found.Add(m.Groups[1].Value);
+        }
+        return found;
+    }
+
     private static List<string> ExtractRelatedControllerNames(string filePath, Func<string, string?> read)
     {
         var found = new List<string>();
@@ -635,39 +699,23 @@ public class FileLookupService
         // unreadable/locked — just skip discovering related controllers from it
         if (read(filePath) is not { } content) return found;
 
-        void ScanRefs(string text)
+        var (texts, entities) = DtdIncludeResolver.Resolve(filePath, content, read);
+        for (var t = 0; t < texts.Count; t++)
         {
+            // texts[0] = phần DTD có hiệu lực, texts[1] = thân chính file này, sau đó là file include (xem DtdIncludeResolver.Resolve).
+            var text = t <= 1 && texts[t].Contains("]]>&", StringComparison.Ordinal)
+                ? CdataEntityRegex.Replace(texts[t], m => entities.TryGetValue(m.Groups[1].Value, out var v) ? ExpandEntities(v, entities) : m.Value)
+                : texts[t];
             foreach (Match tag in GridItemsTagRegex.Matches(text))
             {
                 if (!StyleGridRegex.IsMatch(tag.Value)) continue;
                 var controllerMatch = ControllerAttrRegex.Match(tag.Value);
-                if (controllerMatch.Success)
-                    found.Add(controllerMatch.Groups[1].Value);
+                if (controllerMatch.Success && ExpandName(controllerMatch.Groups[1].Value, entities) is { } name)
+                    found.Add(name);
             }
             foreach (Match m in ShowFormRegex.Matches(text))
                 found.Add(m.Groups[1].Value);
         }
-        ScanRefs(content);
-
-        // File dùng chung qua SYSTEM entity (Include*.ent, *.txt, *.xml — vd CompactMode.ent chứa g.showForm('SRInvoiceFilter')) cũng là một phần của form:
-        // FCode theo cả các file này nên tìm ra cả SRBill*/SRInvoice*/... — lần theo include (tối đa 3 tầng) rồi quét cùng luật.
-        var visitedInc = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { filePath };
-        void ScanIncludes(string path, string text, int depth)
-        {
-            if (depth > 3) return;
-            var dir = Path.GetDirectoryName(path) ?? "";
-            foreach (Match m in NamedSystemEntityRegex.Matches(text))
-            {
-                string inc;
-                try { inc = Path.GetFullPath(Path.Combine(dir, m.Groups[3].Value)); } catch (Exception) { continue; }
-                var ext = Path.GetExtension(inc);
-                if (!ScannableExtensions.Contains(ext) && !ext.Equals(".ent", StringComparison.OrdinalIgnoreCase)) continue;
-                if (!visitedInc.Add(inc) || read(inc) is not { } incText) continue;
-                ScanRefs(incText);
-                ScanIncludes(inc, incText, depth + 1);
-            }
-        }
-        ScanIncludes(filePath, content, 0);
 
         // Form upload mở bằng query string: '?type=TemplateUpload&controller=zContract1&form=zContract1UpdateInfo' (trong .f/.xml của Grid/Filter/Dir)
         // → Templates\Upload\zContract1UpdateInfo.xml. Tên upload này không trùng tên menu và không tự khai TransferID nên các luật trên không thấy.

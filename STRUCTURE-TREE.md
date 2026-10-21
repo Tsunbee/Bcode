@@ -243,13 +243,14 @@ Bcode.App/
 │   ├── DecryptSqlObjectConfigService.cs  73
 │   ├── DecryptSqlSecret.cs  12
 │   ├── DiffService.cs  207
+│   ├── DtdIncludeResolver.cs  196
 │   ├── EInvoiceSetupService.cs  179
 │   ├── EntityCheckService.cs  263
 │   ├── FastCatalogRules.cs  814
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FileLookupService.cs  1165
-│   ├── FileParseCache.cs  373
+│   ├── FileLookupService.cs  1213
+│   ├── FileParseCache.cs  375
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  490

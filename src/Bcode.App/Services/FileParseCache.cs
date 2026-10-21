@@ -78,7 +78,9 @@ internal sealed class FileParseCache
     // 4: ShowFormRegex bắt thêm show$Form(g, 'X') — kết quả "rel" cũ thiếu form mở qua hàm bọc.
     // 5: thêm form=X trong query string và <!ENTITY TransferID2 "X"> vào "rel" — kết quả cũ thiếu các file upload.
     // 6: "rel" quét thêm nội dung các file include (SYSTEM entity: CompactMode.ent, ImportXmlScript.txt...) — kết quả cũ thiếu form như SRInvoiceFilter, SRBillFilter.
-    private const int SchemaVersion = 6;
+    // 7: "rel" thay entity trong controller="&X;..." (controller="&DiscountPromotion.Pre;DiscountPromotionGift") và showForm(']]>&X;<![CDATA['),
+    //    chỉ nạp include được gọi tới (%X; / &X;) với mọi đuôi file (DiscountPromotion.SVTran...) + kind mới "lkp" (file trong Controllers\Lookup).
+    private const int SchemaVersion = 7;
     private const int MaxEntries = 100_000;
     public const int PruneDays = 60;
     private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(3);

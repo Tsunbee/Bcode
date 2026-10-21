@@ -17,6 +17,8 @@ public class QuickListColumn : CatalogColumn
     public bool Hidden { get; set; }
     /// <summary>Có lookup nhưng field tên đi kèm (ten_xxx%l) để hidden="true" — không hiện ô/cột tên.</summary>
     public bool HideName { get; set; }
+    /// <summary>Cột chưa có trong bảng ở App Data (người dùng thêm, hoặc mọi cột của bảng mới) — đi vào script CREATE TABLE / ALTER TABLE ADD.</summary>
+    public bool Added { get; set; }
 }
 
 public class QuickListSpec
@@ -26,6 +28,11 @@ public class QuickListSpec
     /// <summary>Tên file Main (không đuôi) → Main\{MainName}.aspx.</summary>
     public string MainName { get; set; } = "";
     public string Table { get; set; } = "";
+    /// <summary>Bảng <see cref="Table"/> chưa có trong App Data — tab Script sinh CREATE TABLE.</summary>
+    public bool NewTable { get; set; }
+    /// <summary>Bảng mới lấy cấu trúc cột từ bảng có sẵn này (nạp bảng cũ rồi gõ tên bảng mới) — trống = không clone.
+    /// Tên này còn ghi cứng trong mẫu thì đổi thành <see cref="Table"/>; script kèm câu chép dữ liệu (để trong chú thích).</summary>
+    public string SourceTable { get; set; } = "";
     /// <summary>Các cột khoá (khoá ghép được).</summary>
     public List<string> Keys { get; set; } = new();
     public string Order { get; set; } = "";
@@ -61,6 +68,10 @@ public class QuickListSpec
     // ---- Chi tiết (tuỳ chọn) ----
     /// <summary>Bảng chi tiết; trống = danh mục không có chi tiết.</summary>
     public string DetailTable { get; set; } = "";
+    /// <summary>Bảng chi tiết chưa có trong App Data.</summary>
+    public bool DetailNew { get; set; }
+    /// <summary>Như <see cref="SourceTable"/> cho bảng chi tiết.</summary>
+    public string DetailSourceTable { get; set; } = "";
     /// <summary>Tên controller lưới chi tiết = tên field lưới trong Dir = tên file Grid\{DetailId}.xml.</summary>
     public string DetailId { get; set; } = "";
     public string DetailTitleV { get; set; } = "";
@@ -154,7 +165,7 @@ public class QuickListService
                 Width = int.TryParse(CS(c, "width"), out var w) ? w : 150,
                 InGrid = CB(c, "inGrid"), InForm = CB(c, "inForm"), InLookup = CB(c, "inLookup"), InFilter = CB(c, "inFilter"), InImport = CB(c, "inImport"),
                 AllowNulls = CB(c, "allowNulls"), ReadOnly = CB(c, "readOnly"),
-                Hidden = CB(c, "hidden"), HideName = CB(c, "hideName"),
+                Hidden = CB(c, "hidden"), HideName = CB(c, "hideName"), Added = CB(c, "added"),
                 Lookup = c.TryGetProperty("lookup", out var l) && l.ValueKind == System.Text.Json.JsonValueKind.Object && CS(l, "controller") != ""
                     ? new FieldLookup(CS(l, "controller"), CS(l, "reference"), CS(l, "key"), CS(l, "check"), CS(l, "information"))
                     : null,
@@ -164,6 +175,7 @@ public class QuickListService
         return new QuickListSpec
         {
             Controller = S("controller"), MainName = S("main"), Table = S("table"), Order = S("order"), NameField = S("nameField"),
+            NewTable = B("newTable"), SourceTable = S("sourceTable"),
             Keys = L("keys"),
             TitleV = S("titleV"), TitleE = S("titleE"), SubTitleV = S("subV"), SubTitleE = S("subE"),
             FuncNew = B("funcNew"), FuncEdit = B("funcEdit"), FuncDelete = B("funcDelete"), FuncFilter = B("funcFilter"),
@@ -172,6 +184,7 @@ public class QuickListService
             OldKeyFormat = S("oldKeyFormat") is { Length: > 0 } f ? f : DefaultOldKeyFormat,
             Columns = Cols("columns"),
             DetailTable = hasDetail ? S("detailTable") : "",
+            DetailNew = hasDetail && B("detailNew"), DetailSourceTable = hasDetail ? S("detailSource") : "",
             DetailId = S("detailId"), DetailTitleV = S("detailTitleV"), DetailTitleE = S("detailTitleE"), DetailOrder = S("detailOrder"),
             DetailKeys = L("detailKeys"), LinkKeys = L("linkKeys"), DetailImport = B("detailImport"),
             DetailColumns = hasDetail ? Cols("detailColumns") : new(),
@@ -226,13 +239,16 @@ public class QuickListService
         var toggles = BuildToggles(spec);
         var unknown = new SortedSet<string>(StringComparer.Ordinal);
         var result = new List<(string, string)>();
+        var renames = TableRenames(spec, templateDir);
 
         foreach (var (template, target) in PlannedFiles(spec))
         {
             var templatePath = Path.Combine(templateDir, template);
             if (!File.Exists(templatePath)) throw new FileNotFoundException($"Thiếu file mẫu: {templatePath}");
 
-            var text = FixTemplate(spec, template, File.ReadAllText(templatePath));
+            var raw = File.ReadAllText(templatePath);
+            raw = RetargetTables(raw, renames, LiteralTable(raw), IsDetailTemplate(template) ? spec.DetailTable : spec.Table);
+            var text = FixTemplate(spec, template, raw);
             foreach (var (name, on) in toggles) text = ApplyToggle(text, name, on);
 
             var values = IsDetailTemplate(template) ? BuildDetailValues(spec, template) : BuildValues(spec, template);
@@ -263,6 +279,136 @@ public class QuickListService
 
     private static bool IsDetailTemplate(string template) =>
         template is DetailGridTemplate or DetailImportTemplate or DetailUploadTemplate;
+
+    // ---- Tên bảng ghi cứng trong mẫu -----------------------------------------------------------
+    // Mẫu chuẩn dùng [#TABLE#] / [#TABLEDETAIL#] nên luôn ra đúng tên bảng của danh mục. Mẫu tự sửa / chép từ 1 danh mục có sẵn
+    // (thư mục mẫu ở "Nâng cao") có thể còn tên bảng cũ: <dir table="dmdemo">, <!ENTITY Tag "dmdemo"> + table="&Tag;",
+    // <baseTable value="dmdemo"/>, "delete dmdemoct where ...". Đổi các chỗ khai báo bảng đó sang bảng mới; mẫu không có tên bảng thì không đổi gì.
+
+    private static readonly Regex IdentRx = new(@"^[A-Za-z_][A-Za-z0-9_$]*$", RegexOptions.Compiled);
+
+    /// <summary>Tên bảng ghi cứng ở thẻ gốc của mẫu (table="x" hoặc table="&amp;Tag;" + &lt;!ENTITY Tag "x"&gt;); null nếu là placeholder / không có.</summary>
+    internal static string? LiteralTable(string text)
+    {
+        var m = Regex.Match(text, @"<[A-Za-z][\w:]*\s[^>]*?\btable\s*=\s*""(?<v>[^""]*)""");
+        if (!m.Success) return null;
+        var v = m.Groups["v"].Value.Trim();
+        var ent = Regex.Match(v, @"^&(?<n>[\w.$-]+);$");
+        if (ent.Success)
+        {
+            var decl = Regex.Match(text, @"<!ENTITY\s+" + Regex.Escape(ent.Groups["n"].Value) + @"\s+""(?<t>[^""]*)""");
+            v = decl.Success ? decl.Groups["t"].Value.Trim() : "";
+        }
+        return IdentRx.IsMatch(v) ? v : null;
+    }
+
+    /// <summary>Tên bảng cũ → bảng mới dùng cho mọi file: bảng nguồn khi clone + bảng ghi cứng ở mẫu Dir / mẫu lưới chi tiết.</summary>
+    private static Dictionary<string, string> TableRenames(QuickListSpec s, string templateDir)
+    {
+        string? Literal(string template)
+        {
+            var path = Path.Combine(templateDir, template);
+            return File.Exists(path) ? LiteralTable(File.ReadAllText(path)) : null;
+        }
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        void Add(string? old, string target)
+        {
+            if (old is null || !IdentRx.IsMatch(old) || !IdentRx.IsMatch(target) || map.ContainsKey(old)) return;
+            // Không đổi 1 tên đang là bảng đích của danh mục / chi tiết (vd mẫu chi tiết ghi đúng tên bảng danh mục).
+            if (old.Equals(s.Table, StringComparison.OrdinalIgnoreCase) || (s.HasDetail && old.Equals(s.DetailTable, StringComparison.OrdinalIgnoreCase))) return;
+            map[old] = target;
+        }
+        Add(s.SourceTable, s.Table);
+        Add(Literal(DirTemplate), s.Table);
+        if (s.HasDetail)
+        {
+            Add(s.DetailSourceTable, s.DetailTable);
+            Add(Literal(DetailGridTemplate), s.DetailTable);
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// Đổi tên bảng cũ (<paramref name="renames"/> + bảng ghi cứng ở thẻ gốc của chính mẫu này → <paramref name="ownTarget"/>) ở các chỗ khai báo bảng:
+    /// thuộc tính table= / baseTable= / &lt;table value=&gt;, giá trị &lt;!ENTITY&gt; đúng bằng tên bảng, và câu SQL (from / join / into / update / delete / table, object_id('...')).
+    /// Chỉ đổi nguyên từ (dmkh không đụng dmkhct, @@table, #tam...).
+    /// </summary>
+    internal static string RetargetTables(string text, IReadOnlyDictionary<string, string> renames, string? ownTable, string ownTarget)
+    {
+        var map = new Dictionary<string, string>(renames, StringComparer.OrdinalIgnoreCase);
+        if (ownTable != null && IdentRx.IsMatch(ownTarget) && !ownTable.Equals(ownTarget, StringComparison.OrdinalIgnoreCase)) map.TryAdd(ownTable, ownTarget);
+        foreach (var (old, target) in map.OrderByDescending(x => x.Key.Length))
+        {
+            if (old.Equals(target, StringComparison.OrdinalIgnoreCase)) continue;
+            var o = Regex.Escape(old);
+            const RegexOptions I = RegexOptions.IgnoreCase;
+            text = Regex.Replace(text, @"(?<=(?:\btable|\bbaseTable|<(?:table|baseTable)\s+value)\s*=\s*"")" + o + @"(?="")", target, I);
+            text = Regex.Replace(text, @"(?<=<!ENTITY\s+(?:%\s+)?[\w.$-]+\s+"")" + o + @"(?="")", target, I);
+            text = Regex.Replace(text, @"(?<=\b(?:from|join|into|update|delete|table)\s+(?:(?:dbo|\[dbo\])\.)?\[?)" + o + @"(?![\w$])", target, I);
+            text = Regex.Replace(text, @"(?<=\bobject_id\s*\(\s*N?'(?:dbo\.)?)" + o + @"(?=')", target, I);
+        }
+        return text;
+    }
+
+    // ---- Script bảng (tab Script) ------------------------------------------------------------
+
+    /// <summary>
+    /// Script cho tab "Script" của Tạo nhanh danh mục — chỉ sinh, KHÔNG chạy: bảng mới → CREATE TABLE theo các cột đang khai
+    /// (<see cref="CatalogCloneService.BuildTableScript"/>, khoá chính = cột Key; clone thì kèm câu chép dữ liệu từ bảng nguồn trong chú thích);
+    /// bảng có sẵn → ALTER TABLE ADD cho các cột thêm (<see cref="Controls.TableEditControl.BuildColumnScript"/>, như Design → Add Column của tab Table).
+    /// Cả bảng chi tiết. Trống = không có gì cần tạo / thêm. <paramref name="sourceColumns"/> = cột của bảng nguồn (để biết cột nào chép được dữ liệu).
+    /// </summary>
+    public static string BuildTableScript(QuickListSpec s, Func<string, ISet<string>>? sourceColumns = null)
+    {
+        var sb = new StringBuilder();
+        void Part(string table, bool isNew, string source, List<QuickListColumn> cols, List<string> keys)
+        {
+            if (string.IsNullOrWhiteSpace(table)) return;
+            bool IsKey(CatalogColumn c) => keys.Contains(c.Name, StringComparer.OrdinalIgnoreCase);
+            if (isNew)
+            {
+                if (cols.Count == 0) { sb.AppendLine($"-- Bảng mới dbo.{table}: chưa có cột nào."); sb.AppendLine(); return; }
+                var src = source.Length > 0 && IdentRx.IsMatch(source) && !source.Equals(table, StringComparison.OrdinalIgnoreCase) ? source : "";
+                var srcCols = src.Length > 0 ? sourceColumns?.Invoke(src) : null;
+                sb.AppendLine($"-- Bảng mới dbo.{table} (chưa có trong App Data){(src.Length > 0 ? $", cấu trúc lấy từ dbo.{src}" : "")}.");
+                sb.AppendLine(CatalogCloneService.BuildTableScript(new CatalogSpec
+                {
+                    Table = table,
+                    SourceTable = srcCols is { Count: > 0 } ? src : "",
+                    Columns = cols.Select(c => new CatalogColumn
+                    {
+                        Name = c.Name, SqlType = c.SqlType, Type = c.Type, AllowNulls = c.AllowNulls, IsKey = IsKey(c),
+                        SourceName = srcCols != null && srcCols.Contains(c.Name) ? c.Name : "",
+                    }).ToList(),
+                }).TrimEnd());
+                sb.AppendLine();
+                return;
+            }
+            var added = cols.Where(c => c.Added).ToList();
+            if (added.Count == 0) return;
+            sb.AppendLine($"-- Thêm {added.Count} cột vào bảng có sẵn dbo.{table}.");
+            foreach (var k in added.Where(IsKey))
+                sb.AppendLine($"-- Lưu ý: {k.Name} là cột khoá của danh mục nhưng khoá chính của bảng không tự đổi — sửa PRIMARY KEY nếu cần.");
+            var defs = added.Select(c =>
+            {
+                var type = SqlTypeOf(c);
+                return (c.Name, Type: type + (!c.AllowNulls || IsKey(c) ? " NOT NULL" + Controls.TableEditControl.DefaultClause(type) : ""));
+            }).ToList();
+            sb.AppendLine(Controls.TableEditControl.BuildColumnScript("dbo", table, null, defs, "ADD").TrimEnd());
+            sb.AppendLine();
+        }
+        Part(s.Table, s.NewTable, s.SourceTable, s.Columns, s.Keys);
+        if (s.HasDetail) Part(s.DetailTable, s.DetailNew, s.DetailSourceTable, s.DetailColumns, s.DetailKeys);
+        if (sb.Length == 0) return "";
+        return "-- Script bảng cho danh mục " + s.Controller + " — Bcode chỉ sinh, KHÔNG tự chạy. Xem lại rồi chạy trên App Data trước khi dùng danh mục.\r\n\r\n"
+            + CatalogCloneService.NormalizeNewLines(sb.ToString().TrimEnd()) + "\r\n";
+    }
+
+    /// <summary>Kiểu SQL của cột: kiểu thật / đã khai, chưa có thì theo type="" (như script tạo bảng của Clone danh mục).</summary>
+    private static string SqlTypeOf(QuickListColumn c) => c.SqlType.Length > 0 ? c.SqlType : c.Type switch
+    {
+        "Boolean" => "bit", "Decimal" => "numeric(19, 4)", "DateTime" => "smalldatetime", _ => "nvarchar(128)",
+    };
 
     /// <summary>
     /// Sửa vài chỗ cứng trong mẫu chi tiết (chỉ khi còn đúng nguyên văn gốc — sửa mẫu rồi thì không đụng):

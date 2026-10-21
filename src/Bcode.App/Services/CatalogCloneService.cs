@@ -104,7 +104,7 @@ public class CatalogCloneService
         (spec.SourceTable.Length > 0 && !spec.SourceTable.Equals(spec.Table, StringComparison.OrdinalIgnoreCase))
         || spec.Columns.Any(c => c.SourceName.Length > 0 && !c.SourceName.Equals(c.Name, StringComparison.Ordinal));
 
-    /// <summary>Script tạo bảng cho danh mục mới theo TÊN ĐÃ SỬA: mọi cột của bảng nguồn (kiểu giữ nguyên), khoá chính trên cột Key, kèm câu chép dữ liệu từ bảng nguồn
+    /// <summary>Script tạo bảng cho danh mục mới theo TÊN ĐÃ SỬA: mọi cột của bảng nguồn (kiểu giữ nguyên), khoá chính trên các cột IsKey (khoá ghép được), kèm câu chép dữ liệu từ bảng nguồn
     /// (để sẵn trong chú thích). Không tự chạy — người dùng xem lại rồi chạy.</summary>
     public static string BuildTableScript(CatalogSpec spec)
     {
@@ -131,7 +131,7 @@ public class CatalogCloneService
         sb.AppendLine($"CREATE TABLE [dbo].[{spec.Table}] (");
         var lines = spec.Columns.Select(c => $"\t[{c.Name}] {TypeOf(c)}{(c.IsKey || !c.AllowNulls ? " NOT NULL" : "")}").ToList();
         if (spec.Columns.Any(c => c.IsKey))
-            lines.Add($"\tCONSTRAINT [PK_{spec.Table}] PRIMARY KEY CLUSTERED ([{spec.Columns.First(c => c.IsKey).Name}])");
+            lines.Add($"\tCONSTRAINT [PK_{spec.Table}] PRIMARY KEY CLUSTERED ({string.Join(", ", spec.Columns.Where(c => c.IsKey).Select(c => "[" + c.Name + "]"))})");
         sb.AppendLine(string.Join(",\r\n", lines));
         sb.AppendLine(")");
         sb.AppendLine("GO");

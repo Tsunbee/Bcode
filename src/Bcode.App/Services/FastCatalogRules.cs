@@ -403,6 +403,24 @@ public static class FastCatalogRules
         new("user_id0", "int", "Người tạo", "Created by", "", ""), new("user_id2", "int", "Người sửa", "Modified by", "", ""),
     };
 
+    /// <summary>
+    /// Cột chuẩn của 1 danh mục FBO cho bảng chưa có trong App Data (Tạo nhanh danh mục → gõ tên bảng mới): ma_xx (khoá), ten_xx, ten_xx2, status
+    /// + 4 cột hệ thống — cùng quy ước với phần điền spec ở trên; xx = tên bảng bỏ tiền tố danh mục (zdmhtbh → htbh, dmabc → abc).
+    /// </summary>
+    public static List<AiTableColumn> StandardColumns(string table, string catalogPrefix)
+    {
+        var code = table.ToLowerInvariant();
+        foreach (var p in new[] { catalogPrefix.ToLowerInvariant(), "dm" })
+            if (p.Length > 0 && code.Length > p.Length && code.StartsWith(p, StringComparison.Ordinal)) { code = code[p.Length..]; break; }
+        var cols = new List<AiTableColumn>
+        {
+            new("ma_" + code, "varchar(32)", true), new("ten_" + code, "nvarchar(256)", false), new("ten_" + code + "2", "nvarchar(256)", false),
+            new("status", "char(1)", false),
+        };
+        cols.AddRange(SystemCols.Select(c => new AiTableColumn(c.Name, c.SqlType, false)));
+        return cols;
+    }
+
     /// <summary>Tiền tố bảng màn khai báo số liệu: tiền tố danh mục bỏ "dm" (zdm → z); rỗng thì "z".</summary>
     private static string DataPrefix(string catalogPrefix) => Regex.Replace(catalogPrefix, "dm$", "") is { Length: > 0 } p ? p : "z";
 

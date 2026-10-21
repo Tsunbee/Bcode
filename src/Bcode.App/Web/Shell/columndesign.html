@@ -75,7 +75,7 @@
   window.colDesign = {
     init(d) {
       isAdd = d.isAdd; $('tn').value = d.table;
-      $('hint').textContent = isAdd ? 'Thêm cột mới (cột đã tick ở Structure được điền sẵn kiểu để copy sang bảng khác).' : 'Sửa kiểu / độ dài các cột đã tick, rồi OK để sinh script Alter Column.';
+      $('hint').textContent = d.hint || (isAdd ? 'Thêm cột mới (cột đã tick ở Structure được điền sẵn kiểu để copy sang bảng khác).' : 'Sửa kiểu / độ dài các cột đã tick, rồi OK để sinh script Alter Column.');
       cols = (d.cols || []).map((c) => Object.assign({}, c));
       if (!cols.length) cols.push({ name: '', type: isAdd ? 'nvarchar' : '', length: isAdd ? '128' : '', notNull: false });
       render(isAdd && !d.cols.length);

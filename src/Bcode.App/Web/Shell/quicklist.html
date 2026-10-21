@@ -110,6 +110,12 @@
   .codebox pre.src { flex: 1; }
   .x-tb { color: #6a9fd8; } .x-tn { color: #4ec9b0; } .x-an { color: #9cdcfe; } .x-av { color: #ce9178; } .x-cm { color: #6a9955; font-style: italic; } .x-cd { color: #c586c0; } .x-en { color: #d7ba7d; }
   [data-theme="light"] .x-tn { color: #127a6a; } [data-theme="light"] .x-an { color: #1f5fa8; } [data-theme="light"] .x-av { color: #a33f16; }
+  /* ---- Tab Script (bảng mới / cột thêm) + cột thêm trong bảng cột ---- */
+  .fview.one { grid-template-columns: minmax(0, 1fr); }
+  .x-kw { color: #569cd6; font-weight: 600; } [data-theme="light"] .x-kw { color: #0b4fa8; }
+  .tbl td.nm .cact { float: right; display: inline-flex; gap: .15rem; }
+  .tbl td.nm .cact button { padding: 0 .3rem; font-size: .8rem; line-height: 1.3; }
+  .tbl td.nm small b.nw { color: var(--success); }
 
   /* ---- Xem trước form (mô phỏng theo đúng quy tắc bố cục bộ sinh dùng) ---- */
   .split { width: 6px; flex: none; cursor: col-resize; }
@@ -234,6 +240,13 @@
     <details id="aiSqlBox" hidden><summary>Bảng mới chưa có trong App Data — script tạo bảng (KHÔNG tự chạy) <button id="aiCopySql">Copy script</button></summary><pre id="aiSql"></pre></details>
     <details><summary>Nội dung yêu cầu đã gửi AI</summary><pre id="aiContent"></pre><div id="aiAnswered"></div></details>
   </div>
+  <!-- Bảng chưa có trong App Data = bảng mới: script CREATE TABLE ở tab Script (không tự chạy) -->
+  <div class="banner" id="newBanner" hidden>
+    <span id="newMsg"></span><span class="grow"></span>
+    <button id="bNewStd" title="Bỏ cột đang có, dùng cột chuẩn của danh mục FBO (mã, tên, tên 2, status, 4 cột hệ thống)">Dùng cột chuẩn</button>
+    <button id="bNewScript" class="primary">Xem Script</button>
+    <button class="x" id="bNewClose" title="Ẩn">✕</button>
+  </div>
   <!-- Khôi phục cấu hình lần trước / kết quả tạo file -->
   <div class="banner" id="restoreBanner" hidden>
     <span>Bảng này đã có cấu hình lưu lúc <b id="restoreAt"></b>.</span>
@@ -252,11 +265,12 @@
   <div class="work">
     <div class="left">
       <div class="bar">
-        <div class="tabs"><button id="tCols" class="on">Cột danh mục</button><button id="tDet" hidden>Cột chi tiết</button><button id="tPrev">Xem XML</button><button id="tMenu" title="Tạo menu (wcommand + command) cho danh mục này">Menu</button></div>
+        <div class="tabs"><button id="tCols" class="on">Cột danh mục</button><button id="tDet" hidden>Cột chi tiết</button><button id="tPrev">Xem XML</button><button id="tSql" hidden title="Script tạo bảng mới / thêm cột (chỉ sinh, không tự chạy)">Script</button><button id="tMenu" title="Tạo menu (wcommand + command) cho danh mục này">Menu</button></div>
         <span class="grow"></span>
         <input type="search" id="colFilter" placeholder="Lọc cột..." spellcheck="false">
         <button id="bUndo" title="Hoàn tác (Ctrl+Z)" disabled>↶</button>
         <button id="bRedo" title="Làm lại (Ctrl+Y)" disabled>↷</button>
+        <button id="bAddCol" title="Thêm cột (trường) vào bảng: bảng mới → vào script CREATE TABLE; bảng có sẵn → script ALTER TABLE ADD (tab Script). Cột thêm cũng vào các file XML như cột khác.">+ Thêm cột</button>
         <button id="bGuess" title="Điền lại header theo: header đã nhập lần trước → header.xml/parameters.xml → từ điển viết tắt → Title. Ghi đè cả ô đã sửa tay.">Gợi ý header</button>
         <button id="bSide" title="Bật/tắt khung xem trước form">Xem form ▸</button>
         <button class="help" tabindex="0">?<span class="helpbox">
@@ -264,6 +278,7 @@
           <b>Tick nhanh:</b> bấm tiêu đề Grid / Dir / ... = bật/tắt cho các cột đang chọn (chưa chọn = các cột đang hiện). <kbd>Shift</kbd>+click ô tick = tick cả dải.<br>
           <b>Bôi đen:</b> nhấn chuột vào 1 ô tick rồi kéo dọc cùng cột để bôi đen dải ô, bấm <kbd>Cách</kbd> = tick cả dải (đã tick hết thì bỏ tick).<br>
           <b>Width, type, AllowNulls, ReadOnly, Hidden, Ẩn tên:</b> sửa ở thanh "Đã chọn N cột", áp cho mọi cột đang chọn.<br>
+          <b>Thêm cột:</b> nút <b>+ Thêm cột</b> (tên, kiểu, độ dài, Not NULL); cột thêm có ✎ sửa / ✕ xoá, script ở tab <b>Script</b>. Gõ tên bảng chưa có ở ô Bảng = bảng mới.<br>
           <b>Thứ tự field:</b> kéo ⠿ (hoặc kéo ngay trong khung xem trước), hoặc <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>.<br>
           <b>Khung xem trước:</b> click 1 ô / cột = nhảy tới dòng đó trong bảng.<br>
           <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> = hoàn tác / làm lại · <kbd>Enter</kbd> ở ô Bảng = nạp cột · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> = Tạo file.
@@ -301,6 +316,19 @@
             <div class="codebox" id="codeBox"><pre class="gut" id="gut"></pre><pre class="src" id="code"></pre></div>
           </div>
         </div>
+      </div>
+      <!-- Tab Script: CREATE TABLE cho bảng mới / ALTER TABLE ADD cho cột thêm — C# QuickListService.BuildTableScript, chỉ sinh không chạy -->
+      <div class="pane" id="pSql" hidden>
+        <div class="fview one">
+          <div class="card fcode">
+            <div class="ch"><b>Script bảng</b><span class="muted" id="sqlInfo"></span><span class="grow"></span>
+              <button id="bSqlCopy" title="Copy script">Copy</button>
+              <button id="bSqlCart" title="Thêm vào Script Cart của Bcode (như Add Script) và copy vào clipboard">Add Script</button>
+              <button id="bSqlOpen" class="primary" title="Mở script trong tab SQL Query mới của Bcode (App Data) để xem / chạy">Mở SQL Query</button></div>
+            <div class="codebox"><pre class="gut" id="sqlGut"></pre><pre class="src" id="sqlCode"></pre></div>
+          </div>
+        </div>
+        <p class="muted hint">Script cập nhật theo cột đang khai (tên, kiểu, độ dài, Not NULL, Key). Bcode <b>không tự chạy</b> script — chạy trên App Data trước khi dùng danh mục.</p>
       </div>
       <!-- Tab Menu: chọn menu mẫu cùng nhóm → xem trước menu sẽ tạo → mở form WCOMMAND (New) điền sẵn -->
       <div class="pane" id="pMenu" hidden>
@@ -362,9 +390,10 @@
 
   // 2 bảng cột dùng chung 1 bộ vẽ: danh mục (Grid/Dir/Lookup/Filter/Import) và chi tiết (Grid/Import).
   const tables = {
-    master: { kind: 'master', rows: 'rows', head: 'headMaster', cg: 'cgMaster', cols: [], anchor: -1, lastChk: null, keys: () => csv('keys'),
+    // isNew = bảng chưa có trong App Data; source = bảng có thật đã nạp cột (giữ cấu trúc khi gõ tên bảng mới = clone).
+    master: { kind: 'master', rows: 'rows', head: 'headMaster', cg: 'cgMaster', cols: [], anchor: -1, lastChk: null, isNew: false, source: '', input: 'table', keys: () => csv('keys'),
       flags: [['inGrid', 'Grid', 3.4], ['inForm', 'Dir', 3.4], ['inLookup', 'Trong Lookup', 4.8, 'Cột có trong file Lookup (danh sách tra cứu của chính danh mục này) — khác với AutoComplete'], ['inFilter', 'Filter', 3.6], ['inImport', 'Import', 3.8]] },
-    detail: { kind: 'detail', rows: 'drows', head: 'headDetail', cg: 'cgDetail', cols: [], anchor: -1, lastChk: null, keys: () => csv('detailKeys').concat(csv('linkKeys')),
+    detail: { kind: 'detail', rows: 'drows', head: 'headDetail', cg: 'cgDetail', cols: [], anchor: -1, lastChk: null, isNew: false, source: '', input: 'detailTable', keys: () => csv('detailKeys').concat(csv('linkKeys')),
       flags: [['inGrid', 'Grid', 3.4], ['inImport', 'Import', 3.8]] },
   };
   const cur = () => (activeTab === 'det' ? tables.detail : tables.master);
@@ -448,7 +477,8 @@
       return '<tr data-i="' + i + '" data-n="' + esc(c.name) + '"' + (cls ? ' class="' + cls + '"' : '') + '>' +
         '<td class="drag" draggable="true" title="Kéo để đổi thứ tự (Alt+↑/↓)">⠿</td>' +
         '<td class="nm" title="' + esc(c.name + ' — ' + c.sqlType + (c.type ? ' · ' + c.type : '') + ' · width ' + c.width + (c.allowNulls ? '' : ' · bắt buộc') + (c.readOnly ? ' · chỉ đọc' : '')) + '">' +
-          (isKey ? '<b>' + esc(c.name) + ' 🔑</b>' : esc(c.name)) + '<small>' + esc(c.sqlType) + (c.type ? ' · ' + esc(c.type) : '') + (c.hidden ? ' · <b>ẩn</b>' : '') + (c.hideName && c.lookup ? ' · ẩn tên' : '') + '</small></td>' +
+          (c.added ? '<span class="cact"><button data-edit="' + i + '" title="Sửa tên / kiểu / độ dài / Not NULL">✎</button><button data-delcol="' + i + '" title="Xoá cột này">✕</button></span>' : '') +
+          (isKey ? '<b>' + esc(c.name) + ' 🔑</b>' : esc(c.name)) + '<small>' + esc(c.sqlType) + (c.allowNulls || isKey ? '' : ' not null') + (c.type ? ' · ' + esc(c.type) : '') + (c.added ? ' · <b class="nw" title="Chưa có trong bảng ở App Data — có trong script ở tab Script">mới</b>' : '') + (c.hidden ? ' · <b>ẩn</b>' : '') + (c.hideName && c.lookup ? ' · ẩn tên' : '') + '</small></td>' +
         t.flags.map(([f]) => chk(i, f)).join('') + txt(i, 'headerV') + txt(i, 'headerE') + lookupCell(c, i) + '</tr>';
     }).join('');
     markCells(t);
@@ -613,6 +643,10 @@
         t.cols[i][f] = v; t.lastChk = { f, i }; scheduleRefresh();
         return;
       }
+      const ed = x.closest('button[data-edit]');
+      if (ed) { const c = t.cols[+ed.dataset.edit]; post('designColumns', { detail: t.kind === 'detail', table: $(t.input).value.trim(), edit: { index: +ed.dataset.edit, name: c.name, sqlType: c.sqlType, notNull: !c.allowNulls } }); return; }
+      const del = x.closest('button[data-delcol]');
+      if (del) { removeCol(t, +del.dataset.delcol); return; }
       const td = x.closest('td.nm'); if (td) selectRow(t, +td.parentElement.dataset.i, e);
     });
     // Kéo thả trong bảng
@@ -659,7 +693,31 @@
   }
   const baseCol = (c, isKey) => ({ name: c.name, sqlType: c.sqlType, headerV: c.name, headerE: c.name, width: '150', type: c.type || '',
     inGrid: true, inForm: true, inLookup: false, inFilter: false, inImport: true, allowNulls: !isKey, readOnly: false, autoV: true, autoE: true,
-    lookups: c.lookups || [], lookupIdx: -1, lookup: null, sel: false, hidden: false, hideName: false });
+    lookups: c.lookups || [], lookupIdx: -1, lookup: null, sel: false, hidden: false, hideName: false, added: !!c.added });
+
+  // ---- Thêm / sửa / xoá cột (cột chưa có trong bảng ở App Data) — hộp Add New Column của tab Table (C# ColumnDesignForm) ----
+  const csvIds = (t) => (t.kind === 'master' ? ['keys', 'order'] : ['detailKeys', 'linkKeys', 'detailOrder']);
+  /** Đổi / bỏ 1 tên cột trong các ô khoá, order (đổi tên cột thêm, xoá cột thêm). */
+  function renameInCsv(t, from, to) {
+    csvIds(t).forEach((id) => {
+      const parts = $(id).value.split(',').map((s) => s.trim()).filter(Boolean);
+      if (!parts.some((p) => p.toLowerCase() === from.toLowerCase())) return;
+      $(id).value = parts.map((p) => (p.toLowerCase() === from.toLowerCase() ? to : p)).filter(Boolean).join(', ');
+    });
+  }
+  function removeCol(t, i) {
+    const c = t.cols[i]; if (!c) return;
+    record();
+    t.cols.splice(i, 1); t.anchor = -1;
+    renameInCsv(t, c.name, '');
+    if (t.kind === 'master') renderNames($('nameField').value === c.name ? '' : $('nameField').value);
+    renderCols(t); say('Đã xoá cột ' + c.name + '.', '');
+  }
+  $('bAddCol').onclick = () => {
+    const t = cur();
+    if (!t.cols.length && !t.isNew) { say(t.kind === 'master' ? 'Nạp bảng (hoặc gõ tên bảng mới rồi Enter) trước khi thêm cột.' : 'Nạp bảng chi tiết trước khi thêm cột.', 'err'); return; }
+    post('designColumns', { detail: t.kind === 'detail', table: $(t.input).value.trim() });
+  };
 
   // Gợi ý header (C# ColumnHeaderGuesser): chỉ điền vào ô chưa sửa tay. Gọi lại khi đổi Title/Key vì tên thực thể lấy từ Title.
   let guessTimer = 0;
@@ -712,11 +770,12 @@
 
   function showTab(name) {
     activeTab = name;
-    [['cols', 'tCols', 'pCols'], ['det', 'tDet', 'pDet'], ['prev', 'tPrev', 'pPrev'], ['menu', 'tMenu', 'pMenu']].forEach(([n, tab, pane]) => {
+    [['cols', 'tCols', 'pCols'], ['det', 'tDet', 'pDet'], ['prev', 'tPrev', 'pPrev'], ['sql', 'tSql', 'pSql'], ['menu', 'tMenu', 'pMenu']].forEach(([n, tab, pane]) => {
       $(tab).classList.toggle('on', n === name); $(pane).hidden = n !== name;
     });
-    $('groupBar').hidden = $('selbar').hidden = name === 'prev' || name === 'menu';
+    $('groupBar').hidden = $('selbar').hidden = name === 'prev' || name === 'menu' || name === 'sql';
     $('colFilter').hidden = $('bGuess').hidden = $('bUndo').hidden = $('bRedo').hidden = name === 'menu';
+    $('bAddCol').hidden = !(name === 'cols' || name === 'det');
     renderSelbar();
     if (name === 'menu') { loadMenus(); findMenus(); renderMenuPlan(); }
   }
@@ -765,6 +824,18 @@
         if ($('detailImport').checked && !d.cols.some((c) => c.inImport)) add('tDet', 'Có import chi tiết nhưng chưa tick cột nào cho Import.');
       }
     }
+    // Bảng mới / cột thêm: tên hợp lệ cho SQL, không trùng.
+    const ident = /^[A-Za-z_][A-Za-z0-9_$]*$/;
+    if (m.isNew && $('table').value.trim() && !ident.test($('table').value.trim())) add('table', 'Tên bảng mới chỉ gồm chữ, số, _ (không bắt đầu bằng số).');
+    [m].concat($('detail').checked ? [tables.detail] : []).forEach((t) => {
+      const seen = new Set(), tab = t.kind === 'master' ? 'tCols' : 'tDet';
+      t.cols.forEach((c) => {
+        const n = c.name.toLowerCase();
+        if (seen.has(n)) add(tab, 'Cột "' + c.name + '" bị trùng tên.');
+        seen.add(n);
+        if (c.added && !ident.test(c.name)) add(tab, 'Tên cột "' + c.name + '" không hợp lệ.');
+      });
+    });
     if (!$('output').value.trim()) add('output', 'Chưa chọn thư mục lưu.');
     return errs;
   }
@@ -789,8 +860,55 @@
 
   function scheduleRefresh(delay) {
     clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(() => { showErrors(); if (!$('side').hidden) renderPreview(); }, delay == null ? 120 : delay);
+    refreshTimer = setTimeout(() => { showErrors(); if (!$('side').hidden) renderPreview(); updateSqlTab(); }, delay == null ? 120 : delay);
   }
+
+  // ---- Tab Script: hiện khi có bảng mới / cột thêm; nội dung do C# sinh (QuickListService.BuildTableScript) ------------
+  let sqlText = '', sqlAsked = '';
+  const needScript = () => tables.master.isNew || tables.master.cols.some((c) => c.added) ||
+    ($('detail').checked && (tables.detail.isNew || tables.detail.cols.some((c) => c.added)));
+  function updateSqlTab() {
+    const on = needScript();
+    $('tSql').hidden = !on;
+    if (!on && activeTab === 'sql') { showTab('cols'); return; }
+    if (on && activeTab === 'sql') {
+      const p = payload(), key = JSON.stringify(p.spec);
+      if (key !== sqlAsked) { sqlAsked = key; post('script', p); }
+    }
+    const m = tables.master, d = tables.detail, info = [];
+    if (m.isNew) info.push('bảng mới ' + $('table').value.trim() + (m.source ? ' (cột lấy từ ' + m.source + ')' : ''));
+    else if (m.cols.some((c) => c.added)) info.push('thêm ' + m.cols.filter((c) => c.added).length + ' cột vào ' + $('table').value.trim());
+    if ($('detail').checked) {
+      if (d.isNew) info.push('bảng chi tiết mới ' + $('detailTable').value.trim());
+      else if (d.cols.some((c) => c.added)) info.push('thêm ' + d.cols.filter((c) => c.added).length + ' cột vào ' + $('detailTable').value.trim());
+    }
+    $('sqlInfo').textContent = info.length ? '· ' + info.join(' · ') : '';
+  }
+  const hlSql = (txt) => esc(txt.replace(/\r\n?/g, '\n')).replace(/(--[^\n]*)|('(?:[^'\n]|'')*')|\b(CREATE|TABLE|ALTER|ADD|IF|NOT|EXISTS|SELECT|FROM|WHERE|INSERT|INTO|GO|NULL|PRIMARY|KEY|CONSTRAINT|CLUSTERED|AND|DEFAULT|EXEC|SET|DECLARE)\b/gi,
+    (m, cm, str, kw) => cm ? '<span class="x-cm">' + cm + '</span>' : str ? '<span class="x-av">' + str + '</span>' : '<span class="x-kw">' + kw + '</span>');
+  function showScript(text) {
+    sqlText = text || '';
+    const lines = sqlText.split(/\r?\n/).length;
+    $('sqlGut').textContent = Array.from({ length: lines }, (_, j) => j + 1).join('\n');
+    $('sqlCode').innerHTML = sqlText ? hlSql(sqlText) : '<span class="muted">Không có bảng mới / cột thêm.</span>';
+  }
+  $('tSql').onclick = () => { sqlAsked = ''; showTab('sql'); updateSqlTab(); };
+  $('bSqlCopy').onclick = () => { if (sqlText) post('copy', { text: sqlText }); };
+  $('bSqlCart').onclick = () => { if (sqlText) post('addScript', { text: sqlText }); };
+  $('bSqlOpen').onclick = () => { if (sqlText) post('openSql', { text: sqlText, table: $('table').value.trim() }); };
+  // Banner bảng mới
+  let stdCols = null;
+  /** mode: 'std' = vừa điền cột chuẩn, 'keep' = giữ cột đang khai (from = bảng nguồn nếu có), 'ai' = cột theo AI. */
+  function showNewBanner(table, mode, from) {
+    $('newMsg').innerHTML = 'Bảng <b>' + esc(table) + '</b> chưa có trong App Data → <b>bảng mới</b>: script CREATE TABLE ở tab <b>Script</b> (không tự chạy). ' +
+      (mode === 'keep' ? (from ? 'Đang giữ cấu trúc cột của bảng <b>' + esc(from) + '</b> (clone).' : 'Đang giữ các cột đang khai.')
+        : mode === 'ai' ? 'Cột theo đề xuất AI.' : 'Đã điền cột chuẩn danh mục — sửa / xoá / <b>+ Thêm cột</b> tuỳ ý.');
+    $('bNewStd').hidden = mode !== 'keep' || !stdCols;
+    $('newBanner').hidden = false;
+  }
+  $('bNewClose').onclick = () => { $('newBanner').hidden = true; };
+  $('bNewScript').onclick = () => $('tSql').onclick();
+  $('bNewStd').onclick = () => { if (stdCols) { const d = stdCols; tables.master.cols = []; tables.master.source = ''; window.quick.onColumns(d); } };
 
   // ---- Khung xem trước form: bật/tắt + kéo đổi độ rộng -----------------------------------
   const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch { /* bỏ qua */ } } };
@@ -944,10 +1062,13 @@
 
   // ---- Khôi phục cấu hình đã lưu --------------------------------------------------------------
   /** Gộp cột đã lưu vào cột vừa nạp: giữ thứ tự + thuộc tính đã lưu; cột mới thêm vào bảng nằm cuối (mặc định); cột đã xoá khỏi bảng thì bỏ. */
-  function mergeCols(fresh, saved) {
+  /** Cột thêm (added) đã lưu mà bảng chưa có thì dựng lại; onlySaved (bảng mới) = bỏ cột chuẩn không có trong cấu hình đã lưu. */
+  function mergeCols(fresh, saved, onlySaved) {
     const byName = new Map(fresh.map((c) => [c.name.toLowerCase(), c])), out = [];
     (saved || []).forEach((s) => {
-      const c = byName.get((s.name || '').toLowerCase()); if (!c) return;
+      let c = byName.get((s.name || '').toLowerCase());
+      if (!c && s.added && s.name) c = baseCol({ name: s.name, sqlType: s.sqlType || '', type: s.type || '', lookups: [], added: true }, false);
+      if (!c) return;
       byName.delete(c.name.toLowerCase());
       ['headerV', 'headerE', 'width', 'type', 'inGrid', 'inForm', 'inLookup', 'inFilter', 'inImport', 'allowNulls', 'readOnly', 'hidden', 'hideName']
         .forEach((f) => { if (s[f] !== undefined) c[f] = s[f]; });
@@ -959,7 +1080,7 @@
       } else setLookup(c, -1);
       out.push(c);
     });
-    return out.concat([...byName.values()]);
+    return onlySaved && out.length ? out : out.concat([...byName.values()]);
   }
   function applySaved(spec) {
     record();
@@ -971,7 +1092,8 @@
     orderAuto = (spec.order || '') === (spec.keys || '');
     ['funcNew', 'funcEdit', 'funcDelete', 'funcFilter', 'lookup', 'filter', 'import', 'irregular', 'comment', 'detailImport'].forEach((id) => chk(id, spec[id]));
     $('importVer').value = spec.import2262 === false ? 'old' : '2262'; $('importVer').disabled = !$('import').checked;
-    tables.master.cols = mergeCols(tables.master.cols, spec.columns);
+    tables.master.cols = mergeCols(tables.master.cols, spec.columns, tables.master.isNew);
+    if (tables.master.isNew && spec.sourceTable) tables.master.source = spec.sourceTable;
     renderNames(spec.nameField || '');
     chk('detail', spec.detail); $('detail').onchange();
     if (spec.detail && spec.detailTable) {
@@ -1011,12 +1133,13 @@
   // ---- Tạo file / sau khi tạo / tạo menu ----------------------------------------------------
   const strip = (cols) => cols.map((c) => ({ name: c.name, sqlType: c.sqlType, headerV: c.headerV, headerE: c.headerE, width: String(c.width), type: c.type,
     inGrid: c.inGrid, inForm: c.inForm, inLookup: c.inLookup, inFilter: c.inFilter, inImport: c.inImport, allowNulls: c.allowNulls, readOnly: c.readOnly,
-    hidden: c.hidden, hideName: c.hideName, lookup: c.lookup }));
+    hidden: c.hidden, hideName: c.hideName, lookup: c.lookup, added: !!c.added }));
   function payload() {
     return {
       template: $('template').value, output: $('output').value,
       spec: {
-        table: $('table').value, controller: $('controller').value, main: $('main').value, keys: $('keys').value, order: $('order').value,
+        table: $('table').value, newTable: tables.master.isNew, sourceTable: tables.master.isNew ? tables.master.source : '',
+        controller: $('controller').value, main: $('main').value, keys: $('keys').value, order: $('order').value,
         nameField: $('nameField').value, titleV: $('titleV').value, titleE: $('titleE').value, subV: $('subV').value, subE: $('subE').value,
         oldKeyFormat: $('oldKeyFormat').value,
         funcNew: $('funcNew').checked, funcEdit: $('funcEdit').checked, funcDelete: $('funcDelete').checked, funcFilter: $('funcFilter').checked,
@@ -1024,6 +1147,7 @@
         irregular: $('irregular').checked, comment: $('comment').checked,
         columns: strip(tables.master.cols),
         detail: $('detail').checked, detailTable: $('detailTable').value, detailId: $('detailId').value,
+        detailNew: tables.detail.isNew, detailSource: tables.detail.isNew ? tables.detail.source : '',
         detailTitleV: $('detailTitleV').value, detailTitleE: $('detailTitleE').value, detailOrder: $('detailOrder').value,
         detailKeys: $('detailKeys').value, linkKeys: $('linkKeys').value, detailImport: $('detailImport').checked,
         detailColumns: strip(tables.detail.cols),
@@ -1191,6 +1315,22 @@
     init(d) { $('template').value = d.template || ''; $('output').value = d.output || ''; $('oldKeyFormat').value = d.oldKeyFormat || ''; renderAll(); },
     onTables(list) { $('tables').innerHTML = list.map((n) => '<option value="' + esc(n) + '">').join(''); },
     onColumns(d) {
+      const m = tables.master, aiHere = pendingAi && pendingAi.table.toLowerCase() === d.table.toLowerCase();
+      if (d.isNew && d.standard) stdCols = d;
+      // Bảng mới (chưa có trong App Data) khi đang có cột của bảng khác: giữ nguyên cột đó làm cấu trúc bảng mới (clone) — "Dùng cột chuẩn" ở banner để thay.
+      if (d.isNew && d.standard && !aiHere && m.cols.length) {
+        m.isNew = true;
+        m.cols.forEach((c) => { c.added = true; });
+        if (!$('controller').value) $('controller').value = d.table;
+        if (!$('main').value) $('main').value = d.table.toLowerCase();
+        showNewBanner(d.table, 'keep', m.source);
+        $('doneBanner').hidden = true;
+        showTab('cols'); renderCols(m);
+        return;
+      }
+      m.isNew = !!d.isNew; m.source = d.isNew ? '' : d.table;
+      $('newBanner').hidden = true;
+      if (d.isNew && !aiHere) showNewBanner(d.table, d.standard ? 'std' : 'ai');
       const keys = d.keys.map((k) => k.toLowerCase());
       const cols = tables.master.cols = d.columns.map((c) => {
         const isKey = keys.includes(c.name.toLowerCase()), skip = skipByDefault(c.name);
@@ -1236,6 +1376,15 @@
       post('loadColumns', { table: spec.table });
     },
     onDetailColumns(d) {
+      const t = tables.detail;
+      if (d.isNew && !d.columns.length) {
+        // Bảng chi tiết mới: đang có cột (nạp bảng khác rồi gõ tên mới) thì giữ làm cấu trúc; không thì dựng từ khoá danh mục + line_nbr.
+        if (t.cols.length && !pendingDetail) { t.isNew = true; t.cols.forEach((c) => { c.added = true; }); showTab('det'); renderCols(t); return; }
+        const mk = new Map(tables.master.cols.map((c) => [c.name.toLowerCase(), c]));
+        d.columns = csv('keys').filter((k) => mk.has(k)).map((k) => { const c = mk.get(k); return { name: c.name, sqlType: c.sqlType, type: c.type, lookups: [], added: true }; })
+          .concat([{ name: 'line_nbr', sqlType: 'int', type: 'Decimal', lookups: [], added: true }]);
+      }
+      t.isNew = !!d.isNew; t.source = d.isNew ? '' : d.table;
       const names = d.columns.map((c) => c.name.toLowerCase());
       const real = (n) => d.columns.find((c) => c.name.toLowerCase() === n).name;
       // Cột liên kết mặc định: các khoá danh mục có cùng tên trong bảng chi tiết.
@@ -1261,12 +1410,42 @@
         const p = pendingDetail; pendingDetail = null;
         if (p.linkKeys) $('linkKeys').value = p.linkKeys;
         if (p.detailKeys) $('detailKeys').value = p.detailKeys;
-        tables.detail.cols = mergeCols(tables.detail.cols, p.detailColumns);
+        tables.detail.cols = mergeCols(tables.detail.cols, p.detailColumns, tables.detail.isNew);
+        if (tables.detail.isNew && p.detailSource) tables.detail.source = p.detailSource;
         showTab('cols');
       } else showTab('det');
       renderCols(tables.detail);
       guessHeaders();
     },
+    /** Kết quả hộp Add New Column / Edit Column: index ≥ 0 = sửa cột đó (dòng đầu), các dòng còn lại = cột thêm mới. */
+    onDesigned(d) {
+      const t = d.detail ? tables.detail : tables.master, list = d.columns || [], skipped = [];
+      record();
+      const has = (n, except) => t.cols.some((c) => c !== except && c.name.toLowerCase() === n.toLowerCase());
+      let start = 0;
+      if (d.index >= 0 && t.cols[d.index] && list.length) {
+        const c = t.cols[d.index], n = list[0];
+        start = 1;
+        if (has(n.name, c)) skipped.push(n.name);
+        else {
+          const renamed = c.name !== n.name;
+          if (renamed) { renameInCsv(t, c.name, n.name); if (t.kind === 'master' && $('nameField').value === c.name) renderNames(n.name); c.autoV = c.autoE = true; }
+          Object.assign(c, { name: n.name, sqlType: n.sqlType, type: n.type, allowNulls: !n.notNull });
+          if (renamed) { c.lookups = n.lookups || []; setLookup(c, c.lookups.length ? 0 : -1); }
+        }
+      }
+      list.slice(start).forEach((n) => {
+        if (has(n.name)) { skipped.push(n.name); return; }
+        const col = Object.assign(baseCol(Object.assign({}, n, { added: true }), false), { allowNulls: !n.notNull });
+        if (t.kind === 'master') { col.inFilter = false; col.inLookup = false; } else col.width = n.type === 'Decimal' ? '100' : '150';
+        if (col.lookups.length) setLookup(col, 0);
+        t.cols.push(col);
+      });
+      if (t.kind === 'master') renderNames($('nameField').value);
+      renderCols(t); guessHeaders();
+      say(skipped.length ? 'Đã có cột trùng tên, bỏ qua: ' + skipped.join(', ') : 'Đã cập nhật cột — script ở tab Script.', skipped.length ? 'err' : 'ok');
+    },
+    onScript(text) { showScript(text); },
     onHeaders(d) {
       [['master', d.master], ['detail', d.detail]].forEach(([k, list]) => {
         const t = tables[k], by = new Map((list || []).map((h) => [h.name.toLowerCase(), h]));

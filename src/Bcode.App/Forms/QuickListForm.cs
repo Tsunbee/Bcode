@@ -32,6 +32,14 @@ public class QuickListForm : WebDialogForm
     private bool _aiBusy, _ready;
     private readonly Dictionary<string, List<AiTableColumn>> _aiNewTables = new(StringComparer.OrdinalIgnoreCase);
 
+    // ---- Tab Script (bảng mới / cột thêm): cột của bảng nguồn khi clone (biết cột nào chép được dữ liệu), nhớ theo tên bảng ----
+    private readonly Dictionary<string, ISet<string>> _sourceColumns = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Tab Script → "Add Script": thêm script vào Script Cart của Bcode (MainForm.AddGeneratedScript).</summary>
+    public event Action<string>? AddScriptRequested;
+    /// <summary>Tab Script → "Mở SQL Query": tab SQL Query mới (App Data) chứa script (script, tiêu đề tab).</summary>
+    public event Action<string, string>? OpenSqlRequested;
+
     public QuickListForm(SqlObjectBrowserService sqlObjects, TableDataService tableData, DbConnectionService connections,
         WCommandService wcommand, AppSettings settings)
         : base(Title, "quicklist.html", 1400, 880, 900, 600)
@@ -124,7 +132,72 @@ public class QuickListForm : WebDialogForm
             }
             case "aiRetry": await RunAiAsync(); break;
             case "aiClose": _aiRequest = null; break;
+            case "script": await ScriptAsync(msg); break;
+            case "designColumns": BeginInvoke(new Action(() => DesignColumns(msg))); break;
+            case "addScript":
+            {
+                var text = msg.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : "";
+                if (text.Trim().Length == 0) break;
+                BeginInvoke(new Action(() =>
+                {
+                    AddScriptRequested?.Invoke(text);
+                    Js($"quick.onStatus({J("Đã thêm script vào Script Cart của Bcode (và copy vào clipboard) — View Script Cart để xem.")}, 'ok')");
+                }));
+                break;
+            }
+            case "openSql":
+            {
+                var text = msg.TryGetProperty("text", out var tx) ? tx.GetString() ?? "" : "";
+                var table = msg.TryGetProperty("table", out var tb) ? (tb.GetString() ?? "").Trim() : "";
+                if (text.Trim().Length == 0) break;
+                BeginInvoke(new Action(() => OpenSqlRequested?.Invoke(text, table.Length > 0 ? "Script " + table : "Script danh mục")));
+                break;
+            }
         }
+    }
+
+    // ---- Tab Script: bảng mới (CREATE TABLE) / cột thêm (ALTER TABLE ADD) ------------------------------
+
+    /// <summary>Sinh script bảng theo spec trang đang khai (QuickListService.BuildTableScript) — chỉ hiện để copy / Add Script / mở SQL Query, không chạy.</summary>
+    private async Task ScriptAsync(JsonElement msg)
+    {
+        try
+        {
+            var spec = ReadSpec(msg.GetProperty("spec"));
+            foreach (var src in new[] { spec.NewTable ? spec.SourceTable : "", spec.DetailNew ? spec.DetailSourceTable : "" })
+                if (src.Length > 0 && !_sourceColumns.ContainsKey(src))
+                    _sourceColumns[src] = (await _sqlObjects.GetColumnsAsync(false, "dbo", src)).Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var script = QuickListService.BuildTableScript(spec, t => _sourceColumns.TryGetValue(t, out var set) ? set : new HashSet<string>());
+            Js($"quick.onScript({J(script)})");
+        }
+        catch (Exception ex) { Js($"quick.onScript({J("-- Không sinh được script: " + ex.Message)})"); }
+    }
+
+    /// <summary>
+    /// "+ Thêm cột" / ✎ sửa cột thêm: mở hộp Add New Column của tab Table (ColumnDesignForm: tên, kiểu, độ dài, Not NULL) rồi trả cột về trang
+    /// (kèm type FastBusiness đoán từ kiểu SQL + các tra cứu chuẩn của header.xml như cột nạp từ bảng). Không chạy gì xuống DB.
+    /// </summary>
+    private void DesignColumns(JsonElement msg)
+    {
+        var detail = msg.TryGetProperty("detail", out var d) && d.ValueKind == JsonValueKind.True;
+        var table = msg.TryGetProperty("table", out var t) ? (t.GetString() ?? "").Trim() : "";
+        JsonElement? edit = msg.TryGetProperty("edit", out var e) && e.ValueKind == JsonValueKind.Object ? e : null;
+        string S(JsonElement x, string n) => x.TryGetProperty(n, out var p) ? p.GetString() ?? "" : "";
+        var initial = edit is { } x
+            ? new[] { ColumnDesignForm.FromSqlType(S(x, "name"), S(x, "sqlType"), x.TryGetProperty("notNull", out var nn) && nn.ValueKind == JsonValueKind.True) }
+            : Array.Empty<ColumnDesignForm.Col>();
+        var hint = edit is null
+            ? "Thêm cột (trường) vào danh mục — bảng mới: vào script CREATE TABLE; bảng có sẵn: script ALTER TABLE ADD (tab Script). Không tự chạy."
+            : "Sửa tên / kiểu / độ dài / Not NULL của cột thêm — script ở tab Script tự cập nhật.";
+        using var form = new ColumnDesignForm(edit is null, table, initial, hint);
+        if (form.ShowDialog(this) != DialogResult.OK || form.Result.Count == 0) return;
+        var cols = form.Result.Select(c => new
+        {
+            name = c.Name, sqlType = c.Type, notNull = c.NotNull, type = CatalogCloneService.GuessFieldType(c.Type),
+            lookups = FieldDictionaryService.Instance.Lookups(c.Name).Select(l => new { l.Controller, l.Reference, l.Key, l.Check, l.Information }),
+        });
+        var index = edit is { } ed && ed.TryGetProperty("index", out var ix) && ix.TryGetInt32(out var i) ? i : -1;
+        Js($"quick.onDesigned({J(new { detail, index, columns = cols })})");
     }
 
     // ---- AI tạo danh mục ------------------------------------------------------------------------
@@ -203,17 +276,32 @@ public class QuickListForm : WebDialogForm
         {
             var cols = await _sqlObjects.GetColumnsAsync(false, "dbo", table);
             Dictionary<string, string> types;
+            bool isNew = false, standard = false;
             if (cols.Count == 0 && _aiNewTables.TryGetValue(table, out var aiCols))
             {
-                // Bảng mới AI đề xuất (chưa có trong App Data): nạp cột theo spec AI để duyệt / xem XML; script tạo bảng ở khung AI.
+                // Bảng mới AI đề xuất (chưa có trong App Data): nạp cột theo spec AI để duyệt / xem XML; script tạo bảng ở khung AI + tab Script.
                 cols = aiCols.Select(c => (c.Name, c.IsPrimaryKey)).ToList();
                 types = aiCols.ToDictionary(c => c.Name, c => c.SqlType, StringComparer.OrdinalIgnoreCase);
+                isNew = true;
             }
-            else
+            else if (cols.Count == 0)
             {
-                if (cols.Count == 0) { Js($"quick.onStatus({J($"Không thấy cột nào của bảng '{table}'.")}, 'err')"); return; }
-                types = await _tableData.GetColumnTypesAsync(false, "dbo", table);
+                // Bảng chưa có trong App Data = bảng mới: danh mục bắt đầu bằng cột chuẩn FBO (trang giữ nguyên cột đang có nếu vừa nạp bảng khác = clone),
+                // chi tiết thì trang tự dựng từ khoá danh mục + line_nbr. Script CREATE TABLE ở tab Script — không tự chạy.
+                if (!System.Text.RegularExpressions.Regex.IsMatch(table, @"^[A-Za-z_][A-Za-z0-9_$]*$"))
+                { Js($"quick.onStatus({J($"Không thấy bảng '{table}' — tên bảng mới chỉ gồm chữ, số, _ (không bắt đầu bằng số).")}, 'err')"); return; }
+                if (detail)
+                {
+                    Js($"quick.onDetailColumns({J(new { table, keys = Array.Empty<string>(), columns = Array.Empty<object>(), isNew = true })})");
+                    Js($"quick.onStatus({J($"Bảng chi tiết '{table}' chưa có trong App Data → bảng mới (script ở tab Script).")}, 'ok')");
+                    return;
+                }
+                var std = FastCatalogRules.StandardColumns(table, _settings.NewCatalogTablePrefix);
+                cols = std.Select(c => (c.Name, c.IsPrimaryKey)).ToList();
+                types = std.ToDictionary(c => c.Name, c => c.SqlType, StringComparer.OrdinalIgnoreCase);
+                isNew = standard = true;
             }
+            else types = await _tableData.GetColumnTypesAsync(false, "dbo", table);
             var keys = cols.Where(c => c.IsPrimaryKey).Select(c => c.Name).ToList();
             if (keys.Count == 0) keys.Add(cols[0].Name);
             var list = cols.Select(c =>
@@ -221,7 +309,7 @@ public class QuickListForm : WebDialogForm
                 types.TryGetValue(c.Name, out var sqlType);
                 return new
                 {
-                    name = c.Name, sqlType = sqlType ?? "", type = CatalogCloneService.GuessFieldType(sqlType ?? ""),
+                    name = c.Name, sqlType = sqlType ?? "", type = CatalogCloneService.GuessFieldType(sqlType ?? ""), added = isNew,
                     // Các biến thể tra cứu chuẩn của FCode cho cột này (header.xml) — trang cho chọn, mặc định biến thể đầu.
                     lookups = FieldDictionaryService.Instance.Lookups(c.Name)
                         .Select(l => new { l.Controller, l.Reference, l.Key, l.Check, l.Information }),
@@ -229,8 +317,8 @@ public class QuickListForm : WebDialogForm
             });
             // Bảng danh mục: kèm cấu hình đã lưu lần trước (nếu có) để trang hỏi khôi phục.
             var saved = detail ? null : QuickListConfigStore.Load(WorkspaceKey, table);
-            Js($"quick.{(detail ? "onDetailColumns" : "onColumns")}({J(new { table, keys, columns = list, saved })})");
-            Js($"quick.onStatus({J($"Đã nạp {cols.Count} cột của '{table}'.")}, 'ok')");
+            Js($"quick.{(detail ? "onDetailColumns" : "onColumns")}({J(new { table, keys, columns = list, saved, isNew, standard })})");
+            Js($"quick.onStatus({J(isNew ? $"Bảng '{table}' chưa có trong App Data → bảng mới (script CREATE TABLE ở tab Script, không tự chạy)." : $"Đã nạp {cols.Count} cột của '{table}'.")}, 'ok')");
         }
         catch (Exception ex) { Js($"quick.onStatus({J("Không nạp được cột: " + ex.Message)}, 'err')"); }
     }

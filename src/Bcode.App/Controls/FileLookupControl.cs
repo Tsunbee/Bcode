@@ -166,12 +166,19 @@ public partial class FileLookupControl : UserControl
             _fileContextMenu.Items.Add("Cấp source thủ công (Add Source)...", null, (_, _) => ShowAddSource());
             var cloneItem = _fileContextMenu.Items.Add("Clone files...", null, (_, _) => CloneFiles());
             cloneItem.Enabled = copyItem.Enabled;
+            // Đổi tên = sửa nhãn ngay trên cây như F2 (FileLookupControl.Rename.cs); chờ menu đóng hẳn rồi mới mở ô sửa.
+            _fileContextMenu.Items.Add(new ToolStripMenuItem("Rename...", null, (_, _) => BeginInvoke(new Action(BeginRenameSelected)))
+            {
+                ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("fileLookup.rename"),
+                Enabled = _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false },
+            });
             var deleteItem = _fileContextMenu.Items.Add("Delete file", null, (_, _) => DeleteFile());
             deleteItem.Enabled = copyItem.Enabled;
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };
         _tree.ContextMenuStrip = _fileContextMenu;
+        WireRename();
         _service.IndexRefreshed += OnIndexRefreshed;
         Disposed += (_, _) => _service.IndexRefreshed -= OnIndexRefreshed;
         VisibleChanged += (_, _) =>
@@ -188,6 +195,13 @@ public partial class FileLookupControl : UserControl
             {
                 e.Handled = e.SuppressKeyPress = true;
                 NewLookupRequested?.Invoke(this);
+                return;
+            }
+            // F2 (cấu hình được: "fileLookup.rename"): đổi tên file đang chọn ngay trên cây.
+            if (Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData) is { } renameCombo && renameCombo == Bcode.App.UI.ShortcutRegistry.Get("fileLookup.rename"))
+            {
+                e.Handled = e.SuppressKeyPress = true;
+                BeginRenameSelected();
                 return;
             }
             if (e.Control && e.KeyCode == Keys.F && _previewEditor.CurrentPath is not null)
@@ -1316,14 +1330,16 @@ public partial class FileLookupControl : UserControl
         }
     }
 
+    private static string ImageKeyFor(FileLookupNode node) => node.IsDirectory ? "folder" : Path.GetExtension(node.Name).ToLowerInvariant() switch
+    {
+        ".xlsx" or ".xls" or ".xlsm" or ".xlsb" => "excel",
+        ".rpt" => "rpt",
+        _ => "bee",
+    };
+
     private static TreeNode ToTreeNode(FileLookupNode node)
     {
-        var key = node.IsDirectory ? "folder" : Path.GetExtension(node.Name).ToLowerInvariant() switch
-        {
-            ".xlsx" or ".xls" or ".xlsm" or ".xlsb" => "excel",
-            ".rpt" => "rpt",
-            _ => "bee",
-        };
+        var key = ImageKeyFor(node);
         var treeNode = new TreeNode(node.Name) { Tag = node, ImageKey = key, SelectedImageKey = key };
         // File thiếu entity/include: tô đỏ + tooltip liệt kê; thư mục chứa nó cũng đỏ để thấy
         // ngay từ cây thu gọn.

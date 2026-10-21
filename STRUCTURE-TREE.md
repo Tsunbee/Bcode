@@ -25,8 +25,9 @@ Bcode.App/
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  230
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1345
+│   ├── FileLookupControl.cs  1361
 │   ├── FileLookupControl.QuickGrant.cs  148
+│   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
 │   ├── FsgRequirementReportControl.cs  248
@@ -130,7 +131,7 @@ Bcode.App/
 │   ├── ChangeOwnerForm.cs  155
 │   ├── ChangeOwnerForm.Native.cs  87
 │   ├── ChooseDebugTargetForm.cs  84
-│   ├── ColumnDesignForm.cs  57
+│   ├── ColumnDesignForm.cs  60
 │   ├── CommandPaletteForm.cs  113
 │   ├── CompareStructureForm.cs  64
 │   ├── CompareTextForm.cs  360
@@ -150,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3648
+│   ├── MainForm.cs  3651
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -161,7 +162,7 @@ Bcode.App/
 │   ├── ProjectPickerForm.cs  102
 │   ├── QuickAccessForm.cs  165
 │   ├── QuickLaunchLoginForm.cs  558
-│   ├── QuickListForm.cs  491
+│   ├── QuickListForm.cs  579
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
 │   ├── RptSchemaForm.cs  250
@@ -246,11 +247,11 @@ Bcode.App/
 │   ├── DtdIncludeResolver.cs  196
 │   ├── EInvoiceSetupService.cs  179
 │   ├── EntityCheckService.cs  263
-│   ├── FastCatalogRules.cs  814
+│   ├── FastCatalogRules.cs  832
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FileLookupService.cs  1213
-│   ├── FileParseCache.cs  375
+│   ├── FileLookupService.cs  1236
+│   ├── FileParseCache.cs  403
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  490
@@ -273,7 +274,7 @@ Bcode.App/
 │   ├── ProfilerTemplateService.cs  222
 │   ├── QueryHistoryService.cs  322
 │   ├── QuickListConfigStore.cs  52
-│   ├── QuickListService.cs  682
+│   ├── QuickListService.cs  828
 │   ├── QuickReportService.cs  636
 │   ├── RawSqlService.cs  390
 │   ├── ReportBuilderModule.cs  71
@@ -320,7 +321,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  329
+│   ├── ShortcutRegistry.cs  332
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  718
 │   ├── TreeColorOptions.cs  50
@@ -382,7 +383,7 @@ Bcode.App/
 │       ├── projects.html  100
 │       ├── queryhistory.html  189
 │       ├── quickaccess.html  253
-│       ├── quicklist.html  1325
+│       ├── quicklist.html  1504
 │       ├── quickreport.html  1027
 │       ├── reportmodes.html  64
 │       ├── resultview.html  578

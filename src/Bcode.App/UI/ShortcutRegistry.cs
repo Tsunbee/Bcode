@@ -147,6 +147,9 @@ public static class ShortcutRegistry
             new("wcommand.requirements", "Cây menu: Yêu cầu liên quan (QLYC) — mở Yêu cầu FSG lọc theo menu đang chọn", "Cây menu WCommand", ShortcutScope.Tree, ""),
             new("wcommand.newLookup", "Mở thêm 1 tab File Lookup mới (ở cây menu: cho menu đang chọn; ở cây file: nhân bản góc nhìn đang xem)", "Cây menu WCommand", ShortcutScope.Tree, "F4"),
 
+            // ---- Cây file File Lookup ----
+            new("fileLookup.rename", "Cây file File Lookup: đổi tên file đang chọn (sửa tên ngay trên cây — Enter đổi, Esc huỷ)", "Cây file File Lookup", ShortcutScope.Tree, "F2"),
+
             // ---- Lưới Table ----
             new("table.rowDetail", "Table: xem / sửa chi tiết dòng đang chọn (View Detail Datarow)", "Lưới Table", ShortcutScope.Grid, "F1"),
             new("table.addNew", "Table: thêm dòng mới (Add New)", "Lưới Table", ShortcutScope.Grid, "F4"),
@@ -181,7 +184,7 @@ public static class ShortcutRegistry
 
     private static int GroupOrder(string g) => g switch
     {
-        "Công cụ (mở tab / hộp thoại)" => 0, "Cửa sổ" => 1, "Tab" => 2, "Database & Script" => 3, "Project & kết nối" => 4, "Editor SQL" => 5, "Debug từng bước" => 6, "Lưới Table" => 7, "Cây menu WCommand" => 8, _ => 9,
+        "Công cụ (mở tab / hộp thoại)" => 0, "Cửa sổ" => 1, "Tab" => 2, "Database & Script" => 3, "Project & kết nối" => 4, "Editor SQL" => 5, "Debug từng bước" => 6, "Lưới Table" => 7, "Cây menu WCommand" => 8, "Cây file File Lookup" => 9, _ => 10,
     };
 
     public static ShortcutDef? Find(string id) => All.FirstOrDefault(d => d.Id == id);

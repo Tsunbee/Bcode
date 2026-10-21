@@ -391,7 +391,7 @@ internal sealed class ColumnDesignPage : DialogPage
         var d = Arg(a, 0);
         _isAdd = PB(d, "isAdd");
         _tn.Text = P(d, "table");
-        _hint.Text = _isAdd ? "Thêm cột mới (cột đã tick ở Structure được điền sẵn kiểu để copy sang bảng khác)." : "Sửa kiểu / độ dài các cột đã tick, rồi OK để sinh script Alter Column.";
+        _hint.Text = P(d, "hint") is { Length: > 0 } hint ? hint : _isAdd ? "Thêm cột mới (cột đã tick ở Structure được điền sẵn kiểu để copy sang bảng khác)." : "Sửa kiểu / độ dài các cột đã tick, rồi OK để sinh script Alter Column.";
         _grid.Rows.Clear();
         var cols = PA(d, "cols").ToList();
         foreach (var c in cols) AddRow(P(c, "name"), P(c, "type"), P(c, "length"), PB(c, "notNull"));

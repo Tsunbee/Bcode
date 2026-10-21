@@ -12,16 +12,19 @@ public class ColumnDesignForm : WebDialogForm
     private readonly bool _isAdd;
     private readonly string _table;
     private readonly List<Col> _initial;
+    private readonly string? _hint;
 
     /// <summary>Danh sách cột sau khi bấm OK (đã bỏ dòng trống tên).</summary>
     public List<(string Name, string Type, bool NotNull)> Result { get; private set; } = new();
 
-    public ColumnDesignForm(bool isAdd, string table, IEnumerable<Col> initial)
+    /// <param name="hint">Dòng hướng dẫn thay cho câu mặc định của tab Table (null = giữ câu mặc định).</param>
+    public ColumnDesignForm(bool isAdd, string table, IEnumerable<Col> initial, string? hint = null)
         : base(isAdd ? "Add New Column" : "Edit Column", "columndesign.html", 700, 480, 520, 320)
     {
         _isAdd = isAdd;
         _table = table;
         _initial = initial.ToList();
+        _hint = hint;
     }
 
     /// <summary>"nvarchar(128)" → ("nvarchar","128"); "numeric(19,4)" → ("numeric","19,4"); "bit" → ("bit","").</summary>
@@ -35,7 +38,7 @@ public class ColumnDesignForm : WebDialogForm
     }
 
     protected override void OnReady() =>
-        Js($"colDesign.init({J(new { isAdd = _isAdd, table = _table, cols = _initial.Select(c => new { name = c.Name, type = c.Type, length = c.Length, notNull = c.NotNull }) })})");
+        Js($"colDesign.init({J(new { isAdd = _isAdd, table = _table, hint = _hint ?? "", cols = _initial.Select(c => new { name = c.Name, type = c.Type, length = c.Length, notNull = c.NotNull }) })})");
 
     protected override Task OnActionAsync(string action, JsonElement msg)
     {

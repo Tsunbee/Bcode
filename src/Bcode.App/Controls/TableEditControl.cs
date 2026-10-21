@@ -1447,7 +1447,7 @@ public class TableEditControl : UserControl
     }
 
     /// <summary>ADD cột NOT NULL vào bảng đã có dòng thì cần giá trị mặc định (số = 0, chữ = ''), nếu không SQL Server từ chối.</summary>
-    private static string DefaultClause(string sqlType) => DefaultFill(sqlType) switch { null => "", "0" => " DEFAULT 0", _ => " DEFAULT ''" };
+    internal static string DefaultClause(string sqlType) => DefaultFill(sqlType) switch { null => "", "0" => " DEFAULT 0", _ => " DEFAULT ''" };
 
     private void CopyAndPreview(string title, Func<string> generate)
     {

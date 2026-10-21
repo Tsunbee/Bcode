@@ -111,6 +111,13 @@ internal sealed class FileParseCache
     /// <summary>Xoá cache của dự án này (nút Load).</summary>
     public static void Reset(string sourceRoot) => For(sourceRoot).Clear();
 
+    /// <summary>Bcode vừa đổi tên file <paramref name="path"/> (File Lookup → F2 / Rename): bỏ các mục có file đó là file chính hoặc phụ thuộc ở mọi dự án
+    /// đang nạp — cả trên đĩa ở lần ghi kế. Không bỏ thì mục cũng tự hỏng nhờ dấu mtime/size; đây để cache không giữ mục theo tên đã mất.</summary>
+    public static void ForgetFile(string path)
+    {
+        foreach (var p in Projects.Values) p.Forget(path);
+    }
+
     private sealed class Entry
     {
         public KeyValuePair<string, string>[] Deps = Array.Empty<KeyValuePair<string, string>>();
@@ -122,6 +129,7 @@ internal sealed class FileParseCache
     private readonly string _fileKey;
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, byte> _touched = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _removed = new(StringComparer.OrdinalIgnoreCase); // khoá "kind|đường dẫn tương đối" cần bỏ khỏi file trên đĩa (xem Forget)
     private volatile bool _dirty;
     private volatile bool _clearPending;
     private int _scheduled;
@@ -198,6 +206,23 @@ internal sealed class FileParseCache
         _touched.Clear();
         _clearPending = true;
         _dirty = true;
+    }
+
+    private void Forget(string path)
+    {
+        var any = false;
+        foreach (var (key, entry) in _entries)
+        {
+            var (kind, main) = SplitKey(key);
+            if (!main.Equals(path, StringComparison.OrdinalIgnoreCase) && !entry.Deps.Any(d => d.Key.Equals(path, StringComparison.OrdinalIgnoreCase))) continue;
+            if (!_entries.TryRemove(key, out _)) continue;
+            _touched.TryRemove(key, out _);
+            _removed[kind + "|" + ToRel(main)] = 0;
+            any = true;
+        }
+        if (!any) return;
+        _dirty = true;
+        SaveInBackground();
     }
 
     /// <summary>Lấy kết quả đã cache nếu mọi file phụ thuộc còn nguyên; không thì chạy <paramref name="compute"/> (đọc file qua hàm được đưa vào) rồi lưu lại.</summary>
@@ -333,6 +358,8 @@ internal sealed class FileParseCache
                 foreach (var d in disk)
                     if (today - d.LastUsedDay <= PruneDays) merged[d.Key] = d;
             _clearPending = false;
+            var removed = _removed.Keys.ToArray();   // mục của file vừa đổi tên (Forget) — bỏ khỏi bản trên đĩa
+            foreach (var k in removed) merged.Remove(k);
 
             // 2) Mục của mình: mục vừa thêm/đổi ghi đè bản trên đĩa; mục không đổi chỉ thêm nếu đĩa chưa có.
             var touched = _touched.Keys.ToArray();
@@ -368,6 +395,7 @@ internal sealed class FileParseCache
             var tmp = CachePath + "." + Environment.ProcessId + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(file));
             File.Move(tmp, CachePath, overwrite: true);
+            foreach (var k in removed) _removed.TryRemove(k, out _);
         }
         catch (Exception) { _dirty = true; /* ghi không được (khoá/quyền) — thử lại lần sau */ }
         finally { mutex.ReleaseMutex(); }

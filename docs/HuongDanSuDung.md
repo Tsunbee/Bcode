@@ -602,9 +602,21 @@ Nhập **Search in** (thư mục) + **String search**, tuỳ chọn File Type / 
 
 ### Chuột phải trên file
 
-Go to File/Folder · **Copy to...** (file đã tick) · Chuyển sang .frx (Excel → FRX / Crystal → FRX) · Copy path · Get Hash Source · **Cấp source (tự động theo phiên bản)...** · Cấp source thủ công (Add Source)... · **Clone files...** (đặt tên mới, có thể clone kèm file cùng tên, không ghi đè) · Delete file (không khôi phục được) · Refresh (`F5`).
+Go to File/Folder · **Copy to...** (file đã tick) · Chuyển sang .frx (Excel → FRX / Crystal → FRX) · Copy path · Get Hash Source · **Cấp source (tự động theo phiên bản)...** · Cấp source thủ công (Add Source)... · **Clone files...** (đặt tên mới, có thể clone kèm file cùng tên, không ghi đè) · **Rename...** (`F2`, đổi tên file — xem dưới) · Delete file (không khôi phục được) · Refresh (`F5`).
 
-Phím trong cây file: `F5` quét lại (giữ cache), `F4` nhân bản tab File Lookup hiện tại.
+Phím trong cây file: `F2` đổi tên file đang chọn, `F5` quét lại (giữ cache), `F4` nhân bản tab File Lookup hiện tại.
+
+### Đổi tên file (F2)
+
+Chọn 1 file trên cây → `F2` (hoặc chuột phải → **Rename...**) → sửa tên ngay trên cây như Explorer (chỉ bôi đen phần tên, chừa đuôi) → `Enter` đổi tên thật trên đĩa, `Esc` huỷ. Chỉ đổi tên file, không đổi tên thư mục. Cả chế độ Web và App như nhau.
+
+- **Không gõ đuôi** thì giữ đuôi cũ (`ARTran.xml` → gõ `ARTran2` → `ARTran2.xml`). Gõ đuôi khác thì Bcode hỏi: Yes = đổi đuôi · No = giữ đuôi cũ · Cancel = thôi.
+- **Tên trùng** file đã có / **ký tự không hợp lệ** (`\ / : * ? " < > |`) → báo lỗi rồi mở lại ô sửa với chữ vừa gõ. File **đang bị khoá** (IIS, Visual Studio… đang mở) → báo rõ, không đổi gì.
+- **Đổi tên cặp**: cùng thư mục có file cùng tên khác đuôi (`ARTran.xml` ↔ `ARTran.f`) → hỏi "Đổi tên luôn ARTran.f?" (mặc định **No**).
+- Đổi xong: node trên cây, khung xem trước (nếu đang xem file đó) và các tab File Lookup khác cập nhật ngay, không quét lại thư mục.
+- Bcode tìm nền trong `App_Data\Controllers` (Dir, Filter, Grid, Include, Options, Report) chỗ **còn nhắc tên cũ** ở dòng kiểu include / `controller="…"` / `SYSTEM "…"` / `showForm('…')` và hiện danh sách — **chỉ báo, không tự sửa**. Menu trong database (sysid của wcommand) cũng không tự đổi.
+
+Phím `F2` đổi được ở Template → **Phím tắt** (nhóm "Cây file File Lookup").
 
 > **Lưu ý:** cache phân tích lưu theo dự án ở `%AppData%\Bcode\FileLookupCache` (xoá được nếu nghi cache cũ). File bỏ qua theo tên (mặc định `_bk, _copy, - copy`) đặt ở ⚙ Settings → **Cây menu: bỏ qua file theo tên (like)...**.
 
@@ -680,7 +692,7 @@ Dùng khi yêu cầu là **tạo một danh mục mới** (màn hình thêm / s�
 1. Ở **Note (New)**, Sync yêu cầu (hoặc tự nhập Request Content), chọn yêu cầu → bấm **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`; đổi phím ở Template → Phím tắt). Ở **Báo cáo yêu cầu FSG** (menu Triển khai): bấm ô Nội dung của 1 yêu cầu để mở khung chi tiết → **🤖 AI tạo danh mục** (hoặc `Ctrl+Alt+I`) — gửi mã YC + tên menu + nội dung + ghi chú.
 2. Màn **Tạo nhanh danh mục** mở ra (đang mở thì dùng lại) với khung **🤖 AI tạo danh mục** ở trên: AI đọc nội dung yêu cầu + tên bảng / tên cột / kiểu cột của App Data (không gửi dữ liệu dòng nào), rồi điền Bảng, Controller, File Main, Key, Title (v/e), các cột (header, tick Grid / Dir / Lookup / Filter / Import, AutoComplete), bảng chi tiết nếu có.
 3. Thiếu thông tin thì khung AI hiện **câu hỏi** — gõ trả lời (để trống = AI tự chọn) → **Gửi trả lời & hỏi lại AI**. **Hỏi lại AI** = hỏi lại với nội dung hiện có.
-4. Bảng AI đề xuất **chưa có** trong App Data: cột lấy theo đề xuất của AI, khung AI có **script tạo bảng** (Copy script) — tự xem lại và chạy trước khi dùng danh mục; Bcode không chạy.
+4. Bảng AI đề xuất **chưa có** trong App Data: cột lấy theo đề xuất của AI, khung AI có **script tạo bảng** (Copy script), tab **Script** cũng có script đó và cập nhật theo khi sửa / [thêm cột](#tao-nhanh-bang-moi) — tự xem lại và chạy trước khi dùng danh mục; Bcode không chạy.
 5. Kiểm tra lại các ô, **Xem XML**, rồi **Tạo file** như bình thường (hỏi trước khi ghi đè), sau đó **Tạo menu…** nếu cần.
 
 Yêu cầu không phải tạo danh mục (sửa màn hình có sẵn, báo cáo, chứng từ...) thì khung AI báo "chưa hỗ trợ". Dùng **Claude (Anthropic) API key** (hoặc Gemini) nhập ở tab **SQL Query → ⚙ Tùy chọn → Copilot / AI** (dùng chung với Ctrl+I); mỗi lượt hỏi AI tốn token của key đó và được lưu ở **Lịch sử gợi ý AI** (loại "Danh mục").
@@ -778,7 +790,16 @@ Khi tester / triển khai ghi chú hay ghi lỗi vào y/c trên QLYC (FSG), Bcod
 |---|---|
 | **Check Include** | So khai báo INCLUDE / IGNORE, options, wcommand của dự án với catalog tính năng từng phiên bản: chọn thư mục Dự án, tick "Kiểm tra DB (options / wcommand)" → **▶ Phân tích**. Tab Tính năng / File Include; trạng thái Đúng khai báo / Chưa bật / Một phần / Khác mặc định. Nút **Sửa → X** sửa file include (giữ bản .bak). |
 | **Tạo báo cáo** | Xem [Create RPT & XML, Excel → FRX, Tạo báo cáo](#create-rpt). Cần key. |
-| **Tạo nhanh danh mục** | Sinh bộ file danh mục từ một bảng: nhập Bảng (Enter để nạp cột), Controller, File Main, Key, Order, cột tên (Lookup), Title / Subtitle (v/e) + **Dịch**, bảng chi tiết (tuỳ chọn) → **Xem XML** → **Tạo file** (`Ctrl+Enter`) → **Mở Dir trong BcodeViewer** / **Tạo menu…**. Mẫu nằm ở `Templates\fileSource\CreateList` cạnh Bcode.exe (sửa mẫu không cần build). |
+| **Tạo nhanh danh mục** | Sinh bộ file danh mục từ một bảng: nhập Bảng (Enter để nạp cột), Controller, File Main, Key, Order, cột tên (Lookup), Title / Subtitle (v/e) + **Dịch**, bảng chi tiết (tuỳ chọn) → **Xem XML** → **Tạo file** (`Ctrl+Enter`) → **Mở Dir trong BcodeViewer** / **Tạo menu…**. Mẫu nằm ở `Templates\fileSource\CreateList` cạnh Bcode.exe (sửa mẫu không cần build). Gõ tên **bảng chưa có** = tạo bảng mới; **+ Thêm cột** để thêm trường — script ở tab **Script**, xem [bên dưới](#tao-nhanh-bang-moi). |
+
+<a id="tao-nhanh-bang-moi"></a>
+### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script
+
+- **Bảng mới:** gõ ở ô **Bảng** một tên chưa có trong App Data (vd `zdmabc`) rồi Enter / **Nạp cột**. Bcode báo "bảng mới" và điền sẵn cột chuẩn của danh mục FBO: `ma_abc` (khoá), `ten_abc`, `ten_abc2`, `status`, `datetime0/2`, `user_id0/2` (mã = tên bảng bỏ tiền tố `zdm` / `dm`). Đang có cột của một bảng khác (vừa nạp `dmkh` rồi gõ tên mới) thì Bcode **giữ nguyên cột đó** làm cấu trúc bảng mới (clone) — muốn bỏ thì bấm **Dùng cột chuẩn** ở thanh thông báo. Bảng chi tiết mới: dựng sẵn cột khoá danh mục + `line_nbr`.
+- **+ Thêm cột** (cạnh Gợi ý header): mở hộp Add New Column như tab Table — nhập tên, kiểu, độ dài, Not NULL (thêm được nhiều dòng). Cột thêm mang chữ **mới** trong bảng cột, có **✎** (sửa tên / kiểu / độ dài / Not NULL) và **✕** (xoá). Cột thêm được tick Grid / Dir / Import, đặt header, AutoComplete và đi vào các file XML như mọi cột khác. Bảng mới thì mọi cột đều là cột "mới".
+- **Tab Script** (chỉ hiện khi có bảng mới hoặc cột thêm): bảng mới → `CREATE TABLE` theo các cột đang khai (kiểu, độ dài, NOT NULL, khoá chính = ô Key, khoá ghép được); clone thì kèm câu chép dữ liệu từ bảng nguồn để trong chú thích. Bảng có sẵn → `ALTER TABLE … ADD` cho từng cột thêm (cột NOT NULL có `DEFAULT 0` / `''` như Design → Add Column). Có cả phần bảng chi tiết. Script tự cập nhật khi sửa cột. Nút **Copy**, **Add Script** (thêm vào Script Cart như Add Script trên thanh trên, kèm copy clipboard), **Mở SQL Query** (tab SQL Query mới trên App Data). **Bcode không tự chạy script** — xem lại rồi chạy trước khi dùng danh mục.
+- **Tên bảng trong file XML:** mọi file sinh ra (Dir, Grid, Lookup, Filter, Import, Upload, lưới chi tiết) khai đúng tên bảng mới. Nếu thư mục mẫu (Nâng cao → Thư mục mẫu) là mẫu tự sửa / chép từ danh mục có sẵn còn ghi cứng tên bảng cũ (`table="dmdemo"`, `<!ENTITY Tag "dmdemo">` + `table="&Tag;"`, `<baseTable value="…">`, câu SQL `from / delete / update … dmdemo`), Bcode đổi các chỗ đó sang bảng mới (bảng chi tiết cũ → bảng chi tiết mới); mẫu chuẩn dùng `[#TABLE#]` nên không có gì phải đổi.
+- **Tạo file** lưu cả cột thêm vào cấu hình — lần sau nạp lại bảng (kể cả bảng mới chưa chạy script), **Khôi phục** lấy lại đủ các cột đó.
 
 <a id="tien-ich"></a>
 ## Tiện ích khác trên thanh công cụ
@@ -910,6 +931,8 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 **Lưới Table**: `F1` chi tiết dòng · `F3` khai báo nhanh danh sách · `F4` thêm · `F8` xoá · `Ctrl+I` nhân bản · `Ctrl+N` chèn sau · `Ctrl+'` copy giá trị · `Ctrl+0` NULL · `Ctrl+G` tới cột · `F5` tải lại.
 
 **Cây WCommand**: `Insert` New · `F3` Edit · `F8` Delete · `F4` File Lookup mới · `F12` Gen Script Menu · `F5` Refresh · `Ctrl+F5` Run · `Ctrl+4` Run trong FSG FBO · `Ctrl+C` copy đường dẫn menu. Các nhánh đang bung được giữ nguyên khi chuyển sang mục khác (Object…) rồi quay lại, hoặc khi `F5`.
+
+**Cây file File Lookup**: `F2` đổi tên file · `F5` quét lại · `F4` nhân bản tab File Lookup.
 
 **Khai báo API**: `Ctrl+Shift+Enter` gửi · `Ctrl+S` lưu · `Ctrl+Shift+T` lấy token · `Ctrl+Shift+F` format · `Ctrl+Shift+K` validate.
 

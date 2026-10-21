@@ -101,6 +101,29 @@ public class FileLookupService
     /// <summary>Báo khi một lần quét NỀN (sau khi đã hiện bằng bản lưu trên đĩa) thấy danh sách file khác bản lưu — File Lookup đang xem gốc đó nên dựng lại cây.</summary>
     public event Action<string>? IndexRefreshed;
 
+    /// <summary>Bcode vừa đổi tên 1 file (đường dẫn cũ, mới) — mọi tab File Lookup sửa node + khung xem trước của file đó (không dựng lại cây).</summary>
+    public event Action<string, string>? FileRenamed;
+
+    /// <summary>Gọi sau khi Bcode đổi tên file trên đĩa: sửa thẳng danh sách file đã cache (bộ nhớ + bản lưu file-index) thay vì bỏ cả chỉ mục — lần
+    /// bấm menu / tìm sau thấy ngay tên mới mà không phải quét lại UNC; bỏ các mục FileParseCache dính tên cũ; rồi báo <see cref="FileRenamed"/>.</summary>
+    public void NotifyFileRenamed(string oldPath, string newPath)
+    {
+        foreach (var (key, lazy) in _indexCache.ToArray())
+        {
+            if (!lazy.IsValueCreated || lazy.Value is not { } index) continue;
+            var i = index.Files.FindIndex(f => f.Equals(oldPath, StringComparison.OrdinalIgnoreCase));
+            if (i < 0) continue;
+            // Bản mới thay cho bản cũ (không sửa danh sách tại chỗ: lần dựng cây ở luồng nền có thể đang duyệt nó).
+            var files = new List<string>(index.Files) { [i] = newPath };
+            var renamed = new FileIndex(index.BuiltAtUtc, index.Dirs, files);
+            if (!_indexCache.TryUpdate(key, new Lazy<FileIndex?>(renamed), lazy)) continue;
+            try { if (File.Exists(SnapshotPath(key))) SaveSnapshotInBackground(key, renamed); }
+            catch { /* không ghi được bản lưu thì lần quét nền sau tự sửa */ }
+        }
+        FileParseCache.ForgetFile(oldPath);
+        FileRenamed?.Invoke(oldPath, newPath);
+    }
+
     /// <summary>Xoá cache kết quả phân tích file của dự án này (xem <see cref="FileParseCache"/>) — nút Load. Cache ấy tự kiểm lại
     /// mtime/size nên các chỗ khác (Bcode tự tạo file) không cần xoá.</summary>
     public void ResetParseCache(string sourceRootPath)

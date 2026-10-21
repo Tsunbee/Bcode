@@ -132,6 +132,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
         _quickListForm = new QuickListForm(_sqlObjectService, _tableDataService, _connections, _wcommandService, _settings);
         _quickListForm.FormClosed += (_, _) => _quickListForm = null;
+        // Tab Script (bảng mới / cột thêm): Add Script = như Add Script của Bcode (Script Cart + clipboard); Mở SQL Query = tab mới trên App Data.
+        _quickListForm.AddScriptRequested += AddGeneratedScript;
+        _quickListForm.OpenSqlRequested += OpenViewerScriptTab;
         _quickListForm.Show();
     }
 

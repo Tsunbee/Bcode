@@ -445,13 +445,23 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         
         // --project <tên>: Bcode được mở từ Ctrl+O của cửa sổ khác (đang có tab) để làm dự án vừa chọn — vào thẳng dự án đó, khỏi hỏi lại.
         var startupProject = StartupArgs.Project is { } sp ? _settings.Workspaces.FindIndex(w => string.Equals(w.Name, sp, StringComparison.OrdinalIgnoreCase)) : -1;
+        // Sắp hiện màn Projects: cây SQL Object chờ tới khi đóng màn đó mới nạp (dựng cây cùng lúc làm màn Projects mở chậm).
+        _sqlObjectTree.DeferAutoLoad = startupProject < 0;
         if (_settings.Workspaces.Count > 0)
         {
             var last = startupProject >= 0 ? startupProject : _settings.Workspaces.FindIndex(w => w.Name == _settings.LastWorkspace);
             SelectWorkspace(last >= 0 ? last : 0);
         }
         // Màn hình Projects khi mới mở Bcode: lọc/chọn nhanh project đã khai báo (đóng đi thì giữ project dùng gần nhất).
-        Shown += (_, _) => BeginInvoke(new Action(() => { if (startupProject < 0) ShowProjectPicker(skipIfSame: true); TryRestoreSession(); }));
+        Shown += (_, _) => BeginInvoke(new Action(() =>
+        {
+            if (startupProject < 0)
+            {
+                try { ShowProjectPicker(skipIfSame: true); }
+                finally { _sqlObjectTree.ResumeAutoLoad(); }   // đóng màn Projects: giờ mới nạp cây SQL Object (project mới thì SelectWorkspace đã nạp)
+            }
+            TryRestoreSession();
+        }));
         InitSession();
         InitHibernation();
         // Dựng sẵn 1 tab SQL Query ở nền sau khi cửa sổ đã lên hình (xem TakeSqlControl).

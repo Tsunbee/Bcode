@@ -163,20 +163,35 @@ public class SqlObjectTreeControl : UserControl
         _tree.Nodes.Clear();
         // Chọn project lúc mới mở Bcode: cửa sổ chính chưa hiện nên cây chưa Visible (chưa có handle) → nạp ở OnVisibleChanged ngay khi cây hiện ra
         // (trước đây bỏ qua luôn nên cây trắng cho tới khi bấm đổi mục).
-        if (Visible) _ = ReloadAsync(silent: true);
+        if (Visible && !DeferAutoLoad) { _needsLoad = false; _ = ReloadAsync(silent: true); }
         else _needsLoad = true;
     }
 
     private bool _needsLoad;
 
+    /// <summary>Hoãn việc tự nạp khi cây hiện ra. MainForm bật lúc mới mở Bcode trong khi màn Projects còn mở: dựng cây vài nghìn object (sắp xếp +
+    /// tạo node vẽ tay trên luồng giao diện, 1–2 s) đúng lúc màn Projects đang hiện làm màn đó mở chậm hẳn (apply-timing.log 22/10).
+    /// Đóng màn Projects thì gọi <see cref="ResumeAutoLoad"/>.</summary>
+    public bool DeferAutoLoad { get; set; }
+
+    /// <summary>Thôi hoãn: cây đang hiện mà chưa nạp (và chưa có lần nạp nào đang chạy) thì nạp ngay.</summary>
+    public void ResumeAutoLoad()
+    {
+        DeferAutoLoad = false;
+        TryAutoLoad();
+    }
+
+    private void TryAutoLoad()
+    {
+        if (DeferAutoLoad || !Visible || !_needsLoad || _loadedOnce) return;
+        _needsLoad = false;
+        _ = EnsureLoadedAsync();
+    }
+
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
-        if (Visible && _needsLoad && !_loadedOnce)
-        {
-            _needsLoad = false;
-            _ = EnsureLoadedAsync();
-        }
+        TryAutoLoad();
     }
 
     /// <summary>Nút "Refresh database" trên topbar: bỏ cache danh sách object của project (App + Sys, trên đĩa + cây đã nhóm trong bộ nhớ) rồi hỏi lại

@@ -32,7 +32,13 @@ public class ProjectPickerForm : WebDialogForm, IProjectPicker
     private static string IdOf(Workspace w) => ProjectActions.IdOf(w);
     private static string Haystack(Workspace w) => ProjectActions.Haystack(w);
 
-    protected override void OnReady() => PushData();
+    private readonly System.Diagnostics.Stopwatch _openWatch = System.Diagnostics.Stopwatch.StartNew();
+
+    protected override void OnReady()
+    {
+        PushData();
+        Bcode.App.UI.ThemeManager.LogTiming($"Projects: trang sẵn sàng sau {_openWatch.ElapsedMilliseconds} ms ({_settings.Workspaces.Count} project)");
+    }
 
     private void PushData()
     {

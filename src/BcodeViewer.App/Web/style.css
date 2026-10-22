@@ -820,6 +820,8 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
 .shFileIcon { flex: 0 0 auto; box-sizing: border-box; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--ic); color: var(--ic); font-size: 8.5px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; margin-right: 1px; }
 .shRow.file.open .shFileIcon, .shRow.file.active .shFileIcon { background: var(--ic); color: var(--bc-bg); }
 .shRow.file.active .shGuide { opacity: 1; }
+.shRow.file.open .shFileIcon { cursor: pointer; }   /* bấm icon đặc = bỏ đánh dấu (đóng tab) */
+.shRow.file:not(.open) .shUnmark { display: none; }
 .shCount { font-weight: 400; color: var(--bc-text-muted); }
 .shRow.group:not(:first-child) { margin-top: 3px; }
 /* Kéo thả file trong cùng thư mục (shell.js beginFileDrag): vạch chỗ sẽ thả, dòng đang kéo mờ đi. */

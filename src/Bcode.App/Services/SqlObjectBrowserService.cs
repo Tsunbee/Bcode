@@ -351,7 +351,32 @@ ORDER BY ORDINAL_POSITION;";
         }
         if (string.IsNullOrWhiteSpace(raw))
             return "-- (Object được tạo WITH ENCRYPTION, hoặc không tìm thấy definition. Xem tool Decrypt SQL Object.)";
+        return BuildDropCreate(obj, raw);
+    }
 
+    /// <summary>Script mở object dạng "IF EXISTS → DROP → GO → CREATE" (double-click trên cây SQL Object) từ bản ALTER của <see cref="GetDefinitionAsync"/>
+    /// (bản lưu trên máy cũng là ALTER). Table → CREATE TABLE kèm khối IF EXISTS / DROP để trong comment (<see cref="WithCommentedTableDrop"/>);
+    /// object mã hoá (không có định nghĩa) → trả nguyên lời nhắc.</summary>
+    public static string ToDropCreateScript(SqlObjectInfo obj, string alterText)
+    {
+        if (obj.Kind == SqlObjectKind.Table) return WithCommentedTableDrop(obj, alterText);
+        if (alterText.StartsWith("-- (", StringComparison.Ordinal)) return alterText;
+        // Đổi lại đúng chữ ALTER mà GetDefinitionAsync đã thay (lần đầu, không đụng "CREATE OR ALTER").
+        var create = new Regex(@"(?<!\bOR\s+)\bALTER\s+(PROCEDURE|PROC|FUNCTION|VIEW|TRIGGER)\b", RegexOptions.IgnoreCase).Replace(alterText, "CREATE $1", 1);
+        return BuildDropCreate(obj, create);
+    }
+
+    /// <summary>CREATE TABLE kèm khối IF EXISTS / DROP TABLE để sẵn trong comment (như F12) — không bao giờ tự DROP bảng. Đã có khối đó thì giữ nguyên.</summary>
+    public static string WithCommentedTableDrop(SqlObjectInfo table, string createText)
+    {
+        if (createText.TrimStart().StartsWith("/*\nIF EXISTS", StringComparison.Ordinal)) return createText;
+        var tbl = table.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? "dbo." + table.Name : table.Schema + "." + table.Name;
+        return "/*\nIF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'" + tbl.Replace("'", "''") + "') AND xType = 'U')\nDROP TABLE ["
+            + table.Schema + "].[" + table.Name + "]\n*/\nGO\n" + createText;
+    }
+
+    private static string BuildDropCreate(SqlObjectInfo obj, string raw)
+    {
         static string Part(string s) => Regex.IsMatch(s, @"^[A-Za-z_][\w$#@]*$") ? s : "[" + s.Replace("]", "]]") + "]";
         var name = Part(obj.Schema) + "." + Part(obj.Name);
         var (xtype, word) = obj.Kind switch
@@ -480,9 +505,8 @@ WHERE c.object_id = OBJECT_ID(@full) ORDER BY c.column_id;", conn))
         }
         if (colDecl.Count == 0) return null;
 
-        var tbl = table.Schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? "dbo." + table.Name : table.Schema + "." + table.Name;
         var sb = new StringBuilder();
-        sb.Append("/*\nIF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'").Append(tbl).Append("') AND xType = 'U')\nDROP TABLE ").Append(full).Append("\n*/\nGO\n");
+        sb.Append(WithCommentedTableDrop(table, ""));
         sb.Append("CREATE TABLE ").Append(full).Append(" (\n").Append(string.Join(",\n", colDecl)).Append("\n)\n\nGO\n");
 
         var indexScript = await GenerateIndexScriptAsync(conn, table);

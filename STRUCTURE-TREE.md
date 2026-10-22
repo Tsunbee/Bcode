@@ -101,7 +101,7 @@ Bcode.App/
 │   ├── SetupEInvoiceControl.cs  121
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
-│   ├── SqlObjectTreeControl.cs  497
+│   ├── SqlObjectTreeControl.cs  499
 │   ├── SqlPeekPanel.cs  128
 │   ├── SqlProfilerControl.cs  1732
 │   ├── SqlQueryControl.cs  355
@@ -151,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3651
+│   ├── MainForm.cs  3656
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -294,7 +294,7 @@ Bcode.App/
 │   ├── SqlHintService.cs  222
 │   ├── SqlHistoryService.cs  310
 │   ├── SqlLineAnalyzer.cs  160
-│   ├── SqlObjectBrowserService.cs  632
+│   ├── SqlObjectBrowserService.cs  656
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  325
 │   ├── TableDataService.cs  511
@@ -493,11 +493,11 @@ BcodeViewer.App/
 │   ├── quickopen.js  184
 │   ├── search.js  335
 │   ├── settings.js  696
-│   ├── shell.js  806
+│   ├── shell.js  815
 │   ├── sqlrun.js  631
-│   ├── style.css  995
+│   ├── style.css  997
 │   ├── tabs.js  247
-│   ├── tabswitcher.js  212
+│   ├── tabswitcher.js  228
 │   ├── templates.js  428
 │   ├── theme.js  207
 │   ├── toolbar.js  599

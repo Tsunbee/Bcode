@@ -343,7 +343,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Bcode.App.UI.ThemeManager.SetArea(_leftContentHost, "tree");
 
         var sqlObjectTree = new SqlObjectTreeControl(_sqlObjectService) { Dock = DockStyle.Fill };
-        sqlObjectTree.ObjectActivated += async obj => await OpenObjectDefinitionAsync(obj);
+        sqlObjectTree.ObjectActivated += async (obj, dropCreate) => await OpenObjectDefinitionAsync(obj, dropCreate);
         sqlObjectTree.UsagesRequested += obj => OpenUsagesTab(obj);
         _sqlObjectTree = sqlObjectTree;
 
@@ -3014,14 +3014,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
-    private async Task<ISqlTab?> OpenObjectDefinitionAsync(SqlObjectInfo obj)
+    /// <param name="dropCreate">true (double-click trên cây SQL Object): procedure / function / view / trigger mở dạng IF EXISTS → DROP → GO → CREATE;
+    /// false: dạng ALTER như trước. Table luôn là CREATE TABLE kèm khối IF EXISTS / DROP TABLE để trong comment.</param>
+    private async Task<ISqlTab?> OpenObjectDefinitionAsync(SqlObjectInfo obj, bool dropCreate = false)
     {
         try
         {
             var key = (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
+            string Shape(string text) => dropCreate ? SqlObjectBrowserService.ToDropCreateScript(obj, text)
+                : obj.Kind == SqlObjectKind.Table ? SqlObjectBrowserService.WithCommentedTableDrop(obj, text) : text;
             // Có bản lưu trên máy thì hiện ngay, kiểm tra database ngầm; chưa có thì lấy từ database (rồi lưu cho lần sau).
             var cached = _sqlObjectService.TryGetCachedDefinition(obj);
-            var definition = cached?.Text ?? await _sqlObjectService.GetDefinitionAndCacheAsync(obj);
+            var definition = Shape(cached?.Text ?? await _sqlObjectService.GetDefinitionAndCacheAsync(obj));
     
             // 1. Nếu Procedure/Bảng này đã có tab đang mở -> Chuyển focus đến tab đó
             if (_objectTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
@@ -3031,7 +3035,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 {
                     existingCtrl.SetDatabase(obj.FromSysDatabase);
                     await existingCtrl.SetScriptTextAsync(definition);
-                    if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, existingCtrl, cached);
+                    if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, existingCtrl, cached, Shape);
                     return existingCtrl;
                 }
             }
@@ -3045,7 +3049,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var page = AddDocumentTab(obj.QualifiedName, control.AsControl());
             _objectTabs[key] = page;
             page.Disposed += (_, _) => _objectTabs.Remove(key);
-            if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, control, cached);
+            if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, control, cached, Shape);
 
             return control;
         }
@@ -3056,16 +3060,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
     /// <summary>Sau khi hiện bản lưu: hỏi database xem object đã đổi chưa. Đổi và bạn chưa sửa gì trong tab → thay bằng bản mới; bạn đã sửa → giữ bản của bạn và báo ở thanh trạng thái.</summary>
-    private async Task RefreshCachedDefinitionAsync(SqlObjectInfo obj, ISqlTab control, SqlObjectBrowserService.DefinitionCache cached)
+    private async Task RefreshCachedDefinitionAsync(SqlObjectInfo obj, ISqlTab control, SqlObjectBrowserService.DefinitionCache cached, Func<string, string> shape)
     {
         try
         {
             var (changed, text) = await _sqlObjectService.RefreshIfChangedAsync(obj, cached);
             if (!changed || control.IsDisposed) return;
-            var current = control.IsReady ? await control.GetScriptTextAsync() : cached.Text;
-            if (current == cached.Text)
+            var shown = shape(cached.Text);   // tab hiện bản đã đổi dạng (ALTER / IF EXISTS → CREATE) — so với đúng bản đó
+            var current = control.IsReady ? await control.GetScriptTextAsync() : shown;
+            if (current == shown)
             {
-                await control.SetScriptTextAsync(text);
+                await control.SetScriptTextAsync(shape(text));
                 PushStatus($"{obj.QualifiedName}: trên database đã có bản mới hơn — tab đã được cập nhật.");
             }
             else PushStatus($"{obj.QualifiedName}: trên database đã có bản mới hơn nhưng bạn đã sửa trong tab nên giữ nguyên — đóng tab rồi mở lại để lấy bản mới.");

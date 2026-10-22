@@ -20,7 +20,9 @@ public class SqlObjectTreeControl : UserControl
     private string _filterText = "";
     private readonly SqlObjectBrowserService _service;
 
-    public event Action<SqlObjectInfo>? ObjectActivated;
+    /// <summary>Mở object: tham số 2 = true khi double-click (procedure / function / view / trigger mở dạng IF EXISTS → DROP → CREATE), false = dạng ALTER
+    /// (menu chuột phải). Table luôn CREATE TABLE kèm khối IF EXISTS / DROP trong comment.</summary>
+    public event Action<SqlObjectInfo, bool>? ObjectActivated;
     /// <summary>Chuột phải → "Ai đang dùng object này…".</summary>
     public event Action<SqlObjectInfo>? UsagesRequested;
 
@@ -38,7 +40,7 @@ public class SqlObjectTreeControl : UserControl
         _tree.HandleCreated += (_, _) => SendMessage(_tree.Handle, 0x112C /* TVM_SETEXTENDEDSTYLE */, (IntPtr)0x4, (IntPtr)0x4);
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
-            if (e.Node?.Tag is SqlObjectInfo obj) ObjectActivated?.Invoke(obj);
+            if (e.Node?.Tag is SqlObjectInfo obj) ObjectActivated?.Invoke(obj, true);
         };
 
         // Chuột phải: chọn đúng node bấm trúng rồi hiện menu (mở / ai đang dùng) — cùng kiểu menu HTML với cây WCommand.
@@ -50,7 +52,7 @@ public class SqlObjectTreeControl : UserControl
         {
             if (_tree.SelectedNode?.Tag is not SqlObjectInfo picked) return null;
             return new WebMenu()
-                .Add("Mở định nghĩa", () => ObjectActivated?.Invoke(picked))
+                .Add(picked.Kind == SqlObjectKind.Table ? "Mở định nghĩa" : "Mở dạng ALTER", () => ObjectActivated?.Invoke(picked, false))
                 .Add("Ai đang dùng object này…", () => UsagesRequested?.Invoke(picked))
                 .Add("Chép tên", () => { try { Clipboard.SetText(picked.QualifiedName); } catch { /* clipboard bận */ } });
         });

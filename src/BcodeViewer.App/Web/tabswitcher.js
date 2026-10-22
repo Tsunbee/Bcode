@@ -24,12 +24,27 @@ class BcodeTabSwitcher {
     // "tab kế" rồi stopImmediatePropagation — nghe ở document thì hộp không bao giờ thấy phím Tab. Ctrl+Tab bấm nhanh vẫn để keys.js xử lý.
     window.addEventListener('keydown', (e) => this.onKeyDown(e), true);
     window.addEventListener('keyup', (e) => this.onKeyUp(e), true);
-    for (const name of ['mousedown', 'wheel']) {
-      window.addEventListener(name, (e) => {
-        if (this.root && name === 'mousedown' && !e.target.closest('.tsBox')) this.close();
-        this.cancel();
-      }, true);
-    }
+    window.addEventListener('mousedown', (e) => {
+      if (this.root && !e.target.closest('.tsBox')) this.close();
+      this.cancel();
+    }, true);
+    // Hộp đang mở (thường là lúc đang giữ Ctrl): lăn chuột = chọn dòng trên / dưới như Tab / Shift+Tab, thả Ctrl là mở. Phải chặn (preventDefault,
+    // listener không passive): Ctrl+lăn chuột trên WebView2 là zoom cả trang — trước đây giữ Ctrl+Tab rồi lăn chuột làm cả app thu nhỏ.
+    // Hộp đóng thì không đụng gì: Ctrl+lăn chuột vẫn zoom như cũ.
+    this.wheelAcc = 0;
+    window.addEventListener('wheel', (e) => {
+      if (!this.root) { this.cancel(); return; }
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      // Gộp delta (bàn rê / chuột độ phân giải cao gửi nhiều nhịp nhỏ): đủ ~1 nấc (40px) mới đi 1 dòng.
+      this.wheelAcc += e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY;
+      while (Math.abs(this.wheelAcc) >= 40) {
+        const step = this.wheelAcc > 0 ? 1 : -1;
+        this.wheelAcc -= step * 40;
+        this.usedTab = true;
+        this.move(step);
+      }
+    }, { capture: true, passive: false });
     window.addEventListener('blur', () => { this.ctrlDownAt = 0; this.cancel(); this.close(); });
   }
 
@@ -205,6 +220,7 @@ class BcodeTabSwitcher {
     if (this.root) { this.root.remove(); this.root = null; }
     this.rows = [];
     this.usedTab = false;
+    this.wheelAcc = 0;
   }
 }
 

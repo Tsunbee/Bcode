@@ -638,6 +638,12 @@ class BcodeShell {
       guide.style.background = color;
       const icon = Object.assign(document.createElement('span'), { className: 'shFileIcon', textContent: (String(parent.text || '?').match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase() });
       icon.style.setProperty('--ic', color);
+      // Icon tô đặc = file đang mở thành tab: bấm vào icon đó = bỏ đánh dấu (đóng tab, file vẫn trong danh sách) — như nút ○ khi rê chuột.
+      icon.onclick = (e) => {
+        if (!this.bcode.docs.has(n.path)) return;   // chưa mở: để click đi tiếp tới dòng (mở file)
+        e.stopPropagation();
+        this.bcode.closeDoc(n.path);
+      };
       row.append(guide, icon);
     }
     const label = document.createElement('span');
@@ -658,7 +664,10 @@ class BcodeShell {
       copy.onclick = (e) => { e.stopPropagation(); this.cmd('tree.copy', n.key); };
       const close = Object.assign(document.createElement('span'), { className: 'shIcon', textContent: '✕', title: 'Bỏ khỏi danh sách (Delete)' });
       close.onclick = (e) => { e.stopPropagation(); this.cmd('tree.remove', n.key); };
-      icons.append(copy, close);
+      // ○ chỉ hiện khi file đang mở (CSS .shRow.file.open): đóng tab = bỏ đánh dấu, KHÔNG bỏ khỏi danh sách (khác ✕). File chưa lưu thì hỏi như đóng tab.
+      const unmark = Object.assign(document.createElement('span'), { className: 'shIcon shUnmark', textContent: '○', title: 'Bỏ đánh dấu: đóng tab của file này (file vẫn nằm trong danh sách)' });
+      unmark.onclick = (e) => { e.stopPropagation(); this.bcode.closeDoc(n.path); };
+      icons.append(unmark, copy, close);
       row.appendChild(icons);
     } else {
       const icons = document.createElement('span');

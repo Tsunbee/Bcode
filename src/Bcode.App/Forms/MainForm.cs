@@ -798,6 +798,37 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
 
     /// <summary>Nút thanh công cụ đang nằm trên thanh trên (Template → kéo từ "Thanh công cụ" lên "Thanh trên").</summary>
+    /// <summary>Id các nút có sẵn của thanh trên (add/view/.../deploy/ext/claude/gemini/help) đã kéo xuống thanh công cụ hoặc khung Ẩn
+    /// (token "top:id" trong ToolOrder / HiddenToolKeys — Template → Bố cục & font).</summary>
+    private HashSet<string> TopMovedDown()
+    {
+        var p = Bcode.App.UI.UiTemplate.TopDownPrefix;
+        return new HashSet<string>(_settings.ToolOrder.Concat(_settings.HiddenToolKeys)
+            .Where(k => k.StartsWith(p, StringComparison.Ordinal)).Select(k => k[p.Length..]));
+    }
+
+    /// <summary>Nút "giả" trên thanh công cụ cho 1 nút có sẵn của thanh trên đã kéo xuống: cùng chữ, bấm = đúng lệnh của nút đó trên thanh trên.</summary>
+    private (string key, string label, string? shortcut, EventHandler action)? TopDownSpec(string token)
+    {
+        var id = token[Bcode.App.UI.UiTemplate.TopDownPrefix.Length..];
+        var top = Bcode.App.UI.UiTemplate.TopButtons.FirstOrDefault(b => b.Id == id);
+        if (top.Id is null) return null;
+        var label = top.Text.Replace(" ▾", "").Trim();
+        EventHandler act = id switch
+        {
+            "add" or "view" or "clear" or "save" or "copy" => (_, _) => OnTopBarCommand("script", which: id),
+            "deploy" => (_, _) => ShowDeployMenu(),
+            "ext" => (_, _) => ShowExtMenu(),
+            _ => (_, _) =>
+            {
+                var key = id switch { "claude" => "claude_web", "gemini" => "gemini_web", _ => id };
+                var spec = _toolSpecs.FirstOrDefault(t => t.key == key);
+                spec.action?.Invoke(this, EventArgs.Empty);
+            },
+        };
+        return (token, id is "deploy" or "ext" ? label + " ▾" : label, null, act);
+    }
+
     private HashSet<string> TopToolKeys()
     {
         var bar = new HashSet<string>(BarToolKeys());
@@ -810,7 +841,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         var t = Bcode.App.UI.UiTemplate.Current;
         var bar = new HashSet<string>(BarToolKeys());
-        var order = t.TopOrder(bar.Contains);
+        var movedDown = TopMovedDown();
+        var order = t.TopOrder(bar.Contains, movedDown);
         // Nút có sẵn: style ở "script:id"; nút công cụ: id đã là "tool:key" — cùng khoá style với nút đó trên thanh công cụ.
         Bcode.App.UI.ControlStyle? StyleOf(string id) =>
             t.Items.TryGetValue(id.StartsWith(Bcode.App.UI.UiTemplate.TopToolPrefix) ? id : "script:" + id, out var st) ? st : null;
@@ -825,7 +857,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
         if (_topNative is not null)
         {
-            _topNative.SetScriptLayout(order, StyleOf, ToolOf);
+            _topNative.SetScriptLayout(order, StyleOf, ToolOf, movedDown);
             return;
         }
         if (_topBarWeb.CoreWebView2 is null) return;
@@ -836,7 +868,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var tool = ToolOf(id);
             items[id] = new { text = string.IsNullOrEmpty(st?.Text) ? null : st.Text, css = Bcode.App.UI.UiTemplate.ToInlineCss(st), label = tool?.Label, tip = tool?.Tip };
         }
-        var json = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(new { order, items }));
+        var json = System.Text.Json.JsonSerializer.Serialize(System.Text.Json.JsonSerializer.Serialize(new { order, items, hidden = movedDown }));
         _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync($"window.applyLayout && window.applyLayout({json})");
     }
     private void PushWorkspacesToTopBar()
@@ -1036,7 +1068,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             };
             var toolCombo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + key);
             if (toolCombo.Length > 0) button.ToolTipText = $"{label} ({toolCombo})";
-            if (Bcode.App.UI.UiTemplate.Current.Items.TryGetValue("tool:" + key, out var itemStyle)) ApplyItemStyle(button, itemStyle);
+            var styleKey = key.StartsWith(Bcode.App.UI.UiTemplate.TopDownPrefix, StringComparison.Ordinal) ? "script:" + key[Bcode.App.UI.UiTemplate.TopDownPrefix.Length..] : "tool:" + key;
+            if (Bcode.App.UI.UiTemplate.Current.Items.TryGetValue(styleKey, out var itemStyle)) ApplyItemStyle(button, itemStyle);
             _toolsBar.Items.Add(button);
         }
 
@@ -1057,6 +1090,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private IEnumerable<(string key, string label, string? shortcut, EventHandler action)> OrderedToolSpecs()
     {
         var all = _toolSpecs.Where(t => !IsMenuTool(t.key)).ToList();
+        foreach (var tok in _settings.ToolOrder.Where(k => k.StartsWith(Bcode.App.UI.UiTemplate.TopDownPrefix, StringComparison.Ordinal)).Distinct())
+            if (TopDownSpec(tok) is { } td) all.Add(td);   // nút có sẵn của thanh trên đã kéo xuống thanh công cụ (Template)
         if (_settings.ToolOrder.Count == 0) return all.OrderBy(t => ToolGroupOf(t.key)).ToList();      // OrderBy ổn định: trong vùng giữ thứ tự khai báo
         var byKey = all.ToDictionary(t => t.key);
         var ordered = new List<(string key, string label, string? shortcut, EventHandler action)>();
@@ -1376,14 +1411,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenQuickAccess()
     {
-        var allTools = OrderedToolSpecs().Select(t => (t.key, t.label));
+        var allTools = OrderedToolSpecs().Where(t => !t.key.StartsWith(Bcode.App.UI.UiTemplate.TopDownPrefix, StringComparison.Ordinal)).Select(t => (t.key, t.label));   // nút có sẵn của thanh trên kéo xuống: chỉnh ở Template
         using var form = new QuickAccessForm(allTools, new HashSet<string>(_settings.HiddenToolKeys), BarToolKeys(), ActiveToolGroups(), SuggestedToolGroups());
         if (form.ShowDialog(this) != DialogResult.OK) return;
 
-        _settings.HiddenToolKeys = form.HiddenKeys.ToList();
+        // Quick Access chỉ biết nút công cụ: giữ lại các nút có sẵn của thanh trên đã kéo xuống ("top:id", Template) để chúng không nhảy về thanh trên.
+        var topPrefix = Bcode.App.UI.UiTemplate.TopDownPrefix;
+        var keepTopOrder = _settings.ToolOrder.Where(k => k.StartsWith(topPrefix, StringComparison.Ordinal)).ToList();
+        var keepTopHidden = _settings.HiddenToolKeys.Where(k => k.StartsWith(topPrefix, StringComparison.Ordinal)).ToList();
+        _settings.HiddenToolKeys = form.HiddenKeys.Concat(keepTopHidden).ToList();
         _settings.ToolBarGroups = form.Groups;
         // Thứ tự trùng mặc định thì lưu rỗng (để nút/vạch ngăn nhóm mặc định hoạt động như cũ).
         _settings.ToolOrder = form.OrderedKeys.SequenceEqual(BarToolKeys()) ? new List<string>() : form.OrderedKeys;
+        if (keepTopOrder.Count > 0) _settings.ToolOrder = (_settings.ToolOrder.Count == 0 ? BarToolKeys() : _settings.ToolOrder).Concat(keepTopOrder).ToList();
         _settings.Save();
         RebuildToolsBar();
     }
@@ -2683,7 +2723,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private void OpenUiTemplate()
     {
-        using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Select(t => (t.key, t.label)).ToList(), BarToolKeys(), _wcommandTree.TopGroups());
+        using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Where(t => !t.key.StartsWith(Bcode.App.UI.UiTemplate.TopDownPrefix, StringComparison.Ordinal)).Select(t => (t.key, t.label)).ToList(), BarToolKeys(), _wcommandTree.TopGroups());
         form.ShowDialog(this);
         ApplySparePolicy();
     }

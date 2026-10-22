@@ -507,10 +507,33 @@ public class UiTemplateForm : ThemedForm
         var hidden = new HashSet<string>(_settings.HiddenToolKeys);
 
         var toolKeys = new HashSet<string>(_tools.Select(x => x.key));
-        var topIds = t.TopOrder(toolKeys.Contains);
+        var downPrefix = UiTemplate.TopDownPrefix;
+        var movedDown = new HashSet<string>(_settings.ToolOrder.Concat(_settings.HiddenToolKeys)
+            .Where(k => k.StartsWith(downPrefix, StringComparison.Ordinal)).Select(k => k[downPrefix.Length..]));
+        var topIds = t.TopOrder(toolKeys.Contains, movedDown);
         var onTop = t.TopToolKeys(toolKeys.Contains);
 
-        object Item(string id, string text) => new { id, text };
+        // Nút có sẵn của thanh trên: prefix "script:" (khoá style) — kéo xuống được khung Thanh công cụ / Ẩn (lưu "top:id").
+        object Item(string id, string text) => new { id, text, prefix = "script:" };
+        object DownItem(string id) => Item(id, UiTemplate.TopButtons.First(b => b.Id == id).Text);
+        // Khung Thanh công cụ / Ẩn: nút công cụ theo thứ tự cũ, chen thêm nút có sẵn đã kéo xuống đúng chỗ đã lưu (sau nút đứng trước nó trong ToolOrder).
+        List<object> ZoneItems(bool hiddenZone)
+        {
+            var list = _tools.Where(x => hidden.Contains(x.key) == hiddenZone && !onTop.Contains(x.key)).Select(x => (key: x.key, item: ToolItem(x.key, x.label))).ToList();
+            string? prev = null;
+            foreach (var tok in _settings.ToolOrder)
+            {
+                if (tok.StartsWith(downPrefix, StringComparison.Ordinal))
+                {
+                    var id = tok[downPrefix.Length..];
+                    if (UiTemplate.TopButtons.All(b => b.Id != id) || hidden.Contains(tok) != hiddenZone || list.Any(x => x.key == tok)) { prev = tok; continue; }
+                    var at = prev is null ? 0 : list.FindIndex(x => x.key == prev) + 1;
+                    list.Insert(Math.Clamp(at, 0, list.Count), (tok, DownItem(id)));
+                }
+                prev = tok;
+            }
+            return list.Select(x => x.item).ToList();
+        }
         // Nút thanh công cụ (ở khung nào cũng vậy) mang prefix riêng "tool:" để style đi theo nút khi kéo lên / xuống thanh trên.
         object ToolItem(string key, string label) => new { id = key, text = label, prefix = UiTemplate.TopToolPrefix };
         object TopItem(string id) => id.StartsWith(UiTemplate.TopToolPrefix)
@@ -561,9 +584,9 @@ public class UiTemplateForm : ThemedForm
                 new { id = "script", title = "Thanh trên", hint = "Kéo để đổi thứ tự; kéo nút từ khung \"Thanh công cụ\" lên đây để đưa lên thanh trên (kéo xuống lại để trả về)", prefix = "script:",
                       items = topIds.Select(TopItem).ToArray() },
                 new { id = "tools", title = "Thanh công cụ", hint = "Kéo để đổi thứ tự; kéo xuống khung \"Ẩn\" để giấu", prefix = "tool:",
-                      items = _tools.Where(x => !hidden.Contains(x.key) && !onTop.Contains(x.key)).Select(x => ToolItem(x.key, x.label)).ToArray() },
+                      items = ZoneItems(false).ToArray() },
                 new { id = "hidden", title = "Ẩn khỏi thanh công cụ", hint = "Kéo ngược lên khung \"Thanh công cụ\" để hiện lại", prefix = "tool:",
-                      items = _tools.Where(x => hidden.Contains(x.key) && !onTop.Contains(x.key)).Select(x => ToolItem(x.key, x.label)).ToArray() },
+                      items = ZoneItems(true).ToArray() },
             },
         };
         Js($"window.init({JsonSerializer.Serialize(state, Web)}, {(AppColors.IsDark ? "true" : "false")})");

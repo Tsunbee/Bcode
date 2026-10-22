@@ -33,7 +33,7 @@ internal static class SqlScintilla
             "getdate","getutcdate","sysdatetime","len","substring","charindex","patindex","replace","stuff","ltrim","rtrim","upper","lower","left","right","reverse","format","concat","isnull","coalesce","nullif","cast","convert","try_convert","iif","choose","abs","ceiling","floor","round","power","sqrt","rand",
             "count","sum","avg","min","max","row_number","rank","dense_rank","ntile","lag","lead","first_value","last_value","string_agg","stuff","datediff","dateadd","datepart","datename","year","month","day","eomonth","isdate","isnumeric","object_id","object_name","object_definition","db_name","scope_identity","newid","@@rowcount","@@error","@@identity","@@trancount","@@fetch_status","@@version","@@servername"));
         _ed.WordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$#@";
-        if (!KeyGuarded.TryGetValue(_ed, out _)) { KeyGuarded.Add(_ed, new object()); _ed.KeyPress += BlockControlChars; }
+        if (!KeyGuarded.TryGetValue(_ed, out _)) { KeyGuarded.Add(_ed, new object()); _ed.KeyPress += BlockControlChars; _ed.CharAdded += AutoIndent; }
     }
 
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Scintilla, object> KeyGuarded = new();
@@ -43,6 +43,22 @@ internal static class SqlScintilla
     private static void BlockControlChars(object? sender, KeyPressEventArgs e)
     {
         if ((e.KeyChar < ' ' && e.KeyChar is not ('\t' or '\r' or '\n' or '\b')) || e.KeyChar == '\x7f') e.Handled = true;
+    }
+
+    /// <summary>Enter xuống dòng: dòng mới thụt lề bằng dòng vừa rời (như Monaco của bản Web); dòng trước kết thúc bằng "(" thì thụt thêm 1 nấc.
+    /// Enter ở giữa dòng: phần chữ bị đẩy xuống cũng được thụt theo, con trỏ đứng ngay trước chữ đó.</summary>
+    private static void AutoIndent(object? sender, CharAddedEventArgs e)
+    {
+        if (sender is not Scintilla ed || ed.ReadOnly) return;
+        if (!(e.Char == '\n' || (e.Char == '\r' && ed.EolMode == Eol.Cr))) return;
+        var cur = ed.LineFromPosition(ed.CurrentPosition);
+        if (cur <= 0) return;
+        var prevLine = ed.Lines[cur - 1];
+        var indent = prevLine.Indentation;
+        if (prevLine.Text.TrimEnd().EndsWith('(')) indent += ed.IndentWidth;
+        if (indent <= 0) return;
+        ed.Lines[cur].Indentation = indent;
+        ed.GotoPosition(ed.Lines[cur].IndentPosition);
     }
 
     private static Color Blend(Color a, Color b, double t) => Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));

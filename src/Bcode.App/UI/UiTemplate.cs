@@ -175,11 +175,15 @@ public sealed class UiTemplate
     /// <summary>Tiền tố id của nút thanh công cụ được kéo lên thanh trên ("tool:sql_query") — trùng khoá style của nút đó ở <see cref="Items"/>.</summary>
     public const string TopToolPrefix = "tool:";
 
+    /// <summary>Tiền tố token trong AppSettings.ToolOrder / HiddenToolKeys của nút có sẵn ở thanh trên đã bị kéo XUỐNG thanh công cụ (hoặc khung Ẩn)
+    /// trong Template → Bố cục & font, vd "top:add" (Add Script). Thanh trên không hiện lại các nút này.</summary>
+    public const string TopDownPrefix = "top:";
+
     /// <summary>Thứ tự đầy đủ của thanh trên: các id hợp lệ trong <see cref="ScriptOrder"/> (nút công cụ chỉ giữ khi <paramref name="isTool"/>(key) đúng),
     /// nút có sẵn còn thiếu (file cũ chỉ lưu 5 nút Script) thêm vào cuối theo thứ tự mặc định.</summary>
-    public List<string> TopOrder(Func<string, bool> isTool)
+    public List<string> TopOrder(Func<string, bool> isTool, ICollection<string>? movedDown = null)
     {
-        var known = TopButtons.Select(b => b.Id).ToList();
+        var known = TopButtons.Select(b => b.Id).Where(id => movedDown is null || !movedDown.Contains(id)).ToList();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var ids = ScriptOrder.Where(id => !string.IsNullOrEmpty(id)
                 && (known.Contains(id) || id.StartsWith(TopToolPrefix, StringComparison.OrdinalIgnoreCase) && isTool(id[TopToolPrefix.Length..]))
@@ -190,7 +194,7 @@ public sealed class UiTemplate
 
     /// <summary>Key các nút thanh công cụ đang nằm trên thanh trên (thanh công cụ không hiện lại chúng; nhóm Quick Access không đổi).</summary>
     public HashSet<string> TopToolKeys(Func<string, bool> isTool) =>
-        new(TopOrder(isTool).Where(id => id.StartsWith(TopToolPrefix, StringComparison.OrdinalIgnoreCase)).Select(id => id[TopToolPrefix.Length..]));
+        new(TopOrder(isTool, null).Where(id => id.StartsWith(TopToolPrefix, StringComparison.OrdinalIgnoreCase)).Select(id => id[TopToolPrefix.Length..]));
 
     /// <summary>Bản khai báo mặc định (hard-code): font Segoe UI 9,5pt, mọi loại control theo màu theme.</summary>
     public static UiTemplate CreateDefault()

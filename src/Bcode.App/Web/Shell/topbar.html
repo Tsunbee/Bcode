@@ -129,7 +129,7 @@
       pos++;
       btns[b.getAttribute('data-top')] = b;
     });
-    var items = cfg.items || {}, ids = [];
+    var items = cfg.items || {}, ids = [], hid = cfg.hidden || [];
     (cfg.order || []).forEach(function (id) {
       if (ids.indexOf(id) >= 0) return;
       if (btns[id] || (id.indexOf('tool:') === 0 && items[id] && items[id].label)) ids.push(id);
@@ -152,6 +152,7 @@
       b.textContent = it.text || b.dataset.orig;
       b.removeAttribute('style');
       Object.keys(it.css || {}).forEach(function (k) { b.style[k] = it.css[k]; });
+      if (hid.indexOf(id) >= 0) b.style.display = 'none';   // nút có sẵn đã kéo xuống thanh công cụ / Ẩn (Template)
     });
   };
 

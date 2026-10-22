@@ -197,7 +197,7 @@ public sealed class NativeTopBar : Panel
 
     /// <summary>Template giao diện: thứ tự + chữ + font/màu các nút thanh trên (nút có sẵn + nút thanh công cụ "tool:key" đã kéo lên).
     /// <paramref name="toolOf"/>(id) = chữ + tooltip của nút công cụ, null nếu id không phải nút công cụ.</summary>
-    public void SetScriptLayout(IReadOnlyList<string> order, Func<string, ControlStyle?> styleOf, Func<string, (string Label, string Tip)?> toolOf)
+    public void SetScriptLayout(IReadOnlyList<string> order, Func<string, ControlStyle?> styleOf, Func<string, (string Label, string Tip)?> toolOf, ICollection<string>? hidden = null)
     {
         var ids = order.Where(id => _scriptButtons.ContainsKey(id) || toolOf(id) is not null).ToList();
         foreach (var id in _scriptButtons.Keys) if (!ids.Contains(id)) ids.Add(id);
@@ -232,6 +232,7 @@ public sealed class NativeTopBar : Panel
                 var size = st.FontSize is { } sz ? (float)(sz * UiScale.Factor) : ThemeManager.BaseFont.Size;
                 try { b.Font = new Font(fam, size, st.Bold == true ? FontStyle.Bold : FontStyle.Regular); } catch { }
             }
+            b.Visible = hidden is null || !hidden.Contains(id);   // nút có sẵn đã kéo xuống thanh công cụ (Template)
             b.Invalidate();
         }
         _left.ResumeLayout(true);

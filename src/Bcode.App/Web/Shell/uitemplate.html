@@ -443,7 +443,8 @@
 
   // ---------------------------------------------------------------- bản nháp -> C#
   const draft = () => {
-    const ids = z => S.zones.find(x => x.id === z).items.map(i => i.id);
+    // Khung Thanh công cụ / Ẩn: nút công cụ lưu theo key; nút có sẵn của thanh trên bị kéo xuống lưu "top:id".
+    const ids = z => S.zones.find(x => x.id === z).items.map(i => (i.prefix === 'tool:' ? '' : 'top:') + i.id);
     const items = {};
     Object.keys(S.items).forEach(k => { if (hasAny(S.items[k])) items[k] = S.items[k]; });
     return {
@@ -506,8 +507,8 @@
     return c;
   }
 
-  // Nút có sẵn của thanh trên chỉ đổi chỗ trong khung của nó; nút thanh công cụ kéo qua lại được giữa "Thanh trên", "Thanh công cụ" và "Ẩn".
-  const accepts = (target, drag) => target === drag.from || drag.tool;
+    // Mọi nút kéo qua lại được giữa 3 khung (nút có sẵn của thanh trên kéo xuống thanh công cụ / Ẩn; kéo lên lại để trả về).
+  const accepts = () => true;
 
   function wireDrop(drop, z) {
     drop.addEventListener('dragover', e => {

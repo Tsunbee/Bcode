@@ -841,19 +841,26 @@ body.shDragging .shRow { cursor: inherit; }
 .shIcon:hover { color: var(--bc-text); }
 
 /* ---- Hộp chọn tab khi giữ Ctrl (tabswitcher.js) ------------------------------------------ */
-.tsOverlay { position: fixed; inset: 0; z-index: 9000; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; background: var(--bc-overlay); }
-.tsBox { width: min(480px, 92vw); max-height: 70vh; display: flex; flex-direction: column; background: var(--bc-panel); border: 1px solid var(--bc-border);
-  border-radius: 8px; box-shadow: 0 12px 40px var(--bc-shadow); overflow: hidden; }
-.tsHead { padding: 8px 12px; font-size: 12px; color: var(--bc-text-muted); background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); }
-.tsList { overflow-y: auto; padding: 4px 0; }
-.tsRow { display: flex; align-items: center; gap: 10px; padding: 6px 12px; font-size: 13px; color: var(--bc-text); cursor: pointer; }
-.tsRow .tsNum { width: 22px; color: var(--bc-text-muted); text-align: right; flex: 0 0 auto; }
-.tsRow .tsName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tsRow .tsMark { flex: 0 0 auto; width: 14px; text-align: center; font-size: 10px; color: var(--bc-accent); }
-.tsRow.current .tsName { font-weight: 600; }
-.tsRow.notOpen .tsName { opacity: 0.75; }
+/* Kiểu FCodeViewer: 2 cột Header (thư mục\file) / Path (đầy đủ), dòng nhóm = dự án + thư mục site, dòng "Previous:" ở đầu. */
+.tsOverlay { position: fixed; inset: 0; z-index: 9000; display: flex; justify-content: center; align-items: flex-start; padding-top: 4vh; background: var(--bc-overlay); }
+.tsBox { width: min(1200px, 94vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--bc-panel); border: 1px solid var(--bc-border);
+  border-radius: 6px; box-shadow: 0 12px 40px var(--bc-shadow); overflow: hidden; }
+.tsCols, .tsRow { display: grid; grid-template-columns: minmax(180px, 28%) 1fr; column-gap: 14px; }
+.tsCols { padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--bc-text-muted); background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); }
+.tsHead { padding: 5px 12px; font-size: 11.5px; color: var(--bc-text-muted); background: var(--bc-panel-alt); border-top: 1px solid var(--bc-border); }
+.tsList { overflow-y: auto; padding: 2px 0 6px; }
+.tsGroup { display: flex; gap: 10px; align-items: baseline; padding: 6px 12px 2px; margin-top: 4px; font-size: 12px; color: var(--bc-text-muted); border-top: 1px solid var(--bc-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tsGroup b { color: var(--bc-text); }
+.tsRow { align-items: center; padding: 2px 12px; font-size: 12.5px; line-height: 18px; color: var(--bc-text); cursor: pointer; }
+.tsRow .tsName, .tsRow .tsPath { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tsRow .tsPath { color: var(--bc-text-muted); }
+.tsRow:not(.previous) .tsName { padding-left: 12px; }   /* thụt vào dưới dòng nhóm, cột Path vẫn thẳng với dòng Previous */
+.tsRow.previous { border-bottom: 1px solid var(--bc-border); }
+.tsRow.previous .tsName { font-weight: 600; }
+.tsRow.current .tsName { font-weight: 700; }
+.tsRow.notOpen .tsName { opacity: 0.7; }
 .tsRow.sel { background: var(--bc-accent); color: var(--bc-accent-text); }
-.tsRow.sel .tsNum, .tsRow.sel .tsMark { color: var(--bc-accent-text); }
+.tsRow.sel .tsPath, .tsRow.sel .tsName { color: var(--bc-accent-text); opacity: 1; }
 
 /* ---- Bố cục tuỳ chọn: cây file bên phải (Settings → Bố cục) ---- */
 #main.shSidebarRight #editorPane { order: 1; }

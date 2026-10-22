@@ -1212,8 +1212,8 @@ Nút **Debug trong Bcode** (hoặc chuột phải → Debug SQL trong Bcode) d�
 <a id="viewer-tab"></a>
 ## Chuyển tab nhanh (Ctrl+Tab)
 
-- `Ctrl+Tab` / `Ctrl+Shift+Tab`: tab kế / tab trước.
-- **Giữ Ctrl khoảng 0,35 giây rồi bấm Tab** → hộp chọn tab: `↑/↓` hoặc `Tab` để chọn, thả Ctrl hoặc `Enter` để mở.
+- `Ctrl+Tab` / `Ctrl+Shift+Tab` bấm rồi thả ngay: chuyển sang tab kế / tab trước (không hiện hộp).
+- **Bấm `Ctrl+Tab` rồi giữ Ctrl** (khoảng 0,4 giây) — hoặc giữ Ctrl trước rồi bấm Tab — → hộp chọn tab giống FCodeViewer: 2 cột **Header** (thư mục\tên file, vd `Dir\Customer.xml`) và **Path** (đường dẫn đầy đủ); dòng đầu **Previous:** là file vừa rời; bên dưới là mọi file của cây, chia nhóm theo dự án + thư mục site (`KOG \\172.168.5.14\CustomerPro\FBI\KOG\FBISP24`). Vẫn giữ Ctrl: `Tab` / `Shift+Tab` hoặc `↑/↓` để chọn, **thả Ctrl** để mở; `Enter` / bấm chuột cũng mở; `Esc` để thôi. Chữ mờ = file chưa mở (chọn là mở), ● = chưa lưu.
 - Kiểu bấm nhanh chọn ở Settings → Bố cục → "Ctrl+Tab bấm nhanh": **Tab tới** (A → B → C, mặc định) hoặc **Tab song song** (A ⇄ B — qua lại 2 tab gần nhất, giống Bcode).
 - `Ctrl+W` đóng tab, `Ctrl+\` tách đôi khung soạn thảo, `Ctrl+B` ẩn / hiện cây file.
 

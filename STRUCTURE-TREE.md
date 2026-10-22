@@ -495,9 +495,9 @@ BcodeViewer.App/
 │   ├── settings.js  696
 │   ├── shell.js  806
 │   ├── sqlrun.js  631
-│   ├── style.css  988
+│   ├── style.css  995
 │   ├── tabs.js  247
-│   ├── tabswitcher.js  145
+│   ├── tabswitcher.js  212
 │   ├── templates.js  428
 │   ├── theme.js  207
 │   ├── toolbar.js  599

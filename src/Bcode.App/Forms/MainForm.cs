@@ -1769,7 +1769,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings);
         control.ProjectName = ws.Name;
         control.FileActivated += path => OpenFileFromLookup(path);
-        control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path);
+        control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
+        control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
@@ -2332,15 +2333,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private TabPage? _excelToFrxTab;
 
     /// <summary>Tab "Excel → FRX": Excel mẫu in → FastReport (.frx), kéo thả chỉnh bố cục, xem trước PDF (ExcelToFrx.dll, source ở
-    /// D:\phongnt\ConvertBcode). Một tab duy nhất, mở lại thì chuyển tới; <paramref name="xlsxPath"/> = nạp sẵn file đó.</summary>
-    private void OpenExcelToFrxTab(string? xlsxPath = null)
+    /// D:\phongnt\ConvertBcode). Một tab duy nhất, mở lại thì chuyển tới; <paramref name="xlsxPath"/> = nạp sẵn file đó,
+    /// <paramref name="format"/> = chọn sẵn định dạng ra ("frx" | "rpt"; null = giữ lựa chọn trên trang).</summary>
+    private void OpenExcelToFrxTab(string? xlsxPath = null, string? format = null)
     {
         if (!RequireLicense("Excel → FRX")) return;
         if (_excelToFrxTab is not null && _documentTabs.TabPages.Contains(_excelToFrxTab))
         {
             _documentTabs.SelectedTab = _excelToFrxTab;
             if (xlsxPath is not null && _excelToFrxTab.Controls.OfType<ExcelToFrx.ExcelToFrxControl>().FirstOrDefault() is { } open)
-                open.OpenExcel(xlsxPath);
+                open.OpenExcel(xlsxPath, format);
             return;
         }
 
@@ -2365,7 +2367,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ThemeChanged += OnTheme;
         ctl.Disposed += (_, _) => ThemeChanged -= OnTheme;
 
-        if (xlsxPath is not null) ctl.OpenExcel(xlsxPath);
+        if (xlsxPath is not null) ctl.OpenExcel(xlsxPath, format);
         _excelToFrxTab = AddDocumentTab("Excel → FRX", ctl);
         _excelToFrxTab.Disposed += (_, _) => _excelToFrxTab = null;
     }
@@ -2999,7 +3001,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings) { ProjectName = ws.Name };
         control.FileActivated += path => OpenFileFromLookup(path);
-        control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path);
+        control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
+        control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         AddDocumentTab(title, control);
         return control;

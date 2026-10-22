@@ -64,6 +64,9 @@ public partial class FileLookupControl : UserControl
     /// <summary>Chuột phải file Excel → "Chuyển sang .frx": MainForm mở tab "Excel → FRX" với file đó (full path).</summary>
     public event Action<string>? ExcelToFrxRequested;
 
+    /// <summary>Chuột phải file Excel → "Chuyển sang .rpt": như <see cref="ExcelToFrxRequested"/> nhưng chọn sẵn định dạng ra .rpt (Crystal).</summary>
+    public event Action<string>? ExcelToRptRequested;
+
     public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
     {
         _service = service;
@@ -158,6 +161,9 @@ public partial class FileLookupControl : UserControl
                 _fileContextMenu.Items.Add(new ToolStripMenuItem(isRpt ? "Chuyển .rpt sang .frx (Crystal → FRX)" : "Chuyển sang .frx (Excel → FRX)",
                     isRpt ? null : AppIcons.ExcelTreeBitmap,
                     (_, _) => ExcelToFrxRequested?.Invoke(xl.FullPath)) { Font = new Font(_fileContextMenu.Font, FontStyle.Bold) });
+                if (!isRpt)
+                    _fileContextMenu.Items.Add(new ToolStripMenuItem("Chuyển sang .rpt (Excel → RPT)", AppIcons.ExcelTreeBitmap,
+                        (_, _) => ExcelToRptRequested?.Invoke(xl.FullPath)));
             }
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());

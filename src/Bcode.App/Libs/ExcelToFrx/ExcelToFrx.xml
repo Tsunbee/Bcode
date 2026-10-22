@@ -45,6 +45,12 @@
         <member name="M:ExcelToFrx.ExcelToFrxControl.OpenExcel(System.String)">
             <summary>Nạp sẵn một file Excel (vd chuột phải file .xlsx trong File Lookup → "Chuyển sang .frx").</summary>
         </member>
+        <member name="M:ExcelToFrx.ExcelToFrxControl.OpenExcel(System.String,System.String)">
+            <summary>Như <see cref="M:ExcelToFrx.ExcelToFrxControl.OpenExcel(System.String)"/> và chọn sẵn định dạng ra: "frx" hoặc "rpt" (null = giữ lựa chọn trên trang).</summary>
+        </member>
+        <member name="M:ExcelToFrx.ExcelToFrxControl.SetOutputFormat(System.String)">
+            <summary>Chọn định dạng file tạo ra ("frx" | "rpt"); trang chưa nạp xong thì áp dụng khi nạp xong.</summary>
+        </member>
         <member name="M:ExcelToFrx.ExcelToFrxControl.SetHostScript(System.String)">
             <summary>
             Script chạy lại sau mỗi lần trang nạp xong — để ứng dụng chủ đẩy biến CSS của Template giao diện
@@ -97,6 +103,9 @@
             Rỗng = RptToFrx.exe cùng thư mục với FrxGenerator.exe.
             </summary>
         </member>
+        <member name="P:ExcelToFrx.ExcelToFrxOptions.RptGeneratorPath">
+            <summary>RptGenerator.exe (Excel → Crystal .rpt — cần Crystal runtime 32-bit). Rỗng = cùng thư mục với FrxGenerator.exe.</summary>
+        </member>
         <member name="T:ExcelToFrx.Hosting.ApiResponse">
             <summary>Trả lời của một request.</summary>
         </member>
@@ -134,6 +143,10 @@
         </member>
         <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.ParamsFile">
             <summary>Chữ tiếng Việt của tham số (từ report .xml) → params.json cho bản xem trước.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.GenerateRptAsync(System.Text.Json.Nodes.JsonObject,System.Text.Json.Nodes.JsonObject,System.Boolean,System.Threading.CancellationToken)">
+            <summary>Excel → Crystal .rpt: chạy RptGenerator.exe (net48 x86, Crystal RAS in-process) trên cùng layout.json với .frx.
+            Mẫu .frx / tham số chữ của .frx không áp cho .rpt; .xsd và Report.xml thì dùng chung.</summary>
         </member>
         <member name="T:ExcelToFrx.Parsing.CellSyntax">
             <summary>

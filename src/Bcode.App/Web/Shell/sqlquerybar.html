@@ -400,6 +400,9 @@
     // Đổi phím tắt trong Template: cập nhật chú thích nút nhóm.
     var oldKeymap = window.applyKeymap;
     window.applyKeymap = function () { if (oldKeymap) oldKeymap(); if (layout) apply(); };
+    // Theme + bố cục C# gắn sẵn lúc tạo trang (RawSqlControl.BarInitScript): lần vẽ đầu đã đúng bố cục nhóm — không loé bố cục gốc 2 hàng rồi mới gom.
+    // C# vẫn đẩy lại cả hai khi trang nạp xong (OnBarLoaded) nên bố cục vừa đổi ở tab khác vẫn đúng.
+    if (window.__sqlBarInit) { window.setTheme(!!window.__sqlBarInit.dark); window.setLayout(window.__sqlBarInit.layout); }
   })();
 </script>
 </body>

@@ -54,6 +54,9 @@ public sealed class WebFrameHost : Panel
     /// và AddScriptToExecuteOnDocumentCreated cho trang con (script áp cho cả khung chính lẫn mọi iframe).</summary>
     public Func<Microsoft.Web.WebView2.Core.CoreWebView2, Task>? CoreInitializing { get; set; }
 
+    /// <summary>Trang chủ framehost.html nạp xong (NavigationCompleted — sau cả các khung đã khai báo lúc tạo) — để đo thời gian mở.</summary>
+    public event Action? HostLoaded;
+
     /// <summary>Mọi trang đều nằm ở host gốc (không bị UiOverrides ghi đè) — điều kiện để gộp vào 1 WebView2.</summary>
     public static bool CanHost(params string[] pages) =>
         pages.All(p => UiOverrides.UrlFor(p).StartsWith($"https://{WebViewEnvironment.Host}/", StringComparison.OrdinalIgnoreCase));
@@ -113,11 +116,18 @@ public sealed class WebFrameHost : Panel
             _web.CoreWebView2.NavigationCompleted += (_, _) =>
             {
                 _hostReady = true;
+                HostLoaded?.Invoke();
                 HostCall($"window.setTheme && window.setTheme({Bool(AppColors.IsDark)})");
                 foreach (var f in _frames.Where(f => f.Created))
                     HostCall($"bframe.add({Json(f.Name)}, {Json(UiOverrides.UrlFor(f.Page))}, {f.Height?.ToString() ?? "null"}, {Bool(f.Visible)})");
             };
-            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/framehost.html");
+            // Khung đã khai báo + theme đi kèm trong # để framehost.html tạo iframe ngay lúc dựng trang (NavigationCompleted bên trên vẫn thêm lại — trùng thì bỏ qua).
+            var initJson = JsonSerializer.Serialize(new
+            {
+                dark = AppColors.IsDark,
+                frames = _frames.Where(f => f.Created).Select(f => new { name = f.Name, url = UiOverrides.UrlFor(f.Page), height = f.Height, visible = f.Visible }),
+            });
+            _web.CoreWebView2.Navigate($"https://{WebViewEnvironment.Host}/framehost.html#{Uri.EscapeDataString(initJson)}");
         }
         catch
         {

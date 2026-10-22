@@ -168,14 +168,19 @@ internal static class WebViewEnvironment
         catch { }
     }
 
+    /// <summary>Host ảo (<see cref="Host"/>, <see cref="UiOverrides.UserHost"/>) không có thật trên mạng nhưng mỗi lần điều hướng tới nó (trang chính lẫn
+    /// iframe) WebView2 vẫn hỏi DNS hệ thống rồi mới phục vụ từ thư mục — đo 22/10/2026: ~90–110 ms mỗi lần, có lúc ~2 s (mở tab SQL Query: framehost
+    /// rồi iframe thanh + editor = 2 lần chờ nối tiếp). Báo "không có" ngay tại chỗ (giống kết quả DNS thật, chỉ khỏi chờ) — host thật không bị ảnh hưởng.</summary>
+    private static readonly string HostResolverArgs = $"--host-resolver-rules=\"MAP {Host} ~NOTFOUND, MAP {UiOverrides.UserHost} ~NOTFOUND\"";
+
     /// <summary>Tạo môi trường kèm tham số của Chế độ hiệu năng (vd giới hạn số tiến trình hiển thị). Không tạo được với tham số
     /// (vd 1 Bcode khác đang chạy chung thư mục dữ liệu với tham số khác) thì tạo như cũ — không bao giờ vì cài đặt này mà mất WebView2.
     /// Cả hai đều báo thư mục bận thì ném lỗi bận để <see cref="CreateForStepAsync"/> chờ/thử lại hoặc dùng hồ sơ phụ.</summary>
     private static async Task<Microsoft.Web.WebView2.Core.CoreWebView2Environment> CreateWithProfileAsync(string userDataFolder)
     {
-        string args = "";
+        string args = HostResolverArgs;
         int limit = 0;
-        try { var p = PerformanceProfile.Resolve(Models.AppSettings.Load()); args = p.BrowserArguments; limit = p.RendererProcessLimit; }
+        try { var p = PerformanceProfile.Resolve(Models.AppSettings.Load()); args = $"{HostResolverArgs} {p.BrowserArguments}".Trim(); limit = p.RendererProcessLimit; }
         catch { /* settings hỏng — chạy như mặc định */ }
         if (args.Length > 0)
         {

@@ -37,6 +37,12 @@
     // chiều cao khung cố định theo px thiết bị (px CSS = px thiết bị / devicePixelRatio)
     setHeightDevice(name, px) { const f = frames[name]; if (f) { f.classList.add('fixed'); f.style.height = (px / (window.devicePixelRatio || 1)) + 'px'; } },
   };
+  // Khung đã khai báo lúc tạo (WebFrameHost gửi kèm theme trong #...): tạo ngay khi trang chủ đang dựng thay vì chờ NavigationCompleted
+  // rồi C# mới gọi bframe.add (1 lượt đi-về nữa trước khi các trang con bắt đầu tải). bframe.add gọi lại sau đó thì bỏ qua (đã có).
+  try {
+    const init = location.hash.length > 1 ? JSON.parse(decodeURIComponent(location.hash.slice(1))) : null;
+    if (init) { window.setTheme(!!init.dark); (init.frames || []).forEach(f => bframe.add(f.name, f.url, f.height, f.visible)); }
+  } catch { /* # hỏng — C# vẫn thêm khung khi trang nạp xong */ }
   // Dữ liệu lớn C# gửi bằng PostWebMessageAsJson({__frame, data}) → chuyển cho listener 'message' của đúng trang con.
   window.chrome.webview.addEventListener('message', (e) => {
     const m = e.data;

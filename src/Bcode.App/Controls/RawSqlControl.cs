@@ -65,6 +65,38 @@ public class RawSqlControl : UserControl, ISqlTab
     /// <summary>Cả thanh Execute lẫn editor Monaco đã nạp xong — tab sẵn sàng gõ ngay.</summary>
     public bool IsReady => _editorReady && _barReady;
 
+    // ---- Đo thời gian mở tab (apply-timing.log): các chặng tính từ lúc tạo control, ghi 1 dòng khi thanh nút + editor đều đã sẵn sàng ----
+    private readonly System.Diagnostics.Stopwatch _openWatch = System.Diagnostics.Stopwatch.StartNew();
+    private readonly long _openEpoch = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();   // cùng đồng hồ với Date.now() của trang
+    private readonly List<string> _openMarks = new();
+    private bool _openLogged, _tablesTimed;
+
+    // Màn che lúc mở tab: thanh nút và editor Monaco nạp lệch nhau (thanh trước, Monaco sau ~0,2 s) nên trước đây tab hiện khung trống → thanh →
+    // vùng editor đen → chữ. Che cả tab bằng nền theme cho tới khi CẢ HAI sẵn sàng (IsReady) rồi gỡ một lượt — thanh + editor hiện cùng lúc.
+    private readonly Panel _curtain = new() { Dock = DockStyle.Fill, BackColor = Bcode.App.UI.AppColors.PanelAlt };
+    private readonly System.Windows.Forms.Timer _curtainTimer = new() { Interval = 2500 };
+
+    private void Reveal()
+    {
+        _curtainTimer.Stop();
+        _curtainTimer.Dispose();
+        if (_curtain.IsDisposed) return;
+        var ready = IsReady;
+        _curtain.Dispose();
+        MarkOpen(ready ? "mở màn" : "mở màn (hết giờ chờ)");
+    }
+
+    private void RevealIfReady() { if (IsReady) Reveal(); }
+
+    private void MarkOpen(string what)
+    {
+        if (_openLogged) return;
+        _openMarks.Add($"{what} {_openWatch.ElapsedMilliseconds}");
+        if (!_editorReady || !_barReady || !_curtain.IsDisposed) return;
+        _openLogged = true;
+        Bcode.App.UI.ThemeManager.LogTiming($"SQL Query{(_deferTables ? " (dựng sẵn)" : "")}: thanh + editor sẵn sàng sau {_openWatch.ElapsedMilliseconds} ms — {string.Join(", ", _openMarks)}");
+    }
+
     private int _barRetries, _editorRetries;
     private bool _splitUserMoved;     // người dùng đã tự kéo thanh chia editor | kết quả
     private int? _restoreSplit;       // vị trí thanh chia cần đặt lại sau "ngủ đông"
@@ -79,6 +111,7 @@ public class RawSqlControl : UserControl, ISqlTab
     {
         if (!_deferTables) return;
         _deferTables = false;
+        Bcode.App.UI.ThemeManager.LogTiming($"SQL Query: lấy tab dựng sẵn (tạo cách đây {_openWatch.ElapsedMilliseconds} ms, sẵn sàng: {IsReady})");
         if (_editorReady) _ = LoadTablesForEditorAsync(); // chưa sẵn sàng thì editor-ready sẽ tự nạp
         // Đã nạp xong từ trước (lúc còn ở khung ẩn nên chưa nhận focus) → sau khi được gắn vào thanh tab thì đưa con trỏ vào editor.
         if (_editorReady && IsHandleCreated)
@@ -166,11 +199,16 @@ public class RawSqlControl : UserControl, ISqlTab
         _aiSplit.Panel1.Controls.Add(split);
         Controls.Add(_aiSplit);
         if (!_mergeBarEditor) Controls.Add(_barWeb);
+        Controls.Add(_curtain);
+        _curtain.BringToFront();
+        _curtainTimer.Tick += (_, _) => Reveal();   // trang lỗi / không báo sẵn sàng: vẫn mở màn, không che mãi
+        _curtainTimer.Start();
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToAll;
         EditorFontSizeChanged += OnEditorFontSizeChanged;
         SqlBarLayout.Changed += OnBarLayoutChanged;
 
+        MarkOpen("dựng control");
         if (_mergeBarEditor) _ = InitMergedAsync();
         else
         {
@@ -180,6 +218,7 @@ public class RawSqlControl : UserControl, ISqlTab
 
         Disposed += (_, _) =>
         {
+            _curtainTimer.Dispose();
             DisposePersistentConnection();
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToAll;
             EditorFontSizeChanged -= OnEditorFontSizeChanged;
@@ -191,6 +230,7 @@ public class RawSqlControl : UserControl, ISqlTab
             try
             {
                 await Bcode.App.UI.WebViewEnvironment.InitAsync(_barWeb);
+                MarkOpen("WebView2 thanh");
 
                 _barWeb.CoreWebView2.WebMessageReceived += (_, e) =>
                 {
@@ -200,6 +240,7 @@ public class RawSqlControl : UserControl, ISqlTab
 
                 _barWeb.CoreWebView2.NavigationCompleted += (_, _) => OnBarLoaded();
 
+                await _barWeb.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(BarInitScript());
                 _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlquerybar.html"));
             }
             catch (Exception ex)
@@ -215,6 +256,7 @@ public class RawSqlControl : UserControl, ISqlTab
             try
             {
                 await Bcode.App.UI.WebViewEnvironment.InitAsync(_editorWeb);
+                MarkOpen("WebView2 editor");
                 _editorWeb.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
                 await InstallHintCatalogScriptAsync();
 
@@ -265,9 +307,12 @@ public class RawSqlControl : UserControl, ISqlTab
     {
         _host!.CoreInitializing = async core =>
         {
+            MarkOpen("WebView2");
             core.Settings.AreDefaultContextMenusEnabled = false;
             await InstallHintCatalogScriptAsync(core);
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(BarInitScript());
         };
+        _host.HostLoaded += () => MarkOpen("framehost");
         _barPage!.Message += root => OnBarMessage(root);
         _barPage.Ready += OnBarLoaded;
         _edPage!.Message += root => { var copy = root.Clone(); _ = OnEditorMessage(copy); };
@@ -289,7 +334,7 @@ public class RawSqlControl : UserControl, ISqlTab
     {
             switch (root2.GetProperty("action").GetString())
             {
-                case "__height": SetBarHeight(root2.GetProperty("height").GetInt32()); break;
+                case "__height": MarkOpen("cao " + root2.GetProperty("height").GetInt32()); SetBarHeight(root2.GetProperty("height").GetInt32()); break;
                 case "open": OpenFile(); break;
                 case "save": SaveFile(); break;
                 case "run": _ = RunAsync(); break;
@@ -335,6 +380,8 @@ public class RawSqlControl : UserControl, ISqlTab
         PushDatabaseToBar();
         if (_pushTogglesOnBarReady) PushTogglesToBar();
         PushBarLayout(SqlBarLayout.Load());
+        MarkOpen("thanh nạp xong");
+        RevealIfReady();
     }
 
     /// <summary>Một tin từ trang editor (sqleditor.html) — dùng chung cho cách tách riêng và cách gộp vào WebFrameHost.</summary>
@@ -345,6 +392,12 @@ public class RawSqlControl : UserControl, ISqlTab
         switch (action)
         {
             case "editor-ready":
+                if (root.TryGetProperty("t", out var pt) && pt.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    long At(string n) => pt.TryGetProperty(n, out var v) && v.TryGetInt64(out var ms) ? ms - _openEpoch : -1;
+                    MarkOpen($"[trang editor: bắt đầu {At("origin")}, nạp Monaco {At("req")}, Monaco xong {At("main")}, dựng xong {At("ready")}]");
+                }
+                MarkOpen(_mergeBarEditor && _edPage is { IsReady: false } ? "editor-ready (chờ khung)" : "editor-ready");
                 // Chế độ gộp (MergeSqlBarEditor): khung chưa được đánh dấu sẵn sàng thì mọi lệnh xuống editor đều rơi — hoãn tới _edPage.Ready.
                 if (_mergeBarEditor && _edPage is { IsReady: false }) { _editorReadyDeferred = true; break; }
                 _editorReady = true;
@@ -363,6 +416,9 @@ public class RawSqlControl : UserControl, ISqlTab
                     _ = EdExec($"window.restoreViewState && window.restoreViewState({System.Text.Json.JsonSerializer.Serialize(vs)})");
                 }
                 if (_wordWrap) _scriptBoxWordWrapToggle(true);
+                MarkOpen("editor dùng được");
+                if (_curtain is { IsDisposed: false }) { try { await EdExec("0"); } catch { /* tab đóng giữa chừng */ } }   // chờ các lệnh theme / chữ ở trên chạy xong trong trang rồi mới mở màn
+                RevealIfReady();
                 // Tab vừa mở/gắn vào: editor sẵn sàng thì nhận focus bàn phím luôn (nếu cửa sổ đang là cửa sổ làm việc).
                 // KHÔNG focus khi đây là tab dựng sẵn đang nằm ở khung ẩn (_deferTables): Visible vẫn true ở đó, nên trước đây tab dự phòng nạp xong
                 // (~1,2 giây sau khi mở 1 tab SQL) cướp focus bàn phím của editor đang gõ → mất con trỏ, phải bấm chuột mới hiện lại.
@@ -1448,6 +1504,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         BeginInvoke(new Action(() => PushBarLayout(layout)));
     }
 
+    /// <summary>Theme + bố cục nhóm gắn vào trang thanh TRƯỚC mọi script của nó (sqlquerybar.html áp ngay lúc dựng): lần vẽ đầu đã đúng bố cục,
+    /// không còn vẽ bố cục gốc 2 hàng rồi mới gom nhóm khi <see cref="PushBarLayout"/> tới.</summary>
+    private static string BarInitScript()
+    {
+        var layout = SqlBarLayout.Load();
+        return $"window.__sqlBarInit = {{ dark: {(Bcode.App.UI.AppColors.IsDark ? "true" : "false")}, layout: {(layout is null ? "null" : layout.ToJson())} }};";
+    }
+
     private void PushBarLayout(SqlBarLayout? layout)
     {
         if (!_barReady || !BarAlive) return;
@@ -2446,18 +2510,27 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         try
         {
             if (_sqlObjectService == null) return;
+            var timed = !_tablesTimed;
+            _tablesTimed = true;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             var objs = await _sqlObjectService.ListObjectsAsync(UseSysDatabase, "");
             var tables = objs
                 .Where(o => o.Kind == SqlObjectKind.Table || o.Kind == SqlObjectKind.View)
                 .Select(o => new { name = o.Name, kind = o.Kind == SqlObjectKind.Table ? "Table" : "View" })
                 .ToList();
+            var tList = sw.ElapsedMilliseconds;
 
-            PostToEditorUi(() =>
+            PostToEditorUi(async () =>
             {
                 if (EdAlive)
                 {
+                    var tUi = sw.ElapsedMilliseconds;
                     var json = System.Text.Json.JsonSerializer.Serialize(tables);
-                    _ = EdExec($"window.setDatabaseTables && window.setDatabaseTables({json});");
+                    var tJson = sw.ElapsedMilliseconds;
+                    try { await EdExec($"window.setDatabaseTables && window.setDatabaseTables({json});"); }
+                    catch { return; /* tab đóng giữa chừng */ }
+                    if (timed)
+                        Bcode.App.UI.ThemeManager.LogTiming($"  SQL Query: danh sách {tables.Count} bảng vào editor sau {sw.ElapsedMilliseconds} ms (đọc {tList}, chờ luồng UI {tUi - tList}, JSON {tJson - tUi} ms / {json.Length / 1024} KB, trang xử lý {sw.ElapsedMilliseconds - tJson}) — {_openWatch.ElapsedMilliseconds} ms từ lúc tạo tab");
                 }
             });
         }

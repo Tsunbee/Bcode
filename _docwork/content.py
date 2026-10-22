@@ -217,6 +217,7 @@ TRAPS = [
  'Menu bật từ trang WebView2 tự đóng do AppFocusChange — sửa ở WebMenu.Track (memory bcode-webmenu-focus-bug).',
  'Đừng đặt PacketSize > 16383 (TLS) khi kết nối SQL (memory bcode-sql-connection-gotchas).',
  'Mỗi tab SQL Query ≈ 4 WebView2 ~125 MB → đã gộp bằng WebFrameHost / ngủ đông (memory bcode-startup-ram-findings).',
+ 'Host ảo bcode.shell / bcode.user (SetVirtualHostNameToFolderMapping): mỗi lần điều hướng (trang chính, iframe) WebView2 vẫn hỏi DNS hệ thống ~100 ms, có lúc ~2 s — WebViewEnvironment thêm --host-resolver-rules="MAP … ~NOTFOUND" để trả lời ngay. Mở tab SQL Query (Web) đo trong %AppData%\\Bcode\\apply-timing.log (dòng "SQL Query: …": từng chặng WebView2 → thanh → Monaco → mở màn); tab mới che bằng màn nền tới khi thanh + editor cùng sẵn sàng (RawSqlControl._curtain). BcodeViewer / ScreenDesigner chưa có luật này.',
  'Bcode.ReportBuilder.dll: Release phải build bằng MSBuild.exe cổ điển (ConfuserEx), giữ renameArgs=false; sau đó build lại Bcode.App.',
  'File .f của FastBusiness là UTF-16 — ghi lại phải giữ encoding gốc.',
  'Mọi nội dung trong Web/vs là bundle Monaco (vendor): không sửa, không đọc.',

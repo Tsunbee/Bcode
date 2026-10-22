@@ -145,8 +145,10 @@ public class HintCodeForm : Form
             var profileDir = Path.Combine(
                 BcodePaths.AppData,
                 "Bcode", "HintEditorWebView2");
-            var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: profileDir);
-            await _codeEditor.EnsureCoreWebView2Async(environment);
+            var environment = await MainForm.CreateWebViewEnvironmentAsync(profileDir, HintEditorVirtualHost);
+            // Thư mục hồ sơ này dùng chung giữa các lần chạy: 1 Viewer khác (bản cũ) đang giữ nó với tham số khác thì tạo controller lỗi → tạo lại như cũ.
+            try { await _codeEditor.EnsureCoreWebView2Async(environment); }
+            catch { await _codeEditor.EnsureCoreWebView2Async(await CoreWebView2Environment.CreateAsync(userDataFolder: profileDir)); }
 
             _codeEditor.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             _codeEditor.CoreWebView2.WebMessageReceived += (_, e) =>

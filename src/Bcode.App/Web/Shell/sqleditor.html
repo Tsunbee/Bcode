@@ -34,6 +34,12 @@
         .bcodeGo { color: #ffffff !important; background: #ff0000; font-weight: bold; }
     </style>
     <!-- Monaco nạp từ bản đóng gói sẵn trong chương trình (viewer/vs, cùng bộ BcodeViewer dùng) — không phụ thuộc mạng, không phải tải lại từ CDN mỗi lần mở tab. -->
+    <!-- Tải trước phần Monaco sẽ cần (song song với sqlhints.js / loader.js) — trước đây editor.main.js chỉ bắt đầu tải sau khi loader.js chạy,
+         bộ tô màu sql.js sau khi dựng editor: 2 lượt chờ nối tiếp lúc mở tab SQL Query.
+         KHÔNG preload editor.main.css: bộ nạp CSS của Monaco thấy đã có <link> trùng href thì coi như đã nạp và bỏ qua → editor mất hết CSS
+         (khung gợi ý chồng chữ, icon thành ô vuông). -->
+    <link rel="preload" href="viewer/vs/editor/editor.main.js" as="script" />
+    <link rel="preload" href="viewer/vs/basic-languages/sql/sql.js" as="script" />
     <script src="sqlhints.js" charset="utf-8"></script>
 <script src="viewer/vs/loader.js"></script>
 </head>
@@ -463,9 +469,12 @@
             _goTimer = setTimeout(updateGoDecorations, 200);
         }
 
+        // Mốc thời gian mở tab (RawSqlControl ghi vào apply-timing.log): trang bắt đầu / bắt đầu nạp Monaco / Monaco nạp xong / editor dựng xong.
+        var __openT = { origin: Math.round(performance.timeOrigin), req: Date.now() };
         require.config({ paths: { 'vs': 'viewer/vs' } });
 
         require(['vs/editor/editor.main'], function () {
+            __openT.main = Date.now();
             monaco.editor.defineTheme('fcode-sql', { base: 'vs-dark', inherit: true, rules: fcodeSqlRules(true), colors: fcodeSqlColors(true) });
             // Chờ bộ 'sql' có sẵn của Monaco nạp xong rồi mới đè, để nó không nạp sau và ghi đè ngược lại.
             monaco.editor.colorize('', 'sql', {}).then(installFcodeSql, installFcodeSql);
@@ -1096,7 +1105,8 @@
             updateGoDecorations();
 
             isReady = true;
-            window.chrome.webview.postMessage(JSON.stringify({ action: 'editor-ready' }));
+            __openT.ready = Date.now();
+            window.chrome.webview.postMessage(JSON.stringify({ action: 'editor-ready', t: __openT }));
         });
 
         // ---- Kéo file .sql (hoặc file chữ bất kỳ) từ Explorer thả vào editor ----

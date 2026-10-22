@@ -34,6 +34,20 @@ public class MainForm : Form
     /// anyone reading a stack trace.</summary>
     private const string WebVirtualHost = "bcodeviewer.local";
 
+    /// <summary>Tạo môi trường WebView2 kèm luật báo "không có" ngay cho host ảo <paramref name="virtualHost"/>. Không có luật này thì mỗi lần điều hướng
+    /// tới host ảo, trình duyệt vẫn preconnect và hỏi DNS hệ thống — với đuôi .local là truy vấn mDNS/LLMNR ra mạng LAN ~7 s chạy nền (đo 22/10/2026;
+    /// trang không chờ nó nhưng lần nào cũng bắn). Host thật không bị ảnh hưởng. Không tạo được với tham số thì tạo như cũ.</summary>
+    internal static async Task<CoreWebView2Environment> CreateWebViewEnvironmentAsync(string userDataFolder, string virtualHost)
+    {
+        try
+        {
+            return await CoreWebView2Environment.CreateAsync(null, userDataFolder,
+                new CoreWebView2EnvironmentOptions($"--host-resolver-rules=\"MAP {virtualHost} ~NOTFOUND\""));
+        }
+        catch { /* rơi xuống tạo không tham số */ }
+        return await CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
+    }
+
     private readonly WebView2 _webView = new() { Dock = DockStyle.Fill };
     private WebView2 _claudeWebView = new() { Dock = DockStyle.Fill }; 
     private WebView2 _geminiWebView = new() { Dock = DockStyle.Fill };
@@ -924,7 +938,7 @@ public class MainForm : Form
         var profileRoot = Path.Combine(Path.GetTempPath(), "BcodeViewer.WebView2");
         CleanupStaleProfiles(profileRoot);
         var userDataFolder = Path.Combine(profileRoot, Environment.ProcessId.ToString());
-        var environment = await CoreWebView2Environment.CreateAsync(userDataFolder: userDataFolder);
+        var environment = await CreateWebViewEnvironmentAsync(userDataFolder, WebVirtualHost);
 
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);

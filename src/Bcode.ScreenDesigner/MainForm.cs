@@ -32,7 +32,7 @@ public sealed class MainForm : Form
         {
             // Mỗi cửa sổ 1 thư mục profile riêng (có thể mở nhiều Designer cùng lúc, như BcodeViewer).
             var profile = Path.Combine(Path.GetTempPath(), "BcodeScreenDesigner.WebView2", Environment.ProcessId.ToString());
-            var env = await CoreWebView2Environment.CreateAsync(userDataFolder: profile);
+            var env = await CreateEnvironmentAsync(profile);
             await _web.EnsureCoreWebView2Async(env);
 
             var core = _web.CoreWebView2;
@@ -57,5 +57,18 @@ public sealed class MainForm : Form
             MessageBox.Show(this, "Không khởi tạo được WebView2:\n" + ex.Message + "\n\nCần cài Microsoft Edge WebView2 Runtime.", Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
             Close();
         }
+    }
+
+    /// <summary>Môi trường kèm luật báo "không có" ngay cho <see cref="VirtualHost"/>: không có luật thì mỗi lần điều hướng trình duyệt vẫn preconnect và
+    /// hỏi DNS hệ thống — với đuôi .local là truy vấn mDNS/LLMNR ra mạng LAN ~7 s chạy nền (đo 22/10/2026). Không tạo được với tham số thì tạo như cũ.</summary>
+    private static async Task<CoreWebView2Environment> CreateEnvironmentAsync(string profile)
+    {
+        try
+        {
+            return await CoreWebView2Environment.CreateAsync(null, profile,
+                new CoreWebView2EnvironmentOptions($"--host-resolver-rules=\"MAP {VirtualHost} ~NOTFOUND\""));
+        }
+        catch { /* rơi xuống tạo không tham số */ }
+        return await CoreWebView2Environment.CreateAsync(userDataFolder: profile);
     }
 }

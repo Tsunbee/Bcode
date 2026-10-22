@@ -1876,6 +1876,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (_spareSql is not null || IsDisposed || !IsHandleCreated || _connections.Current is null) return;
         try
         {
+            // Dựng ở đúng cỡ vùng tab: khung ẩn hẹp (1100px) làm thanh nút xuống 2 hàng, gắn vào tab rồi mới co về 1 hàng → thấy thanh nhảy lúc mở.
+            var area = _documentTabs.DisplayRectangle.Size;
+            if (area.Width > 200 && area.Height > 200) _spareHost.Size = area;
             var c = CreateFreeScriptControl(prewarm: true);
             _spareHost.Controls.Add(c.AsControl());
             Bcode.App.UI.ThemeManager.Apply(c.AsControl());
@@ -1892,13 +1895,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ISqlTab control;
         // Chỉ lấy tab dựng sẵn khi nó đã SẴN SÀNG: lấy ngay lúc WebView2 còn đang khởi tạo rồi chuyển sang tab khác làm khởi tạo bị huỷ (E_ABORT) —
         // dễ gặp khi vừa mở Bcode và khôi phục tab. Chưa sẵn sàng thì để nó lại làm dự phòng và tạo tab mới.
-        if (spare is not null && !spare.IsDisposed && spare.IsReady) { control = spare; control.BeginUse(); }
+        var tookSpare = spare is not null && !spare.IsDisposed && spare.IsReady;
+        if (tookSpare) { control = spare!; control.BeginUse(); }
         else
         {
             if (spare is not null && !spare.IsDisposed) _spareSql = spare;
             control = CreateFreeScriptControl();
         }
-        QueueSpareSql(1200);
+        // Vừa lấy tab dựng sẵn (đã nạp xong, không còn tranh tài nguyên) → dựng ngay cái kế tiếp, để mở liên tiếp vẫn có sẵn;
+        // vừa tạo tab mới từ đầu thì để nó nạp xong trước.
+        QueueSpareSql(tookSpare ? 250 : 1200);
         return control;
     }
 
@@ -1918,8 +1924,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private ISqlTab OpenFreeScriptTab()
     {
         // Luôn tạo tab SQL Query mới, không dùng lại tab cũ
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         _rawSqlControl = TakeSqlControl();
+        var tTake = sw.ElapsedMilliseconds;
         _rawSqlTabPage = AddDocumentTab(NumberedTabTitle("SQL Query"), _rawSqlControl.AsControl());
+        var tSync = sw.ElapsedMilliseconds;
+        void LogShown(object? s, EventArgs e)
+        {
+            Application.Idle -= LogShown;   // hàng đợi thông điệp rỗng = tab đã vẽ xong lần đầu
+            Bcode.App.UI.ThemeManager.LogTiming($"SQL Query: mở tab — phần trên UI {tSync} ms (lấy/tạo control {tTake}, AddDocumentTab {tSync - tTake}), vẽ xong {sw.ElapsedMilliseconds} ms");
+        }
+        Application.Idle += LogShown;
         _rawSqlTabPage.Disposed += (_, _) =>
         {
             _rawSqlTabPage = null;

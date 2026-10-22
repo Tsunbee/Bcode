@@ -93,7 +93,7 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  491
-│   ├── RawSqlControl.cs  2456
+│   ├── RawSqlControl.cs  2538
 │   ├── ResultGridMenu.cs  477
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
@@ -101,7 +101,7 @@ Bcode.App/
 │   ├── SetupEInvoiceControl.cs  121
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
-│   ├── SqlObjectTreeControl.cs  467
+│   ├── SqlObjectTreeControl.cs  497
 │   ├── SqlPeekPanel.cs  128
 │   ├── SqlProfilerControl.cs  1737
 │   ├── SqlQueryControl.cs  355
@@ -117,7 +117,7 @@ Bcode.App/
 │   ├── WCommandTreeControl.cs  901
 │   ├── WebActionBar.cs  264
 │   ├── WebBarHost.cs  209
-│   ├── WebFrameHost.cs  200
+│   ├── WebFrameHost.cs  210
 │   ├── WebMenu.cs  332
 │   └── WeeklyMailControl.cs  245
 ├── Forms/
@@ -151,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3651
+│   ├── MainForm.cs  3676
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -159,7 +159,7 @@ Bcode.App/
 │   ├── NativeProjectPickerForm.cs  183
 │   ├── PartitionCheckForm.cs  58
 │   ├── ProjectActions.cs  52
-│   ├── ProjectPickerForm.cs  102
+│   ├── ProjectPickerForm.cs  108
 │   ├── QuickAccessForm.cs  165
 │   ├── QuickLaunchLoginForm.cs  558
 │   ├── QuickListForm.cs  579
@@ -330,7 +330,7 @@ Bcode.App/
 │   ├── UiScale.cs  60
 │   ├── UiTemplate.cs  505
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  395
+│   └── WebViewEnvironment.cs  400
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
@@ -366,7 +366,7 @@ Bcode.App/
 │       ├── filepreview.html  194
 │       ├── filereference.html  108
 │       ├── findbar.html  60
-│       ├── framehost.html  49
+│       ├── framehost.html  55
 │       ├── fsgnotify.html  136
 │       ├── fsgreq.html  746
 │       ├── genupdate.html  594
@@ -395,7 +395,7 @@ Bcode.App/
 │       ├── searchbox.html  161
 │       ├── setupeinvoice.html  146
 │       ├── shell.css  255
-│       ├── sqleditor.html  1577
+│       ├── sqleditor.html  1576
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  317
@@ -403,7 +403,7 @@ Bcode.App/
 │       ├── sqlobjectbar.html  50
 │       ├── sqlpivot.html  117
 │       ├── sqlprofilerbar.html  147
-│       ├── sqlquerybar.html  379
+│       ├── sqlquerybar.html  409
 │       ├── sqlresulttabs.html  53
 │       ├── statusbar.html  60
 │       ├── stepparams.html  43
@@ -502,7 +502,7 @@ BcodeViewer.App/
 │   ├── theme.js  207
 │   ├── toolbar.js  599
 │   ├── ui.js  134
-│   └── zoombar.js  65
+│   └── zoombar.js  99
 ├── BcodePaths.cs  45
 ├── BcodeViewer.App.csproj  50
 ├── HintCodeForm.cs  516
@@ -557,7 +557,7 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  90
+└── Program.cs  94
 ```
 ```
 Shared/

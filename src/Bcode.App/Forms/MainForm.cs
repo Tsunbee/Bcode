@@ -185,11 +185,6 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         // Ctrl+3 bấm khi con trỏ đang nằm trong 1 trang WebView2 (editor SQL, thanh công cụ...) — xem WebViewEnvironment.GlobalShortcut.
         // Chỉ nhận khi cửa sổ chính đang là cửa sổ hoạt động (không mở tab sau lưng 1 hộp thoại đang bật).
-        // Giữ Ctrl một lúc RỒI bấm Tab (khi focus ở control WinForms) → hộp chọn tab; bấm Ctrl+Tab ngay thì chuyển tab luôn.
-        // Phía trang web thì script trong WebViewEnvironment báo "@ctrl-hold" / "@ctrl-hold-prev" đúng lúc đó.
-        var ctrlHoldFilter = new CtrlHoldFilter(this);
-        Application.AddMessageFilter(ctrlHoldFilter);
-        Disposed += (_, _) => { Application.RemoveMessageFilter(ctrlHoldFilter); };
         WebViewEnvironment.GlobalShortcut += OnWebGlobalShortcut;
         Disposed += (_, _) => WebViewEnvironment.GlobalShortcut -= OnWebGlobalShortcut;
 
@@ -2624,75 +2619,58 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         else _documentTabs.Focus();
     }
 
-    // ---- Giữ Ctrl → chọn tab ----
+    // ---- Ctrl+Tab → hộp chọn tab ----
     private TabPage? _curTab, _prevTab;           // tab đang chọn / tab vừa rời — cho chế độ Ctrl+Tab "tab song song"
-    private const int CtrlHoldMs = 350;          // giữ Ctrl quá ngần này rồi bấm Tab mới hiện hộp chọn tab
-    private long _ctrlDownAt;                    // thời điểm Ctrl vừa nhấn (Environment.TickCount64), 0 = đang không giữ
-    private bool _switcherOpen;
+    private TabSwitcherForm? _switcher;           // hộp chọn tab đang mở (hoặc đã tạo, chờ hiện)
 
-    private void StartCtrlHold() { if (ReferenceEquals(Form.ActiveForm, this)) _ctrlDownAt = Environment.TickCount64; }
-    private void StopCtrlHold() => _ctrlDownAt = 0;
-
-    /// <summary>Tab bấm khi đang giữ Ctrl: đã giữ đủ lâu thì mở hộp chọn tab (và nuốt phím), còn bấm ngay thì để Ctrl+Tab chuyển tab như thường.</summary>
-    private bool TryOpenSwitcherOnTab()
+    /// <summary>Tab mà tab.next / tab.prev đưa tới: chế độ "tab song song" (Template → Cửa sổ → Ctrl+Tab) về lại tab vừa rời — A→B rồi B→A;
+    /// không có tab trước (hoặc chế độ "tab tới") thì tab kế / trước, vòng tròn.</summary>
+    private int TabSwitchTarget(int step)
     {
-        if (_ctrlDownAt == 0 || Environment.TickCount64 - _ctrlDownAt < CtrlHoldMs) return false;
-        if (!ReferenceEquals(Form.ActiveForm, this) || _documentTabs.TabPages.Count == 0 || _switcherOpen) return false;
-        var step = (Control.ModifierKeys & Keys.Shift) != 0 ? -1 : 1;
-        BeginInvoke(new Action(() => ShowTabSwitcher(step)));
-        return true;
+        if (Bcode.App.UI.UiTemplate.Current.TabSwitchMode == "toggle" && _prevTab is { } prev && _documentTabs.TabPages.Contains(prev) && prev != _documentTabs.SelectedTab)
+            return _documentTabs.TabPages.IndexOf(prev);
+        var count = _documentTabs.TabPages.Count;
+        return (Math.Max(0, _documentTabs.SelectedIndex) + step + count) % count;
     }
 
-    /// <summary>Theo dõi phím/chuột ở mức cả ứng dụng: Ctrl vừa nhấn (không phải lặp phím) thì bắt đầu đếm; bấm thêm phím nào, bấm/lăn chuột,
-    /// hoặc thả Ctrl thì huỷ — để Ctrl+C, Ctrl+Click... không bật hộp chọn tab.</summary>
-    private sealed class CtrlHoldFilter : IMessageFilter
+    /// <summary>Phím tắt tab.next / tab.prev bấm khi đang giữ Ctrl (Ctrl+Tab...): hiện NGAY hộp liệt kê mọi tab (xem <see cref="TabSwitcherForm"/>),
+    /// sáng sẵn ở <paramref name="target"/>; giữ Ctrl bấm tiếp để đi, thả Ctrl là chuyển. Bấm nhanh rồi thả thì tới đúng <paramref name="target"/> như trước.
+    /// Hộp được tạo ngay (bấm Tab tiếp trước khi hộp kịp hiện vẫn đếm bước — <see cref="TabSwitcherForm.Step"/>), còn ShowDialog chạy sau khi
+    /// handler phím (ProcessCmdKey / callback WebView2) đã trả về.</summary>
+    private void OpenTabSwitcher(int target)
     {
-        private readonly MainForm _form;
-        public CtrlHoldFilter(MainForm form) => _form = form;
-
-        public bool PreFilterMessage(ref Message m)
+        var names = _documentTabs.TabPages.Cast<TabPage>().Select(p => p.Text).ToList();
+        var switcher = new TabSwitcherForm(names, Math.Max(0, _documentTabs.SelectedIndex), target, commitOnCtrlUp: true);
+        _switcher = switcher;
+        BeginInvoke(new Action(() =>
         {
-            switch (m.Msg)
+            try
             {
-                case 0x0100: case 0x0104: // WM_KEYDOWN / WM_SYSKEYDOWN
-                    if ((int)m.WParam == 0x11) { if (((long)m.LParam & 0x40000000) == 0) _form.StartCtrlHold(); }
-                    else if ((int)m.WParam == 0x09 && (Control.ModifierKeys & Keys.Control) != 0 && (Control.ModifierKeys & Keys.Alt) == 0 && _form.TryOpenSwitcherOnTab())
-                        return true;   // giữ Ctrl đủ lâu rồi bấm Tab: mở hộp chọn tab, không để Ctrl+Tab chuyển tab
-                    break;
-                case 0x0101: case 0x0105: // WM_KEYUP / WM_SYSKEYUP
-                    if ((int)m.WParam == 0x11) _form.StopCtrlHold();
-                    break;
+                if (IsDisposed) return;
+                if (!TabSwitcherForm.CtrlHeld) switcher.Accept();   // đã thả Ctrl trước khi hộp kịp hiện: chuyển luôn, không hiện hộp
+                else switcher.ShowDialog(this);
+                var i = switcher.SelectedIndex;
+                if (i >= 0 && i < _documentTabs.TabPages.Count)
+                {
+                    _documentTabs.SelectedIndex = i;
+                    _documentTabs.SelectedTab?.Focus();
+                }
             }
-            return false;
-        }
-    }
-
-    /// <summary>Hộp liệt kê mọi tab đang mở để chọn tab cần đến (xem <see cref="TabSwitcherForm"/>).</summary>
-    internal void ShowTabSwitcher(int initialStep = 0)
-    {
-        if (_switcherOpen || IsDisposed || _documentTabs.TabPages.Count == 0) return;
-        _switcherOpen = true;
-        try
-        {
-            var names = _documentTabs.TabPages.Cast<TabPage>().Select(p => p.Text).ToList();
-            using var switcher = new TabSwitcherForm(names, Math.Max(0, _documentTabs.SelectedIndex), initialStep);
-            switcher.ShowDialog(this);
-            var i = switcher.SelectedIndex;
-            if (i >= 0 && i < _documentTabs.TabPages.Count)
+            finally
             {
-                _documentTabs.SelectedIndex = i;
-                _documentTabs.SelectedTab?.Focus();
+                if (ReferenceEquals(_switcher, switcher)) _switcher = null;
+                switcher.Dispose();
             }
-        }
-        finally { _switcherOpen = false; }
+        }));
     }
 
     private void OnWebGlobalShortcut(string combo)
     {
-        if (combo is "@ctrl-hold" or "@ctrl-hold-prev")
+        // Ctrl+Tab bấm tiếp mà phím còn tới trang WebView2 (hộp chọn tab vừa tạo, chưa kịp nhận focus): đi tiếp trong hộp, không mở hộp thứ hai.
+        if (_switcher is { } open && Bcode.App.UI.ShortcutRegistry.AppIdFor(combo) is "tab.next" or "tab.prev")
         {
-            var step = combo == "@ctrl-hold-prev" ? -1 : 1;
-            if (!IsDisposed && (Form.ActiveForm is null || ReferenceEquals(Form.ActiveForm, this))) BeginInvoke(new Action(() => ShowTabSwitcher(step)));
+            var step = Bcode.App.UI.ShortcutRegistry.AppIdFor(combo) == "tab.prev" ? -1 : 1;
+            BeginInvoke(new Action(() => open.Step(step)));
             return;
         }
         // Chỉ bỏ qua khi đang ở một hộp thoại khác của Bcode. ActiveForm = null (vd ngay sau khi đóng ô chọn <select> của WebView2 — cửa sổ popup vừa đóng
@@ -2858,17 +2836,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "tab.prev":
             {
                 // Chuyển tab kế / trước (vòng tròn), bấm được ở bất kỳ đâu miễn là có tab.
-                var count = _documentTabs.TabPages.Count;
-                if (count == 0) return false;
-                // Tab song song (Template → Cửa sổ → Ctrl+Tab): về lại tab vừa rời — A→B rồi B→A; không có tab trước thì đi tab kế như thường.
-                if (Bcode.App.UI.UiTemplate.Current.TabSwitchMode == "toggle" && _prevTab is { } prev && _documentTabs.TabPages.Contains(prev) && prev != _documentTabs.SelectedTab)
-                {
-                    _documentTabs.SelectedTab = prev;
-                    _documentTabs.SelectedTab?.Focus();
-                    return true;
-                }
+                if (_documentTabs.TabPages.Count == 0) return false;
                 var step = id == "tab.prev" ? -1 : 1;
-                _documentTabs.SelectedIndex = (Math.Max(0, _documentTabs.SelectedIndex) + step + count) % count;
+                if (_switcher is { } open) { open.Step(step); return true; }   // hộp chọn tab đang mở: đi tiếp trong hộp
+                var target = TabSwitchTarget(step);
+                // Tổ hợp có Ctrl (mặc định Ctrl+Tab) và Ctrl còn đang giữ: hiện hộp chọn tab, thả Ctrl mới chuyển. Tổ hợp không có Ctrl
+                // (người dùng tự gán) hoặc gọi từ Command Palette: chuyển thẳng như trước.
+                if (TabSwitcherForm.CtrlHeld && (Control.ModifierKeys & Keys.Alt) == 0) { OpenTabSwitcher(target); return true; }
+                _documentTabs.SelectedIndex = target;
                 _documentTabs.SelectedTab?.Focus();
                 return true;
             }

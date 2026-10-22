@@ -93,7 +93,7 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  491
-│   ├── RawSqlControl.cs  2538
+│   ├── RawSqlControl.cs  2539
 │   ├── ResultGridMenu.cs  477
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
@@ -103,7 +103,7 @@ Bcode.App/
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  497
 │   ├── SqlPeekPanel.cs  128
-│   ├── SqlProfilerControl.cs  1737
+│   ├── SqlProfilerControl.cs  1732
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
 │   ├── SqlScintilla.cs  137
@@ -151,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3676
+│   ├── MainForm.cs  3651
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -175,7 +175,7 @@ Bcode.App/
 │   ├── StepParamsForm.cs  85
 │   ├── StringBeautyForm.cs  170
 │   ├── StubForm.cs  91
-│   ├── TabSwitcherForm.cs  131
+│   ├── TabSwitcherForm.cs  175
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
 │   ├── UiTemplateForm.cs  660
@@ -330,7 +330,7 @@ Bcode.App/
 │   ├── UiScale.cs  60
 │   ├── UiTemplate.cs  505
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  400
+│   └── WebViewEnvironment.cs  373
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
@@ -395,7 +395,7 @@ Bcode.App/
 │       ├── searchbox.html  161
 │       ├── setupeinvoice.html  146
 │       ├── shell.css  255
-│       ├── sqleditor.html  1576
+│       ├── sqleditor.html  1577
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  317
@@ -452,7 +452,7 @@ BcodeViewer.App/
 │   ├── FileTemplateStore.cs  151
 │   ├── HintSnippetStore.cs  422
 │   ├── LocalHistoryStore.cs  169
-│   ├── RecentFilesStore.cs  151
+│   ├── RecentFilesStore.cs  187
 │   ├── SettingsForm.cs  244
 │   ├── SharedHistoryStore.cs  317
 │   ├── TemplatePickerForm.cs  78
@@ -471,7 +471,7 @@ BcodeViewer.App/
 │   │   └── roboto.css  33
 │   ├── chat.js  83
 │   ├── checkfield.js  457
-│   ├── completion.js  2367
+│   ├── completion.js  2372
 │   ├── contextmenu.js  1105
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
@@ -492,11 +492,11 @@ BcodeViewer.App/
 │   ├── problems.js  1013
 │   ├── quickopen.js  184
 │   ├── search.js  335
-│   ├── settings.js  693
-│   ├── shell.js  615
+│   ├── settings.js  696
+│   ├── shell.js  806
 │   ├── sqlrun.js  631
-│   ├── style.css  961
-│   ├── tabs.js  236
+│   ├── style.css  988
+│   ├── tabs.js  247
 │   ├── tabswitcher.js  145
 │   ├── templates.js  428
 │   ├── theme.js  207
@@ -505,8 +505,8 @@ BcodeViewer.App/
 │   └── zoombar.js  99
 ├── BcodePaths.cs  45
 ├── BcodeViewer.App.csproj  50
-├── HintCodeForm.cs  516
-├── MainForm.cs  2658
+├── HintCodeForm.cs  518
+├── MainForm.cs  2691
 └── Program.cs  212
 ```
 ```
@@ -524,7 +524,7 @@ Bcode.ScreenDesigner/
 │   └── shim.js  102
 ├── Bcode.ScreenDesigner.csproj  41
 ├── DesignerBridge.cs  461
-├── MainForm.cs  61
+├── MainForm.cs  74
 └── Program.cs  28
 ```
 ```

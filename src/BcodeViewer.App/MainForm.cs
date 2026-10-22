@@ -112,7 +112,7 @@ public class MainForm : Form
     };
 
     /// <summary>Thứ tự cố định các thư mục trong 1 dự án (nhóm hay dùng lên trước); thư mục lạ xếp sau, theo ABC.</summary>
-    private static readonly string[] FolderOrder = { "Dir", "Grid", "Filter", "Report", "Command", "XML", "Config", "Options", "Upload", "Include" };
+    private static readonly string[] FolderOrder = { "Dir", "Filter", "Grid", "Lookup", "Report", "Template", "Command", "XML", "Config", "Options", "Upload", "Include" };
 
     private static int FolderRank(string name)
     {
@@ -1655,6 +1655,25 @@ public class MainForm : Form
                 break;
             case "tree.remove":
                 if (NodeOf(arg) is { } removed) RemoveTreeNode(removed);
+                break;
+            // Nút ✕ của dòng dự án (shell.js closeProject): trang đã tự đóng hết tab của dự án, ở đây chỉ bỏ file khỏi danh sách — không đi qua
+            // RemoveTreeNode, vì tin "file đang mở đã đóng" có thể chưa tới, khi đó nó sẽ gọi closeActive() và đóng nhầm file vừa được chuyển sang.
+            case "tree.forgetProject":
+                if (NodeOf(arg) is { Tag: ProjectGroupTag forget })
+                {
+                    _recentFiles.RemoveProject(forget.ProjectName);
+                    RefreshProjectTree();
+                }
+                break;
+            // Nút ✕ của dòng thư mục (Dir, Grid... — shell.js closeProject): trang đã đóng tab, ở đây bỏ đúng các file đó (mỗi dòng 1 đường dẫn).
+            case "tree.forgetFiles":
+                _recentFiles.RemoveMany(arg.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                RefreshProjectTree();
+                break;
+            // Kéo thả file trong 1 thư mục của cây (shell.js): arg = đường dẫn các file của thư mục đó theo thứ tự mới, cách nhau bằng xuống dòng.
+            case "tree.reorder":
+                _recentFiles.SetFileOrder(arg.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                RefreshProjectTree();
                 break;
             case "tree.copy":
                 if (NodeOf(arg) is { Tag: string filePath })

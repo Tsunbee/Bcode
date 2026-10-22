@@ -331,6 +331,7 @@ class BcodeShell {
     const w = parseInt(P.layout('sidebarWidth', ''), 10);
     if (w && !this.sidebarHidden()) this.sidebar.style.width = Math.max(160, Math.min(600, w)) + 'px';
     if (window.bcodeKeys) window.bcodeKeys.rebuild();
+    if (window.bcodeTabs) window.bcodeTabs.render();   // layout.tabstripWithTree
     this.renderToolbar();
     if (window.bcodeViewer && window.bcodeViewer.editor) window.bcodeViewer.editor.layout();
   }
@@ -359,8 +360,9 @@ class BcodeShell {
 
   // ---- breadcrumb ----------------------------------------------------------------------------
 
-  /// Từ thư mục site (ngay trên App_Data) trở đi; phần trước gộp thành "…". Mỗi đoạn mở thư mục đó
-  /// trong Explorer, đoạn cuối mở thư mục chứa file và chọn sẵn file — giống breadcrumb WinForms cũ.
+  /// Đường dẫn ĐẦY ĐỦ như thanh "File Path" của FCodeViewer: nhãn "File Path" (bấm = copy cả đường dẫn), máy chủ UNC (\\172.168.5.14) tô màu
+  /// riêng, rồi từng thư mục tới file (đậm). Mỗi đoạn mở thư mục đó trong Explorer, đoạn cuối mở thư mục chứa file và chọn sẵn file.
+  /// Dài quá bề ngang thì thanh cuộn ngang (lăn chuột) và luôn cuộn sẵn về cuối để thấy tên file.
   renderBreadcrumb(path) {
     this.breadcrumb.textContent = '';
     if (!path) return;
@@ -369,22 +371,29 @@ class BcodeShell {
     const full = [];
     let acc = isUnc ? '\\\\' : '';
     for (const p of parts) { acc = acc.endsWith('\\') ? acc + p : acc + '\\' + p; full.push(acc); }
-    const appData = parts.findIndex((p) => p.toLowerCase() === 'app_data');
-    const first = appData > 0 ? appData - 1 : Math.max(0, parts.length - 4);
-    const link = (text, target, title, bold) => {
+    const label = Object.assign(document.createElement('span'), { className: 'shCrumbLabel', textContent: 'File Path', title: 'Bấm để copy đường dẫn:\n' + path });
+    label.onclick = () => {
+      navigator.clipboard.writeText(path).then(() => this.bcode.showToast('Đã copy: ' + path, 2500), () => {});
+    };
+    this.breadcrumb.appendChild(label);
+    const link = (text, target, title, cls) => {
       const a = document.createElement('span');
-      a.className = 'shCrumb' + (bold ? ' file' : '');
+      a.className = 'shCrumb' + (cls ? ' ' + cls : '');
       a.textContent = text;
       a.title = title;
       a.onclick = () => this.cmd('tree.openFolder', target);
       this.breadcrumb.appendChild(a);
     };
     const sep = () => this.breadcrumb.appendChild(Object.assign(document.createElement('span'), { className: 'shCrumbSep', textContent: '›' }));
-    if (first > 0) { link('…', full[first - 1], path, false); sep(); }
-    for (let i = first; i < parts.length; i++) {
+    for (let i = 0; i < parts.length; i++) {
       const isFile = i === parts.length - 1;
-      link(parts[i], full[i], full[i], isFile);
+      link(i === 0 && isUnc ? '\\\\' + parts[0] : parts[i], full[i], full[i], isFile ? 'file' : (i === 0 ? 'root' : ''));
       if (!isFile) sep();
+    }
+    this.breadcrumb.scrollLeft = this.breadcrumb.scrollWidth;
+    if (!this.breadcrumb._wheel) {
+      this.breadcrumb._wheel = true;
+      this.breadcrumb.addEventListener('wheel', (e) => { if (e.deltaY) { e.preventDefault(); this.breadcrumb.scrollLeft += e.deltaY; } }, { passive: false });
     }
   }
 
@@ -476,21 +485,27 @@ class BcodeShell {
     const scroll = this.treeEl.scrollTop;
     let activeRow = null;
     const active = (data.activePath || '').toLowerCase();
+    const chain = this.activeChain(data.activePath);
+    const open = this.openPathSet();
     // Dựng mọi dòng vào DocumentFragment (ngoài màn hình) rồi thay 1 lần — trình duyệt chỉ tính bố cục 1 lần thay vì sau từng dòng.
     const frag = document.createDocumentFragment();
-    const walk = (nodes, depth) => {
+    const walk = (nodes, depth, parent) => {
       for (const n of nodes) {
-        const row = this.renderRow(n, depth);
+        const row = this.renderRow(n, depth, parent);
+        if (parent) row.dataset.parent = parent.key;   // kéo thả file chỉ trong cùng thư mục (beginFileDrag)
         if (n.kind === 'file' && n.path && n.path.toLowerCase() === active) { row.classList.add('active'); activeRow = row; }
+        if (n.kind === 'file' && n.path && open.has(n.path.toLowerCase())) row.classList.add('open');
+        if (n.kind !== 'file' && chain.has(n.key)) row.classList.add('hasActive');
         frag.appendChild(row);
-        if (n.kind !== 'file' && n.expanded) walk(n.children, depth + 1);
+        if (n.kind !== 'file' && n.expanded) walk(n.children, depth + 1, n);
       }
     };
     walk(data.nodes || [], 0);
     this.treeEl.replaceChildren(frag);
     this.treeEl.scrollTop = scroll;
     if (data.reveal && activeRow) activeRow.scrollIntoView({ block: 'nearest' });
-    if (window.bcodeTabs && this.sidebarHidden()) window.bcodeTabs.render();
+    // Cây ẩn: thanh tab liệt kê file của cây. Cây hiện: thanh tab chỉ giữ file không có trong cây (tabs.items) — cây đổi thì cả hai trường hợp đều phải vẽ lại.
+    if (window.bcodeTabs) window.bcodeTabs.render();
   }
 
   /// Host đổi file đang mở mà cây không đổi (MainForm.PushShellActive): chuyển tô "active" sang dòng của file đó, cập nhật đường dẫn
@@ -500,14 +515,86 @@ class BcodeShell {
     this.tree.activePath = path;
     this.renderBreadcrumb(path);
     const want = (path || '').toLowerCase();
+    const open = this.openPathSet();
     let row = null;
     for (const r of this.treeEl.querySelectorAll('.shRow.file')) {
-      const hit = (r.dataset.path || '').toLowerCase() === want;
+      const p = (r.dataset.path || '').toLowerCase();
+      const hit = p === want;
       r.classList.toggle('active', hit);
+      r.classList.toggle('open', open.has(p));
       if (hit) row = r;
     }
+    const chain = this.activeChain(path);
+    for (const r of this.treeEl.querySelectorAll('.shRow.group, .shRow.folder')) r.classList.toggle('hasActive', chain.has(r.dataset.key));
     if (row) row.scrollIntoView({ block: 'nearest' });
     // Cây ẩn thì thanh tab liệt kê cả file của cây — tab đang chọn do tabs.setActive (editor.activateDoc) lo, không cần vẽ lại cả thanh.
+  }
+
+  /// Khoá các dòng dự án / thư mục chứa file <paramref name="path"/> (để tô "đang chứa file active" — kể cả khi dự án đang thu gọn).
+  activeChain(path) {
+    const target = (path || '').toLowerCase(), out = new Set();
+    if (!target) return out;
+    const walk = (nodes, up) => {
+      for (const n of nodes || []) {
+        if (n.kind === 'file') { if (n.path && n.path.toLowerCase() === target) { up.forEach((k) => out.add(k)); return true; } }
+        else if (walk(n.children, up.concat(n.key))) return true;
+      }
+      return false;
+    };
+    walk((this.tree && this.tree.nodes) || [], []);
+    return out;
+  }
+
+  /// Đường dẫn (chữ thường) các file đang mở thành tab trong editor.
+  openPathSet() {
+    return new Set(((this.bcode && this.bcode.openPaths && this.bcode.openPaths()) || []).map((p) => p.toLowerCase()));
+  }
+
+  /// Các tab đang mở thuộc dự án / thư mục <paramref name="n"/> (theo file nằm trong nhánh đó của cây), theo thứ tự tab.
+  openTabsOf(n) {
+    const inNode = new Set();
+    const walk = (nodes) => { for (const c of nodes || []) { if (c.kind === 'file') { if (c.path) inNode.add(c.path.toLowerCase()); } else walk(c.children); } };
+    walk(n.children);
+    return ((this.bcode && this.bcode.openPaths && this.bcode.openPaths()) || []).filter((p) => inNode.has(p.toLowerCase()));
+  }
+
+  /// Nút ✕ trên dòng dự án / dòng thư mục: đóng mọi tab của nhánh đó (closeProjectTabs) rồi bỏ mọi file của nhánh khỏi cây — như ✕ của dòng file, cho cả nhánh.
+  /// Huỷ ở hộp hỏi file chưa lưu thì dừng, không bỏ file nào khỏi cây. Bỏ bằng "tree.forgetProject" (host chỉ xoá khỏi danh sách) chứ không
+  /// "tree.remove": lúc này host có thể chưa nhận tin file đang mở đã đóng, khi đó tree.remove gọi closeActive() và đóng nhầm file của dự án khác.
+  async closeProject(n) {
+    const name = String(n.text || '').replace(/\s*\(\d+\)$/, '');
+    const { closed, total } = await this.closeProjectTabs(n, true);
+    if (closed < total) { this.bcode.showToast(`Đã đóng ${closed}/${total} tab của "${name}" — dừng ở file chưa lưu, chưa bỏ file nào khỏi danh sách.`, 3500); return; }
+    const paths = [];
+    const walk = (nodes) => { for (const c of nodes || []) { if (c.kind === 'file') { if (c.path) paths.push(c.path); } else walk(c.children); } };
+    walk(n.children);
+    const files = paths.length;
+    // Dự án: bỏ theo tên dự án. Thư mục (Dir, Grid... — nút ✕ của dòng thư mục): bỏ đúng các file của thư mục đó.
+    if (n.kind === 'group') this.cmd('tree.forgetProject', n.key); else this.cmd('tree.forgetFiles', paths.join('\n'));
+    this.bcode.showToast(`Đã bỏ ${files} file của "${name}" khỏi danh sách` + (total ? ` (đóng ${total} tab).` : '.'), 3000);
+  }
+
+  /// Đóng mọi tab đang mở của dự án (file vẫn nằm trong cây, bấm lại là mở) — chuột phải dự án; nút ✕ dùng qua closeProject.
+  /// File chưa lưu hỏi như đóng tab thường (editor.closeDoc); chọn "Huỷ" thì dừng, các tab còn lại giữ nguyên — như "Đóng tất cả" của thanh tab.
+  /// Đóng file không sửa trước, file đang hiện sau cùng (đỡ nhảy qua lại giữa các file sắp đóng), file chưa lưu cuối cùng và được đưa lên
+  /// màn hình trước khi hỏi để thấy đang hỏi file nào. Trả về { closed, total }; quiet = không hiện thông báo.
+  async closeProjectTabs(n, quiet) {
+    const name = String(n.text || '').replace(/\s*\(\d+\)$/, '');
+    const paths = this.openTabsOf(n);
+    if (!paths.length) { if (!quiet) this.bcode.showToast(`"${name}" không có tab nào đang mở.`, 2500); return { closed: 0, total: 0 }; }
+    const dirty = (p) => { const d = this.bcode.docs.get(p); return !!(d && d.dirty); };
+    const rank = (p) => (dirty(p) ? 2 : p === this.bcode.activePath ? 1 : 0);
+    paths.sort((a, b) => rank(a) - rank(b));
+    let closed = 0;
+    for (const p of paths) {
+      if (!this.bcode.docs.has(p)) { closed++; continue; }
+      if (dirty(p) && this.bcode.activePath !== p) this.bcode.activateDoc(p);
+      if (!(await this.bcode.closeDoc(p))) break;
+      closed++;
+    }
+    if (!quiet) this.bcode.showToast(closed === paths.length ? `Đã đóng ${closed} tab của "${name}".`
+      : `Đã đóng ${closed}/${paths.length} tab của "${name}" — dừng ở file chưa lưu.`, 3000);
+    return { closed, total: paths.length };
   }
 
   /// Các file nằm CÙNG NHÁNH (cùng nhóm trực tiếp, vd "Grid" trong dự án KOG) với <paramref name="path"/>, theo thứ tự trong cây — để đóng 1 file
@@ -528,11 +615,14 @@ class BcodeShell {
     return found || [];
   }
 
-  renderRow(n, depth) {
+  /// <paramref name="parent"/> = nút cha (thư mục của file) — file lấy màu + chữ cái đầu của thư mục làm icon tròn (D = Dir, G = Grid...) và vạch dọc
+  /// cùng màu bên trái, nhìn như cây của FCodeViewer: biết ngay file thuộc nhóm nào kể cả khi dòng thư mục đã cuộn khỏi màn hình.
+  renderRow(n, depth, parent) {
     const row = document.createElement('div');
     row.className = 'shRow ' + n.kind + (n.dirty ? ' dirty' : '') + (n.kind === 'file' && this.selKeys && this.selKeys.has(n.key) ? ' sel' : '');
     row.style.paddingLeft = (6 + depth * 14) + 'px';
     if (n.path) { row.title = n.path; row.dataset.path = n.path; }   // setActive tìm dòng theo đường dẫn
+    row.dataset.key = n.key;   // setActive tô dự án / thư mục chứa file đang mở (activeChain)
     if (n.kind === 'group') {
       row.appendChild(Object.assign(document.createElement('span'), { className: 'shTwisty', textContent: n.expanded ? '▾' : '▸' }));
     } else if (n.kind === 'folder') {
@@ -540,10 +630,24 @@ class BcodeShell {
       dot.className = 'shDot';
       dot.style.background = n.color || 'var(--bc-text-muted)';
       row.appendChild(dot);
+    } else if (n.kind === 'file' && parent && parent.kind === 'folder') {
+      const color = parent.color || 'var(--bc-text-muted)';
+      const guide = document.createElement('span');
+      guide.className = 'shGuide';
+      guide.style.left = (6 + (depth - 1) * 14 + 3) + 'px';
+      guide.style.background = color;
+      const icon = Object.assign(document.createElement('span'), { className: 'shFileIcon', textContent: (String(parent.text || '?').match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase() });
+      icon.style.setProperty('--ic', color);
+      row.append(guide, icon);
     }
     const label = document.createElement('span');
     label.className = 'shRowLabel';
-    label.textContent = n.text + (n.dirty ? ' •' : '');
+    const count = n.kind === 'group' ? /^(.*?)(\s*\(\d+\))$/.exec(n.text) : null;
+    if (count) {
+      // "KOG (60)": tên dự án đậm, số file mờ hơn.
+      label.textContent = count[1];
+      label.appendChild(Object.assign(document.createElement('span'), { className: 'shCount', textContent: count[2] }));
+    } else label.textContent = n.text + (n.dirty ? ' •' : '');
     if (n.kind === 'folder' && n.color) label.style.color = n.color;
     row.appendChild(label);
 
@@ -555,6 +659,20 @@ class BcodeShell {
       const close = Object.assign(document.createElement('span'), { className: 'shIcon', textContent: '✕', title: 'Bỏ khỏi danh sách (Delete)' });
       close.onclick = (e) => { e.stopPropagation(); this.cmd('tree.remove', n.key); };
       icons.append(copy, close);
+      row.appendChild(icons);
+    } else {
+      const icons = document.createElement('span');
+      icons.className = 'shRowIcons';
+      const close = Object.assign(document.createElement('span'), { className: 'shIcon', textContent: '✕' });
+      // Số tab tính lúc rê chuột (tab mở / đóng không vẽ lại dòng này).
+      row.addEventListener('mouseenter', () => {
+        const name = n.text.replace(/\s*\(\d+\)$/, ''), tabs = this.openTabsOf(n).length;
+        close.title = n.kind === 'group'
+          ? `Đóng dự án "${name}": đóng ${tabs} tab đang mở và bỏ mọi file của dự án khỏi danh sách (không xoá file trên đĩa)`
+          : `Đóng thư mục "${name}": đóng ${tabs} tab đang mở và bỏ các file của thư mục này khỏi danh sách (không xoá file trên đĩa)`;
+      });
+      close.onclick = (e) => { e.stopPropagation(); this.closeProject(n); };
+      icons.append(close);
       row.appendChild(icons);
     }
 
@@ -569,8 +687,10 @@ class BcodeShell {
         this.treeEl.focus();
         this.paintTreeSelection();
       }
+      else if (n.kind === 'file' && e.button === 0 && !e.shiftKey && !e.altKey && !e.target.closest('.shIcon')) this.beginFileDrag(e, n, row.dataset.parent);
     });
     row.addEventListener('click', (e) => {
+      if (this._suppressClick) return;   // vừa kéo thả xong (beginFileDrag)
       if (n.kind === 'file' && (e.ctrlKey || e.metaKey)) return;   // đã xử lý ở mousedown
       if (this.selKeys.size) this.clearTreeSelection();
       if (n.kind === 'file') this.cmd('tree.open', n.path);
@@ -582,6 +702,73 @@ class BcodeShell {
       this.showTreeMenu(n, e.clientX, e.clientY);
     });
     return row;
+  }
+
+  /// Kéo thả 1 file lên / xuống trong CÙNG thư mục (Dir, Grid...) để sắp xếp. Tự làm bằng mousemove/mouseup gắn ở document, không dùng HTML5
+  /// drag: host có thể đẩy cây mới (setTree dựng lại mọi dòng) giữa lúc đang kéo — dòng nguồn mất thì HTML5 drag tắt ngang, còn ở đây chỉ cần
+  /// tìm lại dòng theo data-key. Nhích chuột dưới 5px vẫn là bấm thường (mở file). Thả → host lưu thứ tự (tree.reorder → RecentFilesStore.FileOrder).
+  beginFileDrag(e, n, parentKey) {
+    if (!parentKey) return;
+    const startX = e.clientX, startY = e.clientY;
+    let dragging = false, target = null, after = false;
+    const clear = () => this.treeEl.querySelectorAll('.dropBefore, .dropAfter, .dragSrc').forEach((r) => r.classList.remove('dropBefore', 'dropAfter', 'dragSrc'));
+    const move = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientY - startY) < 5 && Math.abs(ev.clientX - startX) < 5) return;
+        dragging = true;
+        document.body.classList.add('shDragging');
+        const sel = window.getSelection && window.getSelection(); if (sel) sel.removeAllRanges();
+      }
+      ev.preventDefault();
+      clear();
+      const src = [...this.treeEl.querySelectorAll('.shRow.file')].find((r) => r.dataset.key === n.key);
+      if (src) src.classList.add('dragSrc');
+      const box = this.treeEl.getBoundingClientRect();   // kéo sát mép trên / dưới thì tự cuộn
+      if (ev.clientY < box.top + 24) this.treeEl.scrollTop -= 12; else if (ev.clientY > box.bottom - 24) this.treeEl.scrollTop += 12;
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const row = el && el.closest ? el.closest('.shRow.file') : null;
+      target = null;
+      if (row && row.dataset.parent === parentKey && row.dataset.key !== n.key) {
+        const r = row.getBoundingClientRect();
+        after = ev.clientY > r.top + r.height / 2;
+        target = row.dataset.key;
+        row.classList.add(after ? 'dropAfter' : 'dropBefore');
+      }
+      document.body.classList.toggle('shNoDrop', !target);
+    };
+    const up = (ev) => {
+      document.removeEventListener('mousemove', move, true);
+      document.removeEventListener('mouseup', up, true);
+      if (!dragging) return;
+      move(ev);   // chỗ thả tính theo đúng vị trí nhả chuột (nhả ngoài cây / ngoài thư mục = không đổi gì)
+      clear();
+      document.body.classList.remove('shDragging', 'shNoDrop');
+      this._suppressClick = true;
+      setTimeout(() => { this._suppressClick = false; }, 0);
+      if (target) this.reorderFile(parentKey, n.key, target, after);
+    };
+    document.addEventListener('mousemove', move, true);
+    document.addEventListener('mouseup', up, true);
+  }
+
+  /// Đặt file <paramref name="srcKey"/> trước / sau <paramref name="targetKey"/> trong thư mục <paramref name="parentKey"/>: đổi ngay trên trang
+  /// (dời dòng + mô hình cây) cho thấy liền, rồi gửi cả thứ tự mới của thư mục cho host lưu.
+  reorderFile(parentKey, srcKey, targetKey, after) {
+    let folder = null;
+    const find = (nodes) => { for (const x of nodes || []) { if (folder) return; if (x.kind !== 'file') { if (x.key === parentKey) { folder = x; return; } find(x.children); } } };
+    find(this.tree && this.tree.nodes);
+    if (!folder) return;
+    const kids = folder.children;
+    const from = kids.findIndex((c) => c.key === srcKey);
+    if (from < 0) return;
+    const [moved] = kids.splice(from, 1);
+    const to = kids.findIndex((c) => c.key === targetKey);
+    if (to < 0) { kids.splice(from, 0, moved); return; }
+    kids.splice(after ? to + 1 : to, 0, moved);
+    const rows = [...this.treeEl.querySelectorAll('.shRow.file')];
+    const srcRow = rows.find((r) => r.dataset.key === srcKey), tgtRow = rows.find((r) => r.dataset.key === targetKey);
+    if (srcRow && tgtRow) tgtRow.parentNode.insertBefore(srcRow, after ? tgtRow.nextSibling : tgtRow);
+    this.cmd('tree.reorder', kids.filter((c) => c.kind === 'file' && c.path).map((c) => c.path).join('\n'));
   }
 
   showTreeMenu(n, x, y) {
@@ -598,11 +785,15 @@ class BcodeShell {
       { label: 'Ẩn file của TẤT CẢ dự án', run: () => this.cmd('tree.collapseAll') },
       { label: 'Hiện file của tất cả dự án', run: () => this.cmd('tree.expandAll') },
       { sep: true },
+      { label: `Đóng mọi tab đang mở của dự án này (${this.openTabsOf(n).length})`, run: () => this.closeProjectTabs(n) },
       { label: 'Copy đường dẫn TẤT CẢ file của dự án này (.f nếu có)', run: () => this.cmd('tree.copyMany', n.key) },
-      { label: `Bỏ tất cả file của "${n.text.replace(/\s*\(\d+\)$/, '')}" khỏi danh sách`, run: () => this.cmd('tree.remove', n.key) },
+      { label: `Bỏ tất cả file của "${n.text.replace(/\s*\(\d+\)$/, '')}" khỏi danh sách (như nút ✕)`, run: () => this.closeProject(n) },
     ] : [
       { label: n.expanded ? 'Ẩn file thư mục này' : 'Hiện file thư mục này', run: () => this.cmd('tree.toggle', n.key) },
       { label: 'Copy đường dẫn các file của thư mục này (.f nếu có)', run: () => this.cmd('tree.copyMany', n.key) },
+      { sep: true },
+      { label: `Đóng mọi tab đang mở của thư mục này (${this.openTabsOf(n).length})`, run: () => this.closeProjectTabs(n) },
+      { label: `Bỏ các file của "${n.text}" khỏi danh sách (như nút ✕)`, run: () => this.closeProject(n) },
     ];
     this.closeMenu();
     const menu = this.renderMenu(items);

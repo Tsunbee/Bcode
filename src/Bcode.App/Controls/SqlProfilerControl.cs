@@ -1617,8 +1617,7 @@ public class SqlProfilerControl : UserControl
     private LowLevelKeyboardProc? _keyHookProc;   // giữ tham chiếu: GC thu delegate là hook gọi vào vùng nhớ đã giải phóng
     private Thread? _keyHookThread;
     private uint _keyHookThreadId;
-    private long _ctrlDownAt;
-    private volatile IntPtr _formHwnd;            // cửa sổ chính chứa tab Profiler (ghi ở UI thread)
+    private volatile IntPtr _formHwnd;           // cửa sổ chính chứa tab Profiler (ghi ở UI thread)
     private volatile bool _hostShown;              // tab Profiler đang hiện (ghi ở UI thread)
     private uint _firedVk;                         // phím vừa bắn phím tắt — keydown lặp (giữ phím) của nó bị nuốt, không bắn lại (trước đây mỗi lần lặp mở thêm 1 tab)
 
@@ -1657,7 +1656,6 @@ public class SqlProfilerControl : UserControl
     {
         var thread = _keyHookThread;
         _keyHookThread = null;
-        _ctrlDownAt = 0;
         _firedVk = 0;
         if (thread is null) return;
         if (_keyHookThreadId != 0) PostThreadMessage(_keyHookThreadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
@@ -1691,8 +1689,7 @@ public class SqlProfilerControl : UserControl
                 if (!down && kb.vkCode == _firedVk) _firedVk = 0;
                 if (vk is Keys.ControlKey or Keys.LControlKey or Keys.RControlKey)
                 {
-                    if (down) { if (_ctrlDownAt == 0) _ctrlDownAt = Environment.TickCount64; }
-                    else if (msg is WM_KEYUP or WM_SYSKEYUP) { _ctrlDownAt = 0; _firedVk = 0; }
+                    if (!down) _firedVk = 0;
                 }
                 else if (down && kb.vkCode == _firedVk) return (IntPtr)1;   // phím lặp do đang giữ: đã bắn rồi — nuốt, không mở thêm tab
                 else if (down)
@@ -1700,10 +1697,8 @@ public class SqlProfilerControl : UserControl
                     bool Held(int k) => (GetAsyncKeyState(k) & 0x8000) != 0;
                     var mods = (Held(0x11) ? Keys.Control : 0) | (Held(0x10) ? Keys.Shift : 0) | (Held(0x12) ? Keys.Alt : 0);
                     string? combo = null;
-                    // Giữ Ctrl một lúc rồi Tab = hộp chọn tab (như ở trang web / control WinForms); Ctrl+Tab bấm nhanh = chuyển tab (phím tắt tab.next).
-                    if (vk == Keys.Tab && (mods & Keys.Control) != 0 && (mods & Keys.Alt) == 0 && _ctrlDownAt != 0 && Environment.TickCount64 - _ctrlDownAt >= WebViewEnvironment.CtrlHoldMs)
-                        combo = (mods & Keys.Shift) != 0 ? "@ctrl-hold-prev" : "@ctrl-hold";
-                    else if (ShortcutRegistry.FromKeys(vk | mods) is { } c && ShortcutRegistry.AppIdFor(c) is not null)
+                    // Ctrl+Tab (tab.next) mở hộp chọn tab ở MainForm như mọi phím tắt khác.
+                    if (ShortcutRegistry.FromKeys(vk | mods) is { } c && ShortcutRegistry.AppIdFor(c) is not null)
                         combo = c;
                     if (combo is not null && IsHandleCreated)
                     {

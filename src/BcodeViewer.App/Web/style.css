@@ -771,12 +771,17 @@ select.setInput option { background: var(--bc-panel); color: var(--bc-text); }
 .shTbBtn:hover { background: var(--bc-button); border-color: var(--bc-border); }
 .shTbBtn:active { background: var(--bc-selection); }
 .shTbSep { width: 1px; height: 18px; background: var(--bc-border); margin: 0 4px; }
-.shBreadcrumb { display: flex; align-items: center; gap: 2px; padding: 3px 10px 4px; font-size: 12.5px; border-top: 1px solid var(--bc-border); overflow: hidden; white-space: nowrap; min-height: 18px; }
+/* Thanh "File Path" (shell.js renderBreadcrumb): đường dẫn đầy đủ, nền riêng cho tách khỏi toolbar, cuộn ngang khi dài. */
+.shBreadcrumb { display: flex; align-items: center; gap: 2px; padding: 3px 10px 3px 0; font-size: 12.5px; background: var(--bc-panel-alt); border-top: 1px solid var(--bc-border); border-bottom: 1px solid var(--bc-border); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; white-space: nowrap; min-height: 20px; }
+.shBreadcrumb::-webkit-scrollbar { height: 0; }
 .shBreadcrumb:empty { display: none; }
-.shCrumb { color: #4ea5f0; cursor: pointer; }
-.shCrumb:hover { text-decoration: underline; }
-.shCrumb.file { color: var(--bc-text); font-weight: 600; }
-.shCrumbSep { color: var(--bc-text-muted); padding: 0 5px; }
+.shCrumbLabel { flex: 0 0 auto; align-self: stretch; display: flex; align-items: center; margin: -3px 8px -3px 0; padding: 0 10px; font-weight: 600; color: var(--bc-text); background: color-mix(in srgb, var(--bc-text) 10%, var(--bc-panel-alt)); border-right: 1px solid var(--bc-border); cursor: copy; }
+.shCrumbLabel:hover { background: color-mix(in srgb, var(--bc-accent) 30%, var(--bc-panel-alt)); }
+.shCrumb { flex: 0 0 auto; color: #4ea5f0; color: color-mix(in srgb, #4ea5f0 75%, var(--bc-text)); cursor: pointer; padding: 1px 2px; border-radius: 3px; }
+.shCrumb:hover { text-decoration: underline; background: color-mix(in srgb, var(--bc-text) 8%, transparent); }
+.shCrumb.root { color: color-mix(in srgb, #e5a050 75%, var(--bc-text)); }
+.shCrumb.file { color: var(--bc-text); font-weight: 700; }
+.shCrumbSep { flex: 0 0 auto; color: var(--bc-text-muted); padding: 0 4px; font-weight: 700; }
 body.shAutoHide #shellTop { position: fixed; left: 0; right: 0; top: 0; z-index: 15000; transform: translateY(-100%); transition: transform 0.12s; box-shadow: 0 4px 12px var(--bc-shadow); }
 body.shAutoHide #shellTop.shPeek { transform: none; }
 
@@ -797,12 +802,34 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
 #shellSidebarResizer:hover { background: var(--bc-accent); }
 .shTreeHeader { padding: 5px 8px; font-size: 12px; font-weight: 700; color: var(--bc-text-muted); background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shTree { flex: 1 1 auto; overflow: auto; outline: none; padding-bottom: 8px; }
-.shRow { position: relative; display: flex; align-items: center; gap: 5px; height: 22px; padding-right: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; color: var(--bc-text); }
+.shRow { position: relative; display: flex; align-items: center; gap: 5px; height: 23px; padding-right: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; color: var(--bc-text); }
 .shRow:hover { background: var(--bc-panel-alt); }
-.shRow.group { font-weight: 700; background: color-mix(in srgb, var(--bc-panel) 88%, var(--bc-text)); box-shadow: inset 3px 0 0 var(--bc-accent); }
+.shRow.group { font-weight: 700; background: color-mix(in srgb, var(--bc-panel) 88%, var(--bc-text)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--bc-text-muted) 45%, transparent); }
 .shRow.folder { font-weight: 700; }
 .shRow.file { color: color-mix(in srgb, var(--bc-text-muted) 45%, var(--bc-text)); }
-.shRow.file.active { background: var(--bc-selection); color: var(--bc-text); box-shadow: inset 0 0 0 1px var(--bc-accent); }
+/* File đang hiện trên editor: nền màu chọn + vạch trái dày + chữ đậm. Dự án / thư mục (Dir, Grid...) chứa nó: .hasActive (shell.js
+   activeChain) — chỉ dự án đó có vạch màu nhấn, các dự án khác vạch xám. File đang mở ở tab khác: .open (chấm nhỏ, chữ rõ).
+   Vạch / chấm pha màu nhấn với màu chữ: theme tối có màu nhấn sẫm (#0e639c) đặt trên nền --bc-selection gần như không thấy. */
+#shellSidebar { --sh-mark: color-mix(in srgb, var(--bc-accent) 60%, var(--bc-text)); }
+.shRow.file.active { background: color-mix(in srgb, var(--bc-accent) 22%, var(--bc-selection)); color: var(--bc-selection-text, var(--bc-text)); font-weight: 700; box-shadow: inset 4px 0 0 var(--sh-mark); }
+.shRow.group.hasActive { background: color-mix(in srgb, var(--bc-accent) 24%, var(--bc-panel)); box-shadow: inset 4px 0 0 var(--sh-mark); }
+.shRow.folder.hasActive { background: color-mix(in srgb, var(--bc-accent) 10%, transparent); }
+.shRow.file.open { color: var(--bc-text); }
+/* Icon tròn chữ cái thư mục (D/F/G/R...) + vạch dọc màu thư mục (shell.js renderRow). File đang mở (tab) / đang xem: icon tô đặc. */
+.shGuide { position: absolute; top: 0; bottom: 0; width: 2px; opacity: .5; pointer-events: none; }
+.shFileIcon { flex: 0 0 auto; box-sizing: border-box; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--ic); color: var(--ic); font-size: 8.5px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; margin-right: 1px; }
+.shRow.file.open .shFileIcon, .shRow.file.active .shFileIcon { background: var(--ic); color: var(--bc-bg); }
+.shRow.file.active .shGuide { opacity: 1; }
+.shCount { font-weight: 400; color: var(--bc-text-muted); }
+.shRow.group:not(:first-child) { margin-top: 3px; }
+/* Kéo thả file trong cùng thư mục (shell.js beginFileDrag): vạch chỗ sẽ thả, dòng đang kéo mờ đi. */
+.shRow.dropBefore::after, .shRow.dropAfter::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--sh-mark); pointer-events: none; z-index: 2; }
+.shRow.dropBefore::after { top: -2px; }
+.shRow.dropAfter::after { bottom: -2px; }
+.shRow.dragSrc { opacity: .45; }
+body.shDragging { user-select: none; cursor: grabbing; }
+body.shDragging.shNoDrop { cursor: no-drop; }
+body.shDragging .shRow { cursor: inherit; }
 .shRow.file.sel { background: color-mix(in srgb, var(--bc-accent) 26%, transparent); color: var(--bc-text); box-shadow: inset 3px 0 0 var(--bc-accent); }
 .shRow.dirty .shRowLabel { color: var(--bc-dirty, #e5c07b); }
 .shTwisty { width: 12px; flex: 0 0 auto; color: var(--bc-text); font-size: 11px; }

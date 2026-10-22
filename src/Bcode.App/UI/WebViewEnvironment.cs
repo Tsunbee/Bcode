@@ -247,10 +247,7 @@ internal static class WebViewEnvironment
     /// (<c>{action:"__global-shortcut", key}</c> — action lạ nên các trang/handler khác bỏ qua, giống "__height").</summary>
     public static event Action<string>? GlobalShortcut;
 
-    private static long _ctrlDownAt;       // Environment.TickCount64 lúc Ctrl vừa nhấn (0 = không giữ) — dùng chung cho mọi WebView2
-    internal const int CtrlHoldMs = 350;    // khớp MainForm.CtrlHoldMs
-
-    /// <summary>Báo 1 phím tắt toàn cửa sổ (tổ hợp "Ctrl+W"… hoặc "@ctrl-hold" / "@ctrl-hold-prev") như khi bấm trong trang WebView2 —
+    /// <summary>Báo 1 phím tắt toàn cửa sổ (tổ hợp "Ctrl+W"…) như khi bấm trong trang WebView2 —
     /// dùng cho cửa sổ ngoài tiến trình được nhúng vào tab (SQL Profiler) mà WinForms không nhận được phím.</summary>
     public static void RaiseGlobalShortcut(string combo) => GlobalShortcut?.Invoke(combo);
 
@@ -272,17 +269,7 @@ internal static class WebViewEnvironment
                     if (SuspendAccelerators) return; // trang đang ghi phím mới (Template → Phím tắt): để trang nhận mọi tổ hợp
                     var kind = e.KeyEventKind;
                     var isDown = kind == Microsoft.Web.WebView2.Core.CoreWebView2KeyEventKind.KeyDown || kind == Microsoft.Web.WebView2.Core.CoreWebView2KeyEventKind.SystemKeyDown;
-                    // Theo dõi thời điểm Ctrl vừa nhấn (bỏ qua phím lặp) để biết đã "giữ Ctrl một lúc" chưa khi Tab tới.
-                    if (e.VirtualKey == 0x11) { if (isDown) { if (e.PhysicalKeyStatus.WasKeyDown == 0) _ctrlDownAt = Environment.TickCount64; } else _ctrlDownAt = 0; return; }
                     if (!isDown) return;
-                    // Giữ Ctrl đủ lâu rồi bấm Tab → mở hộp chọn tab (Shift: ngược lại); bấm Ctrl+Tab ngay thì đi tiếp xuống dưới để chuyển tab như phím tắt thường.
-                    if (e.VirtualKey == 0x09 && (Control.ModifierKeys & Keys.Control) != 0 && (Control.ModifierKeys & Keys.Alt) == 0
-                        && _ctrlDownAt != 0 && Environment.TickCount64 - _ctrlDownAt >= CtrlHoldMs)
-                    {
-                        e.Handled = true;
-                        GlobalShortcut?.Invoke((Control.ModifierKeys & Keys.Shift) != 0 ? "@ctrl-hold-prev" : "@ctrl-hold");
-                        return;
-                    }
                     if (IsInDialog(web)) return;   // hộp thoại: để trang tự xử lý phím (xem InitAsync)
                     var keys = (Keys)e.VirtualKey | Control.ModifierKeys;
                     var combo = ShortcutRegistry.FromKeys(keys);
@@ -340,20 +327,6 @@ internal static class WebViewEnvironment
     window.addEventListener('error', function (e) { report(e.message || 'lỗi script'); });
     window.addEventListener('unhandledrejection', function (e) { report((e.reason && e.reason.message) || e.reason || 'lỗi bất đồng bộ'); });
   }
-  // Hop chon tab: giu Ctrl mot luc (>= 350ms) roi bam Tab thi bao ctrl-hold (Shift: ctrl-hold-prev); Ctrl+Tab bam ngay thi di tiep nhu phim tat thuong (chuyen tab).
-  var ctrlDownAt = 0;
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Control') {
-      if (!e.repeat) ctrlDownAt = Date.now();
-      return;
-    }
-    if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey && ctrlDownAt && Date.now() - ctrlDownAt >= 350) {
-      e.preventDefault(); e.stopImmediatePropagation();
-      window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: e.shiftKey ? '@ctrl-hold-prev' : '@ctrl-hold' }));
-    }
-  }, true);
-  document.addEventListener('keyup', function (e) { if (e.key === 'Control') ctrlDownAt = 0; }, true);
-  window.addEventListener('blur', function () { ctrlDownAt = 0; }, true);
   window.__bcodeCombo = function (e) {
     var c = e.code, k = null;
     if (/^Key[A-Z]$/.test(c)) k = c.charAt(3);

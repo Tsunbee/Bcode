@@ -181,7 +181,7 @@ Hàng nút dưới thanh trên, chia vùng bằng dấu "|": SQL (SQL Query, Loo
 
 ### Tab
 
-- `Ctrl+Tab` tab kế; **giữ Ctrl rồi bấm Tab** → hộp "Chuyển tab" (`↑ ↓` / `Tab` để chọn, `Enter` để đi, giữ Shift để đi ngược). Kiểu `Ctrl+Tab` bấm nhanh (Tab tới A → B → C / Tab song song A ⇄ B) chọn ở Template → Cửa sổ.
+- `Ctrl+Tab` (`Ctrl+Shift+Tab` đi ngược) → hộp "Chuyển tab" hiện **ngay**, sáng sẵn ở tab sẽ tới. Giữ Ctrl rồi bấm tiếp `Tab` / `↑ ↓` để chọn tab khác, **thả Ctrl là chuyển** (như Alt+Tab của Windows); `Enter` hoặc bấm chuột cũng chuyển; `Esc` / bấm ra ngoài để thôi. Bấm `Ctrl+Tab` nhanh rồi thả thì chuyển luôn (hộp chỉ chớp qua) — tới đâu tuỳ kiểu "Ctrl+Tab bấm nhanh" chọn ở Template → Cửa sổ: **Tab tới** (A → B → C) hoặc **Tab song song** (A ⇄ B, về tab vừa rời). Đổi phím `tab.next` / `tab.prev` sang tổ hợp không có Ctrl thì phím đó chuyển tab thẳng, không hiện hộp.
 - `Ctrl+W` đóng tab (hỏi nếu chưa lưu) · `Ctrl+Shift+B` mở lại tab vừa đóng.
 - Chuột phải tab: Pin Tab / Unpin Tab · Reopen Closed Tab · Close Tab · Close Other Tabs · Close Tabs to the Right · Close All Tabs (tab ghim không bị đóng hàng loạt).
 - Chuột phải vùng trống thanh tab: **Tab đã đóng gần đây** và danh sách **Mở nhanh** các công cụ.
@@ -907,7 +907,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+4` | Mở FSG FBO (web đăng nhập của dự án, trong tab) — trong cây WCommand: mở FSG FBO, đăng nhập rồi vào menu đang chọn |
 | `Ctrl+5` | Mở thư mục Program Path |
 | `Ctrl+Alt+U` | Ai đang dùng object (tab SQL mở từ cây SQL Object) |
-| `Ctrl+Tab` / giữ `Ctrl` + `Tab` | Tab kế / hộp chọn tab |
+| `Ctrl+Tab` · `Ctrl+Shift+Tab` | Hộp chọn tab (tab kế / tab trước) — giữ Ctrl bấm Tab để chọn, thả Ctrl để chuyển |
 | `Ctrl+W` · `Ctrl+Shift+B` | Đóng tab · mở lại tab vừa đóng |
 | `Alt+1` … `Alt+5` | Thả menu nhóm công cụ 1…5 |
 | `Ctrl+Alt+Shift+A` · `Ctrl+Alt+Shift+V` | Add Script · View Script Cart |
@@ -999,7 +999,7 @@ Góc phải thanh menu có nút **💡 Hint** (bóng đèn) — mở Hint Code (
 
 Save (`Ctrl+S`) · Save As · ⚠ Check (so `<fields>` với `<views>` của Dir/Grid) · Undo · Redo · Comment (`Ctrl+/`) · Bookmark · ● Next · Refresh (tải lại file từ đĩa) · Hint (Hint Code) · Tìm project · Problems · Outline · Xem Dir · Chạy SQL · Tách đôi · Wrap (`Alt+Z`) · 🤖 Claude Sidebar · ✨ Gemini Sidebar · 📎 Đính kèm file · Clear Structure · Reset WebConfig · Open WebConfig (mở web.config của site).
 
-Dưới thanh công cụ là **đường dẫn** (breadcrumb) của file đang mở — bấm vào một đoạn để mở thư mục đó trong Explorer.
+Dưới thanh công cụ là thanh **File Path**: đường dẫn **đầy đủ** của file đang mở, từ máy chủ (`\\172.168.5.14`, tô màu cam) tới tên file (đậm). Bấm vào một đoạn để mở thư mục đó trong Explorer; bấm nhãn **File Path** để copy cả đường dẫn. Đường dẫn dài hơn bề ngang thì lăn chuột trên thanh để cuộn ngang (mặc định cuộn sẵn tới tên file).
 
 ### Tuỳ biến thanh công cụ (ghim, nhóm, vị trí)
 
@@ -1015,11 +1015,15 @@ Giống Quick Access + nhóm công cụ của Bcode. Chưa chỉnh gì thì than
 
 ### Cây file bên trái (Projects)
 
-- Dòng đầu: "Projects: N - Files: M". Mỗi dự án là một nhóm "Tên dự án (số file)", trong đó file chia theo thư mục Dir, Grid, Filter, Report, Command, XML, Config, Options, Upload, Include…
+- Dòng đầu: "Projects: N - Files: M". Mỗi dự án là một nhóm "Tên dự án (số file)", trong đó file chia theo thư mục, xếp cố định: Dir → Filter → Grid → Lookup → Report → Template → Command → XML → Config → Options → Upload → Include → thư mục khác (ABC).
+- Trong một thư mục, file xếp theo ABC; **kéo thả** một file lên / xuống để đổi chỗ (vạch màu nhấn chỉ chỗ sẽ thả). Chỉ kéo được trong cùng thư mục — sang thư mục khác, ra ngoài cây hoặc nhả chuột ngoài cây thì không đổi gì. Thứ tự được nhớ cho lần mở sau; file mới mở thêm vào thư mục đã sắp xếp thì đứng sau các file đã kéo.
 - Cây là **danh sách file đã mở gần đây** (tối đa 300 file), không phải toàn bộ ổ đĩa. Mở file mới không đẩy dự án lên đầu; chỉ dự án mới chèn lên trên. File chưa lưu có dấu " •".
 - Bấm file = mở. `Ctrl`+bấm chọn nhiều file rồi `Ctrl+C` = copy đường dẫn. `Delete` = bỏ khỏi danh sách (không xoá file).
-- Chuột phải file: Mở · Mở thư mục chứa file · Copy đường dẫn (.f nếu có) · Bỏ khỏi danh sách. Chuột phải dự án: Ẩn/Hiện file của dự án · Copy đường dẫn tất cả file · Bỏ tất cả file của dự án khỏi danh sách.
-- `Ctrl+B` ẩn / hiện cây. Khi cây ẩn, thanh tab liệt kê mọi file của cây.
+- Nhận biết file đang làm: dòng file **đang hiện trên editor** có nền màu nhấn, vạch trái dày và chữ đậm; dự án chứa nó (và thư mục Dir / Grid… của nó) cũng có nền + vạch màu nhấn — các dự án khác chỉ có vạch xám, kể cả khi dự án đang thu gọn. File **đang mở ở tab khác** có chấm nhỏ "●" trước tên.
+- Mỗi file có icon tròn mang chữ cái đầu của thư mục (**D** = Dir, **F** = Filter, **G** = Grid, **R** = Report…) cùng màu thư mục, và vạch dọc cùng màu bên trái — biết ngay file thuộc nhóm nào. Icon **tô đặc** = file đang mở thành tab; viền rỗng = chỉ nằm trong danh sách. Dòng dự án ghi tên đậm, số file mờ.
+- Rê chuột lên dòng dự án → nút **✕** = **đóng dự án**: đóng mọi tab đang mở của dự án rồi bỏ hết file của dự án khỏi cây (không xoá file trên đĩa). File chưa lưu được đưa lên màn hình rồi hỏi như khi đóng tab thường; chọn huỷ thì dừng và chưa bỏ file nào khỏi cây. Dòng **thư mục** (Dir, Grid…) cũng có nút **✕** tương tự: đóng các tab rồi bỏ các file của riêng thư mục đó khỏi cây (chuột phải thư mục: Đóng mọi tab đang mở của thư mục này · Bỏ các file của thư mục khỏi danh sách).
+- Chuột phải file: Mở · Mở thư mục chứa file · Copy đường dẫn (.f nếu có) · Bỏ khỏi danh sách. Chuột phải dự án: Ẩn/Hiện file của dự án · Đóng mọi tab đang mở của dự án này (chỉ đóng tab, file vẫn ở trong cây) · Copy đường dẫn tất cả file · Bỏ tất cả file của dự án khỏi danh sách (như nút ✕).
+- `Ctrl+B` ẩn / hiện cây. Khi cây ẩn, thanh tab liệt kê mọi file của cây. Khi cây **đang hiện**, thanh tab trên editor được ẩn (cây đã đánh dấu file đang mở / đang xem); chỉ file đang mở mà cây không liệt kê mới còn tab. Muốn giữ thanh tab như cũ: Settings → Bố cục → bật **"Vẫn hiện thanh tab khi đang hiện cây file bên trái"**.
 
 ### Tab và thanh trạng thái
 
@@ -1301,8 +1305,8 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | Định dạng code | `F7` Beauty | — |
 | Wrap (tự xuống dòng) | `Alt+Z` | `Alt+Z` |
 | Mở nhóm nút thứ N trên thanh công cụ | `Alt+1..5` | `Alt+1..5` |
-| Tab kế / hộp chọn tab | `Ctrl+Tab` / giữ `Ctrl` + `Tab` | `Ctrl+Tab` / giữ `Ctrl` + `Tab` |
-| Tab trước | (gán lại — mặc định đang lỗi) | `Ctrl+Shift+Tab` |
+| Tab kế / hộp chọn tab | `Ctrl+Tab` (hộp hiện ngay, thả Ctrl để chuyển) | `Ctrl+Tab` / giữ `Ctrl` + `Tab` |
+| Tab trước | `Ctrl+Shift+Tab` | `Ctrl+Shift+Tab` |
 | Đóng tab | `Ctrl+W` | `Ctrl+W` |
 | Mở lại tab vừa đóng | `Ctrl+Shift+B` | — |
 | Ẩn / hiện cây trái | `Ctrl+Shift+H` | `Ctrl+B` |

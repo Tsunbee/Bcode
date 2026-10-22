@@ -222,10 +222,13 @@ const FCODE_ELEMENT_SNIPPETS = {
 
 const SQL_START_RE = /^\s*(?:--[^\n]*\n\s*)*(?:SELECT|INSERT|UPDATE|DELETE|MERGE|EXEC|EXECUTE|WITH|DECLARE|TRUNCATE|CREATE|ALTER|DROP)\b/i;
 const SQL_SHAPE_RE = /\bFROM\b[\s\S]*\b(?:WHERE|JOIN|GROUP\s+BY|ORDER\s+BY)\b/i;
+// Dòng bắt đầu bằng "declare @" / "if [not] exists (" ở BẤT KỲ đâu trong khối — chỉ T-SQL viết vậy. Cần vì dòng đầu khối là chỗ
+// người dùng đang gõ dở (vd thay dòng đầu bằng "deb" để gọi Hint Code): chỉ xét đầu khối thì cả khối rơi về XML, mất gợi ý SQL.
+const SQL_LINE_RE = /^[ \t]*(?:DECLARE\s+@|IF\s+(?:NOT\s+)?EXISTS\s*\()/im;
 
 function looksLikeSql(text) {
   if (!text || text.length < 12) return false;
-  return SQL_START_RE.test(text) || SQL_SHAPE_RE.test(text);
+  return SQL_START_RE.test(text) || SQL_SHAPE_RE.test(text) || SQL_LINE_RE.test(text);
 }
 
 /// FCode marks embedded JavaScript explicitly inside CDATA:
@@ -246,11 +249,13 @@ const JS_HINT_RE = /(?:\bfunction\s+[\w$]+\s*\(|document\.getElementById|setTime
 ///   <response><action id="…"><text>…           T-SQL
 ///   <css><text>…                               CSS
 ///   <clientScript><![CDATA[onchange="…"]]>     JavaScript fragment on a field
+///   <processing><text>…                        T-SQL (Templates/Upload: xử lý dữ liệu nhập từ Excel)
 const SECTION_TAGS = [
   ['script', 'js'],
   ['clientScript', 'js'],
   ['command', 'sql'],
   ['action', 'sql'],
+  ['processing', 'sql'],
   ['css', 'css'],
   ['style', 'css'], // not used by the controllers seen so far; harmless if it appears
 ];

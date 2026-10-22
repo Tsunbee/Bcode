@@ -22,6 +22,10 @@ public class RecentFilesStore
     /// đẩy dự án đó lên đầu nữa; chỉ dự án mới lần đầu xuất hiện mới chèn lên trên cùng.</summary>
     public List<string> ProjectOrder { get; set; } = new();
 
+    /// <summary>Thứ tự file do người dùng kéo thả trong 1 thư mục của cây (đường dẫn). File có trong đây xếp theo vị trí trong
+    /// danh sách, trước các file chưa từng kéo (những file này vẫn theo ABC) — thư mục chưa kéo lần nào giữ ABC như cũ.</summary>
+    public List<string> FileOrder { get; set; } = new();
+
     private static string StorePath => Path.Combine(
         BcodePaths.AppData, "Bcode", "viewer-recent-files.json");
 
@@ -111,11 +115,38 @@ public class RecentFilesStore
         Save();
     }
 
-    /// <summary>Dự án không còn file nào thì bỏ khỏi thứ tự — mở lại sau sẽ coi như dự án mới.</summary>
+    /// <summary>Bỏ nhiều file một lần (nút ✕ của dòng thư mục trên cây) — ghi đĩa 1 lần.</summary>
+    public void RemoveMany(IEnumerable<string> paths)
+    {
+        var set = paths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (set.Count == 0) return;
+        Entries.RemoveAll(e => set.Contains(e.Path));
+        PruneProjectOrder();
+        Save();
+    }
+
+    /// <summary>Dự án không còn file nào thì bỏ khỏi thứ tự — mở lại sau sẽ coi như dự án mới. File đã bỏ khỏi danh sách thì bỏ khỏi FileOrder.</summary>
     private void PruneProjectOrder()
     {
         var live = Entries.Select(EffectiveProject).ToHashSet(StringComparer.OrdinalIgnoreCase);
         ProjectOrder.RemoveAll(p => !live.Contains(p));
+        if (FileOrder.Count > 0)
+        {
+            var paths = Entries.Select(e => e.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            FileOrder.RemoveAll(p => !paths.Contains(p));
+        }
+    }
+
+    /// <summary>Kéo thả trong cây: <paramref name="paths"/> = mọi file của MỘT thư mục theo thứ tự mới. Bỏ vị trí cũ của chúng rồi nối vào cuối
+    /// FileOrder — thứ tự chỉ so giữa các file cùng thư mục nên vị trí tuyệt đối trong danh sách không quan trọng.</summary>
+    public void SetFileOrder(IReadOnlyList<string> paths)
+    {
+        if (paths.Count == 0) return;
+        var set = paths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        FileOrder.RemoveAll(p => set.Contains(p));
+        FileOrder.AddRange(paths);
+        PruneProjectOrder();
+        Save();
     }
 
     /// <summary>Removes every file under one project group (the tree's per-group "Remove
@@ -134,11 +165,14 @@ public class RecentFilesStore
             ? Host.WorkspaceConnection.InferProjectFromPath(e.Path) ?? e.ProjectName
             : e.ProjectName;
 
-    /// <summary>Groups by project, each group's files alphabetical by name — projects in
+    /// <summary>Groups by project, each group's files alphabetical by name (file đã kéo thả theo <see cref="FileOrder"/> lên trước) — projects in
     /// <see cref="ProjectOrder"/>, so opening a file never reshuffles the tree. A project
     /// missing from it (e.g. its inferred name changed) goes last, most recent first.</summary>
-    public List<(string ProjectName, List<RecentFileEntry> Files)> GroupedByProject() =>
-        Entries
+    public List<(string ProjectName, List<RecentFileEntry> Files)> GroupedByProject()
+    {
+        var rank = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < FileOrder.Count; i++) rank[FileOrder[i]] = i;
+        return Entries
             .GroupBy(e => EffectiveProject(e))
             .OrderBy(g =>
             {
@@ -146,6 +180,8 @@ public class RecentFilesStore
                 return i < 0 ? int.MaxValue : i;
             })
             .ThenByDescending(g => g.Max(e => e.LastOpened))
-            .Select(g => (g.Key, g.OrderBy(e => Path.GetFileName(e.Path), StringComparer.OrdinalIgnoreCase).ToList()))
+            .Select(g => (g.Key, g.OrderBy(e => rank.TryGetValue(e.Path, out var r) ? r : int.MaxValue)
+                .ThenBy(e => Path.GetFileName(e.Path), StringComparer.OrdinalIgnoreCase).ToList()))
             .ToList();
+    }
 }

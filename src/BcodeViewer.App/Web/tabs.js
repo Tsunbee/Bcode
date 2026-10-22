@@ -30,9 +30,20 @@ class BcodeTabs {
   /// ("Show Vertical Tabpage" off) the strip takes over the tree's job too: every file in
   /// the tree, in tree order, followed by any open file the tree doesn't list — so hiding
   /// the tree moves the whole file list into this row instead of making it unreachable.
+  ///
+  /// Cây đang hiện thì mặc định thanh tab KHÔNG lặp lại file đã có trong cây (cây đã tô file đang mở / đang xem) — chỉ còn tab của file mở
+  /// mà cây không liệt kê (vd web.config), hết thì thanh ẩn hẳn. Settings → Bố cục "Vẫn hiện thanh tab khi đang hiện cây" (layout.tabstripWithTree = '1') = như cũ.
   items(all = false) {
     const shell = window.bcodeShell;
-    if (!shell || (!all && !shell.sidebarHidden())) return this.bcode.openPaths().map((path) => ({ path }));
+    if (!shell || (!all && !shell.sidebarHidden())) {
+      const open = this.bcode.openPaths();
+      const P = window.bcodePrefs;
+      if (!shell || all || (P && P.layoutOn('tabstripWithTree', false))) return open.map((path) => ({ path }));
+      const inTree = new Set();
+      const walk = (nodes) => { for (const n of nodes || []) { if (n.kind === 'file') { if (n.path) inTree.add(n.path.toLowerCase()); } else walk(n.children); } };
+      walk(shell.tree && shell.tree.nodes);
+      return open.filter((p) => !inTree.has(p.toLowerCase())).map((path) => ({ path }));
+    }
 
     const out = [];
     const seen = new Set();

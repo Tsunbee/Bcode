@@ -189,6 +189,9 @@ class BcodeSettingsDialog {
       const regions = [['menubar', 'Thanh menu (File, View, Theme...)'], ['toolbar', 'Thanh công cụ (Save, Undo, Hint...)'],
         ['breadcrumb', 'Đường dẫn file đang mở'], ['tabstrip', 'Thanh tab các file đang mở']];
       for (const [k, t] of regions) line('', check(t, layoutOn(k), (on) => { draft.layout[k] = on ? '1' : '0'; }));
+      // Mặc định tắt (tabs.js items): cây file đang hiện thì thanh tab chỉ giữ file không có trong cây.
+      line('', check('Vẫn hiện thanh tab khi đang hiện cây file bên trái (tắt = chỉ hiện tab của file không có trong cây)', draft.layout.tabstripWithTree === '1',
+        (on) => { if (on) draft.layout.tabstripWithTree = '1'; else delete draft.layout.tabstripWithTree; }));
       h.appendChild(Object.assign(document.createElement('div'), {
         className: 'setNote setNoteWide',
         textContent: 'Ẩn cả menu + toolbar + đường dẫn thì vào lại bằng phím tắt "Hiện/ẩn thanh menu + toolbar" (gán ở nhóm Phím tắt) hoặc xoá mục này trong Settings. Cây file và các bảng (Problems, Outline...) bật/tắt bằng menu View hoặc phím tắt.',

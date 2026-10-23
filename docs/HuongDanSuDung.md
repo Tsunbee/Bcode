@@ -423,6 +423,8 @@ Chỉ đọc cấu trúc (INFORMATION_SCHEMA), không sửa bảng nào. Muốn 
 
 - Tick cột để thay `*` trong ô Fields; ô "Lọc cột...", ☑ / ☐ tick hết / bỏ hết.
 - Chuột phải tab Structure: **Gen Structure Table** · **Gen Add Column** · **Gen Alter Column** · **Gen Drop Column** (Add to Clipboard / Preview / Design) · **Render XML** (Dir / Grid XML từ cấu trúc bảng).
+- Với bảng `xxx$000000`, script Gen Add / Alter / Drop Column chỉ thêm phần chạy trên các kỳ (`FastBusiness$Partition$Execute` trên `xxx$%Partition`) khi database có bảng kỳ thật `xxx$yyyymm`. Nếu chỉ có đúng `xxx$000000` (bảng không phân kỳ) thì chỉ sinh lệnh ALTER cho chính bảng đó.
+- **Gen Add Column** sinh kèm câu `UPDATE ... WHERE <cột> IS NULL` để dòng cũ có giá trị mặc định: cột chuỗi = `''`, cột số = `0` (cột ngày / kiểu khác không update). Áp cho bảng chính, bảng `$log` và các kỳ. Gen Alter / Drop Column không có câu update.
 
 ### Sửa dữ liệu kiểu Excel
 

@@ -45,6 +45,16 @@ public class TableDataService
         return _periods.BuildUnionSubquery(periodTables, $"{baseName}$000000");
     }
 
+    /// <summary>Có bảng kỳ thật <c>{prefix}$yyyymm</c> (khác <c>$000000</c>) không. Bảng không phân kỳ (chỉ có <c>{prefix}$000000</c>)
+    /// thì Gen Add / Alter / Drop Column của tab Table không sinh phần FastBusiness$Partition$Execute.</summary>
+    public async Task<bool> HasPeriodTablesAsync(bool useSysDatabase, string schema, string prefix)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        var tables = await _periods.DiscoverPeriodTablesAsync(conn, schema, prefix);
+        return tables.Any(t => t.Period != "000000");
+    }
+
     /// <summary>Primary-key column names for a table, in key order (empty if the table has no PK —
     /// editing is still allowed but the caller must ask the user which column(s) to key on).
     /// Opens and manages its own short-lived connection (same pattern as LoadTableAsync).</summary>

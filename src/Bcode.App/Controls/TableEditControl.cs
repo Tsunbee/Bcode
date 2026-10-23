@@ -1398,7 +1398,7 @@ public class TableEditControl : UserControl
         using var form = new ColumnDesignForm(add, _table, initial);
         if (form.ShowDialog(this) != DialogResult.OK || form.Result.Count == 0) return;
         var cols = form.Result.Select(c => (c.Name, Type: c.Type + (c.NotNull ? " NOT NULL" + (add ? DefaultClause(c.Type) : "") : ""))).ToList();
-        var script = BuildColumnScript(_schema, _table, _logTable, cols, add ? "ADD" : "ALTER COLUMN");
+        var script = BuildColumnScript(_schema, _table, _logTable, cols, add ? "ADD" : "ALTER COLUMN", _hasPeriods);
         _ = RunColumnScriptAsync(script, add ? "Add" : "Alter", cols.Select(c => c.Name).ToList());
     }
 
@@ -1487,10 +1487,15 @@ public class TableEditControl : UserControl
     // ---- Gen Add / Alter / Drop Column — theo đúng kiểu script FastBusiness -------------------------
     // Mỗi cột: IF [NOT] EXISTS (syscolumns) + ALTER TABLE + GO (chạy lại nhiều lần không lỗi). Bảng chia kỳ (xxx$000000):
     // làm thêm cho xxx$log (nếu bảng log có thật), rồi FastBusiness$Partition$Execute để áp lên mọi kỳ xxx$%Partition trong
-    // khoảng ngày khoá sổ (dmstt.ngay_gh1..ngay_gh2); riêng ADD còn update giá trị mặc định (số = 0, chữ = '') cho dòng cũ.
+    // khoảng ngày khoá sổ (dmstt.ngay_gh1..ngay_gh2); riêng ADD còn update giá trị mặc định (số = 0, chữ = '') cho dòng cũ
+    // (cả bảng chính / bảng log lẫn các kỳ; ALTER / DROP không update).
+    // Bảng không phân kỳ (chỉ có xxx$000000, không có xxx$yyyymm) thì bỏ phần Partition$Execute.
 
     /// <summary>Tên bảng log đi kèm bảng chia kỳ đang mở (vd "m81$log"), null nếu không phải bảng chia kỳ / không có bảng log.</summary>
     private string? _logTable;
+
+    /// <summary>Bảng chia kỳ đang mở có bảng kỳ thật (xxx$yyyymm) không; false = chỉ có xxx$000000 → không sinh phần Partition$Execute.</summary>
+    private bool _hasPeriods = true;
 
     /// <summary>"m81$000000" / "m81$202401" → "m81"; bảng thường → null.</summary>
     private static string? PartitionPrefix(string table)
@@ -1522,11 +1527,12 @@ public class TableEditControl : UserControl
     private string GenColumnScript(string action)
     {
         var cols = GetTargetColumns();
-        return cols.Count == 0 ? "-- Chưa chọn cột nào." : BuildColumnScript(_schema, _table, _logTable, cols, action);
+        return cols.Count == 0 ? "-- Chưa chọn cột nào." : BuildColumnScript(_schema, _table, _logTable, cols, action, _hasPeriods);
     }
 
-    /// <summary>Script thêm / sửa / xoá cột (action = "ADD" | "ALTER COLUMN" | "DROP COLUMN") cho bảng + bảng log + các kỳ.</summary>
-    internal static string BuildColumnScript(string schema, string mainTable, string? logTable, IReadOnlyList<(string Name, string Type)> cols, string action)
+    /// <summary>Script thêm / sửa / xoá cột (action = "ADD" | "ALTER COLUMN" | "DROP COLUMN") cho bảng + bảng log + các kỳ
+    /// (<paramref name="hasPeriods"/> = false: bảng xxx$000000 không có kỳ nào → bỏ phần Partition$Execute).</summary>
+    internal static string BuildColumnScript(string schema, string mainTable, string? logTable, IReadOnlyList<(string Name, string Type)> cols, string action, bool hasPeriods = true)
     {
         string Qualified(string table) => schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? $"dbo.{table}" : $"{schema}.{table}";
         var add = action == "ADD";
@@ -1545,12 +1551,18 @@ public class TableEditControl : UserControl
                 sb.AppendLine($"IF {(add ? "NOT " : "")}EXISTS (SELECT * FROM syscolumns WHERE id = object_id('{q}') AND name = '{name}')");
                 sb.AppendLine($"ALTER TABLE {q} {action} {Def(name, type)}");
                 sb.AppendLine("GO");
+                // ADD: dòng cũ nhận giá trị mặc định (chữ = '', số = 0) — lô riêng sau GO vì cột mới chưa có lúc biên dịch lô ALTER.
+                if (add && DefaultFill(type) is { } fill)
+                {
+                    sb.AppendLine($"UPDATE {q} SET {name} = {(fill == "0" ? "0" : "''")} WHERE {name} IS NULL");
+                    sb.AppendLine("GO");
+                }
                 sb.AppendLine();
             }
             if (table != tables[^1]) { sb.AppendLine(); sb.AppendLine(); }   // cách giữa bảng chính và bảng log
         }
 
-        if (PartitionPrefix(mainTable) is { } prefix)
+        if (hasPeriods && PartitionPrefix(mainTable) is { } prefix)
         {
             const string exec = "exec FastBusiness$Partition$Execute @strsql, '', 'ngay_ct', @dFrom, @dTo, 1, 1";
             sb.AppendLine("Declare @strsql NVARCHAR(4000), @dFrom SMALLDATETIME, @dTo SMALLDATETIME");
@@ -1727,7 +1739,9 @@ public class TableEditControl : UserControl
             _loadedStamp = stamp;
 
             // Bảng chia kỳ: có bảng log đi kèm (xxx$log) thì Gen Add/Alter/Drop Column làm luôn cho bảng log.
+            // Chỉ có xxx$000000, không có xxx$yyyymm nào (bảng không phân kỳ) thì không sinh phần Partition$Execute.
             _logTable = null;
+            _hasPeriods = true;
             if (PartitionPrefix(table) is { } prefix)
             {
                 try
@@ -1737,6 +1751,13 @@ public class TableEditControl : UserControl
                     if (logCols.Count > 0) _logTable = prefix + "$log";
                 }
                 catch { /* không tra được bảng log — chỉ gen cho bảng chính + các kỳ */ }
+                try
+                {
+                    var hasPeriods = await _service.HasPeriodTablesAsync(useSys, schema, prefix);
+                    if (version != _loadVersion) return;
+                    _hasPeriods = hasPeriods;
+                }
+                catch { /* không tra được — giữ như cũ: coi là có kỳ */ }
             }
 
             await PopulateStructureAndFieldsListAsync(useSys, data);

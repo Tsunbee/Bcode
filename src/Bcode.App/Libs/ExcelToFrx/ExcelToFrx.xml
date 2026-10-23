@@ -104,7 +104,14 @@
             </summary>
         </member>
         <member name="P:ExcelToFrx.ExcelToFrxOptions.RptGeneratorPath">
-            <summary>RptGenerator.exe (Excel → Crystal .rpt — cần Crystal runtime 32-bit). Rỗng = cùng thư mục với FrxGenerator.exe.</summary>
+            <summary>
+            RptGenerator (Excel → Crystal .rpt). Rỗng = tự chọn trong thư mục FrxGenerator.exe theo Crystal runtime có trên máy:
+            có runtime 32-bit → RptGenerator.exe (x86, như trước); chỉ có 64-bit → RptGenerator64.exe; không thấy runtime nào →
+            RptGenerator.exe (exe tự báo thiếu runtime nào, cài thế nào).
+            </summary>
+        </member>
+        <member name="M:ExcelToFrx.ExcelToFrxOptions.CrystalRuntimeInstalled(Microsoft.Win32.RegistryView)">
+            <summary>SAP Crystal Reports runtime cho .NET (13.0.x) theo bitness: khoá registry của bản đó trỏ tới thư mục engine có crpe32.dll.</summary>
         </member>
         <member name="T:ExcelToFrx.Hosting.ApiResponse">
             <summary>Trả lời của một request.</summary>
@@ -145,7 +152,8 @@
             <summary>Chữ tiếng Việt của tham số (từ report .xml) → params.json cho bản xem trước.</summary>
         </member>
         <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.GenerateRptAsync(System.Text.Json.Nodes.JsonObject,System.Text.Json.Nodes.JsonObject,System.Boolean,System.Threading.CancellationToken)">
-            <summary>Excel → Crystal .rpt: chạy RptGenerator.exe (net48 x86, Crystal RAS in-process) trên cùng layout.json với .frx.
+            <summary>Excel → Crystal .rpt: chạy RptGenerator.exe (net48 x86) hoặc RptGenerator64.exe (x64) theo Crystal runtime trên máy
+            (<see cref="M:ExcelToFrx.ExcelToFrxOptions.ResolveRptGenerator"/>), Crystal RAS in-process, trên cùng layout.json với .frx.
             Mẫu .frx / tham số chữ của .frx không áp cho .rpt; .xsd và Report.xml thì dùng chung.</summary>
         </member>
         <member name="T:ExcelToFrx.Parsing.CellSyntax">

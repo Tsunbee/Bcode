@@ -584,7 +584,7 @@ Mở: nút **File Lookup** (`Ctrl+Shift+F`), hoặc double-click một menu tron
 ### Thanh công cụ
 
 1. **Path:** + **Load** — quét lại thư mục (xoá cache phân tích).
-2. Chọn loại file (`.*`, `.f`, `.xml`, `.aspx`, `.xlsx`, `.rpt`) · **Only Show {đuôi}** · **SearchBox ▾** (mở khung tìm nội dung) · ô **Search...** (lọc tên file khi gõ, tìm trong cả thư mục Path; `Enter` = lọc ngay). Đang xem cây của 1 menu mà gõ Search thì tìm cả thư mục; xoá trắng ô Search → quay lại cây của menu vừa xem.
+2. Chọn loại file (`.*`, `.f`, `.xml`, `.aspx`, `.xlsx`, `.rpt`) · **Only Show {đuôi}** · **SearchBox ▾** (mở khung tìm nội dung) · ô **Search...** (lọc tên file khi gõ, tìm trong cả thư mục Path; `Enter` = lọc ngay). Đang xem cây của 1 menu mà gõ Search thì tìm cả thư mục; xoá trắng ô Search → quay lại cây của menu vừa xem. Gõ đúng tên trang menu `.aspx` (vd `arcthd1.aspx`) thì cây hiện **toàn bộ file của menu dùng trang đó** (Main, Dir, Filter, Grid, Lookup, Report, Templates…) — y như bấm menu đó trên cây WCommand; thanh trạng thái ghi tên menu (nhiều menu cùng trang thì lấy menu đầu, ghi "+N menu khác"). Trang không có menu nào trên cây WCommand thì vẫn lọc tên file như thường.
 3. **Copy to... (n)** · **Tick tất cả** · **Bỏ tick** · **Cấp source**.
 
 ### Các bước dùng

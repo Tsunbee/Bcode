@@ -55,6 +55,7 @@ public partial class FileLookupControl : UserControl
     private bool _menuBeforeSearch;
     private string _menuLink = "";
     private string _menuSysId = "";
+    private string? _menuNote;
 
    
     public string ProjectName { get; set; } = "";
@@ -320,6 +321,7 @@ public partial class FileLookupControl : UserControl
                         break;
                     case "search":
                         _searchText = root.GetProperty("value").GetString() ?? "";
+                        if (TryShowMenuForPage(_searchText)) break;
                         // Gõ chữ: tìm cả thư mục như cũ (nhớ là vừa ở cây menu); xoá trắng: trả lại cây menu vừa xem.
                         if (!string.IsNullOrWhiteSpace(_searchText)) { _menuBeforeSearch |= _menuMode; _menuMode = false; }
                         else if (_menuBeforeSearch) { _menuMode = true; _menuBeforeSearch = false; }
@@ -432,12 +434,28 @@ public partial class FileLookupControl : UserControl
     public void CloneViewFrom(FileLookupControl src)
     {
         // Ô đuôi / ô search của tab mới để mặc định (.* và trống) — chỉ nhân bản menu hoặc thư mục đang xem.
+        MenuForPage = src.MenuForPage;
         if (src._menuMode) ShowForMenuItem(src._pathText, src._menuLink, src._menuSysId);
         else SetRootPath(src._pathText, load: !string.IsNullOrWhiteSpace(src._pathText));
     }
 
-    public void ShowForMenuItem(string sourceRootPath, string link, string sysId)
+    /// <summary>Tra menu WCommand có Link là trang .aspx đã gõ ở ô Search (MainForm gắn; null = không tra): gốc source, menu khớp đầu tiên, số menu khớp.</summary>
+    public Func<string, (string SourceRoot, WCommandItem Menu, int Count)?>? MenuForPage { get; set; }
+
+    /// <summary>Ô Search là đúng tên 1 trang .aspx (vd arcthd1.aspx) có menu trên cây WCommand: hiện cây của menu đó y như bấm menu (như FCode), không lọc tên trong thư mục.</summary>
+    private bool TryShowMenuForPage(string text)
     {
+        var page = TableMenuService.PageOf(text);
+        if (!page.EndsWith(".aspx", StringComparison.OrdinalIgnoreCase) || MenuForPage?.Invoke(page) is not { } hit) return false;
+        ShowForMenuItem(hit.SourceRoot, hit.Menu.Link, hit.Menu.SysId,
+            $"menu {hit.Menu.Bar}" + (hit.Count > 1 ? $" (+{hit.Count - 1} menu khác cùng trang {page})" : ""));
+        return true;
+    }
+
+    /// <param name="note">Ghi chú thêm ở thanh trạng thái (tìm .aspx: menu nào đang hiện).</param>
+    public void ShowForMenuItem(string sourceRootPath, string link, string sysId, string? note = null)
+    {
+        _menuNote = note;
         // Reset to "show every file type for this menu" — the shared checkbox may still be
         // checked from a previous free-browse extension filter. That used to be harmless in
         // menu mode (onlyF was always false there), but now genuinely restricts results to
@@ -492,6 +510,7 @@ public partial class FileLookupControl : UserControl
         var extension = _extensionText;
         var search = string.IsNullOrWhiteSpace(_searchText) ? null : _searchText.Trim();
         var onlyShow = _onlyShowFilteredOn;
+        var menuNote = menuMode ? _menuNote : null;
 
         _statusLabel.Text = "Đang tải...";
         var sw = Stopwatch.StartNew();
@@ -545,6 +564,7 @@ public partial class FileLookupControl : UserControl
         _summaryHasIssues = problemFiles > 0;
         _summaryText = $"Kết quả {fileCount} file(s) — {sw.ElapsedMilliseconds} ms"
             + (problemFiles > 0 ? $" — ⚠ {problemFiles} file lỗi entity/include (tô đỏ, chọn file để xem chi tiết)" : "")
+            + (menuNote is not null ? $" — {menuNote}" : "")
             + (menuMode && _service.LastBuildNote is { } note ? $" — {note}" : "");
         SetStatus(_summaryText, _summaryHasIssues);
     }

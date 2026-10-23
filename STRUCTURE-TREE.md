@@ -25,7 +25,7 @@ Bcode.App/
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  233
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1367
+│   ├── FileLookupControl.cs  1387
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
@@ -151,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3701
+│   ├── MainForm.cs  3714
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374

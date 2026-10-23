@@ -1774,6 +1774,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
+        control.MenuForPage = MenuForLookupPage;
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         _fileLookupControl = control;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: autoLoad);
@@ -2963,8 +2964,20 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var label = !string.IsNullOrWhiteSpace(item.SysId) ? item.SysId : item.Bar;
         var control = CreateExtraLookupTab(ws, $"File Lookup · {label}");
+        control.MenuForPage = MenuForLookupPage;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: false);
         control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
+    }
+
+    /// <summary>Ô Search của File Lookup gõ "arcthd1.aspx": menu lá trên cây WCommand có Link trỏ đúng trang đó (ưu tiên menu có sysid) —
+    /// tab File Lookup dựng cây bằng đúng Link/SysId của menu như khi bấm menu. Không có menu nào thì null (ô Search lọc tên như cũ).</summary>
+    private (string SourceRoot, WCommandItem Menu, int Count)? MenuForLookupPage(string page)
+    {
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath)) return null;
+        var hits = _wcommandTree.FlatLeaves().Select(x => x.Item)
+            .Where(i => TableMenuService.PageOf(i.Link).Equals(page, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(i => string.IsNullOrWhiteSpace(i.SysId) ? 1 : 0).ToList();
+        return hits.Count == 0 ? null : (ws.SourcePath, hits[0], hits.Count);
     }
 
     /// <summary>Menu mobile (cây dvcommand): File Lookup theo sysid trong thư mục MobileService của project (Mobile Path, trống thì đoán cạnh Source Path).

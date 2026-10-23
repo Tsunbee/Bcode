@@ -53,6 +53,7 @@
     <input type="text" id="template" style="width:140px" />
     <button class="btn btn-pill btn-primary" id="btnRun">▶ Bung &amp; Đăng nhập</button>
     <button class="btn" id="btnClose" disabled>✕ Đóng Profiler</button>
+    <button class="btn btn-icon" id="btnHideBar" title="Ẩn thanh này cho Profiler rộng hơn — bấm &quot;▾ Hiện thanh Profiler&quot; ở dải trên cùng để hiện lại">▴</button>
   </div>
   <div class="row">
     <label class="lbl">User cần theo dõi (u_name):</label>
@@ -100,6 +101,7 @@
     action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template'), targetUser: val('targetUser'), uid: val('uidOut'), uidManual: uidManual
   }));
   document.getElementById('btnClose').addEventListener('click', () => post({ action: 'close' }));
+  document.getElementById('btnHideBar').addEventListener('click', () => post({ action: 'hide-bar' }));
   document.getElementById('btnLookup').addEventListener('click', () => post({ action: 'lookup-uid', targetUser: val('targetUser') }));
   // Ô u_id: người dùng tự sửa / xoá (uidManual) thì dùng đúng giá trị đó, trống = không lọc ID; chưa đụng tới thì C# tự tra theo tên user như cũ.
   // Tra u_id hoặc đổi tên user = quay về tự tra.

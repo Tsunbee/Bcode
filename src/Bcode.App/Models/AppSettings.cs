@@ -104,6 +104,8 @@ public class AppSettings
     [JsonPropertyName(nameof(ProfilerLoginPassword)), EditorBrowsable(EditorBrowsableState.Never)]
     public string ProfilerLoginPasswordStored { get => _profilerLoginPassword.Stored; set => _profilerLoginPassword.Stored = value; }
     public string ProfilerTemplateName { get; set; } = "";
+    /// <summary>Tab SQL Profiler: true = ẩn thanh 2 hàng phía trên (chỉ còn dải mỏng có nút "Hiện thanh") cho Profiler nhúng rộng hơn.</summary>
+    public bool ProfilerBarHidden { get; set; }
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
     public int FileLookupSplitterDistance { get; set; } = 0;

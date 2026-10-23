@@ -33,7 +33,8 @@ internal sealed class SqlProfilerBarPage : NativePage
         // 3 hàng thẳng cột (NK.GridRow: nhãn / nút vừa chữ, ô nhập chia phần còn lại) — trước đây là 1 FlowLayout tự xuống dòng nên nút / ô lộn xộn.
         var row1 = NK.GridRow(8,
             (Lbl("Profiler.exe"), 0), (_exe, 44), (NK.Button("…", () => Post(new { action = "browse" }), tip: "Chọn file..."), 0),
-            (Lbl("Login user"), 0), (_user, 14), (Lbl("Pass"), 0), (_pass, 12), (Lbl("Trace Template"), 0), (_template, 18));
+            (Lbl("Login user"), 0), (_user, 14), (Lbl("Pass"), 0), (_pass, 12), (Lbl("Trace Template"), 0), (_template, 18),
+            (NK.Button("▴", () => Post(new { action = "hide-bar" }), tip: "Ẩn thanh này cho Profiler rộng hơn — bấm \"▾ Hiện thanh Profiler\" ở dải trên cùng để hiện lại"), 0));
         var row2 = NK.GridRow(8,
             (Lbl("User theo dõi (u_name)"), 0), (_target, 16), (NK.Button("Tra u_id", Lookup), 0),
             (Lbl("→ u_id"), 0), (_uid, 12),

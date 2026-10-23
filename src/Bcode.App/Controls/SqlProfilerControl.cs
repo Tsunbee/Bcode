@@ -264,6 +264,13 @@ public class SqlProfilerControl : UserControl
     private bool BarReady => _barNative is not null || _barWeb.CoreWebView2 != null;
     private void BarExec(string js) { if (_barNative is not null) _barNative.Call(js); else if (_barWeb.CoreWebView2 != null) _ = _barWeb.CoreWebView2.ExecuteScriptAsync(js); }
 
+    // Thanh ẩn (AppSettings.ProfilerBarHidden): thay bằng dải mỏng này — dòng trạng thái + nút hiện lại thanh.
+    private readonly Panel _barStrip;
+    private readonly Label _stripStatus;
+    private readonly Label _stripShow;
+    private string _lastStatus = "Chưa chạy Profiler.";
+    private bool _running;
+
     private Process? _profilerProcess;
     private IntPtr _profilerHwnd = IntPtr.Zero;
 
@@ -282,17 +289,36 @@ public class SqlProfilerControl : UserControl
         _hostPanel = new Panel { Dock = DockStyle.Fill, BackColor = System.Drawing.Color.Black };
         _hostPanel.Resize += (_, _) => ResizeEmbeddedWindow();
 
+        _stripStatus = new Label { Dock = DockStyle.Fill, AutoSize = false, AutoEllipsis = true, TextAlign = System.Drawing.ContentAlignment.MiddleLeft, UseMnemonic = false, Padding = new Padding(6, 0, 0, 0), Text = _lastStatus };
+        _stripShow = new Label { Dock = DockStyle.Right, AutoSize = false, TextAlign = System.Drawing.ContentAlignment.MiddleCenter, UseMnemonic = false, Text = "▾ Hiện thanh Profiler", Cursor = Cursors.Hand };
+        _stripShow.Click += (_, _) => SetBarHidden(false);
+        _stripShow.MouseEnter += (_, _) => _stripShow.BackColor = Bcode.App.UI.AppColors.Selection;
+        _stripShow.MouseLeave += (_, _) => _stripShow.BackColor = Bcode.App.UI.AppColors.PanelAlt;
+        new ToolTip().SetToolTip(_stripShow, "Hiện lại thanh cấu hình Profiler (Profiler.exe, đăng nhập, Template, u_id, file trace...)");
+        _barStrip = new Panel { Dock = DockStyle.Top, Height = 22, Visible = false };
+        _barStrip.Controls.Add(_stripStatus);
+        _barStrip.Controls.Add(_stripShow);
+        ApplyStripTheme();
+
         Controls.Add(_hostPanel);
         if (Bcode.App.UI.UiMode.IsNative)
         {
             _barNative = new WebBarHost("sqlprofilerbar.html", 76) { Dock = DockStyle.Top };
             _barNative.Message += root => _ = HandleBarMessageAsync(root.Clone());
-            _barNative.Ready += () => { PushConfigToBar(); PushWorkspaceHintsToBar(); };
+            _barNative.Ready += () => { PushConfigToBar(); PushWorkspaceHintsToBar(); PushStateToBar(); };
             Controls.Add(_barNative);
         }
         else Controls.Add(_barWeb);
+        Controls.Add(_barStrip);
+        if (_settings.ProfilerBarHidden) { BarHost.Visible = false; _barStrip.Visible = true; }
+        HandleCreated += (_, _) =>
+        {
+            _barStrip.Height = Bcode.App.UI.DpiScale.Px(this, 24);
+            _stripShow.Width = TextRenderer.MeasureText(_stripShow.Text, _stripShow.Font).Width + Bcode.App.UI.DpiScale.Px(this, 16);
+        };
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBar;
+        Bcode.App.UI.ThemeManager.ThemeChanged += ApplyStripTheme;
         _connections.WorkspaceChanged += PushWorkspaceHintsToBar;
         _connections.WorkspaceChanged += PushConfigToBar;
         // Tháo Profiler khỏi host TRƯỚC khi handle bị huỷ (HandleDestroyed chạy trước khi huỷ control con).
@@ -305,6 +331,7 @@ public class SqlProfilerControl : UserControl
         Disposed += (_, _) =>
         {
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBar;
+            Bcode.App.UI.ThemeManager.ThemeChanged -= ApplyStripTheme;
             _connections.WorkspaceChanged -= PushWorkspaceHintsToBar;
             _connections.WorkspaceChanged -= PushConfigToBar;
             CloseProfiler();
@@ -330,6 +357,7 @@ public class SqlProfilerControl : UserControl
                 PushThemeToBar();
                 PushConfigToBar();
                 PushWorkspaceHintsToBar();
+                PushStateToBar();
             };
             _barWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqlprofilerbar.html"));
         }
@@ -361,6 +389,7 @@ public class SqlProfilerControl : UserControl
                     root.TryGetProperty("uidManual", out var um) && um.ValueKind == JsonValueKind.True);
                 break;
             case "close": CloseProfiler(); break;
+            case "hide-bar": SetBarHidden(true); break;
             case "uid-cleared": SetStatus("Đã xoá u_id — lần bung Profiler tới sẽ không lọc theo ID (ApplicationName), chỉ lọc theo Database."); break;
             case "lookup-uid": await LookupUidAsync(root.GetProperty("targetUser").GetString() ?? ""); break;
             case "copy":
@@ -512,9 +541,36 @@ public class SqlProfilerControl : UserControl
         var hint = ws is null ? "(chưa có Workspace)" : string.IsNullOrWhiteSpace(ws.ProjectId) ? "(Workspace chưa khai ID dự án)" : $"%{ws.ProjectId}%";
         BarExec($"window.setDbHint && window.setDbHint({JsonSerializer.Serialize(hint)})");
     }
-    private void SetStatus(string text) { BarExec($"window.setStatus && window.setStatus({JsonSerializer.Serialize(text)})"); }
+    private void SetStatus(string text)
+    {
+        _lastStatus = text;
+        _stripStatus.Text = text;
+        BarExec($"window.setStatus && window.setStatus({JsonSerializer.Serialize(text)})");
+    }
     private void SetUid(string text) { BarExec($"window.setUid && window.setUid({JsonSerializer.Serialize(text)})"); }
-    private void SetRunning(bool running) { BarExec($"window.setRunning && window.setRunning({(running ? "true" : "false")})"); }
+    private void SetRunning(bool running) { _running = running; BarExec($"window.setRunning && window.setRunning({(running ? "true" : "false")})"); }
+    // Thanh nạp xong muộn (đang ẩn lúc mở tab, hoặc trang web nạp lại): đặt lại trạng thái / nút Đóng đã đổi trong lúc chưa sẵn sàng.
+    private void PushStateToBar() { SetStatus(_lastStatus); SetRunning(_running); }
+
+    /// <summary>Ẩn / hiện thanh 2 hàng phía trên (nhớ vào settings.json). Ẩn thì còn dải mỏng: dòng trạng thái + nút "▾ Hiện thanh Profiler";
+    /// _hostPanel (Dock Fill) tự giãn → Resize → Profiler nhúng khít theo.</summary>
+    private void SetBarHidden(bool hidden)
+    {
+        if (_settings.ProfilerBarHidden != hidden) { _settings.ProfilerBarHidden = hidden; try { _settings.Save(); } catch { } }
+        SuspendLayout();
+        BarHost.Visible = !hidden;
+        _barStrip.Visible = hidden;
+        ResumeLayout(true);
+        if (!hidden) PushStateToBar();
+    }
+
+    private void ApplyStripTheme()
+    {
+        _barStrip.BackColor = Bcode.App.UI.AppColors.PanelAlt;
+        _stripStatus.ForeColor = Bcode.App.UI.AppColors.TextMuted;
+        _stripShow.ForeColor = Bcode.App.UI.AppColors.Accent;
+        _stripShow.BackColor = Bcode.App.UI.AppColors.PanelAlt;
+    }
 
     private void BrowseExe()
     {
@@ -1723,10 +1779,60 @@ public class SqlProfilerControl : UserControl
         SetParent(hwnd, _hostPanel.Handle);
         ShowWindow(hwnd, SW_SHOW);
         ResizeEmbeddedWindow();
+        StartMdiMaximize();
     }
     private void ResizeEmbeddedWindow()
     {
         if (_profilerHwnd == IntPtr.Zero) return;
         SetWindowPos(_profilerHwnd, IntPtr.Zero, 0, 0, _hostPanel.ClientSize.Width, _hostPanel.ClientSize.Height, SWP_NOZORDER | SWP_FRAMECHANGED);
+    }
+
+    // ---- Cửa sổ trace con (MDI child, vd "LOTHAMILK (172.168.5.14\SQL2008)") phóng to hết vùng làm việc của Profiler ----
+    // Profiler là khung MDI: trace mở ra là cửa sổ con cỡ mặc định nằm 1 góc, phần còn lại nền xám. Sau khi nhúng, dò định kỳ các cửa sổ con của
+    // MDICLIENT, mỗi cửa sổ MỚI thấy lần đầu thì gửi SC_MAXIMIZE (như bấm nút phóng to) — cửa sổ đã gặp thì để yên, người dùng tự thu nhỏ / xếp lại được.
+    // Đã maximize thì khi tab đổi cỡ, MDICLIENT tự giãn theo cửa sổ Profiler (ResizeEmbeddedWindow) và cửa sổ con giãn theo nó.
+    // PostMessage (không SendMessage): Profiler là tiến trình khác chung hàng đợi input, gửi đồng bộ lúc nó bận là UI Bcode chờ theo.
+    private const int WM_SYSCOMMAND = 0x0112;
+    private static readonly IntPtr SC_MAXIMIZE = (IntPtr)0xF030;
+    private const uint GW_HWNDNEXT = 2, GW_CHILD = 5;
+    [DllImport("user32.dll")] private static extern IntPtr GetWindow(IntPtr hWnd, uint uCmd);
+    [DllImport("user32.dll")] private static extern bool IsZoomed(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern bool IsWindow(IntPtr hWnd);
+
+    private readonly HashSet<IntPtr> _mdiSeen = new();
+    private System.Windows.Forms.Timer? _mdiTimer;
+
+    private void StartMdiMaximize()
+    {
+        if (_mdiTimer is null)
+        {
+            _mdiTimer = new System.Windows.Forms.Timer { Interval = 700 };
+            _mdiTimer.Tick += (_, _) => MaximizeNewMdiChildren();
+            Disposed += (_, _) => _mdiTimer.Dispose();
+        }
+        _mdiTimer.Start();
+        MaximizeNewMdiChildren();
+    }
+
+    private void MaximizeNewMdiChildren()
+    {
+        var hwnd = _profilerHwnd;
+        if (hwnd == IntPtr.Zero || !IsWindow(hwnd)) { _mdiTimer?.Stop(); _mdiSeen.Clear(); return; }
+        var mdiClient = IntPtr.Zero;
+        var cls = new StringBuilder(64);
+        EnumChildWindows(hwnd, (h, _) =>
+        {
+            cls.Clear();
+            GetClassName(h, cls, cls.Capacity);
+            if (!cls.ToString().Equals("MDICLIENT", StringComparison.OrdinalIgnoreCase)) return true;
+            mdiClient = h;
+            return false;
+        }, IntPtr.Zero);
+        if (mdiClient == IntPtr.Zero) return;
+        for (var child = GetWindow(mdiClient, GW_CHILD); child != IntPtr.Zero; child = GetWindow(child, GW_HWNDNEXT))
+        {
+            if (!IsWindowVisible(child) || !_mdiSeen.Add(child)) continue;
+            if (!IsZoomed(child)) PostMessage(child, WM_SYSCOMMAND, SC_MAXIMIZE, IntPtr.Zero);
+        }
     }
 }

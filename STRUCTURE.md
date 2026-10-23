@@ -8,7 +8,7 @@
 - Bcode.App (Bcode.exe) — bộ công cụ quản trị/triển khai ERP, bản dựng lại của FCode: SQL Query/Table/Command, WCommand, File Lookup, Gen Update, Advance Note, API LT3, tạo báo cáo, check LCTT/CĐKT, biên bản Word... Gần như mọi màn hình là một trang HTML trong WebView2 (Web/Shell/*.html), C# chỉ giữ dữ liệu và nghiệp vụ. Có 2 chế độ giao diện chọn lúc mở (--web / --native): Web (WebView2) và App (WinForms tự vẽ — NativePage / NK.* / Native*Control thay trang HTML, cùng giao thức action nên nghiệp vụ dùng chung).
 - BcodeViewer.App (BcodeViewer.exe) — trình soạn file controller FCode xây trên Monaco: IntelliSense nhiều lớp, F12/Peek entity, xem trước Dir/mail, chạy SQL, AI ghost text. Từ bản này cả menu/toolbar/cây file cũng vẽ trong trang (Web/shell.js) — WinForms chỉ còn là vỏ.
 - Bcode.ScreenDesigner (BcodeScreenDesigner.exe) — thiết kế/xem trước màn hình Dir có dữ liệu mẫu; Bcode mở từ menu "Triển khai" hoặc chuột phải cây WCommand. Bcode.KeyGen — công cụ riêng của người phát hành, cấp key bản quyền gắn theo máy. Bcode.ReportBuilder — thư viện (DLL) "Tạo báo cáo" Bcode tham chiếu.
-- Chia sẻ giữa các chương trình: (1) %AppData%\Bcode\settings.json (workspace, kết nối CSDL) do Bcode ghi, BcodeViewer/ScreenDesigner đọc; BcodePaths.cs là bản sao giống hệt ở mỗi app để chọn đúng thư mục ghi được. (2) Code link bằng <Compile Include> chứ không chép: Shared/AiWebHelper.cs (Bcode + Viewer), Shared/LicenseCodec.cs (Bcode + KeyGen), Host/IncludeTree.cs (Viewer + ScreenDesigner), Monaco/theme.js/fcode-language.js của Viewer (Bcode dùng cho preview File Lookup).
+- Chia sẻ giữa các chương trình: (1) %AppData%\Bcode\settings.json (workspace, kết nối CSDL) do Bcode ghi, BcodeViewer/ScreenDesigner đọc; BcodePaths.cs là bản sao giống hệt ở mỗi app để chọn đúng thư mục ghi được. (2) Code link bằng <Compile Include> chứ không chép: Shared/AiWebHelper.cs (Bcode + Viewer), Shared/LicenseCodec.cs (Bcode + KeyGen), Shared/DpapiText.cs (Bcode + Viewer: mật khẩu / API key trong settings.json mã hoá DPAPI), Host/IncludeTree.cs (Viewer + ScreenDesigner), Monaco/theme.js/fcode-language.js của Viewer (Bcode dùng cho preview File Lookup).
 - Liên lạc giữa tiến trình: Bcode → Viewer bằng Process.Start (file + tên project); Viewer → Bcode qua named pipe Bcode.Control.<session> bằng lệnh "sql|<b64 script>|<b64 tiêu đề>" ("Debug trong Bcode" mở tab SQL Query); Bcode còn xử lý lệnh "fsg|<file>|<project>" nhưng Viewer hiện KHÔNG gửi (F5 của Viewer mở trình duyệt qua Host/MenuLauncher) — Services/ViewerControlServer.cs; Bcode → ScreenDesigner bằng Process.Start --source --project --controller; Viewer chạy 1 bản mỗi phiên Windows (Mutex + pipe BcodeViewer.SingleInstance.<session>).
 
 ## Projects
@@ -19,7 +19,7 @@
 - `src/Bcode.ScreenDesigner` → BcodeScreenDesigner.exe (WinExe): DesignerBridge + Web/designer.*; dùng lại dirpreview.js/entity.js của Viewer
 - `src/Bcode.ReportBuilder` → Bcode.ReportBuilder.dll (Library (ConfuserEx khi Release)): Module "Tạo báo cáo" kiểu Power BI; build tự chép vào Bcode.App/Libs; extern alias "rb"
 - `src/Bcode.KeyGen` → Bcode.KeyGen.exe (WinExe): Cấp key bản quyền theo máy (chỉ người phát hành)
-- `src/Shared` → (file link) (—): AiWebHelper.cs (nhúng claude.ai/gemini), LicenseCodec.cs (bcrypt(SHA256(key|máy|IP)))
+- `src/Shared` → (file link) (—): AiWebHelper.cs (nhúng claude.ai/gemini), LicenseCodec.cs (bcrypt(SHA256(key|máy|IP))), DpapiText.cs (DpapiText + ProtectedText: mã hoá DPAPI trường bí mật khi ghi JSON)
 - `tools/lt3-api-docs` → (node) (fetch.mjs + convert.mjs): Tải tài liệu API chuẩn LT3 → Templates/Api/lt3-standard.json
 
 ## Bcode.App — tính năng → file
@@ -168,7 +168,7 @@
 
 ## Dữ liệu cục bộ
 
-- `%AppData%\Bcode\settings.json` (Bcode): AppSettings: workspace, kết nối, đường dẫn, UiScale, FileLookupCacheMode, tool order/nhóm... Viewer + Designer đọc.
+- `%AppData%\Bcode\settings.json` (Bcode): AppSettings: workspace, kết nối, đường dẫn, UiScale, FileLookupCacheMode, tool order/nhóm... Viewer + Designer đọc. Password / WebLoginPassword / ProfilerLoginPassword / API key ghi dạng "dpapi:<base64>" (ProtectedText, tên JSON giữ nguyên; chuỗi cũ chữ thường vẫn đọc được, lần ghi sau tự mã hoá) — chép sang máy / tài khoản khác thì Workspace.PasswordUnreadable, thanh trạng thái báo nhập lại.
 - `…\viewer-*.json, viewer-hints.json, viewer-recent-files.json, viewer-theme(s)` (Viewer): ViewerSettings, Hint Code, file gần đây, theme (cũng có thư mục viewer-themes, hint-cache, history); viewer-translate-dict.json = Từ điển dịch Việt → Anh.
 - `…\FileLookupCache\<dự án>.json, file-index, menu-cache, def-cache, sql-objects, source-index` (Bcode): Cache phân tích file/menu/object (xoá được).
 - `…\sql-definitions\<hash>.gz` (Bcode): SqlDefinitionIndex: định nghĩa procedure/function/view/trigger theo (server, database) cho Lookup tìm chữ trong procedure (xoá được, tự dựng lại).
@@ -199,6 +199,7 @@
 
 ## Bẫy & ghi chú
 
+- Bí mật (tài khoản DAC của Decrypt SQL Object, kết nối FSG_A, mật khẩu mặc định server nội bộ / Profiler, khoá RSA mẫu của Setup eInvoice) KHÔNG nằm trong source: ở src/Bcode.App/Secrets/LocalSecrets.cs (gitignore, mỗi máy build tự chép vào). Không có file thì csproj build bản rỗng LocalSecrets.Empty.cs — tính năng đó báo "build thiếu file bí mật" (DecryptSqlSecret.Available, FsgProjectLookupService.Available, EInvoiceSetupService.MissingKeysError). Thêm bí mật mới: thêm hằng vào CẢ HAI file, đừng ghi cứng vào code (repo GitHub có lúc để public). Xem Secrets/README.md.
 - Bash tool làm mất dấu \ — script có đường dẫn Windows phải ghi bằng Write (memory bash-backslash-gotcha).
 - WebFrameHost (gộp nhiều trang vào 1 WebView2): khung được đánh dấu sẵn sàng (__frame-ready) lúc iframe load xong — với trang có Monaco (nạp bằng script động) việc này đến SAU tin "editor-ready" của chính trang; EdExec lúc đó rơi im lặng. RawSqlControl hoãn editor-ready tới _edPage.Ready (từng làm tab SQL mở object lần đầu trống nội dung khi bật MergeSqlBarEditor). Trang mới đặt trong WebFrameHost phải chờ khung sẵn sàng trước khi gửi lệnh.
 - BcodeViewer KHÔNG nhận BCODE_DATA_DIR (BcodePaths.cs của Viewer chưa đồng bộ với Bcode) — chạy thử Viewer là ghi thẳng vào %AppData%\Bcode\viewer-*.json thật: sao lưu trước. Chạy 1 bản mỗi phiên Windows; đo / điều khiển trang bằng WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9333 + CDP (Runtime.evaluate).

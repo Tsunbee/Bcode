@@ -131,6 +131,12 @@ public class SetupEInvoiceForm : ThemedForm
         var user = _usernameBox.Text.Trim();
         var portalKey = _portalKeyBox.Text.Trim();
         var isHsm = _hsmCheck.Checked;
+        if (EInvoiceSetupService.MissingKeysError is { } missingKeys)
+        {
+            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
+            _resultBox.Text = missingKeys;
+            return;
+        }
 
         // Nội dung script được thay thế biến động từ UI, giữ nguyên các RSA key tĩnh từ template mẫu của bạn
         var script = BuildProxyScript(prj, unit, client, portalLink, user, prod, proxy, portalKey)
@@ -179,6 +185,12 @@ public class SetupEInvoiceForm : ThemedForm
         {
             _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
             _resultBox.Text = "Error: please input fields";
+            return;
+        }
+        if (EInvoiceSetupService.MissingKeysError is { } missingKeys)
+        {
+            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
+            _resultBox.Text = missingKeys;
             return;
         }
 

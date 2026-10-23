@@ -33,6 +33,8 @@
     <Compile Include="..\Shared\AiWebHelper.cs" Link="Shared\AiWebHelper.cs" />
     <!-- Công thức tạo/kiểm tra mã bản quyền gắn máy — dùng chung với công cụ cấp mã Bcode.KeyGen. -->
     <Compile Include="..\Shared\LicenseCodec.cs" Link="Shared\LicenseCodec.cs" />
+    <!-- Mã hoá DPAPI mật khẩu / API key khi ghi settings.json — dùng chung với BcodeViewer.App (Viewer đọc chung settings.json). -->
+    <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
     <PackageReference Include="Scintilla.NET" Version="5.3.2.9" />
   </ItemGroup>
   <ItemGroup>
@@ -69,6 +71,11 @@
     <Content Include="..\..\docs\images\**" LinkBase="Help\images">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <!-- Bí mật (tài khoản DAC, FSG_A, khoá eInvoice): Secrets\LocalSecrets.cs nằm trong .gitignore, mỗi máy build tự chép vào. Có file thì bỏ
+       bản rỗng LocalSecrets.Empty.cs (cùng tên lớp); không có thì build bằng bản rỗng — các tính năng cần bí mật tự báo thiếu. Xem Secrets\README.md. -->
+  <ItemGroup Condition="Exists('Secrets\LocalSecrets.cs')">
+    <Compile Remove="Secrets\LocalSecrets.Empty.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Embedded so UI/AppIcons.cs can load them at runtime via

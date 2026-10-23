@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Bcode.Shared;
 
 namespace BcodeViewer.App.Settings;
 
@@ -9,10 +11,15 @@ namespace BcodeViewer.App.Settings;
 /// </summary>
 public class ViewerSettings
 {
-    public string AnthropicApiKey { get; set; } = "";
+    // API key / mật khẩu: trong bộ nhớ là chữ thường, ghi viewer-settings.json bằng DPAPI (Shared/DpapiText.cs; tên JSON giữ nguyên — file cũ đọc được).
+    private readonly ProtectedText _anthropicApiKey = new(), _geminiApiKey = new(), _fcodeSqlPassword = new();
+
+    [JsonIgnore] public string AnthropicApiKey { get => _anthropicApiKey.Plain; set => _anthropicApiKey.Plain = value; }
+    [JsonPropertyName(nameof(AnthropicApiKey))] public string AnthropicApiKeyStored { get => _anthropicApiKey.Stored; set => _anthropicApiKey.Stored = value; }
     public string Model { get; set; } = "claude-sonnet-5";
     
-    public string GeminiApiKey { get; set; } = "";
+    [JsonIgnore] public string GeminiApiKey { get => _geminiApiKey.Plain; set => _geminiApiKey.Plain = value; }
+    [JsonPropertyName(nameof(GeminiApiKey))] public string GeminiApiKeyStored { get => _geminiApiKey.Stored; set => _geminiApiKey.Stored = value; }
     /// <summary>Engine dùng cho gợi ý AI khi gõ (ghost text): "claude" (mặc định) hoặc "gemini".
     /// Chat panel và Ctrl+I không đổi theo mục này — luôn dùng Claude.</summary>
     public string CompletionEngine { get; set; } = "claude";
@@ -80,7 +87,8 @@ public class ViewerSettings
 
     /// <summary>Mật khẩu SQL đi kèm <see cref="FcodeConfigXmlPath"/>: password trong Config.xml bị
     /// FCode mã hoá nên không tự đọc được.</summary>
-    public string FcodeSqlPassword { get; set; } = "";
+    [JsonIgnore] public string FcodeSqlPassword { get => _fcodeSqlPassword.Plain; set => _fcodeSqlPassword.Plain = value; }
+    [JsonPropertyName(nameof(FcodeSqlPassword))] public string FcodeSqlPasswordStored { get => _fcodeSqlPassword.Stored; set => _fcodeSqlPassword.Stored = value; }
 
     /// <summary>
     /// Names of the XML elements whose content is SQL, comma-separated ("sql,query,select").

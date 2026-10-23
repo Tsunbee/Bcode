@@ -294,7 +294,13 @@ internal static class WorkspaceConnection
         public string Server { get; set; } = "";
         public bool IntegratedSecurity { get; set; } = true;
         public string User { get; set; } = "";
-        public string Password { get; set; } = "";
+
+        /// <summary>Bcode ghi mật khẩu bằng DPAPI (<see cref="Bcode.Shared.ProtectedText"/>, tên JSON vẫn là "Password") — cùng tài khoản Windows nên
+        /// giải được; chuỗi cũ dạng chữ thường đọc nguyên. Viewer không ghi settings.json.</summary>
+        private readonly Bcode.Shared.ProtectedText _password = new();
+        [System.Text.Json.Serialization.JsonIgnore] public string Password { get => _password.Plain; set => _password.Plain = value; }
+        [System.Text.Json.Serialization.JsonPropertyName(nameof(Password))]
+        public string PasswordStored { get => _password.Stored; set => _password.Stored = value; }
         public string AppDatabase { get; set; } = "";
 
         /// <summary>"Source Path" in Bcode.App's Edit Project dialog — the web source root

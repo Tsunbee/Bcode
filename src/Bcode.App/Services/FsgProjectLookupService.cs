@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Bcode.App.Models;
+using Bcode.App.Secrets;
 using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Services;
@@ -17,19 +18,19 @@ namespace Bcode.App.Services;
 /// Cập nhật chỉ ghi đè bằng những giá trị FSG có (không rỗng); các thứ FSG không có — Mobile Path, tài khoản web đã lưu, cấu hình
 /// Profiler — luôn được giữ nguyên. Tên WS của project đã có cũng giữ nguyên (Last Access / LastWorkspace tham chiếu theo tên).
 ///
-/// BẢO MẬT — đọc kỹ trước khi dựa vào: thông tin kết nối FSG_A không nằm dạng chữ thường trong source mà được mã hoá AES-256-GCM
-/// bằng khoá cố định (hard-code bên dưới) rồi giải mã lúc chạy. Đây là LÀM RỐI (ai có file .exe/source đều lấy lại được khoá và
-/// mật khẩu), chỉ tránh việc lộ mật khẩu khi lướt source/git hoặc grep — KHÔNG phải bảo vệ thật. Tài khoản FASTAD nên chỉ có quyền
+/// BẢO MẬT — đọc kỹ trước khi dựa vào: thông tin kết nối FSG_A (đã mã hoá AES-256-GCM) cùng khoá giải nằm ở Secrets/LocalSecrets.cs —
+/// file gitignore, mỗi máy build tự chép vào, nên không còn trong source/git. Trong .exe đã build thì vẫn LÀM RỐI (ai có file .exe đều lấy
+/// lại được khoá và mật khẩu) — KHÔNG phải bảo vệ thật. Tài khoản FASTAD nên chỉ có quyền
 /// SELECT trên FSG_A; muốn an toàn thật cần đưa bí mật ra khỏi máy client (vd dịch vụ trung gian hoặc DPAPI theo từng người dùng).
 /// </summary>
 public sealed class FsgProjectLookupService
 {
     // ---- Khoá + dữ liệu mã hoá (AES-256-GCM; khoá = SHA-256 của chuỗi dưới; blob = nonce 12B | tag 16B | ciphertext, base64) ----
-    private const string KeyPassphrase = "Q5xyatEtaBVq5JxnfBDKE0RYQiDGvNCx";
-    private const string EncServer = "YpH0yzSQlchloWXdPUfX0O856NJbHXkRJDtJLOYfotAeJfvTsl1l9FfZkxBKloFSfuE=";
-    private const string EncDatabase = "X6bXLHstcWOCpnNEX5KFKPD+tY8p6HHLJO/TnHxZp/tW";
-    private const string EncUser = "oW9B9le6jjLyqtIujXP8s9WCrJO5gfAMoI/U6uW53nsC3A==";
-    private const string EncPassword = "t4Rl6SC5P/LUPQJzMwoPBuSrioF5dOvT+lvFP6AkfLLG3NFOMY3ZVM6tDw==";
+    private static string KeyPassphrase => LocalSecrets.FsgKeyPassphrase;
+    private static string EncServer => LocalSecrets.FsgEncServer;
+    private static string EncDatabase => LocalSecrets.FsgEncDatabase;
+    private static string EncUser => LocalSecrets.FsgEncUser;
+    private static string EncPassword => LocalSecrets.FsgEncPassword;
 
     public enum SyncMode { AddOne, NewOnly, OverwriteAll }
 
@@ -64,8 +65,8 @@ FROM nbdmda a
 JOIN nbdmserver b ON a.server = b.ma_server
 WHERE a.ma_pbsp <> '';
 
-UPDATE #data SET xpass = 'fsd' WHERE ten_server LIKE '%172.168.5.14%';
-UPDATE #data SET xpass = 'fts' WHERE xuser LIKE '%LTUD1%';
+UPDATE #data SET xpass = @pw_lan WHERE @pw_lan IS NOT NULL AND ten_server LIKE '%172.168.5.14%';
+UPDATE #data SET xpass = @pw_ltud1 WHERE @pw_ltud1 IS NOT NULL AND xuser LIKE '%LTUD1%';
 
 SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
 
@@ -114,7 +115,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         catch (Exception ex)
         {
             _ = ex; // không đưa chi tiết lỗi (có thể chứa tên server/database nội bộ) ra giao diện
-            result.Error = "Không đồng bộ được — kiểm tra kết nối mạng hoặc quyền rồi thử lại.";
+            result.Error = Available ? "Không đồng bộ được — kiểm tra kết nối mạng hoặc quyền rồi thử lại." : MissingSecretMessage;
             return result;
         }
 
@@ -185,7 +186,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         catch
         {
             // Chi tiết lỗi SQL có thể chứa tên server/đối tượng nội bộ → chỉ báo chung.
-            return (false, "Không tạo được menu — kiểm tra kết nối mạng hoặc quyền rồi thử lại.");
+            return (false, Available ? "Không tạo được menu — kiểm tra kết nối mạng hoặc quyền rồi thử lại." : MissingSecretMessage);
         }
     }
 
@@ -271,7 +272,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         }
         catch
         {
-            return (new(), "Không đồng bộ được yêu cầu — kiểm tra kết nối mạng hoặc quyền rồi thử lại.");
+            return (new(), Available ? "Không đồng bộ được yêu cầu — kiểm tra kết nối mạng hoặc quyền rồi thử lại." : MissingSecretMessage);
         }
     }
 
@@ -381,6 +382,9 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
         await conn.OpenAsync();
         await using var cmd = new SqlCommand(Sql, conn) { CommandTimeout = 60 };
         cmd.Parameters.AddWithValue("@ma_da", (object?)maDa ?? DBNull.Value);
+        // Mật khẩu mặc định thay cho xpass của các server nội bộ — ở Secrets/LocalSecrets.cs; rỗng (NULL) = giữ xpass của FSG.
+        cmd.Parameters.Add("@pw_lan", System.Data.SqlDbType.NVarChar, 200).Value = LocalSecrets.FsgDefaultPassLan is { Length: > 0 } lan ? lan : DBNull.Value;
+        cmd.Parameters.Add("@pw_ltud1", System.Data.SqlDbType.NVarChar, 200).Value = LocalSecrets.FsgDefaultPassLtud1 is { Length: > 0 } lt ? lt : DBNull.Value;
 
         var rows = new List<FsgRow>();
         await using var r = await cmd.ExecuteReaderAsync();
@@ -393,8 +397,15 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
         return rows;
     }
 
+    /// <summary>false = bản build không có Secrets/LocalSecrets.cs (máy chưa chép file bí mật) → không có thông tin kết nối FSG_A.</summary>
+    public static bool Available => LocalSecrets.FsgEncServer.Length > 0;
+
+    public const string MissingSecretMessage =
+        "Bản Bcode này build thiếu file bí mật Secrets\\LocalSecrets.cs nên không có thông tin kết nối FSG — chép file đó vào src\\Bcode.App\\Secrets rồi build lại.";
+
     private static string BuildConnectionString()
     {
+        if (!Available) throw new InvalidOperationException(MissingSecretMessage);
         return new SqlConnectionStringBuilder
         {
             DataSource = Decrypt(EncServer),

@@ -1,4 +1,7 @@
+using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Bcode.Shared;
 
 namespace Bcode.App.Models;
 
@@ -95,7 +98,11 @@ public class AppSettings
     public string VSAppPath { get; set; } = "";
     public string SqlProfilerPath { get; set; } = @"C:\Program Files (x86)\Microsoft SQL Server Management Studio 20\Common7\Profiler.exe";
     public string ProfilerLoginUser { get; set; } = "profile";
-    public string ProfilerLoginPassword { get; set; } = "fsd";
+    // Mật khẩu / API key: trong bộ nhớ là chữ thường, ghi settings.json bằng DPAPI (ProtectedText, tên trong JSON giữ nguyên — bản cũ vẫn đọc được).
+    private readonly ProtectedText _profilerLoginPassword = new() { Plain = Bcode.App.Secrets.LocalSecrets.ProfilerDefaultPassword };
+    [JsonIgnore] public string ProfilerLoginPassword { get => _profilerLoginPassword.Plain; set => _profilerLoginPassword.Plain = value; }
+    [JsonPropertyName(nameof(ProfilerLoginPassword)), EditorBrowsable(EditorBrowsableState.Never)]
+    public string ProfilerLoginPasswordStored { get => _profilerLoginPassword.Stored; set => _profilerLoginPassword.Stored = value; }
     public string ProfilerTemplateName { get; set; } = "";
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
@@ -164,14 +171,20 @@ public class AppSettings
     /// <summary>
     /// API Key của Google Gemini để gợi ý code inline
     /// </summary>
-    public string GeminiApiKey { get; set; } = "";
+    [JsonIgnore] public string GeminiApiKey { get => _geminiApiKey.Plain; set => _geminiApiKey.Plain = value; }
+    private readonly ProtectedText _geminiApiKey = new();
+    [JsonPropertyName(nameof(GeminiApiKey)), EditorBrowsable(EditorBrowsableState.Never)]
+    public string GeminiApiKeyStored { get => _geminiApiKey.Stored; set => _geminiApiKey.Stored = value; }
 
     /// <summary>"AI tạo danh mục": tiền tố tên bảng danh mục MỚI do Bcode / AI đề xuất (mặc định "zdm" để dễ phân biệt với bảng dm* chuẩn của Fast).
     /// Bảng chi tiết = tên bảng + "ct". Sửa trong settings.json nếu dự án dùng tiền tố khác.</summary>
     public string NewCatalogTablePrefix { get; set; } = "zdm";
 
     /// <summary>API Key của Anthropic (Claude) — dùng cho gợi ý code SQL inline khi <see cref="CopilotEngine"/> = "claude".</summary>
-    public string AnthropicApiKey { get; set; } = "";
+    [JsonIgnore] public string AnthropicApiKey { get => _anthropicApiKey.Plain; set => _anthropicApiKey.Plain = value; }
+    private readonly ProtectedText _anthropicApiKey = new();
+    [JsonPropertyName(nameof(AnthropicApiKey)), EditorBrowsable(EditorBrowsableState.Never)]
+    public string AnthropicApiKeyStored { get => _anthropicApiKey.Stored; set => _anthropicApiKey.Stored = value; }
 
     /// <summary>Model Claude cho gợi ý inline. Mặc định Haiku: gợi ý phải về kịp trước khi gõ tiếp nên cần nhanh và rẻ.</summary>
     public string ClaudeModel { get; set; } = "claude-haiku-4-5-20251001";

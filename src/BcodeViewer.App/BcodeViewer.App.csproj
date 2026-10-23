@@ -24,6 +24,8 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
     <!-- Code nhúng claude.ai / gemini.google.com dùng chung với Bcode.App (xem Shared/AiWebHelper.cs) — link, không chép. -->
     <Compile Include="..\Shared\AiWebHelper.cs" Link="Shared\AiWebHelper.cs" />
+    <!-- Giải mật khẩu DPAPI trong settings.json của Bcode + mã hoá key / mật khẩu của viewer-settings.json — dùng chung với Bcode.App. -->
+    <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
     <!-- SQL IntelliSense only (table/column names — see Host/SqlSchemaService). BcodeViewer
          reuses the workspace Bcode.App already stores in %AppData%\Bcode\settings.json
          rather than referencing Bcode.App, which would drag its whole WinForms/ClosedXML

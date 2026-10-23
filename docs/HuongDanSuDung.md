@@ -86,6 +86,8 @@ Bcode có 2 chế độ, chọn lúc mở chương trình (hộp "Bcode — ch�
 
 Mỗi dự án (workspace) gồm: kết nối SQL Server, 2 database **Sys Data** và **App Data**, các đường dẫn (Source Path, Program Path, Mobile Path, Working Path) và link web đăng nhập (Login WLink). Danh sách lưu ở `%AppData%\Bcode\settings.json` — BcodeViewer và Screen Designer đọc chung.
 
+Mật khẩu SQL, mật khẩu web và API key trong file này được **mã hoá theo tài khoản Windows**: chỉ đúng tài khoản đó trên máy này đọc được. Chép `settings.json` sang máy (hoặc tài khoản) khác thì danh sách dự án vẫn dùng được, nhưng mật khẩu phải nhập lại ở **Edit** hoặc đồng bộ lại bằng `Ctrl+F5`. Thanh trạng thái có báo "⚠ Mật khẩu đã lưu được mã hoá trên máy / tài khoản Windows khác" khi chọn dự án gặp trường hợp này.
+
 ### Màn hình Projects
 
 ![Màn hình Projects (đã lọc "Bee")](images/bcode-projects.png)
@@ -1327,7 +1329,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 
 | Đường dẫn | Của | Nội dung |
 |---|---|---|
-| `%AppData%\Bcode\settings.json` | Bcode (Viewer đọc) | Danh sách dự án, kết nối, đường dẫn, thứ tự / nhóm công cụ |
+| `%AppData%\Bcode\settings.json` | Bcode (Viewer đọc) | Danh sách dự án, kết nối (mật khẩu / API key mã hoá theo tài khoản Windows), đường dẫn, thứ tự / nhóm công cụ |
 | `%AppData%\Bcode\ui-template.json`, `ui\` | Bcode | Template giao diện, phím tắt đã đổi, CSS / HTML tuỳ chỉnh |
 | `%AppData%\Bcode\session\` | Bcode | Phiên làm việc (tab đang mở) |
 | `%AppData%\Bcode\query-history\`, `sql-history\` | Bcode | Lịch sử SQL, lịch sử sửa object |

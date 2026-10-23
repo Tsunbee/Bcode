@@ -655,7 +655,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ws.ActiveAppDatabaseOverride = null; // và về App Data gốc (bỏ database phụ đã chọn từ DB Access)
         PushWorkspacesToTopBar();
         PushDbNamesToTopBar(ws);
-        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
+        // Mật khẩu mã hoá DPAPI bằng tài khoản / máy khác (settings.json chép sang) → báo ngay, khỏi phải đoán lỗi "Login failed".
+        var pwNote = ws.PasswordUnreadable ? "  |  ⚠ Mật khẩu đã lưu được mã hoá trên máy / tài khoản Windows khác — nhập lại ở Edit Project hoặc Ctrl+F5 đồng bộ lại" : "";
+        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN{pwNote}");
 
         var swSwitch = System.Diagnostics.Stopwatch.StartNew();
         var syncBefore = swSwitch.ElapsedMilliseconds;

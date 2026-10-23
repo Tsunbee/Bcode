@@ -1,3 +1,7 @@
+using System.ComponentModel;
+using System.Text.Json.Serialization;
+using Bcode.Shared;
+
 namespace Bcode.App.Models;
 
 /// <summary>
@@ -13,7 +17,17 @@ public class Workspace
     public string Server { get; set; } = "";
     public bool IntegratedSecurity { get; set; } = true;
     public string User { get; set; } = "";
-    public string Password { get; set; } = "";
+
+    // Mật khẩu: trong bộ nhớ là chữ thường, ghi settings.json bằng DPAPI (chỉ tài khoản Windows này trên máy này giải được — xem Shared/DpapiText.cs).
+    // Tên trong JSON giữ nguyên "Password": file cũ (chữ thường) đọc được và lần ghi sau tự mã hoá; BcodeViewer đọc cùng cách (WorkspaceConnection).
+    private readonly ProtectedText _password = new();
+    [JsonIgnore] public string Password { get => _password.Plain; set => _password.Plain = value; }
+    [JsonPropertyName(nameof(Password)), EditorBrowsable(EditorBrowsableState.Never)]
+    public string PasswordStored { get => _password.Stored; set => _password.Stored = value; }
+
+    /// <summary>true = mật khẩu đã lưu được mã hoá bằng tài khoản Windows / máy khác (settings.json chép từ nơi khác) — phải nhập lại
+    /// (Edit Project) hoặc đồng bộ lại từ FSG (Ctrl+F5).</summary>
+    [JsonIgnore] public bool PasswordUnreadable => _password.Unreadable || _webLoginPassword.Unreadable;
 
     /// <summary>System/shared database (menu, users, wcommand...) — "Sys Data" in FastBusiness.</summary>
     public string SysDatabase { get; set; } = "";
@@ -47,7 +61,10 @@ public class Workspace
     public string ProfilerTargetUser { get; set; } = "";
     public string ProfilerTemplateName { get; set; } = "";
     public string WebLoginUser { get; set; } = "";
-    public string WebLoginPassword { get; set; } = "";
+    private readonly ProtectedText _webLoginPassword = new();
+    [JsonIgnore] public string WebLoginPassword { get => _webLoginPassword.Plain; set => _webLoginPassword.Plain = value; }
+    [JsonPropertyName(nameof(WebLoginPassword)), EditorBrowsable(EditorBrowsableState.Never)]
+    public string WebLoginPasswordStored { get => _webLoginPassword.Stored; set => _webLoginPassword.Stored = value; }
 
     /// <summary>Mã phiên bản sản phẩm của dự án (cột ma_pbsp của bảng nbdmda ở FSG, tự điền khi đồng bộ — sửa tay được). Dùng để chọn thư mục
     /// phiên bản trong kho source khi "Cấp source".</summary>

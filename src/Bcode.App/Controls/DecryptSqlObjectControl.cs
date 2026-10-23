@@ -65,6 +65,9 @@ public class DecryptSqlObjectControl : UserControl
         var server = (conn.GetProperty("server").GetString() ?? "").Trim();
         if (server.Length == 0) throw new InvalidOperationException("Chưa nhập Server\\Instance.");
         var reg = DecryptSqlCredentialStore.Load();
+        if (reg is null && !DecryptSqlSecret.Available)
+            throw new InvalidOperationException("Bản Bcode này build thiếu file bí mật Secrets\\LocalSecrets.cs nên không có tài khoản DAC mặc định — "
+                + "chép file đó vào src\\Bcode.App\\Secrets rồi build lại, hoặc khai báo tài khoản sysadmin trong registry HKCU\\SOFTWARE\\Bcode\\DecryptSql.");
         return new Engine.SqlObjectDecryptor(new Engine.SqlConnectionInfo
         {
             InstanceName = server,

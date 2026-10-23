@@ -20,6 +20,10 @@ publish/
 # not inside the repo, but excluded here in case it's ever copied in)
 settings.json
 
+# Bí mật của Bcode (tài khoản DAC, FSG_A, khoá eInvoice...) — mỗi máy build tự chép file này vào, KHÔNG commit.
+# Thiếu file thì build dùng bản rỗng Secrets/LocalSecrets.Empty.cs (các tính năng cần bí mật báo thiếu). Xem Secrets/README.md.
+src/Bcode.App/Secrets/LocalSecrets.cs
+
 # Công cụ cấp key bản quyền — chỉ người phát hành giữ, không đẩy lên git
 src/Bcode.KeyGen/
 # (KeyGen nay nằm ngoài repo ở D:\Bee\Tool\Bcode.KeyGen; các dòng dưới phòng khi lỡ chép vào repo ở bất kỳ chỗ nào)

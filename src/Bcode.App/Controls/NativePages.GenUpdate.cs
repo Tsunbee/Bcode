@@ -47,7 +47,7 @@ internal sealed class GenUpdatePage : NativePage
         var c2 = new CardPanel("Gen nhanh Store (Procedure)") { Dock = DockStyle.Top };
         _storeName.Inner.AutoCompleteMode = AutoCompleteMode.SuggestAppend; _storeName.Inner.AutoCompleteSource = AutoCompleteSource.CustomSource; _storeName.Inner.AutoCompleteCustomSource = _procSrc;
         var bGenStore = NK.Button("Gen Script", GenStore, primary: true);
-        NK.Stack(c2.Body, _db, NK.Spacer(10), Wrap(_storeName, bGenStore), NK.Spacer(6), NK.Muted("Script (IF EXISTS … DROP rồi CREATE) được thêm thẳng vào gói tại Script\\app hoặc Script\\sys theo App/Sys đã chọn.", true));
+        NK.Stack(c2.Body, _db, NK.Spacer(10), Wrap(_storeName, bGenStore), NK.Spacer(6), NK.Muted("Script (IF EXISTS … DROP rồi CREATE) được gộp vào APP_Script.sql hoặc SYS_Script.sql (Script\\app | Script\\sys) theo App/Sys đã chọn — chung file với script table, giống Note (New).", true));
         _storeName.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; GenStore(); } };
 
         var c3 = new CardPanel("Gen nhanh Table") { Dock = DockStyle.Top };

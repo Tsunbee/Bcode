@@ -647,7 +647,7 @@ Trên ảnh: **①** Đường dẫn & kết nối (Save At Path, Folder Name, D
 Mở: nút **Gen Update** (`Ctrl+Shift+G`). Cần Source Path.
 
 1. **Đường dẫn & kết nối**: Program Path, Mobile Path, **Save At Path** (mặc định Working Path; 📂 mở thư mục), **Folder Name** (mặc định `{Mã dự án}_{TÊN MÁY}_{yyyyMMddHHmmss}`, ↻ tạo giờ mới), Description (ghi vào description.txt).
-2. **Gen nhanh Store (Procedure)**: chọn App / Sys / Other, gõ tên procedure → **Gen Script** → script `IF EXISTS … DROP` rồi `CREATE` vào `Script\app` hoặc `Script\sys`.
+2. **Gen nhanh Store (Procedure)**: chọn App / Sys / Other, gõ tên procedure → **Gen Script** → script `IF EXISTS … DROP` rồi `CREATE`, gộp vào `Script\app\APP_Script.sql` hoặc `Script\sys\SYS_Script.sql` (danh sách vẫn hiện từng store để bỏ riêng được).
 3. **Gen nhanh Table**: gõ Controller/SysId → **Tải table**, hoặc gõ tên bảng → **＋ Thêm**. Mỗi bảng chọn DB, **Cấu trúc**, **Dữ liệu**, Where → **Gen Script** (gộp vào APP_Script.sql). Hơn 50.000 dòng bắt buộc nhập Where. Table **không bao giờ** bị DROP.
 4. **Source File**: double-click menu ở cây WCommand (hoặc gõ tên → **Tìm**) → chọn nhóm (Web_Dir, Web_Grid, Web_Filter, Web_Report…), tick file → **＋ Add**. Khi nạp theo menu, Grid / Filter / Dir chỉ lấy file `.f`.
 5. **File đã thêm vào gói update**: kiểm tra danh sách (Bỏ file đã chọn / Xoá hết) → **⚙ Create Update File** → "✔ Đã tạo N file tại: …" (Copy link / Mở thư mục).
@@ -656,11 +656,13 @@ Cấu trúc gói:
 
 ```
 <Save At>\<Folder Name>\
-  Script\app\*.sql   (hoặc APP_Script.sql)
-  Script\sys\*.sql   (hoặc SYS_Script.sql)
+  Script\app\APP_Script.sql
+  Script\sys\SYS_Script.sql
   Web\App_Data\...   Web\Main\...   (giữ đường dẫn tương đối so với site)
   description.txt
 ```
+
+Script gộp giống Note (New): mỗi database 1 file, xếp table (cấu trúc → dữ liệu) → view → trigger / function / stored; mỗi đoạn mở đầu bằng dòng `-- ===== <nguồn> · <tên> =====` và kết thúc bằng `GO`.
 
 > **Lưu ý:** object SQL bị mã hoá (encrypted) không lấy được script — gói chỉ ghi dòng nhắc. Lỗi hay gặp: "Chưa có file nào trong gói update", "Chưa nhập Save At Path / Folder Name", "Không tìm thấy stored procedure nào khớp…".
 

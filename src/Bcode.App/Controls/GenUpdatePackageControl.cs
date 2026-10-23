@@ -34,6 +34,8 @@ public class GenUpdatePackageControl : UserControl
     private sealed class BatchItem
     {
         public required string DisplayName { get; init; }
+        /// <summary>Nguồn ghi ở dòng chú thích "-- ===== … =====" khi gộp vào APP_Script.sql / SYS_Script.sql (trống = DisplayName).</summary>
+        public string? Origin { get; init; }
         public required string RelativeDestPath { get; init; }
         public string? SourceFilePath { get; init; }
         public string? GeneratedContent { get; init; }
@@ -125,9 +127,19 @@ public class GenUpdatePackageControl : UserControl
     {
         key = b.Key,
         name = b.DisplayName,
-        rel = b.RelativeDestPath,
+        rel = MergedPath(b) is { } merged ? $"{merged} ← {Path.GetFileNameWithoutExtension(b.RelativeDestPath)}" : b.RelativeDestPath,
         kind = b.GeneratedContent is not null ? "script" : "file",
     });
+
+    /// <summary>Script sinh ra trong Script\app | Script\sys sẽ được gộp vào file nào lúc tạo gói (null = giữ nguyên file).</summary>
+    private static string? MergedPath(BatchItem b)
+    {
+        if (b.GeneratedContent is null) return null;
+        var dir = (Path.GetDirectoryName(b.RelativeDestPath) ?? "").Replace('/', '\\');
+        return dir.Equals(PackageLayout.Script(false, ""), StringComparison.OrdinalIgnoreCase) ? Path.Combine(dir, "APP_Script.sql")
+             : dir.Equals(PackageLayout.Script(true, ""), StringComparison.OrdinalIgnoreCase) ? Path.Combine(dir, "SYS_Script.sql")
+             : null;
+    }
 
     private void SendInit()
     {
@@ -375,7 +387,8 @@ public class GenUpdatePackageControl : UserControl
     }
 
     /// <summary>"Gen Script" của Gen nhanh Store — tìm đúng 1 stored procedure theo tên trong database App/Sys, lấy definition
-    /// (dạng IF EXISTS ... DROP ... GO + CREATE, chạy được cả khi DB đích chưa có) và thêm vào gói tại Script\app\&lt;tên&gt;.sql hoặc Script\sys\&lt;tên&gt;.sql.</summary>
+    /// (dạng IF EXISTS ... DROP ... GO + CREATE, chạy được cả khi DB đích chưa có) và thêm vào gói; lúc tạo gói được gộp vào Script\app\APP_Script.sql
+    /// hoặc Script\sys\SYS_Script.sql giống Note (New).</summary>
     private async Task GenStoreScriptAsync(string name, bool useSys)
     {
         name = name.Trim();
@@ -393,8 +406,13 @@ public class GenUpdatePackageControl : UserControl
             }
 
             var script = await _sqlObjectService.GetDeployScriptAsync(target);
-            var relative = PackageLayout.Script(useSys, $"{target.Name}.sql");
-            var item = new BatchItem { DisplayName = $"[{(useSys ? "Sys" : "App")}] {target.Name}", RelativeDestPath = relative, GeneratedContent = script };
+            // Cùng tên file / nguồn như SQL Object của Note (New) → lúc tạo gói được xếp đúng nhóm stored khi gộp vào APP_Script.sql / SYS_Script.sql.
+            var relative = PackageLayout.Script(useSys, GenAllService.ObjectFilePrefix(target.Kind) + target.Name + ".sql");
+            var item = new BatchItem
+            {
+                DisplayName = $"[{(useSys ? "Sys" : "App")}] {target.Name}", Origin = $"SQL Object ({(useSys ? "Sys" : "App")})",
+                RelativeDestPath = relative, GeneratedContent = script,
+            };
             var i = _batch.FindIndex(b => string.Equals(b.RelativeDestPath, relative, StringComparison.OrdinalIgnoreCase));
             if (i >= 0) _batch[i] = item; else _batch.Add(item);
             Js($"genUpdate.busy(false); genUpdate.onBatch({J(BatchView())}, {J($"Đã thêm script {target.Name} ({(useSys ? "Sys" : "App")}) vào gói update.")})");
@@ -414,25 +432,16 @@ public class GenUpdatePackageControl : UserControl
         if (folder.Length == 0) { Js("genUpdate.onError('Chưa nhập Folder Name.')"); return; }
 
         var destRoot = Path.Combine(savePath, folder);
-        var items = _batch.ToList();
+        // Gộp script giống Note (New): mọi script của 1 database vào Script\app\APP_Script.sql / Script\sys\SYS_Script.sql
+        // (table → dữ liệu → view → trigger/function/stored), file source giữ nguyên.
+        var package = new GenAllResult();
+        foreach (var b in _batch)
+            package.Add(new PackageItem { Origin = b.Origin ?? b.DisplayName, RelativeDestPath = b.RelativeDestPath, SourceFilePath = b.SourceFilePath, GeneratedContent = b.GeneratedContent });
+        GenAllService.CombineScripts(package);
+        var items = package.Items.ToList();
         try
         {
-            var count = await Task.Run(() =>
-            {
-                Directory.CreateDirectory(destRoot);
-                var copied = 0;
-                foreach (var item in items)
-                {
-                    var destFile = Path.Combine(destRoot, item.RelativeDestPath);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destFile)!);
-                    if (item.GeneratedContent is not null) File.WriteAllText(destFile, item.GeneratedContent);
-                    else File.Copy(item.SourceFilePath!, destFile, overwrite: true);
-                    copied++;
-                }
-                if (!string.IsNullOrWhiteSpace(description))
-                    File.WriteAllText(Path.Combine(destRoot, "description.txt"), description);
-                return copied;
-            });
+            var count = await Task.Run(() => GenAllService.CreatePackage(destRoot, items, description));
             Js($"genUpdate.onCreated({J(new { ok = true, path = destRoot, count })})");
         }
         catch (Exception ex)

@@ -709,7 +709,7 @@ public class GenAllService
         app && sys ? "App Data và Sys Data" : sys ? "Sys Data" : app ? "App Data" : "(chưa chọn database nào)";
 
     /// <summary>Tiền tố tên file để gói chạy đúng thứ tự phụ thuộc: table (10) → dữ liệu (20) → trigger (30) → view (40) → function (50) → stored procedure (60).</summary>
-    private static string ObjectFilePrefix(SqlObjectKind k) => k switch
+    public static string ObjectFilePrefix(SqlObjectKind k) => k switch
     {
         SqlObjectKind.Table => "10_",
         SqlObjectKind.Trigger => "02_1_trigger_",

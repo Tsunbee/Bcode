@@ -499,6 +499,31 @@ public class MainForm : Form
             }
             catch { }
         }
+        // Đổi Orientation làm WinForms gán lại SplitterDistance theo chiều mới và văng
+        // InvalidOperationException nếu chiều đó không đủ chỗ cho Panel1MinSize + Panel2MinSize
+        // (control mới tạo chỉ 150x100 → lúc khởi động với "bottom"/"top" luôn văng; cửa sổ thu nhỏ cũng vậy).
+        // Nên hạ min size về 0 và kéo splitter về 0 trước khi đổi, xong đặt lại min size;
+        // nếu lúc đó vẫn chưa đủ chỗ thì để SizeChanged đặt lại khi khung đã đủ lớn.
+        var minSizePending = false;
+        void ApplyMinSizes()
+        {
+            try
+            {
+                editorSplit.Panel1MinSize = 100;
+                editorSplit.Panel2MinSize = 100;
+                minSizePending = false;
+            }
+            catch { minSizePending = true; }
+        }
+        editorSplit.SizeChanged += (_, _) => { if (minSizePending) ApplyMinSizes(); };
+        void SetOrientation(Orientation o)
+        {
+            if (editorSplit.Orientation == o) return;
+            editorSplit.Panel1MinSize = 0;
+            editorSplit.Panel2MinSize = 0;
+            try { editorSplit.SplitterDistance = 0; } catch { }
+            editorSplit.Orientation = o;
+        }
         _applyAiPosition = pos =>
         {
             var wasCollapsed = AiCollapsed();
@@ -511,14 +536,13 @@ public class MainForm : Form
                 editorSplit.Panel1.Controls.Clear();
                 editorSplit.Panel2.Controls.Clear();
                 aiFirst = newAiFirst;
-                editorSplit.Orientation = pos == "right" ? Orientation.Vertical : Orientation.Horizontal;
+                SetOrientation(pos == "right" ? Orientation.Vertical : Orientation.Horizontal);
                 var editorPanel = aiFirst ? editorSplit.Panel2 : editorSplit.Panel1;
                 var aiPanel = aiFirst ? editorSplit.Panel1 : editorSplit.Panel2;
                 editorPanel.Controls.Add(_webView);
                 aiPanel.Controls.Add(_claudeWebView);
                 aiPanel.Controls.Add(_geminiWebView);
-                editorSplit.Panel1MinSize = 100;
-                editorSplit.Panel2MinSize = 100;
+                ApplyMinSizes();
                 SetAiCollapsed(wasCollapsed);
             }
             finally { editorSplit.ResumeLayout(true); }

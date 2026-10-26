@@ -3,20 +3,28 @@ using Bcode.App.UI;
 
 namespace Bcode.App.Controls;
 
-/// <summary>Thanh trên của Compare Text (comparebar.html): Float · Compare · Sửa lại · ◀ ▶ khác biệt · File 1 / File 2.</summary>
+/// <summary>Thanh trên của Compare Text (comparebar.html): Float · Compare · Sửa lại · ◀ ▶ khác biệt · Tô màu (ngôn ngữ) · File 1 / File 2.</summary>
 internal sealed class CompareBarPage : NativePage
 {
     private readonly RoundedInput _f1 = NK.Input("Chọn file hoặc gõ trực tiếp bên dưới..."), _f2 = NK.Input("Chọn file hoặc gõ trực tiếp bên dưới...");
     private readonly PillButton _edit, _prev, _next;
     private readonly Label _summary = NK.Muted("");
     private bool _loading;
+    private static readonly string[] LangNames = { "Tự nhận", "SQL", "XML / FCode", "C#", "JavaScript", "JSON", "Text (không tô)" };
+    private static readonly string[] LangValues = { "auto", "SQL", "XML", "C#", "JavaScript", "JSON", "Text" };
 
     public CompareBarPage()
     {
         _edit = NK.Button("✎ Sửa lại", () => Post(new { action = "edit" })); _prev = NK.Button("◀ Khác biệt trước", () => Post(new { action = "prev" })); _next = NK.Button("Khác biệt tiếp ▶", () => Post(new { action = "next" }));
         _edit.Visible = _prev.Visible = _next.Visible = false;
+        // Ô "Tô màu" (như <select id="lang"> của comparebar.html): Tự nhận = đoán ngôn ngữ theo nội dung dán / gõ / chọn file.
+        var langLabel = NK.Muted("Tô màu:"); langLabel.Margin = new Padding(10, 9, 4, 0);
+        var lang = new DropDownButton { Width = NativeSkin.S(130), Height = NativeSkin.RowHeight(this, 30), Margin = new Padding(0, 3, 6, 3) };
+        lang.SetItems(LangNames, 0);
+        lang.SelectionChanged += i => Post(new { action = "lang", value = LangValues[i] });
+        NK.Tip(lang, "Ngôn ngữ dùng để tô màu 2 khung — Tự nhận = đoán theo nội dung khi dán / gõ / chọn file");
         var tools = new BarFlow { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8, 5, 8, 2) };
-        tools.Controls.AddRange(new Control[] { NK.Button("⧉ Float window", () => Post(new { action = "float" }), tip: "Mở cửa sổ rời"), NK.Button("📄 Compare", () => Post(new { action = "compare" }), primary: true), _edit, _prev, _next, _summary });
+        tools.Controls.AddRange(new Control[] { NK.Button("⧉ Float window", () => Post(new { action = "float" }), tip: "Mở cửa sổ rời"), NK.Button("📄 Compare", () => Post(new { action = "compare" }), primary: true), _edit, _prev, _next, langLabel, lang, _summary });
         var row = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 1, Height = NativeSkin.RowHeight(this, 44), Padding = new Padding(8, 4, 8, 6) };
         row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50)); row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // thiếu dòng này thì hàng tự co theo nội dung → nhãn "File 1/2" và nút … bị cắt
@@ -47,7 +55,8 @@ internal sealed class CompareBarPage : NativePage
                 _loading = false;
                 break;
             case "window.setMode":
-                _edit.Visible = _prev.Visible = _next.Visible = Bool(a, 0);
+                _edit.Visible = Bool(a, 0);
+                _prev.Visible = _next.Visible = Bool(a, 0) && !(a.Count > 2 && a[2].ValueKind == JsonValueKind.False);   // đối số 3 = false: không có chỗ khác → ẩn ◀ ▶
                 _summary.Text = Str(a, 1);
                 break;
         }

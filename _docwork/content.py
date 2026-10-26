@@ -100,7 +100,7 @@ BCODE = [
   ('CashFlowDiagnosticService (chia partial)', 'Services/CashFlowDiagnosticService.{Catalog,Engine,Fast,LineByLine,Standard}.cs', 'Engine = tính lại/cặp bút toán; Standard/Fast/LineByLine = 3 kiểu đối chiếu.'),
  ]),
  ('7. Tiện ích', [
-  ('Compare Text, String Beauty, Library', 'Forms/CompareTextForm.cs, LibrarySnippetForm.cs; Controls/StringBeautyControl.cs; Services/DiffService.cs, SqlFormatterService.cs, SnippetLibraryService.cs; Web/Shell/stringbeauty.html, library.html', 'DiffService = LCS tự viết.'),
+  ('Compare Text, String Beauty, Library', 'Forms/CompareTextForm.cs, LibrarySnippetForm.cs; Controls/StringBeautyControl.cs; Services/DiffService.cs, TextLanguageDetector.cs, SqlFormatterService.cs, SnippetLibraryService.cs; Web/Shell/comparebar.html (App: NativePages.Bars2.cs CompareBarPage), stringbeauty.html, library.html', 'DiffService = Myers/LCS tự viết theo dòng + InlineDiff theo từ (LCS trên token) cho dòng sửa. Compare Text = 4 Scintilla (2 nhập, 2 so sánh) ở CẢ 2 chế độ: tô màu bằng FcodeLexer (XML/SQL) / SqlScintilla.SetLanguage (C#/JS/JSON), ngôn ngữ = ô "Tô màu" hoặc TextLanguageDetector (theo nội dung, không theo đuôi như detectLanguage của editor.js). Màn so sánh: marker nền 10-14, indicator 18 (từ khác), lề 0 RightText = số dòng gốc ghi lười theo đoạn đang thấy (FillMargins — ghi cả 10k dòng mất ~1,5 s), thanh tổng quan DiffOverviewBar; F8 / Shift+F8.'),
   ('Script cart', 'Services/ScriptFileService.cs; Forms/ScriptPopupForm.cs', 'Add/View/Clear/Save/Copy Script trên topbar; Ctrl+Alt+Shift+A / V.'),
   ('Create *.rpt/*.xlsx, Create Processing, View Rpt in FEC', 'Forms/CreateRptXlsxForm.cs, StubForm.cs; Services/XlsxExportService.cs', 'Create Processing / View Rpt in FEC còn là StubForm (chưa làm).'),
  ]),

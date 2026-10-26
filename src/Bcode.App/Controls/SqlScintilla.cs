@@ -100,7 +100,7 @@ internal static class SqlScintilla
     }
 
 
-    /// <summary>Đổi ngôn ngữ tô màu của editor (SQL / JSON / XML / JavaScript) — dùng cho String Beauty, Compare... Màu theo theme như <see cref="ApplyTheme"/>.</summary>
+    /// <summary>Đổi ngôn ngữ tô màu của editor (SQL / JSON / XML / JavaScript / C#) — dùng cho String Beauty, Compare... Màu theo theme như <see cref="ApplyTheme"/>.</summary>
     public static void SetLanguage(Scintilla ed, string lang)
     {
         var dark = AppColors.IsDark;
@@ -144,6 +144,15 @@ internal static class SqlScintilla
                 ed.SetKeywords(0, "var let const function return if else for while do switch case break continue new this class extends import export from try catch finally throw async await typeof instanceof in of null undefined true false");
                 ed.Styles[Style.Cpp.Comment].ForeColor = com; ed.Styles[Style.Cpp.CommentLine].ForeColor = com; ed.Styles[Style.Cpp.CommentDoc].ForeColor = com;
                 ed.Styles[Style.Cpp.Number].ForeColor = num; ed.Styles[Style.Cpp.Word].ForeColor = kw; ed.Styles[Style.Cpp.String].ForeColor = str; ed.Styles[Style.Cpp.Character].ForeColor = str;
+                break;
+            case "C#":
+                ed.Lexer = Lexer.Cpp;
+                ed.SetKeywords(0, "abstract as base break case catch checked class const continue default delegate do else enum event explicit extern false finally fixed for foreach goto if implicit in interface internal is lock namespace new null operator out override params private protected public readonly record ref return sealed sizeof stackalloc static struct switch this throw true try typeof unchecked unsafe using virtual void volatile while async await var get set init value when where yield nameof partial global");
+                ed.SetKeywords(1, "bool byte char decimal double float int long object sbyte short string uint ulong ushort dynamic Task List Dictionary IEnumerable Action Func DateTime Guid Exception");
+                ed.Styles[Style.Cpp.Comment].ForeColor = com; ed.Styles[Style.Cpp.CommentLine].ForeColor = com; ed.Styles[Style.Cpp.CommentDoc].ForeColor = com; ed.Styles[Style.Cpp.CommentLineDoc].ForeColor = com;
+                ed.Styles[Style.Cpp.Number].ForeColor = num; ed.Styles[Style.Cpp.Word].ForeColor = kw; ed.Styles[Style.Cpp.Word2].ForeColor = dark ? C(78, 201, 176) : C(43, 145, 175);
+                ed.Styles[Style.Cpp.String].ForeColor = str; ed.Styles[Style.Cpp.Character].ForeColor = str; ed.Styles[Style.Cpp.Verbatim].ForeColor = str;
+                ed.Styles[Style.Cpp.Preprocessor].ForeColor = dark ? C(155, 155, 155) : C(128, 128, 128);
                 break;
             default:
                 ed.Lexer = Lexer.Sql;

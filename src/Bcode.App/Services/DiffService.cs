@@ -202,6 +202,94 @@ public class DiffService
         return (pre + suf) * 2 >= Math.Max(a.Length, b.Length);
     }
 
+    /// <summary>Số cặp token tối đa (token trái × token phải) cho bảng LCS của <see cref="InlineDiff"/> — dòng dài hơn thì chỉ so phần đầu/cuối trùng.</summary>
+    private const int MaxInlineCells = 250_000;
+
+    /// <summary>
+    /// Chỗ khác nhau BÊN TRONG một cặp dòng sửa (dòng trái ↔ dòng phải), theo TỪ: tách mỗi dòng thành từ (chữ/số/_/@/#), khoảng trắng, từng dấu;
+    /// LCS trên dãy token → token nào không nằm trong phần chung là chỗ khác. Các token khác nằm liền nhau (kể cả khoảng trắng kẹp giữa) gộp thành 1 đoạn.
+    /// Trả về (vị trí, độ dài) theo ký tự của từng bên — bên nào không có gì khác thì danh sách rỗng.
+    /// </summary>
+    public static (List<(int Start, int Length)> Left, List<(int Start, int Length)> Right) InlineDiff(string a, string b)
+    {
+        var ta = Tokenize(a);
+        var tb = Tokenize(b);
+        var changedA = new bool[ta.Count];
+        var changedB = new bool[tb.Count];
+
+        // Bỏ token đầu/cuối trùng trước — phần cần LCS thường chỉ vài token.
+        var pre = 0;
+        while (pre < ta.Count && pre < tb.Count && Same(a, ta[pre], b, tb[pre])) pre++;
+        var suf = 0;
+        while (suf < ta.Count - pre && suf < tb.Count - pre && Same(a, ta[ta.Count - 1 - suf], b, tb[tb.Count - 1 - suf])) suf++;
+        int n = ta.Count - pre - suf, m = tb.Count - pre - suf;
+
+        if ((long)n * m > MaxInlineCells)
+        {
+            for (var i = 0; i < n; i++) changedA[pre + i] = true;
+            for (var j = 0; j < m; j++) changedB[pre + j] = true;
+        }
+        else if (n > 0 || m > 0)
+        {
+            var dp = new int[n + 1, m + 1];
+            for (var i = n - 1; i >= 0; i--)
+                for (var j = m - 1; j >= 0; j--)
+                    dp[i, j] = Same(a, ta[pre + i], b, tb[pre + j]) ? dp[i + 1, j + 1] + 1 : Math.Max(dp[i + 1, j], dp[i, j + 1]);
+            int x = 0, y = 0;
+            while (x < n && y < m)
+            {
+                if (Same(a, ta[pre + x], b, tb[pre + y])) { x++; y++; }
+                else if (dp[x + 1, y] >= dp[x, y + 1]) changedA[pre + x++] = true;
+                else changedB[pre + y++] = true;
+            }
+            for (; x < n; x++) changedA[pre + x] = true;
+            for (; y < m; y++) changedB[pre + y] = true;
+        }
+        return (Ranges(a, ta, changedA), Ranges(b, tb, changedB));
+    }
+
+    private static bool Same(string a, (int Start, int Length) x, string b, (int Start, int Length) y) =>
+        x.Length == y.Length && string.CompareOrdinal(a, x.Start, b, y.Start, x.Length) == 0;
+
+    /// <summary>Tách dòng thành token: từ (chữ, số, _ @ # $), cụm khoảng trắng, hoặc 1 dấu.</summary>
+    private static List<(int Start, int Length)> Tokenize(string s)
+    {
+        static bool Word(char c) => char.IsLetterOrDigit(c) || c is '_' or '@' or '#' or '$';
+        var list = new List<(int, int)>();
+        var i = 0;
+        while (i < s.Length)
+        {
+            var st = i;
+            if (Word(s[i])) while (i < s.Length && Word(s[i])) i++;
+            else if (char.IsWhiteSpace(s[i])) while (i < s.Length && char.IsWhiteSpace(s[i])) i++;
+            else i++;
+            list.Add((st, i - st));
+        }
+        return list;
+    }
+
+    /// <summary>Gộp các token khác liền nhau thành đoạn; khoảng trắng nằm GIỮA hai token khác cũng tính vào đoạn (nhìn liền mạch, không lỗ chỗ).</summary>
+    private static List<(int Start, int Length)> Ranges(string s, List<(int Start, int Length)> toks, bool[] changed)
+    {
+        var result = new List<(int, int)>();
+        var i = 0;
+        while (i < toks.Count)
+        {
+            if (!changed[i]) { i++; continue; }
+            var start = toks[i].Start;
+            var end = toks[i].Start + toks[i].Length;
+            i++;
+            while (i < toks.Count)
+            {
+                if (changed[i]) { end = toks[i].Start + toks[i].Length; i++; continue; }
+                if (i + 1 < toks.Count && changed[i + 1] && char.IsWhiteSpace(s[toks[i].Start])) { i++; continue; }
+                break;
+            }
+            result.Add((start, end - start));
+        }
+        return result;
+    }
+
     private static string[] SplitLines(string text) =>
         text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
 }

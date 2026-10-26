@@ -48,13 +48,13 @@ Bcode.App/
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  278
 │   ├── NativeFindBar.cs  65
-│   ├── NativeInputs.cs  292
+│   ├── NativeInputs.cs  304
 │   ├── NativeKit.cs  515
 │   ├── NativeLookupControl.cs  295
 │   ├── NativePage.cs  274
 │   ├── NativePages.Api.cs  420
 │   ├── NativePages.Bars.cs  31
-│   ├── NativePages.Bars2.cs  104
+│   ├── NativePages.Bars2.cs  113
 │   ├── NativePages.Bbxn.cs  439
 │   ├── NativePages.Catalog.cs  271
 │   ├── NativePages.CfsDiag.cs  447
@@ -87,7 +87,7 @@ Bcode.App/
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
-│   ├── NativeTableBar.cs  228
+│   ├── NativeTableBar.cs  231
 │   ├── NativeWeeklyMailControl.cs  680
 │   ├── NoteControl.cs  79
 │   ├── PillButton.cs  190
@@ -106,7 +106,7 @@ Bcode.App/
 │   ├── SqlProfilerControl.cs  1838
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
-│   ├── SqlScintilla.cs  153
+│   ├── SqlScintilla.cs  162
 │   ├── SqlSyntaxHighlighter.cs  484
 │   ├── SqlTabSnapshot.cs  19
 │   ├── StringBeautyControl.cs  95
@@ -134,7 +134,7 @@ Bcode.App/
 │   ├── ColumnDesignForm.cs  60
 │   ├── CommandPaletteForm.cs  113
 │   ├── CompareStructureForm.cs  64
-│   ├── CompareTextForm.cs  360
+│   ├── CompareTextForm.cs  644
 │   ├── ConnectionSettingsForm.cs  328
 │   ├── CopyMultiFileForm.cs  262
 │   ├── CopySourceStandardForm.cs  99
@@ -248,7 +248,7 @@ Bcode.App/
 │   ├── DecryptSqlCredentialStore.cs  73
 │   ├── DecryptSqlObjectConfigService.cs  73
 │   ├── DecryptSqlSecret.cs  16
-│   ├── DiffService.cs  207
+│   ├── DiffService.cs  295
 │   ├── DtdIncludeResolver.cs  196
 │   ├── EInvoiceSetupService.cs  185
 │   ├── EntityCheckService.cs  263
@@ -307,6 +307,7 @@ Bcode.App/
 │   ├── SqlStepPlanner.cs  325
 │   ├── TableDataService.cs  521
 │   ├── TableMenuService.cs  194
+│   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
 │   ├── WCommandService.cs  812
@@ -357,7 +358,7 @@ Bcode.App/
 │       ├── columndesign.html  88
 │       ├── commandpalette.html  152
 │       ├── commandquery.html  69
-│       ├── comparebar.html  121
+│       ├── comparebar.html  137
 │       ├── compareobjects.html  151
 │       ├── comparestructure.html  49
 │       ├── connections.html  225

@@ -47,6 +47,8 @@
     font-size: 12px;
     margin-left: 6px;
   }
+  label.lbl-inline { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+  select#lang { min-width: 120px; }
   /* Nút bấm ẩn hiện theo ngữ cảnh */
   .hidden { display: none !important; }
     input.table-input { flex: 1; min-width: 120px; }
@@ -64,6 +66,17 @@
     <div class="sep"></div>
     <button class="btn hidden" id="btnPrev">◀ Khác biệt trước</button>
     <button class="btn hidden" id="btnNext">Khác biệt tiếp ▶</button>
+    <div class="sep"></div>
+    <label class="lbl-inline" for="lang" title="Ngôn ngữ dùng để tô màu 2 khung — Tự nhận = đoán theo nội dung khi dán / gõ / chọn file">Tô màu:</label>
+    <select id="lang" title="Ngôn ngữ dùng để tô màu 2 khung — Tự nhận = đoán theo nội dung khi dán / gõ / chọn file">
+      <option value="auto">Tự nhận</option>
+      <option value="SQL">SQL</option>
+      <option value="XML">XML / FCode</option>
+      <option value="C#">C#</option>
+      <option value="JavaScript">JavaScript</option>
+      <option value="JSON">JSON</option>
+      <option value="Text">Text (không tô)</option>
+    </select>
     <span class="status" id="summaryLabel"></span>
   </div>
 
@@ -92,6 +105,7 @@
   document.getElementById('btnNext').addEventListener('click', () => post({ action: 'next' }));
   document.getElementById('btnBrowse1').addEventListener('click', () => post({ action: 'browse1' }));
   document.getElementById('btnBrowse2').addEventListener('click', () => post({ action: 'browse2' }));
+  document.getElementById('lang').addEventListener('change', (e) => post({ action: 'lang', value: e.target.value }));
 
   // Cập nhật giá trị file 1 và file 2 khi người dùng gõ
   ['file1', 'file2'].forEach(id => {
@@ -106,10 +120,12 @@
     if (p2 != null) document.getElementById('file2').value = p2;
   };
 
-  window.setMode = function (isDiffMode, summaryText) {
+  // hasNav = false: không có chỗ khác nào → ẩn ◀ ▶ (bỏ trống = hiện như cũ).
+  window.setMode = function (isDiffMode, summaryText, hasNav) {
+    const nav = isDiffMode && hasNav !== false;
     document.getElementById('btnEdit').classList.toggle('hidden', !isDiffMode);
-    document.getElementById('btnPrev').classList.toggle('hidden', !isDiffMode);
-    document.getElementById('btnNext').classList.toggle('hidden', !isDiffMode);
+    document.getElementById('btnPrev').classList.toggle('hidden', !nav);
+    document.getElementById('btnNext').classList.toggle('hidden', !nav);
     document.getElementById('summaryLabel').textContent = summaryText || '';
   };
 

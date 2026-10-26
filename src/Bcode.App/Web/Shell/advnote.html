@@ -41,6 +41,7 @@
   .title .hint { color: var(--text-muted); font-family: "Segoe UI", sans-serif; font-weight: normal; font-size: 11px; }
   #left { min-height: 0; }
   #listWrap { flex: 1 1 0; min-height: 80px; overflow: auto; }   /* y/c nhiều: cuộn xuống tìm */
+  .lfilter { flex: none; padding: 5px 8px; border-bottom: 1px solid var(--border); }
   #pkgWrap { flex: none; max-height: 45%; display: none; flex-direction: column; border-top: 1px solid var(--border); }
   #pkgTree { overflow: auto; padding: 4px 6px 8px; font: 12px Consolas, monospace; }
   #pkgTree details { margin-left: 12px; } #pkgTree summary { cursor: pointer; padding: 1px 0; color: var(--accent); }
@@ -116,6 +117,7 @@
   <div id="main">
     <div id="left">
       <div class="title"><span id="listTitle">Request List</span><span class="hint">tick ✓ để Generate nhiều y/c cùng lúc</span></div>
+      <div class="lfilter"><input type="text" id="listFilter" placeholder="Lọc mã y/c (nhiều mã: cách nhau dấu cách / phẩy)…" spellcheck="false" autocomplete="off" title="Lọc Request List theo mã (tên) y/c — gõ một phần mã; nhiều mã cách nhau dấu cách hoặc dấu phẩy. Esc = xoá lọc." /></div>
       <div id="listWrap"></div>
       <div id="pkgWrap">
         <div class="title"><span>Cây gói update</span><span class="hint" id="pkgHint">bấm đôi file để mở vào tab Query</span></div>
@@ -280,12 +282,18 @@
   $('gSplit').addEventListener('change', () => { try { localStorage.setItem('advSplit', $('gSplit').checked ? '1' : '0'); } catch (e) { } });
   $('gFolder').addEventListener('input', () => { folderTouched = true; });
 
+  // Lọc theo mã (tên) y/c: không phân biệt hoa thường / dấu; nhiều mã cách nhau dấu cách / phẩy = khớp một trong các mã. Chỉ ẩn dòng — y/c đã tick vẫn giữ tick.
+  const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  const listTokens = () => fold($('listFilter').value).split(/[\s,;]+/).filter(Boolean);
   function renderList() {
-    const rows = [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)));
-    $('listTitle').textContent = 'Request List (' + rows.length + ')';
-    if (!rows.length) { $('listWrap').innerHTML = '<div class="empty">Chưa có y/c nào. Bấm “＋ New Request”.</div>'; return; }
+    const all0 = [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)));
+    const tokens = listTokens();
+    const rows = tokens.length ? all0.filter((r) => tokens.some((t) => fold(r.name).includes(t))) : all0;
+    $('listTitle').textContent = 'Request List (' + (tokens.length ? rows.length + '/' : '') + all0.length + ')';
+    if (!all0.length) { $('listWrap').innerHTML = '<div class="empty">Chưa có y/c nào. Bấm “＋ New Request”.</div>'; return; }
+    if (!rows.length) { $('listWrap').innerHTML = '<div class="empty">Không có y/c nào khớp “' + esc($('listFilter').value.trim()) + '”.</div>'; updateDeleteLabel(); return; }
     refreshFolder();
-    $('listWrap').innerHTML = '<table><thead><tr><th class="c"><input type="checkbox" id="gckAll" title="Tick / bỏ tick tất cả y/c"></th><th>Name</th><th class="c">Mobile</th><th>Begin</th><th class="c">Done</th><th>Updated</th></tr></thead><tbody>' +
+    $('listWrap').innerHTML = '<table><thead><tr><th class="c"><input type="checkbox" id="gckAll" title="Tick / bỏ tick tất cả y/c đang hiện (theo ô lọc)"></th><th>Name</th><th class="c">Mobile</th><th>Begin</th><th class="c">Done</th><th>Updated</th></tr></thead><tbody>' +
       rows.map((r) => '<tr class="row' + (r.id === S.currentId ? ' sel' : '') + (r.done ? ' done' : '') + '" data-id="' + r.id + '">' +
         '<td class="c"><input type="checkbox" class="gck" ' + (S.checked.has(r.id) ? 'checked' : '') + '></td>' +
         '<td class="name">' + esc(r.name) + '</td>' +
@@ -316,6 +324,15 @@
       tr.querySelector('.gck').onchange = (e) => { if (e.target.checked) S.checked.add(tr.dataset.id); else S.checked.delete(tr.dataset.id); syncAll(); };
     });
   }
+  let listFilterTimer = null;
+  $('listFilter').addEventListener('input', () => { clearTimeout(listFilterTimer); listFilterTimer = setTimeout(renderList, 120); });
+  $('listFilter').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); $('listFilter').value = ''; renderList(); }
+    else if (e.key === 'Enter') {   // Enter = mở y/c đầu tiên khớp
+      const tr = $('listWrap').querySelector('tr.row');
+      if (tr) { flushSave(); select(tr.dataset.id); }
+    }
+  });
 
   function select(id) {
     // Chọn lại ĐÚNG y/c đang mở (vd C# gửi lại danh sách ngay sau Generate để làm mới cột Updated) thì không xoá kết quả/preview —

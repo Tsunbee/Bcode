@@ -35,6 +35,8 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private readonly RoundedInput _syncProg = new() { PlaceholderText = "Tên lập trình (ma_lt1)", Width = NativeSkin.S(190) };
     private readonly Label _status = new() { AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(12, 8, 0, 0) };
     private readonly Label _listTitle = new() { Dock = DockStyle.Top, Height = NativeSkin.S(28), Padding = new Padding(10, 6, 0, 0), Text = "Request List", AutoEllipsis = true };
+    private readonly RoundedInput _listFilter = NK.Input("Lọc mã y/c (nhiều mã: cách nhau dấu cách / phẩy)…");
+    private readonly System.Windows.Forms.Timer _listFilterTimer = new() { Interval = 120 };
     private readonly DataGridView _list = new() { Dock = DockStyle.Fill };
     private readonly Panel _pkgPanel = new() { Dock = DockStyle.Bottom, Height = NativeSkin.S(260), Visible = false };
     private readonly TreeView _pkgTree = new() { Dock = DockStyle.Fill };
@@ -121,19 +123,20 @@ public sealed class NativeAdvanceNoteControl : UserControl
         {
             if (e.RowIndex != -1 || e.ColumnIndex != 0 || e.Graphics is null) return;
             e.PaintBackground(e.CellBounds, false);
-            var n = TickedCount();
+            var vis = VisibleIds(); var n = vis.Count(_checked.Contains);
             var state = n == 0 ? System.Windows.Forms.VisualStyles.CheckBoxState.UncheckedNormal
-                : n == _requests.Count ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal : System.Windows.Forms.VisualStyles.CheckBoxState.MixedNormal;
+                : n == vis.Count ? System.Windows.Forms.VisualStyles.CheckBoxState.CheckedNormal : System.Windows.Forms.VisualStyles.CheckBoxState.MixedNormal;
             var sz = CheckBoxRenderer.GetGlyphSize(e.Graphics, state);
             CheckBoxRenderer.DrawCheckBox(e.Graphics, new Point(e.CellBounds.X + (e.CellBounds.Width - sz.Width) / 2, e.CellBounds.Y + (e.CellBounds.Height - sz.Height) / 2), state);
             e.Handled = true;
         };
         _list.ColumnHeaderMouseClick += (_, e) =>
         {
-            if (e.ColumnIndex != 0 || _requests.Count == 0) return;
-            var all = TickedCount() < _requests.Count;
-            _checked.Clear();
-            if (all) foreach (var r in _requests) _checked.Add(r.Id);
+            var vis = VisibleIds();   // chỉ các y/c đang hiện theo ô lọc mã y/c
+            if (e.ColumnIndex != 0 || vis.Count == 0) return;
+            var all = vis.Count(_checked.Contains) < vis.Count;
+            foreach (var id in vis) _checked.Remove(id);
+            if (all) foreach (var id in vis) _checked.Add(id);
             _loading = true;
             foreach (DataGridViewRow row in _list.Rows) row.Cells[0].Value = all;
             _loading = false;
@@ -141,7 +144,19 @@ public sealed class NativeAdvanceNoteControl : UserControl
         };
         _list.SelectionChanged += (_, _) => { if (!_loading && _list.CurrentRow?.Tag is string id && id != _cur?.Id) { Flush(); Select(id); } };
         var leftTop = new Panel { Dock = DockStyle.Fill };
-        leftTop.Controls.Add(_list); leftTop.Controls.Add(_listTitle);
+        // Ô lọc mã y/c (như advnote.html): nhiều mã cách nhau dấu cách / phẩy, Esc xoá lọc, Enter mở y/c đầu tiên khớp.
+        var filterRow = new Panel { Dock = DockStyle.Top, Height = NativeSkin.RowHeight(this) + NativeSkin.S(10), Padding = new Padding(NativeSkin.S(8), NativeSkin.S(5), NativeSkin.S(8), NativeSkin.S(5)) };
+        _listFilter.Dock = DockStyle.Fill;
+        filterRow.Controls.Add(_listFilter);
+        _listFilterTimer.Tick += (_, _) => { _listFilterTimer.Stop(); RenderList(); };
+        Disposed += (_, _) => _listFilterTimer.Dispose();
+        _listFilter.TextChanged += (_, _) => { _listFilterTimer.Stop(); _listFilterTimer.Start(); };
+        _listFilter.InputKeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Escape) { e.Handled = e.SuppressKeyPress = true; _listFilter.Text = ""; RenderList(); }
+            else if (e.KeyCode == Keys.Enter && _list.Rows.Count > 0 && _list.Rows[0].Tag is string first) { e.Handled = e.SuppressKeyPress = true; Flush(); Select(first); }
+        };
+        leftTop.Controls.Add(_list); leftTop.Controls.Add(filterRow); leftTop.Controls.Add(_listTitle);
         _pkgPanel.Controls.Add(_pkgTree); _pkgPanel.Controls.Add(_pkgHint);
         var left = new Panel { Dock = DockStyle.Fill };
         left.Controls.Add(leftTop); left.Controls.Add(_pkgPanel);
@@ -379,8 +394,10 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _loading = true;
         try
         {
-            var rows = _requests.OrderByDescending(r => r.Begin).ToList();
-            _listTitle.Text = $"Request List ({rows.Count})  — tick ✓ để Generate nhiều y/c cùng lúc";
+            var all = _requests.OrderByDescending(r => r.Begin).ToList();
+            var tokens = Fold(_listFilter.Text).Split(new[] { ' ', ',', ';', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            var rows = tokens.Length == 0 ? all : all.Where(r => tokens.Any(t => Fold(r.Name).Contains(t, StringComparison.Ordinal))).ToList();
+            _listTitle.Text = $"Request List ({(tokens.Length > 0 ? rows.Count + "/" : "")}{all.Count})  — tick ✓ để Generate nhiều y/c cùng lúc";
             _list.Rows.Clear();
             foreach (var r in rows)
             {
@@ -390,6 +407,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
                 if (r.Done) _list.Rows[i].DefaultCellStyle.ForeColor = AppColors.TextMuted;
                 if (r.Id == _cur?.Id) { _list.ClearSelection(); _list.Rows[i].Selected = true; try { _list.CurrentCell = _list.Rows[i].Cells[1]; } catch { } }
             }
+            if (_cur is null || !rows.Contains(_cur)) _list.ClearSelection();   // y/c đang mở bị ô lọc ẩn: không tô nhầm dòng đầu
         }
         finally { _loading = false; }
         FitListColumns();
@@ -400,6 +418,19 @@ public sealed class NativeAdvanceNoteControl : UserControl
     }
 
     private static string Fmt(DateTime d) => d.ToString("dd/MM/yy HH:mm");
+
+    /// <summary>Id các y/c đang hiện trong danh sách (sau ô lọc mã y/c).</summary>
+    private List<string> VisibleIds() => _list.Rows.Cast<DataGridViewRow>().Select(r => r.Tag as string).OfType<string>().ToList();
+
+    /// <summary>Chữ thường bỏ dấu (đ → d) — so ô lọc mã y/c giống advnote.html.</summary>
+    private static string Fold(string? s)
+    {
+        var d = (s ?? "").Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(d.Length);
+        foreach (var ch in d)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark) sb.Append(ch == 'đ' || ch == 'Đ' ? 'd' : ch);
+        return sb.ToString().ToLowerInvariant();
+    }
 
     /// <summary>Cột trái hẹp: ẩn dần Updated → Begin → Mobile để cột Name luôn đủ rộng đọc được (không cuộn ngang, không cắt chữ tiêu đề);
     /// rê chuột lên dòng vẫn xem đủ thông tin.</summary>

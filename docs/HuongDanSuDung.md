@@ -682,7 +682,7 @@ Trên ảnh: **①** ＋ New Request · Xoá · Tên lập trình + ⟳ Sync yê
 Quản lý từng yêu cầu (request) và sinh gói update cho yêu cầu đó:
 
 1. **⟳ Sync yêu cầu**: nhập Tên lập trình (ma_lt1) → kéo các yêu cầu của bạn trong dự án về (từ FSG). Hoặc **＋ New Request** để tạo tay.
-2. Chọn yêu cầu ở **Request List** rồi khai: **Gen All** (controller, mỗi dòng một cái), **File Path** (mỗi dòng một đường dẫn; `Ctrl+V` file copy từ Explorer là dán đường dẫn), **SQL Object** / **SQL Top Script** / **Bottom Script** (chọn App / Sys), **Table liên quan** (⟳ Tải table, Cấu trúc / Dữ liệu / Where).
+2. Chọn yêu cầu ở **Request List** (ô **Lọc mã y/c** ngay trên danh sách: gõ một phần mã, nhiều mã cách nhau dấu cách / phẩy; `Enter` mở y/c đầu tiên khớp, `Esc` xoá lọc; ô tick ở tiêu đề chỉ tick các y/c đang hiện) rồi khai: **Gen All** (controller, mỗi dòng một cái), **File Path** (mỗi dòng một đường dẫn; `Ctrl+V` file copy từ Explorer là dán đường dẫn), **SQL Object** / **SQL Top Script** / **Bottom Script** (chọn App / Sys), **Table liên quan** (⟳ Tải table, Cấu trúc / Dữ liệu / Where).
 3. **🔍 Xem trước gói** → cây gói update (double-click file để mở trong tab Query); **▶ Mở tất cả script vào tab Query** để rà lại.
 4. **Generate Update**: Save At Path, Folder Name, **Tách theo từng y/c** (mỗi yêu cầu một thư mục con) → **⚙ Generate Update**. Tick nhiều yêu cầu ở cột đầu danh sách để sinh chung.
 5. **📄 Request Content** xem nội dung yêu cầu.

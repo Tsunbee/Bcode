@@ -27,16 +27,16 @@
   <div id="head" class="hint"></div>
   <div id="warns"></div>
 
-  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="ctl" title="Tick / bỏ tick cả nhóm"><b>Gen All</b><span class="hint">controller của menu — Gen All đã gồm mọi file liên quan, procedure trong Filter và script sysmenu</span></div>
+  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="ctl" title="Tick / bỏ tick cả nhóm"><b>Gen All</b><span class="hint">controller của menu — không tick sẵn; tick nếu muốn Gen All tự lấy mọi file liên quan, procedure trong Filter và script menu (khi đó có thể bỏ tick File Path / Script menu bên dưới)</span></div>
     <div class="body"><table class="tbl"><tbody id="tCtl"></tbody></table></div></div>
 
-  <div class="sec big"><div class="h"><input type="checkbox" class="all" data-k="file" title="Tick / bỏ tick cả nhóm"><b>File Path</b><span class="hint" id="hFile">file của menu trong Source Path (dò như File Lookup) — tick sẵn trang Main và bản .f của Dir / Grid / Filter</span></div>
+  <div class="sec big"><div class="h"><input type="checkbox" class="all" data-k="file" title="Tick / bỏ tick cả nhóm"><b>File Path</b><span class="hint" id="hFile">file của menu trong Source Path (dò như File Lookup) — tick sẵn các file Gen All sẽ đóng gói (Dir / Grid / Filter chỉ lấy .f)</span></div>
     <div class="body"><table class="tbl"><tbody id="tFile"></tbody></table></div></div>
 
   <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="obj" title="Tick / bỏ tick cả nhóm"><b>SQL Object</b><span class="hint">procedure / function được EXEC trong Dir / Grid / Filter — vào ô SQL Object của App hoặc Sys theo nơi tìm thấy</span></div>
     <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Tên</th><th>Loại</th><th>DB</th><th>Gọi trong</th></tr></thead><tbody id="tObj"></tbody></table></div></div>
 
-  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="menu" title="Tick / bỏ tick cả nhóm"><b>Script menu</b><span class="tag">Sys</span><span class="hint">DELETE / INSERT wcommand + command (như Gen Script Menu) → thêm vào SQL Bottom Script của Sys. Gen All đã có script menu theo controller nên menu đang chọn chỉ tick sẵn khi bỏ Gen All; menu cha (C) / (*) tick sẵn</span></div>
+  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="menu" title="Tick / bỏ tick cả nhóm"><b>Script menu</b><span class="tag">Sys</span><span class="hint">DELETE / INSERT wcommand + command (như Gen Script Menu) → thêm vào SQL Bottom Script của Sys. menu đang chọn và menu cha (C) / (*) tick sẵn; tick Gen All thì menu đang chọn tự bỏ tick (Gen All đã sinh script menu)</span></div>
     <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Menu</th><th>wmenu_id</th><th></th><th></th></tr></thead><tbody id="tMenu"></tbody></table></div></div>
 
   <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="tbl" title="Tick / bỏ tick cả nhóm"><b>Table liên quan</b><span class="hint">tick = đưa script tạo table (Cấu trúc) vào gói; không tick vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where)</span></div>
@@ -61,7 +61,7 @@
     $('head').innerHTML = 'Dự án <b>' + esc(D.project) + '</b> · menu <b>' + esc(s.menu) + '</b>' + (s.controllers.length ? ' · controller <b>' + esc(s.controllers.join(', ')) + '</b>' : '');
     $('warns').innerHTML = (s.warnings || []).map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
 
-    $('tCtl').innerHTML = s.controllers.length ? s.controllers.map((c, i) => '<tr>' + ck('ctl', i, true) + '<td class="mono">' + esc(c) + '</td></tr>').join('')
+    $('tCtl').innerHTML = s.controllers.length ? s.controllers.map((c, i) => '<tr>' + ck('ctl', i, false) + '<td class="mono">' + esc(c) + '</td></tr>').join('')
       : '<tr><td class="none">Không suy ra được controller.</td></tr>';
 
     let g = null;
@@ -70,7 +70,7 @@
       g = f.group;
       return head + '<tr title="' + esc(f.path) + '">' + ck('file', i, f.pick) + '<td class="mono">' + esc(f.rel) + '</td></tr>';
     }).join('') : '<tr><td class="none" colspan="2">Không có file.</td></tr>';
-    $('hFile').textContent = s.files.length + ' file của menu trong Source Path (dò như File Lookup) — tick sẵn trang Main và bản .f của Dir / Grid / Filter';
+    $('hFile').textContent = s.files.length + ' file của menu trong Source Path (dò như File Lookup) — tick sẵn các file Gen All sẽ đóng gói (Dir / Grid / Filter chỉ lấy .f)';
 
     $('tObj').innerHTML = s.objects.length ? s.objects.map((o, i) => '<tr class="' + (o.db ? '' : 'off') + '"' + (o.db ? '' : ' title="Không thấy trong database App / Sys"') + '>' + ck('obj', i, o.pick, !o.db) +
       '<td class="mono">' + esc(o.name) + '</td><td>' + esc(o.kind || '?') + '</td><td>' + (o.db ? '<span class="tag">' + (o.db === 'sys' ? 'Sys' : 'App') + '</span>' : '<span class="tag err">không thấy</span>') +

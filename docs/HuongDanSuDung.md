@@ -762,10 +762,10 @@ Làm việc:
 1. Chọn dự án → Request List của dự án đó hiện ra (đổi dự án thì phần đang gõ được lưu vào dự án cũ trước).
 2. Chọn hoặc tạo y/c (＋ New Request, ⟳ Sync yêu cầu) như ở Bcode.
 3. Chọn menu cần gen ở cây bên trái → **✨ Gợi ý cho y/c đang mở** (hoặc bấm đôi vào menu). Hộp **Gợi ý theo menu** liệt kê, đã tick sẵn:
-   - **Gen All**: controller của menu (sysid, hoặc `Controller=` của trang Main\*.aspx).
-   - **File Path**: file của menu trong Source Path, dò như File Lookup — tick sẵn trang `Main\*.aspx` và bản `.f` của Dir / Grid / Filter; Include, Report, Template… để bạn tự tick (Gen All đã gồm các file này).
+   - **Gen All**: controller của menu (sysid, hoặc `Controller=` của trang Main\*.aspx) — **không tick sẵn**: gợi ý điền thẳng từng file / object / script menu để bạn thấy và bỏ bớt. Tick vào nếu vẫn muốn ghi tên controller vào ô Gen All.
+   - **File Path**: file của menu trong Source Path, dò như File Lookup — tick sẵn đúng các file Gen All sẽ đóng gói (Main\*.aspx, Report, Templates…; riêng Dir / Grid / Filter chỉ lấy bản `.f`).
    - **SQL Object**: procedure / function được `exec` trong Dir / Grid / Filter, xếp vào App hoặc Sys theo nơi tìm thấy (không thấy ở đâu thì không tick được).
-   - **Script menu** (Sys): script DELETE / INSERT `wcommand` + `command` như **Gen Script Menu**, cho menu đang chọn và từng menu cha — điền vào **SQL Bottom Script** của **Sys**. Menu cha có `(C)` / `(*)` (làm riêng cho khách, đích thường chưa có) tick sẵn. Menu đang chọn chỉ tick sẵn khi bỏ tick Gen All (Gen All đã tự sinh script menu theo controller). Bấm **Xem** để xem script.
+   - **Script menu** (Sys): script DELETE / INSERT `wcommand` + `command` như **Gen Script Menu**, cho menu đang chọn và từng menu cha — điền vào **SQL Bottom Script** của **Sys**. Menu đang chọn và menu cha có `(C)` / `(*)` (làm riêng cho khách, đích thường chưa có) tick sẵn; tick Gen All thì menu đang chọn tự bỏ tick (Gen All đã tự sinh script menu theo controller). Bấm **Xem** để xem script.
    - **Table liên quan**: table khai trong file của menu — tick sẵn bảng của Dir và Grid chi tiết (đưa script **Cấu trúc** vào gói); các bảng khác vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where).
 4. Bỏ / thêm tick → **Điền vào y/c** (`Ctrl+Enter`). Bcode Note chỉ **thêm** dòng chưa có, không xoá gì bạn đã nhập; chưa mở y/c nào thì tạo y/c mới đặt tên theo menu. Sửa lại các ô nếu cần rồi **Xem trước gói** / **Generate Update** như thường.
 

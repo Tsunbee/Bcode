@@ -76,7 +76,7 @@ public partial class GenAllService
 {
     /// <summary>
     /// Gợi ý cho Note (New) theo 1 menu (BcodeNote.exe — bước "chọn menu cần gen"): controller của menu (sysid, Controller="" của trang Main\*.aspx,
-    /// không có thì tên trang), các file của menu theo đúng cách File Lookup dò (BuildTreeForMenuItem) — tick sẵn trang Main và .f trong Dir/Grid/Filter,
+    /// không có thì tên trang), các file của menu theo đúng cách File Lookup dò (BuildTreeForMenuItem) — tick sẵn như tập file Gen All đóng gói (Dir/Grid/Filter chỉ .f),
     /// procedure / function được EXEC trong Dir / Grid / Filter (tick sẵn cái có thật trong App / Sys), table liên quan (FindTablesAsync — tick sẵn
     /// bảng của Dir và Grid chi tiết). Chỉ đọc file / database, không ghi gì.
     /// </summary>
@@ -140,8 +140,8 @@ public partial class GenAllService
                 Path = f,
                 Rel = rel,
                 Group = GroupOf(source, f, isMain),
-                // Như ví dụ của Note (New): trang Main\*.aspx + bản .f trong Dir / Grid / Filter. Include, Report, Template... Gen All đã lấy — để người dùng tự tick.
-                Pick = isMain || (RequiresF(source, f) && f.EndsWith(".f", StringComparison.OrdinalIgnoreCase)),
+                // Gen All không tick sẵn (người dùng tự chọn file) → tick sẵn đúng tập file Gen All đưa vào gói: mọi file của menu, riêng Dir / Grid / Filter chỉ lấy .f.
+                Pick = !RequiresF(source, f) || f.EndsWith(".f", StringComparison.OrdinalIgnoreCase),
             });
         }
         s.Files = s.Files.OrderBy(f => GroupRank(f.Group)).ThenBy(f => f.Rel, StringComparer.OrdinalIgnoreCase).ToList();
@@ -189,7 +189,7 @@ public partial class GenAllService
             catch (Exception ex) { s.Warnings.Add("Dò table liên quan lỗi: " + ex.Message); }
         }
 
-        // Script menu (Sys): menu đang chọn — Gen All đã sinh sysmenu theo controller nên chỉ tick sẵn khi không có controller — và menu cha customize.
+        // Script menu (Sys): menu đang chọn (Gen All không tick sẵn nên không có sysmenu tự sinh) + menu cha customize (C) / (*) tick sẵn.
         // Dòng đọc từ bảng command (sản phẩm dạng APP, không có wcommand) thì không sinh.
         if (!menu.IsAppCommand)
         {
@@ -206,7 +206,7 @@ public partial class GenAllService
                         Self = self,
                         Custom = custom,
                         Script = $"-- Menu: {item.Bar} ({item.WMenuId})\r\n" + (await Task.Run(() => _wcommand.GenerateScriptForCurrentDb(item))).TrimEnd(),
-                        Pick = self ? s.Controllers.Count == 0 : custom,
+                        Pick = self || custom,
                     });
                 }
             }

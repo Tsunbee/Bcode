@@ -318,7 +318,8 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
         (@"Main\report.aspx", $@"Main\{s.MainName}.aspx"),
     };
 
-    public static string ExcelTarget(QuickReportSpec s) => $@"App_Data\Templates\Excel\{s.Controller}.xlsx";
+    /// <summary>Mẫu Excel của báo cáo nằm cùng các mẫu khác của source FBO: <c>App_Data\Controllers\Templates\Excel</c> (cạnh Templates\Rpt) — trước đây ghi nhầm vào App_Data\Templates\Excel.</summary>
+    public static string ExcelTarget(QuickReportSpec s) => $@"App_Data\Controllers\Templates\Excel\{s.Controller}.xlsx";
 
     /// <summary>Báo cáo thường (không tag, không drilldown, không pivot, toolbar chuẩn) — các khối tuỳ chọn khác của mẫu tắt hết.</summary>
     private static readonly Dictionary<string, bool> Toggles = new()
@@ -614,7 +615,7 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
         int Added, int Removed, bool IsText, IReadOnlyList<object> Diff);
 
     /// <summary>So sánh từng file với source bằng chính bộ so sánh của "Tạo báo cáo" (<c>ReportFilesDeployService.Plan</c>: mới / trùng hệt / ghi đè + diff).
-    /// Khác ở một điểm: thư mục đích chưa có (vd App_Data\Templates\Excel) không chặn cả lượt mà chỉ đánh dấu <see cref="FilePlan.NewDir"/>.</summary>
+    /// Khác ở một điểm: thư mục đích chưa có (vd App_Data\Controllers\Templates\Excel) không chặn cả lượt mà chỉ đánh dấu <see cref="FilePlan.NewDir"/>.</summary>
     public static (string? Problem, List<FilePlan> Files) Plan(string sourceRoot, IReadOnlyList<(string Kind, string Rel, byte[] Bytes, bool IsText)> files)
     {
         if (string.IsNullOrWhiteSpace(sourceRoot)) return ("Chưa chọn thư mục source để lưu.", new());

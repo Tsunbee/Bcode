@@ -14,7 +14,7 @@ public sealed record FilesDeployResult(bool Ok, List<string> Lines, string? Back
 
 /// <summary>
 /// "Lưu vào source" cho báo cáo tự tạo: chép Filter / Grid / Report / Main (.aspx) và mẫu Excel vào đúng chỗ trong source của project
-/// (<c>App_Data\Controllers\{Filter,Grid,Report}</c>, <c>Main</c>, <c>App_Data\Templates\Excel</c>). Làm thận trọng như <see cref="ReportDeployService"/>:
+/// (<c>App_Data\Controllers\{Filter,Grid,Report}</c>, <c>Main</c>, <c>App_Data\Controllers\Templates\Excel</c>). Làm thận trọng như <see cref="ReportDeployService"/>:
 /// <see cref="Plan"/> chỉ so sánh (file nào mới / trùng hệt / sẽ ghi đè, kèm diff), <see cref="Deploy"/> luôn BACKUP bản cũ ở máy bạn
 /// (%AppData%\Bcode\Backups) trước khi ghi đè rồi đọc lại kích thước để kiểm tra. File chữ ghi UTF-8 có BOM như các file source Fast.
 /// </summary>

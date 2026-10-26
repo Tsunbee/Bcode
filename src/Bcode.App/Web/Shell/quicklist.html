@@ -230,6 +230,7 @@
   <!-- AI tạo danh mục: yêu cầu đang làm, tóm tắt AI hiểu, ghi chú, câu hỏi cần trả lời, script tạo bảng mới (chỉ để copy) -->
   <div class="banner aibox" id="aiBox" hidden>
     <div class="ah"><b>🤖 AI tạo danh mục</b><span class="muted" id="aiReq"></span><span class="grow"></span>
+      <button id="aiRules" title="Gợi ý theo luật cấu trúc Fast (quy ước đặt tên + từ điển field header.xml) — không gọi AI, không tốn token, không gửi dữ liệu ra ngoài">Theo luật Fast</button>
       <button id="aiRetry" title="Hỏi lại AI với nội dung yêu cầu + các câu đã trả lời">Hỏi lại AI</button>
       <button class="x" id="aiClose" title="Ẩn khung AI">✕</button></div>
     <div id="aiMsg"></div>
@@ -1120,10 +1121,13 @@
     $('aiSqlBox').hidden = !d.createSql; $('aiSql').textContent = d.createSql || '';
     $('aiContent').textContent = d.content || '';
     $('aiAnswered').innerHTML = (d.answered || []).map((x) => '<div><b>Hỏi:</b> ' + esc(x.q) + '<br><b>Đáp:</b> ' + esc(x.a || '(để AI tự chọn)') + '</div>').join('');
-    $('aiRetry').disabled = $('aiSend').disabled = !!d.busy;
+    $('aiRetry').disabled = $('aiSend').disabled = $('aiRules').disabled = !!d.busy;
+    // Đang theo luật Fast thì "Gửi trả lời" điền lại theo luật, không gọi AI.
+    if (!d.busy) $('aiSend').textContent = /không AI/.test(d.engine || '') ? 'Gửi trả lời & điền lại' : 'Gửi trả lời & hỏi lại AI';
   }
   $('aiSend').onclick = () => post('aiAnswer', { answers: aiQuestions.map((_, i) => (document.querySelector('[data-ai="' + i + '"]') || {}).value || '') });
   $('aiRetry').onclick = () => post('aiRetry');
+  $('aiRules').onclick = () => post('aiRules');
   $('aiClose').onclick = () => { $('aiBox').hidden = true; post('aiClose'); };
   $('aiCopySql').onclick = (e) => { e.preventDefault(); post('copy', { text: $('aiSql').textContent }); };
 

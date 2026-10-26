@@ -101,8 +101,9 @@ public sealed class AiCatalogService
     /// Hỏi AI cho 1 yêu cầu. <paramref name="answers"/> = các câu hỏi AI đã hỏi lượt trước và câu trả lời của người dùng.
     /// AI xin thêm cột của bảng nào (can_bang) thì tự đọc cột rồi hỏi lại (tối đa <see cref="MaxRounds"/> lượt).
     /// </summary>
+    /// <param name="forceRules">true = gợi ý theo luật cấu trúc Fast dù đã có API key (nút "Theo luật Fast" — vd AI quá tải / không muốn gửi dữ liệu ra ngoài).</param>
     public async Task<AiCatalogResult> SuggestAsync(string requestName, string content, IReadOnlyList<(string Question, string Answer)> answers,
-        Action<string>? progress = null)
+        Action<string>? progress = null, bool forceRules = false)
     {
         progress?.Invoke("Đang đọc danh sách bảng App Data...");
         var tables = _tables ??= (await _listTables()).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
@@ -113,10 +114,10 @@ public sealed class AiCatalogService
         var detailed = MentionedTables(text, tables).Take(MaxDetailedTables).ToList();
 
         AiCatalogResult result = new();
-        if (_useRules())
+        if (forceRules || _useRules())
         {
-            // Chưa có API key: gợi ý theo luật cấu trúc Fast — cùng dạng JSON nên chuẩn hoá + giao diện dùng chung với AI.
-            progress?.Invoke("Chưa có API key — đang gợi ý theo cấu trúc Fast (không dùng AI)...");
+            // Chưa có API key (hoặc người dùng chọn "Theo luật Fast"): gợi ý theo luật cấu trúc Fast — cùng dạng JSON nên chuẩn hoá + giao diện dùng chung với AI.
+            progress?.Invoke(forceRules ? "Đang gợi ý theo cấu trúc Fast (không dùng AI)..." : "Chưa có API key — đang gợi ý theo cấu trúc Fast (không dùng AI)...");
             var raw = await Task.Run(() => FastCatalogRules.SuggestAsync(content, answers, tableSet, ColumnsAsync, _sourcePath, _tablePrefix));
             result = Parse(raw);
             result.Engine = FastCatalogRules.Engine;

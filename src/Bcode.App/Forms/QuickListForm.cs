@@ -30,6 +30,8 @@ public class QuickListForm : WebDialogForm
     private List<string> _aiQuestions = new();
     private AiCatalogService? _aiService;
     private bool _aiBusy, _ready;
+    /// <summary>Người dùng đã bấm "Theo luật Fast": các lượt sau (Gửi trả lời) cũng đi theo luật, cho tới khi bấm "Hỏi lại AI" / mở y/c khác.</summary>
+    private bool _aiRulesMode;
     private readonly Dictionary<string, List<AiTableColumn>> _aiNewTables = new(StringComparer.OrdinalIgnoreCase);
 
     // ---- Tab Script (bảng mới / cột thêm): cột của bảng nguồn khi clone (biết cột nào chép được dữ liệu), nhớ theo tên bảng ----
@@ -130,7 +132,8 @@ public class QuickListForm : WebDialogForm
                 await RunAiAsync();
                 break;
             }
-            case "aiRetry": await RunAiAsync(); break;
+            case "aiRetry": _aiRulesMode = false; await RunAiAsync(); break;
+            case "aiRules": _aiRulesMode = true; await RunAiAsync(); break;   // gợi ý theo luật Fast, không gọi AI (kể cả khi đã có API key)
             case "aiClose": _aiRequest = null; break;
             case "script": await ScriptAsync(msg); break;
             case "designColumns": BeginInvoke(new Action(() => DesignColumns(msg))); break;
@@ -212,6 +215,7 @@ public class QuickListForm : WebDialogForm
         _aiAnswers.Clear();
         _aiQuestions = new();
         _aiService = null;   // đọc lại danh sách bảng (có thể đã đổi workspace)
+        _aiRulesMode = false;
         if (_ready) _ = RunAiAsync();
     }
 
@@ -226,11 +230,11 @@ public class QuickListForm : WebDialogForm
             if (_connections.Current is null) throw new InvalidOperationException("Chưa chọn workspace.");
             _aiService ??= new AiCatalogService(_sqlObjects, _tableData, _settings, _connections.Current.SourcePath ?? "");
             var r = await _aiService.SuggestAsync(req.Name, req.Content, _aiAnswers.ToList(),
-                m => State(new { name = req.Name, content = req.Content, busy = true, message = m }));
+                m => State(new { name = req.Name, content = req.Content, busy = true, message = m }), forceRules: _aiRulesMode);
             if (_aiRequest != req) return;   // trong lúc chờ đã chọn y/c khác / đóng khung AI → bỏ kết quả cũ
             _aiQuestions = r.Questions;
             foreach (var (t, cols) in r.NewTables) _aiNewTables[t] = cols;
-            var by = r.Engine == FastCatalogRules.Engine ? "theo luật Fast (chưa có API key)" : "theo AI";
+            var by = r.Engine != FastCatalogRules.Engine ? "theo AI" : _aiRulesMode ? "theo luật Fast (không AI)" : "theo luật Fast (chưa có API key)";
             State(new
             {
                 name = req.Name, content = req.Content, busy = false, kind = r.Kind, engine = r.Engine, summary = r.Summary,
@@ -248,7 +252,12 @@ public class QuickListForm : WebDialogForm
             if (r.Spec is not null) Js($"quick.aiLoad({r.Spec.ToJsonString()})");
         }
         catch (TaskCanceledException) { if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, kind = "loi", message = "Hết thời gian chờ AI." }); }
-        catch (Exception ex) { if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, kind = "loi", message = ex.Message }); }
+        catch (Exception ex)
+        {
+            // AI lỗi (quá tải 503, hết hạn mức, mạng...): gợi ý dùng luật Fast thay vì bắt chờ.
+            var hint = _aiRulesMode ? "" : " — bấm “Theo luật Fast” để gợi ý theo cấu trúc Fast, không qua AI.";
+            if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, kind = "loi", message = ex.Message + hint });
+        }
         finally
         {
             _aiBusy = false;

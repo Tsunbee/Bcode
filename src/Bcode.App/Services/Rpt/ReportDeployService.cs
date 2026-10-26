@@ -9,7 +9,7 @@ public record DeployPlan(List<DeployTarget> Targets, List<DeployDiffLine> XmlDif
 public record DeployResult(bool Ok, List<string> Lines, string? BackupDir);
 
 /// <summary>
-/// "Đưa vào source": chép file .xlsx + .xml vừa tạo vào đúng chỗ trong source của project (<c>App_Data\Templates\Excel</c>, <c>App_Data\Controllers\Report</c>).
+/// "Đưa vào source": chép file .xlsx + .xml vừa tạo vào đúng chỗ trong source của project (<c>App_Data\Controllers\Templates\Excel</c>, <c>App_Data\Controllers\Report</c>).
 /// Ghi lên server nên làm thận trọng: (1) <see cref="Plan"/> chỉ so sánh — cho xem diff XML với bản đang có trên server, file nào trùng hệt thì báo "không đổi";
 /// (2) báo nếu file XML trên server đã bị người khác sửa kể từ lúc Bcode đọc; (3) <see cref="Deploy"/> luôn BACKUP bản cũ trên máy bạn
 /// (%AppData%\Bcode\Backups\...) trước khi ghi đè, rồi đọc lại kích thước để kiểm tra.
@@ -18,7 +18,14 @@ public class ReportDeployService
 {
     private const int MaxDiffLines = 400;
 
-    public static string ExcelDir(string root) => Path.Combine(root, "App_Data", "Templates", "Excel");
+    /// <summary>Thư mục mẫu Excel trong source: <c>App_Data\Controllers\Templates\Excel</c> (cạnh Templates\Rpt). Source cũ chỉ có
+    /// App_Data\Templates\Excel thì dùng thư mục đó để không chặn việc đưa vào source.</summary>
+    public static string ExcelDir(string root)
+    {
+        var dir = Path.Combine(root, "App_Data", "Controllers", "Templates", "Excel");
+        var legacy = Path.Combine(root, "App_Data", "Templates", "Excel");
+        return !Directory.Exists(dir) && Directory.Exists(legacy) ? legacy : dir;
+    }
     public static string ReportDir(string root) => Path.Combine(root, "App_Data", "Controllers", "Report");
 
     public DeployPlan Plan(string? sourceRoot, string? localXlsx, string? localXml, DateTime? serverXmlStampAtAnalyze)

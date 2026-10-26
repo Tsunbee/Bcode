@@ -16,7 +16,7 @@ Bcode.App/
 │   ├── rpt/
 │   └── README.md  14
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  499
+│   ├── AdvanceNoteControl.cs  546
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -43,7 +43,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  163
-│   ├── NativeAdvanceNoteControl.cs  1092
+│   ├── NativeAdvanceNoteControl.cs  1097
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  278
@@ -151,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3748
+│   ├── MainForm.cs  3801
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -220,7 +220,7 @@ Bcode.App/
 │   │   ├── RptSchemaService.cs  124
 │   │   ├── RptXmlBuilder.cs  103
 │   │   └── XsdSchemaWriter.cs  110
-│   ├── AdvanceNoteService.cs  154
+│   ├── AdvanceNoteService.cs  166
 │   ├── AdvancePackageBuilder.cs  170
 │   ├── AiCatalogService.cs  581
 │   ├── AiChatService.cs  79
@@ -262,6 +262,7 @@ Bcode.App/
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  501
 │   ├── GenAllService.cs  789
+│   ├── GenAllService.Suggest.cs  241
 │   ├── GenInsertService.cs  47
 │   ├── GenUpdateService.cs  52
 │   ├── GoogleTranslateService.cs  57
@@ -307,7 +308,7 @@ Bcode.App/
 │   ├── TableDataService.cs  521
 │   ├── TableMenuService.cs  194
 │   ├── UsageSearchService.cs  116
-│   ├── ViewerControlServer.cs  59
+│   ├── ViewerControlServer.cs  70
 │   ├── WCommandService.cs  812
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77
@@ -342,7 +343,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  714
+│       ├── advnote.html  763
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  376
 │       ├── apischema.html  470
@@ -426,7 +427,7 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  148
+├── Bcode.App.csproj  152
 ├── BcodePaths.cs  48
 └── Program.cs  37
 ```

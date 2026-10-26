@@ -133,6 +133,18 @@ public class AdvanceNoteService
         }
     }
 
+    /// <summary>Dấu phiên bản file danh sách (giờ ghi + kích thước) — đổi khi tiến trình khác (BcodeNote.exe / Bcode khác) vừa ghi file của workspace này.
+    /// "" = chưa có file.</summary>
+    public string Stamp(string workspaceName)
+    {
+        try
+        {
+            var fi = new FileInfo(FilePath(workspaceName));
+            return fi.Exists ? fi.LastWriteTimeUtc.Ticks + ":" + fi.Length : "";
+        }
+        catch { return ""; }
+    }
+
     public void Save(string workspaceName, List<AdvanceRequest> requests)
     {
         var path = FilePath(workspaceName);

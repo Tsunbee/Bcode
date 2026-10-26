@@ -136,6 +136,10 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <!-- BcodeNote.exe (src/BcodeNote.App: Note (New) nhiều dự án) tham chiếu thẳng Bcode.dll và dùng lại control / service nội bộ (WebBarHost, WebViewEnvironment...). -->
+    <InternalsVisibleTo Include="BcodeNote" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Screen Designer: exe riêng (src/Bcode.ScreenDesigner) — Bcode chỉ build kèm và chép ra thư mục ScreenDesigner\ cạnh Bcode.exe; mở từ menu "Triển khai". -->
     <ProjectReference Include="..\Bcode.ScreenDesigner\Bcode.ScreenDesigner.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>

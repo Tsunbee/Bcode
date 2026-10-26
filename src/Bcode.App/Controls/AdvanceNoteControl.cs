@@ -37,12 +37,24 @@ public class AdvanceNoteControl : UserControl
 
     private string WorkspaceName => _workspace()?.Name ?? "";
 
-    private void EnsureLoaded()
+    private string _loadedStamp = "";
+
+    /// <summary>Nạp lại danh sách khi workspace đổi giữa chừng (File > Choose Server) hoặc file của workspace vừa được tiến trình khác ghi
+    /// (BcodeNote.exe / cửa sổ Bcode khác cùng sửa Note (New) của dự án này). Trả true nếu vừa nạp lại.</summary>
+    private bool EnsureLoaded()
     {
-        // Workspace đổi giữa chừng (File > Choose Server) → nạp lại danh sách của workspace mới.
-        if (_loadedFor == WorkspaceName && _requests is not null) return;
+        var stamp = _store.Stamp(WorkspaceName);
+        if (_loadedFor == WorkspaceName && _requests is not null && stamp == _loadedStamp) return false;
         _requests = _store.Load(WorkspaceName);
         _loadedFor = WorkspaceName;
+        _loadedStamp = stamp;
+        return true;
+    }
+
+    private void SaveList()
+    {
+        _store.Save(WorkspaceName, _requests);
+        _loadedStamp = _store.Stamp(WorkspaceName);
     }
 
     private static string J(object? o) => JsonSerializer.Serialize(o, AdvanceNoteService.Json);
@@ -60,6 +72,7 @@ public class AdvanceNoteControl : UserControl
             workspace = new { name = ws?.Name ?? "", sourcePath = ws?.SourcePath ?? "", savePath = ws?.WorkingPath ?? "", projectId = ws?.ProjectId ?? "" },
             defaultFolder,
             programmer = _settings?.NoteProgrammer ?? "",
+            noteHub = NoteHubRequested is not null,   // nút "🗂 Nhiều dự án" chỉ hiện ở Bcode (BcodeNote.exe không nối event này)
             requests = _requests,
         })})");
         _ = PushTableNamesAsync();
@@ -84,7 +97,7 @@ public class AdvanceNoteControl : UserControl
             using var doc = JsonDocument.Parse(rawJson);
             var root = doc.RootElement;
             var action = root.GetProperty("action").GetString();
-            EnsureLoaded();
+            var reloaded = EnsureLoaded();
 
             switch (action)
             {
@@ -92,11 +105,21 @@ public class AdvanceNoteControl : UserControl
                     SendInit();
                     break;
 
+                // Trang vừa được focus lại: file danh sách đổi do tiến trình khác ghi (BcodeNote.exe / Bcode khác) thì đẩy danh sách mới xuống.
+                case "refresh":
+                    if (reloaded) SendList(null);
+                    break;
+
+                // Trả lời FlushAsync: tin "save" (nếu có) đã tới và được xử lý trước tin này.
+                case "flushed":
+                    _flushed?.TrySetResult();
+                    break;
+
                 case "newRequest":
                 {
                     var r = new AdvanceRequest { Name = AdvanceNoteService.SuggestName(_requests) };
                     _requests.Add(r);
-                    _store.Save(WorkspaceName, _requests);
+                    SaveList();
                     SendList(r.Id);
                     break;
                 }
@@ -108,8 +131,9 @@ public class AdvanceNoteControl : UserControl
                     var i = _requests.FindIndex(x => x.Id == req.Id);
                     // "Updated" là lần Generate Update gần nhất — sửa nội dung không đổi nó.
                     if (i >= 0) { req.Updated = _requests[i].Updated; req.Generations = _requests[i].Generations; _requests[i] = req; } else _requests.Add(req);
-                    _store.Save(WorkspaceName, _requests);
+                    SaveList();
                     Js($"advNote.onSaved({J(req.Id)})");
+                    if (reloaded) SendList(req.Id);   // y/c khác vừa được bên kia sửa → trang thấy luôn
                     break;
                 }
 
@@ -120,7 +144,7 @@ public class AdvanceNoteControl : UserControl
                         ? idsEl0.EnumerateArray().Select(e => e.GetString()).Where(x => x is not null).ToHashSet()
                         : new HashSet<string?> { root.GetProperty("id").GetString() };
                     _requests.RemoveAll(x => ids.Contains(x.Id));
-                    _store.Save(WorkspaceName, _requests);
+                    SaveList();
                     SendList(null);
                     break;
                 }
@@ -220,6 +244,10 @@ public class AdvanceNoteControl : UserControl
                         root.TryGetProperty("mode", out var md) ? md.GetString() ?? "" : "");
                     break;
 
+                case "noteHub":
+                    NoteHubRequested?.Invoke();
+                    break;
+
                 case "browseFiles":
                     BrowseFiles();
                     break;
@@ -262,6 +290,9 @@ public class AdvanceNoteControl : UserControl
     /// <summary>"🤖 AI tạo danh mục" cho y/c đang chọn (tên, nội dung) — MainForm mở Tạo nhanh danh mục và hỏi AI ở đó.</summary>
     public event Action<string, string>? AiCatalogRequested;
 
+    /// <summary>Nút "🗂 Nhiều dự án": MainForm mở BcodeNote.exe vào dự án đang chọn (trang đã lưu phần đang gõ trước khi gửi).</summary>
+    public event Action? NoteHubRequested;
+
     /// <summary>Phím tắt note.aiCatalog: bấm nút "AI tạo danh mục" của trang (trang tự lưu + lấy y/c đang chọn).</summary>
     public void RequestAiCatalog() => Js("window.advNote && advNote.aiCatalog && advNote.aiCatalog()");
 
@@ -271,6 +302,22 @@ public class AdvanceNoteControl : UserControl
 
     /// <summary>Phím tắt note.aiAnalyze / note.fastRules: bấm nút tương ứng của trang.</summary>
     public void RequestCatalogAssist(string mode) => Js($"window.advNote && advNote.catalogAssist && advNote.catalogAssist({JsonSerializer.Serialize(mode)})");
+
+    /// <summary>Điền gợi ý (theo menu đã chọn — BcodeNote.exe) vào y/c đang mở: thêm dòng chưa có vào Gen All / File Path / SQL Object App, Sys,
+    /// đưa table vào "Table liên quan" (tick Cấu trúc cho table được chọn). Chưa mở y/c nào thì tạo y/c mới rồi điền. Trang tự lưu như khi gõ tay.</summary>
+    public void ApplySuggestion(MenuSuggestionPick pick) => Js($"window.advNote && advNote.applySuggest && advNote.applySuggest({J(pick)})");
+
+    private TaskCompletionSource? _flushed;
+
+    /// <summary>Ghi ngay phần đang gõ dở (trang tự lưu sau 0,7 giây) rồi mới trả về — gọi trước khi đổi dự án / đóng cửa sổ (BcodeNote.exe).
+    /// Trang chưa nạp xong hoặc không trả lời trong <paramref name="timeoutMs"/> thì thôi.</summary>
+    public async Task FlushAsync(int timeoutMs = 1500)
+    {
+        if (!_web.IsReady || IsDisposed) return;
+        var tcs = _flushed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Js("window.advNote && advNote.flush ? advNote.flush() : window.chrome.webview.postMessage(JSON.stringify({ action: 'flushed' }))");
+        await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
+    }
 
     private List<PackageItem> _previewItems = new();
 
@@ -371,7 +418,7 @@ public class AdvanceNoteControl : UserControl
             byName[row.Fcode1] = req;
             added++;
         }
-        if (added > 0 || filled > 0) _store.Save(WorkspaceName, _requests);
+        if (added > 0 || filled > 0) SaveList();
 
         SendList(null);
         var message = rows.Count == 0
@@ -415,7 +462,7 @@ public class AdvanceNoteControl : UserControl
             if (req.Generations.Count > AdvanceRequest.MaxGenerations)
                 req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
         }
-        _store.Save(WorkspaceName, _requests);
+        SaveList();
 
         Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings) })})");
         SendList(null); // làm mới cột Updated

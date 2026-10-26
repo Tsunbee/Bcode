@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<!-- BcodeNote.exe — hộp "Gợi ý theo menu": tick các controller / file / SQL Object / table muốn điền vào y/c đang mở của Note (New). -->
+<style>
+  .sec { border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel); flex: none; }
+  .sec > .h { display: flex; align-items: center; gap: .6rem; padding: .35rem .7rem; background: var(--panel-alt); border-bottom: var(--bw) solid var(--border); }
+  .sec > .h b { color: var(--accent); font-family: Consolas, monospace; }
+  .sec > .h .hint { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sec .body { max-height: 15rem; overflow: auto; }
+  .sec.big .body { max-height: 22rem; }
+  table.tbl td.c, table.tbl th.c { width: 2.2rem; text-align: center; }
+  table.tbl td.mono { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; }
+  tr.grp td { color: var(--accent); font-weight: 600; background: var(--panel-alt); }
+  tr.off td:not(.c) { opacity: .55; }
+  .warn { color: var(--danger); font-size: .92rem; }
+  #head b { color: var(--accent); }
+  .none { padding: .5rem .8rem; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <div id="head" class="hint"></div>
+  <div id="warns"></div>
+
+  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="ctl" title="Tick / bỏ tick cả nhóm"><b>Gen All</b><span class="hint">controller của menu — Gen All đã gồm mọi file liên quan, procedure trong Filter và script sysmenu</span></div>
+    <div class="body"><table class="tbl"><tbody id="tCtl"></tbody></table></div></div>
+
+  <div class="sec big"><div class="h"><input type="checkbox" class="all" data-k="file" title="Tick / bỏ tick cả nhóm"><b>File Path</b><span class="hint" id="hFile">file của menu trong Source Path (dò như File Lookup) — tick sẵn trang Main và bản .f của Dir / Grid / Filter</span></div>
+    <div class="body"><table class="tbl"><tbody id="tFile"></tbody></table></div></div>
+
+  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="obj" title="Tick / bỏ tick cả nhóm"><b>SQL Object</b><span class="hint">procedure / function được EXEC trong Dir / Grid / Filter — vào ô SQL Object của App hoặc Sys theo nơi tìm thấy</span></div>
+    <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Tên</th><th>Loại</th><th>DB</th><th>Gọi trong</th></tr></thead><tbody id="tObj"></tbody></table></div></div>
+
+  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="menu" title="Tick / bỏ tick cả nhóm"><b>Script menu</b><span class="tag">Sys</span><span class="hint">DELETE / INSERT wcommand + command (như Gen Script Menu) → thêm vào SQL Bottom Script của Sys. Gen All đã có script menu theo controller nên menu đang chọn chỉ tick sẵn khi bỏ Gen All; menu cha (C) / (*) tick sẵn</span></div>
+    <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Menu</th><th>wmenu_id</th><th></th><th></th></tr></thead><tbody id="tMenu"></tbody></table></div></div>
+
+  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="tbl" title="Tick / bỏ tick cả nhóm"><b>Table liên quan</b><span class="hint">tick = đưa script tạo table (Cấu trúc) vào gói; không tick vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where)</span></div>
+    <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Table</th><th>Vai trò</th><th>DB</th><th>Số dòng</th><th>Controller</th></tr></thead><tbody id="tTbl"></tbody></table></div></div>
+</div>
+<div class="dlg-bar">
+  <span id="status" class="status">Chỉ THÊM những dòng chưa có vào y/c đang mở (không xoá gì bạn đã nhập). Chưa mở y/c nào thì tạo y/c mới.</span>
+  <button id="bCancel">Huỷ</button>
+  <button id="bApply" class="primary">Điền vào y/c</button>
+</div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmtRows = (n) => n == null ? '' : Number(n).toLocaleString('vi-VN');
+  let D = null;
+
+  const ck = (k, i, on, dis) => '<td class="c"><input type="checkbox" class="ck" data-k="' + k + '" data-i="' + i + '"' + (on ? ' checked' : '') + (dis ? ' disabled' : '') + '></td>';
+  function render() {
+    const s = D.s;
+    $('head').innerHTML = 'Dự án <b>' + esc(D.project) + '</b> · menu <b>' + esc(s.menu) + '</b>' + (s.controllers.length ? ' · controller <b>' + esc(s.controllers.join(', ')) + '</b>' : '');
+    $('warns').innerHTML = (s.warnings || []).map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
+
+    $('tCtl').innerHTML = s.controllers.length ? s.controllers.map((c, i) => '<tr>' + ck('ctl', i, true) + '<td class="mono">' + esc(c) + '</td></tr>').join('')
+      : '<tr><td class="none">Không suy ra được controller.</td></tr>';
+
+    let g = null;
+    $('tFile').innerHTML = s.files.length ? s.files.map((f, i) => {
+      const head = f.group !== g ? '<tr class="grp"><td colspan="2">' + esc(f.group) + '</td></tr>' : '';
+      g = f.group;
+      return head + '<tr title="' + esc(f.path) + '">' + ck('file', i, f.pick) + '<td class="mono">' + esc(f.rel) + '</td></tr>';
+    }).join('') : '<tr><td class="none" colspan="2">Không có file.</td></tr>';
+    $('hFile').textContent = s.files.length + ' file của menu trong Source Path (dò như File Lookup) — tick sẵn trang Main và bản .f của Dir / Grid / Filter';
+
+    $('tObj').innerHTML = s.objects.length ? s.objects.map((o, i) => '<tr class="' + (o.db ? '' : 'off') + '"' + (o.db ? '' : ' title="Không thấy trong database App / Sys"') + '>' + ck('obj', i, o.pick, !o.db) +
+      '<td class="mono">' + esc(o.name) + '</td><td>' + esc(o.kind || '?') + '</td><td>' + (o.db ? '<span class="tag">' + (o.db === 'sys' ? 'Sys' : 'App') + '</span>' : '<span class="tag err">không thấy</span>') +
+      '</td><td class="mono muted">' + esc(o.from) + '</td></tr>').join('') : '<tr><td class="none" colspan="5">Không có procedure / function nào được EXEC trong file của menu.</td></tr>';
+
+    const menus = s.menus || [];
+    $('tMenu').innerHTML = menus.length ? menus.map((m, i) => '<tr title="' + esc(m.script) + '">' + ck('menu', i, m.pick) + '<td>' + (m.self ? '<b>' + esc(m.bar) + '</b>' : esc(m.bar)) +
+      '</td><td class="mono">' + esc(m.wMenuId) + '</td><td>' + (m.self ? '<span class="tag ok">menu đang chọn</span>' : '<span class="tag">menu cha</span>') + (m.custom ? ' <span class="tag warn">customize</span>' : '') +
+      '</td><td><button class="mView" data-i="' + i + '">Xem</button></td></tr><tr class="mText" data-i="' + i + '" style="display:none"><td colspan="5"><pre class="mono" style="margin:0;white-space:pre;max-height:12rem;overflow:auto">' + esc(m.script) + '</pre></td></tr>').join('')
+      : '<tr><td class="none" colspan="5">Menu đọc từ bảng command (không có wcommand) — không sinh script menu.</td></tr>';
+    $('tMenu').querySelectorAll('.mView').forEach((b) => { b.onclick = () => { const r = $('tMenu').querySelector('.mText[data-i="' + b.dataset.i + '"]'); r.style.display = r.style.display === 'none' ? '' : 'none'; }; });
+    menuTouched = false;
+
+    $('tTbl').innerHTML = s.tables.length ? s.tables.map((t, i) => {
+      const x = t.info, has = x.inApp || x.inSys;
+      const db = x.inApp && x.inSys ? 'App, Sys' : x.inApp ? 'App' : x.inSys ? 'Sys' : '';
+      return '<tr class="' + (has ? '' : 'off') + '">' + ck('tbl', i, t.pick, !has) + '<td class="mono">' + esc(x.name) + '</td><td>' + esc(t.role === 'Dir' ? 'bảng Dir' : t.role === 'Grid' ? 'Grid chi tiết' : '') +
+        '</td><td>' + (db ? '<span class="tag">' + db + '</span>' : '<span class="tag err">không thấy</span>') + (x.isView ? ' <span class="tag">view</span>' : '') +
+        '</td><td class="muted">' + (x.isView ? '' : fmtRows(x.inApp ? x.rowsApp : x.rowsSys)) + '</td><td class="muted">' + esc((x.controllers || []).join(', ')) + '</td></tr>';
+    }).join('') : '<tr><td class="none" colspan="6">Không có table khai báo trong file của menu.</td></tr>';
+    syncAll();
+  }
+  const boxes = (k) => [...document.querySelectorAll('.ck[data-k="' + k + '"]')].filter((b) => !b.disabled);
+  function syncAll() {
+    document.querySelectorAll('.all').forEach((a) => {
+      const bs = boxes(a.dataset.k), n = bs.filter((b) => b.checked).length;
+      a.checked = n > 0 && n === bs.length; a.indeterminate = n > 0 && n < bs.length; a.disabled = !bs.length;
+    });
+  }
+  // Menu đang chọn: Gen All đã sinh script menu theo controller — bỏ hết tick Gen All (người dùng chưa tự đụng ô menu) thì tự tick script menu đang chọn, tick lại thì bỏ.
+  let menuTouched = false;
+  function followGenAll() {
+    if (menuTouched || !D) return;
+    const i = (D.s.menus || []).findIndex((m) => m.self);
+    const box = document.querySelector('.ck[data-k="menu"][data-i="' + i + '"]');
+    if (box) box.checked = !boxes('ctl').some((b) => b.checked);
+  }
+  document.addEventListener('change', (e) => {
+    const k = e.target.dataset.k;
+    if (e.target.classList.contains('all')) boxes(k).forEach((b) => { b.checked = e.target.checked; });
+    if (k === 'menu') menuTouched = true;
+    if (k === 'ctl') followGenAll();
+    syncAll();
+  });
+  const picked = (k) => boxes(k).filter((b) => b.checked).map((b) => +b.dataset.i);
+
+  function apply() {
+    const s = D.s;
+    const objs = picked('obj').map((i) => s.objects[i]);
+    const pick = {
+      genAll: picked('ctl').map((i) => s.controllers[i]),
+      filePaths: picked('file').map((i) => s.files[i].path),
+      procedures: objs.filter((o) => o.db === 'app').map((o) => o.name),
+      proceduresSys: objs.filter((o) => o.db === 'sys').map((o) => o.name),
+      tables: picked('tbl').map((i) => s.tables[i].info).map((x) => ({ name: x.name, sys: !x.inApp && x.inSys, structure: true, data: false, where: '' })),
+      tblList: s.tables.map((t) => t.info),
+      menuScripts: picked('menu').map((i) => s.menus[i].script),
+    };
+    post('apply', { pick });
+  }
+  $('bApply').onclick = apply;
+  $('bCancel').onclick = () => post('cancel');
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') post('cancel');
+    else if (e.key === 'Enter' && e.ctrlKey) apply();
+  });
+
+  window.sug = { show(d) { D = d; render(); $('bApply').focus(); } };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

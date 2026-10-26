@@ -213,6 +213,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             try { BeginInvoke(new Action(() => OpenViewerScriptTab(script, title))); }
             catch (InvalidOperationException) { /* cửa sổ đang đóng */ }
         };
+        _viewerControl.SqlScriptForProjectRequested += (script, title, project, sys) =>
+        {
+            if (IsDisposed || !IsHandleCreated) return;
+            try { BeginInvoke(new Action(() => OpenProjectScriptTab(script, title, project, sys))); }
+            catch (InvalidOperationException) { /* cửa sổ đang đóng */ }
+        };
         _viewerControl.Start();
         Disposed += (_, _) => _viewerControl.Dispose();
 
@@ -317,6 +323,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this); }));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
+        _toolSpecs.Add(("bcode_note", "Note (New) nhiều dự án", null, (_, _) => _ = LaunchBcodeNoteAsync()));
         _toolSpecs.Add(("claude_web", "Claude", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Claude, null)));
         _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
         _toolSpecs.Add(("help", "Trợ giúp", null, (_, _) => OpenHelpTab(HelpTopicForActiveTab())));
@@ -1121,7 +1128,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "bcode_note" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
@@ -1840,6 +1847,28 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         catch (Exception ex) { MessageBox.Show(this, "Không mở được Screen Designer:\n" + ex.Message, "Bcode"); }
     }
 
+    /// <summary>BcodeNote.exe (src/BcodeNote.App, build tự chép cạnh Bcode.exe): cạnh Bcode.exe, không có thì thư mục BcodeNote\ cạnh đó.</summary>
+    internal static string? FindBcodeNoteExe() =>
+        new[] { Path.Combine(AppContext.BaseDirectory, "BcodeNote.exe"), Path.Combine(AppContext.BaseDirectory, "BcodeNote", "BcodeNote.exe") }
+            .FirstOrDefault(File.Exists);
+
+    /// <summary>"Note (New) nhiều dự án" (menu Tool mở rộng, nút ở thanh Note (New)): mở BcodeNote.exe vào đúng dự án đang chọn.
+    /// Ghi nốt phần đang gõ ở tab Note (New) trước để BcodeNote đọc file request mới nhất.</summary>
+    private async Task LaunchBcodeNoteAsync()
+    {
+        var exe = FindBcodeNoteExe();
+        if (exe is null)
+        {
+            MessageBox.Show(this, "Chưa thấy BcodeNote.exe cạnh Bcode.exe. Build project src\\BcodeNote.App (build xong tự chép exe sang cạnh Bcode.exe) rồi thử lại.", "Bcode — Note (New) nhiều dự án");
+            return;
+        }
+        if (_advanceNoteTab is not null && FindDescendant<AdvanceNoteControl>(_advanceNoteTab) is { } note) await note.FlushAsync();
+        var psi = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! };
+        if (_connections.Current is { } ws) { psi.ArgumentList.Add("--project"); psi.ArgumentList.Add(ws.Name); }
+        try { Process.Start(psi); }
+        catch (Exception ex) { MessageBox.Show(this, "Không mở được BcodeNote:\n" + ex.Message, "Bcode"); }
+    }
+
     private TabPage? _includeCheckTabPage;
 
     /// <summary>Tab "Check Include" (một tab duy nhất): so INCLUDE / IGNORE, options, wcommand của dự án với catalog tính năng từng phiên bản.</summary>
@@ -1970,6 +1999,28 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Maximized;
         Activate();
         control.FocusEditor();
+    }
+
+    /// <summary>BcodeNote.exe gửi script (Note (New) của dự án <paramref name="project"/>) sang: tab SQL Query mới trên App / Sys của dự án ĐANG MỞ ở Bcode.
+    /// Khác dự án thì ghi cảnh báo đầu script + tiêu đề để không chạy nhầm database.</summary>
+    private void OpenProjectScriptTab(string script, string title, string project, bool sys)
+    {
+        var current = _connections.Current?.Name ?? "";
+        var other = project.Length > 0 && !string.Equals(project, current, StringComparison.OrdinalIgnoreCase);
+        if (other)
+        {
+            script = $"-- ⚠ Script của dự án \"{project}\" ({(sys ? "Sys" : "App")}) — Bcode đang mở dự án \"{(current.Length > 0 ? current : "(chưa chọn)")}\". "
+                + "Đổi sang đúng dự án (Ctrl+O) trước khi chạy.\r\n" + script;
+            title = $"{title} [{project}]";
+        }
+        var control = TakeSqlControl();
+        control.SetDatabase(sys);
+        control.SetScriptText(script);
+        AddDocumentTab(NumberedTabTitle(string.IsNullOrWhiteSpace(title) ? "SQL Query" : title), control.AsControl());
+        if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Maximized;
+        Activate();
+        control.FocusEditor();
+        if (other) PushStatus($"Script từ BcodeNote thuộc dự án {project} — Bcode đang mở {current}.");
     }
 
     private ISqlTab OpenFreeScriptTab()
@@ -2412,6 +2463,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             nc.OpenScriptsRequested += openScripts;
             nc.AiCatalogRequested += OpenQuickListWithAi;
             nc.CatalogAssistRequested += OpenQuickListWithAssist;
+            nc.NoteHubRequested += () => _ = LaunchBcodeNoteAsync();
             control = nc;
         }
         else
@@ -2420,6 +2472,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             wc.OpenScriptsRequested += openScripts;
             wc.AiCatalogRequested += OpenQuickListWithAi;
             wc.CatalogAssistRequested += OpenQuickListWithAssist;
+            wc.NoteHubRequested += () => _ = LaunchBcodeNoteAsync();
             control = wc;
         }
         _advanceNoteTab = AddDocumentTab("Note (New)", control);

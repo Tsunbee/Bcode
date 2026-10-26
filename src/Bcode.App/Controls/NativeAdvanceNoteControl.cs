@@ -89,6 +89,8 @@ public sealed class NativeAdvanceNoteControl : UserControl
             tip: "AI đọc y/c đang chọn và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận ở Tạo nhanh danh mục rồi luật Fast mới tạo. Cần API key — Ctrl+Alt+Shift+I"));
         _toolbar.Controls.Add(NK.Button("🤖 AI tạo danh mục", RequestAiCatalog,
             tip: "Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)"));
+        _toolbar.Controls.Add(NK.Button("🗂 Nhiều dự án", () => { Flush(); NoteHubRequested?.Invoke(); },
+            tip: "Mở BcodeNote — Note (New) cho nhiều dự án, chọn menu để gợi ý các ô — vào sẵn dự án đang chọn (dùng chung dữ liệu với tab này)"));
         _toolbar.Controls.Add(_status);
         _syncProg.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Flush(); _ = SyncAsync(); } };
 
@@ -931,6 +933,9 @@ public sealed class NativeAdvanceNoteControl : UserControl
 
     /// <summary>"🤖 AI tạo danh mục" cho y/c đang chọn (tên, nội dung) — MainForm mở Tạo nhanh danh mục và hỏi AI ở đó.</summary>
     public event Action<string, string>? AiCatalogRequested;
+
+    /// <summary>Nút "🗂 Nhiều dự án": MainForm mở BcodeNote.exe vào dự án đang chọn.</summary>
+    public event Action? NoteHubRequested;
 
     /// <summary>Nút "AI tạo danh mục" / phím tắt note.aiCatalog: lưu y/c đang sửa rồi gửi tên + nội dung (như trang advnote.html).</summary>
     public void RequestAiCatalog()

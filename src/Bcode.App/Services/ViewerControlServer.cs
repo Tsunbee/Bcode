@@ -23,6 +23,10 @@ public sealed class ViewerControlServer : IDisposable
     /// mới chứa script (đã gộp entity, thay macro, khai báo sẵn tham số). Bắn ở thread nền.</summary>
     public event Action<string, string>? SqlScriptRequested;
 
+    /// <summary>(script, tiêu đề tab, tên dự án, true = Sys Data) — BcodeNote.exe: mở script vào tab SQL Query mới, đúng database App / Sys.
+    /// Dự án khác dự án Bcode đang mở thì tab vẫn mở nhưng có dòng cảnh báo đầu script. Bắn ở thread nền.</summary>
+    public event Action<string, string, string, bool>? SqlScriptForProjectRequested;
+
     private readonly CancellationTokenSource _cts = new();
 
     public void Start() => _ = Task.Run(LoopAsync);
@@ -48,6 +52,13 @@ public sealed class ViewerControlServer : IDisposable
                 {
                     string Decode(string s) => Encoding.UTF8.GetString(Convert.FromBase64String(s));
                     SqlScriptRequested?.Invoke(Decode(parts[1]), parts.Length > 2 ? Decode(parts[2]) : "");
+                }
+                // "sqlp|<b64 script>|<b64 tiêu đề>|<b64 tên dự án>|<0 = App, 1 = Sys>": BcodeNote.exe mở script của gói (Note (New) nhiều dự án) vào tab SQL Query.
+                else if (parts.Length >= 2 && parts[0] == "sqlp")
+                {
+                    string Decode(string s) => Encoding.UTF8.GetString(Convert.FromBase64String(s));
+                    SqlScriptForProjectRequested?.Invoke(Decode(parts[1]), parts.Length > 2 ? Decode(parts[2]) : "",
+                        parts.Length > 3 ? Decode(parts[3]) : "", parts.Length > 4 && parts[4] == "1");
                 }
             }
             catch (OperationCanceledException) { return; }

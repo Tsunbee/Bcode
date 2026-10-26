@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BcodeNote.App</RootNamespace>
+    <AssemblyName>BcodeNote</AssemblyName>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>..\Bcode.App\Assets\bee.ico</ApplicationIcon>
+    <Product>Bcode Note</Product>
+    <Authors>HaoTN</Authors>
+    <Description>Note (New) của Bcode cho nhiều dự án: chọn dự án → request, chọn menu → gợi ý Gen All / File Path / SQL Object / Table liên quan.</Description>
+    <Version>1.0.0</Version>
+    <!-- ApplicationConfiguration (sinh tự động) trùng tên với bản trong Bcode.dll do InternalsVisibleTo — dùng bản của BcodeNote là đúng. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Dùng LẠI nguyên Bcode.dll: AdvanceNoteControl + advnote.html (Note (New)), AdvanceNoteService (cùng file %AppData%\Bcode\AdvanceNotes\<dự án>.json),
+         GenAllService (Gen All / tạo gói), WCommandService (cây menu), QuickListForm (Theo luật Fast / AI phân tích / AI tạo danh mục), AppSettings (settings.json).
+         Bcode.App khai InternalsVisibleTo("BcodeNote") để dùng WebBarHost / WebViewEnvironment / BcodePaths. Trang Web\Shell, Templates, Libs của Bcode được chép kèm. -->
+    <ProjectReference Include="..\Bcode.App\Bcode.App.csproj" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Trang riêng của BcodeNote: chép vào Web\Shell cạnh exe (cùng thư mục với trang của Bcode — WebBarHost nạp từ đó). -->
+    <Content Include="Web\**" Link="Web\Shell\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <!-- Build xong chép BcodeNote.exe (+ dll, deps, runtimeconfig, trang Web\Shell của nó) sang cạnh Bcode.exe cùng cấu hình — Bcode mở bằng menu Tool mở rộng
+       → "Note (New) nhiều dự án" / nút 🗂 ở Note (New) (MainForm.FindBcodeNoteExe). Thư mục đó đã có đủ Bcode.dll, thư viện, Web\Shell, Templates. Chỉ chép file của
+       BcodeNote, không đè file nào của Bcode. Đặt chỗ khác bằng -p:BcodeOutDir=...; không thấy thư mục thì bỏ qua. -->
+  <PropertyGroup>
+    <BcodeOutDir Condition="'$(BcodeOutDir)' == ''">$(MSBuildThisFileDirectory)..\Bcode.App\bin\$(Configuration)\$(TargetFramework)\</BcodeOutDir>
+  </PropertyGroup>
+  <Target Name="CopyNoteBesideBcode" AfterTargets="Build" Condition="Exists('$(BcodeOutDir)Bcode.dll') And '$([System.IO.Path]::GetFullPath($(BcodeOutDir)))' != '$([System.IO.Path]::GetFullPath($(OutDir)))'">
+    <ItemGroup>
+      <_NoteFiles Include="$(OutDir)BcodeNote.exe;$(OutDir)BcodeNote.dll;$(OutDir)BcodeNote.pdb;$(OutDir)BcodeNote.deps.json;$(OutDir)BcodeNote.runtimeconfig.json" />
+      <_NotePages Include="$(OutDir)Web\Shell\notehub.html;$(OutDir)Web\Shell\notesuggest.html" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_NoteFiles)" DestinationFolder="$(BcodeOutDir)" SkipUnchangedFiles="true" Condition="Exists('%(FullPath)')" />
+    <Copy SourceFiles="@(_NotePages)" DestinationFolder="$(BcodeOutDir)Web\Shell\" SkipUnchangedFiles="true" Condition="Exists('%(FullPath)')" />
+    <Message Importance="high" Text="BcodeNote → $(BcodeOutDir)" />
+  </Target>
+  <!-- Không cần Monaco (Web\Shell\viewer), ExcelToFrx và mẫu Check LCTT (Templates\Cfs — đường dẫn rất dài) của Bcode: bỏ khỏi danh sách chép kèm cho thư mục BcodeNote gọn. -->
+  <Target Name="TrimBcodeContent" AfterTargets="GetCopyToOutputDirectoryItems" BeforeTargets="_CopyOutOfDateSourceItemsToOutputDirectory">
+    <ItemGroup>
+      <_TrimNote Include="@(_SourceItemsToCopyToOutputDirectory);@(_SourceItemsToCopyToOutputDirectoryAlways)" Condition="$([System.String]::Copy('%(TargetPath)').StartsWith('Web\Shell\viewer\')) Or $([System.String]::Copy('%(TargetPath)').StartsWith('ExcelToFrx\')) Or $([System.String]::Copy('%(TargetPath)').StartsWith('Templates\Cfs\'))" />
+      <_SourceItemsToCopyToOutputDirectory Remove="@(_TrimNote)" />
+      <_SourceItemsToCopyToOutputDirectoryAlways Remove="@(_TrimNote)" />
+    </ItemGroup>
+  </Target>
+</Project>

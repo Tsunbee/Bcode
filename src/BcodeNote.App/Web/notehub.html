@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<!-- BcodeNote.exe — khung trái: danh sách dự án (workspace của Bcode) + cây menu wcommand của dự án đang chọn. Chọn menu → "Gợi ý cho y/c". -->
+<style>
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--panel); user-select: none; }
+  button, input { font: inherit; color: var(--text); }
+  button { background: var(--button-back); border: 1px solid var(--border); border-radius: 4px; padding: 2px 9px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--accent-hover); }
+  button:disabled { opacity: .5; cursor: default; }
+  input[type=text] { background: var(--input); border: 1px solid var(--border); border-radius: 3px; padding: 3px 6px; width: 100%; min-width: 0; }
+  input:focus { outline: 1px solid var(--accent); }
+  .title { padding: 5px 10px; color: var(--accent); font-family: Consolas, monospace; font-weight: 600; background: var(--panel-alt); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex: none; }
+  .title .hint { color: var(--text-muted); font-family: "Segoe UI", sans-serif; font-weight: normal; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .title .sp { flex: 1; }
+  .title button { font-family: "Segoe UI", sans-serif; font-weight: normal; padding: 0 7px; }
+  .filter { display: flex; gap: 6px; padding: 6px 8px; flex: none; border-bottom: 1px solid var(--border); }
+
+  #projWrap { flex: none; display: flex; flex-direction: column; max-height: 42%; border-bottom: 1px solid var(--border); }
+  #projWrap.collapsed #projBody { display: none; }
+  #projBody { display: flex; flex-direction: column; min-height: 0; }
+  #projList { overflow: auto; min-height: 40px; }
+  .pj { padding: 4px 10px; cursor: pointer; border-bottom: 1px solid rgba(127,127,127,.12); }
+  .pj:hover { background: rgba(127,127,127,.12); }
+  .pj.sel { background: var(--selection); }
+  .pj .n { display: flex; gap: 6px; align-items: baseline; }
+  .pj .n b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .pj .c { font-size: 11px; padding: 0 6px; border-radius: 8px; background: var(--button-back); color: var(--text-muted); }
+  .pj .c.has { background: var(--accent); color: var(--on-accent); }
+  .pj .d { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  #menuWrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  #tree { flex: 1; overflow: auto; padding: 2px 0 8px; font-size: 12.5px; }
+  .nd { display: flex; align-items: center; gap: 4px; padding: 2px 6px 2px 0; cursor: pointer; white-space: nowrap; }
+  .nd:hover { background: rgba(127,127,127,.12); }
+  .nd.sel { background: var(--selection); }
+  .nd .tw { width: 14px; flex: none; text-align: center; color: var(--text-muted); font-size: 10px; }
+  .nd .lb { overflow: hidden; text-overflow: ellipsis; }
+  .nd .lk { color: var(--text-muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .nd.leaf .lb { color: var(--text); }
+  .nd.folder .lb { color: var(--accent); }
+  .path { color: var(--text-muted); font-size: 11px; }
+  mark { background: transparent; color: var(--accent); font-weight: 600; }
+  .empty { padding: 14px; color: var(--text-muted); }
+
+  #pick { flex: none; border-top: 1px solid var(--border); background: var(--panel-alt); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+  #pickName { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pickInfo { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status { flex: none; padding: 4px 8px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); min-height: 1.6em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status.err { color: var(--danger); } #status.ok { color: var(--success); }
+  #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 10; padding: 12px; }
+  #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 12px 16px; text-align: center; }
+</style>
+</head>
+<body>
+  <div id="projWrap">
+    <div class="title"><span id="projTitle">Dự án</span><span class="hint">workspace đã khai ở Bcode</span><span class="sp"></span>
+      <button id="btnReloadProj" title="Đọc lại danh sách dự án từ settings.json (vừa thêm / sửa dự án ở Bcode)">⟳</button>
+      <button id="btnCollapse" title="Thu gọn / mở danh sách dự án">▴</button></div>
+    <div id="projBody">
+      <div class="filter"><input type="text" id="projFilter" placeholder="Lọc dự án (tên, ID, server)…" spellcheck="false" autocomplete="off" /></div>
+      <div id="projList"></div>
+    </div>
+  </div>
+
+  <div id="menuWrap">
+    <div class="title"><span id="menuTitle">Menu</span><span class="hint" id="menuHint">chọn menu cần gen</span><span class="sp"></span>
+      <button id="btnReloadMenu" title="Tải lại cây menu (wcommand) từ database Sys của dự án">⟳</button></div>
+    <div class="filter"><input type="text" id="menuFilter" placeholder="Lọc menu (tên, link, sysid, wmenu_id)…" spellcheck="false" autocomplete="off" /></div>
+    <div id="tree"><div class="empty">Chọn 1 dự án ở trên.</div></div>
+  </div>
+
+  <div id="pick" style="display:none">
+    <div id="pickName"></div>
+    <div id="pickInfo"></div>
+    <div style="display:flex; gap:6px"><button id="btnSuggest" class="primary" style="flex:1" title="Dò controller, file, procedure, table của menu này rồi điền vào y/c đang mở bên phải (bấm đôi menu cũng được)">✨ Gợi ý cho y/c đang mở</button></div>
+  </div>
+  <div id="status"></div>
+  <div id="busy"><div id="busyMsg">Đang xử lý…</div></div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  const S = { projects: [], selected: '', counts: {}, menus: [], kids: new Map(), open: new Set(), sel: -1, bar2: false };
+  const setStatus = (t, kind) => { const el = $('status'); el.textContent = t || ''; el.title = t || ''; el.className = kind || ''; };
+
+  // ---- Dự án ---------------------------------------------------------------------------------
+  function renderProjects() {
+    const q = fold($('projFilter').value.trim());
+    const list = S.projects.filter((p) => !q || fold(p.name + ' ' + p.id + ' ' + p.server + ' ' + p.app).includes(q));
+    $('projTitle').textContent = 'Dự án (' + S.projects.length + ')';
+    $('projList').innerHTML = list.length ? list.map((p) => {
+      const n = S.counts[p.name];
+      return '<div class="pj' + (p.name === S.selected ? ' sel' : '') + '" data-n="' + esc(p.name) + '" title="' + esc('Source: ' + (p.source || '(chưa khai)') + '\nApp: ' + p.app + ' · Sys: ' + p.sys) + '">' +
+        '<div class="n"><b>' + esc(p.name) + '</b>' + (n == null ? '' : '<span class="c' + (n ? ' has' : '') + '" title="Số y/c chưa Done">' + n + '</span>') + '</div>' +
+        '<div class="d">' + esc([p.id, p.server, p.app].filter(Boolean).join(' · ')) + '</div></div>';
+    }).join('') : '<div class="empty">Không có dự án khớp.</div>';
+    const sel = $('projList').querySelector('.pj.sel');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  }
+  $('projList').addEventListener('click', (e) => {
+    const el = e.target.closest('.pj'); if (!el) return;
+    if (el.dataset.n === S.selected) return;
+    S.selected = el.dataset.n; renderProjects();
+    post('selectProject', { name: el.dataset.n });
+  });
+  $('projFilter').addEventListener('input', renderProjects);
+  $('projFilter').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { const first = $('projList').querySelector('.pj'); if (first) first.click(); }
+    else if (e.key === 'Escape') { $('projFilter').value = ''; renderProjects(); }
+  });
+  $('btnReloadProj').onclick = () => post('reloadProjects');
+  function setCollapsed(on) {
+    $('projWrap').classList.toggle('collapsed', on);
+    $('btnCollapse').textContent = on ? '▾' : '▴';
+  }
+  $('btnCollapse').onclick = () => { const on = !$('projWrap').classList.contains('collapsed'); setCollapsed(on); post('collapse', { on }); };
+
+  // ---- Cây menu ------------------------------------------------------------------------------
+  const label = (m) => (S.bar2 && m.bar2 ? m.bar2 : m.bar) || m.bar2 || m.id || '(không tên)';
+  function rowHtml(m, depth, q) {
+    const kids = S.kids.get(m.i) || [];
+    const folder = kids.length > 0;
+    const open = S.open.has(m.i);
+    let lb = esc(label(m));
+    if (q) { const k = fold(label(m)).indexOf(q); if (k >= 0) lb = esc(label(m).slice(0, k)) + '<mark>' + esc(label(m).slice(k, k + q.length)) + '</mark>' + esc(label(m).slice(k + q.length)); }
+    const lk = m.link ? (m.sysid ? m.sysid + ' · ' : '') + m.link : (m.sysid || '');
+    return '<div class="nd ' + (folder ? 'folder' : 'leaf') + (m.i === S.sel ? ' sel' : '') + '" data-i="' + m.i + '" style="padding-left:' + (4 + depth * 14) + 'px" title="' + esc(label(m) + (m.id ? '\nwmenu_id: ' + m.id : '') + (m.link ? '\nlink: ' + m.link : '') + (m.sysid ? '\nsysid: ' + m.sysid : '')) + '">' +
+      '<span class="tw">' + (folder ? (open ? '▾' : '▸') : '') + '</span><span class="lb">' + lb + '</span>' + (lk && !folder ? '<span class="lk">' + esc(lk) + '</span>' : '') + '</div>';
+  }
+  function renderTree() {
+    const tree = $('tree');
+    if (!S.menus.length) { tree.innerHTML = '<div class="empty">' + (S.selected ? 'Dự án chưa có menu (hoặc đang tải…).' : 'Chọn 1 dự án ở trên.') + '</div>'; return; }
+    const q = fold($('menuFilter').value.trim());
+    const out = [];
+    if (q) {
+      // Lọc: danh sách phẳng các menu khớp, kèm đường dẫn menu cha (tối đa 400 dòng).
+      let n = 0;
+      for (const m of S.menus) {
+        const hay = fold(label(m) + ' ' + (m.bar2 || '') + ' ' + (m.bar || '') + ' ' + (m.link || '') + ' ' + (m.sysid || '') + ' ' + (m.id || ''));
+        if (!hay.includes(q)) continue;
+        const path = []; for (let p = m.p; p >= 0; p = S.menus[p].p) path.unshift(label(S.menus[p]));
+        out.push(rowHtml(m, 0, q) + (path.length ? '<div class="path" style="padding:0 6px 3px 18px">' + esc(path.join(' › ')) + '</div>' : ''));
+        if (++n >= 400) { out.push('<div class="empty">… còn nữa, gõ thêm để lọc hẹp.</div>'); break; }
+      }
+      tree.innerHTML = out.length ? out.join('') : '<div class="empty">Không có menu khớp.</div>';
+      return;
+    }
+    const walk = (m, d) => { out.push(rowHtml(m, d)); if (S.open.has(m.i)) (S.kids.get(m.i) || []).forEach((c) => walk(S.menus[c], d + 1)); };
+    (S.kids.get(-1) || []).forEach((c) => walk(S.menus[c], 0));
+    tree.innerHTML = out.join('');
+  }
+  function selectMenu(i) {
+    S.sel = i;
+    const m = S.menus[i];
+    $('pick').style.display = m ? 'flex' : 'none';
+    if (m) {
+      $('pickName').textContent = label(m);
+      const path = []; for (let p = m.p; p >= 0; p = S.menus[p].p) path.unshift(label(S.menus[p]));
+      $('pickInfo').textContent = [m.sysid && 'sysid ' + m.sysid, m.link, m.id && 'wmenu_id ' + m.id].filter(Boolean).join(' · ') || path.join(' › ');
+      $('pickInfo').title = path.join(' › ');
+      $('btnSuggest').disabled = !(m.sysid || m.link);
+    }
+    $('tree').querySelectorAll('.nd.sel').forEach((x) => x.classList.remove('sel'));
+    const el = $('tree').querySelector('.nd[data-i="' + i + '"]'); if (el) el.classList.add('sel');
+  }
+  $('tree').addEventListener('click', (e) => {
+    const el = e.target.closest('.nd'); if (!el) return;
+    const i = +el.dataset.i;
+    if ((S.kids.get(i) || []).length && (e.target.classList.contains('tw') || !$('menuFilter').value.trim())) {
+      if (S.open.has(i)) S.open.delete(i); else S.open.add(i);
+      if (!$('menuFilter').value.trim()) renderTree();
+    }
+    selectMenu(i);
+  });
+  $('tree').addEventListener('dblclick', (e) => {
+    const el = e.target.closest('.nd'); if (!el) return;
+    const m = S.menus[+el.dataset.i];
+    if (m && (m.sysid || m.link) && !(S.kids.get(m.i) || []).length) suggest(m.i);
+  });
+  let filterTimer = null;
+  $('menuFilter').addEventListener('input', () => { clearTimeout(filterTimer); filterTimer = setTimeout(renderTree, 150); });
+  $('menuFilter').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { $('menuFilter').value = ''; renderTree(); }
+    else if (e.key === 'Enter') { const first = $('tree').querySelector('.nd'); if (first) { selectMenu(+first.dataset.i); } }
+  });
+  $('btnReloadMenu').onclick = () => { if (S.selected) { setStatus('Đang tải lại cây menu…'); post('reloadMenus'); } };
+  function suggest(i) { if (i >= 0) post('suggest', { index: i }); }
+  $('btnSuggest').onclick = () => suggest(S.sel);
+
+  // ---- Host gọi vào ---------------------------------------------------------------------------
+  window.hub = {
+    init(st) {
+      S.projects = st.projects || []; S.selected = st.selected || S.selected;
+      setCollapsed(!!st.collapsed && !!S.selected);
+      renderProjects();
+    },
+    setCounts(c) { S.counts = c || {}; renderProjects(); },
+    projectSelected(name) {
+      S.selected = name; renderProjects();
+      S.menus = []; S.kids = new Map(); S.open = new Set(); S.sel = -1; $('pick').style.display = 'none';
+      $('menuTitle').textContent = 'Menu'; $('menuHint').textContent = name;
+      $('tree').innerHTML = '<div class="empty">Đang tải cây menu…</div>';
+      setStatus('Dự án: ' + name);
+    },
+    menusLoading() { $('tree').innerHTML = '<div class="empty">Đang tải cây menu…</div>'; },
+    setMenus(d) {
+      if (d.project !== S.selected) return;
+      const prevSel = S.menus[S.sel];
+      S.menus = d.menus || []; S.bar2 = !!d.bar2;
+      S.kids = new Map();
+      S.menus.forEach((m) => { if (!S.kids.has(m.p)) S.kids.set(m.p, []); S.kids.get(m.p).push(m.i); });
+      // Giữ nút đang mở / menu đang chọn khi nạp lại (theo wmenu_id).
+      const byId = new Map(S.menus.map((m) => [m.id, m.i]));
+      S.open = new Set([...S.open].filter((i) => i < S.menus.length));
+      S.sel = prevSel && byId.has(prevSel.id) ? byId.get(prevSel.id) : -1;
+      $('menuTitle').textContent = 'Menu (' + S.menus.length + ')';
+      $('menuHint').textContent = d.project + (d.note ? ' · ' + d.note : '');
+      renderTree();
+      if (S.sel >= 0) selectMenu(S.sel); else $('pick').style.display = 'none';
+      if (!d.note) setStatus('Đã tải ' + S.menus.length + ' menu của ' + d.project + '.', 'ok');
+    },
+    menuError(msg) { setStatus(msg, 'err'); if (!S.menus.length) $('tree').innerHTML = '<div class="empty">' + esc(msg) + '</div>'; },
+    busy(msg) { $('busy').style.display = msg ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; },
+    status(t, kind) { setStatus(t, kind); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

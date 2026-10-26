@@ -16,7 +16,7 @@ Trong Bcode, tài liệu này mở bằng nút **Trợ giúp** trên thanh trên
   - [SQL Query](#sql-query) · [Debug từng bước](#debug-sql) · [Lịch sử SQL](#lich-su-sql) · [Write Schema (.xsd / .rpt)](#write-schema)
   - [Table](#table) · [Command và Lookup](#command-lookup) · [SQL Object, Ai đang dùng, So sánh](#sql-object)
   - [WCommand](#wcommand) · [Mobile](#mobile) · [File Lookup](#file-lookup) · [Cấp source, Copy to, Clone](#cap-source)
-  - [Gen Update](#gen-update) · [Note và Note (New)](#note) · [Create RPT & XML, Tạo báo cáo](#create-rpt)
+  - [Gen Update](#gen-update) · [Note và Note (New)](#note) · [BcodeNote (nhiều dự án)](#bcodenote) · [Create RPT & XML, Tạo báo cáo](#create-rpt)
   - [Menu Triển khai](#trien-khai) · [Menu Tool mở rộng](#tool-mo-rong) · [Tiện ích khác](#tien-ich)
   - [Template giao diện](#template) · [Phím tắt và Settings phím tắt](#phim-tat) · [Key bản quyền](#key-ban-quyen) · [Lỗi hay gặp](#loi-thuong-gap)
 - **Phần II — BcodeViewer**
@@ -746,6 +746,36 @@ Khi dùng AI, Bcode cũng gửi kèm các field dự án / field bạn đã ch�
 
 Có mục dễ lỗi thì bấm **Tạo file** sẽ hỏi lại "Vẫn tạo file?". Các lưu ý nhỏ không chặn.
 
+<a id="bcodenote"></a>
+## BcodeNote — Note (New) cho nhiều dự án
+
+**BcodeNote.exe** là chương trình riêng làm đúng việc của [Note (New)](#note) nhưng chuyển qua lại giữa **nhiều dự án** trong một cửa sổ, và có thêm bước **chọn menu cần gen** để điền sẵn các ô. Dữ liệu là **một** với Note (New) của Bcode (`%AppData%\Bcode\AdvanceNotes\<dự án>.json`): sửa ở bên nào thì mở bên kia cũng thấy.
+
+Mở từ Bcode: menu **Tool mở rộng → Note (New) nhiều dự án**, hoặc nút **🗂 Nhiều dự án** trên thanh Note (New) — BcodeNote mở sẵn dự án Bcode đang chọn (gán phím ở Template → Phím tắt, mục "Note (New) nhiều dự án"). BcodeNote.exe nằm cạnh Bcode.exe (build project `src\BcodeNote.App` là tự chép sang); chưa có thì Bcode báo cần build.
+
+Màn hình:
+- **Bên trái, trên — Dự án**: các dự án đã khai ở Bcode (Projects), số bên phải = số y/c chưa Done. Gõ vào ô lọc (tên, ID, server); **⟳** đọc lại danh sách khi vừa thêm / sửa dự án ở Bcode; **▴** thu gọn danh sách.
+- **Bên trái, dưới — Menu**: cây menu (wcommand) của dự án đang chọn. Gõ để lọc theo tên, link, sysid, wmenu_id (kết quả kèm đường dẫn menu cha); **⟳** tải lại cây từ database.
+- **Bên phải**: đúng màn Note (New) của Bcode cho dự án đó — Request List, Tên y/c, Mobile / Done, Gen All, File Path (Chọn file…), SQL Object / SQL Top Script / Bottom Script (App / Sys), Table liên quan (Tải table), Xem trước gói, Generate Update, và các nút **Sync yêu cầu**, **Request Content**, **Theo luật Fast**, **AI phân tích**, **AI tạo danh mục**.
+
+Làm việc:
+1. Chọn dự án → Request List của dự án đó hiện ra (đổi dự án thì phần đang gõ được lưu vào dự án cũ trước).
+2. Chọn hoặc tạo y/c (＋ New Request, ⟳ Sync yêu cầu) như ở Bcode.
+3. Chọn menu cần gen ở cây bên trái → **✨ Gợi ý cho y/c đang mở** (hoặc bấm đôi vào menu). Hộp **Gợi ý theo menu** liệt kê, đã tick sẵn:
+   - **Gen All**: controller của menu (sysid, hoặc `Controller=` của trang Main\*.aspx).
+   - **File Path**: file của menu trong Source Path, dò như File Lookup — tick sẵn trang `Main\*.aspx` và bản `.f` của Dir / Grid / Filter; Include, Report, Template… để bạn tự tick (Gen All đã gồm các file này).
+   - **SQL Object**: procedure / function được `exec` trong Dir / Grid / Filter, xếp vào App hoặc Sys theo nơi tìm thấy (không thấy ở đâu thì không tick được).
+   - **Script menu** (Sys): script DELETE / INSERT `wcommand` + `command` như **Gen Script Menu**, cho menu đang chọn và từng menu cha — điền vào **SQL Bottom Script** của **Sys**. Menu cha có `(C)` / `(*)` (làm riêng cho khách, đích thường chưa có) tick sẵn. Menu đang chọn chỉ tick sẵn khi bỏ tick Gen All (Gen All đã tự sinh script menu theo controller). Bấm **Xem** để xem script.
+   - **Table liên quan**: table khai trong file của menu — tick sẵn bảng của Dir và Grid chi tiết (đưa script **Cấu trúc** vào gói); các bảng khác vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where).
+4. Bỏ / thêm tick → **Điền vào y/c** (`Ctrl+Enter`). Bcode Note chỉ **thêm** dòng chưa có, không xoá gì bạn đã nhập; chưa mở y/c nào thì tạo y/c mới đặt tên theo menu. Sửa lại các ô nếu cần rồi **Xem trước gói** / **Generate Update** như thường.
+
+Lưu ý:
+- Lần đầu gợi ý ở một dự án có thể mất khoảng nửa phút (đọc thư mục `Main` và source qua mạng); các lần sau nhanh nhờ cache dùng chung với Bcode.
+- **Mở script vào tab Query** gửi script sang **Bcode đang mở** (tab SQL Query mới, đúng App / Sys). Bcode đang mở dự án khác thì đầu script có dòng cảnh báo — đổi đúng dự án (`Ctrl+O`) trước khi chạy. Bcode chưa mở thì các file `.sql` được lưu vào `%TEMP%\BcodeNote\<dự án>\` và mở thư mục đó.
+- **Theo luật Fast / AI phân tích / AI tạo danh mục** mở màn Tạo nhanh danh mục của Bcode ngay trong Bcode Note (cần key bản quyền như ở Bcode), mỗi dự án một cửa sổ.
+- Mở thẳng một dự án: `BcodeNote.exe --project <tên dự án>`. Dự án mở gần nhất, bề rộng khung trái lưu ở `%AppData%\Bcode\bcodenote.json`.
+- Note (New) của Bcode ở chế độ Web tự thấy thay đổi từ Bcode Note khi bạn quay lại tab; ở chế độ App thì đóng / mở lại tab Note (New).
+
 <a id="create-rpt"></a>
 ## Create RPT & XML, Excel → FRX, Tạo báo cáo
 
@@ -831,6 +861,7 @@ Khi tester / triển khai ghi chú hay ghi lỗi vào y/c trên QLYC (FSG), Bcod
 | **Check Include** | So khai báo INCLUDE / IGNORE, options, wcommand của dự án với catalog tính năng từng phiên bản: chọn thư mục Dự án, tick "Kiểm tra DB (options / wcommand)" → **▶ Phân tích**. Tab Tính năng / File Include; trạng thái Đúng khai báo / Chưa bật / Một phần / Khác mặc định. Nút **Sửa → X** sửa file include (giữ bản .bak). |
 | **Tạo báo cáo** | Xem [Create RPT & XML, Excel → FRX, Tạo báo cáo](#create-rpt). Cần key. |
 | **Tạo nhanh danh mục** | Sinh bộ file danh mục từ một bảng: nhập Bảng (Enter để nạp cột), Controller, File Main, Key, Order, cột tên (Lookup), Title / Subtitle (v/e) + **Dịch**, bảng chi tiết (tuỳ chọn) → **Xem XML** → **Tạo file** (`Ctrl+Enter`) → **Mở Dir trong BcodeViewer** / **Tạo menu…**. Mẫu nằm ở `Templates\fileSource\CreateList` cạnh Bcode.exe (sửa mẫu không cần build). Gõ tên **bảng chưa có** = tạo bảng mới; **+ Thêm cột** để thêm trường — script ở tab **Script**, xem [bên dưới](#tao-nhanh-bang-moi). |
+| **Note (New) nhiều dự án** | Mở **BcodeNote.exe** vào dự án đang chọn: Note (New) chuyển qua lại nhiều dự án, chọn menu để gợi ý Gen All / File Path / SQL Object / Table liên quan. Dùng chung dữ liệu với Note (New). Xem [BcodeNote](#bcodenote). |
 
 <a id="tao-nhanh-bang-moi"></a>
 ### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script
@@ -1369,7 +1400,8 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\ui-template.json`, `ui\` | Bcode | Template giao diện, phím tắt đã đổi, CSS / HTML tuỳ chỉnh |
 | `%AppData%\Bcode\session\` | Bcode | Phiên làm việc (tab đang mở) |
 | `%AppData%\Bcode\query-history\`, `sql-history\` | Bcode | Lịch sử SQL, lịch sử sửa object |
-| `%AppData%\Bcode\Notes\`, `AdvanceNotes\` | Bcode | Note, Note (New) |
+| `%AppData%\Bcode\Notes\`, `AdvanceNotes\` | Bcode (AdvanceNotes dùng chung với BcodeNote) | Note, Note (New) |
+| `%AppData%\Bcode\bcodenote.json` | BcodeNote | Dự án mở gần nhất, bố cục khung trái |
 | `%AppData%\Bcode\FileLookupCache\` | Bcode | Cache phân tích file / menu (xoá được) |
 | `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" |
 | `%AppData%\Bcode\license.key` | Bcode | Key bản quyền |

@@ -108,6 +108,7 @@
     <button id="btnFastRules" title="Mở Tạo nhanh danh mục điền ngay theo luật cấu trúc Fast cho y/c đang chọn — không gọi AI, không cần API key — Ctrl+Alt+Shift+F">⚙ Theo luật Fast</button>
     <button id="btnAiAnalyze" title="AI đọc y/c đang chọn và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận ở Tạo nhanh danh mục rồi luật Fast mới tạo. Cần API key — Ctrl+Alt+Shift+I">🔎 AI phân tích</button>
     <button id="btnAiCatalog" title="Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)">🤖 AI tạo danh mục</button>
+    <button id="btnNoteHub" style="display:none" title="Mở BcodeNote — Note (New) cho nhiều dự án, chọn menu để gợi ý các ô — vào sẵn dự án đang chọn (dùng chung dữ liệu với tab này)">🗂 Nhiều dự án</button>
     <span class="grow"></span>
     <span id="status"></span>
   </div>
@@ -636,6 +637,7 @@
     $('btnDelete').title = n > 0 ? 'Xoá tất cả y/c đã tick khỏi Request List (không đụng database)' : 'Xoá y/c đang chọn khỏi Request List';
   }
   $('btnBrowse').onclick = () => post('browseFiles');
+  $('btnNoteHub').onclick = () => { flushSave(); post('noteHub'); };
 
   // ---- Host gọi vào -------------------------------------------------------------------------------
   window.advNote = {
@@ -644,6 +646,7 @@
     init(state) {
       S.ws = state.workspace || {}; S.requests = state.requests || []; S.defaultFolder = state.defaultFolder || '';
       $('gSave').value = S.ws.savePath || ''; folderTouched = false; refreshFolder(); $('syncProg').value = state.programmer || '';
+      $('btnNoteHub').style.display = state.noteHub ? '' : 'none';
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
       select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
     },
@@ -653,8 +656,11 @@
       const keep = selectId || (S.requests.some((r) => r.id === S.currentId) ? S.currentId : null);
       select(keep);
       setBusy(false);
+      if (S.pendingSuggest && cur()) { const p = S.pendingSuggest; S.pendingSuggest = null; applySuggest(p, true); }
     },
-    onSaved() { setStatus('Đã lưu.', 'ok'); },
+    applySuggest(p) { applySuggest(p, false); },
+    flush() { if (S.saveTimer) flushSave(); post('flushed'); },
+    onSaved() { setStatus(S.afterSave || 'Đã lưu.', 'ok'); S.afterSave = null; },
     onTableNames(list) { S.tblNames = list || []; },
     onTableAdded(t) {
       if (!t.inApp && !t.inSys) setStatus('Không thấy table / view "' + t.name + '" trong App hoặc Sys.', 'err');
@@ -705,6 +711,49 @@
     },
   };
   function setBusy(b, msg) { $('busy').style.display = b ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; }
+
+  // ---- Gợi ý theo menu (BcodeNote.exe): thêm các dòng CHƯA có vào ô của y/c đang mở, không xoá gì người dùng đã nhập ----
+  // p = { menu, newName, genAll[], filePaths[], procedures[], proceduresSys[], tables[{name, sys, structure, data, where}], tblList[] }
+  function appendUnique(text, items, splitRe) {
+    const have = new Set(String(text || '').split(splitRe).map((x) => x.trim().toLowerCase()).filter(Boolean));
+    const add = (items || []).map((x) => String(x || '').trim()).filter((x) => x && !have.has(x.toLowerCase()) && have.add(x.toLowerCase()));
+    const base = String(text || '').replace(/\s+$/, '');
+    return { text: add.length ? (base ? base + '\n' : '') + add.join('\n') : String(text || ''), n: add.length };
+  }
+  function applySuggest(p, fresh) {
+    if (!p) return;
+    if (!cur()) { S.pendingSuggest = p; post('newRequest'); return; }   // chưa mở y/c nào → tạo y/c mới rồi điền (onList)
+    const r = readEditor();
+    if (fresh && p.newName && /^Request \d+$/.test(r.name || '')) r.name = p.newName;   // y/c vừa tạo cho gợi ý: đặt tên theo menu (sửa lại được)
+    const names = /[\s,;]+/, lines = /\r?\n/;
+    const g = appendUnique(r.genAll, p.genAll, names); r.genAll = g.text;
+    const f = appendUnique(r.filePaths, p.filePaths, lines); r.filePaths = f.text;
+    const a = appendUnique(r.procedures, p.procedures, names); r.procedures = a.text;
+    const s = appendUnique(r.proceduresSys, p.proceduresSys, names); r.proceduresSys = s.text;
+    r.objectsSplit = true;
+    // Script menu (wcommand + command) chạy ở Sys → cuối SQL Bottom Script của Sys; khối đã có nguyên văn trong ô thì bỏ qua.
+    let nm = 0;
+    (p.menuScripts || []).forEach((sc) => {
+      const cur0 = String(r.bottomScriptSys || '');
+      if (!sc || cur0.replace(/\r/g, '').includes(String(sc).replace(/\r/g, ''))) return;
+      r.bottomScriptSys = (cur0.trim() ? cur0.replace(/\s+$/, '') + '\r\nGO\r\n\r\n' : '') + sc; nm++;
+    });
+    r.scriptsSplit = true;
+    r.tables = r.tables || [];
+    let nt = 0;
+    (p.tables || []).forEach((t) => { if (!r.tables.some((x) => x.name.toLowerCase() === t.name.toLowerCase())) { r.tables.push(t); nt++; } });
+    (p.tblList || []).forEach((t) => { if (!S.tblList.some((x) => x.name.toLowerCase() === t.name.toLowerCase())) S.tblList.push(t); });
+    if ((s.n || nm) && !a.n) S.scriptDb = 'sys';   // vừa thêm phần của Sys (object / script menu), không thêm gì cho App → đứng ở phần Sys cho thấy ngay
+    select(r.id);
+    post('save', { request: r });
+    renderList();
+    const parts = [g.n && g.n + ' controller', f.n && f.n + ' file', a.n && a.n + ' object App', s.n && s.n + ' object Sys', nm && nm + ' script menu (Bottom Script Sys)', nt && nt + ' table'].filter(Boolean);
+    S.afterSave = parts.length ? 'Đã điền từ menu ' + (p.menu || '') + ': ' + parts.join(', ') + ' — đã lưu.' : 'Menu ' + (p.menu || '') + ': mọi mục gợi ý đã có sẵn trong y/c.';
+    setStatus(S.afterSave, 'ok');   // onSaved hiện lại câu này thay cho "Đã lưu."
+  }
+
+  // Quay lại trang (đổi cửa sổ / bấm vào trang): BcodeNote.exe hay Bcode khác có thể vừa sửa danh sách của dự án này → host so file rồi gửi lại nếu đổi.
+  window.addEventListener('focus', () => { if (S.saveTimer) flushSave(); post('refresh'); });
 
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   post('ready');

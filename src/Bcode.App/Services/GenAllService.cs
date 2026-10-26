@@ -71,7 +71,7 @@ public sealed class RelatedTable
     public bool IsView { get; set; }
 }
 
-public class GenAllService
+public partial class GenAllService
 {
     /// <summary>Đọc dữ liệu table để sinh script dữ liệu (gán sau khi các service được tạo — xem MainForm).</summary>
     public TableDataService? TableData { get; set; }

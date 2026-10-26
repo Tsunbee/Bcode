@@ -16,7 +16,7 @@ Bcode.App/
 │   ├── rpt/
 │   └── README.md  14
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  497
+│   ├── AdvanceNoteControl.cs  499
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -30,7 +30,7 @@ Bcode.App/
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
-│   ├── FsgRequirementReportControl.cs  255
+│   ├── FsgRequirementReportControl.cs  256
 │   ├── GenUpdatePackageControl.cs  452
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
@@ -43,7 +43,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  163
-│   ├── NativeAdvanceNoteControl.cs  1089
+│   ├── NativeAdvanceNoteControl.cs  1092
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  278
@@ -151,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3745
+│   ├── MainForm.cs  3748
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -162,7 +162,7 @@ Bcode.App/
 │   ├── ProjectPickerForm.cs  108
 │   ├── QuickAccessForm.cs  165
 │   ├── QuickLaunchLoginForm.cs  558
-│   ├── QuickListForm.cs  760
+│   ├── QuickListForm.cs  764
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
 │   ├── RptSchemaForm.cs  250
@@ -328,7 +328,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  333
+│   ├── ShortcutRegistry.cs  334
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  718
 │   ├── TreeColorOptions.cs  50
@@ -342,7 +342,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  710
+│       ├── advnote.html  714
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  376
 │       ├── apischema.html  470
@@ -375,7 +375,7 @@ Bcode.App/
 │       ├── findbar.html  60
 │       ├── framehost.html  55
 │       ├── fsgnotify.html  136
-│       ├── fsgreq.html  760
+│       ├── fsgreq.html  763
 │       ├── genupdate.html  594
 │       ├── grantsource.html  132
 │       ├── help.html  425

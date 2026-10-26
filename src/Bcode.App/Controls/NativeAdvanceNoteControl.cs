@@ -83,7 +83,9 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _toolbar.Controls.Add(_syncProg);
         _toolbar.Controls.Add(NK.Button("⟳ Sync yêu cầu", () => { Flush(); _ = SyncAsync(); }, tip: "Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có"));
         _toolbar.Controls.Add(NK.Button("📄 Request Content", OpenContent, tip: "Xem / sửa nội dung y/c & những gì đã sửa — Ctrl+Shift+4"));
-        _toolbar.Controls.Add(NK.Button("🔎 AI phân tích", RequestAiAnalyze,
+        _toolbar.Controls.Add(NK.Button("⚙ Theo luật Fast", () => RequestCatalogAssist("rules"),
+            tip: "Mở Tạo nhanh danh mục điền ngay theo luật cấu trúc Fast cho y/c đang chọn — không gọi AI, không cần API key — Ctrl+Alt+Shift+F"));
+        _toolbar.Controls.Add(NK.Button("🔎 AI phân tích", () => RequestCatalogAssist("analyze"),
             tip: "AI đọc y/c đang chọn và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận ở Tạo nhanh danh mục rồi luật Fast mới tạo. Cần API key — Ctrl+Alt+Shift+I"));
         _toolbar.Controls.Add(NK.Button("🤖 AI tạo danh mục", RequestAiCatalog,
             tip: "Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)"));
@@ -939,16 +941,17 @@ public sealed class NativeAdvanceNoteControl : UserControl
         AiCatalogRequested?.Invoke(_cur.Name ?? "", _cur.Content);
     }
 
-    /// <summary>"🔎 AI phân tích" cho y/c đang chọn (tên, nội dung) — MainForm mở Tạo nhanh danh mục ở bước xác nhận bản phân tích.</summary>
-    public event Action<string, string>? AiAnalyzeRequested;
+    /// <summary>"🔎 AI phân tích" (mode "analyze") / "⚙ Theo luật Fast" (mode "rules") cho y/c đang chọn (tên, nội dung, mode)
+    /// — MainForm mở Tạo nhanh danh mục ở đúng chế độ.</summary>
+    public event Action<string, string, string>? CatalogAssistRequested;
 
-    /// <summary>Nút "AI phân tích" / phím tắt note.aiAnalyze: lưu y/c đang sửa rồi gửi tên + nội dung (như trang advnote.html).</summary>
-    public void RequestAiAnalyze()
+    /// <summary>Nút / phím tắt note.aiAnalyze, note.fastRules: lưu y/c đang sửa rồi gửi tên + nội dung + mode (như trang advnote.html).</summary>
+    public void RequestCatalogAssist(string mode)
     {
         Flush();
         if (_cur is null) { SetStatus("Chọn 1 y/c trước.", true); return; }
         if (string.IsNullOrWhiteSpace(_cur.Content)) { SetStatus("Y/c chưa có nội dung — Sync yêu cầu hoặc nhập Request Content trước.", true); return; }
-        AiAnalyzeRequested?.Invoke(_cur.Name ?? "", _cur.Content);
+        CatalogAssistRequested?.Invoke(_cur.Name ?? "", _cur.Content, mode);
     }
 
     private void BrowseFiles()

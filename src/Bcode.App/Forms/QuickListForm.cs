@@ -242,13 +242,14 @@ public class QuickListForm : WebDialogForm
     /// Bắt đầu "AI tạo danh mục" cho 1 yêu cầu (từ Note (New)): form đã mở thì chạy ngay, chưa thì chạy khi trang sẵn sàng.
     /// AI chỉ điền các ô của màn này — không ghi file, không chạy SQL; người dùng duyệt rồi bấm Tạo file như thường.
     /// </summary>
-    public void StartAi(string requestName, string content)
+    /// <param name="rules">true = "⚙ Theo luật Fast": điền theo luật, không gọi AI kể cả khi có API key.</param>
+    public void StartAi(string requestName, string content, bool rules = false)
     {
         _aiRequest = (requestName, content);
         _aiAnswers.Clear();
         _aiQuestions = new();
         _aiService = null;   // đọc lại danh sách bảng (có thể đã đổi workspace)
-        _aiRulesMode = false;
+        _aiRulesMode = rules;
         _aiAnalyzeMode = false;
         _aiOriginal = content;
         if (_ready) _ = RunAiAsync();
@@ -269,6 +270,9 @@ public class QuickListForm : WebDialogForm
         _aiOriginal = content;
         if (_ready) _ = RunAnalyzeAsync();
     }
+
+    /// <summary>"⚙ Theo luật Fast" từ Note (New) / Yêu cầu FSG: như <see cref="StartAi"/> nhưng điền ngay theo luật Fast, không gọi AI (kể cả khi có API key).</summary>
+    public void StartRules(string requestName, string content) => StartAi(requestName, content, rules: true);
 
     private Task RunCurrentAsync() => _aiAnalyzeMode ? RunAnalyzeAsync() : RunAiAsync();
 

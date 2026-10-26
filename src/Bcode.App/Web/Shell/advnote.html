@@ -105,6 +105,7 @@
     <input type="text" id="syncProg" placeholder="Tên lập trình (ma_lt1)" title="Tên lập trình cần đồng bộ yêu cầu về" spellcheck="false" style="width:170px" />
     <button id="btnSync" title="Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có">⟳ Sync yêu cầu</button>
     <button id="btnContent" title="Xem / sửa nội dung y/c &amp; những gì đã sửa (đi kèm gói update) — Ctrl+Shift+4">📄 Request Content</button>
+    <button id="btnFastRules" title="Mở Tạo nhanh danh mục điền ngay theo luật cấu trúc Fast cho y/c đang chọn — không gọi AI, không cần API key — Ctrl+Alt+Shift+F">⚙ Theo luật Fast</button>
     <button id="btnAiAnalyze" title="AI đọc y/c đang chọn và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận ở Tạo nhanh danh mục rồi luật Fast mới tạo. Cần API key — Ctrl+Alt+Shift+I">🔎 AI phân tích</button>
     <button id="btnAiCatalog" title="Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)">🤖 AI tạo danh mục</button>
     <span class="grow"></span>
@@ -605,13 +606,16 @@
     post('aiCatalog', { name: r.name || '', content: r.content || '' });
   };
   // AI phân tích: AI viết lại y/c theo mẫu luật Fast — Tạo nhanh danh mục cho sửa / xác nhận rồi mới chạy luật Fast.
-  $('btnAiAnalyze').onclick = () => {
+  // ⚙ Theo luật Fast: điền ngay theo luật, không gọi AI. Cả 2 gửi catalogAssist kèm mode.
+  const catalogAssist = (mode) => {
     flushSave();
     const r = cur();
     if (!r) { setStatus('Chọn 1 y/c trước.', 'err'); return; }
     if (!(r.content || '').trim()) { setStatus('Y/c chưa có nội dung — Sync yêu cầu hoặc nhập Request Content trước.', 'err'); return; }
-    post('aiAnalyze', { name: r.name || '', content: r.content || '' });
+    post('catalogAssist', { name: r.name || '', content: r.content || '', mode });
   };
+  $('btnAiAnalyze').onclick = () => catalogAssist('analyze');
+  $('btnFastRules').onclick = () => catalogAssist('rules');
   $('syncProg').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnSync').click(); });
   // Có y/c được TICK thì xoá TẤT CẢ y/c đã tick (hỏi xác nhận 1 lần, nêu số lượng); không tick gì thì xoá y/c đang chọn như cũ.
   $('btnDelete').onclick = () => {
@@ -636,7 +640,7 @@
   // ---- Host gọi vào -------------------------------------------------------------------------------
   window.advNote = {
     aiCatalog() { $('btnAiCatalog').click(); },
-    aiAnalyze() { $('btnAiAnalyze').click(); },
+    catalogAssist(mode) { $(mode === 'rules' ? 'btnFastRules' : 'btnAiAnalyze').click(); },
     init(state) {
       S.ws = state.workspace || {}; S.requests = state.requests || []; S.defaultFolder = state.defaultFolder || '';
       $('gSave').value = S.ws.savePath || ''; folderTouched = false; refreshFolder(); $('syncProg').value = state.programmer || '';

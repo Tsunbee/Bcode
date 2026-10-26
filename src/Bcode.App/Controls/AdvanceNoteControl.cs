@@ -215,8 +215,9 @@ public class AdvanceNoteControl : UserControl
                     AiCatalogRequested?.Invoke(root.GetProperty("name").GetString() ?? "", root.GetProperty("content").GetString() ?? "");
                     break;
 
-                case "aiAnalyze":
-                    AiAnalyzeRequested?.Invoke(root.GetProperty("name").GetString() ?? "", root.GetProperty("content").GetString() ?? "");
+                case "catalogAssist":
+                    CatalogAssistRequested?.Invoke(root.GetProperty("name").GetString() ?? "", root.GetProperty("content").GetString() ?? "",
+                        root.TryGetProperty("mode", out var md) ? md.GetString() ?? "" : "");
                     break;
 
                 case "browseFiles":
@@ -264,11 +265,12 @@ public class AdvanceNoteControl : UserControl
     /// <summary>Phím tắt note.aiCatalog: bấm nút "AI tạo danh mục" của trang (trang tự lưu + lấy y/c đang chọn).</summary>
     public void RequestAiCatalog() => Js("window.advNote && advNote.aiCatalog && advNote.aiCatalog()");
 
-    /// <summary>"🔎 AI phân tích" cho y/c đang chọn (tên, nội dung) — MainForm mở Tạo nhanh danh mục ở bước xác nhận bản phân tích.</summary>
-    public event Action<string, string>? AiAnalyzeRequested;
+    /// <summary>"🔎 AI phân tích" (mode "analyze") / "⚙ Theo luật Fast" (mode "rules") cho y/c đang chọn (tên, nội dung, mode)
+    /// — MainForm mở Tạo nhanh danh mục ở đúng chế độ.</summary>
+    public event Action<string, string, string>? CatalogAssistRequested;
 
-    /// <summary>Phím tắt note.aiAnalyze: bấm nút "AI phân tích" của trang.</summary>
-    public void RequestAiAnalyze() => Js("window.advNote && advNote.aiAnalyze && advNote.aiAnalyze()");
+    /// <summary>Phím tắt note.aiAnalyze / note.fastRules: bấm nút tương ứng của trang.</summary>
+    public void RequestCatalogAssist(string mode) => Js($"window.advNote && advNote.catalogAssist && advNote.catalogAssist({JsonSerializer.Serialize(mode)})");
 
     private List<PackageItem> _previewItems = new();
 

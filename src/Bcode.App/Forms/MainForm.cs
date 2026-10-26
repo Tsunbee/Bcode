@@ -150,14 +150,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
     /// <summary>
-    /// "🔎 AI phân tích": mở Tạo nhanh danh mục, AI viết lại y/c theo mẫu luật Fast rồi dừng cho người dùng sửa / xác nhận;
-    /// xác nhận xong luật Fast (không AI) mới điền danh mục.
+    /// "🔎 AI phân tích" (mode "analyze"): mở Tạo nhanh danh mục, AI viết lại y/c theo mẫu luật Fast rồi dừng cho người dùng sửa / xác nhận,
+    /// xác nhận xong luật Fast (không AI) mới điền. "⚙ Theo luật Fast" (mode "rules"): điền ngay theo luật, không gọi AI.
     /// </summary>
-    private void OpenQuickListWithAiAnalyze(string requestName, string content)
+    private void OpenQuickListWithAssist(string requestName, string content, string mode)
     {
         OpenQuickList();
         if (_quickListForm is not { IsDisposed: false }) return;
-        _quickListForm.StartAnalyze(requestName, content);
+        if (mode == "rules") _quickListForm.StartRules(requestName, content);
+        else _quickListForm.StartAnalyze(requestName, content);
     }
     /// <summary>MainForm tự dàn bằng Dock + thanh web báo chiều cao, nên không nhân bố cục thêm theo UiScale.</summary>
     protected override bool ScaleLayoutWithUiScale => false;
@@ -2258,7 +2259,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
         var fsgReq = new FsgRequirementReportControl(() => _connections.Current, () => _settings.NoteProgrammer ?? "");
         fsgReq.AiCatalogRequested += OpenQuickListWithAi;
-        fsgReq.AiAnalyzeRequested += OpenQuickListWithAiAnalyze;
+        fsgReq.CatalogAssistRequested += OpenQuickListWithAssist;
         if (menu is not null) fsgReq.ShowForMenu(menu);
         _fsgReqTab = AddDocumentTab("Yêu cầu FSG", fsgReq);
         _fsgReqTab.Disposed += (_, _) => _fsgReqTab = null;
@@ -2410,7 +2411,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var nc = new NativeAdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
             nc.OpenScriptsRequested += openScripts;
             nc.AiCatalogRequested += OpenQuickListWithAi;
-            nc.AiAnalyzeRequested += OpenQuickListWithAiAnalyze;
+            nc.CatalogAssistRequested += OpenQuickListWithAssist;
             control = nc;
         }
         else
@@ -2418,7 +2419,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var wc = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
             wc.OpenScriptsRequested += openScripts;
             wc.AiCatalogRequested += OpenQuickListWithAi;
-            wc.AiAnalyzeRequested += OpenQuickListWithAiAnalyze;
+            wc.CatalogAssistRequested += OpenQuickListWithAssist;
             control = wc;
         }
         _advanceNoteTab = AddDocumentTab("Note (New)", control);
@@ -2892,19 +2893,21 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 return true;
             }
             case "note.aiAnalyze":
+            case "note.fastRules":
             {
-                // Như note.aiCatalog nhưng cho nút 🔎 AI phân tích.
+                // Như note.aiCatalog nhưng cho nút 🔎 AI phân tích / ⚙ Theo luật Fast.
+                var mode = id == "note.fastRules" ? "rules" : "analyze";
                 if (_fsgReqTab is not null && _documentTabs.SelectedTab == _fsgReqTab)
                 {
                     if (FindDescendant<FsgRequirementReportControl>(_fsgReqTab) is not { } fsg) return false;
-                    fsg.RequestAiAnalyze();
+                    fsg.RequestCatalogAssist(mode);
                     return true;
                 }
                 if (_advanceNoteTab is null || _documentTabs.SelectedTab != _advanceNoteTab) return false;
                 var note = FindDescendant<AdvanceNoteControl>(_advanceNoteTab);
                 var nativeNote = FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab);
-                if (note is not null) note.RequestAiAnalyze();
-                else if (nativeNote is not null) nativeNote.RequestAiAnalyze();
+                if (note is not null) note.RequestCatalogAssist(mode);
+                else if (nativeNote is not null) nativeNote.RequestCatalogAssist(mode);
                 else return false;
                 return true;
             }

@@ -172,7 +172,7 @@
 <div id="prio"></div>
 <div id="wrap"><div class="empty" id="empty">Nhập điều kiện rồi bấm “Kéo về”.</div><table id="tbl" hidden></table></div>
 <div id="dtModal"><div id="dtResizer" title="Kéo để đổi độ rộng khung"></div><div id="dtBox">
-  <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtAna" title="AI đọc y/c này và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận rồi luật Fast mới tạo danh mục. Cần API key — Ctrl+Alt+Shift+I">🔎 AI phân tích</button><button id="dtAi" title="Bản thử: đọc nội dung y/c này, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (AI nếu có API key, không thì theo luật cấu trúc Fast) — Ctrl+Alt+I">🤖 AI tạo danh mục</button><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
+  <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtRules" title="Điền ngay Tạo nhanh danh mục theo luật cấu trúc Fast (field bạn đã sửa → field source dự án → header.xml) — không gọi AI, không cần API key, không tốn token — Ctrl+Alt+Shift+F">⚙ Theo luật Fast</button><button id="dtAna" title="AI đọc y/c này và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận rồi luật Fast mới tạo danh mục. Cần API key — Ctrl+Alt+Shift+I">🔎 AI phân tích</button><button id="dtAi" title="Bản thử: đọc nội dung y/c này, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (AI nếu có API key, không thì theo luật cấu trúc Fast) — Ctrl+Alt+I">🤖 AI tạo danh mục</button><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
   <div id="dtMeta"></div>
   <div id="dtBody"></div>
 </div></div>
@@ -667,13 +667,16 @@
     if (!content.trim()) return;
     post('aiCatalog', { name: r.fcode1 || r.menuId || '', content });
   };
-  // AI phân tích: AI viết lại y/c theo mẫu luật Fast → Tạo nhanh danh mục cho sửa / xác nhận rồi mới chạy luật Fast.
-  $('dtAna').onclick = () => {
+  // 🔎 AI phân tích (mode analyze: AI viết lại y/c theo mẫu luật Fast → sửa / xác nhận rồi mới chạy luật) và
+  // ⚙ Theo luật Fast (mode rules: điền ngay theo luật, không gọi AI) — C# mở Tạo nhanh danh mục ở đúng chế độ.
+  const catalogAssist = (mode) => {
     const r = curDetail; if (!r) return;
     const content = detailContent(r);
     if (!content.trim()) return;
-    post('aiAnalyze', { name: r.fcode1 || r.menuId || '', content });
+    post('catalogAssist', { name: r.fcode1 || r.menuId || '', content, mode });
   };
+  $('dtAna').onclick = () => catalogAssist('analyze');
+  $('dtRules').onclick = () => catalogAssist('rules');
   // kéo cạnh trái của khung để đổi độ rộng
   $('dtResizer').addEventListener('mousedown', (e) => {
     e.preventDefault(); const rz = $('dtResizer'); rz.classList.add('drag');
@@ -712,10 +715,10 @@
       if ($('dtModal').classList.contains('show') && curDetail) { $('dtAi').click(); return; }
       $('msg').className = 'on note'; $('msg').textContent = 'Bấm vào ô Nội dung của 1 yêu cầu để mở khung chi tiết, rồi bấm 🤖 AI tạo danh mục (hoặc Ctrl+Alt+I).';
     },
-    // Phím tắt note.aiAnalyze (Ctrl+Alt+Shift+I): như trên cho nút 🔎 AI phân tích.
-    aiAnalyze() {
-      if ($('dtModal').classList.contains('show') && curDetail) { $('dtAna').click(); return; }
-      $('msg').className = 'on note'; $('msg').textContent = 'Bấm vào ô Nội dung của 1 yêu cầu để mở khung chi tiết, rồi bấm 🔎 AI phân tích (hoặc Ctrl+Alt+Shift+I).';
+    // Phím tắt note.aiAnalyze / note.fastRules: như trên cho nút 🔎 AI phân tích / ⚙ Theo luật Fast.
+    catalogAssist(mode) {
+      if ($('dtModal').classList.contains('show') && curDetail) { $(mode === 'rules' ? 'dtRules' : 'dtAna').click(); return; }
+      $('msg').className = 'on note'; $('msg').textContent = 'Bấm vào ô Nội dung của 1 yêu cầu để mở khung chi tiết, rồi bấm ' + (mode === 'rules' ? '⚙ Theo luật Fast.' : '🔎 AI phân tích.');
     },
     // Chuột phải cây WCommand → "Yêu cầu liên quan (QLYC)…": bỏ các lọc khác, chỉ hiện y/c của dự án liên quan menu (quy tắc: menuWhy ở trên).
     menuFilter(m) {

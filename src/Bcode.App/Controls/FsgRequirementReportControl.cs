@@ -54,11 +54,12 @@ public class FsgRequirementReportControl : UserControl
     /// <summary>Phím tắt note.aiCatalog: bấm nút của khung chi tiết (chưa mở y/c nào thì trang nhắc).</summary>
     public void RequestAiCatalog() => Js("window.fsgReq && fsgReq.aiCatalog && fsgReq.aiCatalog()");
 
-    /// <summary>"🔎 AI phân tích" cho y/c đang mở ở khung chi tiết (mã y/c, nội dung) — MainForm mở Tạo nhanh danh mục ở bước xác nhận bản phân tích.</summary>
-    public event Action<string, string>? AiAnalyzeRequested;
+    /// <summary>"🔎 AI phân tích" (mode "analyze") / "⚙ Theo luật Fast" (mode "rules") cho y/c đang mở ở khung chi tiết (mã y/c, nội dung, mode)
+    /// — MainForm mở Tạo nhanh danh mục ở đúng chế độ.</summary>
+    public event Action<string, string, string>? CatalogAssistRequested;
 
-    /// <summary>Phím tắt note.aiAnalyze: bấm nút 🔎 AI phân tích của khung chi tiết.</summary>
-    public void RequestAiAnalyze() => Js("window.fsgReq && fsgReq.aiAnalyze && fsgReq.aiAnalyze()");
+    /// <summary>Phím tắt note.aiAnalyze / note.fastRules: bấm nút tương ứng của khung chi tiết.</summary>
+    public void RequestCatalogAssist(string mode) => Js($"window.fsgReq && fsgReq.catalogAssist && fsgReq.catalogAssist({J(mode)})");
 
     private static string J(object? o) => JsonSerializer.Serialize(o, JsonOpts);
 
@@ -208,7 +209,7 @@ public class FsgRequirementReportControl : UserControl
                 }
                 case "copy": try { Clipboard.SetText(Str("text")); } catch { /* clipboard bận */ } break;
                 case "aiCatalog": AiCatalogRequested?.Invoke(Str("name"), Str("content")); break;
-                case "aiAnalyze": AiAnalyzeRequested?.Invoke(Str("name"), Str("content")); break;
+                case "catalogAssist": CatalogAssistRequested?.Invoke(Str("name"), Str("content"), Str("mode")); break;
             }
         }
         catch (Exception ex) { Js($"fsgReq.onData({J(new { rows = (object?)null, error = ex.Message })})"); }

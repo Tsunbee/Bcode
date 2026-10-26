@@ -42,7 +42,7 @@ Bcode.App/
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
-│   ├── MultiResultView.cs  163
+│   ├── MultiResultView.cs  194
 │   ├── NativeAdvanceNoteControl.cs  1128
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
@@ -81,8 +81,8 @@ Bcode.App/
 │   ├── NativePages.SqlHistory.cs  299
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  344
-│   ├── NativeResultPane.cs  301
-│   ├── NativeShellBars.cs  296
+│   ├── NativeResultPane.cs  302
+│   ├── NativeShellBars.cs  314
 │   ├── NativeSqlControl.cs  1903
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
@@ -94,7 +94,8 @@ Bcode.App/
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  491
 │   ├── RawSqlControl.cs  2539
-│   ├── ResultGridMenu.cs  477
+│   ├── ResultExport.cs  135
+│   ├── ResultGridMenu.cs  530
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
 │   ├── ScriptEditorControl.EntityIndex.cs  178
@@ -151,7 +152,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3801
+│   ├── MainForm.cs  3819
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -285,6 +286,7 @@ Bcode.App/
 │   ├── QuickReportService.cs  637
 │   ├── RawSqlService.cs  390
 │   ├── ReportBuilderModule.cs  71
+│   ├── ResultExportService.cs  271
 │   ├── SchemaCompareService.cs  79
 │   ├── ScriptFileService.cs  69
 │   ├── SessionStore.cs  69
@@ -330,7 +332,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  334
+│   ├── ShortcutRegistry.cs  339
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  718
 │   ├── TreeColorOptions.cs  50
@@ -395,7 +397,7 @@ Bcode.App/
 │       ├── quicklist.html  1666
 │       ├── quickreport.html  1027
 │       ├── reportmodes.html  64
-│       ├── resultview.html  578
+│       ├── resultview.html  608
 │       ├── richreq.js  77
 │       ├── rowdetail.html  83
 │       ├── rptschema.html  112
@@ -414,7 +416,7 @@ Bcode.App/
 │       ├── sqlprofilerbar.html  149
 │       ├── sqlquerybar.html  409
 │       ├── sqlresulttabs.html  53
-│       ├── statusbar.html  60
+│       ├── statusbar.html  75
 │       ├── stepparams.html  43
 │       ├── stringbeauty.html  189
 │       ├── tablebar.html  283

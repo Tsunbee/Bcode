@@ -247,6 +247,8 @@ public sealed class NativeStatusBar : Panel
     private readonly PillButton _menu = PillButton.Flat("▾ Project");
     private readonly Label _machine = new MutedLabel { AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(8, 4, 0, 0) };
     private readonly FlowLayoutPanel _right = new() { Dock = DockStyle.Right, AutoSize = true, WrapContents = false, BackColor = Color.Transparent };
+    // Link sau chữ trạng thái (vd "Mở file" / "Mở thư mục" sau khi Save as CSV / Excel ở tab Result); trống thì ẩn.
+    private readonly FlowLayoutPanel _links = new() { Dock = DockStyle.Right, AutoSize = true, WrapContents = false, BackColor = Color.Transparent, Visible = false, Padding = new Padding(0, 0, 12, 0) };
 
     public event Action? ProjectWebClicked;
     /// <summary>Toạ độ màn hình ngay trên nút "▾ Project" để thả menu.</summary>
@@ -266,6 +268,7 @@ public sealed class NativeStatusBar : Panel
         _link.LinkClicked += (_, _) => ProjectWebClicked?.Invoke();
         _right.Controls.AddRange(new Control[] { _link, _menu, _machine });
         Controls.Add(_text);
+        Controls.Add(_links);
         Controls.Add(_right);
         ThemeManager.ThemeChanged += Recolor;
         Disposed += (_, _) => ThemeManager.ThemeChanged -= Recolor;
@@ -275,6 +278,7 @@ public sealed class NativeStatusBar : Panel
     private void Recolor()
     {
         _link.LinkColor = AppColors.Text; _link.ActiveLinkColor = AppColors.Accent;
+        foreach (var l in _links.Controls.OfType<LinkLabel>()) { l.LinkColor = AppColors.Accent; l.ActiveLinkColor = AppColors.Accent; }
         Invalidate(true);
     }
 
@@ -286,7 +290,21 @@ public sealed class NativeStatusBar : Panel
         e.Graphics.DrawLine(p, 0, 0, Width, 0);
     }
 
-    public void SetStatus(string text) => _text.Text = text;
+    public void SetStatus(string text, IReadOnlyList<(string Label, Action Click)>? links = null)
+    {
+        _text.Text = text;
+        _links.SuspendLayout();
+        foreach (Control c in _links.Controls.Cast<Control>().ToList()) c.Dispose();
+        foreach (var (label, click) in links ?? Array.Empty<(string, Action)>())
+        {
+            var l = new LinkLabel { Text = label, AutoSize = true, BackColor = Color.Transparent, LinkBehavior = LinkBehavior.HoverUnderline, Margin = new Padding(8, 4, 0, 0),
+                LinkColor = AppColors.Accent, ActiveLinkColor = AppColors.Accent };
+            l.LinkClicked += (_, _) => click();
+            _links.Controls.Add(l);
+        }
+        _links.Visible = _links.Controls.Count > 0;
+        _links.ResumeLayout(true);
+    }
 
     public void SetProject(string link, string machine)
     {

@@ -153,6 +153,7 @@ public sealed class NativeResultPane : UserControl
             var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false,
                 SelectionMode = DataGridViewSelectionMode.CellSelect, ClipboardCopyMode = DataGridViewClipboardCopyMode.EnableWithoutHeaderText, BorderStyle = BorderStyle.None };
             ResultGridMenu.Attach(grid);
+            ResultGridMenu.EnableSave(grid, () => _tables.Count > 1 ? $"Bảng {idx + 1}" : null);   // Save as CSV / Excel (.xlsx)
             var card = new Panel { Dock = DockStyle.Top, Padding = new Padding(1) };
             PillButton? toggle = null;
             if (_tables.Count > 1)

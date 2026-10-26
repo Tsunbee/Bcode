@@ -169,6 +169,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         Bcode.App.UI.UiOverrides.SessionSafe = (Control.ModifierKeys & Keys.Shift) == Keys.Shift;
         Bcode.App.UI.UiOverrides.Notice += msg => { if (!IsDisposed && IsHandleCreated) BeginInvoke(() => PushStatus(msg)); };
         Bcode.App.UI.WebViewEnvironment.TempProfileNotice += msg => { if (!IsDisposed && IsHandleCreated) BeginInvoke(() => PushStatus(msg)); };   // thư mục WebView2 chính bận → phiên này dùng hồ sơ tạm
+        // Save as CSV / Excel ở tab Result: tiến độ + kết quả (kèm link Mở file / Mở thư mục) lên thanh trạng thái của đúng cửa sổ.
+        Action<Form?, string, string?> onExport = (owner, text, path) => { if ((owner is null || owner == this) && !IsDisposed && IsHandleCreated) BeginInvoke(() => PushStatus(text, path)); };
+        ResultExport.Notice += onExport;
+        Disposed += (_, _) => ResultExport.Notice -= onExport;
         _settings = AppSettings.Load();
         Bcode.App.UI.UiThemes.ApplyPalettes(); // theme/màu người dùng chọn — trước khi dựng control
         // Giữ con trỏ chuột luôn hiện khi gõ (tắt "Hide pointer while typing" của Windows trong lúc chạy; trả lại khi thoát).
@@ -537,6 +541,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     switch (root.GetProperty("action").GetString())
                     {
                         case "project-web": BeginInvoke(new Action(OpenProjectWeb)); break;
+                        case "status-link":
+                            var which = root.TryGetProperty("id", out var lp) ? lp.GetString() : null;
+                            if (_statusFile is { } sf) BeginInvoke(new Action(() => { if (which == "folder") ResultExport.OpenFolder(sf); else ResultExport.OpenFile(sf); }));
+                            break;
                         case "project-menu":
                             // Toạ độ (px CSS) của nút trên thanh trạng thái; lấy số ra TRƯỚC khi JsonDocument bị dispose.
                             var mx = root.TryGetProperty("x", out var xp) ? xp.GetDouble() : 0;
@@ -962,12 +970,22 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 _ = web.CoreWebView2.ExecuteScriptAsync($"window.setTheme && window.setTheme({isDark})");
     }
 
-    private void PushStatus(string text)
+    private string? _statusFile;   // file vừa lưu (Save as CSV / Excel) — link "Mở file / Mở thư mục" trên thanh trạng thái; dòng trạng thái mới thì bỏ link
+
+    /// <param name="file">Có giá trị = sau chữ trạng thái hiện link "Mở file" / "Mở thư mục" cho file này.</param>
+    private void PushStatus(string text, string? file = null)
     {
-        if (_statusNative is not null) { _statusNative.SetStatus(text); PushProjectInfo(); return; }
+        _statusFile = file;
+        if (_statusNative is not null)
+        {
+            _statusNative.SetStatus(text, file is null ? null : new (string, Action)[] { ("Mở file", () => ResultExport.OpenFile(file)), ("Mở thư mục", () => ResultExport.OpenFolder(file)) });
+            PushProjectInfo();
+            return;
+        }
         if (_statusBarWeb.CoreWebView2 is null) return;
         var arg = System.Text.Json.JsonSerializer.Serialize(text);
-        _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setStatus && window.setStatus({arg})");
+        var links = file is null ? "null" : "[{\"id\":\"file\",\"label\":\"Mở file\"},{\"id\":\"folder\",\"label\":\"Mở thư mục\"}]";
+        _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setStatus && window.setStatus({arg}, {links})");
         PushProjectInfo(); // đổi workspace/database thì thông tin project ở góc phải cũng đổi theo
     }
 

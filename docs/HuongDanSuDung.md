@@ -223,6 +223,14 @@ Trên ảnh: **①** ▶ Execute (`F5` / `Ctrl+Enter`) · **②** chọn databas
 - Nhiều bảng: chọn **Xếp chồng** (các bảng xếp dọc, chế độ App kéo đổi cao từng bảng, double-click về cao tự động) hoặc **Từng tab**. Ô "Tìm trong kết quả...", **↔ Fit cột**, mỗi bảng có **⎘ Copy**.
 - Chọn nhiều ô số → thanh dưới hiện Average / Count / Sum.
 - Chuột phải ô: Copy (`Ctrl+C`) · Copy kèm tên cột (`Ctrl+Shift+C`) · Copy cả bảng · Goto Column (`Ctrl+G`) · Copy tên cột · Filter · Add Index Column Order · Generate Design Fields · Maxlength Column Content · Compare Column Content · Set Color Cell. Chuột phải tiêu đề cột: **Thống kê** Sum / Max / Min / Avg.
+- Chuột phải ô → nhóm **Lưu ra file** (cả chế độ Web lẫn App, cả tab "Command Result" khi bật Result Tab):
+  - **Xuất nhanh ra Excel (mở luôn)** (`Ctrl+E` khi con trỏ ở lưới kết quả): không hỏi nơi lưu — ghi file .xlsx vào thư mục tạm `%TEMP%\Bcode\Export` rồi mở ngay bằng Excel (file trong đó cũ hơn 7 ngày tự dọn; muốn giữ thì trong Excel bấm Save As).
+  - **Save as Excel (.xlsx)…** · **Save as CSV…** (hỏi nơi lưu, chưa gán phím) — lưu **toàn bộ dòng** của bảng đang chuột phải, kể cả phần lưới không hiện hết (bảng rất lớn). Thứ tự và tên cột giữ như câu SELECT.
+  - Chọn từ 2 dòng trở lên thì có thêm **Chỉ N dòng đã chọn → Excel / CSV** (theo đúng thứ tự đang hiện, mọi cột).
+  - Hộp lưu file gợi ý tên theo tab + bảng + giờ (vd `SQL Query 2_Bảng 2_20261026_153012.xlsx`), nhớ thư mục lần trước. Lưu chạy nền, thanh trạng thái báo "Đang lưu… n / tổng dòng"; xong báo số dòng × số cột kèm link **Mở file** · **Mở thư mục**. File đang mở trong Excel thì Bcode báo, file cũ không bị hỏng.
+  - **Excel**: dòng tiêu đề đậm, cố định + AutoFilter; số giữ kiểu số; ngày giữ kiểu ngày (`dd/mm/yyyy`, có giờ thì `dd/mm/yyyy hh:mm:ss`); chuỗi luôn là chữ nên mã `000123`, số điện thoại `0979…` không mất số 0 đầu; bit = 1/0; NULL = ô trống; số nguyên quá 15 chữ số (Excel làm tròn) ghi dạng chữ.
+  - **CSV**: UTF-8 có BOM (Excel mở đúng tiếng Việt), dấu phẩy, ô có dấu phẩy / ngoặc kép / xuống dòng thì đặt trong ngoặc kép, NULL = ô trống, số dùng dấu chấm thập phân. Mở CSV bằng Excel thì Excel tự đoán kiểu theo cài đặt vùng của Windows (mất số 0 đầu, có thể hiểu sai dấu thập phân) — cần mở bằng Excel thì dùng Save as Excel.
+  - Kết quả khôi phục khi mở lại Bcode / tab ngủ đông dậy không còn dữ liệu gốc → chạy lại truy vấn rồi lưu.
 - Bật **Result Tab** (⚙ Tùy chọn) để mỗi lần chạy ra một tab kết quả riêng ("Command Result").
 - Tab **Pivot** có nút **Tạo file Excel pivot…** (mở Create RPT & XML ở chế độ Pivot — cần key).
 - Bcode nhận diện pivot theo thứ tự:
@@ -996,6 +1004,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Alt+Z` | Wrap |
 | `Ctrl+S` | Save file .sql |
 | `Ctrl+R` | Ẩn / hiện khung kết quả |
+| `Ctrl+E` | Lưới kết quả: xuất nhanh cả bảng ra Excel (thư mục tạm, mở luôn). Save as Excel / Save as CSV (hỏi nơi lưu): tự gán phím trong Template → Phím tắt |
 | `Ctrl+F` | Tìm (Web: của Monaco; App: thanh tìm) |
 | `F10` · `Ctrl+F10` · `Shift+F5` | Debug: bước kế · tới con trỏ · dừng |
 

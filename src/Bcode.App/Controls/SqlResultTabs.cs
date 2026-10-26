@@ -42,7 +42,7 @@ public sealed class SqlResultTabs : UserControl
             var grid = host.AddFrame("grid", "resultview.html");
             _msg = host.AddFrame("msg", "sqlmessages.html", visible: false);
             _pivot = host.AddFrame("pivot", "sqlpivot.html", visible: false);
-            Grid = new MultiResultView(grid);
+            Grid = new MultiResultView(grid, anchor: host);
             Controls.Add(host);
             Disposed += (_, _) => Grid.Dispose();
             _showOnly = id => { host.Show(grid, id == "grid"); host.Show(_msg, id == "msg"); host.Show(_pivot, id == "pivot"); };

@@ -27,10 +27,18 @@ public class MultiResultView : UserControl
 
     private readonly IWebPage _web;
     private string? _pending; // dữ liệu gửi trước khi trang nạp xong — gửi lại ở Ready
+    private List<DataTable>? _tables; // bảng đang hiện (đủ mọi dòng) — "Save as CSV / Excel" ghi từ đây; null sau Restore (tab ngủ đông dậy)
+
+    /// <summary>Control đang thật sự hiện trang trên cửa sổ — khi trang là 1 khung của <see cref="WebFrameHost"/> thì control này (MultiResultView)
+    /// KHÔNG được gắn vào cửa sổ nào (không có handle, FindForm() = null), nên hộp thoại / BeginInvoke / tên tab phải đi qua khung host.</summary>
+    private readonly Control? _anchor;
+    private Control Anchor => _anchor ?? this;
 
     /// <param name="page">Trang resultview.html đã có sẵn (vd 1 khung trong <see cref="WebFrameHost"/> dùng chung); null = tự tạo 1 WebView2 riêng như trước.</param>
-    public MultiResultView(IWebPage? page = null)
+    /// <param name="anchor">Control chứa <paramref name="page"/> trên cửa sổ (vd chính WebFrameHost) — bắt buộc khi truyền page.</param>
+    public MultiResultView(IWebPage? page = null, Control? anchor = null)
     {
+        _anchor = page is null ? null : anchor;
         Dock = DockStyle.Fill;
         if (page is null)
         {
@@ -42,10 +50,12 @@ public class MultiResultView : UserControl
         _web.Ready += () => { if (_pending is not null) _web.PostJson(_pending); };
         _web.Message += root =>
         {
-            if (root.TryGetProperty("action", out var a) && a.GetString() == "copy" && root.TryGetProperty("text", out var t))
+            if (!root.TryGetProperty("action", out var a)) return;
+            if (a.GetString() == "copy" && root.TryGetProperty("text", out var t))
             {
                 try { Clipboard.SetText(t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }
             }
+            else if (a.GetString() == "save") Save(root);
         };
     }
 
@@ -53,7 +63,8 @@ public class MultiResultView : UserControl
     public void SetTables(IReadOnlyList<DataTable> tables)
     {
         if (tables.Count == 0) { Clear(); return; }
-        _ = SendTablesAsync(tables.ToList());
+        _tables = tables.ToList();
+        _ = SendTablesAsync(_tables);
     }
 
     /// <summary>Dựng JSON ở luồng nền (trước đây chạy ngay trên luồng giao diện nên kết quả lớn làm đứng cả Bcode), xong mới gửi sang trang. Lần gọi mới hơn thay lần cũ.</summary>
@@ -67,7 +78,36 @@ public class MultiResultView : UserControl
         Send(json);
     }
 
-    public void Clear() { _sendVersion++; Send("{\"type\":\"clear\"}"); }
+    public void Clear() { _sendVersion++; _tables = null; Send("{\"type\":\"clear\"}"); }
+
+    /// <summary>Menu chuột phải "Save as CSV… / Save as Excel (.xlsx)… / Xuất nhanh ra Excel" của trang: {table, format: "csv"|"xlsx", rows: null | [chỉ số dòng gốc], quick}.</summary>
+    private void Save(JsonElement root)
+    {
+        var index = root.TryGetProperty("table", out var ti) && ti.TryGetInt32(out var n) ? n : 0;
+        if (_tables is null || index < 0 || index >= _tables.Count)
+        {
+            MessageBox.Show(Anchor.FindForm(), "Kết quả này được khôi phục từ lần mở trước (tab ngủ đông / khôi phục phiên) nên không còn dữ liệu gốc đầy đủ.\nChạy lại truy vấn rồi lưu.",
+                "Bcode — Save", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        var tables = _tables;
+        var table = tables[index];
+        List<DataRow>? rows = null;
+        if (root.TryGetProperty("rows", out var rs) && rs.ValueKind == JsonValueKind.Array)
+        {
+            rows = new List<DataRow>(rs.GetArrayLength());
+            foreach (var r in rs.EnumerateArray())
+                if (r.TryGetInt32(out var i) && i >= 0 && i < table.Rows.Count) rows.Add(table.Rows[i]);
+            if (rows.Count == 0) return;
+        }
+        var xlsx = !(root.TryGetProperty("format", out var f) && f.GetString() == "csv");
+        var quick = root.TryGetProperty("quick", out var q) && q.ValueKind == JsonValueKind.True;
+        // Mở SaveFileDialog sau khi xử lý xong tin nhắn của WebView2 (hộp thoại modal trong handler WebMessageReceived dễ treo trang).
+        var anchor = Anchor;
+        Action run = () => _ = ResultExport.SaveAsync(anchor, table, xlsx, rows, tables.Count > 1 ? $"Bảng {index + 1}" : null, quick);
+        if (anchor.IsHandleCreated) anchor.BeginInvoke(run);
+        else SynchronizationContext.Current?.Post(_ => run(), null);
+    }
 
     /// <summary>JSON lần gửi gần nhất (bảng đang hiện) — để tab SQL "ngủ đông" rồi dựng lại y như cũ (<see cref="Restore"/>).</summary>
     public string? Snapshot => _pending;
@@ -77,6 +117,7 @@ public class MultiResultView : UserControl
     {
         if (json is null) return;
         _sendVersion++;
+        _tables = null;
         Send(json);
     }
 

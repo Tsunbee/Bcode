@@ -22,10 +22,14 @@
   #prjMenu { padding: 0 6px; height: 18px; font-size: 11px; line-height: 1; border-radius: 4px; color: var(--text-muted); }
   #prjMenu:hover { background: var(--button-back); color: var(--text); }
   #machine { color: var(--text-muted); white-space: nowrap; }
+  #statusLinks { flex: 0 0 auto; display: none; gap: 10px; margin-left: 10px; white-space: nowrap; }
+  #statusLinks a { color: var(--accent); cursor: pointer; text-decoration: none; }
+  #statusLinks a:hover { text-decoration: underline; }
 </style>
 </head>
 <body data-area="status">
   <span id="statusText" class="grow">Chưa chọn workspace</span>
+  <span id="statusLinks"></span>
   <div class="right">
     <span id="prjLink" title="Mở web đăng nhập"></span>
     <button id="prjMenu" class="btn" title="Thông tin project: mở nhanh Program / Source / Working / Mobile, copy project info">▾ Project</button>
@@ -35,8 +39,19 @@
 
 <script>
   // ---- Called from C# (MainForm) ----
-  window.setStatus = function (text) {
-    document.getElementById('statusText').textContent = text;
+  // links (tuỳ chọn): [{id, label}] hiện sau chữ trạng thái — vd "Mở file" / "Mở thư mục" sau khi Save as CSV / Excel ở tab Result.
+  window.setStatus = function (text, links) {
+    var st = document.getElementById('statusText');
+    st.textContent = text;
+    st.style.flex = links && links.length ? '0 1 auto' : '';
+    var box = document.getElementById('statusLinks');
+    box.textContent = '';
+    (links || []).forEach(function (l) {
+      var a = document.createElement('a'); a.textContent = l.label;
+      a.addEventListener('click', function () { post({ action: 'status-link', id: l.id }); });
+      box.appendChild(a);
+    });
+    box.style.display = links && links.length ? 'inline-flex' : 'none';
   };
 
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }

@@ -25,6 +25,58 @@ public static class ResultGridMenu
         WireShortcuts(grid);
     }
 
+    // ---- Save as CSV / Excel: chỉ bật cho lưới kết quả SQL Query (NativeResultPane) — lưới Table/Command/Lookup giữ menu cũ ----
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridView, Func<string?>> SaveOn = new();
+
+    /// <summary>Thêm "Xuất nhanh ra Excel (mở luôn)" / "Save as CSV… / Save as Excel (.xlsx)…" (và bản "chỉ dòng đã chọn") vào menu của lưới,
+    /// cùng phím result.quickExcel / result.saveXlsx / result.saveCsv. <paramref name="tableLabel"/> trả "Bảng N" khi lần chạy có nhiều bảng (null = 1 bảng) — dùng cho tên file / sheet.</summary>
+    public static void EnableSave(DataGridView grid, Func<string?> tableLabel)
+    {
+        SaveOn.AddOrUpdate(grid, tableLabel);
+        grid.KeyDown += (_, e) =>
+        {
+            var combo = Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData);
+            if (combo is null) return;
+            if (combo == Bcode.App.UI.ShortcutRegistry.Get("result.quickExcel")) { e.Handled = e.SuppressKeyPress = true; Save(grid, true, false, quick: true); }
+            else if (combo == Bcode.App.UI.ShortcutRegistry.Get("result.saveXlsx")) { e.Handled = e.SuppressKeyPress = true; Save(grid, true, false); }
+            else if (combo == Bcode.App.UI.ShortcutRegistry.Get("result.saveCsv")) { e.Handled = e.SuppressKeyPress = true; Save(grid, false, false); }
+        };
+    }
+
+    private static void AddSaveItems(WebMenu menu, DataGridView grid)
+    {
+        if (!SaveOn.TryGetValue(grid, out _) || GetTable(grid) is not { } table) return;
+        menu.AddCaption("Lưu ra file");
+        menu.Add($"Xuất nhanh ra Excel (mở luôn)  ({table.Rows.Count:N0} dòng)", () => Save(grid, true, false, quick: true), shortcut: Bcode.App.UI.ShortcutRegistry.Display("result.quickExcel"));
+        menu.Add("Save as Excel (.xlsx)…", () => Save(grid, true, false), shortcut: Bcode.App.UI.ShortcutRegistry.Display("result.saveXlsx"));
+        menu.Add("Save as CSV…", () => Save(grid, false, false), shortcut: Bcode.App.UI.ShortcutRegistry.Display("result.saveCsv"));
+        var sel = SelectedRows(grid).Count;
+        if (sel >= 2)
+            menu.AddSub($"Chỉ {sel:N0} dòng đã chọn", sub => sub
+                .Add("Save as Excel (.xlsx)…", () => Save(grid, true, true))
+                .Add("Save as CSV…", () => Save(grid, false, true)));
+    }
+
+    /// <summary>Các dòng có ô đang chọn, theo thứ tự đang hiện trên lưới (đã sort/filter thì theo đúng thứ tự đó).</summary>
+    private static List<DataRow> SelectedRows(DataGridView grid)
+    {
+        var idx = new SortedSet<int>();
+        foreach (DataGridViewCell c in grid.SelectedCells) if (c.RowIndex >= 0) idx.Add(c.RowIndex);
+        var list = new List<DataRow>(idx.Count);
+        foreach (var i in idx)
+            if (grid.Rows[i].DataBoundItem is DataRowView drv) list.Add(drv.Row);
+        return list;
+    }
+
+    private static void Save(DataGridView grid, bool xlsx, bool selectedOnly, bool quick = false)
+    {
+        if (!SaveOn.TryGetValue(grid, out var label) || GetTable(grid) is not { } table) return;
+        IReadOnlyList<DataRow>? rows = null;
+        if (selectedOnly) { rows = SelectedRows(grid); if (rows.Count == 0) return; }
+        _ = ResultExport.SaveAsync(grid, table, xlsx, rows, label(), quick);
+    }
+
     /// <summary>Appends these items to a menu a host is already building (e.g.
     /// SqlQueryControl's grid adds its own Gen Insert/Gen Update first) — use this so the two
     /// menus merge rather than one silently replacing the other. Call
@@ -33,6 +85,7 @@ public static class ResultGridMenu
     {
         if (!menu.IsEmpty) menu.AddSeparator();
 
+        AddSaveItems(menu, grid);
         menu.AddCaption("Cột");
         menu.Add("Goto Column ...", () => GotoColumn(grid), shortcut: "Ctrl+G");
         menu.Add("Copy selected Column Name ...", () => CopySelectedColumnNames(grid));

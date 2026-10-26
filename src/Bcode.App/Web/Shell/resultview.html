@@ -371,6 +371,12 @@
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { if (t.sel) { e.preventDefault(); copyText(tsv(t, t.sel, e.shiftKey), 'Đã copy ' + ((t.sel.r1 - t.sel.r0 + 1) * (t.sel.c1 - t.sel.c0 + 1)) + ' ô.'); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); t.sel = allRange(t); draw(t, t.card); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); gotoColumn(t); return; }
+    if (e.ctrlKey || e.altKey) {
+      const combo = comboOfEvent(e), kq = keyOf('result.quickExcel', 'Ctrl+E'), kx = keyOf('result.saveXlsx', ''), kc = keyOf('result.saveCsv', '');
+      if (kq && combo === kq) { e.preventDefault(); saveFile(t, 'xlsx', false, true); return; }
+      if (kx && combo === kx) { e.preventDefault(); saveFile(t, 'xlsx', false); return; }
+      if (kc && combo === kc) { e.preventDefault(); saveFile(t, 'csv', false); return; }
+    }
     const d = { ArrowDown: [1, 0], ArrowUp: [-1, 0], ArrowRight: [0, 1], ArrowLeft: [0, -1], PageDown: [10, 0], PageUp: [-10, 0] }[e.key];
     if (!d || !t.view.length) return;
     e.preventDefault();
@@ -430,6 +436,16 @@
     add('Copy', () => sel && copyText(tsv(t, sel, false), 'Đã copy.'), 'Ctrl+C');
     add('Copy kèm tên cột', () => sel && copyText(tsv(t, sel, true), 'Đã copy.'), 'Ctrl+Shift+C');
     add('Copy cả bảng', () => copyText(tsv(t, allRange(t), true), 'Đã copy cả bảng.'));
+    // Lưu ra file: C# ghi từ DataTable gốc (đủ mọi dòng, kể cả phần trang không hiện); "dòng đã chọn" gửi chỉ số dòng gốc theo thứ tự đang hiện.
+    cap('Lưu ra file');
+    add('Xuất nhanh ra Excel (mở luôn)  (' + t.total.toLocaleString() + ' dòng)', () => saveFile(t, 'xlsx', false, true), keyOf('result.quickExcel', 'Ctrl+E'));
+    add('Save as Excel (.xlsx)…', () => saveFile(t, 'xlsx', false), keyOf('result.saveXlsx', ''));
+    add('Save as CSV…', () => saveFile(t, 'csv', false), keyOf('result.saveCsv', ''));
+    const selRows = sel ? sel.r1 - sel.r0 + 1 : 0;
+    if (selRows >= 2) {
+      add('Chỉ ' + selRows.toLocaleString() + ' dòng đã chọn → Excel (.xlsx)…', () => saveFile(t, 'xlsx', true));
+      add('Chỉ ' + selRows.toLocaleString() + ' dòng đã chọn → CSV…', () => saveFile(t, 'csv', true));
+    }
     cap('Cột');
     add('Goto Column ...', () => gotoColumn(t), 'Ctrl+G');
     add('Copy selected Column Name ...', () => { const c0 = sel ? sel.c0 : col, c1 = sel ? sel.c1 : col; copyText(t.cols.slice(c0, c1 + 1).map((c) => c.n).join(', '), 'Đã copy tên cột.'); });
@@ -451,6 +467,20 @@
     m.querySelectorAll('.it').forEach((el) => { el.onclick = () => { hideMenu(); items[+el.dataset.i].fn(); }; });
     m.querySelectorAll('.sw i').forEach((el) => { el.onclick = () => { hideMenu(); setColor(t, el.dataset.c || null); }; });
   }
+  // Phím tắt cấu hình được (Template → Phím tắt → "Lưới kết quả SQL Query"): C# đẩy window.__bcodeEditorKeys, rỗng = tắt.
+  function keyOf(id, def) { const m = window.__bcodeEditorKeys || {}; return Object.prototype.hasOwnProperty.call(m, id) ? m[id] : def; }
+  function comboOfEvent(e) {
+    if (window.__bcodeCombo) return window.__bcodeCombo(e);
+    const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+    return (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + k;
+  }
+  // quick = xuất nhanh: C# ghi vào thư mục tạm rồi mở bằng Excel, không hỏi nơi lưu.
+  function saveFile(t, format, selectedOnly, quick) {
+    let rows = null;
+    if (selectedOnly && t.sel) { rows = []; for (let i = t.sel.r0; i <= t.sel.r1; i++) rows.push(t.view[i]); }
+    post('save', { table: t.idx, format, rows, quick: !!quick });
+  }
+
   const hideMenu = () => { $('menu').style.display = 'none'; };
   document.addEventListener('mousedown', (e) => { if (!e.target.closest('#menu')) hideMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { hideMenu(); closeDlg(); } });

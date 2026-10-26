@@ -148,6 +148,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (_quickListForm is not { IsDisposed: false }) return;   // chưa có key — RequireLicense đã báo
         _quickListForm.StartAi(requestName, content);
     }
+
+    /// <summary>
+    /// "🔎 AI phân tích": mở Tạo nhanh danh mục, AI viết lại y/c theo mẫu luật Fast rồi dừng cho người dùng sửa / xác nhận;
+    /// xác nhận xong luật Fast (không AI) mới điền danh mục.
+    /// </summary>
+    private void OpenQuickListWithAiAnalyze(string requestName, string content)
+    {
+        OpenQuickList();
+        if (_quickListForm is not { IsDisposed: false }) return;
+        _quickListForm.StartAnalyze(requestName, content);
+    }
     /// <summary>MainForm tự dàn bằng Dock + thanh web báo chiều cao, nên không nhân bố cục thêm theo UiScale.</summary>
     protected override bool ScaleLayoutWithUiScale => false;
 
@@ -2247,6 +2258,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
         var fsgReq = new FsgRequirementReportControl(() => _connections.Current, () => _settings.NoteProgrammer ?? "");
         fsgReq.AiCatalogRequested += OpenQuickListWithAi;
+        fsgReq.AiAnalyzeRequested += OpenQuickListWithAiAnalyze;
         if (menu is not null) fsgReq.ShowForMenu(menu);
         _fsgReqTab = AddDocumentTab("Yêu cầu FSG", fsgReq);
         _fsgReqTab.Disposed += (_, _) => _fsgReqTab = null;
@@ -2398,6 +2410,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var nc = new NativeAdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
             nc.OpenScriptsRequested += openScripts;
             nc.AiCatalogRequested += OpenQuickListWithAi;
+            nc.AiAnalyzeRequested += OpenQuickListWithAiAnalyze;
             control = nc;
         }
         else
@@ -2405,6 +2418,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var wc = new AdvanceNoteControl(_advanceNoteService, _genAllService, () => _connections.Current, _settings);
             wc.OpenScriptsRequested += openScripts;
             wc.AiCatalogRequested += OpenQuickListWithAi;
+            wc.AiAnalyzeRequested += OpenQuickListWithAiAnalyze;
             control = wc;
         }
         _advanceNoteTab = AddDocumentTab("Note (New)", control);
@@ -2874,6 +2888,23 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 var nativeNote = FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab);
                 if (note is not null) note.RequestAiCatalog();
                 else if (nativeNote is not null) nativeNote.RequestAiCatalog();
+                else return false;
+                return true;
+            }
+            case "note.aiAnalyze":
+            {
+                // Như note.aiCatalog nhưng cho nút 🔎 AI phân tích.
+                if (_fsgReqTab is not null && _documentTabs.SelectedTab == _fsgReqTab)
+                {
+                    if (FindDescendant<FsgRequirementReportControl>(_fsgReqTab) is not { } fsg) return false;
+                    fsg.RequestAiAnalyze();
+                    return true;
+                }
+                if (_advanceNoteTab is null || _documentTabs.SelectedTab != _advanceNoteTab) return false;
+                var note = FindDescendant<AdvanceNoteControl>(_advanceNoteTab);
+                var nativeNote = FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab);
+                if (note is not null) note.RequestAiAnalyze();
+                else if (nativeNote is not null) nativeNote.RequestAiAnalyze();
                 else return false;
                 return true;
             }

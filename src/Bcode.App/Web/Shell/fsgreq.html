@@ -88,7 +88,8 @@
   tr.sel td { background: color-mix(in srgb, var(--accent) 22%, transparent) !important; }
   #dtBox { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--panel, #222); color: var(--text, #ddd); border: 0; border-radius: 0; padding: .8rem 1rem; gap: .5rem; }
   #dtBox .dtHead { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: 1.05rem; }
-  #dtBox .dtBtns button { margin-left: .4rem; }
+  #dtBox .dtHead > b { flex: 1 1 8rem; min-width: 0; }
+  #dtBox .dtBtns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
   #dtMeta { display: flex; flex-wrap: wrap; gap: .3rem 1.2rem; font-size: .92rem; opacity: .85; }
   #dtBody { overflow: auto; white-space: normal; word-break: break-word; user-select: text; line-height: 1.5; border-top: 1px solid var(--border, #555); padding-top: .5rem; }
   td.c { text-align: center; white-space: nowrap; } td.nw { white-space: nowrap; }
@@ -171,7 +172,7 @@
 <div id="prio"></div>
 <div id="wrap"><div class="empty" id="empty">Nhập điều kiện rồi bấm “Kéo về”.</div><table id="tbl" hidden></table></div>
 <div id="dtModal"><div id="dtResizer" title="Kéo để đổi độ rộng khung"></div><div id="dtBox">
-  <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtAi" title="Bản thử: đọc nội dung y/c này, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (AI nếu có API key, không thì theo luật cấu trúc Fast) — Ctrl+Alt+I">🤖 AI tạo danh mục</button><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
+  <div class="dtHead"><b id="dtTitle"></b><span class="dtBtns"><button id="dtAna" title="AI đọc y/c này và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận rồi luật Fast mới tạo danh mục. Cần API key — Ctrl+Alt+Shift+I">🔎 AI phân tích</button><button id="dtAi" title="Bản thử: đọc nội dung y/c này, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (AI nếu có API key, không thì theo luật cấu trúc Fast) — Ctrl+Alt+I">🤖 AI tạo danh mục</button><button id="dtCopy">Copy nội dung</button><button id="dtClose">Đóng (Esc)</button></span></div>
   <div id="dtMeta"></div>
   <div id="dtBody"></div>
 </div></div>
@@ -659,11 +660,19 @@
   const closeDetail = () => { $('dtModal').classList.remove('show'); document.querySelectorAll('#tbl tr.sel').forEach((x) => x.classList.remove('sel')); };
   $('dtClose').onclick = closeDetail;
   // AI tạo danh mục: gửi mã y/c + nội dung (kèm tên menu, ghi chú) — C# mở Tạo nhanh danh mục và gợi ý ở đó (như Note (New)).
+  const detailContent = (r) => (r.tenMenuNgan ? 'Menu: ' + r.tenMenuNgan + '\n' : '') + String(r.noiDung == null ? '' : r.noiDung) + (r.ghiChu ? '\n\nGhi chú:\n' + r.ghiChu : '');
   $('dtAi').onclick = () => {
     const r = curDetail; if (!r) return;
-    const content = (r.tenMenuNgan ? 'Menu: ' + r.tenMenuNgan + '\n' : '') + String(r.noiDung == null ? '' : r.noiDung) + (r.ghiChu ? '\n\nGhi chú:\n' + r.ghiChu : '');
+    const content = detailContent(r);
     if (!content.trim()) return;
     post('aiCatalog', { name: r.fcode1 || r.menuId || '', content });
+  };
+  // AI phân tích: AI viết lại y/c theo mẫu luật Fast → Tạo nhanh danh mục cho sửa / xác nhận rồi mới chạy luật Fast.
+  $('dtAna').onclick = () => {
+    const r = curDetail; if (!r) return;
+    const content = detailContent(r);
+    if (!content.trim()) return;
+    post('aiAnalyze', { name: r.fcode1 || r.menuId || '', content });
   };
   // kéo cạnh trái của khung để đổi độ rộng
   $('dtResizer').addEventListener('mousedown', (e) => {
@@ -702,6 +711,11 @@
     aiCatalog() {
       if ($('dtModal').classList.contains('show') && curDetail) { $('dtAi').click(); return; }
       $('msg').className = 'on note'; $('msg').textContent = 'Bấm vào ô Nội dung của 1 yêu cầu để mở khung chi tiết, rồi bấm 🤖 AI tạo danh mục (hoặc Ctrl+Alt+I).';
+    },
+    // Phím tắt note.aiAnalyze (Ctrl+Alt+Shift+I): như trên cho nút 🔎 AI phân tích.
+    aiAnalyze() {
+      if ($('dtModal').classList.contains('show') && curDetail) { $('dtAna').click(); return; }
+      $('msg').className = 'on note'; $('msg').textContent = 'Bấm vào ô Nội dung của 1 yêu cầu để mở khung chi tiết, rồi bấm 🔎 AI phân tích (hoặc Ctrl+Alt+Shift+I).';
     },
     // Chuột phải cây WCommand → "Yêu cầu liên quan (QLYC)…": bỏ các lọc khác, chỉ hiện y/c của dự án liên quan menu (quy tắc: menuWhy ở trên).
     menuFilter(m) {

@@ -16,7 +16,7 @@ Bcode.App/
 │   ├── rpt/
 │   └── README.md  14
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  487
+│   ├── AdvanceNoteControl.cs  497
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -30,8 +30,8 @@ Bcode.App/
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
-│   ├── FsgRequirementReportControl.cs  248
-│   ├── GenUpdatePackageControl.cs  443
+│   ├── FsgRequirementReportControl.cs  255
+│   ├── GenUpdatePackageControl.cs  452
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  154
@@ -43,7 +43,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  163
-│   ├── NativeAdvanceNoteControl.cs  1075
+│   ├── NativeAdvanceNoteControl.cs  1089
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  278
@@ -74,7 +74,7 @@ Bcode.App/
 │   ├── NativePages.Note.cs  90
 │   ├── NativePages.Palette.cs  211
 │   ├── NativePages.PartitionCheck.cs  43
-│   ├── NativePages.Profiler.cs  78
+│   ├── NativePages.Profiler.cs  79
 │   ├── NativePages.QuickAccess.cs  215
 │   ├── NativePages.Register.cs  51
 │   ├── NativePages.RptSchema.cs  186
@@ -103,7 +103,7 @@ Bcode.App/
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  499
 │   ├── SqlPeekPanel.cs  128
-│   ├── SqlProfilerControl.cs  1732
+│   ├── SqlProfilerControl.cs  1838
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
 │   ├── SqlScintilla.cs  153
@@ -151,7 +151,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3714
+│   ├── MainForm.cs  3745
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -162,7 +162,7 @@ Bcode.App/
 │   ├── ProjectPickerForm.cs  108
 │   ├── QuickAccessForm.cs  165
 │   ├── QuickLaunchLoginForm.cs  558
-│   ├── QuickListForm.cs  579
+│   ├── QuickListForm.cs  760
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
 │   ├── RptSchemaForm.cs  250
@@ -186,7 +186,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  46
-│   ├── AppSettings.cs  298
+│   ├── AppSettings.cs  300
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -214,7 +214,7 @@ Bcode.App/
 │   │   ├── PivotDetector.cs  142
 │   │   ├── PivotRules.cs  93
 │   │   ├── PivotXlsxWriter.cs  286
-│   │   ├── ReportDeployService.cs  134
+│   │   ├── ReportDeployService.cs  141
 │   │   ├── ReportProfilerService.cs  56
 │   │   ├── RptModels.cs  72
 │   │   ├── RptSchemaService.cs  124
@@ -222,7 +222,7 @@ Bcode.App/
 │   │   └── XsdSchemaWriter.cs  110
 │   ├── AdvanceNoteService.cs  154
 │   ├── AdvancePackageBuilder.cs  170
-│   ├── AiCatalogService.cs  449
+│   ├── AiCatalogService.cs  581
 │   ├── AiChatService.cs  79
 │   ├── AiHistoryStore.cs  76
 │   ├── AppCommandService.cs  382
@@ -235,6 +235,7 @@ Bcode.App/
 │   ├── CashFlowDiagnosticService.LineByLine.cs  144
 │   ├── CashFlowDiagnosticService.Standard.cs  136
 │   ├── CatalogCloneService.cs  279
+│   ├── CatalogFieldMemory.cs  104
 │   ├── CfsFast.cs  213
 │   ├── CfsStandard.cs  225
 │   ├── ChangeOwnerService.cs  39
@@ -251,7 +252,8 @@ Bcode.App/
 │   ├── DtdIncludeResolver.cs  196
 │   ├── EInvoiceSetupService.cs  185
 │   ├── EntityCheckService.cs  263
-│   ├── FastCatalogRules.cs  832
+│   ├── FastCatalogCheck.cs  200
+│   ├── FastCatalogRules.cs  974
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
 │   ├── FileLookupService.cs  1236
@@ -279,13 +281,14 @@ Bcode.App/
 │   ├── QueryHistoryService.cs  322
 │   ├── QuickListConfigStore.cs  52
 │   ├── QuickListService.cs  828
-│   ├── QuickReportService.cs  636
+│   ├── QuickReportService.cs  637
 │   ├── RawSqlService.cs  390
 │   ├── ReportBuilderModule.cs  71
 │   ├── SchemaCompareService.cs  79
 │   ├── ScriptFileService.cs  69
 │   ├── SessionStore.cs  69
 │   ├── SnippetLibraryService.cs  67
+│   ├── SourceFieldIndex.cs  237
 │   ├── SourceGrantService.cs  311
 │   ├── SourceIndexService.cs  262
 │   ├── SqlAiAssist.cs  349
@@ -325,7 +328,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  332
+│   ├── ShortcutRegistry.cs  333
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  718
 │   ├── TreeColorOptions.cs  50
@@ -339,7 +342,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  700
+│       ├── advnote.html  710
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  376
 │       ├── apischema.html  470
@@ -372,7 +375,7 @@ Bcode.App/
 │       ├── findbar.html  60
 │       ├── framehost.html  55
 │       ├── fsgnotify.html  136
-│       ├── fsgreq.html  746
+│       ├── fsgreq.html  760
 │       ├── genupdate.html  594
 │       ├── grantsource.html  132
 │       ├── help.html  425
@@ -387,7 +390,7 @@ Bcode.App/
 │       ├── projects.html  100
 │       ├── queryhistory.html  189
 │       ├── quickaccess.html  253
-│       ├── quicklist.html  1504
+│       ├── quicklist.html  1666
 │       ├── quickreport.html  1027
 │       ├── reportmodes.html  64
 │       ├── resultview.html  578
@@ -406,7 +409,7 @@ Bcode.App/
 │       ├── sqlmessages.html  93
 │       ├── sqlobjectbar.html  50
 │       ├── sqlpivot.html  117
-│       ├── sqlprofilerbar.html  147
+│       ├── sqlprofilerbar.html  149
 │       ├── sqlquerybar.html  409
 │       ├── sqlresulttabs.html  53
 │       ├── statusbar.html  60

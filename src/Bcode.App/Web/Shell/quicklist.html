@@ -32,16 +32,74 @@
   .x { border: 0; background: transparent; padding: 0 .3rem; font-size: 1.1rem; }
 
   /* ---- AI tạo danh mục (mở từ Note (New)) ---- */
-  .aibox { flex-direction: column; flex-wrap: nowrap; align-items: stretch; flex: none; max-height: 40vh; overflow: auto; }
-  .aibox.err { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--panel)); }
-  .aibox .ah { display: flex; align-items: center; gap: .5rem; }
+  .aibox { flex-direction: column; flex-wrap: nowrap; align-items: stretch; flex: none; gap: .45rem; padding: .5rem .7rem .6rem; max-height: 42vh; overflow: hidden;
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: var(--panel); border-left: 3px solid var(--accent); }
+  .aibox.err { border-color: var(--danger); border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 7%, var(--panel)); }
+  .aibox .ah { display: flex; align-items: center; gap: .45rem; min-width: 0; }
   .aibox .ah .grow { flex: 1; min-width: 0; }
-  .aibox ul { margin: .1rem 0; padding-left: 1.2rem; }
-  .aibox .q { display: flex; flex-direction: column; gap: .2rem; margin: .25rem 0; }
-  .aibox .q textarea { width: 100%; box-sizing: border-box; min-height: 2.2rem; resize: vertical; }
-  .aibox details pre { margin: .3rem 0; padding: .4rem .6rem; background: var(--input); border-radius: var(--r); white-space: pre-wrap; font-family: Consolas, monospace; font-size: .82rem; max-height: 14rem; overflow: auto; }
-  .aibox .spin { display: inline-block; width: .8rem; height: .8rem; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: aispin .8s linear infinite; }
+  .aibox .ai-ico { font-size: 1.05rem; } .aibox .ah > b { white-space: nowrap; }
+  .pill { display: inline-flex; align-items: center; padding: .05rem .55rem; border-radius: 1rem; font-size: .8rem; white-space: nowrap;
+    background: var(--button-back); color: var(--text); border: var(--bw) solid var(--border); }
+  .pill.eng { background: color-mix(in srgb, var(--accent) 16%, var(--panel)); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+  .pill.warn { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); border-color: var(--accent); font-weight: 600; }
+  .seg { display: inline-flex; } .seg button { border-radius: 0; } .seg button + button { margin-left: -1px; }
+  .seg button:first-child { border-radius: var(--r) 0 0 var(--r); } .seg button:last-child { border-radius: 0 var(--r) var(--r) 0; }
+  .aibox .ai-fold-sum { display: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: .88rem; }
+  /* Thông báo trạng thái: 1 dòng có màu theo trạng thái (đang chạy / xong / lỗi) */
+  .aibox .ai-msg { display: flex; align-items: center; gap: .45rem; padding: .3rem .6rem; border-radius: var(--r); font-size: .92rem;
+    background: color-mix(in srgb, var(--success) 12%, var(--panel)); border: var(--bw) solid color-mix(in srgb, var(--success) 40%, var(--border)); }
+  .aibox .ai-msg.busy { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+  .aibox.err .ai-msg { background: color-mix(in srgb, var(--danger) 12%, var(--panel)); border-color: color-mix(in srgb, var(--danger) 50%, var(--border)); }
+  .aibox .ai-msg:empty { display: none; }
+  .aibox .ai-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .7rem; }
+  .aibox .ai-body.has-q { grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 1fr); }
+  .aibox .ai-info, .aibox .ai-qpane { min-height: 0; overflow: auto; }
+  .aibox .ai-sum { font-size: .93rem; line-height: 1.45; }
+  .aibox .ai-sum b { color: var(--accent); font-weight: 600; }
+  .aibox .ai-sum:empty { display: none; }
+  .aibox ul { margin: .35rem 0 .2rem; padding-left: 1.1rem; font-size: .88rem; line-height: 1.5; color: var(--text-muted); }
+  .aibox ul li::marker { color: var(--accent); }
+  .aibox ul li .maps { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .2rem; }
+  .aibox ul li .maps span { padding: 0 .45rem; border-radius: .8rem; background: var(--input); border: var(--bw) solid var(--border); color: var(--text); font-size: .82rem; white-space: nowrap; }
+  .aibox ul li .maps code { color: var(--accent); font-family: Consolas, monospace; }
+  .aibox .ai-more { display: flex; flex-wrap: wrap; gap: .2rem 1rem; align-items: flex-start; }
+  .aibox .ai-more details { font-size: .86rem; } .aibox .ai-more details[open] { flex-basis: 100%; }
+  .aibox .ai-more summary { cursor: pointer; color: var(--text-muted); } .aibox .ai-more summary:hover { color: var(--accent); }
+  .aibox details pre { margin: .3rem 0; padding: .4rem .6rem; background: var(--input); border-radius: var(--r); white-space: pre-wrap; font-family: Consolas, monospace; font-size: .82rem; max-height: 12rem; overflow: auto; }
+  .aibox #aiCopySql { margin-top: .3rem; font-size: .82rem; }
+  /* Câu hỏi: cột phải, mỗi câu 1 thẻ đánh số */
+  .aibox .ai-qpane { display: flex; flex-direction: column; gap: .4rem; padding-left: .7rem; border-left: var(--bw) solid var(--border); }
+  .aibox .ai-qh { display: flex; align-items: center; gap: .45rem; font-weight: 600; } .aibox .ai-qh .muted { font-weight: 400; font-size: .82rem; margin-left: auto; }
+  .aibox .q { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr); gap: .2rem .4rem; padding: .35rem .45rem; border-radius: var(--r); background: var(--panel-alt); }
+  .aibox .q .qn { grid-row: span 2; width: 1.3rem; height: 1.3rem; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: .75rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  .aibox .q label { font-size: .88rem; line-height: 1.4; }
+  .aibox .q textarea { width: 100%; box-sizing: border-box; min-height: 2rem; resize: vertical; }
+  .aibox #aiQBar { display: flex; justify-content: flex-end; }
+  .aibox .ai-body.has-ana { grid-template-columns: minmax(0, 1fr) minmax(24rem, 1.5fr); }
+  .aibox .ai-ana { overflow: hidden; }
+  .aibox .ai-ana textarea { flex: 1; min-height: 9rem; width: 100%; box-sizing: border-box; resize: vertical; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .86rem; line-height: 1.5; }
+  .aibox .ai-anabar { display: flex; justify-content: flex-end; gap: .4rem; }
+  .aibox .spin { display: inline-block; flex: none; width: .8rem; height: .8rem; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: aispin .8s linear infinite; }
   @keyframes aispin { to { transform: rotate(360deg); } }
+  /* Thu gọn: chỉ còn 1 dòng đầu (tóm tắt + số câu hỏi) — nhường chỗ cho bảng cột */
+  .aibox.fold { gap: 0; padding-bottom: .5rem; }
+  .aibox.fold .ai-msg, .aibox.fold .ai-body { display: none; }
+  .aibox.fold .ai-fold-sum { display: inline; flex: 0 1 auto; }
+
+  /* ---- Lưu ý chuẩn Fast: nút ở thanh dưới + bảng danh sách bật lên ---- */
+  .fastwrap { position: relative; }
+  #fastBtn { display: inline-flex; align-items: center; gap: .35rem; }
+  #fastBtn .n { font-weight: 700; } #fastBtn .w { color: var(--danger); } #fastBtn .i { color: var(--accent); }
+  .fastpop { position: absolute; left: 0; bottom: calc(100% + .45rem); z-index: 30; width: min(40rem, 80vw); max-height: 55vh; display: flex; flex-direction: column;
+    background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r-lg); box-shadow: 0 8px 28px rgba(0, 0, 0, .4); }
+  .fastpop .fh { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border-bottom: var(--bw) solid var(--border); }
+  .fastpop .fh b { flex: 1; } .fastpop .fh .muted { font-size: .82rem; }
+  .fastpop ol { list-style: none; margin: 0; padding: .35rem; overflow: auto; display: flex; flex-direction: column; gap: .2rem; }
+  .fastpop li { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr) auto; gap: .45rem; align-items: start; padding: .4rem .5rem; border-radius: var(--r); cursor: pointer; font-size: .88rem; line-height: 1.45; }
+  .fastpop li:hover { background: rgba(127, 127, 127, .12); }
+  .fastpop li .lv { font-size: .95rem; text-align: center; } .fastpop li.warn .lv { color: var(--danger); } .fastpop li.info .lv { color: var(--accent); }
+  .fastpop li .go { color: var(--text-muted); font-size: .78rem; white-space: nowrap; }
+  .fastpop li:hover .go { color: var(--accent); }
 
   /* ---- Vùng làm việc: bảng cột (trái) + xem trước form (phải) ---- */
   .work { flex: 1; min-height: 0; display: flex; }
@@ -228,18 +286,43 @@
     <label class="chk" style="padding-bottom:.35rem"><input type="checkbox" id="detailImport"> Import</label>
   </div>
   <!-- AI tạo danh mục: yêu cầu đang làm, tóm tắt AI hiểu, ghi chú, câu hỏi cần trả lời, script tạo bảng mới (chỉ để copy) -->
+  <!-- Đầu khung: tiêu đề + y/c + engine + 2 cách gợi ý + thu gọn; thân 2 cột: Bcode/AI hiểu + ghi chú (trái) | câu hỏi cần trả lời (phải) -->
   <div class="banner aibox" id="aiBox" hidden>
-    <div class="ah"><b>🤖 AI tạo danh mục</b><span class="muted" id="aiReq"></span><span class="grow"></span>
-      <button id="aiRules" title="Gợi ý theo luật cấu trúc Fast (quy ước đặt tên + từ điển field header.xml) — không gọi AI, không tốn token, không gửi dữ liệu ra ngoài">Theo luật Fast</button>
-      <button id="aiRetry" title="Hỏi lại AI với nội dung yêu cầu + các câu đã trả lời">Hỏi lại AI</button>
-      <button class="x" id="aiClose" title="Ẩn khung AI">✕</button></div>
-    <div id="aiMsg"></div>
-    <div id="aiSummary" class="muted"></div>
-    <ul id="aiNotes"></ul>
-    <div id="aiQs"></div>
-    <div id="aiQBar" hidden><button id="aiSend" class="primary">Gửi trả lời &amp; hỏi lại AI</button></div>
-    <details id="aiSqlBox" hidden><summary>Bảng mới chưa có trong App Data — script tạo bảng (KHÔNG tự chạy) <button id="aiCopySql">Copy script</button></summary><pre id="aiSql"></pre></details>
-    <details><summary>Nội dung yêu cầu đã gửi AI</summary><pre id="aiContent"></pre><div id="aiAnswered"></div></details>
+    <div class="ah">
+      <span class="ai-ico">🤖</span><b>AI tạo danh mục</b>
+      <span class="pill" id="aiReq" hidden></span><span class="pill eng" id="aiEng" hidden></span>
+      <span class="ai-fold-sum" id="aiFoldSum"></span>
+      <span class="grow"></span>
+      <div class="seg">
+        <button id="aiRules" title="Gợi ý theo luật cấu trúc Fast (field bạn đã sửa → field source dự án → header.xml) — không gọi AI, không tốn token, không gửi dữ liệu ra ngoài">⚙ Theo luật Fast</button>
+        <button id="aiRetry" title="Hỏi lại AI với nội dung yêu cầu + các câu đã trả lời">✨ Hỏi lại AI</button>
+      </div>
+      <button class="x" id="aiFold" title="Thu gọn / mở rộng khung (nhường chỗ cho bảng cột)">▴</button>
+      <button class="x" id="aiClose" title="Ẩn khung AI">✕</button>
+    </div>
+    <div class="ai-msg" id="aiMsg"></div>
+    <div class="ai-body">
+      <div class="ai-info">
+        <div id="aiSummary" class="ai-sum"></div>
+        <ul id="aiNotes"></ul>
+        <div class="ai-more">
+          <details id="aiSqlBox" hidden><summary>Script tạo bảng mới (không tự chạy)</summary><button id="aiCopySql">Copy script</button><pre id="aiSql"></pre></details>
+          <details><summary>Nội dung yêu cầu đã gửi</summary><pre id="aiContent"></pre><div id="aiAnswered"></div></details>
+        </div>
+      </div>
+      <!-- AI phân tích: nội dung y/c viết lại theo mẫu luật Fast — sửa rồi xác nhận thì luật Fast mới điền danh mục -->
+      <div class="ai-qpane ai-ana" id="aiAnaPane" hidden>
+        <div class="ai-qh">Nội dung theo mẫu luật Fast<span class="muted">mỗi dòng “- ” = 1 cột · [field] = chốt tên field</span></div>
+        <textarea id="aiAnaText" spellcheck="false" placeholder="Thêm danh mục …&#10;Gồm các trường:&#10;- Mã …: bắt buộc nhập&#10;- Tên …: bắt buộc nhập&#10;- Mã kho [ma_kho]: lookup từ danh mục kho, bắt buộc nhập"></textarea>
+        <div class="ai-anabar"><button id="aiAnaRedo" title="Cho AI phân tích lại nội dung y/c gốc (bỏ phần đã sửa)">↻ Phân tích lại</button>
+          <button id="aiAnaOk" class="primary" title="Luật Fast (không AI) dựng danh mục từ đúng nội dung này — Ctrl+Enter">✓ Xác nhận &amp; tạo theo luật Fast</button></div>
+      </div>
+      <div class="ai-qpane" id="aiQPane" hidden>
+        <div class="ai-qh">Cần bạn trả lời <span class="pill" id="aiQCount"></span><span class="muted">để trống = tự chọn hợp lý</span></div>
+        <div id="aiQs"></div>
+        <div id="aiQBar" hidden><button id="aiSend" class="primary">Gửi trả lời &amp; hỏi lại AI</button></div>
+      </div>
+    </div>
   </div>
   <!-- Bảng chưa có trong App Data = bảng mới: script CREATE TABLE ở tab Script (không tự chạy) -->
   <div class="banner" id="newBanner" hidden>
@@ -369,6 +452,13 @@
 <div class="dlg-bar">
   <span id="status" class="status"></span>
   <button id="errBtn" hidden title="Bấm để tới ô bị lỗi tiếp theo"></button>
+  <span class="fastwrap">
+    <button id="fastBtn" hidden title="Kiểm tra theo chuẩn Fast — bấm để xem danh sách lưu ý"></button>
+    <div class="fastpop" id="fastPop" hidden>
+      <div class="fh"><b>Kiểm tra theo chuẩn Fast</b><span class="muted" id="fastSub"></span><button class="x" id="fastClose" title="Đóng (Esc)">✕</button></div>
+      <ol id="fastList"></ol>
+    </div>
+  </span>
   <span class="muted">Lưu vào</span>
   <input type="text" id="output" spellcheck="false" style="width:26rem" title="Thư mục source (chứa App_Data, Main)">
   <button data-pick="output">...</button>
@@ -387,7 +477,7 @@
   const skipByDefault = (name) => audit.test(name) || free.test(name);
   const csv = (id) => $(id).value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
   const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
-  let previewFiles = [], orderAuto = true, activeTab = 'cols', refreshTimer = 0, savedSpec = null, pendingDetail = null, lastGenerated = null, menusLoaded = false;
+  let previewFiles = [], orderAuto = true, activeTab = 'cols', refreshTimer = 0, fastTimer = 0, savedSpec = null, pendingDetail = null, lastGenerated = null, menusLoaded = false;
 
   // 2 bảng cột dùng chung 1 bộ vẽ: danh mục (Grid/Dir/Lookup/Filter/Import) và chi tiết (Grid/Import).
   const tables = {
@@ -850,6 +940,33 @@
     b.textContent = '⚠ ' + errs.length + ' lỗi';
     b.title = errs.map((e) => '• ' + e.msg).join('\n') + '\n\nBấm để tới ô lỗi tiếp theo';
   }
+  // ---- Lưu ý chuẩn Fast (FastCatalogCheck): không chặn, chỉ "warn" thì Tạo file hỏi lại --------------------------
+  let fastIssues = [], fastIdx = 0;
+  const fastWhere = { tCols: 'Cột danh mục', tDet: 'Cột chi tiết', table: 'Bảng', keys: 'Key', nameField: 'Cột tên', controller: 'Controller',
+    titleV: 'Title (v)', titleE: 'Title (e)', detailKeys: 'Khoá chi tiết', linkKeys: 'Cột liên kết', detailTable: 'Bảng chi tiết' };
+  function showFast(list) {
+    fastIssues = list || []; fastIdx = 0;
+    const b = $('fastBtn'), warn = fastIssues.filter((x) => x.level === 'warn').length, info = fastIssues.length - warn;
+    b.hidden = !fastIssues.length;
+    if (!fastIssues.length) $('fastPop').hidden = true;
+    b.innerHTML = '⚡ Chuẩn Fast' + (warn ? ' <span class="n w">⚠ ' + warn + ' dễ lỗi</span>' : '') + (info ? ' <span class="n i">' + info + ' lưu ý</span>' : '');
+    b.title = 'Kiểm tra theo chuẩn Fast: ' + (warn ? warn + ' mục dễ lỗi (Tạo file sẽ hỏi lại), ' : '') + info + ' lưu ý — bấm để xem';
+    $('fastSub').textContent = warn ? warn + ' mục dễ lỗi · Tạo file sẽ hỏi lại' : 'chỉ là lưu ý, không chặn Tạo file';
+    $('fastList').innerHTML = fastIssues.map((x, i) => '<li class="' + esc(x.level) + '" data-i="' + i + '"><span class="lv">' + (x.level === 'warn' ? '⚠' : '•') + '</span>'
+      + '<span>' + esc(x.msg) + '</span><span class="go">' + esc(fastWhere[x.el] || '') + ' ›</span></li>').join('');
+  }
+  function goFast(e) {
+    const el = $(e.el);
+    if (e.el === 'tCols') showTab('cols'); else if (e.el === 'tDet') showTab('det');
+    if (el && !/^t(Cols|Det)$/.test(e.el)) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.classList.add('invalid'); setTimeout(() => el.classList.remove('invalid'), 1500); }
+    say((e.level === 'warn' ? '⚠ ' : '⚡ ') + e.msg, e.level === 'warn' ? 'err' : '');
+  }
+  $('fastBtn').onclick = (ev) => { ev.stopPropagation(); if (fastIssues.length) $('fastPop').hidden = !$('fastPop').hidden; };
+  $('fastClose').onclick = () => { $('fastPop').hidden = true; };
+  $('fastList').onclick = (ev) => { const li = ev.target.closest('li'); if (!li) return; $('fastPop').hidden = true; goFast(fastIssues[+li.dataset.i]); };
+  $('fastPop').onclick = (ev) => ev.stopPropagation();
+  document.addEventListener('click', () => { $('fastPop').hidden = true; });
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !$('fastPop').hidden) { $('fastPop').hidden = true; ev.stopPropagation(); } }, true);
   $('errBtn').onclick = () => {
     if (!errs.length) return;
     const e = errs[errIdx++ % errs.length], el = $(e.el);
@@ -862,6 +979,9 @@
   function scheduleRefresh(delay) {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(() => { showErrors(); if (!$('side').hidden) renderPreview(); updateSqlTab(); }, delay == null ? 120 : delay);
+    // Kiểm tra chuẩn Fast (C# — cần bảng App Data / source): chậm hơn, gửi khi ngừng sửa.
+    clearTimeout(fastTimer);
+    fastTimer = setTimeout(() => { if (tables.master.cols.length) post('fastCheck', payload()); else showFast([]); }, 700);
   }
 
   // ---- Tab Script: hiện khi có bảng mới / cột thêm; nội dung do C# sinh (QuickListService.BuildTableScript) ------------
@@ -1074,6 +1194,7 @@
       ['headerV', 'headerE', 'width', 'type', 'inGrid', 'inForm', 'inLookup', 'inFilter', 'inImport', 'allowNulls', 'readOnly', 'hidden', 'hideName']
         .forEach((f) => { if (s[f] !== undefined) c[f] = s[f]; });
       c.width = String(c.width); c.autoV = c.autoE = false;
+      if (s.ai) c.ai = s.ai;   // gợi ý gốc của AI / luật Fast — Tạo file so lại để nhớ những gì bạn sửa
       if (s.lookup && s.lookup.controller) {
         let j = c.lookups.findIndex((l) => l.controller === s.lookup.controller && l.key === s.lookup.key && l.check === s.lookup.check && l.information === s.lookup.information);
         if (j < 0) { c.lookups.push(s.lookup); j = c.lookups.length - 1; }
@@ -1108,26 +1229,62 @@
   }
   // ---- AI tạo danh mục: C# gửi trạng thái (aiState) + spec đã chuẩn hoá (aiLoad); spec nạp như "khôi phục cấu hình" sau khi nạp cột bảng ----
   let pendingAi = null, aiQuestions = [];
+  /** Ghi chú dạng "Nhãn: a → b; c → d" (cột tra theo từ điển) → nhãn + các chip "a → b" cho dễ đọc. */
+  function aiNote(n) {
+    const m = /^([^:→]{3,40}):\s*(.+→.+)$/.exec(n);
+    if (!m) return '<li>' + esc(n) + '</li>';
+    const items = m[2].replace(/\.$/, '').split(/;\s*/).filter(Boolean);
+    return '<li>' + esc(m[1]) + ':<div class="maps">' + items.map((x) => {
+      const p = x.split('→');
+      return '<span>' + esc(p[0].trim()) + ' → <code>' + esc(p.slice(1).join('→').trim()) + '</code></span>';
+    }).join('') + '</div></li>';
+  }
+  let aiFoldUser = store.get('quicklist.aiFold') === '1';
+  function aiFold(on) { $('aiBox').classList.toggle('fold', on); $('aiFold').textContent = on ? '▾' : '▴'; $('aiFold').title = on ? 'Mở rộng khung AI' : 'Thu gọn khung AI (nhường chỗ cho bảng cột)'; }
+  $('aiFold').onclick = () => { aiFoldUser = !$('aiBox').classList.contains('fold'); store.set('quicklist.aiFold', aiFoldUser ? '1' : '0'); aiFold(aiFoldUser); };
   function renderAi(d) {
     const box = $('aiBox'); box.hidden = false;
-    box.classList.toggle('err', d.kind === 'loi' || d.kind === 'khac');
-    $('aiReq').textContent = d.name ? '— y/c ' + d.name + (d.engine ? ' · ' + d.engine : '') : '';
-    $('aiMsg').innerHTML = (d.busy ? '<span class="spin"></span> ' : '') + esc(d.message || '');
-    $('aiSummary').textContent = d.summary ? (/không AI/.test(d.engine || '') ? 'Bcode hiểu: ' : 'AI hiểu: ') + d.summary : '';
-    $('aiNotes').innerHTML = (d.notes || []).map((n) => '<li>' + esc(n) + '</li>').join('');
+    const err = d.kind === 'loi' || d.kind === 'khac', rules = /không AI/.test(d.engine || '');
+    box.classList.toggle('err', err);
+    $('aiReq').hidden = !d.name; $('aiReq').textContent = 'y/c ' + (d.name || '');
+    $('aiEng').hidden = !d.engine; $('aiEng').textContent = d.engine || '';
+    $('aiMsg').className = 'ai-msg' + (d.busy ? ' busy' : '');
+    $('aiMsg').innerHTML = (d.busy ? '<span class="spin"></span>' : err ? '⚠' : '✓') + '<span>' + esc(d.message || '') + '</span>';
+    $('aiSummary').innerHTML = d.summary ? '<b>' + (rules ? 'Bcode hiểu' : 'AI hiểu') + ':</b> ' + esc(d.summary) : '';
+    $('aiNotes').innerHTML = (d.notes || []).map(aiNote).join('');
     aiQuestions = d.busy ? aiQuestions : (d.questions || []);
-    $('aiQs').innerHTML = d.busy ? '' : aiQuestions.map((q, i) => '<div class="q"><label>' + (i + 1) + '. ' + esc(q) + '</label><textarea data-ai="' + i + '" placeholder="Trả lời (để trống = AI tự chọn hợp lý)"></textarea></div>').join('');
-    $('aiQBar').hidden = d.busy || !aiQuestions.length;
+    $('aiQs').innerHTML = d.busy ? '' : aiQuestions.map((q, i) => '<div class="q"><span class="qn">' + (i + 1) + '</span><label for="aiq' + i + '">' + esc(q) + '</label>'
+      + '<textarea id="aiq' + i + '" data-ai="' + i + '" placeholder="Trả lời…"></textarea></div>').join('');
+    // AI phân tích: thay cột câu hỏi bằng ô nội dung theo mẫu luật Fast (giữ phần người dùng đang sửa khi chỉ đổi trạng thái).
+    const ana = d.mode === 'analyze';
+    const hasQ = !ana && !d.busy && aiQuestions.length > 0;
+    $('aiAnaPane').hidden = !ana;
+    if (ana && !d.busy && d.analysis !== undefined) $('aiAnaText').value = d.analysis || '';
+    $('aiAnaOk').disabled = $('aiAnaRedo').disabled = $('aiAnaText').readOnly = !!d.busy;
+    if (ana) $('aiSummary').innerHTML = d.summary ? '<b>AI hiểu:</b> ' + esc(d.summary) : '';
+    $('aiQPane').hidden = !hasQ;
+    $('aiQCount').textContent = aiQuestions.length;
+    document.querySelector('#aiBox .ai-body').classList.toggle('has-q', hasQ);
+    document.querySelector('#aiBox .ai-body').classList.toggle('has-ana', ana);
+    $('aiQBar').hidden = !hasQ;
+    // Thu gọn: dòng đầu vẫn cho biết đang ở đâu; có câu hỏi / bản phân tích chờ xác nhận / lỗi thì tự mở ra để không bị bỏ sót.
+    $('aiFoldSum').innerHTML = d.busy ? 'đang chạy…' : esc(d.summary || d.message || '') + (hasQ ? ' <span class="pill warn">' + aiQuestions.length + ' câu hỏi</span>' : '')
+      + (ana ? ' <span class="pill warn">chờ xác nhận</span>' : '');
+    aiFold(aiFoldUser && !hasQ && !err && !ana);
     $('aiSqlBox').hidden = !d.createSql; $('aiSql').textContent = d.createSql || '';
     $('aiContent').textContent = d.content || '';
     $('aiAnswered').innerHTML = (d.answered || []).map((x) => '<div><b>Hỏi:</b> ' + esc(x.q) + '<br><b>Đáp:</b> ' + esc(x.a || '(để AI tự chọn)') + '</div>').join('');
     $('aiRetry').disabled = $('aiSend').disabled = $('aiRules').disabled = !!d.busy;
     // Đang theo luật Fast thì "Gửi trả lời" điền lại theo luật, không gọi AI.
-    if (!d.busy) $('aiSend').textContent = /không AI/.test(d.engine || '') ? 'Gửi trả lời & điền lại' : 'Gửi trả lời & hỏi lại AI';
+    if (!d.busy) $('aiSend').textContent = rules ? 'Gửi trả lời & điền lại' : 'Gửi trả lời & hỏi lại AI';
   }
   $('aiSend').onclick = () => post('aiAnswer', { answers: aiQuestions.map((_, i) => (document.querySelector('[data-ai="' + i + '"]') || {}).value || '') });
   $('aiRetry').onclick = () => post('aiRetry');
   $('aiRules').onclick = () => post('aiRules');
+  const aiConfirm = () => { const t = $('aiAnaText').value.trim(); if (!t) { $('aiAnaText').focus(); return; } post('aiConfirm', { text: t }); };
+  $('aiAnaOk').onclick = aiConfirm;
+  $('aiAnaRedo').onclick = () => post('aiAnalyze');
+  $('aiAnaText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); e.stopPropagation(); aiConfirm(); } });
   $('aiClose').onclick = () => { $('aiBox').hidden = true; post('aiClose'); };
   $('aiCopySql').onclick = (e) => { e.preventDefault(); post('copy', { text: $('aiSql').textContent }); };
 
@@ -1137,7 +1294,7 @@
   // ---- Tạo file / sau khi tạo / tạo menu ----------------------------------------------------
   const strip = (cols) => cols.map((c) => ({ name: c.name, sqlType: c.sqlType, headerV: c.headerV, headerE: c.headerE, width: String(c.width), type: c.type,
     inGrid: c.inGrid, inForm: c.inForm, inLookup: c.inLookup, inFilter: c.inFilter, inImport: c.inImport, allowNulls: c.allowNulls, readOnly: c.readOnly,
-    hidden: c.hidden, hideName: c.hideName, lookup: c.lookup, added: !!c.added }));
+    hidden: c.hidden, hideName: c.hideName, lookup: c.lookup, added: !!c.added, ai: c.ai || undefined }));
   function payload() {
     return {
       template: $('template').value, output: $('output').value,
@@ -1500,6 +1657,7 @@
     },
     onFolder(target, path) { $(target).value = path; scheduleRefresh(); },
     onStatus(t, k) { say(t, k); },
+    onFastCheck(list) { showFast(list); },
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 })();

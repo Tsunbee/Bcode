@@ -215,6 +215,10 @@ public class AdvanceNoteControl : UserControl
                     AiCatalogRequested?.Invoke(root.GetProperty("name").GetString() ?? "", root.GetProperty("content").GetString() ?? "");
                     break;
 
+                case "aiAnalyze":
+                    AiAnalyzeRequested?.Invoke(root.GetProperty("name").GetString() ?? "", root.GetProperty("content").GetString() ?? "");
+                    break;
+
                 case "browseFiles":
                     BrowseFiles();
                     break;
@@ -259,6 +263,12 @@ public class AdvanceNoteControl : UserControl
 
     /// <summary>Phím tắt note.aiCatalog: bấm nút "AI tạo danh mục" của trang (trang tự lưu + lấy y/c đang chọn).</summary>
     public void RequestAiCatalog() => Js("window.advNote && advNote.aiCatalog && advNote.aiCatalog()");
+
+    /// <summary>"🔎 AI phân tích" cho y/c đang chọn (tên, nội dung) — MainForm mở Tạo nhanh danh mục ở bước xác nhận bản phân tích.</summary>
+    public event Action<string, string>? AiAnalyzeRequested;
+
+    /// <summary>Phím tắt note.aiAnalyze: bấm nút "AI phân tích" của trang.</summary>
+    public void RequestAiAnalyze() => Js("window.advNote && advNote.aiAnalyze && advNote.aiAnalyze()");
 
     private List<PackageItem> _previewItems = new();
 

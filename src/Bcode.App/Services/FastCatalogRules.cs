@@ -62,7 +62,8 @@ public static class FastCatalogRules
     private static readonly Regex MonthlyRx = new(@"(?i)\s*\b(theo|trong|cho)\s+(c[áa]c\s+)?12\s+th[áa]ng(\s+(trong|c[ủu]a)\s+(1\s+)?n[ăa]m)?|\s*\b(m[ỗo]i|h[àa]ng|t[ừu]ng)\s+th[áa]ng", RegexOptions.Compiled);
 
     /// <param name="Required">true = "bắt buộc nhập" (allowNulls false), false = "không bắt buộc", null = không nói.</param>
-    private sealed record Col(string Name, string SqlType, string V, string E, string Controller, string Note, bool? Required = null);
+    /// <param name="SrcTable">Bảng của file Dir dự án mà field lấy theo — để lấy kiểu thật từ App Data.</param>
+    private sealed record Col(string Name, string SqlType, string V, string E, string Controller, string Note, bool? Required = null, string SrcTable = "");
 
     public static async Task<string> SuggestAsync(string content, IReadOnlyList<(string Question, string Answer)> answers,
         IReadOnlyCollection<string> tables, Func<string, Task<List<AiTableColumn>>> getColumns, string sourcePath, string tablePrefix = "zdm")
@@ -71,7 +72,7 @@ public static class FastCatalogRules
         var tableSet = tables as HashSet<string> ?? new HashSet<string>(tables, StringComparer.OrdinalIgnoreCase);
         string? Answer(string prefix) => answers.Where(a => a.Question.StartsWith(prefix, StringComparison.Ordinal)).Select(a => a.Answer.Trim()).LastOrDefault();
         var allText = content + "\n" + string.Join("\n", answers.Select(a => a.Answer));
-        var notes = new List<string> { "Chưa có API key nên Bcode gợi ý theo quy ước đặt tên FastBusiness + từ điển field (header.xml) — không gọi AI. Kiểm tra lại tên bảng, cột, kiểu dữ liệu." };
+        var notes = new List<string> { "Bcode gợi ý theo quy ước đặt tên FastBusiness — field bạn đã sửa lần trước → field source dự án đang dùng → từ điển field (header.xml) — không gọi AI. Kiểm tra lại tên bảng, cột, kiểu dữ liệu." };
         var questions = new List<string>();
 
         // Dòng "Menu: …" (Yêu cầu FSG gửi kèm tên menu) chỉ là ngữ cảnh — tên menu hay là "Danh mục …" có sẵn, không phải danh mục cần tạo.
@@ -203,9 +204,11 @@ public static class FastCatalogRules
             Add(new Col("ma_" + code, "varchar(32)", "Mã " + name, "Code", "", ""));
             Add(new Col("ten_" + code, "nvarchar(256)", "Tên " + name, "Name", "", ""));
             Add(new Col("ten_" + code + "2", "nvarchar(256)", "Tên 2", "Name 2", "", ""));
-            foreach (var (p, desc) in listed ? phrases : phrases.Concat(new[] { ("Ghi chú", ""), ("Trạng thái", "") }))
+            foreach (var (p, d0) in listed ? phrases : phrases.Concat(new[] { ("Ghi chú", ""), ("Trạng thái", "") }))
             {
-                var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc, sourcePath), desc);
+                var (desc, forced, forcedType) = TakeFieldTag(d0);
+                var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo, sourcePath), desc, sourcePath), desc);
+                if (forced is not null) c = ForceField(c, forced, forcedType, sourcePath);
                 var ans = Answer(QField + p + "”");
                 if (ans is { Length: > 0 } && Regex.Match(ans, @"^(?<n>[A-Za-z_][A-Za-z0-9_]*)\s*(?<t>[a-z]+(\(\s*\d+(\s*,\s*\d+)?\s*\))?)?", RegexOptions.IgnoreCase) is { Success: true } am)
                     c = c with { Name = am.Groups["n"].Value.ToLowerInvariant(), SqlType = am.Groups["t"].Success ? am.Groups["t"].Value : c.SqlType, Note = "" };
@@ -217,7 +220,7 @@ public static class FastCatalogRules
                     else guessed.Add($"{p} → {c.Name}");
                 }
                 if (c.Note.Length > 1) mapped.Add(c.Note);
-                Add(await LookupTypeAsync(c with { Note = "" }, tableSet, getColumns));
+                Add(await LookupTypeAsync(c with { Note = "" }, tableSet, getColumns, sourcePath));
             }
             if (guessed.Count > 0) notes.Add("Cột đoán tên (sửa thẳng trong bảng cột nếu sai): " + string.Join("; ", guessed) + ".");
             // Cột chuẩn của danh mục FBO (status + 4 cột hệ thống) luôn có, kể cả khi y/c không ghi.
@@ -236,6 +239,9 @@ public static class FastCatalogRules
         // ---- lưới chi tiết ----
         var many = ManyRx.Match(allText);
         var detailPhrases = many.Success ? SplitPhrases(many.Groups["y"].Value) : new List<(string P, string D)>();
+        // "Chi tiết gồm: Mã vật tư, Số lượng" trên 1 dòng (mẫu AI phân tích viết).
+        if (detailPhrases.Count == 0 && Regex.Match(content, @"(?im)^[ \t]*chi\s+ti[ếe]t\s+g[ồo]m\s*:\s*(?<l>\S.*)$") is { Success: true } dl)
+            detailPhrases = SplitPhrases(dl.Groups["l"].Value);
         if (Answer(QDetail) is { Length: > 0 } detAns && !IsNo(detAns)) detailPhrases = SplitPhrases(detAns);
         var wantDetail = isCatalog && (many.Success || DetailRx.IsMatch(content) || detailPhrases.Count > 0) && !(Answer(QDetail) is { } dn && IsNo(dn));
         if (wantDetail)
@@ -244,9 +250,11 @@ public static class FastCatalogRules
             var detailTable = table + "ct";   // zdmkbh → zdmkbhct: cùng tiền tố với bảng chính
             var dcols = new List<Col> { new(key, "varchar(32)", "Mã " + name, "Code", "", ""), new("line_nbr", "int", "Stt", "Line", "", "") };
             var groupNo = 0;
-            foreach (var (p, desc) in detailPhrases)
+            foreach (var (p, d0) in detailPhrases)
             {
-                var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc, sourcePath), desc);
+                var (desc, forced, forcedType) = TakeFieldTag(d0);
+                var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo, sourcePath), desc, sourcePath), desc);
+                if (forced is not null) c = ForceField(c, forced, forcedType, sourcePath);
                 if (!dcols.Any(x => x.Name == c.Name)) dcols.Add(c with { Note = "" });
             }
             if (detailPhrases.Count == 0 && Answer(QDetail) is null)
@@ -305,8 +313,9 @@ public static class FastCatalogRules
         foreach (var (p, d0) in phrases)
         {
             var isMonthly = d0.Contains(MonthlyTag);
-            var desc = d0.Replace(MonthlyTag, "").Trim();
-            var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo), desc, sourcePath), desc);
+            var (desc, forced, forcedType) = TakeFieldTag(d0.Replace(MonthlyTag, "").Trim());
+            var c = ApplyDesc(WithLookupHint(MapPhrase(p, code, folded, ref groupNo, sourcePath), desc, sourcePath), desc);
+            if (forced is not null && !isMonthly) c = ForceField(c, forced, forcedType, sourcePath);
             if (Answer(QField + p + "”") is { Length: > 0 } ans
                 && Regex.Match(ans, @"^(?<n>[A-Za-z_][A-Za-z0-9_]*)\s*(?<t>[a-z]+(\(\s*\d+(\s*,\s*\d+)?\s*\))?)?", RegexOptions.IgnoreCase) is { Success: true } am)
                 c = c with { Name = am.Groups["n"].Value.ToLowerInvariant(), SqlType = am.Groups["t"].Success ? am.Groups["t"].Value : c.SqlType, Note = "" };
@@ -317,7 +326,7 @@ public static class FastCatalogRules
                 continue;
             }
             if (c.Note.Length > 1) mapped.Add(c.Note);
-            Add(await LookupTypeAsync(c with { Note = "" }, tableSet, getColumns));
+            Add(await LookupTypeAsync(c with { Note = "" }, tableSet, getColumns, sourcePath));
         }
 
         // ---- khoá: cột chiều (có lookup / năm / tháng / kỳ / lần …) không ghi "không bắt buộc" ----
@@ -440,10 +449,20 @@ public static class FastCatalogRules
     }
 
     /// <summary>Cột có lookup: kiểu lấy theo cột mã của bảng nguồn thật (Information "ma_nh$dmnhphi.ten_nh" → dmnhphi.ma_nh varchar(8)).</summary>
-    private static async Task<Col> LookupTypeAsync(Col c, HashSet<string> tableSet, Func<string, Task<List<AiTableColumn>>> getColumns)
+    private static async Task<Col> LookupTypeAsync(Col c, HashSet<string> tableSet, Func<string, Task<List<AiTableColumn>>> getColumns, string sourcePath)
     {
-        if (c.Controller.Length == 0) return c;
-        var lk = FieldDictionaryService.Instance.Lookups(c.Name).FirstOrDefault(l => l.Controller.Equals(c.Controller, StringComparison.OrdinalIgnoreCase));
+        if (c.Controller.Length == 0)
+        {
+            // Field lấy theo source dự án: kiểu thật của cột đó trong bảng file Dir dùng (vd ngay_hl smalldatetime).
+            if (c.SrcTable.Length == 0 || !tableSet.Contains(c.SrcTable)) return c;
+            try
+            {
+                var real = (await getColumns(c.SrcTable)).FirstOrDefault(x => x.Name.Equals(c.Name, StringComparison.OrdinalIgnoreCase));
+                return real is { SqlType.Length: > 0 } ? c with { SqlType = real.SqlType } : c;
+            }
+            catch { return c; }
+        }
+        var lk = KnownLookup(c.Name, c.Controller, sourcePath) is { } k0 && k0.Controller.Equals(c.Controller, StringComparison.OrdinalIgnoreCase) ? k0 : null;
         var (t, k) = lk?.Source ?? ("", "");
         if (t.Length == 0 || !tableSet.Contains(t)) return c;
         try
@@ -465,6 +484,11 @@ public static class FastCatalogRules
         foreach (var l in CommonLookups)
             if (l.Words.Any(w => noun == w || noun.StartsWith(w + " ")))
                 return (l.Field, l.Controller);
+        // Source dự án: field có tra cứu mang tiêu đề "X" / "Mã X" / "X 1".
+        if (SourceFieldIndex.TryGet(sourcePath) is { } idx)
+            foreach (var h in new[] { noun, "ma " + noun, noun + " 1" })
+                if (idx.ByHeader(h).FirstOrDefault(u => u.Lookup is not null) is { } u)
+                    return (u.Name, u.Lookup!.Controller);
         foreach (var h in new[] { noun, noun + " 1", "ma " + noun })
             if (BestHeaderField(h) is { Lookup: { } hl } e && hl.Controller.Length > 0)
                 return (e.Name, hl.Controller);
@@ -548,7 +572,8 @@ public static class FastCatalogRules
         {
             ["name"] = c.Name, ["sqlType"] = c.SqlType, ["headerV"] = c.V, ["headerE"] = c.E, ["width"] = width,
             ["inGrid"] = !sys && !second, ["inForm"] = !sys, ["inLookup"] = isKey || isName, ["inFilter"] = isKey || isName,
-            ["inImport"] = !sys, ["allowNulls"] = !isKey && c.Required != true, ["readOnly"] = false, ["hidden"] = false,
+            // Cột tên của danh mục bắt buộc nhập như Fast (ten_bp allowNulls="false"), trừ khi y/c ghi rõ "không bắt buộc".
+            ["inImport"] = !sys, ["allowNulls"] = !isKey && (isName ? c.Required == false : c.Required != true), ["readOnly"] = false, ["hidden"] = false,
             ["autoComplete"] = isKey || isName ? "" : c.Controller,
         };
     }
@@ -587,7 +612,8 @@ public static class FastCatalogRules
         if (inline)
         {
             var parts = Regex.Split(first, @"\s+(?=" + Bullet + @"\s)");   // "Gồm các trường:  Mã phương thức  Tên…" trên 1 dòng
-            if (parts.Length > 1) foreach (var x in parts.Skip(1)) AddBullet(BulletRx.Replace(x, "", 1));
+            // Phần trước gạch đã là danh sách dấu phẩy ("Mã, Tên, Kỳ - Năm") thì "-" chỉ là nối chữ, không phải gạch đầu dòng.
+            if (parts.Length > 1 && !parts[0].Contains(',')) foreach (var x in parts.Skip(1)) AddBullet(BulletRx.Replace(x, "", 1));
             else result.AddRange(SplitPhrases(Regex.Split(first, @"\.\s+(?=\p{Lu})")[0]));
         }
         string? marker = null;
@@ -606,6 +632,7 @@ public static class FastCatalogRules
         {
             var desc = "";
             if (text.IndexOf(':') is var colon and > 0) { desc = text[(colon + 1)..].Trim(); text = text[..colon]; }
+            (text, desc) = KeepFieldTag(text, desc);
             text = Regex.Replace(text, @"\([^)]*\)|\[[^\]]*\]", "").Trim().TrimEnd('.', ',', ';').Trim();
             // "Khai báo ngân sách dự toán theo 12 tháng trong năm để so sánh với …" → "ngân sách dự toán" + đánh dấu theo tháng.
             text = Regex.Replace(text, @"(?i)^(khai\s*b[áa]o|nh[ậa]p|theo\s*d[õo]i|c[ậa]p\s*nh[ậa]t)\s+", "");
@@ -619,7 +646,7 @@ public static class FastCatalogRules
             // Dòng mô tả ("Mục đích…", "Màn hình…", "Gồm các trường") không phải cột.
             if (text.Length is 0 or > 60 || IntroRx.IsMatch(text + ":")
                 || Regex.IsMatch(Fold(text), @"^(muc dich|man hinh|duong dan|yeu cau|link|luu y|chuc nang|thuc hien|master|detail|cho phep|mo ta|giai phap|vi du)\b")) return false;
-            result.Add((text, desc));
+            foreach (var part in SplitTimeDims(text)) result.Add((part, desc));
             return true;
         }
     }
@@ -634,9 +661,54 @@ public static class FastCatalogRules
             {
                 var desc = "";
                 if (p.IndexOf(':') is var c and > 0) { desc = p[(c + 1)..].Trim(); p = p[..c]; }
-                return (P: Regex.Replace(p, @"\([^)]*\)", "").Trim().TrimEnd('.', ':').Trim(), D: desc);
+                (p, desc) = KeepFieldTag(p, desc);
+                return (P: Regex.Replace(p, @"\([^)]*\)|\[[^\]]*\]", "").Trim().TrimEnd('.', ':').Trim(), D: desc);
             })
+            .SelectMany(p => SplitTimeDims(p.P).Select(x => (P: x, p.D)))
             .Where(p => p.P.Length is > 0 and <= 60).DistinctBy(p => p.P, StringComparer.OrdinalIgnoreCase).ToList();
+
+    // ---- field ghi rõ trong ngoặc vuông: "- Mã kho [ma_kho]: …" / "[so_tien numeric(19,4)]" (AI phân tích viết, hoặc bạn tự ghi) ----
+    private const string FieldTag = "⟨field:";
+    private static readonly Regex FieldTagRx = new(@"\[\s*(?<n>[A-Za-z_][A-Za-z0-9_]*)(?:\s+(?<t>[a-z]+(?:\(\s*\d+(?:\s*,\s*\d+)?\s*\))?))?\s*\]", RegexOptions.Compiled);
+    private static readonly Regex FieldTagInDescRx = new(@"⟨field:(?<n>[^ ⟩]+)(?: (?<t>[^⟩]+))?⟩", RegexOptions.Compiled);
+
+    /// <summary>Giữ "[field kiểu]" của cụm cột thành dấu trong mô tả (cụm thì bỏ ngoặc như cũ).</summary>
+    private static (string Text, string Desc) KeepFieldTag(string text, string desc)
+    {
+        if (FieldTagRx.Match(text) is not { Success: true } m) return (text, desc);
+        var tag = $"{FieldTag}{m.Groups["n"].Value.ToLowerInvariant()}{(m.Groups["t"].Success ? " " + m.Groups["t"].Value : "")}⟩";
+        return (text.Remove(m.Index, m.Length), (desc + " " + tag).Trim());
+    }
+
+    /// <summary>Tách dấu field ghi rõ khỏi mô tả: (mô tả còn lại, field, kiểu) — field null nếu không ghi.</summary>
+    private static (string Desc, string? Field, string? Type) TakeFieldTag(string desc) =>
+        FieldTagInDescRx.Match(desc) is { Success: true } m
+            ? (desc.Remove(m.Index, m.Length).Trim(), m.Groups["n"].Value, m.Groups["t"].Success ? m.Groups["t"].Value : null)
+            : (desc, null, null);
+
+    /// <summary>Cột theo field ghi rõ: đổi tên (và kiểu nếu ghi); field khác cụm tra được thì lấy tra cứu / kiểu theo field đó.</summary>
+    private static Col ForceField(Col c, string field, string? type, string sourcePath)
+    {
+        if (field.Equals(c.Name, StringComparison.OrdinalIgnoreCase)) return type is null ? c : c with { SqlType = type };
+        var lk = (c.Controller.Length > 0 ? KnownLookup(field, c.Controller, sourcePath) : null) is { } same && same.Controller.Equals(c.Controller, StringComparison.OrdinalIgnoreCase)
+            ? same : KnownLookup(field, "", sourcePath);
+        var ctl = lk?.Controller ?? "";
+        return c with
+        {
+            Name = field, Controller = ctl, SrcTable = "",
+            SqlType = type ?? (ctl.Length > 0 ? "varchar(32)" : GuessType(field, FieldDictionaryService.Instance.Layout(field)?.Type ?? "", Fold(c.V))),
+            Note = $"{c.V} → {field}{(ctl.Length > 0 ? $" ({ctl})" : "")} (ghi rõ)",
+        };
+    }
+
+    /// <summary>"Tháng / Năm", "Kỳ - Năm", "Quý/Năm" → mỗi chiều thời gian 1 cột riêng (thang, nam — kiểu int như Fast), không gộp chung 1 cột.
+    /// Chỉ tách khi MỌI phần đều là chiều thời gian — "Hàng hoá / vật tư" vẫn là 1 cột.</summary>
+    internal static IEnumerable<string> SplitTimeDims(string phrase)
+    {
+        var parts = Regex.Split(phrase, @"\s*[/\-–]\s*|\s+v[àa]\s+").Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+        return parts.Count > 1 && parts.All(x => Regex.IsMatch(Fold(x), @"^(ngay|tuan|thang|ky|quy|nam)$"))
+            ? parts.Select(Cap) : new[] { phrase };
+    }
 
     /// <summary>Mô tả "Lookup từ Danh mục nhóm phí" / "chọn từ danh mục kho hàng" → gắn lookup chuẩn (<see cref="ResolveLookupNoun"/>) nếu cụm chưa có lookup.
     /// Tên cột giữ nguyên khi field đó (header.xml) có lookup cùng controller; không thì dùng field chuẩn của lookup ("Trạm" lookup kho → ma_kho).</summary>
@@ -667,20 +739,50 @@ public static class FastCatalogRules
     }
 
     /// <summary>1 cụm cột → field. Note = "Khách hàng → ma_kh (Customer)" khi tra từ điển; "?" khi phải đoán (sẽ hỏi lại).</summary>
-    private static Col MapPhrase(string phrase, string code, string catFolded, ref int groupNo)
+    private static Col MapPhrase(string phrase, string code, string catFolded, ref int groupNo, string sourcePath)
     {
         var p = Cap(phrase);
         var f = Fold(phrase);
         // "Mã" / "Mã loại" (đầu của tên danh mục "loại hợp đồng") / "Mã loại hợp đồng" = khoá; tương tự "Tên ...".
         // "Mã liên doanh" của "loại hình liên doanh": phần sau Mã/Tên là đầu HOẶC đuôi tên danh mục.
-        bool Own(string prefix) => f == prefix || f == prefix + " so" || (f.StartsWith(prefix + " ") && (catFolded + " ").StartsWith(f[(prefix.Length + 1)..] + " "))
-            || (f.StartsWith(prefix + " ") && (" " + catFolded).EndsWith(" " + f[(prefix.Length + 1)..]));
+        // Nhưng "Mã kho" của danh mục "mapping kho" là cột tra cứu kho (ma_kho), không phải mã của chính danh mục: phần sau Mã/Tên là
+        // danh mục khác đã biết (lookup thường dùng / header.xml có tra cứu) mà không trùng nguyên tên danh mục → không tính là của mình.
+        bool Own(string prefix)
+        {
+            if (f == prefix || f == prefix + " so") return true;
+            if (!f.StartsWith(prefix + " ")) return false;
+            var rest = f[(prefix.Length + 1)..];
+            if (!(catFolded + " ").StartsWith(rest + " ") && !(" " + catFolded).EndsWith(" " + rest)) return false;
+            return rest == catFolded || !IsOtherCatalog(rest);
+        }
         if (Own("ma")) return new Col("ma_" + code, "varchar(32)", p, "Code", "", "");
         if (Own("ten")) return new Col("ten_" + code, "nvarchar(256)", p, "Name", "", "");
         if (f is "ten tieng anh" or "ten 2" or "ten khac" or "ten english" or "ten thu 2" or "ten thu hai" || (f.StartsWith("ten ") && Regex.IsMatch(f, @" (khac|2|tieng anh)$"))) return new Col("ten_" + code + "2", "nvarchar(256)", "Tên 2", "Name 2", "", "");
         if (f is "ghi chu" or "chu thich") return new Col("ghi_chu", "nvarchar(512)", "Ghi chú", "Note", "", "");
         if (f is "dien giai" or "mo ta" or "noi dung") return new Col("dien_giai", "nvarchar(512)", p, "Description", "", "");
         if (f is "trang thai" or "tinh trang" or "su dung" or "con su dung" or "ngung su dung" or "status") return new Col("status", "char(1)", "Trạng thái", "Status", "", "");
+
+        // Chiều thời gian: luôn cột riêng kiểu int như Fast (thang, nam — header.xml Int16), không để source dự án đổi thành ky / numeric.
+        if (f is "thang" or "nam" or "quy" or "ky" or "tuan")
+            return new Col(f, "int", p, f switch { "thang" => "Month", "nam" => "Year", "quy" => "Quarter", "ky" => "Period", _ => "Week" }, "", "");
+
+        // Bạn đã sửa gợi ý cho đúng tiêu đề này ở lần Tạo file trước → dùng lại field bạn chốt.
+        if (CatalogFieldMemory.Get(f) is { } mem)
+            return new Col(mem.Name, mem.SqlType.Length > 0 ? mem.SqlType : mem.Controller.Length > 0 ? "varchar(32)" : GuessType(mem.Name, "", f), p,
+                mem.E.Length > 0 ? mem.E : HeaderTranslator.Instance.Translate(p) ?? p, mem.Controller,
+                $"{p} → {mem.Name}{(mem.Controller.Length > 0 ? $" ({mem.Controller})" : "")} (bạn đã sửa lần trước)");
+        // Field source dự án đang dùng cho tiêu đề này (trừ lookup thường dùng của FBO — giữ chuẩn).
+        var noun0 = f.StartsWith("ma ") ? f[3..] : f;
+        if (!CommonLookups.Any(l => l.Words.Contains(noun0)) && ProjectField(f, sourcePath) is { } u)
+        {
+            // Kiểu tạm theo header.xml (type="Decimal" của Dir ghi cả cho cột int); LookupTypeAsync lấy kiểu thật từ bảng của file Dir đó.
+            var uc = u.Lookup?.Controller ?? "";
+            return new Col(u.Name, uc.Length > 0 ? "varchar(32)" : GuessType(u.Name, FieldDictionaryService.Instance.Layout(u.Name)?.Type ?? u.Type, f), p,
+                u.E.Length > 0 ? u.E : HeaderTranslator.Instance.Translate(p) ?? p, uc,
+                $"{p} → {u.Name}{(uc.Length > 0 ? $" ({uc})" : "")} (source dự án: {string.Join(", ", u.Files)}{(u.Count > u.Files.Count ? "…" : "")})",
+                SrcTable: u.Table);
+        }
+
         if (f.StartsWith("nhom") && BestHeaderField(f + " 1") is { Lookup: { Controller.Length: > 0 } gl } ge)
             return new Col(ge.Name, "varchar(32)", p, ge.HeaderE.Length > 0 ? ge.HeaderE : HeaderTranslator.Instance.Translate(p) ?? p, gl.Controller, $"{p} → {ge.Name} ({gl.Controller})");
         if (f.StartsWith("nhom") && !f.StartsWith("nhom kh") && !f.StartsWith("nhom vt"))
@@ -705,6 +807,46 @@ public static class FastCatalogRules
         var slug = Slug(f);
         return new Col(slug, GuessType(slug, "", f), p, HeaderTranslator.Instance.Translate(p) ?? p, "", "?");
     }
+
+    /// <summary>
+    /// Field source dự án (<see cref="SourceFieldIndex"/>) có tiêu đề trùng cụm: "X", rồi "Mã X" (field tra cứu), rồi "X 1" (nhóm 1).
+    /// Chỉ lấy khi chỉ mục đã đọc xong (AiCatalogService chờ trước khi gọi luật). Dùng nhiều file nhất trước.
+    /// </summary>
+    private static SourceFieldIndex.Use? ProjectField(string folded, string sourcePath)
+    {
+        if (SourceFieldIndex.TryGet(sourcePath) is not { } idx || folded.Length < 2) return null;
+        foreach (var h in new[] { folded, "ma " + folded, folded + " 1" })
+            if (idx.ByHeader(h).FirstOrDefault(x => h == folded || x.Lookup is not null) is { } u)
+            {
+                // header.xml có field chuẩn khác cho tiêu đề này → dự án chỉ thắng khi dùng hẳn (≥ 3 file và nhiều hơn field chuẩn),
+                // tránh 1–2 file lạ (vd "Tháng" = ky ở màn HR) kéo lệch.
+                var std = BestHeaderField(h)?.Name;
+                if (std is null || std.Equals(u.Name, StringComparison.OrdinalIgnoreCase)) return u;
+                var stdCount = idx.ByHeader(h).Where(x => x.Name.Equals(std, StringComparison.OrdinalIgnoreCase)).Sum(x => x.Count);
+                return u.Count >= 3 && u.Count > stdCount ? u : null;
+            }
+        return null;
+    }
+
+    /// <summary>Tra cứu (đủ reference / key / check / information) cho field + controller: header.xml → bạn đã chốt → source dự án.</summary>
+    internal static FieldLookup? KnownLookup(string field, string controller, string sourcePath)
+    {
+        var any = controller is "" or "auto";
+        bool Same(FieldLookup? l) => l is not null && (any || l.Controller.Equals(controller, StringComparison.OrdinalIgnoreCase));
+        var std = FieldDictionaryService.Instance.Lookups(field);
+        if (!any && std.FirstOrDefault(Same) is { } exact) return exact;
+        if (any && std.Count > 0) return std.FirstOrDefault(l => l.IsSimple) ?? std[0];
+        if (CatalogFieldMemory.ByName(field)?.Lookup is { } m && Same(m)) return m;
+        if (SourceFieldIndex.TryGet(sourcePath)?.ByName(field).Select(u => u.Lookup).FirstOrDefault(Same) is { } p) return p;
+        // Như trước: header.xml có field mà không có controller AI chọn → biến thể đơn giản.
+        return std.FirstOrDefault(l => l.IsSimple) ?? std.FirstOrDefault();
+    }
+
+    /// <summary>"kho", "vật tư", "khách hàng"… = danh mục khác đã biết (lookup thường dùng, hoặc header.xml có field tra cứu "Mã X" / "X").</summary>
+    private static bool IsOtherCatalog(string noun) =>
+        CommonLookups.Any(l => l.Words.Contains(noun))
+        || BestHeaderField("ma " + noun) is { Lookup: { Controller.Length: > 0 } }
+        || BestHeaderField(noun) is { Lookup: { Controller.Length: > 0 } };
 
     /// <summary>Field header.xml có tiêu đề (bỏ dấu) trùng cụm: ưu tiên field có lookup, tên ngắn, không có %/$, không phải cờ _yn.</summary>
     private static FieldDictionaryService.Entry? BestHeaderField(string folded) =>

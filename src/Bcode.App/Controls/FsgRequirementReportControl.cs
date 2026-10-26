@@ -54,6 +54,12 @@ public class FsgRequirementReportControl : UserControl
     /// <summary>Phím tắt note.aiCatalog: bấm nút của khung chi tiết (chưa mở y/c nào thì trang nhắc).</summary>
     public void RequestAiCatalog() => Js("window.fsgReq && fsgReq.aiCatalog && fsgReq.aiCatalog()");
 
+    /// <summary>"🔎 AI phân tích" cho y/c đang mở ở khung chi tiết (mã y/c, nội dung) — MainForm mở Tạo nhanh danh mục ở bước xác nhận bản phân tích.</summary>
+    public event Action<string, string>? AiAnalyzeRequested;
+
+    /// <summary>Phím tắt note.aiAnalyze: bấm nút 🔎 AI phân tích của khung chi tiết.</summary>
+    public void RequestAiAnalyze() => Js("window.fsgReq && fsgReq.aiAnalyze && fsgReq.aiAnalyze()");
+
     private static string J(object? o) => JsonSerializer.Serialize(o, JsonOpts);
 
     /// <summary>Menu đang chọn trên cây WCommand (chuột phải → "Yêu cầu liên quan (QLYC)…"): wmenu_id, tên Bar / Bar2, wmenu_id các menu con
@@ -202,6 +208,7 @@ public class FsgRequirementReportControl : UserControl
                 }
                 case "copy": try { Clipboard.SetText(Str("text")); } catch { /* clipboard bận */ } break;
                 case "aiCatalog": AiCatalogRequested?.Invoke(Str("name"), Str("content")); break;
+                case "aiAnalyze": AiAnalyzeRequested?.Invoke(Str("name"), Str("content")); break;
             }
         }
         catch (Exception ex) { Js($"fsgReq.onData({J(new { rows = (object?)null, error = ex.Message })})"); }

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Bcode.App.Models;
 using Bcode.App.Services;
 
@@ -32,7 +33,15 @@ public class QuickListForm : WebDialogForm
     private bool _aiBusy, _ready;
     /// <summary>Người dùng đã bấm "Theo luật Fast": các lượt sau (Gửi trả lời) cũng đi theo luật, cho tới khi bấm "Hỏi lại AI" / mở y/c khác.</summary>
     private bool _aiRulesMode;
+    /// <summary>"AI phân tích": đang ở bước AI viết lại y/c theo mẫu luật Fast, chờ người dùng sửa / xác nhận (chưa điền spec).</summary>
+    private bool _aiAnalyzeMode;
+    /// <summary>Nội dung y/c gốc (trước khi xác nhận bản AI phân tích) — để "Phân tích lại".</summary>
+    private string _aiOriginal = "";
     private readonly Dictionary<string, List<AiTableColumn>> _aiNewTables = new(StringComparer.OrdinalIgnoreCase);
+
+    // ---- Kiểm tra chuẩn Fast (FastCatalogCheck): bảng App Data + kiểu cột của bảng nguồn tra cứu, nhớ trong phiên ----
+    private HashSet<string>? _tableSet;
+    private readonly Dictionary<string, IReadOnlyDictionary<string, string>> _typeCache = new(StringComparer.OrdinalIgnoreCase);
 
     // ---- Tab Script (bảng mới / cột thêm): cột của bảng nguồn khi clone (biết cột nào chép được dữ liệu), nhớ theo tên bảng ----
     private readonly Dictionary<string, ISet<string>> _sourceColumns = new(StringComparer.OrdinalIgnoreCase);
@@ -68,8 +77,9 @@ public class QuickListForm : WebDialogForm
         var src = _connections.Current?.SourcePath ?? "";
         Js($"quick.init({J(new { template = QuickListService.DefaultTemplateDir, output = src, oldKeyFormat = QuickListService.DefaultOldKeyFormat })})");
         _ = LoadTablesAsync();
+        _ = SourceFieldIndex.GetAsync(src);   // field source dự án — đọc sẵn ở nền cho luật Fast / AI / kiểm tra
         _ready = true;
-        if (_aiRequest is not null) _ = RunAiAsync();
+        if (_aiRequest is not null) _ = RunCurrentAsync();
         // Từ điển field FCode (header.xml ~2MB) nạp sẵn ở nền để lúc "Nạp cột" không phải chờ.
         _ = Task.Run(() =>
         {
@@ -110,7 +120,13 @@ public class QuickListForm : WebDialogForm
                 }));
                 break;
             }
-            case "generate": BeginInvoke(new Action(() => Generate(msg))); break;
+            case "generate":
+            {
+                var issues = await FastCheckAsync(msg);
+                BeginInvoke(new Action(() => Generate(msg, issues)));
+                break;
+            }
+            case "fastCheck": await FastCheckAsync(msg); break;
             case "openFolder": OpenFolder(msg.GetProperty("path").GetString() ?? ""); break;
             case "openViewer":
             {
@@ -132,8 +148,25 @@ public class QuickListForm : WebDialogForm
                 await RunAiAsync();
                 break;
             }
-            case "aiRetry": _aiRulesMode = false; await RunAiAsync(); break;
-            case "aiRules": _aiRulesMode = true; await RunAiAsync(); break;   // gợi ý theo luật Fast, không gọi AI (kể cả khi đã có API key)
+            case "aiRetry": _aiRulesMode = false; _aiAnalyzeMode = false; await RunAiAsync(); break;
+            case "aiRules": _aiRulesMode = true; _aiAnalyzeMode = false; await RunAiAsync(); break;   // gợi ý theo luật Fast, không gọi AI (kể cả khi đã có API key)
+            case "aiAnalyze":
+                // "Phân tích lại": AI viết lại y/c gốc theo mẫu luật Fast.
+                if (_aiRequest is { } cur) { _aiRequest = (cur.Name, _aiOriginal.Length > 0 ? _aiOriginal : cur.Content); _aiAnalyzeMode = true; await RunAnalyzeAsync(); }
+                break;
+            case "aiConfirm":
+            {
+                // Người dùng đã sửa / xác nhận bản phân tích → luật Fast dựng danh mục từ đúng nội dung đó (không gọi AI nữa).
+                var text = msg.TryGetProperty("text", out var tx) ? (tx.GetString() ?? "").Trim() : "";
+                if (_aiRequest is not { } r0 || text.Length == 0) break;
+                _aiRequest = (r0.Name, text);
+                _aiAnswers.Clear();
+                _aiQuestions = new();
+                _aiAnalyzeMode = false;
+                _aiRulesMode = true;
+                await RunAiAsync();
+                break;
+            }
             case "aiClose": _aiRequest = null; break;
             case "script": await ScriptAsync(msg); break;
             case "designColumns": BeginInvoke(new Action(() => DesignColumns(msg))); break;
@@ -216,7 +249,61 @@ public class QuickListForm : WebDialogForm
         _aiQuestions = new();
         _aiService = null;   // đọc lại danh sách bảng (có thể đã đổi workspace)
         _aiRulesMode = false;
+        _aiAnalyzeMode = false;
+        _aiOriginal = content;
         if (_ready) _ = RunAiAsync();
+    }
+
+    /// <summary>
+    /// "AI phân tích" cho 1 yêu cầu: AI viết lại y/c theo mẫu câu luật Fast đọc chuẩn (<see cref="AiCatalogService.AnalyzeAsync"/>) và dừng ở đó —
+    /// khung AI hiện nội dung để người dùng sửa, bấm "Xác nhận & tạo theo luật Fast" thì luật Fast mới điền danh mục (action aiConfirm).
+    /// </summary>
+    public void StartAnalyze(string requestName, string content)
+    {
+        _aiRequest = (requestName, content);
+        _aiAnswers.Clear();
+        _aiQuestions = new();
+        _aiService = null;
+        _aiRulesMode = false;
+        _aiAnalyzeMode = true;
+        _aiOriginal = content;
+        if (_ready) _ = RunAnalyzeAsync();
+    }
+
+    private Task RunCurrentAsync() => _aiAnalyzeMode ? RunAnalyzeAsync() : RunAiAsync();
+
+    private async Task RunAnalyzeAsync()
+    {
+        if (_aiRequest is not { } req || _aiBusy) return;
+        _aiBusy = true;
+        void State(object o) => Js($"quick.aiState({J(o)})");
+        State(new { name = req.Name, content = req.Content, busy = true, mode = "analyze", message = "Đang chuẩn bị..." });
+        try
+        {
+            if (_connections.Current is null) throw new InvalidOperationException("Chưa chọn workspace.");
+            _aiService ??= new AiCatalogService(_sqlObjects, _tableData, _settings, _connections.Current.SourcePath ?? "");
+            var a = await _aiService.AnalyzeAsync(req.Name, req.Content, m => State(new { name = req.Name, content = req.Content, busy = true, mode = "analyze", message = m }));
+            if (_aiRequest != req || !_aiAnalyzeMode) return;
+            var notKind = a.Kind == "khac";
+            State(new
+            {
+                name = req.Name, content = req.Content, busy = false, mode = "analyze", kind = notKind ? "khac" : "phan_tich", engine = a.Engine,
+                summary = a.Summary, notes = a.Notes, analysis = a.Text,
+                message = notKind
+                    ? "AI cho rằng y/c này không phải tạo màn mới (danh mục / khai báo số liệu). Vẫn muốn thử thì tự ghi nội dung theo mẫu rồi Xác nhận."
+                    : $"{a.Engine} đã phân tích theo mẫu luật Fast — sửa lại nội dung nếu cần rồi bấm Xác nhận & tạo theo luật Fast.",
+            });
+        }
+        catch (TaskCanceledException) { if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, mode = "analyze", kind = "loi", message = "Hết thời gian chờ AI — bấm “Theo luật Fast” để gợi ý không qua AI." }); }
+        catch (Exception ex)
+        {
+            if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, mode = "analyze", kind = "loi", message = ex.Message + (ex is InvalidOperationException ? "" : " — bấm “Theo luật Fast” để gợi ý theo cấu trúc Fast, không qua AI.") });
+        }
+        finally
+        {
+            _aiBusy = false;
+            if (_aiRequest is { } next && next != req) _ = RunCurrentAsync();
+        }
     }
 
     private async Task RunAiAsync()
@@ -245,11 +332,22 @@ public class QuickListForm : WebDialogForm
                     "loi" => r.Summary,
                     "khac" => "Yêu cầu này không phải tạo danh mục mới — bản thử mới hỗ trợ loại \"tạo danh mục\".",
                     _ when r.Spec is null => "Chưa điền được spec — trả lời câu hỏi rồi bấm Gửi trả lời.",
-                    _ when r.Questions.Count > 0 => $"Đã điền nháp {by} — còn câu hỏi bên dưới; trả lời để điền lại, hoặc tự sửa rồi Tạo file.",
+                    _ when r.Questions.Count > 0 => $"Đã điền nháp {by} — còn câu hỏi cần trả lời; trả lời để điền lại, hoặc tự sửa rồi Tạo file.",
                     _ => $"Đã điền {by} — kiểm tra lại cột / tiêu đề / tuỳ chọn rồi bấm Tạo file.",
                 },
             });
-            if (r.Spec is not null) Js($"quick.aiLoad({r.Spec.ToJsonString()})");
+            if (r.Spec is not null)
+            {
+                // Đánh dấu gợi ý gốc của từng cột (trang giữ theo cột kể cả khi đổi tên) — lúc Tạo file so lại để nhớ những gì bạn sửa.
+                foreach (var prop in new[] { "columns", "detailColumns" })
+                    foreach (var c in (r.Spec[prop] as System.Text.Json.Nodes.JsonArray ?? new()).OfType<System.Text.Json.Nodes.JsonObject>())
+                        c["ai"] = new System.Text.Json.Nodes.JsonObject
+                        {
+                            ["v"] = c["headerV"]?.ToString() ?? "", ["name"] = c["name"]?.ToString() ?? "", ["sqlType"] = c["sqlType"]?.ToString() ?? "",
+                            ["ctl"] = c["lookup"]?["controller"]?.ToString() ?? "",
+                        };
+                Js($"quick.aiLoad({r.Spec.ToJsonString()})");
+            }
         }
         catch (TaskCanceledException) { if (_aiRequest == req) State(new { name = req.Name, content = req.Content, busy = false, kind = "loi", message = "Hết thời gian chờ AI." }); }
         catch (Exception ex)
@@ -261,7 +359,7 @@ public class QuickListForm : WebDialogForm
         finally
         {
             _aiBusy = false;
-            if (_aiRequest is { } next && next != req) _ = RunAiAsync();   // y/c mới đến trong lúc đang chạy
+            if (_aiRequest is { } next && next != req) _ = RunCurrentAsync();   // y/c mới đến trong lúc đang chạy
         }
     }
 
@@ -272,6 +370,7 @@ public class QuickListForm : WebDialogForm
         {
             var objs = await _sqlObjects.ListObjectsAsync(useSysDatabase: false);
             var names = objs.Where(o => o.Kind == SqlObjectKind.Table).Select(o => o.Name).OrderBy(n => n).ToArray();
+            _tableSet = new HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
             Js($"quick.onTables({J(names)})");
             Js($"quick.onStatus({J($"{names.Length} bảng trong App Data.")}, '')");
         }
@@ -557,7 +656,69 @@ public class QuickListForm : WebDialogForm
         Target = m.Target, XType = m.XType, Edition = m.Edition, ExplIcon = m.ExplIcon,
     };
 
-    private void Generate(JsonElement msg)
+    // ---- Kiểm tra chuẩn Fast + nhớ những gì bạn sửa -----------------------------------------------
+
+    /// <summary>Soát spec trang đang khai theo chuẩn Fast (<see cref="FastCatalogCheck"/>) rồi gửi danh sách lưu ý về trang (nút "⚡ N lưu ý Fast").</summary>
+    private async Task<List<FastIssue>> FastCheckAsync(JsonElement msg)
+    {
+        try
+        {
+            var spec = ReadSpec(msg.GetProperty("spec"));
+            var output = msg.TryGetProperty("output", out var o) ? (o.GetString() ?? "").Trim() : "";
+            var issues = await FastCatalogCheck.CheckAsync(spec, _tableSet, TypesAsync, output, _connections.Current?.SourcePath ?? "", _settings.NewCatalogTablePrefix);
+            Js($"quick.onFastCheck({J(issues.Select(i => new { level = i.Level, el = i.El, msg = i.Message }))})");
+            return issues;
+        }
+        catch { return new(); }   // chỉ là lưu ý — lỗi đọc thì bỏ qua, không chặn Tạo file
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>> TypesAsync(string table)
+    {
+        if (_typeCache.TryGetValue(table, out var t)) return t;
+        try { t = await _tableData.GetColumnTypesAsync(false, "dbo", table); }
+        catch { t = new Dictionary<string, string>(); }
+        return _typeCache[table] = t;
+    }
+
+    /// <summary>
+    /// Cột AI / luật Fast gợi ý (trang gửi kèm "ai" = gợi ý gốc) mà bạn đã đổi tên field, kiểu hoặc tra cứu trước khi Tạo file
+    /// → nhớ "tiêu đề gợi ý → field bạn chốt" (<see cref="CatalogFieldMemory"/>) để lần sau luật điền đúng luôn, AI được nhắc.
+    /// </summary>
+    private static int LearnEdits(JsonElement spec)
+    {
+        var learned = new List<(string, CatalogFieldMemory.Item)>();
+        string Top(string n) => spec.TryGetProperty(n, out var p) && p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "").Trim() : "";
+        // Mã / tên / tên 2 / cột hệ thống của chính danh mục đổi theo từng danh mục — không phải "tiêu đề → field" dùng lại được.
+        var own = new HashSet<string>(Top("keys").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), StringComparer.OrdinalIgnoreCase)
+            { Top("nameField"), Top("nameField") + "2", "datetime0", "datetime2", "user_id0", "user_id2", "status", "line_nbr" };
+        foreach (var prop in new[] { "columns", "detailColumns" })
+        {
+            if (!spec.TryGetProperty(prop, out var arr) || arr.ValueKind != JsonValueKind.Array) continue;
+            foreach (var c in arr.EnumerateArray())
+            {
+                if (!c.TryGetProperty("ai", out var ai) || ai.ValueKind != JsonValueKind.Object) continue;
+                string S(JsonElement x, string n) => x.TryGetProperty(n, out var p) && p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "").Trim() : "";
+                var v = S(ai, "v");
+                var name = S(c, "name");
+                if (v.Length == 0 || name.Length == 0 || v == S(ai, "name") || own.Contains(S(ai, "name")) || own.Contains(name)) continue;
+                var lk = c.TryGetProperty("lookup", out var l) && l.ValueKind == JsonValueKind.Object ? l : default;
+                string L(string n) => lk.ValueKind == JsonValueKind.Object ? S(lk, n) : "";
+                var sqlType = S(c, "sqlType");
+                var changed = !name.Equals(S(ai, "name"), StringComparison.OrdinalIgnoreCase)
+                    || !L("controller").Equals(S(ai, "ctl"), StringComparison.OrdinalIgnoreCase)
+                    || (S(ai, "sqlType").Length > 0 && sqlType.Length > 0 && !Regex.Replace(sqlType, @"\s+", "").Equals(Regex.Replace(S(ai, "sqlType"), @"\s+", ""), StringComparison.OrdinalIgnoreCase));
+                if (!changed) continue;
+                learned.Add((v, new CatalogFieldMemory.Item
+                {
+                    Name = name, SqlType = sqlType, E = S(c, "headerE"), V = v,
+                    Controller = L("controller"), Reference = L("reference"), Key = L("key"), Check = L("check"), Information = L("information"),
+                }));
+            }
+        }
+        return CatalogFieldMemory.Learn(learned);
+    }
+
+    private void Generate(JsonElement msg, IReadOnlyList<FastIssue> issues)
     {
         var template = (msg.GetProperty("template").GetString() ?? "").Trim();
         var output = (msg.GetProperty("output").GetString() ?? "").Trim();
@@ -569,6 +730,16 @@ public class QuickListForm : WebDialogForm
             var files = Render(spec, template, showErrors: true);
             if (files == null) return;
 
+            // Có lưu ý mức "warn" (dễ lỗi khi chạy / ghi đè nhầm) → hỏi trước; chỉ "info" thì không chặn.
+            var warns = issues.Where(i => i.Level == "warn").ToList();
+            if (warns.Count > 0)
+            {
+                var text = string.Join("\n", warns.Select(i => "⚠ " + i.Message))
+                    + (issues.Count > warns.Count ? $"\n\n(+{issues.Count - warns.Count} lưu ý nhỏ — xem nút ⚡ ở thanh dưới)" : "");
+                if (MessageBox.Show(this, "Kiểm tra theo chuẩn Fast:\n\n" + text + "\n\nVẫn tạo file?", Title,
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+            }
+
             var existing = files.Select(f => Path.Combine(output, f.Target)).Where(File.Exists).ToList();
             if (existing.Count > 0 &&
                 MessageBox.Show(this, "Các file sau đã tồn tại, ghi đè?\n\n" + string.Join("\n", existing), "Xác nhận ghi đè",
@@ -576,8 +747,9 @@ public class QuickListForm : WebDialogForm
 
             var written = _service.Write(files, output);
             _headers.Remember(spec.Columns.Concat(spec.DetailColumns));
+            var learned = LearnEdits(msg.GetProperty("spec"));
             QuickListConfigStore.Save(WorkspaceKey, spec.Table, msg.GetProperty("spec"));
-            Js($"quick.onStatus({J($"Đã tạo {written.Count} file.")}, 'ok')");
+            Js($"quick.onStatus({J($"Đã tạo {written.Count} file." + (learned > 0 ? $" Đã nhớ {learned} cột bạn sửa so với gợi ý — lần sau luật Fast / AI điền theo." : ""))}, 'ok')");
             Js($"quick.onGenerated({J(new { folder = output, files = written.Select(p => new { path = p, name = Path.GetRelativePath(output, p) }) })})");
         }
         catch (Exception ex)

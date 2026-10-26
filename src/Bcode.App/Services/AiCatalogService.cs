@@ -113,6 +113,14 @@ public sealed class AiCatalogService
         var text = content + "\n" + string.Join("\n", answers.Select(a => a.Answer));
         var detailed = MentionedTables(text, tables).Take(MaxDetailedTables).ToList();
 
+        // Field source dự án (đặt tên cột như dự án đã đặt): lần đầu đọc ổ mạng có thể lâu — chờ tối đa 20 giây rồi làm tiếp không có nó.
+        if (_sourcePath.Length > 0 && SourceFieldIndex.TryGet(_sourcePath) is null)
+        {
+            progress?.Invoke("Đang đọc field của source dự án (lần đầu)...");
+            var load = SourceFieldIndex.GetAsync(_sourcePath);
+            await Task.WhenAny(load, Task.Delay(TimeSpan.FromSeconds(20)));
+        }
+
         AiCatalogResult result = new();
         if (forceRules || _useRules())
         {
@@ -133,7 +141,7 @@ public sealed class AiCatalogService
             }
 
             progress?.Invoke(round == 1 ? "Đang hỏi AI..." : $"Đang hỏi AI (lượt {round}, đã gửi thêm cột bảng được xin)...");
-            var user = BuildUserPrompt(requestName, content, tables, columns, answers, FastCatalogRules.LookupHints(content, _sourcePath));
+            var user = BuildUserPrompt(requestName, content, tables, columns, answers, FastCatalogRules.LookupHints(content, _sourcePath), ProjectHints(text));
             var dataPrefix = Regex.Replace(_tablePrefix, "dm$", "") is { Length: > 0 } dp ? dp : "z";
             var (raw, engine) = await _ask(SystemPrompt.Replace("@@PREFIX@@", _tablePrefix).Replace("@@DATAPREFIX@@", dataPrefix), user);
             AiHistoryStore.Add("Danh mục", engine, $"[{requestName}] AI tạo danh mục", Clip(content, 300), raw);
@@ -153,6 +161,102 @@ public sealed class AiCatalogService
         }
         return result;
     }
+
+    // ---------------------------------------------------------------------------------------- AI phân tích (rồi chạy luật Fast)
+
+    /// <summary>Kết quả "AI phân tích": nội dung y/c viết lại theo mẫu luật Fast đọc được (người dùng sửa / xác nhận rồi mới chạy luật).</summary>
+    public sealed class AiAnalysis
+    {
+        /// <summary>danh_muc / man_so_lieu / khac.</summary>
+        public string Kind { get; set; } = "khac";
+        public string Summary { get; set; } = "";
+        public string Text { get; set; } = "";
+        public List<string> Notes { get; set; } = new();
+        public string Engine { get; set; } = "";
+    }
+
+    /// <summary>
+    /// "AI phân tích": AI đọc y/c (văn tự do của khách) rồi VIẾT LẠI theo đúng mẫu câu <see cref="FastCatalogRules"/> đọc chuẩn nhất
+    /// (Thêm danh mục X / Gồm các trường: - cột [field]: lookup từ danh mục …, bắt buộc nhập…). Không điền spec — người dùng sửa nội dung,
+    /// bấm Xác nhận thì luật Fast (không AI) mới dựng danh mục từ nội dung đó, nên kết quả ổn định và đúng quy ước. Cần API key.
+    /// </summary>
+    public async Task<AiAnalysis> AnalyzeAsync(string requestName, string content, Action<string>? progress = null)
+    {
+        if (_useRules())
+            throw new InvalidOperationException("AI phân tích cần API key (Claude / Gemini) — chưa có key thì bấm ⚙ Theo luật Fast.");
+        if (_sourcePath.Length > 0 && SourceFieldIndex.TryGet(_sourcePath) is null)
+        {
+            progress?.Invoke("Đang đọc field của source dự án (lần đầu)...");
+            await Task.WhenAny(SourceFieldIndex.GetAsync(_sourcePath), Task.Delay(TimeSpan.FromSeconds(20)));
+        }
+        var sb = new StringBuilder();
+        sb.AppendLine($"--- YÊU CẦU (mã {requestName}) ---");
+        sb.AppendLine(content.Trim());
+        if (FastCatalogRules.LookupHints(content, _sourcePath) is { Count: > 0 } lh)
+        {
+            sb.AppendLine();
+            sb.AppendLine("--- LOOKUP CHUẨN cho các cụm \"Lookup từ danh mục …\" ---");
+            foreach (var h in lh) sb.AppendLine(h);
+        }
+        if (ProjectHints(content) is { Count: > 0 } ph)
+        {
+            sb.AppendLine();
+            sb.AppendLine("--- FIELD DỰ ÁN ĐANG DÙNG / BẠN ĐÃ CHỐT (tiêu đề → field, ac = lookup controller) ---");
+            foreach (var h in ph) sb.AppendLine(h);
+        }
+        progress?.Invoke("Đang nhờ AI phân tích yêu cầu...");
+        var (raw, engine) = await _ask(AnalyzePrompt.Replace("@@PREFIX@@", _tablePrefix), sb.ToString());
+        AiHistoryStore.Add("Danh mục", engine, $"[{requestName}] AI phân tích", Clip(content, 300), raw);
+
+        var r = new AiAnalysis { Engine = engine };
+        var s = raw.Trim();
+        int a = s.IndexOf('{'), b = s.LastIndexOf('}');
+        JsonObject? o = null;
+        if (a >= 0 && b > a) { try { o = JsonNode.Parse(s[a..(b + 1)]) as JsonObject; } catch { /* không phải JSON */ } }
+        if (o is null)
+        {
+            // AI trả thẳng văn bản: vẫn cho người dùng sửa / xác nhận.
+            r.Kind = "danh_muc"; r.Text = s; r.Notes.Add("AI không trả JSON — nội dung bên dưới là nguyên văn AI viết, kiểm tra kỹ trước khi xác nhận.");
+            return r;
+        }
+        r.Kind = Str(o["loai"]) is { Length: > 0 } k ? k : "danh_muc";
+        r.Summary = Str(o["tom_tat"]);
+        r.Text = Str(o["noi_dung"]).Replace("\r\n", "\n").Trim();
+        r.Notes = Strs(o["ghi_chu"]);
+        return r;
+    }
+
+    public const string AnalyzePrompt =
+"""
+You help a FastBusiness ERP (FCode) developer. Read a customer requirement (Vietnamese, free text) and REWRITE it as a short structured text that a rule-based tool ("luật Fast") parses to build a catalog screen. You do NOT build the screen; the developer reviews / edits your text, then the tool builds it.
+
+Reply with ONE JSON object only (no markdown fences):
+{ "loai": "danh_muc" | "man_so_lieu" | "khac", "tom_tat": "1 sentence in Vietnamese", "noi_dung": "the structured text", "ghi_chu": ["short Vietnamese notes: assumptions, parts of the requirement NOT covered (reports, voucher changes, special logic) that must be done by hand"] }
+
+"danh_muc" = a new master-data catalog with its own code + name. "man_so_lieu" = a new data-entry screen without code/name (e.g. menu "Kế hoạch doanh thu tháng", "Cập nhật dự toán": rows identified by dimensions such as đơn vị, tháng, năm, khách hàng). "khac" = not a new screen (changing an existing screen, report, voucher...): noi_dung = "".
+
+noi_dung format for "danh_muc" (Vietnamese, exactly these line shapes, one column per "- " line):
+Thêm danh mục <tên ngắn, lowercase, no "danh mục" prefix>
+Bảng @@PREFIX@@<viết tắt>          (only when the requirement names a table; otherwise omit this line)
+Gồm các trường:
+- Mã <tên>: bắt buộc nhập
+- Tên <tên>: bắt buộc nhập
+- <Tiêu đề cột> [field]: <mô tả>
+Chi tiết gồm: <Tiêu đề cột> [field], <Tiêu đề cột> [field]      (only if the catalog has a detail grid of lines)
+Cho phép import Excel                                           (only if the requirement mentions import)
+
+noi_dung format for "man_so_lieu":
+Thiết kế menu mới "<tên màn>", bao gồm các trường sau:
+- <Tiêu đề cột> [field]: <mô tả>
+(a measure entered per month: "- <Chỉ tiêu> theo 12 tháng: nhập số tiền")
+
+Rules for the column lines:
+- Header (Tiêu đề cột) in Vietnamese with diacritics, short, the way a Fast screen labels it ("Mã khách", "Mã kho", "Ngày hiệu lực", "Số tiền").
+- One line per column. A combined phrase like "Tháng / Năm" becomes two lines "- Tháng" and "- Năm".
+- [field] = the FastBusiness field name, ONLY when you are sure: standard ones (ma_kh, ma_vt, ma_kho, ma_lo, ma_bp, ma_dvcs, ma_nvbh, ma_nt, tk, ma_vv, dvt, ngay_hl, thang, nam, ghi_chu) or a field listed under "FIELD DỰ ÁN / BẠN ĐÃ CHỐT". Otherwise omit the brackets and let the tool pick. Never put [field] on the catalog's own "Mã …" / "Tên …" lines.
+- <mô tả> uses only these phrases, comma separated: "lookup từ danh mục <X>" (column refers to another catalog: khách hàng, vật tư, kho, lô, bộ phận, đơn vị, nhân viên kinh doanh...), "bắt buộc nhập", "không bắt buộc nhập", "nhập số tiền", "nhập số lượng", "nhập ngày". Omit ": <mô tả>" when nothing applies.
+- Do not invent columns the requirement does not ask for (the tool adds status and system columns itself). Keep behaviour the tool cannot express (formulas, auto-fill, checks, reports) out of noi_dung and list it in ghi_chu.
+""";
 
     private async Task<List<AiTableColumn>> ColumnsAsync(string table)
     {
@@ -208,7 +312,8 @@ spec (keys exactly as below):
   "columns": [ { "name", "sqlType", "headerV", "headerE", "width", "inGrid", "inForm", "inLookup", "inFilter", "inImport", "allowNulls", "readOnly", "hidden", "autoComplete" } ]
      One entry per column of the table, in display order. For an existing table use exactly its column names (all of them).
      System columns datetime0, datetime2, user_id0, user_id2: inGrid false, inForm false, inImport false.
-     Key columns: allowNulls false, inForm true, inGrid true, inLookup true. The name column: inLookup true, inFilter true.
+     Key columns: allowNulls false, inForm true, inGrid true, inLookup true. The name column: allowNulls false, inLookup true, inFilter true.
+     A column whose phrase names ANOTHER catalog ("Mã kho" = ma_kho / Site, "Mã khách" = ma_kh / Customer) is a lookup column of that catalog, even if the word also appears in this catalog's own name (catalog "mapping kho": its own code is ma_mk, "Mã kho" is still ma_kho).
      width: number 60-400 (code 100-120, name 250-300, number/date 100).
      autoComplete: for a column that refers to another catalog (ma_kh, ma_vt, ma_nt, ma_bp...): the lookup controller to use, picked from the "ac" list given for that column; for columns of a NEW table (no "ac" list) write "auto" and the tool attaches the standard FCode lookup for that column name. "" = plain input (always "" for the catalog's own key and name columns).
   "detail": true if the catalog has a detail grid; then also
@@ -227,14 +332,16 @@ DATA-ENTRY SCREENS: the same tool also builds a NEW single-table screen for decl
   - table: prefix "@@DATAPREFIX@@" (the catalog prefix without "dm") + a short name from the menu title without the verb, e.g. "Cập nhật dự toán" → "@@DATAPREFIX@@dutoan". Never use the catalog prefix "@@PREFIX@@" for it.
   - no code/name pair (no ma_xxx / ten_xxx / ten_xxx2 of its own, no status): keys = the dimension columns that identify one row (unit ma_dvcs, year nam, department ma_bp, item ma_vt, ..., update number lan_cap_nhat), leaving out columns the requirement says are optional ("không bắt buộc"); nameField "", lookup false. Ask once in cau_hoi to confirm the key.
   - values "theo 12 tháng" / "mỗi tháng" → 12 numeric columns per measure named short code + 01..12 (e.g. ns_dt01..ns_dt12, sl_dt01..sl_dt12, gia_dt01..gia_dt12, ps_ndt01..ps_ndt12) with inGrid false, unless the developer answered to use a detail grid by month (then detail table = table + "ct", detail keys = keys + thang). Ask once which layout they prefer.
+When "FIELD DỰ ÁN ĐANG DÙNG / BẠN ĐÃ CHỐT" lists a field for a phrase of the requirement, use exactly that field name (and its ac as autoComplete) for the column of a NEW table instead of inventing a name; "đã chốt" entries win over "dự án" ones.
 For every screen: a phrase like "Lookup từ Danh mục X" / "chọn từ danh mục X" describes the lookup of ONE COLUMN, never the screen to create; use the standard field / controller given under "LOOKUP CHUẨN" when present.
+A combined time phrase such as "Tháng / Năm", "Kỳ - Năm", "Quý/Năm" means SEPARATE columns (thang int, nam int, ky int, quy int), never one column.
 "bắt buộc nhập" → allowNulls false. Money ("Nhập số tiền"), quantity and price: numeric(19,4); year (nam) and counters (lan_cap_nhat): int.
 The menu entry is created afterwards in the tool's Menu tab, so do not ask or note about it. Behaviour beyond the standard catalog (auto-filling fields, formulas, special checks) is coded by hand later: mention it once in ghi_chu, do not ask about it.
 """;
 
     public static string BuildUserPrompt(string requestName, string content, IReadOnlyList<string> tables,
         IReadOnlyDictionary<string, List<AiTableColumn>> columns, IReadOnlyList<(string Question, string Answer)> answers,
-        IReadOnlyList<string>? lookupHints = null)
+        IReadOnlyList<string>? lookupHints = null, IReadOnlyList<string>? projectHints = null)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"--- YÊU CẦU (mã {requestName}) ---");
@@ -267,6 +374,13 @@ The menu entry is created afterwards in the tool's Menu tab, so do not ask or no
             sb.AppendLine();
             sb.AppendLine("--- LOOKUP CHUẨN (tra từ header.xml / source cho các cụm \"Lookup từ danh mục …\" trong yêu cầu) ---");
             foreach (var h in lookupHints) sb.AppendLine(h);
+        }
+
+        if (projectHints is { Count: > 0 })
+        {
+            sb.AppendLine();
+            sb.AppendLine("--- FIELD DỰ ÁN ĐANG DÙNG / BẠN ĐÃ CHỐT cho các cụm trong yêu cầu (tiêu đề → field, ac = lookup controller) ---");
+            foreach (var h in projectHints) sb.AppendLine(h);
         }
 
         if (answers.Count > 0)
@@ -437,13 +551,30 @@ The menu entry is created afterwards in the tool's Menu tab, so do not ask or no
         }
     }
 
-    /// <summary>autoComplete AI chọn → biến thể lookup trong header.xml: khớp controller, không thì biến thể đơn giản đầu tiên; header.xml không có thì bỏ.</summary>
-    private static FieldLookup? ResolveLookup(string column, string controller)
+    /// <summary>autoComplete AI / luật chọn → biến thể lookup: header.xml khớp controller → tra cứu bạn đã chốt → source dự án → biến thể đơn giản của header.xml; không có thì bỏ.</summary>
+    private FieldLookup? ResolveLookup(string column, string controller) =>
+        controller.Length == 0 ? null : FastCatalogRules.KnownLookup(column, controller, _sourcePath);
+
+    /// <summary>
+    /// Tiêu đề field (đã bỏ dấu, ≥ 4 ký tự) xuất hiện nguyên cụm trong yêu cầu → field bạn đã chốt / field source dự án dùng nhiều nhất.
+    /// Gửi kèm AI để đặt tên cột như dự án; tối đa 40 dòng, cụm dài (cụ thể hơn) trước.
+    /// </summary>
+    private List<string> ProjectHints(string text)
     {
-        if (controller.Length == 0) return null;
-        var all = FieldDictionaryService.Instance.Lookups(column);
-        return all.FirstOrDefault(l => l.Controller.Equals(controller, StringComparison.OrdinalIgnoreCase))
-            ?? all.FirstOrDefault(l => l.IsSimple) ?? all.FirstOrDefault();
+        var folded = " " + Regex.Replace(FastCatalogRules.Fold(text), @"[^a-z0-9]+", " ") + " ";
+        var lines = new List<(int Len, string Line)>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (h, m) in CatalogFieldMemory.InText(folded))
+            if (seen.Add(h)) lines.Add((1000 + h.Length, $"“{m.V}” → {m.Name}{(m.SqlType.Length > 0 ? " " + m.SqlType : "")}{(m.Controller.Length > 0 ? " ac: " + m.Controller : "")} (đã chốt)"));
+        if (SourceFieldIndex.TryGet(_sourcePath) is { } idx)
+            foreach (var h in idx.Headers)
+            {
+                if (h.Length < 4 || seen.Contains(h) || !folded.Contains(" " + Regex.Replace(h, @"[^a-z0-9]+", " ").Trim() + " ", StringComparison.Ordinal)) continue;
+                var u = idx.ByHeader(h)[0];
+                if (!seen.Add(h)) continue;
+                lines.Add((h.Length, $"“{u.V}” → {u.Name}{(u.Type.Length > 0 ? " type " + u.Type : "")}{(u.Lookup is { } l ? " ac: " + l.Controller : "")} (dự án, {u.Count} file)"));
+            }
+        return lines.OrderByDescending(x => x.Len).Take(40).Select(x => x.Line).ToList();
     }
 
     private static List<string> SplitCsv(string s) => s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();

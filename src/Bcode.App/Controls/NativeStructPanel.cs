@@ -44,7 +44,7 @@ public sealed class NativeStructPanel : Panel
 
         protected override void DrawRow(DrawItemEventArgs e)
         {
-            if (e.Index < 0 || e.Index >= Items.Count) { e.Graphics.FillRectangle(new SolidBrush(AppColors.Input), e.Bounds); return; }
+            if (e.Index < 0 || e.Index >= Items.Count) { using var empty = new SolidBrush(AppColors.Input); e.Graphics.FillRectangle(empty, e.Bounds); return; }
             var c = (Col)Items[e.Index];
             var sel = ShowType && c.Name == Selected;
             var bg = sel ? AppColors.Selection : e.Index == Hot ? AppColors.PanelAlt : AppColors.Input;

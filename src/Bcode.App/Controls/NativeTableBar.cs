@@ -54,8 +54,11 @@ public sealed class NativeTableBar : Panel
 
         _btnLoad = PillButton.Flat("Load", primary: true); _btnSave = PillButton.Flat("💾 Save (ghi vào DB)"); _btnAdd = PillButton.Flat("Add Script");
         var actions = new TableLayoutPanel { Dock = DockStyle.Right, ColumnCount = 2, RowCount = 2, AutoSize = true, Padding = new Padding(8, 0, 0, 0) };
+        // 2 hàng chia đều chiều cao thanh (như lưới ô nhập bên trái / "1fr 1fr" của tablebar.html) — hàng AutoSize theo cỡ nút làm hàng Save / Add Script tràn xuống, bị dòng Menu che.
+        actions.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        actions.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
         _top.Width = NativeSkin.RowHeight(this, 80); _top.Dock = DockStyle.Fill;
-        var topBox = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 2, 6, 2) };
+        var topBox = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Anchor = AnchorStyles.Left, Margin = new Padding(0, 2, 6, 2) };
         topBox.Controls.Add(new MutedLabel { Text = "Top:", AutoSize = true, Margin = new Padding(0, 6, 4, 0), BackColor = Color.Transparent });
         _top.Dock = DockStyle.None; topBox.Controls.Add(_top);
         actions.Controls.Add(topBox, 0, 0); actions.Controls.Add(_btnLoad, 1, 0);

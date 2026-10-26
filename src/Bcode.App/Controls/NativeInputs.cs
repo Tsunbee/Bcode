@@ -199,10 +199,12 @@ public abstract class SmoothListBox : ListBox
         if (w <= 0 || h <= 0) return;
         if (_rowBuf is null || _rowBuf.Width < w || _rowBuf.Height < h)
         {
+            // Đo cỡ mới TRƯỚC khi Dispose: đọc Width/Height của Bitmap đã Dispose → GDI+ ném "Parameter is not valid" (kéo danh sách to ra là gặp).
+            var nw = Math.Max(w, _rowBuf?.Width ?? 0); var nh = Math.Max(h, _rowBuf?.Height ?? 0);
             _rowBuf?.Dispose();
             // 24-bit, KHÔNG kênh alpha: GDI (TextRenderer) vẽ chữ lên ảnh ARGB làm hỏng alpha → chữ đậm nhoè, lốm đốm (rõ nhất ở dòng đang chọn).
             // Dòng luôn tô kín nền trước khi vẽ chữ nên không cần trong suốt.
-            _rowBuf = new Bitmap(Math.Max(w, _rowBuf?.Width ?? 0), Math.Max(h, _rowBuf?.Height ?? 0), System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            _rowBuf = new Bitmap(nw, nh, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
         }
         using (var g = Graphics.FromImage(_rowBuf))
             DrawRow(new DrawItemEventArgs(g, e.Font, new Rectangle(0, 0, w, h), e.Index, e.State, e.ForeColor, e.BackColor));   // vẽ ở gốc (0,0)
@@ -214,6 +216,16 @@ public abstract class SmoothListBox : ListBox
     public void InvalidateItem(int index)
     {
         if (index >= 0 && index < Items.Count) Invalidate(GetItemRectangle(index));
+    }
+
+    // ListBox của Windows khi rộng ra chỉ vẽ phần mới lộ ra; dòng tự vẽ có chữ canh phải / cắt "…" theo bề ngang (vd kiểu cột ở khung Structure)
+    // nên phần cũ còn chữ vẽ theo bề ngang cũ (2 cột kiểu chồng nhau) tới khi rê chuột qua. Đổi bề ngang → vẽ lại cả danh sách.
+    private int _lastWidth = -1;
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        if (Width != _lastWidth) { _lastWidth = Width; Invalidate(); }
     }
 
     /// <summary>Nạp danh sách mới: giống hệt danh sách đang có (cùng phần tử, cùng thứ tự) thì chỉ vẽ lại; khác thì nạp lại nhưng giữ dòng đầu đang hiện.</summary>

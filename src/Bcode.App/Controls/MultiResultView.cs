@@ -56,7 +56,13 @@ public class MultiResultView : UserControl
                 try { Clipboard.SetText(t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }
             }
             else if (a.GetString() == "save") Save(root);
+            else if (a.GetString() == "keys")   // lưới focus / blur: Ctrl+Shift+C = Copy kèm tên cột, không mở Command
+            {
+                if (root.TryGetProperty("claim", out var c) && c.ValueKind == JsonValueKind.True) Bcode.App.UI.WebViewEnvironment.ClaimKeys(this, "Ctrl+Shift+C");
+                else Bcode.App.UI.WebViewEnvironment.ClaimKeys(this);
+            }
         };
+        Disposed += (_, _) => Bcode.App.UI.WebViewEnvironment.ClaimKeys(this);
     }
 
     /// <summary>Thay toàn bộ vùng kết quả bằng các bảng này, theo thứ tự. Danh sách rỗng = xoá (như <see cref="Clear"/>).</summary>

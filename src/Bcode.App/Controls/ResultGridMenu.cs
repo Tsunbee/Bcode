@@ -44,6 +44,77 @@ public static class ResultGridMenu
         };
     }
 
+    // ---- Copy ô: chỉ bật cho lưới kết quả SQL Query (NativeResultPane), cùng quy tắc với resultview.html (bản Web) ----
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridView, object> CopyOn = new();
+
+    /// <summary>Thay Ctrl+C mặc định của DataGridView (nhiều ô không bọc "..." → giá trị có xuống dòng làm vỡ dòng Excel) bằng
+    /// <see cref="CopyCells"/>; thêm Ctrl+Shift+C = kèm tên cột và mục Copy / Copy kèm tên cột / Copy cả bảng trên menu.</summary>
+    public static void EnableCopy(DataGridView grid)
+    {
+        CopyOn.AddOrUpdate(grid, grid);
+        grid.KeyDown += (_, e) =>
+        {
+            if (e.KeyData == (Keys.Control | Keys.C)) { e.Handled = e.SuppressKeyPress = true; CopyCells(grid, false, false); }   // Ctrl+Shift+C: xem HandleCopyKey
+        };
+    }
+
+    /// <summary>Ctrl+Shift+C (Copy kèm tên cột) khi lưới kết quả đang focus — MainForm.ProcessCmdKey gọi TRƯỚC phím toàn cục trùng tổ hợp (mở Command);
+    /// KeyDown không dùng được vì DataGridView tự copy kiểu mặc định ở ProcessDialogKey (chạy trước KeyDown) với Ctrl+Shift+C.</summary>
+    public static bool HandleCopyKey(Control? focused, Keys keyData)
+    {
+        if (keyData != (Keys.Control | Keys.Shift | Keys.C) || focused is not DataGridView g || !CopyOn.TryGetValue(g, out _)) return false;
+        CopyCells(g, true, false);
+        return true;
+    }
+
+    private static void AddCopyItems(WebMenu menu, DataGridView grid)
+    {
+        if (!CopyOn.TryGetValue(grid, out _)) return;
+        menu.AddCaption("Copy");
+        menu.Add("Copy", () => CopyCells(grid, false, false), shortcut: "Ctrl+C");
+        menu.Add("Copy kèm tên cột", () => CopyCells(grid, true, false), shortcut: "Ctrl+Shift+C");
+        menu.Add("Copy cả bảng", () => CopyCells(grid, true, true));
+    }
+
+    /// <summary>1 ô (không kèm tên cột) = giá trị gốc y nguyên (JSON / script dán ra dùng luôn). Nhiều ô = TSV theo khung chữ nhật bao các ô chọn
+    /// (cột theo thứ tự đang hiện): chỉ bọc "..." (nhân đôi " bên trong) khi ô có tab / xuống dòng hoặc mở đầu bằng " — để Excel không tách sai.</summary>
+    private static void CopyCells(DataGridView grid, bool withHead, bool all)
+    {
+        var cols = grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex).ToList();
+        var rows = new List<int>();
+        if (all)
+        {
+            for (var i = 0; i < grid.Rows.Count; i++) if (grid.Rows[i].Visible && !grid.Rows[i].IsNewRow) rows.Add(i);
+        }
+        else
+        {
+            var cells = grid.SelectedCells.Cast<DataGridViewCell>().Where(c => c.RowIndex >= 0 && c.ColumnIndex >= 0).ToList();
+            if (cells.Count == 0) return;
+            if (cells.Count == 1 && !withHead) { SetClipboard(Text(cells[0])); return; }
+            int d0 = cells.Min(c => grid.Columns[c.ColumnIndex].DisplayIndex), d1 = cells.Max(c => grid.Columns[c.ColumnIndex].DisplayIndex);
+            int r0 = cells.Min(c => c.RowIndex), r1 = cells.Max(c => c.RowIndex);
+            cols = cols.Where(c => c.DisplayIndex >= d0 && c.DisplayIndex <= d1).ToList();
+            for (var i = r0; i <= r1; i++) if (grid.Rows[i].Visible) rows.Add(i);
+        }
+        var sb = new StringBuilder();
+        if (withHead) sb.Append(string.Join("\t", cols.Select(c => c.HeaderText)));
+        foreach (var r in rows)
+        {
+            if (sb.Length > 0 || withHead) sb.Append("\r\n");
+            sb.Append(string.Join("\t", cols.Select(c => Quote(Text(grid.Rows[r].Cells[c.Index])))));
+        }
+        SetClipboard(sb.ToString());
+
+        static string Text(DataGridViewCell c) => c.Value is null or DBNull ? "" : c.FormattedValue?.ToString() ?? "";
+        static string Quote(string s) => s.StartsWith('"') || s.IndexOfAny(['\t', '\r', '\n']) >= 0 ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
+    }
+
+    private static void SetClipboard(string text)
+    {
+        try { if (text.Length == 0) Clipboard.Clear(); else Clipboard.SetText(text); } catch { /* clipboard đang bị chương trình khác giữ */ }
+    }
+
     private static void AddSaveItems(WebMenu menu, DataGridView grid)
     {
         if (!SaveOn.TryGetValue(grid, out _) || GetTable(grid) is not { } table) return;
@@ -85,6 +156,7 @@ public static class ResultGridMenu
     {
         if (!menu.IsEmpty) menu.AddSeparator();
 
+        AddCopyItems(menu, grid);
         AddSaveItems(menu, grid);
         menu.AddCaption("Cột");
         menu.Add("Goto Column ...", () => GotoColumn(grid), shortcut: "Ctrl+G");

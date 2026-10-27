@@ -286,7 +286,17 @@
       showMenu(e, t, el ? +el.dataset.c : 0);
     };
     wrap.onkeydown = (e) => keyDown(e, t);
+    // Ctrl+Shift+C (Copy kèm tên cột) trùng phím toàn cục "mở Command": lưới đang focus thì báo C# nhường phím này cho trang (MultiResultView → WebViewEnvironment.ClaimKeys).
+    wrap.__t = t;
+    wrap.addEventListener('focus', () => post('keys', { claim: true }));
+    wrap.addEventListener('blur', () => post('keys', { claim: false }));
   }
+  // Script phím toàn cục gắn sẵn ở document (pha capture) chặn Ctrl+Shift+C trước lưới → bắt sớm hơn ở window khi phím bấm trong lưới.
+  window.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey || !e.shiftKey || e.altKey || e.code !== 'KeyC') return;
+    const w = e.target && e.target.closest ? e.target.closest('.gwrap') : null;
+    if (w && w.__t) { e.stopPropagation(); keyDown(e, w.__t); }
+  }, true);
 
   function fitColumn(t, c) {
     ctx.font = rem + 'px "Segoe UI", sans-serif';
@@ -358,9 +368,12 @@
   }
   const allRange = (t) => ({ r0: 0, r1: t.view.length - 1, c0: 0, c1: t.cols.length - 1 });
 
+  // 1 ô (không kèm tên cột) = giá trị gốc y nguyên (copy JSON / script ra dùng luôn). Nhiều ô = TSV cho Excel: chỉ bọc "..." (và nhân đôi " bên trong)
+  // khi ô có tab / xuống dòng hoặc mở đầu bằng " — không thì Excel tách sai cột/dòng; còn lại để nguyên, JSON trong ô không bị nhân đôi ".
   function tsv(t, rg, withHead) {
     if (!rg || !t.view.length) return withHead ? t.cols.slice(rg ? rg.c0 : 0, rg ? rg.c1 + 1 : undefined).map((c) => c.n).join('\t') : '';
-    const cell = (v) => { if (v == null) return ''; const s = String(v); return /[\t\r\n"]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    if (!withHead && rg.r0 === rg.r1 && rg.c0 === rg.c1) { const v = t.rows[t.view[rg.r0]][rg.c0]; return v == null ? '' : String(v); }
+    const cell = (v) => { if (v == null) return ''; const s = String(v); return /^"|[\t\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const out = [];
     if (withHead) out.push(t.cols.slice(rg.c0, rg.c1 + 1).map((c) => c.n).join('\t'));
     for (let i = rg.r0; i <= rg.r1; i++) { const row = t.rows[t.view[i]]; out.push(row.slice(rg.c0, rg.c1 + 1).map(cell).join('\t')); }

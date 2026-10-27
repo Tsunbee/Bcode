@@ -3024,6 +3024,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (ResultGridMenu.HandleCopyKey(FromHandle(msg.HWnd), keyData))   // lưới kết quả SQL: Ctrl+Shift+C = Copy kèm tên cột (trùng phím mở Command)
+            return true;
         if (HandleGlobalShortcut(keyData))
             return true;
 

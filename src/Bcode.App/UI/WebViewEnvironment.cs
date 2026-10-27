@@ -254,6 +254,16 @@ internal static class WebViewEnvironment
     /// <summary>Bật khi trang Template đang chờ người dùng bấm phím để gán — tạm không chặn phím ở tầng WebView2.</summary>
     public static volatile bool SuspendAccelerators;
 
+    private static readonly Dictionary<object, string[]> KeyClaims = new();
+
+    /// <summary>Phần tử đang focus trong 1 trang muốn tự xử lý vài tổ hợp trùng phím toàn cục (vd lưới kết quả SQL: Ctrl+Shift+C = Copy kèm tên cột
+    /// thay vì mở Command) — trang báo khi focus / blur. Không truyền tổ hợp nào = trả lại. Chỉ gọi trên luồng giao diện.</summary>
+    public static void ClaimKeys(object owner, params string[] combos)
+    {
+        if (combos.Length == 0) KeyClaims.Remove(owner);
+        else KeyClaims[owner] = combos;
+    }
+
     /// <summary>Đường bắt phím thứ hai, KHÔNG phụ thuộc script của trang: <c>AcceleratorKeyPressed</c> của WebView2 báo mọi phím trước khi trang thấy,
     /// nên phím tắt toàn cục (Ctrl+W, Ctrl+Tab...) chạy được dù trang chưa nạp xong script, hay focus nằm ở editor/thanh công cụ bất kỳ.</summary>
     private static void InstallAcceleratorShortcuts(Microsoft.Web.WebView2.WinForms.WebView2 web)
@@ -274,6 +284,7 @@ internal static class WebViewEnvironment
                     var keys = (Keys)e.VirtualKey | Control.ModifierKeys;
                     var combo = ShortcutRegistry.FromKeys(keys);
                     if (combo is null || ShortcutRegistry.AppIdFor(combo) is null) return;
+                    if (KeyClaims.Values.Any(c => c.Contains(combo))) return;   // trang đang giữ tổ hợp này (ClaimKeys)
                     e.Handled = true;
                     GlobalShortcut?.Invoke(combo);
                 }

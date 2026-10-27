@@ -222,6 +222,10 @@ Trên ảnh: **①** ▶ Execute (`F5` / `Ctrl+Enter`) · **②** chọn databas
 - Tab **Grid Result (n)** · **Message (n)** · **Pivot** (chỉ hiện khi kết quả có dạng pivot).
 - Nhiều bảng: chọn **Xếp chồng** (các bảng xếp dọc, chế độ App kéo đổi cao từng bảng, double-click về cao tự động) hoặc **Từng tab**. Ô "Tìm trong kết quả...", **↔ Fit cột**, mỗi bảng có **⎘ Copy**.
 - Chọn nhiều ô số → thanh dưới hiện Average / Count / Sum.
+- Copy ô (cả chế độ Web lẫn App):
+  - **1 ô** (`Ctrl+C`) = đúng giá trị gốc, không bọc ngoặc kép — copy JSON / script trong ô dán ra dùng được luôn.
+  - **Nhiều ô** = dạng cột cách nhau bằng tab, dán thẳng vào Excel đúng cột. Ô có tab / xuống dòng (hoặc mở đầu bằng `"`) mới được bọc `"..."` để Excel giữ nguyên trong 1 ô, không vỡ dòng.
+  - `Ctrl+Shift+C` = copy kèm tên cột. Khi con trỏ đang ở lưới kết quả, phím này là copy (không mở tab Command); ở chỗ khác vẫn mở Command như cũ.
 - Chuột phải ô: Copy (`Ctrl+C`) · Copy kèm tên cột (`Ctrl+Shift+C`) · Copy cả bảng · Goto Column (`Ctrl+G`) · Copy tên cột · Filter · Add Index Column Order · Generate Design Fields · Maxlength Column Content · Compare Column Content · Set Color Cell. Chuột phải tiêu đề cột: **Thống kê** Sum / Max / Min / Avg.
 - Chuột phải ô → nhóm **Lưu ra file** (cả chế độ Web lẫn App, cả tab "Command Result" khi bật Result Tab):
   - **Xuất nhanh ra Excel (mở luôn)** (`Ctrl+E` khi con trỏ ở lưới kết quả): không hỏi nơi lưu — ghi file .xlsx vào thư mục tạm `%TEMP%\Bcode\Export` rồi mở ngay bằng Excel (file trong đó cũ hơn 7 ngày tự dọn; muốn giữ thì trong Excel bấm Save As).

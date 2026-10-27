@@ -113,6 +113,14 @@ public sealed class ApiDeclarationForm : WebDialogForm
                     break;
                 }
                 case "copy": Clipboard.SetText(Str(msg, "text")); Status("Đã chép.", "ok"); break;
+                case "reveal":
+                {
+                    // Nút 👁 của giá trị bí mật: giải mã bản DPAPI trang đang giữ (chỉ tài khoản Windows này giải được) để xem / sửa.
+                    var plain = msg.TryGetProperty("values", out var vs) && vs.ValueKind == JsonValueKind.Array ? vs.EnumerateArray().Select(x => ApiProjectStore.Unprotect(x.GetString() ?? "")).ToList() : new List<string>();
+                    Js($"api.revealed({J(Str(msg, "key"))}, {J(plain)})");
+                    if (plain.Any(x => x.Length == 0)) Status("Có giá trị bí mật không giải mã được (mã hoá trên máy / tài khoản khác) — nhập lại.", "warn");
+                    break;
+                }
             }
         }
         catch (Exception ex) { Status(ex.Message, "err"); Js("api.busy(false)"); }
@@ -162,10 +170,15 @@ public sealed class ApiDeclarationForm : WebDialogForm
         using var sfd = new SaveFileDialog { Filter = "Postman collection (*.postman_collection.json)|*.postman_collection.json", FileName = (string.IsNullOrWhiteSpace(p.ProjectId) ? p.Name : p.ProjectId) + "_API.postman_collection.json" };
         if (sfd.ShowDialog(this) != DialogResult.OK) return;
         File.WriteAllText(sfd.FileName, PostmanConverter.Export(p, withSecrets), new System.Text.UTF8Encoding(false));
-        var hasSecret = p.Headers.Concat(p.Forms.SelectMany(f => f.Headers)).Any(h => h.Secret);
+        var hasSecret = HasSecret(p);
         Status("Đã xuất Postman: " + sfd.FileName + (ApiClient.UsesToken(p) ? " (không kèm mật khẩu — nhập ở biến password của collection)" : "")
             + (!hasSecret ? "." : withSecrets ? " — CÓ kèm giá trị header bí mật dạng chữ, đừng chia sẻ / commit file này." : " — header bí mật thay bằng biến collection để trống, nhập trong Postman."), hasSecret && withSecrets ? "warn" : "ok");
     }
+
+    /// <summary>Dự án có giá trị bí mật (header / tham số đánh dấu bí mật, hoặc xác thực riêng của form có token / mật khẩu / key).</summary>
+    private static bool HasSecret(ApiProject p) =>
+        p.Headers.Concat(p.Forms.SelectMany(f => f.Headers.Concat(f.Params))).Any(h => h.Secret)
+        || p.Forms.Any(f => ApiClient.AuthType(f) is "bearer" or "basic" or "apikey" && f.Auth!.ValueProtected.Length > 0);
 
     private void Status(string text, string kind) => Js($"api.status({J(text)}, {J(kind)})");
     private static string Mask(string t) => t.Length <= 16 ? t : t[..10] + "…" + t[^6..];

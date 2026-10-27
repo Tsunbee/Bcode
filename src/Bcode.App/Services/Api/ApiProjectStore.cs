@@ -82,12 +82,26 @@ public static class ApiProjectStore
     /// <summary>Header tên kiểu Authorization / Authentication / X-Api-Key / Cookie… coi là bí mật (lưu mã hoá).</summary>
     public static bool IsSecretHeader(string key) => SecretKey.IsMatch(key);
 
-    /// <summary>Header bí mật vừa nhập chữ → mã hoá vào ValueProtected, Value để trống; header bỏ đánh dấu bí mật → giải mã ra Value. Bỏ header không tên.</summary>
+    /// <summary>Header / tham số bí mật vừa nhập chữ → mã hoá vào ValueProtected, Value để trống; bỏ đánh dấu bí mật → giải mã ra Value. Bỏ dòng không tên.
+    /// Xác thực riêng của form: giá trị vừa nhập → mã hoá; "inherit" không cần lưu.</summary>
     public static void Seal(ApiProject p)
     {
         p.Headers = Seal(p.Headers);
-        foreach (var f in p.Forms) f.Headers = Seal(f.Headers);
+        foreach (var f in p.Forms)
+        {
+            f.Headers = Seal(f.Headers); f.Params = Seal(f.Params);
+            if (f.Auth is { } a)
+            {
+                a.Type = string.IsNullOrWhiteSpace(a.Type) ? "inherit" : a.Type.Trim().ToLowerInvariant();
+                a.Username ??= ""; a.KeyName ??= ""; a.In = a.In == "query" ? "query" : "header"; a.Value ??= ""; a.ValueProtected ??= "";
+                if (a.Value.Length > 0) { a.ValueProtected = Protect(a.Value); a.Value = ""; }
+                if (a.Type == "inherit") f.Auth = null;
+            }
+        }
     }
+
+    /// <summary>Giá trị thật của xác thực riêng (giải mã nếu đã lưu).</summary>
+    public static string PlainValue(ApiAuth a) => a.Value.Length > 0 ? a.Value : Unprotect(a.ValueProtected);
 
     private static List<ApiHeader> Seal(List<ApiHeader>? list)
     {
@@ -103,7 +117,7 @@ public static class ApiProjectStore
     }
 
     /// <summary>Giá trị thật để gửi (giải mã nếu là bí mật).</summary>
-    public static string PlainValue(ApiHeader h) => h.Secret && h.Value.Length == 0 ? Unprotect(h.ValueProtected) : h.Value;
+    public static string PlainValue(ApiHeader h) => h.Secret && h.Value.Length == 0 ? Unprotect(h.ValueProtected ?? "") : h.Value ?? "";
 
     // ---------------------------------------------------------------- DPAPI (crypt32, CurrentUser)
     public static string Protect(string plain)

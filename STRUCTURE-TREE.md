@@ -52,7 +52,7 @@ Bcode.App/
 │   ├── NativeKit.cs  515
 │   ├── NativeLookupControl.cs  295
 │   ├── NativePage.cs  274
-│   ├── NativePages.Api.cs  478
+│   ├── NativePages.Api.cs  866
 │   ├── NativePages.Bars.cs  31
 │   ├── NativePages.Bars2.cs  113
 │   ├── NativePages.Bbxn.cs  439
@@ -124,7 +124,7 @@ Bcode.App/
 ├── Forms/
 │   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
-│   ├── ApiDeclarationForm.cs  173
+│   ├── ApiDeclarationForm.cs  186
 │   ├── ApiSchemaBuilderForm.cs  274
 │   ├── ApiSchemaBuilderForm.Native.cs  322
 │   ├── AppCommandEditForm.cs  255
@@ -186,7 +186,7 @@ Bcode.App/
 │   └── WebDialogForm.cs  78
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
-│   ├── ApiProject.cs  62
+│   ├── ApiProject.cs  86
 │   ├── AppSettings.cs  300
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
@@ -205,10 +205,10 @@ Bcode.App/
 │   └── README.md  19
 ├── Services/
 │   ├── Api/
-│   │   ├── ApiClient.cs  298
-│   │   ├── ApiProjectStore.cs  157
+│   │   ├── ApiClient.cs  359
+│   │   ├── ApiProjectStore.cs  171
 │   │   ├── Lt3Templates.cs  88
-│   │   └── PostmanConverter.cs  306
+│   │   └── PostmanConverter.cs  349
 │   ├── Rpt/
 │   │   ├── ExcelTemplateWriter.cs  84
 │   │   ├── GridControllerReader.cs  112
@@ -319,7 +319,7 @@ Bcode.App/
 ├── Templates/  (3317 file — không liệt kê)
 ├── UI/
 │   ├── AppIcons.cs  142
-│   ├── ColorPalette.cs  136
+│   ├── ColorPalette.cs  140
 │   ├── ControlPerf.cs  18
 │   ├── DevToolsDock.cs  190
 │   ├── DpiForm.cs  53
@@ -348,7 +348,7 @@ Bcode.App/
 │       ├── addsource.html  226
 │       ├── advnote.html  780
 │       ├── aihistory.html  128
-│       ├── apideclaration.html  416
+│       ├── apideclaration.html  766
 │       ├── apischema.html  470
 │       ├── appcommandedit.html  158
 │       ├── autoscale.js  13

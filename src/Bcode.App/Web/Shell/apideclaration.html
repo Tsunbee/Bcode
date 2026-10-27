@@ -7,46 +7,106 @@
 <link rel="stylesheet" href="shell.css" />
 <link rel="stylesheet" href="dialog.css" />
 <style>
-  /* Khai báo & quản lý API theo chuẩn LT3 — host: Forms/ApiDeclarationForm.cs. Tự co giãn (dialog.css), màn hẹp xếp dọc. */
+  /* Khai báo & quản lý API theo chuẩn LT3 — host: Forms/ApiDeclarationForm.cs (bản App: Controls/NativePages.Api.cs). Tự co giãn (dialog.css), màn hẹp xếp dọc. */
+  /* Màu chữ dễ đọc ở cả 2 theme: pha từ biến chung (không mã màu cứng). Pha với --text làm màu đậm hơn ở theme sáng, sáng hơn ở theme tối. */
+  :root {
+    --api-label: color-mix(in srgb, var(--text) 72%, var(--text-muted));
+    --api-hint: color-mix(in srgb, var(--text) 45%, var(--text-muted));
+    --api-danger: color-mix(in srgb, var(--danger) 62%, var(--text));
+    --api-warn: color-mix(in srgb, color-mix(in srgb, var(--warning) 50%, var(--accent)) 75%, var(--text));
+    --api-ok: color-mix(in srgb, var(--success) 70%, var(--text));
+  }
   .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(17rem, 24rem) minmax(0, 1fr); gap: .7rem; padding: .7rem; overflow: hidden; }
   .col { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: .7rem; }
   .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg, var(--r)); background: var(--panel); padding: .6rem .7rem; display: flex; flex-direction: column; gap: .45rem; }
   .card h3 { margin: 0; font-size: .95rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; }
   .card h3 .sp { flex: 1; }
   .g2 { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .35rem .5rem; align-items: center; }
-  .g2 > label { color: var(--text-muted); font-size: .9rem; }
+  .g2 > label { color: var(--api-label); font-size: .9rem; }
   .g2 input, .g2 select, .g2 textarea { width: 100%; box-sizing: border-box; }
-  details summary { cursor: pointer; color: var(--text-muted); font-size: .9rem; }
+  .muted, .lbl, .fld > label { color: var(--api-hint); }
+  .hint { color: var(--api-hint); }
+  .hint code, .muted code { color: var(--text); background: var(--panel-alt); border-radius: var(--r-sm, var(--r)); padding: 0 .25rem; }
+  a { color: var(--accent); } a:hover { color: var(--accent-hover); }
+  button.danger { color: var(--api-danger); border-color: color-mix(in srgb, var(--api-danger) 70%, transparent); }
+  .status.ok { color: var(--api-ok); } .status.err { color: var(--api-danger); } .status.warn { color: var(--api-warn); }
+  details summary { cursor: pointer; color: var(--api-label); font-size: .9rem; }
   .mono, textarea.code { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; }
   textarea.code { width: 100%; box-sizing: border-box; min-height: 14rem; resize: vertical; white-space: pre; tab-size: 2; }
-  textarea.code.hdrs { min-height: 3.6rem; }
+  textarea.code.hdrs { min-height: 6rem; }
   .tok { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
-  .tok .val { flex: 1; min-width: 6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+  .tok .val { flex: 1; min-width: 6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--api-label); }
   .flist { display: flex; flex-direction: column; gap: 2px; max-height: 22rem; overflow: auto; }
   .fi { display: flex; align-items: center; gap: .45rem; padding: .3rem .45rem; border-radius: var(--r-sm, var(--r)); cursor: pointer; border: var(--bw) solid transparent; }
   .fi:hover { background: var(--button-back); }
   .fi.sel { border-color: var(--accent); background: var(--panel-alt); }
   .fi .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge { font-size: .72rem; padding: 0 .4rem; border-radius: 999px; border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; }
+  .fi .mt { font-family: Consolas, monospace; font-size: .72rem; font-weight: 600; color: var(--api-ok); min-width: 2.6rem; }
+  .fi .mt.GET { color: var(--api-ok); } .fi .mt.POST { color: var(--api-warn); } .fi .mt.DELETE { color: var(--api-danger); }
+  .badge { font-size: .72rem; padding: 0 .4rem; border-radius: 999px; border: 1px solid var(--border); color: var(--api-hint); white-space: nowrap; }
   .badge.SyncData { border-color: #3b82f6; color: #3b82f6; } .badge.SyncVoucher { border-color: #d97706; color: #d97706; } .badge.GetData { border-color: #16a34a; color: #16a34a; }
   .btns { display: flex; flex-wrap: wrap; gap: .35rem; }
-  .issues { margin: 0; padding-left: 1.1rem; color: var(--danger); font-size: .9rem; }
-  .issues.ok { color: var(--success); list-style: none; padding-left: 0; }
-  .res-head { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
-  .pill { padding: .05rem .55rem; border-radius: 999px; font-weight: 600; font-size: .85rem; border: 1px solid var(--border); }
-  .pill.ok { color: var(--success); border-color: var(--success); } .pill.err { color: var(--danger); border-color: var(--danger); }
-  .rtabs { display: flex; gap: .3rem; border-bottom: var(--bw) solid var(--border); }
-  .rtabs button { border-radius: var(--r) var(--r) 0 0; border-bottom: 0; }
-  .rtabs button.on { background: var(--panel-alt); color: var(--accent); font-weight: 600; }
-  pre.out { margin: 0; max-height: 22rem; overflow: auto; background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .5rem; white-space: pre-wrap; word-break: break-word; }
+  .issues { margin: 0; padding-left: 1.1rem; color: var(--api-danger); font-size: .9rem; }
+  .issues.ok { color: var(--api-ok); list-style: none; padding-left: 0; }
+  /* thanh địa chỉ kiểu Postman: [METHOD][URL ...][Gửi] */
+  .urlbar { display: flex; gap: .4rem; align-items: center; }
+  .urlbar select { width: auto; font-weight: 600; }
+  .urlbar input { flex: 1; min-width: 0; }
+  .urlprev { color: var(--api-hint); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* tab trong form + kết quả */
+  .rtabs { display: flex; gap: .3rem; border-bottom: var(--bw) solid var(--border); align-items: flex-end; flex-wrap: wrap; }
+  .rtabs > button { border-radius: var(--r) var(--r) 0 0; border-bottom: 0; color: var(--api-label); }
+  .rtabs > button.on { background: var(--panel-alt); color: var(--accent); font-weight: 600; border-color: var(--border); }
+  .rtabs .cnt { font-size: .78rem; color: var(--api-ok); }
+  .rtabs .tools { margin-left: auto; display: flex; gap: .4rem; align-items: center; padding-bottom: .2rem; }
+  .fpane { display: none; flex-direction: column; gap: .45rem; }
+  .fpane.on { display: flex; }
+  .kvbar { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; font-size: .88rem; }
+  button.lnk { background: transparent; border-color: transparent; color: var(--accent); padding: 0 .3rem; }
+  button.lnk:hover { text-decoration: underline; border-color: transparent; }
+  /* bảng key–value (Params / Headers / Body form-data) */
+  table.kv { width: 100%; border-collapse: collapse; font-size: .9rem; table-layout: fixed; }
+  table.kv th { text-align: left; font-weight: 600; color: var(--api-label); padding: .2rem .3rem; border-bottom: var(--bw) solid var(--border); font-size: .82rem; }
+  table.kv td { padding: .12rem .2rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); vertical-align: middle; }
+  table.kv td input[type=text], table.kv td input[type=password] { width: 100%; font-family: Consolas, 'Cascadia Mono', monospace; font-size: .88rem; padding: .18rem .4rem; }
+  table.kv col.c-on { width: 1.8rem; } table.kv col.c-k { width: 34%; } table.kv col.c-act { width: 4.6rem; }
+  table.kv tr.off input[type=text], table.kv tr.off input[type=password] { opacity: .55; text-decoration: line-through; }
+  table.kv tr.blank input { border-style: dashed; }
+  table.kv .vc { display: flex; gap: .2rem; align-items: center; }
+  table.kv .ib { padding: 0 .3rem; min-width: 1.6rem; justify-content: center; border-color: transparent; background: transparent; color: var(--api-label); }
+  table.kv .ib:hover { border-color: var(--border); }
+  table.kv .ib.on { color: var(--accent); }
+  table.kv .acts { display: flex; gap: .1rem; justify-content: flex-end; }
+  .narrow table.kv col.c-k { width: 40%; } .narrow table.kv col.c-act { width: 3.4rem; }
+  .inh { font-size: .85rem; } .inh .mono { color: var(--api-hint); white-space: pre-wrap; margin-top: .3rem; }
+  .secret-in { display: flex; gap: .3rem; }
+  .secret-in input { flex: 1; min-width: 0; }
+  .modes { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; }
+  .modes label { display: inline-flex; gap: .3rem; align-items: center; cursor: pointer; color: var(--api-label); }
+  .modes label.on { color: var(--text); font-weight: 600; }
+  /* kết quả */
+  .res-head { display: flex; flex-wrap: wrap; gap: .4rem .9rem; align-items: center; }
+  .pill { padding: .05rem .55rem; border-radius: 999px; font-weight: 600; font-size: .9rem; border: 1px solid var(--border); }
+  .pill.ok { color: var(--api-ok); border-color: var(--api-ok); } .pill.err { color: var(--api-danger); border-color: var(--api-danger); }
+  .meta { color: var(--api-label); font-size: .9rem; } .meta b { color: var(--text); font-weight: 600; }
+  .rmsg { flex: 1; min-width: 8rem; color: var(--api-label); font-size: .9rem; }
+  .seg { display: inline-flex; border: var(--bw) solid var(--border); border-radius: var(--r); overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: .1rem .6rem; background: transparent; color: var(--api-label); }
+  .seg button.on { background: var(--accent); color: var(--on-accent); }
+  pre.out { margin: 0; max-height: 28rem; overflow: auto; background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .5rem; white-space: pre; }
+  pre.out.wrapon { white-space: pre-wrap; word-break: break-word; }
+  pre.out .jk { color: var(--accent); } pre.out .js { color: var(--api-ok); } pre.out .jn { color: color-mix(in srgb, var(--accent) 45%, var(--text)); } pre.out .jb { color: var(--api-danger); }
   .tbl { overflow: auto; max-height: 22rem; border: var(--bw) solid var(--border); border-radius: var(--r); }
   .tbl table { border-collapse: collapse; font-size: .88rem; }
   .tbl th, .tbl td { border: 1px solid var(--border); padding: .15rem .45rem; white-space: nowrap; text-align: left; }
   .tbl th { position: sticky; top: 0; background: var(--panel-alt); }
+  table.rh { border-collapse: collapse; font-size: .88rem; width: 100%; }
+  table.rh td { border-bottom: 1px solid var(--border); padding: .18rem .45rem; vertical-align: top; word-break: break-all; }
+  table.rh td:first-child { font-weight: 600; white-space: nowrap; width: 1%; color: var(--api-label); }
   .tname { font-weight: 600; margin: .4rem 0 .2rem; }
   .doc table { border-collapse: collapse; font-size: .86rem; width: 100%; }
   .doc th, .doc td { border: 1px solid var(--border); padding: .15rem .4rem; text-align: left; vertical-align: top; }
-  .doc td.req { color: var(--danger); text-align: center; }
+  .doc td.req { color: var(--api-danger); text-align: center; }
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 20; }
   .modal.on { display: flex; }
   .modal .box { background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r-lg, var(--r)); width: min(46rem, 94vw); max-height: 88vh; display: flex; flex-direction: column; }
@@ -55,8 +115,8 @@
   .pick { columns: 2 16rem; column-gap: 1rem; }
   .pick .grp { break-inside: avoid; margin-bottom: .5rem; }
   .pick label { display: flex; gap: .4rem; align-items: center; padding: .1rem 0; cursor: pointer; }
-  .dirty { color: var(--warning); font-size: .85rem; }
-  .notes { margin: 0; padding-left: 1.1rem; color: var(--text-muted); font-size: .9rem; }
+  .dirty { color: var(--api-warn); font-size: .85rem; font-weight: 600; }
+  .notes { margin: 0; padding-left: 1.1rem; color: var(--api-label); font-size: .9rem; }
   @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; overflow: auto; } .col { overflow: visible; } }
 </style>
 </head>
@@ -65,7 +125,7 @@
   <div class="fld"><label>Dự án</label><select id="selProject" style="min-width:14rem"></select></div>
   <div class="btns">
     <button class="primary" id="bNewTpl" title="Tạo dự án mới từ mẫu chuẩn phòng LT3 (31 form của tài liệu API)">＋ Mới từ mẫu LT3</button>
-    <button id="bImport" title="Nhập collection Postman (tự nhận địa chỉ gốc, getToken hoặc header tĩnh, header + body từng form; bỏ token cũ)">Nhập Postman…</button>
+    <button id="bImport" title="Nhập collection Postman (tự nhận địa chỉ gốc, getToken hoặc header tĩnh, header + params + body từng form; bỏ token cũ)">Nhập Postman…</button>
     <button id="bOld" style="display:none" title="Chuyển hồ sơ kiểu cũ (mật khẩu chữ thường) sang dạng mới, mật khẩu mã hoá">Chuyển hồ sơ cũ</button>
     <button id="bSave" title="Lưu dự án">Lưu</button>
     <button id="bExport" title="Xuất Postman theo chuẩn LT3 (getToken tự lưu {{token}}, không kèm mật khẩu)">Xuất Postman…</button>
@@ -88,8 +148,10 @@
         <label>Xác thực</label><select id="pAuth" title="Header tĩnh: không gọi getToken — gửi thẳng header chung + header của form (Authentication, TaxCode…)"><option value="raw">Authorization: &lt;token&gt; (chuẩn LT3)</option><option value="bearer">Authorization: Bearer &lt;token&gt;</option><option value="none">Header tĩnh — không lấy token</option></select>
         <label class="tokOnly">Tài khoản</label><input class="tokOnly" type="text" id="pUser" autocomplete="off" />
         <label class="tokOnly">Mật khẩu</label><input class="tokOnly" type="password" id="pPass" autocomplete="new-password" placeholder="(chưa lưu)" />
-        <label title="Gửi kèm mọi form; form có header cùng tên thì form thắng">Header chung</label><textarea id="pHeaders" class="code hdrs" spellcheck="false" placeholder="Key: Value (mỗi dòng 1 header)"></textarea>
       </div>
+      <div class="kvbar"><span style="color:var(--api-label)" title="Gửi kèm mọi form; form có header cùng tên thì form thắng">Header chung</span><span class="muted" id="cPHeaders"></span><span class="grow"></span><button class="lnk" id="bulkP" title="Sửa dạng chữ Key: Value (mỗi dòng 1 header, dòng // = tắt)">Sửa dạng chữ</button></div>
+      <div class="narrow" id="kvP"></div>
+      <textarea id="pHeadersTxt" class="code hdrs" spellcheck="false" style="display:none" placeholder="Key: Value (mỗi dòng 1 header, // ở đầu = tắt)"></textarea>
       <details class="tokOnly"><summary>Lấy token (nâng cao)</summary>
         <div class="g2" style="margin-top:.4rem">
           <label>Đường dẫn</label><input type="text" id="pTokPath" class="mono" />
@@ -99,7 +161,7 @@
         </div>
         <div class="hint">{{username}} / {{password}} được thay lúc gửi. Response chuẩn LT3: token.accesstoken, token.expires.</div>
       </details>
-      <div class="hint">Header bí mật (Authorization / Authentication / token / key…) lưu mã hoá trên máy này, hiện <code>••••••</code> — để nguyên là giữ giá trị cũ, gõ đè là đổi.</div>
+      <div class="hint">Giá trị bí mật (🔒: Authorization / Authentication / token / key…) lưu mã hoá trên máy này — ô để trống là giữ giá trị cũ, gõ là đổi, 👁 để xem / sửa.</div>
       <div class="tok tokOnly"><button id="bToken" title="Lấy token mới">Lấy token</button><span class="val mono" id="tokVal">(chưa lấy)</span><button id="bCopyTok" title="Chép token đầy đủ" disabled>Chép</button></div>
       <div class="g2">
         <label>Tài liệu</label><div class="row"><input type="text" id="pDoc" class="grow" placeholder="File đặc tả (docx/pdf…)" /><button id="bDoc">…</button><button id="bOpenDoc">Mở</button></div>
@@ -127,26 +189,81 @@
       <div class="g2">
         <label>Tên</label><input type="text" id="fName" />
         <label>Loại</label><select id="fKind"><option value="SyncData">SyncData — đồng bộ danh mục</option><option value="SyncVoucher">SyncVoucher — đồng bộ chứng từ</option><option value="GetData">GetData — lấy dữ liệu</option><option value="custom">Khác</option></select>
-        <label>Endpoint</label><div class="row" style="flex-wrap:nowrap"><select id="fMethod" style="width:auto"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select><input type="text" id="fEndpoint" class="mono grow" placeholder="api/GetData" /></div>
         <label>Mô tả</label><input type="text" id="fDesc" />
-        <label title="Header riêng của form — gộp với Header chung, trùng tên thì form thắng">Header</label><textarea id="fHeaders" class="code hdrs" spellcheck="false" placeholder="Key: Value (mỗi dòng 1 header)"></textarea>
       </div>
-      <div class="row">
-        <span class="lbl">Body</span><select id="fMode" style="width:auto" title="Kiểu body (như Postman)"><option value="raw">raw (JSON)</option><option value="urlencoded">x-www-form-urlencoded</option><option value="formdata">form-data</option><option value="none">none</option></select><span class="muted" id="modeHint"></span><span class="grow"></span>
-        <button id="bFormat">Định dạng</button><button id="bValidate">Kiểm tra (LT3)</button><button class="primary" id="bSend">Gửi ▶</button>
+      <div class="urlbar">
+        <select id="fMethod" title="Phương thức"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select>
+        <input type="text" id="fEndpoint" class="mono" placeholder="api/GetData — dán cả ?a=1&amp;b=2 thì tự tách sang Params" />
+        <button class="primary" id="bSend">Gửi ▶</button>
       </div>
-      <textarea id="fBody" class="code" spellcheck="false"></textarea>
-      <div class="hint">Biến: <code>{{today}}</code> (yyyy-MM-dd) · <code>{{now}}</code> · <code>{{key}}</code> (khoá duy nhất mỗi lần gửi — dùng cho VoucherId) · <code>{{year}}</code> · <code>{{month}}</code> · <code>{{monthStart}}</code></div>
+      <div class="urlprev mono" id="fUrl"></div>
+      <div class="rtabs" id="fTabs">
+        <button data-f="params">Params <span class="cnt" id="cParams"></span></button>
+        <button data-f="auth">Authorization <span class="cnt" id="cAuth"></span></button>
+        <button data-f="headers">Headers <span class="cnt" id="cHeaders"></span></button>
+        <button data-f="body" class="on">Body <span class="cnt" id="cBody"></span></button>
+      </div>
+      <div class="fpane" id="pnParams">
+        <div class="kvbar"><span class="muted">Tham số query — nối vào URL dạng <code>?key=value</code>, giá trị dùng được biến <code>{{today}}</code>…</span><span class="grow"></span><button class="lnk" id="bulkQ">Sửa dạng chữ</button></div>
+        <div id="kvQ"></div>
+        <textarea id="qTxt" class="code hdrs" spellcheck="false" style="display:none" placeholder="key: value (mỗi dòng 1 tham số, // ở đầu = tắt)"></textarea>
+      </div>
+      <div class="fpane" id="pnAuth">
+        <div class="g2">
+          <label>Kiểu</label><select id="aType"><option value="inherit">Kế thừa từ "Kết nối"</option><option value="none">Không xác thực (No Auth)</option><option value="bearer">Bearer token</option><option value="basic">Basic auth (tài khoản + mật khẩu)</option><option value="apikey">API key</option></select>
+          <label class="aU">Tài khoản</label><input class="aU" type="text" id="aUser" autocomplete="off" />
+          <label class="aK">Tên key</label><input class="aK mono" type="text" id="aKey" placeholder="vd X-Api-Key" />
+          <label class="aK">Gửi ở</label><select class="aK" id="aIn"><option value="header">Header</option><option value="query">Query (?key=value)</option></select>
+          <label class="aV" id="aValLbl">Token</label><div class="aV secret-in"><input type="password" id="aVal" class="mono" autocomplete="new-password" /><button id="aEye" title="Hiện / ẩn (giải mã giá trị đã lưu)">👁</button></div>
+        </div>
+        <div class="hint" id="aHint"></div>
+      </div>
+      <div class="fpane" id="pnHeaders">
+        <div class="kvbar"><span class="muted">Header riêng của form — gộp với Header chung ở Kết nối, trùng tên thì form thắng.</span><span class="grow"></span><button class="lnk" id="bulkF">Sửa dạng chữ</button></div>
+        <div id="kvF"></div>
+        <textarea id="fHeadersTxt" class="code hdrs" spellcheck="false" style="display:none" placeholder="Key: Value (mỗi dòng 1 header, // ở đầu = tắt)"></textarea>
+        <details class="inh" id="inh"><summary id="inhSum">Header tự thêm / kế thừa khi gửi</summary><div class="mono" id="inhList"></div></details>
+      </div>
+      <div class="fpane on" id="pnBody">
+        <div class="row">
+          <div class="modes" id="fModes">
+            <label><input type="radio" name="fMode" value="none" /> none</label>
+            <label><input type="radio" name="fMode" value="formdata" /> form-data</label>
+            <label><input type="radio" name="fMode" value="urlencoded" /> x-www-form-urlencoded</label>
+            <label><input type="radio" name="fMode" value="raw" /> raw</label>
+            <select id="fRaw" style="width:auto" title="Kiểu raw — chọn Content-Type mặc định"><option value="json">JSON</option><option value="text">Text</option><option value="xml">XML</option><option value="html">HTML</option><option value="javascript">JavaScript</option></select>
+          </div>
+          <span class="grow"></span>
+          <button class="lnk" id="bulkB" style="display:none">Sửa dạng chữ</button>
+          <button id="bFormat">Định dạng</button><button id="bValidate">Kiểm tra (LT3)</button>
+        </div>
+        <textarea id="fBody" class="code" spellcheck="false"></textarea>
+        <div id="kvB"></div>
+        <textarea id="bTxt" class="code hdrs" spellcheck="false" style="display:none" placeholder="key: value (mỗi dòng 1 trường, // ở đầu = tắt)"></textarea>
+        <div class="muted" id="noneHint" style="display:none">Request này không gửi body.</div>
+        <div class="hint">Biến: <code>{{today}}</code> (yyyy-MM-dd) · <code>{{now}}</code> · <code>{{key}}</code> (khoá duy nhất mỗi lần gửi — dùng cho VoucherId) · <code>{{year}}</code> · <code>{{month}}</code> · <code>{{monthStart}}</code></div>
+      </div>
       <ul class="issues" id="issues"></ul>
       <ul class="notes" id="notes"></ul>
     </div>
 
     <div class="card" id="resCard" style="display:none">
-      <div class="res-head"><span class="pill" id="rPill"></span><span id="rMeta" class="muted"></span><span class="grow"></span><button id="bCopyRes">Chép response</button></div>
-      <div class="rtabs"><button data-t="tables" class="on">Bảng</button><button data-t="resp">Response</button><button data-t="req">Request</button></div>
+      <div class="res-head">
+        <span class="pill" id="rPill"></span>
+        <span class="meta">Thời gian <b id="rMs"></b></span>
+        <span class="meta">Kích thước <b id="rSize"></b></span>
+        <span class="rmsg" id="rMsg"></span>
+        <button id="bCopyRes" title="Chép nội dung tab đang xem">Chép</button>
+      </div>
+      <div class="rtabs" id="rTabs">
+        <button data-t="body">Body</button><button data-t="tables" class="on">Bảng <span class="cnt" id="cTables"></span></button><button data-t="hdrs">Headers <span class="cnt" id="cRH"></span></button><button data-t="req">Request</button>
+        <span class="tools"><span class="seg" id="rFmt"><button data-v="pretty" class="on">Pretty</button><button data-v="raw">Raw</button></span><label class="chk muted"><input type="checkbox" id="rWrap" checked /> Xuống dòng</label></span>
+      </div>
       <div id="rTables"></div>
-      <pre class="out mono" id="rResp" style="display:none"></pre>
-      <pre class="out mono" id="rReq" style="display:none"></pre>
+      <pre class="out mono wrapon" id="rResp" style="display:none"></pre>
+      <div id="rHdrs" style="display:none"></div>
+      <pre class="out mono wrapon" id="rReq" style="display:none"></pre>
+      <div class="urlprev mono" id="rUrl"></div>
     </div>
   </div>
 </div>
@@ -185,31 +302,120 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const S = { projects: [], catalog: [], errors: {}, docUrl: '', p: null, original: '', sel: -1, dirty: false, hasPassword: false, token: '', mode: 'new', lastTab: 'tables', result: null };
+  const S = { projects: [], catalog: [], errors: {}, docUrl: '', p: null, original: '', sel: -1, dirty: false, hasPassword: false, token: '', mode: 'new', lastTab: 'tables', result: null, fmt: 'pretty', ftab: 'body' };
 
-  // ---------------------------------------------------------------- dự án
-  const pf = { Name: 'pName', ProjectId: 'pId', Department: 'pDept', BaseUrl: 'pBase', Username: 'pUser', AuthScheme: 'pAuth', TokenPath: 'pTokPath', TokenField: 'pTokField', ExpiresField: 'pExpField', TokenBody: 'pTokBody', DocPath: 'pDoc', Note: 'pNote' };
-  // Header dạng chữ "Key: Value" mỗi dòng (dòng "//…" bỏ qua). Header bí mật đã lưu hiện MASK — để nguyên thì giữ bản mã hoá cũ (ValueProtected).
-  const MASK = '••••••', SECRET = /auth|token|secret|passw|api[-_]?key|cookie|signature/i;
-  const hdrText = (list) => (list || []).map((h) => h.Key + ': ' + (h.Secret && !h.Value && h.ValueProtected ? MASK : (h.Value || ''))).join('\n');
-  function hdrParse(text, old) {
+  // ---------------------------------------------------------------- giá trị bí mật: giải mã qua C# (nút 👁)
+  const MASK = '••••••', SECRET = /auth|token|secret|passw|api[-_]?key|cookie|signature/i, SAVED = '•••••• (đã lưu, mã hoá — để trống là giữ)';
+  let revealSeq = 0; const revealCbs = {};
+  function reveal(values, cb) { const key = 'r' + (++revealSeq); revealCbs[key] = cb; post('reveal', { key, values }); }
+
+  // ---------------------------------------------------------------- bảng key–value kiểu Postman
+  // rows: [{Key, Value, Secret, ValueProtected, Disabled}] — ☑ bật/tắt · Key · Value · 🔒 bí mật · 👁 xem · ✕ xoá; dòng trống cuối để gõ thêm.
+  // opt.secret = false: không có cột bí mật (body form-data). onChange(): báo sửa.
+  function KV(host, opt) {
+    opt = Object.assign({ secret: true, keyPh: 'Key', valPh: 'Value' }, opt || {});
+    let rows = [];
+    const tbl = document.createElement('table'); tbl.className = 'kv';
+    tbl.innerHTML = '<colgroup><col class="c-on"><col class="c-k"><col><col class="c-act"></colgroup><thead><tr><th title="Bỏ tick = giữ dòng nhưng không gửi">✓</th><th>' + esc(opt.keyPh) + '</th><th>' + esc(opt.valPh) + '</th><th></th></tr></thead><tbody></tbody>';
+    host.appendChild(tbl);
+    const body = tbl.tBodies[0];
+    const changed = () => { if (opt.onChange) opt.onChange(); };
+    function hasSaved(r) { return opt.secret && r.Secret && !r.Value && !!r.ValueProtected; }
+    function addTr(r) {
+      let blank = !r;
+      if (blank) r = { Key: '', Value: '', Secret: false, ValueProtected: '', Disabled: false };
+      const tr = document.createElement('tr'); if (blank) tr.className = 'blank';
+      tr.innerHTML = '<td><input type="checkbox" class="on"></td><td><input type="text" class="k" spellcheck="false"></td><td><div class="vc"><input type="text" class="v" spellcheck="false" autocomplete="new-password"></div></td>' +
+        '<td><div class="acts">' + (opt.secret ? '<button class="ib eye" title="Hiện / ẩn giá trị (giải mã giá trị đã lưu)">👁</button><button class="ib lock" title="Bí mật: lưu mã hoá trên máy này, hiện ••••••">🔒</button>' : '') + '<button class="ib del" title="Xoá dòng">✕</button></div></td>';
+      const on = tr.querySelector('.on'), k = tr.querySelector('.k'), v = tr.querySelector('.v'), eye = tr.querySelector('.eye'), lock = tr.querySelector('.lock'), del = tr.querySelector('.del');
+      let shown = false, manual = false;
+      function paint() {
+        on.checked = !r.Disabled; on.disabled = blank; tr.classList.toggle('off', !!r.Disabled && !blank);
+        if (k.value !== (r.Key || '')) k.value = r.Key || ''; k.placeholder = blank ? opt.keyPh + ' mới…' : '';   // chỉ gán khi khác: không nhảy con trỏ lúc đang gõ
+        const secret = opt.secret && r.Secret, type = secret && !shown ? 'password' : 'text';
+        if (v.type !== type) v.type = type;
+        if (v.value !== (r.Value || '')) v.value = r.Value || ''; v.placeholder = hasSaved(r) ? SAVED : blank ? opt.valPh : '';
+        if (lock) { lock.classList.toggle('on', !!r.Secret); lock.textContent = r.Secret ? '🔒' : '🔓'; lock.style.visibility = blank ? 'hidden' : ''; }
+        if (eye) { eye.style.visibility = secret && !blank ? '' : 'hidden'; eye.classList.toggle('on', shown); }
+        if (del) del.style.visibility = blank ? 'hidden' : '';
+      }
+      function promote() {   // gõ vào dòng trống → thành dòng thật, thêm dòng trống mới
+        if (!blank) return;
+        blank = false; tr.classList.remove('blank'); rows.push(r); addTr(null); paint();
+      }
+      on.onchange = () => { r.Disabled = !on.checked; paint(); changed(); };
+      k.oninput = () => { r.Key = k.value; promote(); if (opt.secret && !manual && !r.ValueProtected) { r.Secret = SECRET.test(r.Key); } paint(); changed(); };
+      v.oninput = () => { r.Value = v.value; promote(); if (eye) eye.style.visibility = opt.secret && r.Secret ? '' : 'hidden'; changed(); };
+      if (eye) eye.onclick = () => {
+        if (shown) { shown = false; paint(); return; }
+        if (hasSaved(r)) reveal([r.ValueProtected], (list) => { r.Value = list[0] || ''; shown = true; paint(); v.focus(); });
+        else { shown = true; paint(); }
+      };
+      if (lock) lock.onclick = () => {
+        manual = true;
+        if (r.Secret && hasSaved(r)) { reveal([r.ValueProtected], (list) => { r.Value = list[0] || ''; r.Secret = false; paint(); changed(); }); return; }
+        r.Secret = !r.Secret; paint(); changed();
+      };
+      if (del) del.onclick = () => { const i = rows.indexOf(r); if (i >= 0) rows.splice(i, 1); tr.remove(); changed(); };
+      paint();
+      body.appendChild(tr);
+    }
+    return {
+      set(list) { rows = (list || []).map((x) => Object.assign({ Key: '', Value: '', Secret: false, ValueProtected: '', Disabled: false }, x)); body.textContent = ''; rows.forEach(addTr); addTr(null); },
+      get() { return rows.filter((r) => (r.Key || '').trim()).map((r) => ({ Key: r.Key.trim(), Value: r.Value || '', Secret: !!r.Secret, ValueProtected: r.ValueProtected || '', Disabled: !!r.Disabled })); },
+      count() { return rows.filter((r) => (r.Key || '').trim() && !r.Disabled).length; },
+      enable(on) { tbl.querySelectorAll('input,button').forEach((x) => { x.disabled = !on; }); },
+      el: tbl,
+    };
+  }
+  // Dạng chữ "Key: Value" mỗi dòng (dòng "// …" = tắt). Giá trị bí mật đã lưu hiện MASK — để nguyên thì giữ bản mã hoá cũ (ValueProtected).
+  const kvText = (list) => (list || []).map((h) => (h.Disabled ? '// ' : '') + h.Key + ': ' + (h.Secret && !h.Value && h.ValueProtected ? MASK : (h.Value || ''))).join('\n');
+  function kvParse(text, old, secretAware) {
     const prev = old || [], out = [];
     text.split('\n').forEach((line) => {
-      line = line.replace(/\r$/, ''); if (!line.trim() || line.trim().startsWith('//')) return;
+      line = line.replace(/\r$/, ''); if (!line.trim()) return;
+      let Disabled = false; const t = line.trimStart(); if (t.startsWith('//')) { Disabled = true; line = t.slice(2); if (!line.trim()) return; }
       const i = line.indexOf(':'), Key = (i < 0 ? line : line.slice(0, i)).trim(), Value = i < 0 ? '' : line.slice(i + 1).replace(/^\s+/, '');
       if (!Key) return;
       const o = prev.find((h) => (h.Key || '').toLowerCase() === Key.toLowerCase());
-      if (Value === MASK && o && o.ValueProtected) out.push({ Key, Value: '', Secret: true, ValueProtected: o.ValueProtected });
-      else out.push({ Key, Value, Secret: o ? !!o.Secret : SECRET.test(Key), ValueProtected: '' });
+      if (Value === MASK && o && o.ValueProtected) out.push({ Key, Value: '', Secret: true, ValueProtected: o.ValueProtected, Disabled });
+      else out.push({ Key, Value, Secret: secretAware ? (o ? !!o.Secret : SECRET.test(Key)) : false, ValueProtected: '', Disabled });
     });
     return out;
   }
-  function authMode() { document.querySelectorAll('.tokOnly').forEach((el) => { el.style.display = $('pAuth').value === 'none' ? 'none' : ''; }); }
+  // Bảng + ô "Sửa dạng chữ" (như Bulk Edit của Postman).
+  function KVBox(hostId, txtId, btnId, opt) {
+    const kv = KV($(hostId), opt), txt = $(txtId), btn = $(btnId); let bulk = false, cache = [];
+    const view = (b) => { bulk = b; $(hostId).style.display = bulk ? 'none' : ''; txt.style.display = bulk ? '' : 'none'; btn.textContent = bulk ? 'Dạng bảng' : 'Sửa dạng chữ'; };
+    btn.onclick = () => {
+      if (!bulk) { cache = kv.get(); txt.value = kvText(cache); }
+      else kv.set(kvParse(txt.value, cache, opt.secret !== false));
+      view(!bulk);
+      if (opt.onChange) opt.onChange();
+    };
+    txt.addEventListener('input', () => { if (opt.onChange) opt.onChange(); });
+    return {
+      set(list) { if (bulk) view(false); kv.set(list); },
+      get() { return bulk ? kvParse(txt.value, cache, opt.secret !== false) : kv.get(); },
+      count() { return bulk ? kvParse(txt.value, cache, false).filter((x) => !x.Disabled).length : kv.count(); },
+      enable(on) { kv.enable(on); txt.disabled = !on; btn.disabled = !on; },
+      show(on) { btn.style.display = on ? '' : 'none'; $(hostId).style.display = on && !bulk ? '' : 'none'; txt.style.display = on && bulk ? '' : 'none'; },
+    };
+  }
+  const counts = () => { if (!S.p) return; refreshCounts(); };
+  const kvP = KVBox('kvP', 'pHeadersTxt', 'bulkP', { keyPh: 'Header', onChange: () => { setDirty(true); counts(); } });
+  const kvF = KVBox('kvF', 'fHeadersTxt', 'bulkF', { keyPh: 'Header', onChange: () => { setDirty(true); counts(); } });
+  const kvQ = KVBox('kvQ', 'qTxt', 'bulkQ', { keyPh: 'Tham số', onChange: () => { setDirty(true); counts(); urlPreview(); } });
+  const kvB = KVBox('kvB', 'bTxt', 'bulkB', { secret: false, keyPh: 'Trường', onChange: () => { setDirty(true); counts(); } });
+
+  // ---------------------------------------------------------------- dự án
+  const pf = { Name: 'pName', ProjectId: 'pId', Department: 'pDept', BaseUrl: 'pBase', Username: 'pUser', AuthScheme: 'pAuth', TokenPath: 'pTokPath', TokenField: 'pTokField', ExpiresField: 'pExpField', TokenBody: 'pTokBody', DocPath: 'pDoc', Note: 'pNote' };
+  function authMode() { document.querySelectorAll('.tokOnly').forEach((el) => { el.style.display = $('pAuth').value === 'none' ? 'none' : ''; }); authUi(); }
   $('pAuth').addEventListener('change', authMode);
   function fill() {
     const p = S.p;
     Object.entries(pf).forEach(([k, id]) => { $(id).value = p ? (p[k] ?? '') : ''; });
-    $('pHeaders').value = p ? hdrText(p.Headers) : ''; authMode();
+    kvP.set(p ? p.Headers : []); authMode();
     $('pPass').value = ''; $('pPass').placeholder = S.hasPassword ? '•••••• (đã lưu, mã hoá)' : '(chưa lưu)';
     $('tokVal').textContent = '(chưa lấy)'; $('bCopyTok').disabled = true; S.token = '';
     renderForms(); select(p && p.Forms.length ? Math.min(Math.max(S.sel, 0), p.Forms.length - 1) : -1);
@@ -218,13 +424,13 @@
   function collect() {
     if (!S.p) return null;
     Object.entries(pf).forEach(([k, id]) => { S.p[k] = $(id).value; });
-    S.p.Headers = hdrParse($('pHeaders').value, S.p.Headers);
+    S.p.Headers = kvP.get();
     saveForm();
     return S.p;
   }
   function payload(extra) { return Object.assign({ project: collect(), originalName: S.original, password: $('pPass').value }, extra || {}); }
   function setDirty(d) { S.dirty = d; $('dirty').textContent = d ? '● chưa lưu' : ''; }
-  document.querySelectorAll('.col input, .col textarea, .col select').forEach((el) => el.addEventListener('input', () => { if (S.p) setDirty(true); }));
+  ['input', 'change'].forEach((ev) => document.querySelector('.wrap').addEventListener(ev, (e) => { if (S.p && !e.target.closest('#fFilter') && e.target.id !== 'rWrap') setDirty(true); }));
 
   // ---------------------------------------------------------------- form
   function renderForms() {
@@ -234,43 +440,152 @@
     forms.forEach((f, i) => {
       if (q && !(f.Name || '').toLowerCase().includes(q)) return;
       const d = document.createElement('div'); d.className = 'fi' + (i === S.sel ? ' sel' : '');
-      d.innerHTML = '<span class="nm" title="' + esc(f.Description) + '">' + esc(f.Name || '(chưa đặt tên)') + '</span><span class="badge ' + esc(f.Kind) + '">' + esc(f.Kind) + '</span>';
+      const m = (f.Method || 'POST').toUpperCase();
+      d.innerHTML = '<span class="mt ' + esc(m) + '">' + esc(m) + '</span><span class="nm" title="' + esc(f.Description) + '">' + esc(f.Name || '(chưa đặt tên)') + '</span><span class="badge ' + esc(f.Kind) + '">' + esc(f.Kind) + '</span>';
       d.onclick = () => { saveForm(); select(i); };
       host.appendChild(d);
     });
     $('fCount').textContent = forms.length ? '(' + forms.length + ')' : '';
   }
+  const mode = () => (document.querySelector('input[name=fMode]:checked') || {}).value || 'raw';
+  const kvMode = (m) => m === 'urlencoded' || m === 'formdata';
+  function setMode(m) { document.querySelectorAll('input[name=fMode]').forEach((r) => { r.checked = r.value === m; }); modeUi(); }
+  function bodyRows(text) { return kvParse(text || '', [], false); }
   function select(i) {
     S.sel = i; const f = S.p && S.p.Forms[i];
-    $('fName').value = f ? f.Name : ''; $('fKind').value = f ? f.Kind : 'GetData'; $('fEndpoint').value = f ? f.Endpoint : ''; $('fDesc').value = f ? f.Description : ''; $('fBody').value = f ? f.Body : '';
+    $('fName').value = f ? f.Name : ''; $('fKind').value = f ? f.Kind : 'GetData'; $('fEndpoint').value = f ? f.Endpoint : ''; $('fDesc').value = f ? f.Description : '';
     const m = (f && f.Method || 'POST').toUpperCase(); if (![...$('fMethod').options].some((o) => o.value === m)) $('fMethod').add(new Option(m)); $('fMethod').value = m;
-    $('fMode').value = f && f.BodyMode || 'raw'; modeHint(); $('fHeaders').value = f ? hdrText(f.Headers) : '';
-    ['fName', 'fKind', 'fMethod', 'fEndpoint', 'fDesc', 'fHeaders', 'fMode', 'fBody', 'bSend', 'bValidate', 'bFormat', 'bFormDoc'].forEach((id) => { $(id).disabled = !f; });
+    const bm = f && f.BodyMode || 'raw';
+    // Body raw và body key–value giữ riêng trong lúc sửa (đổi kiểu qua lại không mất); lưu lấy theo kiểu đang chọn.
+    $('fBody').value = f && !kvMode(bm) ? f.Body || '' : ''; kvB.set(f && kvMode(bm) ? bodyRows(f.Body) : []);
+    $('fRaw').value = f && f.RawType || 'json'; setMode(bm);
+    kvF.set(f ? f.Headers : []); kvQ.set(f ? f.Params : []);
+    fillAuth(f && f.Auth);
+    ['fName', 'fKind', 'fMethod', 'fEndpoint', 'fDesc', 'fBody', 'fRaw', 'bSend', 'bValidate', 'bFormat', 'bFormDoc', 'aType', 'aUser', 'aKey', 'aIn', 'aVal', 'aEye'].forEach((id) => { $(id).disabled = !f; });
+    document.querySelectorAll('input[name=fMode]').forEach((r) => { r.disabled = !f; });
+    [kvF, kvQ, kvB].forEach((k) => k.enable(!!f));
     $('issues').textContent = ''; $('issues').className = 'issues';
-    renderForms();
+    renderForms(); refreshCounts(); urlPreview();
   }
   function saveForm() {
     const f = S.p && S.p.Forms[S.sel]; if (!f) return;
-    f.Name = $('fName').value; f.Kind = $('fKind').value; f.Endpoint = $('fEndpoint').value; f.Description = $('fDesc').value; f.Body = $('fBody').value;
-    f.Method = $('fMethod').value; f.BodyMode = $('fMode').value; f.Headers = hdrParse($('fHeaders').value, f.Headers);
+    f.Name = $('fName').value; f.Kind = $('fKind').value; f.Endpoint = $('fEndpoint').value; f.Description = $('fDesc').value;
+    f.Method = $('fMethod').value; f.BodyMode = mode(); f.RawType = $('fRaw').value;
+    f.Body = kvMode(f.BodyMode) ? kvText(kvB.get()) : $('fBody').value || (f.BodyMode === 'none' ? kvText(kvB.get()) : '');
+    f.Headers = kvF.get(); f.Params = kvQ.get(); f.Auth = readAuth();
   }
-  function modeHint() { const m = $('fMode').value; $('modeHint').textContent = m === 'urlencoded' || m === 'formdata' ? 'mỗi dòng key: value' : m === 'none' ? 'không gửi body' : ''; }
-  $('fMode').addEventListener('change', modeHint);
-  ['fName', 'fKind'].forEach((id) => $(id).addEventListener('change', () => { saveForm(); renderForms(); }));
-  $('fKind').addEventListener('change', () => { const ep = { SyncData: 'api/SyncData', SyncVoucher: 'api/SyncVoucher', GetData: 'api/GetData' }[$('fKind').value]; if (ep && !$('fEndpoint').value) $('fEndpoint').value = ep; });
+  function modeUi() {
+    const m = mode(), kv = kvMode(m);
+    $('fBody').style.display = m === 'raw' ? '' : 'none'; kvB.show(kv); $('noneHint').style.display = m === 'none' ? '' : 'none';
+    $('fRaw').style.display = m === 'raw' ? '' : 'none'; $('bFormat').style.display = $('bValidate').style.display = m === 'raw' ? '' : 'none';
+    document.querySelectorAll('#fModes label').forEach((l) => l.classList.toggle('on', !!l.querySelector('input:checked')));
+    refreshCounts();
+  }
+  document.querySelectorAll('input[name=fMode]').forEach((r) => r.addEventListener('change', modeUi));
+  function refreshCounts() {
+    const c = (n) => n ? '(' + n + ')' : '';
+    $('cParams').textContent = c(kvQ.count()); $('cHeaders').textContent = c(kvF.count()); $('cPHeaders').textContent = c(kvP.count());
+    const at = $('aType').value; $('cAuth').textContent = at === 'inherit' ? '' : '●';
+    const m = mode(); $('cBody').textContent = m === 'none' ? '' : kvMode(m) ? c(kvB.count()) : '●';
+  }
+
+  // ---- thanh địa chỉ: dán "...?a=1&b=2" → tách sang Params; xem trước URL đầy đủ
+  function splitQuery() {
+    const ep = $('fEndpoint').value, i = ep.indexOf('?'); if (i < 0) return;
+    const add = ep.slice(i + 1).split('&').filter(Boolean).map((part) => { const j = part.indexOf('='); const dec = (s) => { try { return decodeURIComponent(s.replace(/\+/g, ' ')); } catch { return s; } }; return { Key: dec(j < 0 ? part : part.slice(0, j)), Value: j < 0 ? '' : dec(part.slice(j + 1)), Secret: false, ValueProtected: '', Disabled: false }; });
+    $('fEndpoint').value = ep.slice(0, i);
+    kvQ.set(kvQ.get().concat(add)); refreshCounts(); urlPreview();
+    api.status('Đã tách ' + add.length + ' tham số query sang tab Params.', 'ok'); showFTab('params');
+  }
+  $('fEndpoint').addEventListener('change', splitQuery);
+  $('fEndpoint').addEventListener('paste', () => setTimeout(splitQuery, 0));
+  function urlPreview() {
+    if (!S.p || S.sel < 0) { $('fUrl').textContent = ''; return; }
+    const ep = $('fEndpoint').value.trim(), base = $('pBase').value.trim().replace(/\/+$/, '');
+    let url = /^https?:/i.test(ep) ? ep : base + '/' + ep.replace(/^\/+/, '');
+    const q = kvQ.get().filter((x) => !x.Disabled).map((x) => encodeURIComponent(x.Key) + '=' + (x.Secret ? MASK : encodeURIComponent(x.Value)));
+    if ($('aType').value === 'apikey' && $('aIn').value === 'query' && $('aKey').value.trim()) q.push(encodeURIComponent($('aKey').value.trim()) + '=' + MASK);
+    if (q.length) url += (url.includes('?') ? '&' : '?') + q.join('&').replace(/%7B%7B(\w+)%7D%7D/g, '{{$1}}');   // biến {{today}}… hiện nguyên, gửi mới thay
+    $('fUrl').textContent = '→ ' + url; $('fUrl').title = url;
+  }
+  ['fEndpoint', 'pBase'].forEach((id) => $(id).addEventListener('input', urlPreview));
+
+  // ---- tab của form
+  document.querySelectorAll('#fTabs > button').forEach((b) => b.onclick = () => showFTab(b.dataset.f));
+  function showFTab(t) {
+    S.ftab = t;
+    document.querySelectorAll('#fTabs > button').forEach((b) => b.classList.toggle('on', b.dataset.f === t));
+    ['params', 'auth', 'headers', 'body'].forEach((k) => $('pn' + k[0].toUpperCase() + k.slice(1)).classList.toggle('on', k === t));
+    if (t === 'headers') inherited();
+  }
+  // Header gửi kèm mà bảng của form không có: header chung (Kết nối), header từ tab Authorization, Authorization token, Accept, Content-Type.
+  function inherited() {
+    const own = new Set(kvF.get().filter((h) => !h.Disabled).map((h) => h.Key.toLowerCase())), lines = [];
+    const add = (k, v, why) => { if (!own.has(k.toLowerCase()) && !lines.some((l) => l.k === k.toLowerCase())) lines.push({ k: k.toLowerCase(), t: k + ': ' + v + '   ← ' + why }); };
+    const a = readAuth(), at = a ? a.Type : 'inherit';
+    if (at === 'bearer') add('Authorization', 'Bearer ' + MASK, 'tab Authorization');
+    else if (at === 'basic') add('Authorization', 'Basic ' + MASK, 'tab Authorization');
+    else if (at === 'apikey' && a.In !== 'query' && a.KeyName) add(a.KeyName, MASK, 'tab Authorization');
+    kvP.get().filter((h) => !h.Disabled).forEach((h) => add(h.Key, h.Secret ? MASK : h.Value, 'Header chung (Kết nối)'));
+    if (at === 'inherit' && $('pAuth').value !== 'none') add('Authorization', ($('pAuth').value === 'bearer' ? 'Bearer ' : '') + '<token>', 'tự lấy token (Kết nối)');
+    add('Accept', '*/*', 'tự thêm');
+    const m = mode(); if (m !== 'none') add('Content-Type', m === 'raw' ? { json: 'application/json', text: 'text/plain', xml: 'application/xml', html: 'text/html', javascript: 'application/javascript' }[$('fRaw').value] : m === 'formdata' ? 'multipart/form-data; boundary=…' : 'application/x-www-form-urlencoded', 'theo kiểu Body');
+    $('inhSum').textContent = 'Header tự thêm / kế thừa khi gửi (' + lines.length + ')';
+    $('inhList').textContent = lines.map((l) => l.t).join('\n') || '(không có)';
+  }
+
+  // ---- tab Authorization của form
+  let authSaved = '', authShown = false;
+  function fillAuth(a) {
+    a = a || {}; $('aType').value = a.Type || 'inherit'; $('aUser').value = a.Username || ''; $('aKey').value = a.KeyName || ''; $('aIn').value = a.In === 'query' ? 'query' : 'header';
+    $('aVal').value = a.Value || ''; authSaved = a.Value ? '' : (a.ValueProtected || ''); authShown = false; authUi();
+  }
+  function readAuth() {
+    const t = $('aType').value; if (t === 'inherit') return null;
+    return { Type: t, Username: $('aUser').value, KeyName: $('aKey').value.trim(), In: $('aIn').value, Value: $('aVal').value, ValueProtected: $('aVal').value ? '' : authSaved };
+  }
+  function authUi() {
+    const t = $('aType').value, show = (cls, on) => document.querySelectorAll('.' + cls).forEach((el) => { el.style.display = on ? '' : 'none'; });
+    show('aU', t === 'basic'); show('aK', t === 'apikey'); show('aV', t === 'bearer' || t === 'basic' || t === 'apikey');
+    $('aValLbl').textContent = t === 'basic' ? 'Mật khẩu' : t === 'apikey' ? 'Giá trị' : 'Token';
+    $('aVal').type = authShown ? 'text' : 'password'; $('aEye').classList.toggle('on', authShown);
+    $('aVal').placeholder = authSaved && !$('aVal').value ? SAVED : '';
+    const scheme = $('pAuth').value;
+    $('aHint').innerHTML = {
+      inherit: scheme === 'none' ? 'Dùng "Kết nối" kiểu <b>Header tĩnh</b>: không lấy token, gửi Header chung (Authentication, TaxCode…) + header của form.'
+        : 'Dùng token của "Kết nối": tự gọi <code>' + esc($('pTokPath').value || 'api/getToken') + '</code> rồi gửi <code>Authorization: ' + (scheme === 'bearer' ? 'Bearer ' : '') + '&lt;token&gt;</code>.',
+      none: 'Không gửi xác thực, không lấy token. Header chung của Kết nối vẫn gửi — bỏ tick ở bảng Header chung nếu không muốn.',
+      bearer: 'Gửi <code>Authorization: Bearer &lt;token&gt;</code> — không lấy token từ Kết nối.',
+      basic: 'Gửi <code>Authorization: Basic base64(tài khoản:mật khẩu)</code>.',
+      apikey: 'Gửi <code>&lt;tên key&gt;: &lt;giá trị&gt;</code> ở header, hoặc thêm <code>?&lt;tên key&gt;=&lt;giá trị&gt;</code> vào URL.',
+    }[t] + (t === 'inherit' ? '' : ' Header cùng tên trong tab Headers của form vẫn thắng. Giá trị lưu mã hoá trên máy này.');
+    refreshCounts(); urlPreview();
+  }
+  ['aType', 'aIn'].forEach((id) => $(id).addEventListener('change', authUi));
+  $('aKey').addEventListener('input', urlPreview);
+  $('aVal').addEventListener('input', () => { $('aVal').placeholder = authSaved && !$('aVal').value ? SAVED : ''; });
+  $('aEye').onclick = () => {
+    if (authShown) { authShown = false; authUi(); return; }
+    if (authSaved && !$('aVal').value) reveal([authSaved], (list) => { $('aVal').value = list[0] || ''; authShown = true; authUi(); });
+    else { authShown = true; authUi(); }
+  };
+
+  ['fName', 'fKind', 'fMethod'].forEach((id) => $(id).addEventListener('change', () => { saveForm(); renderForms(); }));
+  $('fKind').addEventListener('change', () => { const ep = { SyncData: 'api/SyncData', SyncVoucher: 'api/SyncVoucher', GetData: 'api/GetData' }[$('fKind').value]; if (ep && !$('fEndpoint').value) { $('fEndpoint').value = ep; urlPreview(); } });
   $('fFilter').oninput = renderForms;
-  $('bAddBlank').onclick = () => { if (!S.p) return; saveForm(); S.p.Forms.push({ Name: 'formMoi', Kind: 'GetData', Endpoint: 'api/GetData', Method: 'POST', BodyMode: 'raw', Headers: [], Body: '{\n    "form": "",\n    "Id": "",\n    "dateFrom": "{{monthStart}}",\n    "dateTo": "{{today}}"\n}', Description: '' }); select(S.p.Forms.length - 1); setDirty(true); $('fName').focus(); $('fName').select(); };
+  $('bAddBlank').onclick = () => { if (!S.p) return; saveForm(); S.p.Forms.push({ Name: 'formMoi', Kind: 'GetData', Endpoint: 'api/GetData', Method: 'POST', BodyMode: 'raw', RawType: 'json', Headers: [], Params: [], Auth: null, Body: '{\n    "form": "",\n    "Id": "",\n    "dateFrom": "{{monthStart}}",\n    "dateTo": "{{today}}"\n}', Description: '' }); select(S.p.Forms.length - 1); setDirty(true); $('fName').focus(); $('fName').select(); };
   $('bDup').onclick = () => { if (!S.p || S.sel < 0) return; saveForm(); const c = JSON.parse(JSON.stringify(S.p.Forms[S.sel])); c.Name += ' (2)'; S.p.Forms.splice(S.sel + 1, 0, c); select(S.sel + 1); setDirty(true); };
   $('bDelForm').onclick = () => { if (!S.p || S.sel < 0) return; S.p.Forms.splice(S.sel, 1); select(Math.min(S.sel, S.p.Forms.length - 1)); setDirty(true); };
   const move = (d) => { if (!S.p || S.sel < 0) return; saveForm(); const j = S.sel + d; if (j < 0 || j >= S.p.Forms.length) return; const a = S.p.Forms; [a[S.sel], a[j]] = [a[j], a[S.sel]]; select(j); setDirty(true); };
   $('bUp').onclick = () => move(-1); $('bDown').onclick = () => move(1);
   $('fBody').addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); const t = e.target, s = t.selectionStart; t.setRangeText('  ', s, t.selectionEnd, 'end'); setDirty(true); } });
 
-  function format() { if ($('fMode').value !== 'raw') { api.status('Định dạng chỉ dùng cho body raw (JSON).', 'warn'); return; } try { $('fBody').value = JSON.stringify(JSON.parse($('fBody').value), null, 4); saveForm(); setDirty(true); api.status('Đã định dạng body.', 'ok'); } catch (e) { api.status('Body không phải JSON hợp lệ: ' + e.message, 'err'); } }
-  function validate() { saveForm(); if ($('fMode').value !== 'raw') { api.status('Kiểm tra (LT3) chỉ dùng cho body raw (JSON).', 'warn'); return; } post('validate', { name: $('fName').value, body: $('fBody').value }); }
+  function format() { if (mode() !== 'raw') { api.status('Định dạng chỉ dùng cho body raw (JSON).', 'warn'); return; } try { $('fBody').value = JSON.stringify(JSON.parse($('fBody').value), null, 4); saveForm(); setDirty(true); api.status('Đã định dạng body.', 'ok'); } catch (e) { api.status('Body không phải JSON hợp lệ: ' + e.message, 'err'); } }
+  function validate() { saveForm(); if (mode() !== 'raw') { api.status('Kiểm tra (LT3) chỉ dùng cho body raw (JSON).', 'warn'); return; } post('validate', { name: $('fName').value, body: $('fBody').value }); }
   function send(confirmWrite) { if (!S.p || S.sel < 0) return; saveForm(); api.busy(true); post('send', payload({ index: S.sel, confirmWrite: !!confirmWrite })); }
   $('bFormat').onclick = format; $('bValidate').onclick = validate; $('bSend').onclick = () => send(false);
   $('bFormDoc').onclick = () => { let form = $('fName').value; try { form = JSON.parse($('fBody').value).form || form; } catch { } post('form-doc', { form }); };
+  $('fEndpoint').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); splitQuery(); send(false); } });
 
   // ---------------------------------------------------------------- thanh trên
   $('selProject').onchange = () => { const n = $('selProject').value; if (n) post('open', { name: n }); };
@@ -278,9 +593,10 @@
   $('bDelete').onclick = () => { if (S.original) ask('Xoá dự án?', 'Xoá dự án <b>' + esc(S.original) + '</b> khỏi máy này (file trong thư mục ApiProjects)?', 'Xoá', () => post('delete', { name: S.original })); };
   $('bExport').onclick = () => {
     if (!S.p) return; collect();
-    const secret = (S.p.Headers || []).concat(...S.p.Forms.map((f) => f.Headers || [])).some((h) => h.Secret);
+    const secret = (S.p.Headers || []).concat(...S.p.Forms.map((f) => (f.Headers || []).concat(f.Params || []))).some((h) => h.Secret)
+      || S.p.Forms.some((f) => f.Auth && f.Auth.Type !== 'inherit' && f.Auth.Type !== 'none' && (f.Auth.Value || f.Auth.ValueProtected));
     if (!secret) { post('export-postman', payload()); return; }
-    ask('Xuất Postman', 'Dự án có header bí mật (Authentication / Authorization…).<br><b>Kèm giá trị</b>: file chạy ngay trong Postman nhưng chứa thông tin đăng nhập dạng chữ — đừng chia sẻ / commit.<br><b>Không kèm</b>: thay bằng biến collection để trống, nhập trong Postman.',
+    ask('Xuất Postman', 'Dự án có giá trị bí mật (header Authentication / Authorization, token, mật khẩu…).<br><b>Kèm giá trị</b>: file chạy ngay trong Postman nhưng chứa thông tin đăng nhập dạng chữ — đừng chia sẻ / commit.<br><b>Không kèm</b>: thay bằng biến collection để trống, nhập trong Postman.',
       'Kèm giá trị', () => post('export-postman', payload({ withSecrets: true })), 'Không kèm', () => post('export-postman', payload({ withSecrets: false })));
   };
   $('bImport').onclick = () => post('import-postman');
@@ -291,7 +607,6 @@
   $('bOpenDoc').onclick = () => post('open-path', { path: $('pDoc').value });
   $('lnkDoc').onclick = (e) => { e.preventDefault(); post('open-path', { path: S.docUrl }); };
   $('bClose').onclick = () => post('close');
-  $('bCopyRes').onclick = () => S.result && post('copy', { text: S.result.responseText });
 
   // ---------------------------------------------------------------- chọn form từ mẫu LT3
   function openPicker(mode) {
@@ -332,13 +647,37 @@
   $('wAlt').onclick = () => { $('mWrite').classList.remove('on'); const f = askAlt; askOk = askAlt = null; if (f) f(); };
 
   // ---------------------------------------------------------------- kết quả
-  document.querySelectorAll('.rtabs button').forEach((b) => b.onclick = () => showTab(b.dataset.t));
+  document.querySelectorAll('#rTabs > button').forEach((b) => b.onclick = () => { S.userTab = b.dataset.t; showTab(b.dataset.t); });
   function showTab(t) {
     S.lastTab = t;
-    document.querySelectorAll('.rtabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
-    $('rTables').style.display = t === 'tables' ? '' : 'none'; $('rResp').style.display = t === 'resp' ? '' : 'none'; $('rReq').style.display = t === 'req' ? '' : 'none';
+    document.querySelectorAll('#rTabs > button').forEach((b) => b.classList.toggle('on', b.dataset.t === t));
+    $('rTables').style.display = t === 'tables' ? '' : 'none'; $('rResp').style.display = t === 'body' ? '' : 'none'; $('rHdrs').style.display = t === 'hdrs' ? '' : 'none'; $('rReq').style.display = t === 'req' ? '' : 'none';
+    $('rFmt').style.visibility = t === 'body' ? '' : 'hidden';
   }
+  document.querySelectorAll('#rFmt button').forEach((b) => b.onclick = () => { S.fmt = b.dataset.v; document.querySelectorAll('#rFmt button').forEach((x) => x.classList.toggle('on', x === b)); renderBody(); });
+  $('rWrap').onchange = () => ['rResp', 'rReq'].forEach((id) => $(id).classList.toggle('wrapon', $('rWrap').checked));
   const pretty = (s) => { try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; } };
+  const isJson = (s) => { try { JSON.parse(s); return true; } catch { return false; } };
+  // Tô màu JSON đã định dạng (khoá / chuỗi / số / true-false-null) — bỏ qua khi quá lớn.
+  function highlight(text) {
+    const h = esc(text);
+    if (text.length > 400000) return h;
+    return h.replace(/(&quot;(?:\\.|(?!&quot;)[^\\])*&quot;)(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+      (m, str, colon, lit, num) => str ? '<span class="' + (colon ? 'jk' : 'js') + '">' + str + '</span>' + (colon || '') : lit ? '<span class="jb">' + lit + '</span>' : '<span class="jn">' + num + '</span>');
+  }
+  function renderBody() {
+    const r = S.result; if (!r) return;
+    const t = r.responseText || '';
+    if (S.fmt === 'pretty' && isJson(t)) $('rResp').innerHTML = highlight(pretty(t));
+    else if (S.fmt === 'pretty' && /^\s*</.test(t)) $('rResp').textContent = t.replace(/>\s*</g, '>\n<');
+    else $('rResp').textContent = t || '(body rỗng)';
+  }
+  const fmtSize = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(n < 10240 ? 2 : 1) + ' KB' : (n / 1048576).toFixed(2) + ' MB';
+  $('bCopyRes').onclick = () => {
+    const r = S.result; if (!r) return;
+    const t = S.lastTab === 'hdrs' ? r.responseHeaders : S.lastTab === 'req' ? $('rReq').textContent : S.lastTab === 'body' && S.fmt === 'pretty' ? pretty(r.responseText) : r.responseText;
+    post('copy', { text: t || '' });
+  };
 
   // ---------------------------------------------------------------- phím tắt (Template → Phím tắt → "Khai báo API")
   const KEYS = { 'api.send': () => send(false), 'api.save': () => S.p && post('save', payload()), 'api.token': () => $('bToken').click(), 'api.format': format, 'api.validate': validate };
@@ -351,7 +690,7 @@
     if (id) { e.preventDefault(); e.stopPropagation(); KEYS[id](); }
   }, true);
   function keyHints() {
-    $('bSend').title = 'Gửi (' + comboOf('api.send') + ')'; $('bSave').title = 'Lưu dự án (' + comboOf('api.save') + ')'; $('bToken').title = 'Lấy token mới (' + comboOf('api.token') + ')';
+    $('bSend').title = 'Gửi (' + comboOf('api.send') + ', hoặc Enter ở ô Endpoint)'; $('bSave').title = 'Lưu dự án (' + comboOf('api.save') + ')'; $('bToken').title = 'Lấy token mới (' + comboOf('api.token') + ')';
     $('bFormat').title = 'Định dạng JSON (' + comboOf('api.format') + ')'; $('bValidate').title = 'Kiểm tra theo bảng trường chuẩn LT3 (' + comboOf('api.validate') + ')';
     $('kbHint').textContent = comboOf('api.send') ? 'Gửi: ' + comboOf('api.send') : '';
   }
@@ -376,17 +715,28 @@
     addForms(forms) { forms.forEach((f) => S.p.Forms.push(f)); select(S.p.Forms.length - 1); setDirty(true); api.status('Đã thêm ' + forms.length + ' form từ mẫu LT3.', 'ok'); },
     cleared() { S.p = null; S.original = ''; S.sel = -1; fill(); setDirty(false); },
     token(t) { S.token = t.full; $('tokVal').textContent = t.masked + ' · hết hạn ' + t.expires; $('tokVal').title = 'Hết hạn ' + t.expires; $('bCopyTok').disabled = false; api.busy(false); },
+    revealed(key, list) { const cb = revealCbs[key]; delete revealCbs[key]; if (cb) cb(list || []); },
     result(r) {
       S.result = r; api.busy(false);
       $('resCard').style.display = '';
-      $('rPill').textContent = 'HTTP ' + r.status + (r.ok ? ' · OK' : ' · Lỗi'); $('rPill').className = 'pill ' + (r.ok ? 'ok' : 'err');
-      $('rMeta').textContent = r.ms + ' ms' + (r.message ? ' · ' + r.message : '') + ' · ' + r.url;
-      $('rResp').textContent = pretty(r.responseText); $('rReq').textContent = (r.requestHead || 'POST ' + r.url) + '\n\n' + pretty(r.requestBody);
-      const host = $('rTables');
-      host.innerHTML = (r.tables || []).length ? r.tables.map((t) => '<div class="tname">' + esc(t.name) + ' <span class="muted">(' + t.rows.length + ' dòng)</span></div><div class="tbl"><table><thead><tr><th>#</th>' + t.columns.map((c) => '<th>' + esc(c) + '</th>').join('') +
+      $('rPill').textContent = r.status + ' ' + (r.reason || '') + (r.ok ? '' : ' · Lỗi'); $('rPill').className = 'pill ' + (r.ok ? 'ok' : 'err');
+      $('rPill').title = r.ok ? 'Thành công' : 'HTTP lỗi, hoặc response báo success = false / code ≠ 200';
+      $('rMs').textContent = r.ms + ' ms'; $('rSize').textContent = fmtSize(r.size || 0) + (r.contentType ? ' · ' + r.contentType : '');
+      $('rMsg').textContent = r.message || ''; $('rMsg').title = r.message || '';
+      $('rUrl').textContent = r.url; $('rUrl').title = r.url;
+      renderBody();
+      $('rReq').textContent = (r.requestHead || 'POST ' + r.url) + (r.requestBody ? '\n\n' + pretty(r.requestBody) : '');
+      const hl = (r.responseHeaders || '').split('\n').filter(Boolean);
+      $('cRH').textContent = hl.length ? '(' + hl.length + ')' : '';
+      $('rHdrs').innerHTML = hl.length ? '<table class="rh">' + hl.map((l) => { const i = l.indexOf(':'); return '<tr><td>' + esc(l.slice(0, i)) + '</td><td class="mono">' + esc(l.slice(i + 1).trim()) + '</td></tr>'; }).join('') + '</table>' : '<div class="muted">Không có header.</div>';
+      const host = $('rTables'), tables = r.tables || [];
+      $('cTables').textContent = tables.length ? '(' + tables.length + ')' : '';
+      host.innerHTML = tables.length ? tables.map((t) => '<div class="tname">' + esc(t.name) + ' <span class="muted">(' + t.rows.length + ' dòng)</span></div><div class="tbl"><table><thead><tr><th>#</th>' + t.columns.map((c) => '<th>' + esc(c) + '</th>').join('') +
         '</tr></thead><tbody>' + t.rows.slice(0, 500).map((row, i) => '<tr><td class="muted">' + (i + 1) + '</td>' + row.map((v) => '<td>' + (v == null ? '<span class="muted">null</span>' : esc(v)) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>').join('')
-        : '<div class="muted">Response không có dữ liệu dạng bảng — xem tab Response.</div>';
-      showTab((r.tables || []).length ? 'tables' : 'resp');
+        : '<div class="muted">Response không có dữ liệu dạng bảng — xem tab Body.</div>';
+      // Tab người dùng chọn lần trước được giữ; chưa chọn thì có bảng → Bảng, không → Body.
+      const want = S.userTab || (tables.length ? 'tables' : 'body');
+      showTab(want === 'tables' && !tables.length ? 'body' : want);
     },
     issues(list) {
       const ul = $('issues'); ul.className = 'issues' + (list.length ? '' : ' ok');

@@ -24,7 +24,7 @@ public static class PostmanConverter
     private static readonly JsonSerializerOptions Pretty = new() { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
 
     public sealed record ImportResult(ApiProject Project, List<string> Notes);
-    private sealed record Req(string Name, string Method, string Url, string Mode, string Body, List<ApiHeader> Headers);
+    private sealed record Req(string Name, string Method, string Url, string Mode, string Body, List<ApiHeader> Headers, List<ApiHeader> Params, string RawType);
 
     public static ImportResult Import(string json, string fallbackName)
     {
@@ -104,7 +104,9 @@ public static class PostmanConverter
                 Method = r.Method,
                 Body = body,
                 BodyMode = r.Mode,
+                RawType = r.RawType,
                 Headers = r.Headers,
+                Params = r.Params,
                 Description = std is null ? "Form riêng của dự án (không có trong tài liệu chuẩn LT3)" : std.Title,
             });
         }
@@ -116,7 +118,7 @@ public static class PostmanConverter
                     p.Headers.Add(h);
                     foreach (var f in p.Forms) f.Headers.RemoveAll(x => Same(x, h));
                 }
-        foreach (var h in p.Headers.Concat(p.Forms.SelectMany(f => f.Headers))) h.Secret = ApiProjectStore.IsSecretHeader(h.Key);
+        foreach (var h in p.Headers.Concat(p.Forms.SelectMany(f => f.Headers.Concat(f.Params)))) h.Secret = ApiProjectStore.IsSecretHeader(h.Key);
         var secrets = p.Headers.Concat(p.Forms.SelectMany(f => f.Headers)).Where(h => h.Secret).Select(h => h.Key).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         ApiProjectStore.Seal(p);   // header bí mật → mã hoá DPAPI ngay khi nhập
 
@@ -136,20 +138,40 @@ public static class PostmanConverter
             var req = it?["request"]; if (req is null) continue;
             var name = Str(it?["name"]) ?? "Request";
             var url = Sub(req["url"] is JsonValue v ? Str(v) ?? "" : Str(req["url"]?["raw"]) ?? "", vars).Trim();
+            // Tham số query → bảng Params (giữ dòng tắt); URL chỉ còn phần trước "?".
+            var prms = new List<ApiHeader>();
+            if (req["url"]?["query"] is JsonArray qa)
+                foreach (var q in qa.OfType<JsonObject>())
+                {
+                    var key = Str(q["key"])?.Trim() ?? "";
+                    if (key.Length > 0) prms.Add(new ApiHeader { Key = key, Value = Sub(Str(q["value"]) ?? "", vars), Disabled = IsTrue(q["disabled"]) });
+                }
+            var qi = url.IndexOf('?');
+            if (qi >= 0)
+            {
+                if (prms.Count == 0)
+                    foreach (var part in url[(qi + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var eq = part.IndexOf('=');
+                        var key = Uri.UnescapeDataString((eq < 0 ? part : part[..eq]).Replace('+', ' ')).Trim();
+                        if (key.Length > 0) prms.Add(new ApiHeader { Key = key, Value = eq < 0 ? "" : Uri.UnescapeDataString(part[(eq + 1)..].Replace('+', ' ')) });
+                    }
+                url = url[..qi];
+            }
             var headers = new List<ApiHeader>();
             if (req["header"] is JsonArray ha)
                 foreach (var h in ha.OfType<JsonObject>())
                 {
-                    if (IsTrue(h["disabled"])) continue;
                     var key = Str(h["key"])?.Trim() ?? "";
-                    if (key.Length > 0) headers.Add(new ApiHeader { Key = key, Value = Sub(Str(h["value"]) ?? "", vars) });
+                    if (key.Length > 0) headers.Add(new ApiHeader { Key = key, Value = Sub(Str(h["value"]) ?? "", vars), Disabled = IsTrue(h["disabled"]) });   // header tắt: giữ, không gửi
                 }
             else if (Str(req["header"]) is { } hs)   // v2.0: header dạng chuỗi "Key: Value\n…"
                 foreach (var kv in ApiClient.Pairs(hs)) headers.Add(new ApiHeader { Key = kv.Key, Value = Sub(kv.Value, vars) });
             foreach (var a in req["auth"] is null ? inheritedAuth : AuthHeaders(req["auth"], vars, notes))
-                if (!headers.Any(x => x.Key.Equals(a.Key, StringComparison.OrdinalIgnoreCase))) headers.Add(new ApiHeader { Key = a.Key, Value = a.Value });
+                if (!headers.Any(x => !x.Disabled && x.Key.Equals(a.Key, StringComparison.OrdinalIgnoreCase))) headers.Add(new ApiHeader { Key = a.Key, Value = a.Value });
             var (mode, body) = BodyOf(req["body"], name, notes);
-            into.Add(new Req(name, (Str(req["method"]) ?? "POST").Trim().ToUpperInvariant(), url, mode, body, headers));
+            var lang = Str(req["body"]?["options"]?["raw"]?["language"])?.ToLowerInvariant();
+            into.Add(new Req(name, (Str(req["method"]) ?? "POST").Trim().ToUpperInvariant(), url, mode, body, headers, prms, lang is "text" or "xml" or "html" or "javascript" ? lang : "json"));
         }
     }
 
@@ -173,7 +195,7 @@ public static class PostmanConverter
         return list;
     }
 
-    /// <summary>Body Postman → (kiểu, nội dung): raw giữ nguyên; urlencoded / formdata thành các dòng "key: value" (bỏ mục disabled, bỏ trường file); còn lại none.</summary>
+    /// <summary>Body Postman → (kiểu, nội dung): raw giữ nguyên; urlencoded / formdata thành các dòng "key: value" (mục disabled → "// key: value", bỏ trường file); còn lại none.</summary>
     private static (string Mode, string Body) BodyOf(JsonNode? b, string name, List<string> notes)
     {
         var mode = Str(b?["mode"]);
@@ -186,9 +208,8 @@ public static class PostmanConverter
                 var lines = new List<string>();
                 foreach (var x in (b![mode] as JsonArray ?? new JsonArray()).OfType<JsonObject>())
                 {
-                    if (IsTrue(x["disabled"])) continue;
                     if (Str(x["type"]) == "file") { notes.Add($"\"{name}\": bỏ trường file \"{Str(x["key"])}\" (chưa hỗ trợ gửi file)."); continue; }
-                    lines.Add(Str(x["key"]) + ": " + Str(x["value"]));
+                    lines.Add((IsTrue(x["disabled"]) ? "// " : "") + Str(x["key"]) + ": " + Str(x["value"]));
                 }
                 return (mode, string.Join("\n", lines));
             }
@@ -211,7 +232,7 @@ public static class PostmanConverter
     private static string? Str(JsonNode? n) => n is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
     private static bool IsTrue(JsonNode? n) => n is JsonValue v && v.TryGetValue<bool>(out var b) && b;
     private static bool IsAuthorization(string key) => key.Trim().Equals("Authorization", StringComparison.OrdinalIgnoreCase);
-    private static bool Same(ApiHeader a, ApiHeader b) => a.Key.Equals(b.Key, StringComparison.OrdinalIgnoreCase) && a.Value == b.Value;
+    private static bool Same(ApiHeader a, ApiHeader b) => a.Key.Equals(b.Key, StringComparison.OrdinalIgnoreCase) && a.Value == b.Value && a.Disabled == b.Disabled;
 
     public static string KindOf(string endpoint) =>
         Regex.IsMatch(endpoint, @"syncvoucher", RegexOptions.IgnoreCase) ? "SyncVoucher"
@@ -248,17 +269,23 @@ public static class PostmanConverter
             return "{{" + v + "}}";
         }
         // {{key}} {{today}}… trong body là biến — script cấp collection đặt giá trị trước mỗi request.
-        object RequestOf(string method, string endpoint, string mode, string body, List<ApiHeader> headers, bool withAuth)
+        object RequestOf(string method, string endpoint, string mode, string body, List<ApiHeader> headers, bool withAuth, ApiForm? f = null)
         {
-            var hs = headers.Select(h => new { key = h.Key, value = ValueOf(h), type = "text" }).ToList();
-            if (mode == "raw" && !headers.Any(h => h.Key.Trim().Equals("Content-Type", StringComparison.OrdinalIgnoreCase))) hs.Insert(0, new { key = "Content-Type", value = "application/json", type = "text" });
-            if (withAuth && !headers.Any(h => IsAuthorization(h.Key))) hs.Add(new { key = "Authorization", value = auth, type = "text" });
+            var hs = headers.Select(h => new { key = h.Key, value = ValueOf(h), type = "text", disabled = (bool?)null }).ToList();
+            if (mode == "raw" && !headers.Any(h => h.Key.Trim().Equals("Content-Type", StringComparison.OrdinalIgnoreCase))) hs.Insert(0, new { key = "Content-Type", value = ApiClient.RawContentType(f?.RawType), type = "text", disabled = (bool?)null });
+            if (withAuth && !headers.Any(h => IsAuthorization(h.Key))) hs.Add(new { key = "Authorization", value = auth, type = "text", disabled = (bool?)null });
+            if (f is not null) hs.AddRange(f.Headers.Where(h => h.Disabled && !string.IsNullOrWhiteSpace(h.Key)).Select(h => new { key = h.Key, value = ValueOf(h), type = "text", disabled = (bool?)true }));
+            var baseRaw = endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : "{{base_url}}/" + endpoint.TrimStart('/');
+            var query = (f?.Params ?? new()).Where(x => !string.IsNullOrWhiteSpace(x.Key)).Select(x => new { key = x.Key.Trim(), value = ValueOf(x), disabled = x.Disabled ? (bool?)true : null }).ToList();
+            var on = query.Where(x => x.disabled is null).ToList();
             return new
             {
                 method = string.IsNullOrWhiteSpace(method) ? "POST" : method,
                 header = hs,
-                body = BodyJson(mode, body),
-                url = new { raw = endpoint.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? endpoint : "{{base_url}}/" + endpoint.TrimStart('/') },
+                body = BodyJson(mode, body, f?.RawType),
+                url = query.Count == 0 ? (object)new { raw = baseRaw }
+                    : new { raw = baseRaw + (on.Count == 0 ? "" : (baseRaw.Contains('?') ? "&" : "?") + string.Join("&", on.Select(x => x.key + "=" + x.value))), query },
+                auth = f is null ? null : AuthJson(f, ValueOf),
             };
         }
         var tokenItem = new
@@ -275,7 +302,7 @@ public static class PostmanConverter
         var groups = p.Forms.GroupBy(f => f.Kind).Select(g => new
         {
             name = g.Key switch { "SyncData" => "Đồng bộ danh mục (SyncData)", "SyncVoucher" => "Đồng bộ chứng từ (SyncVoucher)", "GetData" => "Lấy dữ liệu (GetData)", _ => "Khác" },
-            item = g.Select(f => new { name = f.Name, request = RequestOf(f.Method, f.Endpoint, f.BodyMode ?? "raw", f.Body, ApiClient.MergeHeaders(p, f), tokenFlow) }).ToArray(),
+            item = g.Select(f => new { name = f.Name, request = RequestOf(f.Method, f.Endpoint, f.BodyMode ?? "raw", f.Body, ApiClient.MergeHeaders(p, f), tokenFlow && ApiClient.AuthType(f) == "inherit", f) }).ToArray(),
         }).ToArray();
         var collection = new
         {
@@ -297,10 +324,26 @@ public static class PostmanConverter
     }
 
     /// <summary>Body xuất Postman: raw (language json), urlencoded / formdata (mỗi dòng "key: value"), none → không có body.</summary>
-    private static object? BodyJson(string mode, string body) => mode switch
+    private static object? BodyJson(string mode, string body, string? rawType) => mode switch
     {
         "none" => null,
-        "urlencoded" or "formdata" => new Dictionary<string, object> { ["mode"] = mode, [mode] = ApiClient.Pairs(body).Select(kv => new { key = kv.Key, value = kv.Value, type = "text" }).ToArray() },
-        _ => new { mode = "raw", raw = body, options = new { raw = new { language = "json" } } },
+        "urlencoded" or "formdata" => new Dictionary<string, object> { ["mode"] = mode, [mode] = ApiClient.Rows(body).Select(r => new { key = r.Key, value = r.Value, type = "text", disabled = r.Disabled ? (bool?)true : null }).ToArray() },
+        _ => new { mode = "raw", raw = body, options = new { raw = new { language = string.IsNullOrWhiteSpace(rawType) ? "json" : rawType } } },
     };
+
+    /// <summary>Tab Authorization của form → auth của request Postman (giá trị bí mật qua <paramref name="valueOf"/>: kèm chữ hoặc biến collection). inherit → null (theo collection / header).</summary>
+    private static object? AuthJson(ApiForm f, Func<ApiHeader, string> valueOf)
+    {
+        var a = f.Auth; var type = ApiClient.AuthType(f);
+        if (a is null || type == "inherit") return null;
+        var secret = valueOf(new ApiHeader { Key = type == "apikey" && a.KeyName.Length > 0 ? a.KeyName : type == "basic" ? "password" : "token", Value = a.Value, ValueProtected = a.ValueProtected, Secret = true });
+        object Kv(string k, string v) => new { key = k, value = v, type = "string" };
+        return type switch
+        {
+            "bearer" => new Dictionary<string, object> { ["type"] = "bearer", ["bearer"] = new[] { Kv("token", secret) } },
+            "basic" => new Dictionary<string, object> { ["type"] = "basic", ["basic"] = new[] { Kv("username", a.Username), Kv("password", secret) } },
+            "apikey" => new Dictionary<string, object> { ["type"] = "apikey", ["apikey"] = new[] { Kv("key", a.KeyName), Kv("value", secret), Kv("in", a.In) } },
+            _ => new { type = "noauth" },
+        };
+    }
 }

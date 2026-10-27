@@ -1,20 +1,21 @@
 ﻿/* =====================================================================================
    BÀI TẬP ĐÀO TẠO FAST + BCODE — ĐÁP ÁN
-   Chạy sau 00_TaoDuLieuMau.sql (buổi 9: sau 09_TinhHuongLoi.sql). Mỗi bài có USE đúng database.
-   Bài nào sửa dữ liệu đều nằm trong BEGIN TRAN ... ROLLBACK.
+   Chạy sau 00_TaoDuLieuMau.sql, 01_PostHoaDonBan.sql và 02_PostPhieuNhap.sql; riêng các bài buổi 9 phải chạy sau 09_TinhHuongLoi.sql.
+   Mỗi bài đều có lệnh USE trỏ đúng database. Bài sửa dữ liệu nằm trong BEGIN TRAN ... ROLLBACK, TRỪ các bài tạo / sửa object thật:
+   3.2 (DROP bảng sao lưu), 5.2 (CREATE + INSERT), 8.2 và 9.1–9.4 (ALTER PROCEDURE), 9.5 (ALTER TABLE + UPDATE) — 99_XoaDuLieuMau.sql dọn lại.
    ===================================================================================== */
 
 
 /* ######################## BUỔI 1 — LÀM QUEN HỆ THỐNG FAST VÀ BCODE ######################## */
 
--- ===== Bài 1.1 — Đếm menu web =====
+-- ===== Bài 1.1 — Đếm số dòng của các bảng menu =====
 USE FBOSP2422_Sys
 GO
 SELECT (SELECT COUNT(*) FROM wcommand) AS so_menu_web,
        (SELECT COUNT(*) FROM command)  AS so_dong_command
 GO
 
--- ===== Bài 1.2 — Tìm menu theo trang =====
+-- ===== Bài 1.2 — Tìm menu theo tên trang web =====
 USE FBOSP2422_Sys
 GO
 SELECT wmenu_id, wmenu_id0, bar, bar2, link, sysid
@@ -22,7 +23,7 @@ FROM wcommand
 WHERE link LIKE 'inctpnd%'
 GO
 
--- ===== Bài 1.3 — Menu cha =====
+-- ===== Bài 1.3 — Tìm menu cha =====
 USE FBOSP2422_Sys
 GO
 SELECT c.wmenu_id, c.bar, p.wmenu_id AS menu_cha, p.bar AS ten_menu_cha
@@ -31,7 +32,7 @@ LEFT JOIN wcommand p ON p.wmenu_id = c.wmenu_id0
 WHERE c.link LIKE 'inctpnd%'
 GO
 
--- ===== Bài 1.4 — Một trang, nhiều menu =====
+-- ===== Bài 1.4 — Một trang web dùng cho nhiều menu =====
 USE FBOSP2422_Sys
 GO
 SELECT wmenu_id, bar, link, parameter, sysid
@@ -40,7 +41,7 @@ WHERE link LIKE 'arkh%'
 ORDER BY wmenu_id
 GO
 
--- ===== Bài 1.5 — Bảng của chứng từ =====
+-- ===== Bài 1.5 — Chứng từ được lưu ở bảng nào =====
 USE FBOSP2422_App
 GO
 SELECT ma_ct, [c$] AS bang_c, [m$] AS bang_master, [d$] AS bang_detail, [i$] AS bang_i, url
@@ -48,7 +49,7 @@ FROM dmct9
 WHERE ma_ct IN ('PND', 'HDA')
 GO
 
--- ===== Bài 1.6 — Bảng phân kỳ =====
+-- ===== Bài 1.6 — Bảng chia theo kỳ =====
 USE FBOSP2422_App
 GO
 SELECT name
@@ -57,7 +58,7 @@ WHERE name LIKE 'm74$2026%'
 ORDER BY name
 GO
 
--- ===== Bài 1.7 — Trạng thái chứng từ =====
+-- ===== Bài 1.7 — Trạng thái của chứng từ =====
 USE FBOSP2422_App
 GO
 SELECT ma_ct, status, statusname, statusname2, xdefault
@@ -74,7 +75,7 @@ FROM options
 WHERE name IN ('m_ma_nt0', 'm_delete_log')
 GO
 
--- ===== Bài 1.10 — Một hoá đơn ghi vào những sổ nào? =====
+-- ===== Bài 1.10 — Một hoá đơn được ghi vào những sổ nào? =====
 USE FBOSP2422_App
 GO
 DECLARE @r char(13)
@@ -97,7 +98,7 @@ GO
 
 /* ######################## BUỔI 2 — SQL CĂN BẢN ĐỂ ĐỌC DỮ LIỆU FAST ######################## */
 
--- ===== Bài 2.1 — Khách hàng còn dùng =====
+-- ===== Bài 2.1 — Khách hàng còn sử dụng =====
 USE FBOSP2422_App
 GO
 SELECT ma_kh, ten_kh, ma_so_thue, ma_nvbh
@@ -106,7 +107,7 @@ WHERE kh_yn = 1 AND status = '1'
 ORDER BY ma_kh
 GO
 
--- ===== Bài 2.2 — Khách + tên nhân viên bán hàng =====
+-- ===== Bài 2.2 — Khách hàng kèm tên nhân viên bán hàng =====
 USE FBOSP2422_App
 GO
 SELECT a.ma_kh, a.ten_kh, a.ma_nvbh, b.ten_nvbh
@@ -116,7 +117,7 @@ WHERE a.kh_yn = 1
 ORDER BY a.ma_kh
 GO
 
--- ===== Bài 2.3 — Số khách theo NVBH =====
+-- ===== Bài 2.3 — Số khách hàng của từng nhân viên bán hàng =====
 USE FBOSP2422_App
 GO
 SELECT n.ma_nvbh, n.ten_nvbh, COUNT(k.ma_kh) AS so_khach
@@ -126,7 +127,7 @@ GROUP BY n.ma_nvbh, n.ten_nvbh
 ORDER BY n.ma_nvbh
 GO
 
--- ===== Bài 2.4 — Tên khách bị trùng =====
+-- ===== Bài 2.4 — Tên khách hàng bị trùng =====
 USE FBOSP2422_App
 GO
 SELECT ten_kh, COUNT(*) AS so_lan, STRING_AGG(ma_kh, ', ') AS cac_ma
@@ -135,7 +136,7 @@ GROUP BY ten_kh
 HAVING COUNT(*) > 1
 GO
 
--- ===== Bài 2.5 — Doanh thu tháng 01/2026 theo khách =====
+-- ===== Bài 2.5 — Doanh thu tháng 01/2026 theo khách hàng =====
 USE FBOSP2422_App
 GO
 SELECT a.ma_kh, k.ten_kh, COUNT(*) AS so_hd,
@@ -176,7 +177,7 @@ GROUP BY x.ma_vt, v.ten_vt
 ORDER BY x.ma_vt
 GO
 
--- ===== Bài 2.8 — Khách chưa mua hàng trong quý =====
+-- ===== Bài 2.8 — Khách hàng không mua hàng trong quý =====
 USE FBOSP2422_App
 GO
 SELECT k.ma_kh, k.ten_kh, k.status
@@ -191,7 +192,7 @@ WHERE k.kh_yn = 1
 ORDER BY k.ma_kh
 GO
 
--- ===== Bài 2.9 — Vật tư chưa từng nhập =====
+-- ===== Bài 2.9 — Vật tư chưa từng nhập kho =====
 USE FBOSP2422_App
 GO
 SELECT v.ma_vt, v.ten_vt
@@ -215,23 +216,23 @@ GO
 
 /* ######################## BUỔI 3 — SỬA DỮ LIỆU AN TOÀN VÀ CÔNG CỤ DỮ LIỆU BCODE ######################## */
 
--- ===== Bài 3.1 — Sửa dữ liệu đúng 5 bước =====
+-- ===== Bài 3.1 — Sửa dữ liệu đúng quy trình 5 bước =====
 USE FBOSP2422_App
 GO
--- 1) Đếm
+-- 1) Đếm số khách hàng sẽ sửa
 SELECT COUNT(*) AS so_khach_nv01 FROM dmkh WHERE ma_nvbh = 'NV01'
 
 -- 2) Sao lưu (xoá bảng sao lưu cũ nếu có)
 IF OBJECT_ID('zbk_dmkh_bt31') IS NOT NULL DROP TABLE zbk_dmkh_bt31
 SELECT * INTO zbk_dmkh_bt31 FROM dmkh WHERE ma_nvbh = 'NV01'
 
--- 3) + 4) Sửa trong transaction và kiểm
+-- 3) + 4) Sửa trong transaction rồi kiểm tra số dòng đã sửa
 BEGIN TRAN
 UPDATE dmkh SET ma_nvbh = 'NV03', datetime2 = GETDATE() WHERE ma_nvbh = 'NV01'
 SELECT @@ROWCOUNT AS so_dong_da_sua
 SELECT ma_kh, ma_nvbh FROM dmkh WHERE ma_kh IN (SELECT ma_kh FROM zbk_dmkh_bt31)
 
--- 5) Bài tập: luôn huỷ
+-- 5) Vì là bài tập nên luôn huỷ thay đổi
 ROLLBACK
 SELECT ma_nvbh, COUNT(*) AS so_khach FROM dmkh WHERE ma_nvbh IN ('NV01', 'NV03') GROUP BY ma_nvbh
 GO
@@ -241,9 +242,9 @@ GO
 USE FBOSP2422_App
 GO
 BEGIN TRAN
-UPDATE dmkh SET ma_nvbh = 'NV03' WHERE ma_nvbh = 'NV01'      -- giả lập đã lỡ sửa
+UPDATE dmkh SET ma_nvbh = 'NV03' WHERE ma_nvbh = 'NV01'      -- giả lập tình huống đã lỡ sửa
 
-UPDATE a SET a.ma_nvbh = b.ma_nvbh, a.datetime2 = GETDATE()   -- khôi phục
+UPDATE a SET a.ma_nvbh = b.ma_nvbh, a.datetime2 = GETDATE()   -- khôi phục từ bảng sao lưu
 FROM dmkh a JOIN zbk_dmkh_bt31 b ON b.ma_kh = a.ma_kh
 SELECT @@ROWCOUNT AS so_dong_khoi_phuc
 SELECT ma_nvbh, COUNT(*) AS so_khach FROM dmkh WHERE ma_nvbh IN ('NV01', 'NV03') GROUP BY ma_nvbh
@@ -256,13 +257,13 @@ GO
 USE FBOSP2422_App
 GO
 BEGIN TRAN
-UPDATE dmvt SET status = '0'            -- thiếu WHERE!
+UPDATE dmvt SET status = '0'            -- thiếu WHERE: sửa toàn bộ bảng!
 SELECT @@ROWCOUNT AS so_dong_bi_sua, (SELECT COUNT(*) FROM dmvt) AS tong_vat_tu
 ROLLBACK
 SELECT status, COUNT(*) AS so_vt FROM dmvt GROUP BY status
 GO
 
--- ===== Bài 3.4 — CTE + ROW_NUMBER =====
+-- ===== Bài 3.4 — Hoá đơn lớn nhất của mỗi khách hàng (CTE + ROW_NUMBER) =====
 USE FBOSP2422_App
 GO
 ;WITH hd AS (
@@ -276,7 +277,7 @@ GO
 SELECT ma_kh, so_ct, ngay_ct, t_tt FROM xh WHERE rn = 1 ORDER BY ma_kh
 GO
 
--- ===== Bài 3.5 — Bảng tạm: doanh thu NVBH theo tháng =====
+-- ===== Bài 3.5 — Bảng tạm: doanh thu của nhân viên bán hàng theo tháng =====
 USE FBOSP2422_App
 GO
 IF OBJECT_ID('tempdb..#dt') IS NOT NULL DROP TABLE #dt
@@ -293,7 +294,7 @@ FROM #dt GROUP BY CASE WHEN ISNULL(ma_nvbh, '') = '' THEN N'(chưa gán)' ELSE m
 DROP TABLE #dt
 GO
 
--- ===== Bài 3.6 — Kiểm cấu trúc các kỳ =====
+-- ===== Bài 3.6 — Kiểm tra cấu trúc các bảng kỳ =====
 USE FBOSP2422_App
 GO
 SELECT TABLE_NAME, COUNT(*) AS so_cot,
@@ -328,7 +329,7 @@ LEFT JOIN dmtk t ON t.tk = k.tk
 WHERE k.ma_kh IN ('KH001', 'NCC01')
 GO
 
--- ===== Bài 4.3 — Bảng → menu =====
+-- ===== Bài 4.3 — Từ bảng tìm ra menu =====
 USE FBOSP2422_Sys
 GO
 SELECT wmenu_id, bar, link, sysid
@@ -340,7 +341,7 @@ GO
 
 /* ######################## BUỔI 5 — THÊM DANH MỤC ######################## */
 
--- ===== Bài 5.1 — Kiểu cột tra cứu =====
+-- ===== Bài 5.1 — Kiểu dữ liệu của cột tra cứu =====
 USE FBOSP2422_App
 GO
 SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE
@@ -357,7 +358,7 @@ CREATE TABLE zdmhtbh (
     ma_htbh   VARCHAR(16)   NOT NULL,
     ten_htbh  NVARCHAR(128) NOT NULL,
     ten_htbh2 NVARCHAR(128) NULL,
-    ma_kh     VARCHAR(16)   NULL,          -- = dmkh.ma_kh varchar(16)
+    ma_kh     VARCHAR(16)   NULL,          -- cùng kiểu với dmkh.ma_kh varchar(16)
     ghi_chu   NVARCHAR(512) NULL,
     status    CHAR(1)       NOT NULL DEFAULT '1',
     datetime0 DATETIME NULL, datetime2 DATETIME NULL,
@@ -379,7 +380,7 @@ GO
 
 /* ######################## BUỔI 6 — THÊM BÁO CÁO ######################## */
 
--- ===== Bài 6.1 — Procedure báo cáo theo khung Fast =====
+-- ===== Bài 6.1 — Procedure báo cáo theo khung chuẩn của Fast =====
 USE FBOSP2422_App
 GO
 IF OBJECT_ID('zbt_rs_BangKeNhapVatTu') IS NOT NULL DROP PROCEDURE zbt_rs_BangKeNhapVatTu
@@ -387,7 +388,7 @@ GO
 CREATE PROCEDURE zbt_rs_BangKeNhapVatTu
     @DateFrom SMALLDATETIME,
     @DateTo   SMALLDATETIME,
-    @Kho      VARCHAR(16),        -- '' = mọi kho
+    @Kho      VARCHAR(16),        -- truyền '' để lấy mọi kho
     @Unit     VARCHAR(1023),
     @Language CHAR(1),
     @UserID   INT,
@@ -398,10 +399,10 @@ BEGIN
     DECLARE @UnitKey NVARCHAR(1023), @Key NVARCHAR(4000), @q NVARCHAR(4000)
     SET @UnitKey = dbo.FastBusiness$Function$System$GetUnitFilter('a.ma_dvcs', @Unit, @UserID, @Admin)
 
-    -- Bảng tạm đúng kiểu cột
+    -- Tạo bảng tạm có kiểu cột giống hệt bảng chi tiết
     SELECT TOP 0 b.ma_vt, b.so_luong, b.tien INTO #ct FROM d74$000000 b
 
-    -- Điều kiện lọc dạng chuỗi
+    -- Ghép các điều kiện lọc thành một chuỗi
     SET @Key = 'a.status in (''1'', ''2'', ''3'')'
     IF @UnitKey IS NOT NULL SET @Key = @Key + ' and ' + @UnitKey
     IF @Kho <> '' SET @Key = @Key + ' and b.ma_kho = ''' + REPLACE(RTRIM(@Kho), '''', '''''') + ''''
@@ -423,14 +424,14 @@ GO
 EXEC zbt_rs_BangKeNhapVatTu '20260101', '20260331', '', 'CTY', 'v', 1, 1
 GO
 
--- ===== Bài 6.2 — Lọc theo kho, tiếng Anh =====
+-- ===== Bài 6.2 — Lọc theo kho, hiển thị tiếng Anh =====
 -- (cần làm bài 6.1 trước)
 USE FBOSP2422_App
 GO
 EXEC zbt_rs_BangKeNhapVatTu '20260101', '20260331', 'KHO2', 'CTY', 'e', 1, 1
 GO
 
--- ===== Bài 6.3 — Khoảng ngày nửa tháng =====
+-- ===== Bài 6.3 — Khoảng ngày từ giữa tháng này đến giữa tháng sau =====
 -- (cần làm bài 6.1 trước)
 USE FBOSP2422_App
 GO
@@ -458,7 +459,7 @@ GO
 
 /* ######################## BUỔI 7 — VẼ MẪU IN ######################## */
 
--- ===== Bài 7.1 — Dữ liệu đầu phiếu (d1) =====
+-- ===== Bài 7.1 — Dữ liệu đầu phiếu (bảng d1) =====
 USE FBOSP2422_App
 GO
 SELECT ltrim(a.so_ct) AS so_ct,
@@ -472,13 +473,13 @@ LEFT JOIN dmkh d ON d.ma_kh = a.ma_kh
 WHERE a.so_ct = 'PN0001'
 GO
 
--- ===== Bài 7.2 — Dữ liệu chi tiết (d2) bằng procedure in chuẩn =====
+-- ===== Bài 7.2 — Dữ liệu chi tiết (bảng d2) lấy bằng procedure in chuẩn =====
 USE FBOSP2422_App
 GO
 DECLARE @stt_rec char(13), @key nvarchar(200)
 SELECT @stt_rec = stt_rec FROM m74$202601 WHERE so_ct = 'PN0001'
 SET @key = 'a.stt_rec = ''' + @stt_rec + ''''
-EXEC rs_PrintIRTran 'V', @key, 'd74$202601', 'PND', 0        -- bỏ trống 2 tham số cuối (dùng mặc định)
+EXEC rs_PrintIRTran 'V', @key, 'd74$202601', 'PND', 0        -- không truyền 2 tham số cuối để dùng giá trị mặc định
 GO
 
 
@@ -496,14 +497,14 @@ SELECT COUNT(*) AS so_object_goi
 FROM sys.dm_sql_referencing_entities('dbo.rs_PrintIRTran', 'OBJECT')
 GO
 
--- ===== Bài 8.2 — ALTER thêm cột, giữ quyền =====
+-- ===== Bài 8.2 — Dùng ALTER để thêm cột mà vẫn giữ quyền =====
 -- (cần làm bài 6.1 trước)
 USE FBOSP2422_App
 GO
 ALTER PROCEDURE zbt_rs_BangKeNhapVatTu
     @DateFrom SMALLDATETIME,
     @DateTo   SMALLDATETIME,
-    @Kho      VARCHAR(16),        -- '' = mọi kho
+    @Kho      VARCHAR(16),        -- truyền '' để lấy mọi kho
     @Unit     VARCHAR(1023),
     @Language CHAR(1),
     @UserID   INT,
@@ -514,10 +515,10 @@ BEGIN
     DECLARE @UnitKey NVARCHAR(1023), @Key NVARCHAR(4000), @q NVARCHAR(4000)
     SET @UnitKey = dbo.FastBusiness$Function$System$GetUnitFilter('a.ma_dvcs', @Unit, @UserID, @Admin)
 
-    -- Bảng tạm đúng kiểu cột
+    -- Tạo bảng tạm có kiểu cột giống hệt bảng chi tiết
     SELECT TOP 0 b.ma_vt, b.so_luong, b.tien INTO #ct FROM d74$000000 b
 
-    -- Điều kiện lọc dạng chuỗi
+    -- Ghép các điều kiện lọc thành một chuỗi
     SET @Key = 'a.status in (''1'', ''2'', ''3'')'
     IF @UnitKey IS NOT NULL SET @Key = @Key + ' and ' + @UnitKey
     IF @Kho <> '' SET @Key = @Key + ' and b.ma_kho = ''' + REPLACE(RTRIM(@Kho), '''', '''''') + ''''
@@ -538,13 +539,14 @@ BEGIN
 END
 GO
 SELECT COUNT(*) AS so_tham_so FROM sys.parameters WHERE object_id = OBJECT_ID('dbo.zbt_rs_BangKeNhapVatTu')
+SELECT name, create_date, modify_date FROM sys.procedures WHERE name = 'zbt_rs_BangKeNhapVatTu'
 EXEC zbt_rs_BangKeNhapVatTu '20260101', '20260331', '', 'CTY', 'v', 1, 1
 GO
 
--- ===== Bài 8.3 — Chia cho 0 =====
+-- ===== Bài 8.3 — Lỗi chia cho 0 =====
 USE FBOSP2422_App
 GO
--- Sai: SUM(tien2) / SUM(so_luong) -> Divide by zero (hoặc NULL) với vật tư chưa bán
+-- Cách sai: SUM(tien2) / SUM(so_luong) -> lỗi Divide by zero (hoặc ra NULL) với vật tư chưa bán
 SELECT v.ma_vt, v.ten_vt, ISNULL(SUM(d.so_luong), 0) AS sl_ban,
        ISNULL(SUM(d.tien2) / NULLIF(SUM(d.so_luong), 0), 0) AS gia_ban_bq
 FROM dmvt v
@@ -567,10 +569,10 @@ INSERT INTO #ds VALUES ('KH001'), ('KH003')
 -- SELECT k.ma_kh, k.ten_kh FROM dmkh k JOIN #ds d ON d.ma_kh = k.ma_kh
 --   --> Cannot resolve the collation conflict between "Vietnamese_CI_AS" and "SQL_Latin1_General_CP1_CI_AS"
 
--- Cách 1
+-- Cách 1: ép collation trong điều kiện JOIN
 SELECT k.ma_kh, k.ten_kh FROM dmkh k JOIN #ds d ON d.ma_kh COLLATE DATABASE_DEFAULT = k.ma_kh
 
--- Cách 2
+-- Cách 2: tạo bảng tạm theo đúng cột của dmkh
 IF OBJECT_ID('tempdb..#ds2') IS NOT NULL DROP TABLE #ds2
 SELECT TOP 0 ma_kh INTO #ds2 FROM dmkh
 INSERT INTO #ds2 VALUES ('KH001'), ('KH003')
@@ -579,7 +581,7 @@ DROP TABLE #ds
 DROP TABLE #ds2
 GO
 
--- ===== Bài 8.5 — Macro FCode không chạy ngoài Fast =====
+-- ===== Bài 8.5 — Macro FCode không chạy được ngoài Fast =====
 USE FBOSP2422_App
 GO
 DECLARE @ma_kh varchar(16), @userID int, @language char(1)
@@ -597,10 +599,10 @@ GO
 -- ===== Bài 9.1 — “Lọc NV02 vẫn ra hoá đơn của NV01” =====
 USE FBOSP2422_App
 GO
--- Chạy để thấy lỗi
+-- Chạy procedure để thấy lỗi
 EXEC zbt_loi_DoanhThuNVBH '20260101', '20260331', 'NV02'
 GO
--- Sửa: bọc ngoặc đoạn có OR (và đúng ra nên dùng NOT IN)
+-- Cách sửa: bọc ngoặc đoạn điều kiện có OR; tốt hơn nữa là dùng NOT IN như bản sửa dưới đây
 ALTER PROCEDURE zbt_loi_DoanhThuNVBH @DateFrom smalldatetime, @DateTo smalldatetime, @Nvbh varchar(8)
 AS
 BEGIN
@@ -617,12 +619,12 @@ GO
 EXEC zbt_loi_DoanhThuNVBH '20260101', '20260331', 'NV02'
 GO
 
--- ===== Bài 9.2 — “Tổng nhập theo nhà cung cấp mỗi lần chạy một số” =====
+-- ===== Bài 9.2 — “Tổng nhập theo nhà cung cấp mỗi lần chạy ra một số khác” =====
 USE FBOSP2422_App
 GO
 EXEC zbt_loi_TongNhapNCC
 GO
--- Sửa: cộng trước rồi mới gán
+-- Cách sửa: cộng tổng theo nhà cung cấp trước, rồi mới gán vào bảng tạm
 ALTER PROCEDURE zbt_loi_TongNhapNCC
 AS
 BEGIN
@@ -638,13 +640,13 @@ END
 GO
 EXEC zbt_loi_TongNhapNCC
 
--- Đối chiếu bằng tay
+-- Đối chiếu: tự tính tổng nhập theo nhà cung cấp
 SELECT m.ma_kh, SUM(d.tien) AS tong_nhap
 FROM m74$202601 m JOIN d74$202601 d ON d.stt_rec = m.stt_rec
 WHERE m.status IN ('1','2','3') GROUP BY m.ma_kh
 GO
 
--- ===== Bài 9.3 — “Báo cáo quý chỉ ra số tháng 1” =====
+-- ===== Bài 9.3 — “Báo cáo quý chỉ ra số liệu của tháng 1” =====
 USE FBOSP2422_App
 GO
 EXEC zbt_loi_DoanhThuQuy '20260101', '20260331'
@@ -689,11 +691,11 @@ GO
 -- ===== Bài 9.5 — “Invalid column name” khi chạy script triển khai =====
 USE FBOSP2422_App
 GO
--- Sai (một batch):
+-- Cách sai (hai lệnh nằm trong cùng một batch):
 -- ALTER TABLE zbt_loi_Bang ADD zghi_chu nvarchar(100)
 -- UPDATE zbt_loi_Bang SET zghi_chu = N'đã kiểm'
 
--- Đúng: tách batch
+-- Cách đúng: tách thành hai batch bằng GO
 IF COL_LENGTH('zbt_loi_Bang', 'zghi_chu') IS NULL
     ALTER TABLE zbt_loi_Bang ADD zghi_chu nvarchar(100)
 GO
@@ -701,7 +703,7 @@ UPDATE zbt_loi_Bang SET zghi_chu = N'đã kiểm'
 SELECT * FROM zbt_loi_Bang
 GO
 
--- ===== Bài 9.6 — “Sửa rồi mà vẫn lỗi” — đúng bản chưa? =====
+-- ===== Bài 9.6 — “Sửa rồi mà vẫn lỗi” — đang chạy đúng bản đã sửa chưa? =====
 USE FBOSP2422_App
 GO
 SELECT p.name, p.modify_date,
@@ -742,7 +744,7 @@ GO
 
 /* ######################## BUỔI 10 — ĐÓNG GÓI, TRIỂN KHAI VÀ ÔN TẬP ######################## */
 
--- ===== Bài 10.1 — Liệt kê những gì đã tạo khi tập =====
+-- ===== Bài 10.1 — Liệt kê các object đã tạo khi tập =====
 USE FBOSP2422_App
 GO
 SELECT name, type_desc, create_date, modify_date

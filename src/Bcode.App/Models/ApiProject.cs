@@ -45,18 +45,42 @@ public sealed class ApiForm
     public string Endpoint { get; set; } = "api/getData";
     public string Method { get; set; } = "POST";
     public string Body { get; set; } = "{\n    \"form\": \"\"\n}";
-    /// <summary>"raw" (JSON / chữ), "urlencoded", "formdata" (Body = mỗi dòng key=value), "none" (không body).</summary>
+    /// <summary>"raw" (JSON / chữ), "urlencoded", "formdata" (Body = mỗi dòng "key: value", dòng "//…" = tắt), "none" (không body).</summary>
     public string BodyMode { get; set; } = "raw";
+    /// <summary>Body raw: "json" (mặc định), "text", "xml", "html", "javascript" — chọn Content-Type mặc định (header Content-Type của form vẫn thắng).</summary>
+    public string RawType { get; set; } = "json";
     /// <summary>Header riêng của form (nhập từ Postman) — gộp với <see cref="ApiProject.Headers"/>, form ưu tiên.</summary>
     public List<ApiHeader> Headers { get; set; } = new();
+    /// <summary>Tham số query (?key=value) nối vào Endpoint lúc gửi; dòng <see cref="ApiHeader.Disabled"/> bỏ qua. Giá trị thay biến {{today}}… như body.</summary>
+    public List<ApiHeader> Params { get; set; } = new();
+    /// <summary>Xác thực riêng của form (tab Authorization). null / "inherit" = theo "Kết nối" của dự án (dữ liệu cũ).</summary>
+    public ApiAuth? Auth { get; set; }
     public string Description { get; set; } = "";
 }
 
-/// <summary>1 header. Header bí mật (Authorization / Authentication / token / key…): giá trị mã hoá DPAPI ở <see cref="ValueProtected"/>, <see cref="Value"/> để trống khi lưu.</summary>
+/// <summary>1 dòng key–value: header hoặc tham số query. Header bí mật (Authorization / Authentication / token / key…): giá trị mã hoá DPAPI ở
+/// <see cref="ValueProtected"/>, <see cref="Value"/> để trống khi lưu. <see cref="Disabled"/> = giữ dòng nhưng không gửi (như bỏ tick trong Postman).</summary>
 public sealed class ApiHeader
 {
     public string Key { get; set; } = "";
     public string Value { get; set; } = "";
     public bool Secret { get; set; }
+    public string ValueProtected { get; set; } = "";
+    public bool Disabled { get; set; }
+}
+
+/// <summary>Xác thực riêng của 1 form (như tab Authorization của Postman). Giá trị bí mật (token / mật khẩu / API key) mã hoá DPAPI ở <see cref="ValueProtected"/>.</summary>
+public sealed class ApiAuth
+{
+    /// <summary>"inherit" (theo Kết nối), "none" (không xác thực — không lấy token), "bearer", "basic", "apikey".</summary>
+    public string Type { get; set; } = "inherit";
+    /// <summary>basic: tài khoản.</summary>
+    public string Username { get; set; } = "";
+    /// <summary>apikey: tên header / tham số (vd X-Api-Key).</summary>
+    public string KeyName { get; set; } = "";
+    /// <summary>apikey: "header" hoặc "query".</summary>
+    public string In { get; set; } = "header";
+    /// <summary>Token (bearer) / mật khẩu (basic) / giá trị key (apikey) — chỉ dạng chữ khi vừa nhập, lưu thì chuyển sang <see cref="ValueProtected"/>.</summary>
+    public string Value { get; set; } = "";
     public string ValueProtected { get; set; } = "";
 }

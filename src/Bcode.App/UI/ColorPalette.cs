@@ -133,4 +133,8 @@ public static class AppColors
     public static Color OnAccent => Current.OnAccent;
 
     public static bool IsDark => Current == Dark;
+
+    /// <summary>Pha 2 màu như <c>color-mix(in srgb, a t, b)</c> của CSS (t = tỉ lệ của <paramref name="a"/>, 0..1) — dựng màu chữ dễ đọc từ màu theme thay vì mã cứng.</summary>
+    public static Color Mix(Color a, Color b, double t) =>
+        Color.FromArgb((int)Math.Round(a.R * t + b.R * (1 - t)), (int)Math.Round(a.G * t + b.G * (1 - t)), (int)Math.Round(a.B * t + b.B * (1 - t)));
 }

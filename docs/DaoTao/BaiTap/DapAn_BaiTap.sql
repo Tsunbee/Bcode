@@ -437,6 +437,24 @@ GO
 EXEC zbt_rs_BangKeNhapVatTu '20260110', '20260210', '', 'CTY', 'v', 1, 1
 GO
 
+-- ===== Bài 6.4 — Nhập – xuất – tồn từ sổ kho =====
+USE FBOSP2422_App
+GO
+;WITH k AS (
+    SELECT ma_vt, ma_kho, sl_nhap, sl_xuat, tien_nhap, tien_xuat, stt_rec FROM r70$202601 UNION ALL
+    SELECT ma_vt, ma_kho, sl_nhap, sl_xuat, tien_nhap, tien_xuat, stt_rec FROM r70$202602 UNION ALL
+    SELECT ma_vt, ma_kho, sl_nhap, sl_xuat, tien_nhap, tien_xuat, stt_rec FROM r70$202603
+)
+SELECT k.ma_vt, k.ma_kho, SUM(k.sl_nhap) AS sl_nhap, SUM(k.sl_xuat) AS sl_xuat,
+       SUM(k.sl_nhap - k.sl_xuat) AS sl_ton, SUM(k.tien_nhap - k.tien_xuat) AS gia_tri_ton,
+       MAX(c.ton13) AS ton_hien_thoi
+FROM k
+LEFT JOIN cdvt13 c ON c.ma_vt = k.ma_vt AND c.ma_kho = k.ma_kho
+WHERE k.stt_rec LIKE 'BT%'
+GROUP BY k.ma_vt, k.ma_kho
+ORDER BY k.ma_vt, k.ma_kho
+GO
+
 
 /* ######################## BUỔI 7 — VẼ MẪU IN ######################## */
 

@@ -1,7 +1,7 @@
 ﻿/* =====================================================================================
    BÀI TẬP ĐÀO TẠO FAST + BCODE — 00. TẠO DỮ LIỆU MẪU
    Chạy trên database App LUYỆN TẬP (mặc định FBOSP2422_App). Chạy lại nhiều lần được:
-   script xoá dữ liệu mẫu cũ (kể cả các sổ đã post) rồi nạp lại. Sau đó chạy 01_PostHoaDonBan.sql để post hoá đơn bán.
+   script xoá dữ liệu mẫu cũ (kể cả các sổ đã post) rồi nạp lại. Sau đó chạy 01_PostHoaDonBan.sql, 02_PostPhieuNhap.sql để post hoá đơn bán, phiếu nhập.
 
    Dữ liệu mẫu được đánh dấu để xoá sạch bằng 99_XoaDuLieuMau.sql:
      - danh mục: user_id0 = -1

@@ -8,7 +8,7 @@
      → tồn hiện thời (cdvt13…) → sổ kho r70 (Posting$Inventory) → sổ cái r00 (fs_PostSVTran + fs20_AfterUpdateGL)
      → sổ thuế r20 → sổ kho thực tế r90 (hoá đơn kiêm phiếu xuất) → AfterUpdate$SV → dư nợ hiện thời (dmkh.du13).
    Hoá đơn status 9 (huỷ) / * (xoá): chỉ ghi c81, i81 — không ghi sổ.
-   Không chạy 2 lần: các bước tồn / dư nợ hiện thời là cộng dồn. Muốn làm lại: chạy lại 00 rồi 01.
+   Không chạy 2 lần: các bước tồn / dư nợ hiện thời là cộng dồn. Muốn làm lại: chạy lại 00 rồi 01, 02.
    ===================================================================================== */
 SET NOCOUNT ON
 GO

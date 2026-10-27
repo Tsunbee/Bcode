@@ -42,7 +42,7 @@ Bcode.App/
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
-│   ├── MultiResultView.cs  204
+│   ├── MultiResultView.cs  210
 │   ├── NativeAdvanceNoteControl.cs  1128
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
@@ -52,7 +52,7 @@ Bcode.App/
 │   ├── NativeKit.cs  515
 │   ├── NativeLookupControl.cs  295
 │   ├── NativePage.cs  274
-│   ├── NativePages.Api.cs  420
+│   ├── NativePages.Api.cs  478
 │   ├── NativePages.Bars.cs  31
 │   ├── NativePages.Bars2.cs  113
 │   ├── NativePages.Bbxn.cs  439
@@ -81,7 +81,7 @@ Bcode.App/
 │   ├── NativePages.SqlHistory.cs  299
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  344
-│   ├── NativeResultPane.cs  302
+│   ├── NativeResultPane.cs  303
 │   ├── NativeShellBars.cs  314
 │   ├── NativeSqlControl.cs  1903
 │   ├── NativeSqlHints.cs  366
@@ -95,7 +95,7 @@ Bcode.App/
 │   ├── QuickReportControl.cs  491
 │   ├── RawSqlControl.cs  2539
 │   ├── ResultExport.cs  146
-│   ├── ResultGridMenu.cs  530
+│   ├── ResultGridMenu.cs  602
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
 │   ├── ScriptEditorControl.EntityIndex.cs  178
@@ -124,7 +124,7 @@ Bcode.App/
 ├── Forms/
 │   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
-│   ├── ApiDeclarationForm.cs  163
+│   ├── ApiDeclarationForm.cs  173
 │   ├── ApiSchemaBuilderForm.cs  274
 │   ├── ApiSchemaBuilderForm.Native.cs  322
 │   ├── AppCommandEditForm.cs  255
@@ -152,7 +152,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3819
+│   ├── MainForm.cs  3821
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -186,7 +186,7 @@ Bcode.App/
 │   └── WebDialogForm.cs  78
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
-│   ├── ApiProject.cs  46
+│   ├── ApiProject.cs  62
 │   ├── AppSettings.cs  300
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
@@ -205,10 +205,10 @@ Bcode.App/
 │   └── README.md  19
 ├── Services/
 │   ├── Api/
-│   │   ├── ApiClient.cs  228
-│   │   ├── ApiProjectStore.cs  127
+│   │   ├── ApiClient.cs  298
+│   │   ├── ApiProjectStore.cs  157
 │   │   ├── Lt3Templates.cs  88
-│   │   └── PostmanConverter.cs  158
+│   │   └── PostmanConverter.cs  306
 │   ├── Rpt/
 │   │   ├── ExcelTemplateWriter.cs  84
 │   │   ├── GridControllerReader.cs  112
@@ -341,14 +341,14 @@ Bcode.App/
 │   ├── UiScale.cs  60
 │   ├── UiTemplate.cs  509
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  373
+│   └── WebViewEnvironment.cs  384
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
 │       ├── advnote.html  780
 │       ├── aihistory.html  128
-│       ├── apideclaration.html  376
+│       ├── apideclaration.html  416
 │       ├── apischema.html  470
 │       ├── appcommandedit.html  158
 │       ├── autoscale.js  13
@@ -397,7 +397,7 @@ Bcode.App/
 │       ├── quicklist.html  1666
 │       ├── quickreport.html  1027
 │       ├── reportmodes.html  64
-│       ├── resultview.html  608
+│       ├── resultview.html  621
 │       ├── richreq.js  77
 │       ├── rowdetail.html  83
 │       ├── rptschema.html  112

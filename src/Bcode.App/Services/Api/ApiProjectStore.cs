@@ -30,6 +30,7 @@ public static class ApiProjectStore
     public static void Save(ApiProject project)
     {
         if (string.IsNullOrWhiteSpace(project.Name)) throw new InvalidOperationException("Chưa nhập tên dự án.");
+        Seal(project);   // header bí mật không bao giờ ghi dạng chữ
         Directory.CreateDirectory(Folder);
         File.WriteAllText(PathOf(project.Name), JsonSerializer.Serialize(project, Opts), new UTF8Encoding(false));
     }
@@ -74,6 +75,35 @@ public static class ApiProjectStore
         if (p.Forms.Count == 0) p.Forms.Add(new ApiForm { Name = "Call API", Kind = "custom", Endpoint = "", Body = "{}" });
         return p;
     }
+
+    // ---------------------------------------------------------------- header bí mật
+    private static readonly System.Text.RegularExpressions.Regex SecretKey = new(@"auth|token|secret|passw|api[-_]?key|cookie|signature", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Header tên kiểu Authorization / Authentication / X-Api-Key / Cookie… coi là bí mật (lưu mã hoá).</summary>
+    public static bool IsSecretHeader(string key) => SecretKey.IsMatch(key);
+
+    /// <summary>Header bí mật vừa nhập chữ → mã hoá vào ValueProtected, Value để trống; header bỏ đánh dấu bí mật → giải mã ra Value. Bỏ header không tên.</summary>
+    public static void Seal(ApiProject p)
+    {
+        p.Headers = Seal(p.Headers);
+        foreach (var f in p.Forms) f.Headers = Seal(f.Headers);
+    }
+
+    private static List<ApiHeader> Seal(List<ApiHeader>? list)
+    {
+        list ??= new();
+        list.RemoveAll(h => h is null || string.IsNullOrWhiteSpace(h.Key));
+        foreach (var h in list)
+        {
+            h.Key = h.Key.Trim(); h.Value ??= ""; h.ValueProtected ??= "";
+            if (h.Secret) { if (h.Value.Length > 0) { h.ValueProtected = Protect(h.Value); h.Value = ""; } }
+            else if (h.ValueProtected.Length > 0) { if (h.Value.Length == 0) h.Value = Unprotect(h.ValueProtected); h.ValueProtected = ""; }
+        }
+        return list;
+    }
+
+    /// <summary>Giá trị thật để gửi (giải mã nếu là bí mật).</summary>
+    public static string PlainValue(ApiHeader h) => h.Secret && h.Value.Length == 0 ? Unprotect(h.ValueProtected) : h.Value;
 
     // ---------------------------------------------------------------- DPAPI (crypt32, CurrentUser)
     public static string Protect(string plain)

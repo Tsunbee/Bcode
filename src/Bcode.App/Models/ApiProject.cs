@@ -25,8 +25,11 @@ public sealed class ApiProject
     /// <summary>Đường dẫn tới token trong response (vd token.accesstoken). Rỗng/không thấy = tự dò.</summary>
     public string TokenField { get; set; } = "token.accesstoken";
     public string ExpiresField { get; set; } = "token.expires";
-    /// <summary>"raw" = Authorization: &lt;token&gt; (chuẩn LT3); "bearer" = Authorization: Bearer &lt;token&gt;.</summary>
+    /// <summary>"raw" = Authorization: &lt;token&gt; (chuẩn LT3); "bearer" = Authorization: Bearer &lt;token&gt;;
+    /// "none" = header tĩnh — không lấy token, chỉ gửi <see cref="Headers"/> + header của form (API tự mang Authentication / TaxCode…).</summary>
     public string AuthScheme { get; set; } = "raw";
+    /// <summary>Header chung mọi form (form có header cùng tên thì form thắng).</summary>
+    public List<ApiHeader> Headers { get; set; } = new();
     /// <summary>File tài liệu đặc tả đính kèm (docx / json / xml).</summary>
     public string DocPath { get; set; } = "";
     public string Note { get; set; } = "";
@@ -42,5 +45,18 @@ public sealed class ApiForm
     public string Endpoint { get; set; } = "api/getData";
     public string Method { get; set; } = "POST";
     public string Body { get; set; } = "{\n    \"form\": \"\"\n}";
+    /// <summary>"raw" (JSON / chữ), "urlencoded", "formdata" (Body = mỗi dòng key=value), "none" (không body).</summary>
+    public string BodyMode { get; set; } = "raw";
+    /// <summary>Header riêng của form (nhập từ Postman) — gộp với <see cref="ApiProject.Headers"/>, form ưu tiên.</summary>
+    public List<ApiHeader> Headers { get; set; } = new();
     public string Description { get; set; } = "";
+}
+
+/// <summary>1 header. Header bí mật (Authorization / Authentication / token / key…): giá trị mã hoá DPAPI ở <see cref="ValueProtected"/>, <see cref="Value"/> để trống khi lưu.</summary>
+public sealed class ApiHeader
+{
+    public string Key { get; set; } = "";
+    public string Value { get; set; } = "";
+    public bool Secret { get; set; }
+    public string ValueProtected { get; set; } = "";
 }

@@ -12,14 +12,16 @@ namespace Bcode.App.Services.Api;
 /// <summary>
 /// Gọi API theo chuẩn LT3: lấy token (đọc <see cref="ApiProject.TokenField"/>, không thấy thì dò token.accesstoken / token / access_token / data.token),
 /// nhớ token tới khi hết hạn (<see cref="ApiProject.ExpiresField"/>, không có thì đọc exp trong JWT) và tự lấy lại 1 lần khi gặp 401.
-/// Header: "Authorization: &lt;token&gt;" (raw, chuẩn LT3) hoặc "Bearer &lt;token&gt;". Body thay biến {{today}} {{now}} {{key}} {{year}} {{month}} {{monthStart}}.
+/// Header: "Authorization: &lt;token&gt;" (raw, chuẩn LT3) hoặc "Bearer &lt;token&gt;"; kiểu "none" (header tĩnh) không lấy token. Kèm header chung của dự án + header của form
+/// (form thắng; form tự mang Authorization thì không thêm token). Body raw / urlencoded / formdata / none. Body thay biến {{today}} {{now}} {{key}} {{year}} {{month}} {{monthStart}}.
 /// </summary>
 public sealed class ApiClient
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
     private static readonly ConcurrentDictionary<string, (string Token, DateTime ExpiresUtc)> Tokens = new();
 
-    public sealed record CallResult(int Status, long Ms, string Url, string RequestBody, string ResponseText, bool Ok, string? Message, List<ResultTable> Tables);
+    /// <summary><paramref name="RequestHead"/>: dòng "METHOD url" + header đã gửi (header bí mật che giá trị).</summary>
+    public sealed record CallResult(int Status, long Ms, string Url, string RequestHead, string RequestBody, string ResponseText, bool Ok, string? Message, List<ResultTable> Tables);
     public sealed record ResultTable(string Name, List<string> Columns, List<List<string?>> Rows);
     public sealed record TokenInfo(string Token, DateTime ExpiresUtc, bool FromCache);
 
@@ -54,7 +56,7 @@ public sealed class ApiClient
         var url = Url(p, f.Endpoint);
         var expanded = Expand(body);
         var sw = Stopwatch.StartNew();
-        var (status, text) = await PostAsync(p, url, expanded, retryOn401: true, ct);
+        var (status, text, head) = await PostAsync(p, f, url, expanded, retryOn401: true, ct);
         sw.Stop();
         bool ok = status is >= 200 and < 300;
         string? message = null;
@@ -74,19 +76,88 @@ public sealed class ApiClient
             }
         }
         catch { /* không phải JSON */ }
-        return new CallResult(status, sw.ElapsedMilliseconds, url, expanded, text, ok, message, Tables(text));
+        return new CallResult(status, sw.ElapsedMilliseconds, url, head, expanded, text, ok, message, Tables(text));
     }
 
-    private static async Task<(int, string)> PostAsync(ApiProject p, string url, string body, bool retryOn401, CancellationToken ct)
+    /// <summary>Kiểu xác thực lấy token (raw / bearer); "none" = header tĩnh, không gọi getToken.</summary>
+    public static bool UsesToken(ApiProject p) => !string.Equals(p.AuthScheme, "none", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Header gửi đi: header chung của dự án rồi header của form — trùng tên (không phân biệt hoa thường) thì form thắng.</summary>
+    public static List<ApiHeader> MergeHeaders(ApiProject p, ApiForm f)
     {
-        var tk = await GetTokenAsync(p, false, ct);
-        using var req = new HttpRequestMessage(HttpMethod.Post, url) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-        req.Headers.TryAddWithoutValidation("Authorization", p.AuthScheme == "bearer" ? "Bearer " + tk.Token : tk.Token);
+        var list = new List<ApiHeader>();
+        foreach (var h in (p.Headers ?? new()).Concat(f.Headers ?? new()))
+        {
+            if (h is null || string.IsNullOrWhiteSpace(h.Key)) continue;
+            var i = list.FindIndex(x => IsKey(x.Key, h.Key));
+            if (i >= 0) list[i] = h; else list.Add(h);
+        }
+        return list;
+    }
+
+    private static async Task<(int, string, string)> PostAsync(ApiProject p, ApiForm f, string url, string body, bool retryOn401, CancellationToken ct)
+    {
+        var headers = MergeHeaders(p, f).Select(h => (Key: h.Key.Trim(), Value: ApiProjectStore.PlainValue(h), h.Secret)).ToList();
+        var withToken = UsesToken(p) && !headers.Any(h => IsKey(h.Key, "Authorization"));   // form tự mang Authorization thì dùng luôn
+        if (withToken)
+        {
+            var tk = await GetTokenAsync(p, false, ct);
+            headers.Add(("Authorization", p.AuthScheme == "bearer" ? "Bearer " + tk.Token : tk.Token, true));
+        }
+        var method = new HttpMethod(string.IsNullOrWhiteSpace(f.Method) ? "POST" : f.Method.Trim().ToUpperInvariant());
+        var contentType = headers.LastOrDefault(h => IsKey(h.Key, "Content-Type")).Value;
+        using var req = new HttpRequestMessage(method, url) { Content = Content(f.BodyMode, method, body, contentType) };
+        if (!headers.Any(h => IsKey(h.Key, "Accept"))) headers.Insert(0, ("Accept", "*/*", false));   // như Postman tự thêm
+        foreach (var h in headers.Where(h => !IsKey(h.Key, "Content-Type")))
+            if (!req.Headers.TryAddWithoutValidation(h.Key, h.Value)) req.Content?.Headers.TryAddWithoutValidation(h.Key, h.Value);
+        var head = new List<string> { method + " " + url };
+        if (req.Content?.Headers.ContentType is { } cth) head.Add("Content-Type: " + cth);
+        head.AddRange(headers.Where(h => !IsKey(h.Key, "Content-Type")).Select(h => h.Key + ": " + (h.Secret ? Hide(h.Value) : h.Value)));
         using var res = await Http.SendAsync(req, ct);
         var text = await res.Content.ReadAsStringAsync(ct);
-        if (retryOn401 && (int)res.StatusCode == 401) { ForgetToken(p); return await PostAsync(p, url, body, false, ct); }   // token hết hạn phía server → lấy lại 1 lần
-        return ((int)res.StatusCode, text);
+        if (retryOn401 && withToken && (int)res.StatusCode == 401) { ForgetToken(p); return await PostAsync(p, f, url, body, false, ct); }   // token hết hạn phía server → lấy lại 1 lần
+        return ((int)res.StatusCode, text, string.Join("\n", head));
     }
+
+    /// <summary>Body theo kiểu Postman: raw (mặc định application/json), urlencoded / formdata (mỗi dòng key: value), none. Header Content-Type của form ghi đè (trừ formdata — cần boundary).</summary>
+    private static HttpContent? Content(string? mode, HttpMethod method, string body, string? contentType)
+    {
+        HttpContent c;
+        switch (mode)
+        {
+            case "none":
+                if (string.IsNullOrWhiteSpace(contentType) || method == HttpMethod.Get || method == HttpMethod.Head) return null;
+                c = new ByteArrayContent(Array.Empty<byte>());
+                break;
+            case "urlencoded": c = new FormUrlEncodedContent(Pairs(body)); break;
+            case "formdata":
+            {
+                var mp = new MultipartFormDataContent();
+                foreach (var kv in Pairs(body)) mp.Add(new StringContent(kv.Value, Encoding.UTF8), kv.Key);
+                return mp;
+            }
+            default: c = new StringContent(body, Encoding.UTF8, "application/json"); break;
+        }
+        if (!string.IsNullOrWhiteSpace(contentType)) { c.Headers.Remove("Content-Type"); c.Headers.TryAddWithoutValidation("Content-Type", contentType.Trim()); }
+        return c;
+    }
+
+    /// <summary>Body urlencoded / formdata: mỗi dòng "key: value" (giống Bulk Edit của Postman); dòng trống hoặc bắt đầu "//" bỏ qua.</summary>
+    public static List<KeyValuePair<string, string>> Pairs(string body)
+    {
+        var list = new List<KeyValuePair<string, string>>();
+        foreach (var raw in (body ?? "").Split('\n'))
+        {
+            var line = raw.TrimEnd('\r');
+            if (line.Trim().Length == 0 || line.TrimStart().StartsWith("//")) continue;
+            var i = line.IndexOf(':');
+            list.Add(i < 0 ? new(line.Trim(), "") : new(line[..i].Trim(), line[(i + 1)..].TrimStart()));
+        }
+        return list;
+    }
+
+    private static bool IsKey(string a, string b) => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
+    private static string Hide(string v) => v.Length == 0 ? "" : $"•••••• ({v.Length} ký tự)";
 
     /// <summary>Thay biến trong body: {{today}} yyyy-MM-dd, {{now}} yyyy-MM-ddTHH:mm:ss, {{key}} khoá duy nhất (mỗi lần gọi), {{year}}, {{month}}, {{monthStart}}.</summary>
     public static string Expand(string body)

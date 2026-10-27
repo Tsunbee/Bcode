@@ -46,7 +46,7 @@ public sealed class ApiDeclarationForm : WebDialogForm
                     Status("Đã lưu dự án \"" + p.Name + "\" (" + ApiProjectStore.Folder + ").", "ok");
                     break;
                 }
-                case "delete": ApiProjectStore.Delete(Str(msg, "name")); PushInit(); Js("api.cleared()"); Status("Đã xoá dự án.", "ok"); break;
+                case "delete": ApiProjectStore.Delete(Str(msg, "name")); _shown = null; PushInit(); Js("api.cleared()"); Status("Đã xoá dự án.", "ok"); break;
                 case "new-template":
                 {
                     var forms = msg.TryGetProperty("forms", out var fa) && fa.ValueKind == JsonValueKind.Array ? fa.EnumerateArray().Select(x => x.GetString() ?? "").ToList() : null;
@@ -68,10 +68,11 @@ public sealed class ApiDeclarationForm : WebDialogForm
                     PushInit(); Status($"Đã chuyển {n} hồ sơ cũ (mật khẩu chuyển sang mã hoá). Hồ sơ cũ vẫn giữ ở thư mục ApiProfiles.", "ok");
                     break;
                 }
-                case "export-postman": ExportPostman(ReadProject(msg)); break;
+                case "export-postman": ExportPostman(ReadProject(msg), msg.TryGetProperty("withSecrets", out var ws) && ws.ValueKind == JsonValueKind.True); break;
                 case "token":
                 {
                     var p = ReadProject(msg);
+                    if (!ApiClient.UsesToken(p)) { Status("Kiểu xác thực \"Header tĩnh\" — không lấy token, Gửi dùng thẳng header của kết nối / form.", "warn"); Js("api.busy(false)"); break; }
                     Status("Đang lấy token…", "");
                     var t = await ApiClient.GetTokenAsync(p, force: true);
                     Js($"api.token({J(new { masked = Mask(t.Token), full = t.Token, expires = t.ExpiresUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") })})");
@@ -120,22 +121,29 @@ public sealed class ApiDeclarationForm : WebDialogForm
     /// <summary>Dự án / form gửi xuống trang giữ tên thuộc tính PascalCase (trang đọc S.p.Name, S.p.Forms…) — không qua J() (camelCase).</summary>
     private static string P(object value) => JsonSerializer.Serialize(value);
 
-    private void PushProject(ApiProject p, bool dirty = false) =>
-        Js($"api.project({{\"project\":{P(NoSecret(p))},\"hasPassword\":{(p.PasswordProtected.Length > 0 && ApiProjectStore.Unprotect(p.PasswordProtected).Length > 0 ? "true" : "false")},\"dirty\":{(dirty ? "true" : "false")}}})");
+    /// <summary>Dự án đang hiện trên trang (kể cả vừa nhập Postman, chưa lưu) — nguồn mật khẩu mã hoá khi trang gửi lên.</summary>
+    private ApiProject? _shown;
 
-    /// <summary>Gửi xuống trang KHÔNG kèm mật khẩu (kể cả bản mã hoá).</summary>
+    private void PushProject(ApiProject p, bool dirty = false)
+    {
+        _shown = p;
+        Js($"api.project({{\"project\":{P(NoSecret(p))},\"hasPassword\":{(p.PasswordProtected.Length > 0 && ApiProjectStore.Unprotect(p.PasswordProtected).Length > 0 ? "true" : "false")},\"dirty\":{(dirty ? "true" : "false")}}})");
+    }
+
+    /// <summary>Gửi xuống trang KHÔNG kèm mật khẩu (kể cả bản mã hoá). Header bí mật chỉ có bản mã hoá DPAPI (ValueProtected), Value để trống.</summary>
     private static object NoSecret(ApiProject p) => new
     {
-        p.Name, p.ProjectId, p.Department, p.BaseUrl, p.TokenPath, p.Username, p.TokenBody, p.TokenField, p.ExpiresField, p.AuthScheme, p.DocPath, p.Note, p.Forms,
+        p.Name, p.ProjectId, p.Department, p.BaseUrl, p.TokenPath, p.Username, p.TokenBody, p.TokenField, p.ExpiresField, p.AuthScheme, p.Headers, p.DocPath, p.Note, p.Forms,
     };
 
-    /// <summary>Dự án từ trang: giữ mật khẩu mã hoá đã lưu, nhập mới thì mã hoá lại.</summary>
-    private static ApiProject ReadProject(JsonElement msg)
+    /// <summary>Dự án từ trang: giữ mật khẩu mã hoá đã lưu (hoặc của dự án vừa nhập Postman chưa lưu), nhập mới thì mã hoá lại; header bí mật vừa gõ → mã hoá.</summary>
+    private ApiProject ReadProject(JsonElement msg)
     {
         var p = msg.GetProperty("project").Deserialize<ApiProject>(ReadOpts) ?? new ApiProject();
         var saved = ApiProjectStore.Load(Str(msg, "originalName").Length > 0 ? Str(msg, "originalName") : p.Name);
         var typed = Str(msg, "password");
-        p.PasswordProtected = typed.Length > 0 ? ApiProjectStore.Protect(typed) : saved?.PasswordProtected ?? p.PasswordProtected;
+        p.PasswordProtected = typed.Length > 0 ? ApiProjectStore.Protect(typed) : _shown?.PasswordProtected is { Length: > 0 } shown ? shown : saved?.PasswordProtected ?? p.PasswordProtected;
+        ApiProjectStore.Seal(p);
         return p;
     }
 
@@ -149,12 +157,14 @@ public sealed class ApiDeclarationForm : WebDialogForm
         Status($"Đã nhập {r.Project.Forms.Count} form từ Postman — kiểm tra rồi Lưu.", "ok");
     }
 
-    private void ExportPostman(ApiProject p)
+    private void ExportPostman(ApiProject p, bool withSecrets)
     {
         using var sfd = new SaveFileDialog { Filter = "Postman collection (*.postman_collection.json)|*.postman_collection.json", FileName = (string.IsNullOrWhiteSpace(p.ProjectId) ? p.Name : p.ProjectId) + "_API.postman_collection.json" };
         if (sfd.ShowDialog(this) != DialogResult.OK) return;
-        File.WriteAllText(sfd.FileName, PostmanConverter.Export(p), new System.Text.UTF8Encoding(false));
-        Status("Đã xuất Postman: " + sfd.FileName + " (không kèm mật khẩu — nhập ở biến password của collection).", "ok");
+        File.WriteAllText(sfd.FileName, PostmanConverter.Export(p, withSecrets), new System.Text.UTF8Encoding(false));
+        var hasSecret = p.Headers.Concat(p.Forms.SelectMany(f => f.Headers)).Any(h => h.Secret);
+        Status("Đã xuất Postman: " + sfd.FileName + (ApiClient.UsesToken(p) ? " (không kèm mật khẩu — nhập ở biến password của collection)" : "")
+            + (!hasSecret ? "." : withSecrets ? " — CÓ kèm giá trị header bí mật dạng chữ, đừng chia sẻ / commit file này." : " — header bí mật thay bằng biến collection để trống, nhập trong Postman."), hasSecret && withSecrets ? "warn" : "ok");
     }
 
     private void Status(string text, string kind) => Js($"api.status({J(text)}, {J(kind)})");

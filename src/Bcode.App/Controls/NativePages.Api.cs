@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Bcode.App.Services.Api;
 using Bcode.App.UI;
 
 namespace Bcode.App.Controls;
@@ -16,10 +17,19 @@ internal sealed class ApiDeclarationPage : DialogPage
     };
     private static readonly string[] Kinds = { "SyncData", "SyncVoucher", "GetData", "custom" };
     private static readonly string[] KindLabels = { "SyncData — đồng bộ danh mục", "SyncVoucher — đồng bộ chứng từ", "GetData — lấy dữ liệu", "Khác" };
+    private static readonly string[] Auths = { "raw", "bearer", "none" };
+    private static readonly string[] AuthLabels = { "Authorization: <token> (chuẩn LT3)", "Authorization: Bearer <token>", "Header tĩnh — không lấy token" };
+    private static readonly string[] Methods = { "POST", "GET", "PUT", "PATCH", "DELETE" };
+    private static readonly string[] Modes = { "raw", "urlencoded", "formdata", "none" };
+    private static readonly string[] ModeLabels = { "raw (JSON)", "x-www-form-urlencoded (key: value)", "form-data (key: value)", "none" };
+    /// <summary>Header bí mật đã lưu hiện thế này — để nguyên thì giữ bản mã hoá cũ.</summary>
+    private const string Mask = "••••••";
 
     private readonly Dictionary<string, RoundedInput> _in = new();
-    private readonly DropDownButton _projects = new() { Width = NativeSkin.S(260) }, _auth = new(), _fKind = new();
-    private readonly RoundedInput _pass = NK.Input(""), _fName = NK.Input(""), _fEndpoint = NK.Input("api/GetData", mono: true), _fDesc = NK.Input(""), _fBody = NK.Memo(14, "", mono: true), _filter = NK.Input("Lọc theo tên form…");
+    private readonly DropDownButton _projects = new() { Width = NativeSkin.S(260) }, _auth = new(), _fKind = new(), _fMethod = new(), _fMode = new();
+    private readonly RoundedInput _pass = NK.Input(""), _fName = NK.Input(""), _fEndpoint = NK.Input("api/GetData", mono: true), _fDesc = NK.Input(""), _fBody = NK.Memo(14, "", mono: true), _filter = NK.Input("Lọc theo tên form…"),
+        _pHeaders = NK.Memo(3, "Key: Value (mỗi dòng 1 header)"), _fHeaders = NK.Memo(3, "Key: Value (mỗi dòng 1 header)");
+    private readonly CardPanel _advCard;
     private readonly Label _tokVal = NK.Muted("(chưa lấy)"), _dirty = new Label { AutoSize = true, ForeColor = AppColors.Warning, BackColor = Color.Transparent, Margin = new Padding(8, 8, 0, 0) }, _kb = NK.Muted(""), _fCount = NK.Muted("");
     private readonly ListBox _fList = new() { Dock = DockStyle.Top, Height = NativeSkin.S(220), IntegralHeight = false, BorderStyle = BorderStyle.None, DrawMode = DrawMode.OwnerDrawFixed };
     
@@ -41,8 +51,8 @@ internal sealed class ApiDeclarationPage : DialogPage
         foreach (var (_, key) in ProjectFields) _in[key] = NK.Input("", mono: key is "pBase" or "pTokPath" or "pTokField" or "pExpField");
         _in["pTokBody"] = NK.Memo(4, "", mono: true); _in["pNote"] = NK.Memo(3, "", mono: false);
         _pass.Inner.UseSystemPasswordChar = true;
-        _auth.SetItems(new[] { "Authorization: <token> (chuẩn LT3)", "Authorization: Bearer <token>" }, 0);
-        _fKind.SetItems(KindLabels, 2);
+        _auth.SetItems(AuthLabels, 0);
+        _fKind.SetItems(KindLabels, 2); _fMethod.SetItems(Methods, 0); _fMode.SetItems(ModeLabels, 0); _fMode.Width = NativeSkin.S(250);
         _fBody.Dock = DockStyle.Top; _fBody.Height = NativeSkin.S(260);
 
         // ---- thanh trên ----
@@ -53,7 +63,7 @@ internal sealed class ApiDeclarationPage : DialogPage
             NK.Text("Dự án"), _projects,
             NK.Button("＋ Mới từ mẫu LT3", () => OpenPicker(true), primary: true, tip: "Tạo dự án mới từ mẫu chuẩn phòng LT3 (31 form của tài liệu API)"),
             NK.Button("Nhập Postman…", () => Post(new { action = "import-postman" })), _bOld,
-            NK.Button("Lưu", SaveProject, tip: "Lưu dự án (Ctrl+S)"), NK.Button("Xuất Postman…", () => { if (_p is not null) Post(Payload("export-postman")); }),
+            NK.Button("Lưu", SaveProject, tip: "Lưu dự án (Ctrl+S)"), NK.Button("Xuất Postman…", ExportPostman),
             NK.Button("Xoá", DeleteProject), _dirty, NK.Button("Tài liệu API LT3 ↗", () => Post(new { action = "open-path", path = _docUrl })),
         });
         _projects.SelectionChanged += i => { if (!_loading && i > 0 && i - 1 < _projectNames.Count) Post(new { action = "open", name = _projectNames[i - 1] }); };
@@ -65,12 +75,13 @@ internal sealed class ApiDeclarationPage : DialogPage
         var docRow = new Panel { Height = NativeSkin.RowHeight(this, 28) };
         var bDoc = NK.Button("…", () => Post(new { action = "browse-doc" })); var bOpen = NK.Button("Mở", () => Post(new { action = "open-path", path = _in["pDoc"].Text }));
         bDoc.Dock = DockStyle.Right; bOpen.Dock = DockStyle.Right; _in["pDoc"].Dock = DockStyle.Fill; docRow.Controls.Add(_in["pDoc"]); docRow.Controls.Add(bDoc); docRow.Controls.Add(bOpen);
-        var advCard = new CardPanel("Lấy token (nâng cao)") { Dock = DockStyle.Top };
+        var advCard = _advCard = new CardPanel("Lấy token (nâng cao)") { Dock = DockStyle.Top };
         NK.Stack(advCard.Body,
             NK.FormGrid(110, ("Đường dẫn", _in["pTokPath"]), ("Trường token", _in["pTokField"]), ("Trường hạn", _in["pExpField"]), ("Body", _in["pTokBody"])),
             NK.Muted("{{username}} / {{password}} được thay lúc gửi. Response chuẩn LT3: token.accesstoken, token.expires.", true));
         NK.Stack(cConn.Body,
-            NK.FormGrid(110, ("Tên dự án", _in["pName"]), ("Mã dự án", _in["pId"]), ("Bộ phận", _in["pDept"]), ("Địa chỉ gốc", _in["pBase"]), ("Tài khoản", _in["pUser"]), ("Mật khẩu", _pass), ("Header", _auth)),
+            NK.FormGrid(110, ("Tên dự án", _in["pName"]), ("Mã dự án", _in["pId"]), ("Bộ phận", _in["pDept"]), ("Địa chỉ gốc", _in["pBase"]), ("Xác thực", _auth), ("Tài khoản", _in["pUser"]), ("Mật khẩu", _pass), ("Header chung", _pHeaders)),
+            NK.Muted("Header bí mật (Authorization / Authentication / token / key…) lưu mã hoá, hiện •••••• — để nguyên là giữ, gõ đè là đổi. Header tĩnh: không gọi getToken.", true),
             advCard,
             NK.Row(_bToken, _tokVal, _bCopyTok),
             NK.FormGrid(110, ("Tài liệu", docRow), ("Ghi chú", _in["pNote"])));
@@ -95,8 +106,8 @@ internal sealed class ApiDeclarationPage : DialogPage
         _bSend = NK.Button("Gửi ▶", () => Send(false), primary: true, tip: "Gửi (Ctrl+Shift+Enter)");
         var hint = NK.Muted("Biến: {{today}} (yyyy-MM-dd) · {{now}} · {{key}} (khoá duy nhất mỗi lần gửi — dùng cho VoucherId) · {{year}} · {{month}} · {{monthStart}}", true);
         NK.Stack(cSel.Body,
-            NK.FormGrid(110, ("Tên", _fName), ("Loại", _fKind), ("Endpoint", _fEndpoint), ("Mô tả", _fDesc)),
-            NK.Row(NK.Muted("Body (JSON)"), _bFormat, _bValidate, _bSend, _bFormDoc, _kb),
+            NK.FormGrid(110, ("Tên", _fName), ("Loại", _fKind), ("Phương thức", _fMethod), ("Endpoint", _fEndpoint), ("Mô tả", _fDesc), ("Header", _fHeaders)),
+            NK.Row(NK.Muted("Body"), _fMode, _bFormat, _bValidate, _bSend, _bFormDoc, _kb),
             _fBody, hint, _issuesText, _notesText);
 
         _resCard = new CardPanel("Kết quả") { Dock = DockStyle.Top, Visible = false };
@@ -114,8 +125,10 @@ internal sealed class ApiDeclarationPage : DialogPage
         split.Panel1.Controls.Add(leftCol); split.Panel2.Controls.Add(rightCol);
         HandleCreated += (_, _) => BeginInvoke(() => { try { split.SplitterDistance = Math.Max(380, (int)(Width * 0.42)); } catch { } });
 
-        foreach (var c in _in.Values.Concat(new[] { _pass, _fName, _fEndpoint, _fDesc, _fBody })) c.TextChanged += (_, _) => { if (!_loading && _p is not null) SetDirty(true); };
-        _auth.SelectionChanged += _ => { if (!_loading && _p is not null) SetDirty(true); };
+        foreach (var c in _in.Values.Concat(new[] { _pass, _fName, _fEndpoint, _fDesc, _fBody, _pHeaders, _fHeaders })) c.TextChanged += (_, _) => { if (!_loading && _p is not null) SetDirty(true); };
+        _auth.SelectionChanged += _ => { AuthUi(); if (!_loading && _p is not null) SetDirty(true); };
+        _fMethod.SelectionChanged += _ => { if (!_loading && _p is not null) SetDirty(true); };
+        _fMode.SelectionChanged += _ => { if (!_loading && _p is not null) SetDirty(true); };
         _fKind.SelectionChanged += i =>
         {
             if (_loading || _p is null) return;
@@ -140,8 +153,35 @@ internal sealed class ApiDeclarationPage : DialogPage
     {
         if (_p is null) return;
         foreach (var (j, key) in ProjectFields) _p[j] = _in[key].Text;
-        _p["AuthScheme"] = _auth.SelectedIndex == 1 ? "bearer" : "raw";
+        _p["AuthScheme"] = Auths[Math.Clamp(_auth.SelectedIndex, 0, Auths.Length - 1)];
+        _p["Headers"] = HdrParse(_pHeaders.Text, _p["Headers"]);
         SaveForm();
+    }
+
+    /// <summary>Header → chữ "Key: Value" mỗi dòng; header bí mật đã lưu hiện <see cref="Mask"/>.</summary>
+    private static string HdrText(JsonNode? list) => string.Join("\r\n", (list as JsonArray ?? new JsonArray()).OfType<JsonObject>()
+        .Select(h => S(h, "Key") + ": " + (S(h, "Secret") == "true" && S(h, "Value").Length == 0 && S(h, "ValueProtected").Length > 0 ? Mask : S(h, "Value"))));
+
+    /// <summary>Chữ → header (giữ bản mã hoá cũ khi giá trị vẫn là <see cref="Mask"/>; header mới tên kiểu Authentication / token… tự đánh dấu bí mật).</summary>
+    private static JsonArray HdrParse(string text, JsonNode? old)
+    {
+        var prev = (old as JsonArray ?? new JsonArray()).OfType<JsonObject>().ToList();
+        var arr = new JsonArray();
+        foreach (var kv in ApiClient.Pairs(text))
+        {
+            if (kv.Key.Length == 0) continue;
+            var o = prev.FirstOrDefault(h => string.Equals(S(h, "Key"), kv.Key, StringComparison.OrdinalIgnoreCase));
+            if (kv.Value == Mask && o is not null && S(o, "ValueProtected").Length > 0) arr.Add(new JsonObject { ["Key"] = kv.Key, ["Value"] = "", ["Secret"] = true, ["ValueProtected"] = S(o, "ValueProtected") });
+            else arr.Add(new JsonObject { ["Key"] = kv.Key, ["Value"] = kv.Value, ["Secret"] = o is not null ? S(o, "Secret") == "true" : ApiProjectStore.IsSecretHeader(kv.Key), ["ValueProtected"] = "" });
+        }
+        return arr;
+    }
+
+    /// <summary>Header tĩnh: ẩn phần lấy token, khoá tài khoản / mật khẩu.</summary>
+    private void AuthUi()
+    {
+        var tok = _auth.SelectedIndex != 2;
+        _advCard.Visible = tok; _in["pUser"].Enabled = tok; _pass.Enabled = tok; _bToken.Enabled = tok;
     }
 
     private object Payload(string action, object? extra = null)
@@ -160,10 +200,12 @@ internal sealed class ApiDeclarationPage : DialogPage
     {
         _loading = true;
         foreach (var (j, key) in ProjectFields) _in[key].Text = _p is null ? "" : S(_p, j);
-        _auth.SetItems(new[] { "Authorization: <token> (chuẩn LT3)", "Authorization: Bearer <token>" }, _p is not null && S(_p, "AuthScheme") == "bearer" ? 1 : 0);
+        _auth.SetItems(AuthLabels, _p is null ? 0 : Math.Max(0, Array.IndexOf(Auths, S(_p, "AuthScheme"))));
+        _pHeaders.Text = _p is null ? "" : HdrText(_p["Headers"]);
         _pass.Text = ""; _pass.PlaceholderText = _hasPassword ? "•••••• (đã lưu, mã hoá)" : "(chưa lưu)";
         _tokVal.Text = "(chưa lấy)"; _bCopyTok.Enabled = false; _token = "";
         _loading = false;
+        AuthUi();
         RenderForms();
         Select(_p is not null && Forms.Count > 0 ? Math.Min(Math.Max(_sel, 0), Forms.Count - 1) : -1);
         SetDirty(_isDirty);
@@ -206,8 +248,13 @@ internal sealed class ApiDeclarationPage : DialogPage
         _fName.Text = f is null ? "" : S(f, "Name");
         _fKind.SetItems(KindLabels, f is null ? 2 : Math.Max(0, Array.IndexOf(Kinds, S(f, "Kind"))));
         _fEndpoint.Text = f is null ? "" : S(f, "Endpoint"); _fDesc.Text = f is null ? "" : S(f, "Description"); _fBody.Text = f is null ? "" : S(f, "Body");
+        var m = f is null || S(f, "Method").Length == 0 ? "POST" : S(f, "Method").ToUpperInvariant();
+        var methods = Methods.Contains(m) ? Methods : Methods.Append(m).ToArray();
+        _fMethod.SetItems(methods, Array.IndexOf(methods, m));
+        _fMode.SetItems(ModeLabels, f is null ? 0 : Math.Max(0, Array.IndexOf(Modes, S(f, "BodyMode"))));
+        _fHeaders.Text = f is null ? "" : HdrText(f["Headers"]);
         _loading = false;
-        foreach (var c in new Control[] { _fName, _fKind, _fEndpoint, _fDesc, _fBody, _bSend, _bValidate, _bFormat, _bFormDoc }) c.Enabled = f is not null;
+        foreach (var c in new Control[] { _fName, _fKind, _fMethod, _fMode, _fHeaders, _fEndpoint, _fDesc, _fBody, _bSend, _bValidate, _bFormat, _bFormDoc }) c.Enabled = f is not null;
         _issuesText.Text = "";
         RenderForms();
     }
@@ -216,12 +263,14 @@ internal sealed class ApiDeclarationPage : DialogPage
     {
         var f = CurForm; if (f is null) return;
         f["Name"] = _fName.Text; f["Kind"] = Kinds[Math.Max(0, _fKind.SelectedIndex)]; f["Endpoint"] = _fEndpoint.Text; f["Description"] = _fDesc.Text; f["Body"] = _fBody.Text;
+        f["Method"] = _fMethod.SelectedIndex >= 0 ? _fMethod.Text : "POST"; f["BodyMode"] = Modes[Math.Clamp(_fMode.SelectedIndex, 0, Modes.Length - 1)];
+        f["Headers"] = HdrParse(_fHeaders.Text, f["Headers"]);
     }
 
     private void AddBlank()
     {
         if (_p is null) return; SaveForm();
-        Forms.Add(new JsonObject { ["Name"] = "formMoi", ["Kind"] = "GetData", ["Endpoint"] = "api/GetData", ["Method"] = "POST", ["Body"] = "{\n    \"form\": \"\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}", ["Description"] = "" });
+        Forms.Add(new JsonObject { ["Name"] = "formMoi", ["Kind"] = "GetData", ["Endpoint"] = "api/GetData", ["Method"] = "POST", ["BodyMode"] = "raw", ["Headers"] = new JsonArray(), ["Body"] = "{\n    \"form\": \"\",\n    \"Id\": \"\",\n    \"dateFrom\": \"{{monthStart}}\",\n    \"dateTo\": \"{{today}}\"\n}", ["Description"] = "" });
         Select(Forms.Count - 1); SetDirty(true); _fName.Inner.Focus(); _fName.Inner.SelectAll();
     }
 
@@ -243,6 +292,15 @@ internal sealed class ApiDeclarationPage : DialogPage
         var form = _fName.Text;
         try { if (JsonNode.Parse(_fBody.Text) is JsonObject o && o["form"]?.ToString() is { Length: > 0 } fm) form = fm; } catch { /* body chưa hợp lệ */ }
         Post(new { action = "form-doc", form });
+    }
+
+    private void ExportPostman()
+    {
+        if (_p is null) return;
+        Collect();
+        var secret = new[] { _p["Headers"] }.Concat(Forms.Select(f => f?["Headers"])).OfType<JsonArray>().SelectMany(a => a.OfType<JsonObject>()).Any(h => S(h, "Secret") == "true");
+        var withSecrets = secret && NK.Confirm(FindForm()!, "Dự án có header bí mật (Authentication / Authorization…).\n\nCó: kèm giá trị dạng chữ — file chạy ngay trong Postman, đừng chia sẻ / commit.\nKhông: thay bằng biến collection để trống.", "Xuất Postman");
+        Post(Payload("export-postman", new { withSecrets }));
     }
 
     private void SaveProject() { if (_p is not null) Post(Payload("save")); }
@@ -348,7 +406,7 @@ internal sealed class ApiDeclarationPage : DialogPage
         var ok = PB(r, "ok");
         _rPill.Text = "HTTP " + P(r, "status") + (ok ? " · OK" : " · Lỗi"); _rPill.ForeColor = ok ? AppColors.Success : AppColors.Danger;
         _rMeta.Text = P(r, "ms") + " ms" + (P(r, "message").Length > 0 ? " · " + P(r, "message") : "") + " · " + P(r, "url");
-        _rResp.Text = Pretty(_lastResponse); _rReq.Text = "POST " + P(r, "url") + "\r\n\r\n" + Pretty(P(r, "requestBody"));
+        _rResp.Text = Pretty(_lastResponse); _rReq.Text = (P(r, "requestHead") is { Length: > 0 } head ? head.Replace("\n", "\r\n") : "POST " + P(r, "url")) + "\r\n\r\n" + Pretty(P(r, "requestBody"));
         _rTables.Controls.Clear();
         var tables = PA(r, "tables").ToList();
         if (tables.Count == 0) _rTables.Controls.Add(new Label { Text = "Response không có dữ liệu dạng bảng — xem tab Response.", AutoSize = true, ForeColor = AppColors.TextMuted, BackColor = Color.Transparent, Dock = DockStyle.Top });

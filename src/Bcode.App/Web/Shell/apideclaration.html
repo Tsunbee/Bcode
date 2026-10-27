@@ -19,6 +19,7 @@
   details summary { cursor: pointer; color: var(--text-muted); font-size: .9rem; }
   .mono, textarea.code { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .92rem; }
   textarea.code { width: 100%; box-sizing: border-box; min-height: 14rem; resize: vertical; white-space: pre; tab-size: 2; }
+  textarea.code.hdrs { min-height: 3.6rem; }
   .tok { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
   .tok .val { flex: 1; min-width: 6rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
   .flist { display: flex; flex-direction: column; gap: 2px; max-height: 22rem; overflow: auto; }
@@ -64,7 +65,7 @@
   <div class="fld"><label>Dự án</label><select id="selProject" style="min-width:14rem"></select></div>
   <div class="btns">
     <button class="primary" id="bNewTpl" title="Tạo dự án mới từ mẫu chuẩn phòng LT3 (31 form của tài liệu API)">＋ Mới từ mẫu LT3</button>
-    <button id="bImport" title="Nhập collection Postman (tự nhận địa chỉ gốc, getToken, các form; bỏ token cũ)">Nhập Postman…</button>
+    <button id="bImport" title="Nhập collection Postman (tự nhận địa chỉ gốc, getToken hoặc header tĩnh, header + body từng form; bỏ token cũ)">Nhập Postman…</button>
     <button id="bOld" style="display:none" title="Chuyển hồ sơ kiểu cũ (mật khẩu chữ thường) sang dạng mới, mật khẩu mã hoá">Chuyển hồ sơ cũ</button>
     <button id="bSave" title="Lưu dự án">Lưu</button>
     <button id="bExport" title="Xuất Postman theo chuẩn LT3 (getToken tự lưu {{token}}, không kèm mật khẩu)">Xuất Postman…</button>
@@ -84,11 +85,12 @@
         <label>Mã dự án</label><input type="text" id="pId" placeholder="vd NISSHIN" />
         <label>Bộ phận</label><input type="text" id="pDept" placeholder="LT3" />
         <label>Địa chỉ gốc</label><input type="text" id="pBase" class="mono" placeholder="http://172.168.5.14/<DU_AN>_API" />
-        <label>Tài khoản</label><input type="text" id="pUser" autocomplete="off" />
-        <label>Mật khẩu</label><input type="password" id="pPass" autocomplete="new-password" placeholder="(chưa lưu)" />
-        <label>Header</label><select id="pAuth"><option value="raw">Authorization: &lt;token&gt; (chuẩn LT3)</option><option value="bearer">Authorization: Bearer &lt;token&gt;</option></select>
+        <label>Xác thực</label><select id="pAuth" title="Header tĩnh: không gọi getToken — gửi thẳng header chung + header của form (Authentication, TaxCode…)"><option value="raw">Authorization: &lt;token&gt; (chuẩn LT3)</option><option value="bearer">Authorization: Bearer &lt;token&gt;</option><option value="none">Header tĩnh — không lấy token</option></select>
+        <label class="tokOnly">Tài khoản</label><input class="tokOnly" type="text" id="pUser" autocomplete="off" />
+        <label class="tokOnly">Mật khẩu</label><input class="tokOnly" type="password" id="pPass" autocomplete="new-password" placeholder="(chưa lưu)" />
+        <label title="Gửi kèm mọi form; form có header cùng tên thì form thắng">Header chung</label><textarea id="pHeaders" class="code hdrs" spellcheck="false" placeholder="Key: Value (mỗi dòng 1 header)"></textarea>
       </div>
-      <details><summary>Lấy token (nâng cao)</summary>
+      <details class="tokOnly"><summary>Lấy token (nâng cao)</summary>
         <div class="g2" style="margin-top:.4rem">
           <label>Đường dẫn</label><input type="text" id="pTokPath" class="mono" />
           <label>Trường token</label><input type="text" id="pTokField" class="mono" />
@@ -97,7 +99,8 @@
         </div>
         <div class="hint">{{username}} / {{password}} được thay lúc gửi. Response chuẩn LT3: token.accesstoken, token.expires.</div>
       </details>
-      <div class="tok"><button id="bToken" title="Lấy token mới">Lấy token</button><span class="val mono" id="tokVal">(chưa lấy)</span><button id="bCopyTok" title="Chép token đầy đủ" disabled>Chép</button></div>
+      <div class="hint">Header bí mật (Authorization / Authentication / token / key…) lưu mã hoá trên máy này, hiện <code>••••••</code> — để nguyên là giữ giá trị cũ, gõ đè là đổi.</div>
+      <div class="tok tokOnly"><button id="bToken" title="Lấy token mới">Lấy token</button><span class="val mono" id="tokVal">(chưa lấy)</span><button id="bCopyTok" title="Chép token đầy đủ" disabled>Chép</button></div>
       <div class="g2">
         <label>Tài liệu</label><div class="row"><input type="text" id="pDoc" class="grow" placeholder="File đặc tả (docx/pdf…)" /><button id="bDoc">…</button><button id="bOpenDoc">Mở</button></div>
         <label>Ghi chú</label><textarea id="pNote" style="min-height:3rem"></textarea>
@@ -124,11 +127,12 @@
       <div class="g2">
         <label>Tên</label><input type="text" id="fName" />
         <label>Loại</label><select id="fKind"><option value="SyncData">SyncData — đồng bộ danh mục</option><option value="SyncVoucher">SyncVoucher — đồng bộ chứng từ</option><option value="GetData">GetData — lấy dữ liệu</option><option value="custom">Khác</option></select>
-        <label>Endpoint</label><input type="text" id="fEndpoint" class="mono" placeholder="api/GetData" />
+        <label>Endpoint</label><div class="row" style="flex-wrap:nowrap"><select id="fMethod" style="width:auto"><option>POST</option><option>GET</option><option>PUT</option><option>PATCH</option><option>DELETE</option></select><input type="text" id="fEndpoint" class="mono grow" placeholder="api/GetData" /></div>
         <label>Mô tả</label><input type="text" id="fDesc" />
+        <label title="Header riêng của form — gộp với Header chung, trùng tên thì form thắng">Header</label><textarea id="fHeaders" class="code hdrs" spellcheck="false" placeholder="Key: Value (mỗi dòng 1 header)"></textarea>
       </div>
       <div class="row">
-        <span class="lbl">Body (JSON)</span><span class="grow"></span>
+        <span class="lbl">Body</span><select id="fMode" style="width:auto" title="Kiểu body (như Postman)"><option value="raw">raw (JSON)</option><option value="urlencoded">x-www-form-urlencoded</option><option value="formdata">form-data</option><option value="none">none</option></select><span class="muted" id="modeHint"></span><span class="grow"></span>
         <button id="bFormat">Định dạng</button><button id="bValidate">Kiểm tra (LT3)</button><button class="primary" id="bSend">Gửi ▶</button>
       </div>
       <textarea id="fBody" class="code" spellcheck="false"></textarea>
@@ -173,7 +177,7 @@
 <!-- xác nhận gửi form ghi dữ liệu -->
 <div class="modal" id="mWrite"><div class="box">
   <div class="bd"><h3 style="margin:0" id="wTitle">Xác nhận</h3><div id="wText"></div></div>
-  <div class="ft"><button id="wCancel">Huỷ</button><button class="primary" id="wOk">Gửi</button></div>
+  <div class="ft"><button id="wCancel">Huỷ</button><button id="wAlt" style="display:none"></button><button class="primary" id="wOk">Gửi</button></div>
 </div></div>
 
 <script>
@@ -185,9 +189,27 @@
 
   // ---------------------------------------------------------------- dự án
   const pf = { Name: 'pName', ProjectId: 'pId', Department: 'pDept', BaseUrl: 'pBase', Username: 'pUser', AuthScheme: 'pAuth', TokenPath: 'pTokPath', TokenField: 'pTokField', ExpiresField: 'pExpField', TokenBody: 'pTokBody', DocPath: 'pDoc', Note: 'pNote' };
+  // Header dạng chữ "Key: Value" mỗi dòng (dòng "//…" bỏ qua). Header bí mật đã lưu hiện MASK — để nguyên thì giữ bản mã hoá cũ (ValueProtected).
+  const MASK = '••••••', SECRET = /auth|token|secret|passw|api[-_]?key|cookie|signature/i;
+  const hdrText = (list) => (list || []).map((h) => h.Key + ': ' + (h.Secret && !h.Value && h.ValueProtected ? MASK : (h.Value || ''))).join('\n');
+  function hdrParse(text, old) {
+    const prev = old || [], out = [];
+    text.split('\n').forEach((line) => {
+      line = line.replace(/\r$/, ''); if (!line.trim() || line.trim().startsWith('//')) return;
+      const i = line.indexOf(':'), Key = (i < 0 ? line : line.slice(0, i)).trim(), Value = i < 0 ? '' : line.slice(i + 1).replace(/^\s+/, '');
+      if (!Key) return;
+      const o = prev.find((h) => (h.Key || '').toLowerCase() === Key.toLowerCase());
+      if (Value === MASK && o && o.ValueProtected) out.push({ Key, Value: '', Secret: true, ValueProtected: o.ValueProtected });
+      else out.push({ Key, Value, Secret: o ? !!o.Secret : SECRET.test(Key), ValueProtected: '' });
+    });
+    return out;
+  }
+  function authMode() { document.querySelectorAll('.tokOnly').forEach((el) => { el.style.display = $('pAuth').value === 'none' ? 'none' : ''; }); }
+  $('pAuth').addEventListener('change', authMode);
   function fill() {
     const p = S.p;
     Object.entries(pf).forEach(([k, id]) => { $(id).value = p ? (p[k] ?? '') : ''; });
+    $('pHeaders').value = p ? hdrText(p.Headers) : ''; authMode();
     $('pPass').value = ''; $('pPass').placeholder = S.hasPassword ? '•••••• (đã lưu, mã hoá)' : '(chưa lưu)';
     $('tokVal').textContent = '(chưa lấy)'; $('bCopyTok').disabled = true; S.token = '';
     renderForms(); select(p && p.Forms.length ? Math.min(Math.max(S.sel, 0), p.Forms.length - 1) : -1);
@@ -196,6 +218,7 @@
   function collect() {
     if (!S.p) return null;
     Object.entries(pf).forEach(([k, id]) => { S.p[k] = $(id).value; });
+    S.p.Headers = hdrParse($('pHeaders').value, S.p.Headers);
     saveForm();
     return S.p;
   }
@@ -220,26 +243,31 @@
   function select(i) {
     S.sel = i; const f = S.p && S.p.Forms[i];
     $('fName').value = f ? f.Name : ''; $('fKind').value = f ? f.Kind : 'GetData'; $('fEndpoint').value = f ? f.Endpoint : ''; $('fDesc').value = f ? f.Description : ''; $('fBody').value = f ? f.Body : '';
-    ['fName', 'fKind', 'fEndpoint', 'fDesc', 'fBody', 'bSend', 'bValidate', 'bFormat', 'bFormDoc'].forEach((id) => { $(id).disabled = !f; });
+    const m = (f && f.Method || 'POST').toUpperCase(); if (![...$('fMethod').options].some((o) => o.value === m)) $('fMethod').add(new Option(m)); $('fMethod').value = m;
+    $('fMode').value = f && f.BodyMode || 'raw'; modeHint(); $('fHeaders').value = f ? hdrText(f.Headers) : '';
+    ['fName', 'fKind', 'fMethod', 'fEndpoint', 'fDesc', 'fHeaders', 'fMode', 'fBody', 'bSend', 'bValidate', 'bFormat', 'bFormDoc'].forEach((id) => { $(id).disabled = !f; });
     $('issues').textContent = ''; $('issues').className = 'issues';
     renderForms();
   }
   function saveForm() {
     const f = S.p && S.p.Forms[S.sel]; if (!f) return;
     f.Name = $('fName').value; f.Kind = $('fKind').value; f.Endpoint = $('fEndpoint').value; f.Description = $('fDesc').value; f.Body = $('fBody').value;
+    f.Method = $('fMethod').value; f.BodyMode = $('fMode').value; f.Headers = hdrParse($('fHeaders').value, f.Headers);
   }
+  function modeHint() { const m = $('fMode').value; $('modeHint').textContent = m === 'urlencoded' || m === 'formdata' ? 'mỗi dòng key: value' : m === 'none' ? 'không gửi body' : ''; }
+  $('fMode').addEventListener('change', modeHint);
   ['fName', 'fKind'].forEach((id) => $(id).addEventListener('change', () => { saveForm(); renderForms(); }));
   $('fKind').addEventListener('change', () => { const ep = { SyncData: 'api/SyncData', SyncVoucher: 'api/SyncVoucher', GetData: 'api/GetData' }[$('fKind').value]; if (ep && !$('fEndpoint').value) $('fEndpoint').value = ep; });
   $('fFilter').oninput = renderForms;
-  $('bAddBlank').onclick = () => { if (!S.p) return; saveForm(); S.p.Forms.push({ Name: 'formMoi', Kind: 'GetData', Endpoint: 'api/GetData', Method: 'POST', Body: '{\n    "form": "",\n    "Id": "",\n    "dateFrom": "{{monthStart}}",\n    "dateTo": "{{today}}"\n}', Description: '' }); select(S.p.Forms.length - 1); setDirty(true); $('fName').focus(); $('fName').select(); };
+  $('bAddBlank').onclick = () => { if (!S.p) return; saveForm(); S.p.Forms.push({ Name: 'formMoi', Kind: 'GetData', Endpoint: 'api/GetData', Method: 'POST', BodyMode: 'raw', Headers: [], Body: '{\n    "form": "",\n    "Id": "",\n    "dateFrom": "{{monthStart}}",\n    "dateTo": "{{today}}"\n}', Description: '' }); select(S.p.Forms.length - 1); setDirty(true); $('fName').focus(); $('fName').select(); };
   $('bDup').onclick = () => { if (!S.p || S.sel < 0) return; saveForm(); const c = JSON.parse(JSON.stringify(S.p.Forms[S.sel])); c.Name += ' (2)'; S.p.Forms.splice(S.sel + 1, 0, c); select(S.sel + 1); setDirty(true); };
   $('bDelForm').onclick = () => { if (!S.p || S.sel < 0) return; S.p.Forms.splice(S.sel, 1); select(Math.min(S.sel, S.p.Forms.length - 1)); setDirty(true); };
   const move = (d) => { if (!S.p || S.sel < 0) return; saveForm(); const j = S.sel + d; if (j < 0 || j >= S.p.Forms.length) return; const a = S.p.Forms; [a[S.sel], a[j]] = [a[j], a[S.sel]]; select(j); setDirty(true); };
   $('bUp').onclick = () => move(-1); $('bDown').onclick = () => move(1);
   $('fBody').addEventListener('keydown', (e) => { if (e.key === 'Tab' && !e.ctrlKey && !e.altKey) { e.preventDefault(); const t = e.target, s = t.selectionStart; t.setRangeText('  ', s, t.selectionEnd, 'end'); setDirty(true); } });
 
-  function format() { try { $('fBody').value = JSON.stringify(JSON.parse($('fBody').value), null, 4); saveForm(); setDirty(true); api.status('Đã định dạng body.', 'ok'); } catch (e) { api.status('Body không phải JSON hợp lệ: ' + e.message, 'err'); } }
-  function validate() { saveForm(); post('validate', { name: $('fName').value, body: $('fBody').value }); }
+  function format() { if ($('fMode').value !== 'raw') { api.status('Định dạng chỉ dùng cho body raw (JSON).', 'warn'); return; } try { $('fBody').value = JSON.stringify(JSON.parse($('fBody').value), null, 4); saveForm(); setDirty(true); api.status('Đã định dạng body.', 'ok'); } catch (e) { api.status('Body không phải JSON hợp lệ: ' + e.message, 'err'); } }
+  function validate() { saveForm(); if ($('fMode').value !== 'raw') { api.status('Kiểm tra (LT3) chỉ dùng cho body raw (JSON).', 'warn'); return; } post('validate', { name: $('fName').value, body: $('fBody').value }); }
   function send(confirmWrite) { if (!S.p || S.sel < 0) return; saveForm(); api.busy(true); post('send', payload({ index: S.sel, confirmWrite: !!confirmWrite })); }
   $('bFormat').onclick = format; $('bValidate').onclick = validate; $('bSend').onclick = () => send(false);
   $('bFormDoc').onclick = () => { let form = $('fName').value; try { form = JSON.parse($('fBody').value).form || form; } catch { } post('form-doc', { form }); };
@@ -248,7 +276,13 @@
   $('selProject').onchange = () => { const n = $('selProject').value; if (n) post('open', { name: n }); };
   $('bSave').onclick = () => { if (S.p) post('save', payload()); };
   $('bDelete').onclick = () => { if (S.original) ask('Xoá dự án?', 'Xoá dự án <b>' + esc(S.original) + '</b> khỏi máy này (file trong thư mục ApiProjects)?', 'Xoá', () => post('delete', { name: S.original })); };
-  $('bExport').onclick = () => { if (S.p) post('export-postman', payload()); };
+  $('bExport').onclick = () => {
+    if (!S.p) return; collect();
+    const secret = (S.p.Headers || []).concat(...S.p.Forms.map((f) => f.Headers || [])).some((h) => h.Secret);
+    if (!secret) { post('export-postman', payload()); return; }
+    ask('Xuất Postman', 'Dự án có header bí mật (Authentication / Authorization…).<br><b>Kèm giá trị</b>: file chạy ngay trong Postman nhưng chứa thông tin đăng nhập dạng chữ — đừng chia sẻ / commit.<br><b>Không kèm</b>: thay bằng biến collection để trống, nhập trong Postman.',
+      'Kèm giá trị', () => post('export-postman', payload({ withSecrets: true })), 'Không kèm', () => post('export-postman', payload({ withSecrets: false })));
+  };
   $('bImport').onclick = () => post('import-postman');
   $('bOld').onclick = () => post('import-old');
   $('bToken').onclick = () => { if (S.p) { api.busy(true); post('token', payload()); } };
@@ -286,10 +320,16 @@
   };
   $('docClose').onclick = () => $('mDoc').classList.remove('on');
   // Hộp xác nhận trong trang (thay confirm của trình duyệt): ask(tiêu đề, nội dung html, chữ nút, việc làm khi đồng ý)
-  let askOk = null;
-  function ask(title, html, okText, onOk) { $('wTitle').textContent = title; $('wText').innerHTML = html; $('wOk').textContent = okText; askOk = onOk; $('mWrite').classList.add('on'); $('wOk').focus(); }
-  $('wCancel').onclick = () => { $('mWrite').classList.remove('on'); askOk = null; api.busy(false); };
-  $('wOk').onclick = () => { $('mWrite').classList.remove('on'); const f = askOk; askOk = null; if (f) f(); };
+  // altText / onAlt (tuỳ chọn): nút lựa chọn thứ hai.
+  let askOk = null, askAlt = null;
+  function ask(title, html, okText, onOk, altText, onAlt) {
+    $('wTitle').textContent = title; $('wText').innerHTML = html; $('wOk').textContent = okText; askOk = onOk; askAlt = onAlt || null;
+    $('wAlt').textContent = altText || ''; $('wAlt').style.display = onAlt ? '' : 'none';
+    $('mWrite').classList.add('on'); $('wOk').focus();
+  }
+  $('wCancel').onclick = () => { $('mWrite').classList.remove('on'); askOk = askAlt = null; api.busy(false); };
+  $('wOk').onclick = () => { $('mWrite').classList.remove('on'); const f = askOk; askOk = askAlt = null; if (f) f(); };
+  $('wAlt').onclick = () => { $('mWrite').classList.remove('on'); const f = askAlt; askOk = askAlt = null; if (f) f(); };
 
   // ---------------------------------------------------------------- kết quả
   document.querySelectorAll('.rtabs button').forEach((b) => b.onclick = () => showTab(b.dataset.t));
@@ -341,7 +381,7 @@
       $('resCard').style.display = '';
       $('rPill').textContent = 'HTTP ' + r.status + (r.ok ? ' · OK' : ' · Lỗi'); $('rPill').className = 'pill ' + (r.ok ? 'ok' : 'err');
       $('rMeta').textContent = r.ms + ' ms' + (r.message ? ' · ' + r.message : '') + ' · ' + r.url;
-      $('rResp').textContent = pretty(r.responseText); $('rReq').textContent = 'POST ' + r.url + '\n\n' + pretty(r.requestBody);
+      $('rResp').textContent = pretty(r.responseText); $('rReq').textContent = (r.requestHead || 'POST ' + r.url) + '\n\n' + pretty(r.requestBody);
       const host = $('rTables');
       host.innerHTML = (r.tables || []).length ? r.tables.map((t) => '<div class="tname">' + esc(t.name) + ' <span class="muted">(' + t.rows.length + ' dòng)</span></div><div class="tbl"><table><thead><tr><th>#</th>' + t.columns.map((c) => '<th>' + esc(c) + '</th>').join('') +
         '</tr></thead><tbody>' + t.rows.slice(0, 500).map((row, i) => '<tr><td class="muted">' + (i + 1) + '</td>' + row.map((v) => '<td>' + (v == null ? '<span class="muted">null</span>' : esc(v)) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>').join('')

@@ -289,13 +289,38 @@ public class FileLookupService
                     if (!addedAny) break; // fixed point — no new controller names discovered
                 }
 
+                // Form in của file Report gọi sang file Report khác: Report\GLTran.xml nạp &GLTranReport; (Report\Include\GLTranReportBI.xml) có
+                // <form id="810" reportFile="GLTranReport_01" controller="GLTranReport"> = in "Chứng từ hạch toán" bằng Report\GLTranReport.xml.
+                // CHỈ lấy Report\X (không kéo Dir/Grid/Filter X) và chỉ khi X mang tên controller của menu: AITran.xml cũng có form controller="SVTran"
+                // (in hoá đơn của SVTran) — file của menu khác, không đưa vào gói AITran.
+                var reportDir = Path.Combine(controllersKey, "Report");
+                var reportPrefix = reportDir + Path.DirectorySeparatorChar;
+                var menuNames = aspxControllers.Append(sysId).Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim()).ToList();
+                bool OwnName(string name) => menuNames.Any(n => name.Contains(n, StringComparison.OrdinalIgnoreCase));
+                var reportFiles = scannedFiles.Where(f => f.StartsWith(reportPrefix, StringComparison.OrdinalIgnoreCase)).ToList();
+                var reportExtras = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var reportControllers = new HashSet<string>(sysIds, StringComparer.OrdinalIgnoreCase);
+                for (var i = 0; i < reportFiles.Count && i < 50; i++)
+                {
+                    var reportFile = reportFiles[i];
+                    IEnumerable<string> formControllers = useCache
+                        ? session!.Cache.GetOrCompute("rptctl", reportFile, session, rd => ExtractReportFormControllers(reportFile, rd))
+                        : ExtractReportFormControllers(reportFile, DirectRead);
+                    foreach (var name in formControllers)
+                    {
+                        if (!OwnName(name) || !reportControllers.Add(name)) continue;
+                        foreach (var f in useCache ? index.MenuByName[name] : index.MenuFiles.Where(f => Path.GetFileNameWithoutExtension(f).Equals(name, StringComparison.OrdinalIgnoreCase)))
+                            if (string.Equals(Path.GetDirectoryName(f), reportDir, StringComparison.OrdinalIgnoreCase) && reportExtras.Add(f))
+                                reportFiles.Add(f);
+                    }
+                }
+
                 // File .rpt/Excel không mang tên sysId (vd Report\SVTran.xml khai
                 // reportFile="SVTran_02", templateFile="SVTran_02FC") — lấy theo đúng những tên
                 // được khai trong các file khai báo ở thư mục Report của menu này, tìm trong
                 // Controllers\Templates (Rpt\*.rpt, Excel\*.xlsx trên site thật).
-                var reportPrefix = Path.Combine(controllersKey, "Report") + Path.DirectorySeparatorChar;
                 var templateNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var reportFile in scannedFiles.Where(f => f.StartsWith(reportPrefix, StringComparison.OrdinalIgnoreCase)))
+                foreach (var reportFile in reportFiles)
                     templateNames.UnionWith(useCache
                         ? session!.Cache.GetOrCompute("tpl", reportFile, session, rd => ExtractReportTemplateNames(reportFile, rd))
                         : ExtractReportTemplateNames(reportFile, DirectRead));
@@ -310,6 +335,21 @@ public class FileLookupService
                             .Where(f => f.StartsWith(templatesPrefix, StringComparison.OrdinalIgnoreCase)
                                         && templateNames.Contains(Path.GetFileNameWithoutExtension(f))))
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                templateFiles.UnionWith(reportExtras);
+
+                // Include SYSTEM mà file Report dùng, nằm trong chính thư mục Report (Report\GLTran.xml: &GLTranReport; → Report\Include\GLTranReportBI.xml,
+                // &GLTranReportSql; → Report\Include\GLTranReportSql.txt) — tên khác sysId nên dò theo tên không ra. Chỉ lấy include mang tên controller
+                // của menu / của file Report đó; Report\Include\BaseCurrency.xml, Separate.xml... dùng chung mọi chứng từ, site nào cũng có.
+                foreach (var reportFile in reportFiles)
+                {
+                    var reportName = Path.GetFileNameWithoutExtension(reportFile);
+                    foreach (var included in (IEnumerable<string>)(useCache
+                        ? session!.Cache.GetOrCompute("inc", reportFile, session, rd => ResolveReferencedIncludes(reportFile, rd))
+                        : ResolveReferencedIncludes(reportFile, DirectRead)))
+                        if (included.StartsWith(reportPrefix, StringComparison.OrdinalIgnoreCase)
+                            && (OwnName(Path.GetFileName(included)) || Path.GetFileName(included).Contains(reportName, StringComparison.OrdinalIgnoreCase)))
+                            templateFiles.Add(included);
+                }
 
                 // File trong Controllers\Lookup mà các file của menu dùng (controller="…Lookup" / "&Identity;Lookup", @$relType = 'Lookup') —
                 // CHỈ lấy trong thư mục Lookup: RDTran khai quan hệ Lookup thì là Lookup\RDTran, không kéo theo Dir\RDTran, Grid\RDTran...
@@ -971,18 +1011,20 @@ public class FileLookupService
                 list.Add(m.Groups[2].Value.Trim());
             }
 
-        void AddName(string raw)
+        // Entity có thể đứng cả tên (reportFile="&PrintVATFile;") hoặc ghép giữa tên (reportFile="GLTranReport_01&Conditional.GLTranReport.ApprovedBy;",
+        // .ent khai giá trị "_a" trong khối điều kiện và "" ngoài khối) — thay lần lượt từng giá trị, lấy mọi tên ghép ra.
+        void AddName(string raw, int depth = 0)
         {
             raw = raw.Trim();
             var entity = EntityRefRegex.Match(raw);
-            if (entity.Success && entity.Value.Length == raw.Length)
+            if (!entity.Success)
             {
-                if (entityValues.TryGetValue(entity.Groups[1].Value, out var values))
-                    foreach (var v in values)
-                        if (IdentifierRegex.IsMatch(v)) names.Add(v);
+                if (IdentifierRegex.IsMatch(raw)) names.Add(raw);
+                return;
             }
-            else if (IdentifierRegex.IsMatch(raw))
-                names.Add(raw);
+            if (depth >= 4 || !entityValues.TryGetValue(entity.Groups[1].Value, out var values)) return;
+            foreach (var v in values.Distinct(StringComparer.Ordinal))
+                AddName(raw[..entity.Index] + v + raw[(entity.Index + entity.Length)..], depth + 1);
         }
 
         foreach (var content in contents)
@@ -1005,6 +1047,21 @@ public class FileLookupService
             }
         }
         return names;
+    }
+
+    private static readonly Regex ReportFormTagRegex = new(@"<form\b[^>]*>", RegexOptions.Compiled);
+
+    /// <summary>Tên controller mà các &lt;form ... controller="X"&gt; của 1 file Report (và file nó nạp qua entity) khai — form in chạy bằng Report\X.</summary>
+    private static List<string> ExtractReportFormControllers(string reportFilePath, Func<string, string?> read)
+    {
+        var found = new List<string>();
+        if (!ScannableExtensions.Contains(Path.GetExtension(reportFilePath)) || read(reportFilePath) is not { } content) return found;
+        var (texts, entities) = DtdIncludeResolver.Resolve(reportFilePath, content, read);
+        foreach (var text in texts)
+            foreach (Match tag in ReportFormTagRegex.Matches(text))
+                if (ControllerAttrRegex.Match(tag.Value) is { Success: true } m && ExpandName(m.Groups[1].Value, entities) is { } name)
+                    found.Add(name);
+        return found.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     // Folder names under Controllers whose files are already the compiled/encrypted "*.f"

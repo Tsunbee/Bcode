@@ -80,7 +80,9 @@ internal sealed class FileParseCache
     // 6: "rel" quét thêm nội dung các file include (SYSTEM entity: CompactMode.ent, ImportXmlScript.txt...) — kết quả cũ thiếu form như SRInvoiceFilter, SRBillFilter.
     // 7: "rel" thay entity trong controller="&X;..." (controller="&DiscountPromotion.Pre;DiscountPromotionGift") và showForm(']]>&X;<![CDATA['),
     //    chỉ nạp include được gọi tới (%X; / &X;) với mọi đuôi file (DiscountPromotion.SVTran...) + kind mới "lkp" (file trong Controllers\Lookup).
-    private const int SchemaVersion = 7;
+    // 8: "tpl" thay entity nằm giữa tên (reportFile="GLTranReport_01&Conditional.GLTranReport.ApprovedBy;" → GLTranReport_01, GLTranReport_01_a)
+    //    + kind mới "rptctl" (form Report khai controller="GLTranReport" → Report\GLTranReport.xml).
+    private const int SchemaVersion = 8;
     private const int MaxEntries = 100_000;
     public const int PruneDays = 60;
     private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(3);

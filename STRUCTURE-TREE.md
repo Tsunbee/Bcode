@@ -42,7 +42,7 @@ Bcode.App/
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
-│   ├── MultiResultView.cs  194
+│   ├── MultiResultView.cs  204
 │   ├── NativeAdvanceNoteControl.cs  1128
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
@@ -94,7 +94,7 @@ Bcode.App/
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  491
 │   ├── RawSqlControl.cs  2539
-│   ├── ResultExport.cs  135
+│   ├── ResultExport.cs  146
 │   ├── ResultGridMenu.cs  530
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
@@ -257,8 +257,8 @@ Bcode.App/
 │   ├── FastCatalogRules.cs  974
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FileLookupService.cs  1236
-│   ├── FileParseCache.cs  403
+│   ├── FileLookupService.cs  1293
+│   ├── FileParseCache.cs  405
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  501

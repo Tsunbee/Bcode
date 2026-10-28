@@ -30,6 +30,7 @@ public static class FastGhostRules
     };
 
     private static readonly Regex FilterIfRx = new(@"^\s*IF\s+@(?<v>\w+)\s*<>\s*''\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex FilterIfOpenRx = new(@"^\s*IF\s+@(?<v>\w+)\s+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex ExecRx = new(@"\bEXEC(?:UTE)?\s+(?:@\w+\s*=\s*)?(?<n>(?:\[?\w+\]?\.)?\[?[\w$]+\]?)\s+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex FuncOpenRx = new(@"(?<n>(?:\[?\w+\]?\.)?[\w$]+)\($", RegexOptions.Compiled);
     // tên cột phải gõ xong (có dấu cách sau), ≥ 3 ký tự (ten_kh, b.ten_vt, cname) — tránh gợi ý khi mới gõ alias "b" / "b."
@@ -69,6 +70,8 @@ public static class FastGhostRules
     {
         var kb = knowledge ?? Knowledge;
         if (ExplainRules(text, caret, columnTypes, kb, ignoreThresholds) is { } g) return ReferenceEquals(g, Declined) ? null : g;
+        // dòng trống → câu hay viết tiếp sau dòng code phía trên
+        if (NextLine(text, caret, kb, ignoreThresholds ? 0 : kb.MinShareOf("next"), false) is { } nx) return nx;
         if (GenericSplit(text, caret) is not var (before, after)) return null;
         var m = SameCandidates(before, after);
         if (ignoreThresholds) return SameFile(m, 1) ?? LineStart(before, kb, 0);
@@ -89,6 +92,8 @@ public static class FastGhostRules
         var kb = knowledge ?? Knowledge;
         // gọi tay: luật / ô ma trận riêng lấy cách viết hay gặp nhất, không qua ngưỡng (vd DECLARE @Key → kiểu hay dùng nhất của @Key)
         if (ExplainRules(text, caret, columnTypes, kb, true) is { } g && !ReferenceEquals(g, Declined)) return g.Text;
+        // dòng trống: câu tiếp theo theo ngưỡng riêng của chế độ dài (hiệu chỉnh để đúng ≥ 60%), cho gợi ý phần đầu chắc chắn
+        if (NextLine(text, caret, kb, kb.MinShareOf("next:long"), true) is { } nx) return nx.Text;
         if (GenericSplit(text, caret) is not var (before, after)) return null;
         if (SameCandidates(before, after) is { } m)
             foreach (var k in new[] { 0, 8, 3, 2, 1 })
@@ -158,9 +163,21 @@ public static class FastGhostRules
                 return Choose(kf.Pattern, t => style.Apply(t), before, ignoreThresholds ? 0 : kf.MinShare) is { } c && (ignoreThresholds || c.Share >= kf.MinShare)
                     ? new Ghost(lead + c.Text, "filter", c.Share) : Declined;
             }
+            // Gợi ý Fast dài: biến chưa gặp → ghép (dòng lọc gần nhất của file + cột của biến), xem ComposeFilter
+            if (ignoreThresholds && ComposeFilter(v, text, before, kb) is { } cf) return new Ghost(lead + cf, "filter:compose", 0.5);
             // đã có kiến thức mà biến này chưa gặp → không đoán (kể cả gợi ý chung: đo trên KOG, dòng lọc đoán theo đầu dòng chỉ đúng ~89%)
             if (!GuessWhenUnknown && kb.Has("filter")) return Declined;
             return FilterLine(v, AliasOf(text)) is { } f ? new Ghost(lead + f, "guess", 0) : null;
+        }
+
+        // ---- Gợi ý Fast dài: "IF @Customer " (chưa gõ <> '') với tham số chuỗi → cả điều kiện lọc ----
+        if (ignoreThresholds && FilterIfOpenRx.Match(line) is { Success: true } fo2 && IsFilterParam(fo2.Groups["v"].Value, before))
+        {
+            var v = fo2.Groups["v"].Value;
+            string? r = null;
+            if (kb.Find("filter", v, "") is { } kf && Choose(kf.Pattern, FilterStyle.Of(before).Apply, before, 0) is { } c) r = c.Text;
+            r ??= ComposeFilter(v, text, before, kb);
+            if (r is not null) return new Ghost("<> '' " + r, "filter:open", 0.5);
         }
 
         // ---- REPLACE(RTRIM(@X), → '''', '''''') ----
@@ -503,6 +520,163 @@ public static class FastGhostRules
         return field is null ? null : $"SET @Key = @Key + ' and {alias}{field} like ''' + {Esc(v)} + '%'''";
     }
 
+    // ---------------------------------------------------------------- ghép điều kiện lọc cho tham số chưa gặp (chỉ "Gợi ý Fast dài")
+
+    /// <summary>Dòng lọc "đơn giản" trong file: IF @v &lt;&gt; '' SET @Key = @Key + ' and [alias.]cột like|= ''' + REPLACE([RTRIM(]@v … — làm khuôn để ghép.</summary>
+    private static readonly Regex SimpleFilterRx = new(
+        @"(?im)^[ \t]*IF\s+@(?<v>\w+)\s*<>\s*''\s*(?<r>SET\s+@Key\s*=\s*@Key\s*\+\s*(?:CASE\s+WHEN\s+@Key\s*=\s*''\s+THEN\s+''\s+ELSE\s+' and '\s+END\s*\+\s*'|' and\s+)(?:[A-Za-z]\w{0,2}\.)?(?<c>[A-Za-z_]\w*)\s+(?:like|=)\s+'''\s*\+\s*REPLACE\s*\(\s*(?:RTRIM\s*\(\s*)?@\k<v>\b[^\n]*)$",
+        RegexOptions.Compiled);
+
+    /// <summary>Tên biến không phải tham số lọc dù là chuỗi.</summary>
+    private static readonly HashSet<string> NonFilterVars = new(StringComparer.OrdinalIgnoreCase) { "Unit", "UnitKey", "Language", "Key", "q", "s", "UserID", "Admin", "filterKey", "queryJoin", "TableName" };
+
+    /// <summary>@v là tham số / biến chuỗi (char / varchar / nvarchar, dài ≥ 2) khai báo phía trên và không thuộc nhóm biến hệ thống.</summary>
+    private static bool IsFilterParam(string v, string before) =>
+        !NonFilterVars.Contains(v)
+        && DeclTypeRx.Matches(before).LastOrDefault(m => m.Groups["n"].Value.Equals(v, StringComparison.OrdinalIgnoreCase)) is { } d
+        && Regex.IsMatch(d.Groups["t"].Value, @"^N?VARCHAR|^N?CHAR\s*\(\s*(?:[2-9]|\d{2,}|max)", RegexOptions.IgnoreCase);
+
+    /// <summary>Cột trong 1 cách viết lọc ("' and {a}ma_kh like", "GetCodeFilter('ma_bp'", "GetAccountFilter('a.tk'"…).</summary>
+    private static readonly Regex FilterColRx = new(@"(?<![\w@$#])(?:\{a\}|[A-Za-z]\w{0,2}\.)?(?<c>(?:ma|so|nh|loai|tk)(?:_\w*)?)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Đuôi làm đổi cách lọc: …List (trong danh sách), …From / …To (khoảng).</summary>
+    private static readonly Regex RoleSuffixRx = new(@"^(?<b>[A-Za-z]\w*?)(?<s>List|From|To)$", RegexOptions.Compiled);
+
+    /// <summary>Tên cùng nghĩa với @v: bỏ tiền tố kiểu Hungary (cAccount, pCustomer → Account, Customer) và đuôi không đổi nghĩa (…ID, …Code).</summary>
+    private static List<string> SameMeaningNames(string v)
+    {
+        var core = Regex.Replace(v, "^[a-z](?=[A-Z])", "");
+        return new[] { core, Regex.Replace(core, "(ID|Id|Code)$", "") }
+            .Where(x => x.Length >= 2 && !x.Equals(v, StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>Mọi ô lọc của ma trận (lớp trên trước, bỏ ô chặn).</summary>
+    private static IEnumerable<(string Key, Pattern P)> FilterCells(KnowledgeBase kb)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var k = kb; k is not null; k = k.Fallback)
+            foreach (var (key, p) in k.Filters)
+                if (!key.Contains('|') && p.Options.Count > 0 && seen.Add(key)) yield return (key, p);
+    }
+
+    /// <summary>Cột mà tham số @v lọc. Ứng viên: chỗ dùng ngay trong script (cột = @v / cột like @v) → ô lọc của tên cùng nghĩa trong ma trận →
+    /// bảng biến → cột chuẩn Fast → từ điển field (header.xml). Nhiều ứng viên thì ưu tiên cột đã xuất hiện trong script (dự án đặt cột riêng, vd ma_ns).</summary>
+    private static string? ColumnFor(string v, string text, KnowledgeBase kb)
+    {
+        if (Regex.Match(text, @"(?<![\w@.])(?:[A-Za-z]\w{0,2}\.)?(?<c>(?:ma|so|nh|loai|tk)_?\w*)\s*(?:=|like)\s*@" + Regex.Escape(v) + @"\b", RegexOptions.IgnoreCase) is { Success: true } use)
+            return use.Groups["c"].Value.ToLowerInvariant();
+        var names = new[] { v }.Concat(SameMeaningNames(v)).ToList();
+        var cands = new List<string>();
+        foreach (var s in names)
+            if (kb.Find("filter", s, "") is { } kf && kf.Pattern.Options.Count > 0 && FilterColRx.Match(kf.Pattern.Text) is { Success: true } km) cands.Add(km.Groups["c"].Value.ToLowerInvariant());
+        foreach (var s in names)
+            if (FilterFields.TryGetValue(s, out var f)) cands.Add(f);
+        foreach (var s in names)
+            if (FieldDictionaryService.Instance.FieldForController(s) is { } fd) cands.Add(fd.ToLowerInvariant());
+        cands = cands.Distinct().ToList();
+        return cands.FirstOrDefault(c => Regex.IsMatch(text, @"(?<![\w@])" + Regex.Escape(c) + @"\b", RegexOptions.IgnoreCase)) ?? cands.FirstOrDefault();
+    }
+
+    /// <summary>Thứ tự các cách ghép (đo trên KOG, xem <see cref="FastGhostMiner.EvaluateCompose"/>): cách đứng trước có gợi ý thì lấy.</summary>
+    public static string[] ComposeOrder { get; set; } = { "file" };
+
+    /// <summary>Các cách "ghép" dòng lọc cho tham số @v chưa có ô trong ma trận (chỉ "Gợi ý Fast dài"):
+    /// <list type="bullet">
+    /// <item>same — tên cùng nghĩa đã có ô (@cAccount → ô @Account, @CustomerID → ô @Customer): lấy cách viết của ô đó, đổi tên biến.</item>
+    /// <item>role — tên có đuôi đổi cách lọc (…List / …From / …To): khuôn hay gặp nhất của các ô cùng đuôi (vd …List → GetCodeFilter('cột', 'inlist', @v)),
+    /// thay cột của gốc tên (@JobList → ma_vv).</item>
+    /// <item>file — dòng lọc đơn giản GẦN NHẤT trong file làm khuôn (giữ văn phong like / =, RTRIM, '%', alias, CASE WHEN @Key …), thay biến + cột.</item>
+    /// <item>std — dòng lọc chuẩn theo bảng biến / từ điển field (FilterLine).</item>
+    /// </list></summary>
+    public static IEnumerable<(string How, string Text)> ComposeCandidates(string v, string text, string before, KnowledgeBase kb)
+    {
+        if (!IsFilterParam(v, before)) yield break;
+        var style = FilterStyle.Of(before);
+        string Rename(string t, string from) => Regex.Replace(t, "@" + Regex.Escape(from) + @"\b", "@" + v, RegexOptions.IgnoreCase);
+
+        foreach (var s in SameMeaningNames(v))
+            if (kb.Find("filter", s, "") is { } kf && kf.Pattern.Options.Count > 0) { yield return ("same", style.Apply(Rename(kf.Pattern.Text, s))); break; }
+
+        if (RoleSuffixRx.Match(v) is { Success: true } rm && ColumnFor(rm.Groups["b"].Value, text, kb) is { } rcol)
+        {
+            var suffix = rm.Groups["s"].Value;
+            var votes = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var (key, p) in FilterCells(kb))
+            {
+                if (RoleSuffixRx.Match(key) is not { Success: true } km || !km.Groups["s"].Value.Equals(suffix, StringComparison.OrdinalIgnoreCase)) continue;
+                var t = p.Options[0].Text;
+                if (FilterColRx.Match(t) is not { Success: true } cm) continue;
+                var tpl = Regex.Replace(t.Remove(cm.Groups["c"].Index, cm.Groups["c"].Length).Insert(cm.Groups["c"].Index, "\u0001"), "@" + Regex.Escape(key) + @"\b", "@\u0002", RegexOptions.IgnoreCase);
+                votes[tpl] = votes.GetValueOrDefault(tpl) + 1;
+            }
+            if (votes.Count > 0 && votes.MaxBy(x => x.Value) is var best && best.Value >= 2)
+                yield return ("role", style.Apply(best.Key.Replace("\u0001", rcol).Replace("\u0002", v)));
+        }
+
+        var col = ColumnFor(v, text, kb);
+        if (col is not null)
+        {
+            var tpl = SimpleFilterRx.Matches(before).LastOrDefault(m => !m.Groups["v"].Value.Equals(v, StringComparison.OrdinalIgnoreCase))
+                      ?? SimpleFilterRx.Matches(text[Math.Min(before.Length, text.Length)..]).FirstOrDefault(m => !m.Groups["v"].Value.Equals(v, StringComparison.OrdinalIgnoreCase));
+            if (tpl is not null)
+            {
+                var r = tpl.Groups["r"];
+                var c = tpl.Groups["c"];
+                yield return ("file", Rename(r.Value[..(c.Index - r.Index)] + col + r.Value[(c.Index - r.Index + c.Length)..], tpl.Groups["v"].Value).TrimEnd());
+            }
+        }
+
+        if (FilterLine(v, AliasOf(text)) is { } std) yield return ("std", std);
+        else if (col is not null) yield return ("std", style.Apply($"SET @Key = @Key + ' and {{a}}{col} like ''' + REPLACE(RTRIM(@{v}), '''', '''''') + '%'''"));
+    }
+
+    /// <summary>Dòng lọc ghép cho @v theo <see cref="ComposeOrder"/>; null = không ghép được.</summary>
+    public static string? ComposeFilter(string v, string text, string before, KnowledgeBase? kb = null)
+    {
+        var all = ComposeCandidates(v, text, before, kb ?? Knowledge).ToList();
+        foreach (var how in ComposeOrder)
+            if (all.FirstOrDefault(x => x.How == how) is { Text: { } t }) return t;
+        return null;
+    }
+
+    // ---------------------------------------------------------------- câu tiếp theo trên dòng trống ("next")
+
+    /// <summary>Số token đầu dòng làm khoá của ma trận câu tiếp theo.</summary>
+    public const int NextKeyTokens = 6;
+
+    /// <summary>Khoá 1 dòng code cho ma trận câu tiếp theo: ≤ <see cref="NextKeyTokens"/> token đầu dòng (như ma trận đầu dòng, alias → {1}…);
+    /// null = dòng không có code (trống / chỉ comment).</summary>
+    public static string? NextKey(string line)
+    {
+        var toks = Tokens(StripLineComment(line));
+        return toks.Count == 0 ? null : LineKey(toks.Take(NextKeyTokens)).Key;
+    }
+
+    /// <summary>Các dòng có code (bỏ dòng trống, dòng chỉ có comment "--"), giữ nguyên chữ.</summary>
+    public static IEnumerable<string> CodeLines(IEnumerable<string> lines) => lines.Where(l => StripLineComment(l).Trim().Length > 0 && !l.TrimStart().StartsWith("/*") && !l.TrimStart().StartsWith("*"));
+
+    /// <summary>"Câu tiếp theo": con trỏ trên dòng trống → dòng hay viết ngay sau dòng code phía trên trong store thật (ô theo 2 dòng code trước rồi
+    /// theo 1 dòng), vd sau "IF @filterKey &lt;&gt; '' SET @Key = @Key + CASE …" → "SET @Key = dbo.FastBusiness$Function$System$GetCheckKey(@Key)".
+    /// Bỏ cách viết dùng biến chưa khai báo, và cách đã có ngay bên dưới (đang chèn giữa code có sẵn). Dòng chưa thụt lề thì thụt theo dòng trên.</summary>
+    public static Ghost? NextLine(string text, int caret, KnowledgeBase kb, double minShare, bool partial)
+    {
+        caret = Math.Clamp(caret, 0, text.Length);
+        caret -= Regex.Matches(text[..caret], "\r\n").Count;
+        text = text.Replace("\r\n", "\n");
+        var lineStart = caret == 0 ? 0 : text.LastIndexOf('\n', caret - 1) + 1;
+        var lineEnd = text.IndexOf('\n', caret);
+        if (lineEnd < 0) lineEnd = text.Length;
+        var line = text[lineStart..caret];
+        if (line.Trim().Length > 0 || text[caret..lineEnd].Trim().Length > 0 || lineStart == 0) return null;
+        var prev = CodeLines(text[..(lineStart - 1)].Split('\n').Reverse()).Take(2).ToList();
+        if (prev.Count == 0 || NextKey(prev[0]) is not { } k1) return null;
+        if (kb.Find("next", k1, prev.Count > 1 ? NextKey(prev[1]) ?? "" : "") is not { } k) return null;
+        var below = CodeLines(text[lineEnd..].Split('\n')).Take(3).Select(l => FastGhostMiner.Norm(StripLineComment(l))).ToHashSet();
+        var p = new Pattern(k.Pattern.Options.Where(o => !below.Contains(FastGhostMiner.Norm(o.Text))).ToList(), k.Pattern.Count);
+        if (Choose(p, t => t, text[..caret], partial ? minShare : 0) is not { } c || c.Share < minShare) return null;
+        return new Ghost((line.Length == 0 ? Indent(prev[0]) : "") + c.Text, "next", c.Share);
+    }
+
     /// <summary>Tham số của lời gọi: lời gọi cùng routine đã có trong script → y như vậy; không thì "cách gọi quen thuộc" của SqlHintCatalog.</summary>
     private static Ghost? CallArgs(string typedName, string ctx, string line, string before, string others, bool isFunction, KnowledgeBase kb, bool ignoreThresholds)
     {
@@ -637,6 +811,8 @@ public static class FastGhostRules
         public Dictionary<string, Pattern> Lines { get; init; } = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>DECLARE @biến → kiểu hay dùng nhất của biến tên đó (khoá = tên biến không @).</summary>
         public Dictionary<string, Pattern> Decls { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Câu tiếp theo: khoá = đầu dòng code phía trên (như ma trận đầu dòng), ô "khoá|đầu dòng trên nữa" khi 2 dòng cho biết rõ hơn → cả dòng kế.</summary>
+        public Dictionary<string, Pattern> Nexts { get; init; } = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>"call" / "func" / "filter" → ngưỡng + độ chính xác đo được. Thiếu = dùng <see cref="DefaultMinShare"/>.</summary>
         public Dictionary<string, KindQuality> Quality { get; init; } = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>Độ chính xác của các luật cố định (song ngữ, REPLACE…) đo cùng lúc — chỉ để báo cáo.</summary>
@@ -644,7 +820,7 @@ public static class FastGhostRules
         public string Source { get; init; } = "";
         public KnowledgeBase? Fallback { get; init; }
 
-        public Dictionary<string, Pattern> Table(string kind) => kind switch { "call" => Calls, "func" => Funcs, "filter" => Filters, "line" => Lines, "decl" => Decls, _ => NoEntries };
+        public Dictionary<string, Pattern> Table(string kind) => kind switch { "call" => Calls, "func" => Funcs, "filter" => Filters, "line" => Lines, "decl" => Decls, "next" => Nexts, _ => NoEntries };
         private static readonly Dictionary<string, Pattern> NoEntries = new();
         public double MinShareOf(string kind) => QualityOf(kind)?.MinShare ?? DefaultMinShare;
 
@@ -720,7 +896,7 @@ public static class FastGhostRules
         else Learned[dbKey] = (stamp, kb = LoadKnowledgeFile(path, shared));
         // lớp sửa của người dùng (✘ rồi gõ cách đúng ở Hỏi Fast) nằm trên cùng: dự án nào cũng dùng cách đã sửa trước
         return UserFixes() is { } fx
-            ? new KnowledgeBase { Calls = fx.Calls, Funcs = fx.Funcs, Filters = fx.Filters, Decls = fx.Decls, Lines = fx.Lines, Source = fx.Source, Fallback = kb }
+            ? new KnowledgeBase { Calls = fx.Calls, Funcs = fx.Funcs, Filters = fx.Filters, Decls = fx.Decls, Lines = fx.Lines, Nexts = fx.Nexts, Source = fx.Source, Fallback = kb }
             : kb;
     }
 
@@ -737,12 +913,12 @@ public static class FastGhostRules
             : (FastGhostMiner.AdjustmentsSource?.Invoke() ?? Array.Empty<FastGhostMiner.Adjustment>()).Where(a => a.Prefer).ToList();
         if (prefer.Count > 0)
         {
-            var tables = new[] { "call", "func", "filter", "decl", "line" }.ToDictionary(k => k, _ => new Dictionary<string, Pattern>(StringComparer.OrdinalIgnoreCase));
+            var tables = new[] { "call", "func", "filter", "decl", "line", "next" }.ToDictionary(k => k, _ => new Dictionary<string, Pattern>(StringComparer.OrdinalIgnoreCase));
             foreach (var a in prefer.Where(a => tables.ContainsKey(a.Kind)))   // sửa sau ghi đè sửa trước
                 tables[a.Kind][a.Key] = new Pattern(new List<Option> { new(a.Text, 1000) }, 1001);
             kb = new KnowledgeBase
             {
-                Calls = tables["call"], Funcs = tables["func"], Filters = tables["filter"], Decls = tables["decl"], Lines = tables["line"],
+                Calls = tables["call"], Funcs = tables["func"], Filters = tables["filter"], Decls = tables["decl"], Lines = tables["line"], Nexts = tables["next"],
                 Source = "Cách viết người dùng đã sửa ở Hỏi Fast",
             };
         }
@@ -762,6 +938,7 @@ public static class FastGhostRules
             var filters = new Dictionary<string, Pattern>(StringComparer.OrdinalIgnoreCase);
             var lines = new Dictionary<string, Pattern>(StringComparer.OrdinalIgnoreCase);
             var decls = new Dictionary<string, Pattern>(StringComparer.OrdinalIgnoreCase);
+            var nexts = new Dictionary<string, Pattern>(StringComparer.OrdinalIgnoreCase);
             var quality = new Dictionary<string, KindQuality>(StringComparer.OrdinalIgnoreCase);
             var rules = new Dictionary<string, KindQuality>(StringComparer.OrdinalIgnoreCase);
             KindQuality ReadQ(System.Text.Json.JsonElement e) => new(
@@ -773,7 +950,7 @@ public static class FastGhostRules
                 foreach (var k in kinds.EnumerateObject())
                 {
                     quality[k.Name] = ReadQ(k.Value);
-                    var d = k.Name switch { "call" => calls, "func" => funcs, "filter" => filters, "line" => lines, "decl" => decls, _ => null };
+                    var d = k.Name switch { "call" => calls, "func" => funcs, "filter" => filters, "line" => lines, "decl" => decls, "next" => nexts, _ => null };
                     if (d is null) continue;
                     // entries: { khoá: [tổng số lần, [cách viết, số lần], [cách viết, số lần] …] }
                     if (k.Value.TryGetProperty("entries", out var es))
@@ -784,7 +961,7 @@ public static class FastGhostRules
                 foreach (var r in rs.EnumerateObject()) rules[r.Name] = ReadQ(r.Value);
             return new KnowledgeBase
             {
-                Calls = calls, Funcs = funcs, Filters = filters, Lines = lines, Decls = decls, Quality = quality, Rules = rules, Fallback = fallback,
+                Calls = calls, Funcs = funcs, Filters = filters, Lines = lines, Decls = decls, Nexts = nexts, Quality = quality, Rules = rules, Fallback = fallback,
                 Source = root.TryGetProperty("source", out var s) ? s.GetString() ?? "" : "",
             };
         }

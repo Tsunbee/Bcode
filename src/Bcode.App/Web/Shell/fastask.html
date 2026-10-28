@@ -55,6 +55,8 @@
   .card .txt.mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: .85rem; max-height: 16rem; overflow: auto; }
   .card pre { margin: 0; padding: .55rem .7rem; background: var(--input); border-top: var(--bw) solid var(--border); font-family: Consolas, "Cascadia Mono", monospace; font-size: .85rem;
               max-height: 22rem; overflow: auto; white-space: pre; tab-size: 4; }
+  .card textarea.edit { display: block; width: 100%; box-sizing: border-box; height: 18rem; border: 0; border-top: var(--bw) solid var(--accent); border-radius: 0;
+              font-family: Consolas, "Cascadia Mono", monospace; font-size: .85rem; resize: vertical; tab-size: 4; white-space: pre; }
   .card .acts { display: flex; flex-wrap: wrap; gap: .35rem; padding: .4rem .7rem .5rem; border-top: var(--bw) solid var(--border); }
   .btn { font: inherit; font-size: .88rem; color: var(--btn-fg, var(--text)); background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.18rem * var(--dens)) .65rem; cursor: pointer; }
   .btn:hover { border-color: var(--accent); }
@@ -138,7 +140,8 @@
     var head = el('div', 'head'); head.appendChild(el('span', 't', c.title)); if (c.source) head.appendChild(el('span', 'src', c.source));
     card.appendChild(head);
     if (c.text) card.appendChild(el('div', 'txt' + (/\n.*\s{2,}/.test(c.text) && !c.code ? ' mono' : ''), c.text));
-    if (c.code) card.appendChild(el('pre', '', c.code));
+    var pre = null;
+    if (c.code) { pre = el('pre', '', c.code); card.appendChild(pre); }
     if ((c.actions && c.actions.length) || c.ref) {
       var acts = el('div', 'acts');
       (c.actions || []).forEach(function (a, i) {
@@ -146,6 +149,28 @@
         b.onclick = function () { act(a); if (a.kind === 'copy') { b.textContent = 'Đã copy'; setTimeout(function () { b.textContent = a.label; }, 1200); } };
         acts.appendChild(b);
       });
+      // ✎ Sửa: sửa ngay nội dung thẻ → Lưu bản sửa = các nút Chèn / Copy dùng bản sửa + Bcode ghi nhớ (như ✘ rồi gõ cách đúng)
+      if (pre && live) {
+        var edit = el('button', 'btn', '✎ Sửa'), ta = null;
+        edit.title = 'Sửa nội dung thẻ rồi lưu — Bcode nhớ bản sửa, lần sau hỏi giống vậy trả lại đúng bản này';
+        edit.onclick = function () {
+          if (!ta) {
+            ta = el('textarea', 'edit'); ta.value = c.code; ta.spellcheck = false;
+            card.replaceChild(ta, pre); ta.focus();
+            edit.textContent = '💾 Lưu bản sửa';
+            return;
+          }
+          var old = c.code, val = ta.value;
+          c.code = val; pre.textContent = val; card.replaceChild(pre, ta); ta = null;
+          edit.textContent = '✎ Sửa';
+          (c.actions || []).forEach(function (a) { if (a.arg === old) a.arg = val; });
+          if (val !== old) {
+            var id = pending('✎ Sửa: ' + c.title);
+            post({ action: 'correct', id: id, ref: c.ref || '', sig: sig || '', title: c.title, text: val });
+          }
+        };
+        acts.appendChild(edit);
+      }
       if (c.ref) {
         // ✔ Đúng / ✘ Chưa đúng ở cuối thẻ, bên phải
         var votes = el('span', 'votes');

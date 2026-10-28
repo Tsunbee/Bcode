@@ -19,6 +19,11 @@
       "precision": 0.9,
       "coverage": 0.162,
       "tested": 17662
+    },
+    "nextsite": {
+      "precision": 0.92,
+      "coverage": 0.091,
+      "tested": 22140
     }
   },
   "kinds": {
@@ -1599,11 +1604,11 @@
             6
           ],
           [
-            "id)",
+            "u.id)",
             5
           ],
           [
-            "u.id)",
+            "id)",
             5
           ],
           [
@@ -18338,6 +18343,1526 @@
           ]
         ]
       }
+    },
+    "next": {
+      "minShare": 0.775,
+      "precision": 0.925,
+      "coverage": 0.091,
+      "tested": 22140,
+      "entries": {
+        ", '' , '' , ''|, '' , getdate ( )": [
+          47,
+          [
+            ", '', '', '', 0, 0, 0, NULL, NULL, NULL",
+            47
+          ]
+        ],
+        ", '' , getdate ( )": [
+          47,
+          [
+            ", '', '', '', 0, 0, 0, NULL, NULL, NULL, '', '', ''",
+            47
+          ]
+        ],
+        ", @sysdatabasename nvarchar ( 128 )": [
+          25,
+          [
+            "AS",
+            25
+          ]
+        ],
+        ", co_dk = case when @no_dk": [
+          33,
+          [
+            ", no_ck = CASE WHEN @no_ck > 0 THEN @no_ck ELSE 0 END, no_ck_nt = CASE WHEN @no_ck_nt > 0 THEN @no_ck_nt ELSE 0 END",
+            28
+          ]
+        ],
+        ", ma_td1 , ma_td2 , ma_td3": [
+          94,
+          [
+            ", s1, s2, s3, s4, s5, s6, s7, s8, s9",
+            55
+          ]
+        ],
+        ", ma_td1 , ma_td2 , ma_td3|, status , datetime0 , datetime2": [
+          65,
+          [
+            ", s1, s2, s3, s4, s5, s6, s7, s8, s9",
+            55
+          ]
+        ],
+        ", no_ck = case when @no_ck": [
+          37,
+          [
+            ", co_ck = CASE WHEN @no_ck < 0 THEN - @no_ck ELSE 0 END, co_ck_nt = CASE WHEN @no_ck_nt < 0 THEN - @no_ck_nt ELSE 0 END",
+            28
+          ]
+        ],
+        ", no_ck = case when @no_ck|, co_dk = case when @no_dk": [
+          33,
+          [
+            ", co_ck = CASE WHEN @no_ck < 0 THEN - @no_ck ELSE 0 END, co_ck_nt = CASE WHEN @no_ck_nt < 0 THEN - @no_ck_nt ELSE 0 END",
+            28
+          ]
+        ],
+        ", no_dk = case when @no_dk": [
+          37,
+          [
+            ", co_dk = CASE WHEN @no_dk < 0 THEN - @no_dk ELSE 0 END, co_dk_nt = CASE WHEN @no_dk_nt < 0 THEN - @no_dk_nt ELSE 0 END",
+            28
+          ]
+        ],
+        ", no_dk = case when @no_dk|update #report set @no_dk = no_dk": [
+          21,
+          [
+            ", co_dk = CASE WHEN @no_dk < 0 THEN - @no_dk ELSE 0 END, co_dk_nt = CASE WHEN @no_dk_nt < 0 THEN - @no_dk_nt ELSE 0 END",
+            21
+          ]
+        ],
+        ", status , datetime0 , datetime2": [
+          69,
+          [
+            ", ma_td1, ma_td2, ma_td3, sl_td1, sl_td2, sl_td3, ngay_td1, ngay_td2, ngay_td3, gc_td1, gc_td2, gc_td3",
+            65
+          ]
+        ],
+        ", {1} , {2} , {3}": [
+          83,
+          [
+            ")",
+            52
+          ]
+        ],
+        ", {1} , {2} , {3}|, ma_td1 , ma_td2 , ma_td3": [
+          76,
+          [
+            ")",
+            52
+          ]
+        ],
+        "@action varchar ( 4 ) ,": [
+          57,
+          [
+            "@UserID INT",
+            53
+          ]
+        ],
+        "@admin bit": [
+          521,
+          [
+            "AS",
+            478
+          ]
+        ],
+        "@balancetype tinyint ,": [
+          48,
+          [
+            "@ResultType TINYINT,",
+            33
+          ]
+        ],
+        "@bilingual tinyint = 0": [
+          23,
+          [
+            "AS",
+            23
+          ]
+        ],
+        "@cdetailkey nvarchar ( 128 ) ,": [
+          61,
+          [
+            "@cDTable CHAR(10),",
+            52
+          ]
+        ],
+        "@cdtable char ( 10 ) ,": [
+          61,
+          [
+            "@cVoucher CHAR(3),",
+            37
+          ]
+        ],
+        "@cdtable char ( 10 ) ,|@cdetailkey nvarchar ( 128 ) ,": [
+          52,
+          [
+            "@cVoucher CHAR(3),",
+            35
+          ]
+        ],
+        "@cform varchar ( 77 )": [
+          25,
+          [
+            ", @sysDatabaseName NVARCHAR(128) = ''",
+            25
+          ]
+        ],
+        "@clan char ( 1 ) ,": [
+          71,
+          [
+            "@cDetailKey NVARCHAR(128),",
+            60
+          ]
+        ],
+        "@clan char ( 1 ) ,|create procedure [ dbo ] .": [
+          61,
+          [
+            "@cDetailKey NVARCHAR(128),",
+            60
+          ]
+        ],
+        "@controller varchar ( 128 ) =": [
+          126,
+          [
+            "@SysDB VARCHAR(64) = '',",
+            81
+          ]
+        ],
+        "@controller varchar ( 128 ) =|@admin bit ,": [
+          83,
+          [
+            "@SysDB VARCHAR(64) = '',",
+            48
+          ]
+        ],
+        "@controller varchar ( 128 ) =|@transactionlist varchar ( 4000 ) =": [
+          39,
+          [
+            "@SysDB VARCHAR(64) = '',",
+            33
+          ]
+        ],
+        "@customer as varchar ( 32 )": [
+          38,
+          [
+            "@Site AS VARCHAR(32),",
+            24
+          ]
+        ],
+        "@datatype tinyint ,": [
+          79,
+          [
+            "@Language CHAR(1),",
+            32
+          ]
+        ],
+        "@date smalldatetime ,": [
+          66,
+          [
+            "@Unit VARCHAR(1023),",
+            42
+          ]
+        ],
+        "@date smalldatetime ,|create procedure [ dbo ] .": [
+          53,
+          [
+            "@Unit VARCHAR(1023),",
+            42
+          ]
+        ],
+        "@datefrom as smalldatetime ,": [
+          104,
+          [
+            "@DateTo AS SMALLDATETIME,",
+            101
+          ]
+        ],
+        "@datefrom smalldatetime ,": [
+          394,
+          [
+            "@DateTo SMALLDATETIME,",
+            387
+          ]
+        ],
+        "@dateto as smalldatetime ,": [
+          105,
+          [
+            "@Unit VARCHAR(1023),",
+            22
+          ]
+        ],
+        "@department as varchar ( 32 )": [
+          44,
+          [
+            "@Contract AS VARCHAR(32),",
+            22
+          ]
+        ],
+        "@department as varchar ( 32 )|@job as varchar ( 32 )": [
+          21,
+          [
+            "@Contract AS VARCHAR(32),",
+            21
+          ]
+        ],
+        "@detailtable varchar ( 64 ) ,": [
+          75,
+          [
+            "@IDNumber CHAR(13),",
+            63
+          ]
+        ],
+        "@dfrom smalldatetime ,": [
+          42,
+          [
+            "@dTo SMALLDATETIME,",
+            37
+          ]
+        ],
+        "@dynamickeytable varchar ( 32 ) =": [
+          56,
+          [
+            "AS",
+            29
+          ]
+        ],
+        "@dynamickeytable varchar ( 32 ) =|@sysdb varchar ( 64 ) =": [
+          27,
+          [
+            "AS",
+            20
+          ]
+        ],
+        "@extdetailjoin nvarchar ( 2048 ) =": [
+          53,
+          [
+            "AS",
+            28
+          ]
+        ],
+        "@extdetailselect nvarchar ( 2048 ) =": [
+          53,
+          [
+            "@extDetailJoin NVARCHAR(2048) = ''",
+            28
+          ],
+          [
+            "@extDetailJoin NVARCHAR(2048) = '',",
+            25
+          ]
+        ],
+        "@extdetailselect nvarchar ( 2048 ) =|@extmasterjoin nvarchar ( 2048 ) =": [
+          22,
+          [
+            "@extDetailJoin NVARCHAR(2048) = '',",
+            21
+          ]
+        ],
+        "@extmasterjoin nvarchar ( 2048 ) =": [
+          22,
+          [
+            "@extDetailSelect NVARCHAR(2048) = '''',",
+            22
+          ]
+        ],
+        "@extmasterselect nvarchar ( 2048 ) =": [
+          22,
+          [
+            "@extMasterJoin NVARCHAR(2048) = '',",
+            22
+          ]
+        ],
+        "@form char ( 16 ) ,": [
+          61,
+          [
+            "@Language CHAR(1),",
+            37
+          ]
+        ],
+        "@group1 varchar ( 32 ) ,": [
+          27,
+          [
+            "@group2 VARCHAR(32),",
+            27
+          ]
+        ],
+        "@group1 varchar ( 33 ) ,": [
+          29,
+          [
+            "@Group2 VARCHAR(33),",
+            29
+          ]
+        ],
+        "@group2 varchar ( 32 ) ,": [
+          28,
+          [
+            "@group3 VARCHAR(32),",
+            28
+          ]
+        ],
+        "@group2 varchar ( 33 ) ,": [
+          29,
+          [
+            "@Group3 VARCHAR(33),",
+            29
+          ]
+        ],
+        "@idnumber char ( 13 )": [
+          20,
+          [
+            "AS",
+            20
+          ]
+        ],
+        "@idnumber char ( 13 ) ,": [
+          196,
+          [
+            "@Action VARCHAR(4),",
+            57
+          ],
+          [
+            "@groups VARCHAR(128),",
+            24
+          ]
+        ],
+        "@idnumber char ( 13 ) ,|@detailtable varchar ( 64 ) ,": [
+          63,
+          [
+            "@Action VARCHAR(4),",
+            53
+          ]
+        ],
+        "@invoicefrom as varchar ( 32 )": [
+          40,
+          [
+            "@InvoiceTo AS VARCHAR(32),",
+            40
+          ]
+        ],
+        "@invoicefrom varchar ( 32 ) ,": [
+          66,
+          [
+            "@InvoiceTo VARCHAR(32),",
+            66
+          ]
+        ],
+        "@invoicefrom varchar ( 33 ) ,": [
+          30,
+          [
+            "@InvoiceTo VARCHAR(33),",
+            30
+          ]
+        ],
+        "@invoiceto varchar ( 33 ) ,": [
+          30,
+          [
+            "@Size TINYINT,",
+            24
+          ]
+        ],
+        "@item varchar ( 32 ) ,": [
+          87,
+          [
+            "@Site VARCHAR(32),",
+            21
+          ]
+        ],
+        "@itemgroup1 varchar ( 32 ) ,": [
+          36,
+          [
+            "@ItemGroup2 VARCHAR(32),",
+            36
+          ]
+        ],
+        "@itemgroup2 as varchar ( 32 )": [
+          28,
+          [
+            "@ItemGroup3 AS VARCHAR(32),",
+            28
+          ]
+        ],
+        "@itemgroup2 varchar ( 32 ) ,": [
+          36,
+          [
+            "@ItemGroup3 VARCHAR(32),",
+            36
+          ]
+        ],
+        "@job as varchar ( 32 )": [
+          43,
+          [
+            "@Department AS VARCHAR(32),",
+            21
+          ]
+        ],
+        "@joinclause nvarchar ( 4000 ) =": [
+          38,
+          [
+            "@WhereClause NVARCHAR(4000) = N''",
+            25
+          ]
+        ],
+        "@language char ( 1 ) ,": [
+          979,
+          [
+            "@userID INT,",
+            909
+          ]
+        ],
+        "@language char ( 1 ) ,|@unit varchar ( 1024 ) ,": [
+          51,
+          [
+            "@UserID INT,",
+            51
+          ]
+        ],
+        "@mastertable varchar ( 16 ) ,": [
+          64,
+          [
+            "@detailTable VARCHAR(16),",
+            62
+          ]
+        ],
+        "@mastertable varchar ( 64 ) ,": [
+          71,
+          [
+            "@DetailTable VARCHAR(64),",
+            71
+          ]
+        ],
+        "@month int ,": [
+          20,
+          [
+            "@Year INT,",
+            20
+          ]
+        ],
+        "@order varchar ( 254 ) ,": [
+          54,
+          [
+            "@Language CHAR(1),",
+            29
+          ]
+        ],
+        "@owner bit ,": [
+          35,
+          [
+            "@Language CHAR(1),",
+            29
+          ]
+        ],
+        "@period int ,": [
+          40,
+          [
+            "@year INT,",
+            38
+          ]
+        ],
+        "@period numeric ( 2 ) ,": [
+          27,
+          [
+            "@Year NUMERIC(4),",
+            27
+          ]
+        ],
+        "@period tinyint ,": [
+          26,
+          [
+            "@Year INT,",
+            26
+          ]
+        ],
+        "@periodfrom int ,": [
+          28,
+          [
+            "@yearFrom INT,",
+            24
+          ]
+        ],
+        "@printtype tinyint = 0": [
+          75,
+          [
+            "AS",
+            68
+          ]
+        ],
+        "@printtype tinyint = 0|@admin bit ,": [
+          24,
+          [
+            "AS",
+            21
+          ]
+        ],
+        "@reportform char ( 2 ) ,": [
+          64,
+          [
+            "@language CHAR(1),",
+            45
+          ]
+        ],
+        "@resulttype tinyint ,": [
+          33,
+          [
+            "@UserID INT,",
+            32
+          ]
+        ],
+        "@site varchar ( 32 ) ,": [
+          77,
+          [
+            "@Item VARCHAR(32),",
+            25
+          ]
+        ],
+        "@size tinyint ,": [
+          165,
+          [
+            "@Form CHAR(1),",
+            31
+          ],
+          [
+            "@Customer VARCHAR(33),",
+            20
+          ]
+        ],
+        "@size tinyint ,|@unit as varchar ( 1024 )": [
+          31,
+          [
+            "@Form CHAR(1),",
+            23
+          ]
+        ],
+        "@status varchar ( 32 ) ,": [
+          53,
+          [
+            "@Owner BIT,",
+            23
+          ]
+        ],
+        "@status varchar ( 32 ) ,|@unit varchar ( 1023 ) ,": [
+          20,
+          [
+            "@Owner BIT,",
+            20
+          ]
+        ],
+        "@sysdatabasename varchar ( 128 ) ,": [
+          54,
+          [
+            "@Language CHAR(1),",
+            32
+          ]
+        ],
+        "@sysdatabasename varchar ( 128 ) ,|@unit varchar ( 1023 ) ,": [
+          32,
+          [
+            "@Language CHAR(1),",
+            32
+          ]
+        ],
+        "@sysdb varchar ( 32 )": [
+          43,
+          [
+            "AS",
+            43
+          ]
+        ],
+        "@sysdb varchar ( 64 ) =": [
+          145,
+          [
+            "@TableName VARCHAR(32) = ''",
+            32
+          ],
+          [
+            "AS",
+            28
+          ],
+          [
+            "@DynamicKeyTable VARCHAR(32) = ''",
+            22
+          ],
+          [
+            "@TableName VARCHAR(32) = '',",
+            21
+          ]
+        ],
+        "@sysdb varchar ( 64 ) =|@controller varchar ( 128 ) =": [
+          103,
+          [
+            "@TableName VARCHAR(32) = ''",
+            32
+          ],
+          [
+            "@DynamicKeyTable VARCHAR(32) = ''",
+            22
+          ],
+          [
+            "@TableName VARCHAR(32) = '',",
+            21
+          ]
+        ],
+        "@tablename varchar ( 32 ) =": [
+          74,
+          [
+            "AS",
+            32
+          ]
+        ],
+        "@tablename varchar ( 32 ) =|@sysdb varchar ( 64 ) =": [
+          53,
+          [
+            "AS",
+            32
+          ]
+        ],
+        "@transactionlist varchar ( 4000 ) =": [
+          39,
+          [
+            "@Controller VARCHAR(128) = '',",
+            38
+          ]
+        ],
+        "@unit as varchar ( 1024 )": [
+          36,
+          [
+            "@Size TINYINT,",
+            31
+          ]
+        ],
+        "@unit varchar ( 1023 ) ,": [
+          359,
+          [
+            "@Language CHAR(1),",
+            88
+          ],
+          [
+            "@Code VARCHAR(4000),",
+            32
+          ],
+          [
+            "@sysDatabaseName VARCHAR(128),",
+            32
+          ],
+          [
+            "@UserID INT,",
+            26
+          ],
+          [
+            "@Account VARCHAR(33),",
+            25
+          ]
+        ],
+        "@unit varchar ( 1023 ) ,|@dateto smalldatetime ,": [
+          51,
+          [
+            "@Code VARCHAR(4000),",
+            22
+          ]
+        ],
+        "@unit varchar ( 1024 ) ,": [
+          204,
+          [
+            "@Language CHAR(1),",
+            51
+          ],
+          [
+            "@Account VARCHAR(32),",
+            32
+          ]
+        ],
+        "@unit varchar ( 32 ) ,": [
+          96,
+          [
+            "@Language CHAR(1),",
+            53
+          ]
+        ],
+        "@unit varchar ( 32 ) ,|@vouchercode char ( 3 ) ,": [
+          31,
+          [
+            "@Language CHAR(1),",
+            23
+          ]
+        ],
+        "@userid int": [
+          82,
+          [
+            "AS",
+            78
+          ]
+        ],
+        "@userid int ,": [
+          1224,
+          [
+            "@Admin BIT,",
+            611
+          ],
+          [
+            "@admin BIT",
+            512
+          ]
+        ],
+        "@userid int ,|@resulttype tinyint ,": [
+          32,
+          [
+            "@Admin BIT,",
+            32
+          ]
+        ],
+        "@userid int ,|@unit varchar ( 1023 ) ,": [
+          26,
+          [
+            "@Admin BIT",
+            24
+          ]
+        ],
+        "@viewaccessmode bit": [
+          26,
+          [
+            "AS",
+            26
+          ]
+        ],
+        "@vouchercode char ( 3 ) ,": [
+          95,
+          [
+            "@Unit VARCHAR(32),",
+            31
+          ]
+        ],
+        "@whereclause nvarchar ( 4000 ) =": [
+          40,
+          [
+            "AS",
+            27
+          ]
+        ],
+        "as": [
+          1963,
+          [
+            "BEGIN",
+            1926
+          ]
+        ],
+        "as begin": [
+          92,
+          [
+            "SET NOCOUNT ON",
+            52
+          ]
+        ],
+        "as begin|@admin bit": [
+          23,
+          [
+            "SET NOCOUNT ON",
+            21
+          ]
+        ],
+        "begin|as": [
+          1925,
+          [
+            "SET NOCOUNT ON",
+            1458
+          ]
+        ],
+        "break": [
+          50,
+          [
+            "END",
+            38
+          ]
+        ],
+        "case when @ndu_ck > = 0": [
+          21,
+          [
+            "CASE WHEN @nDu_ck_nt >= 0 THEN @nDu_ck_nt ELSE 0 END,",
+            21
+          ]
+        ],
+        "case when @ndu_ck_nt > = 0": [
+          21,
+          [
+            "CASE WHEN @nDu_ck < 0 THEN -@nDu_ck ELSE 0 END,",
+            21
+          ]
+        ],
+        "case when @ndu_dk > = 0": [
+          27,
+          [
+            "CASE WHEN @nDu_dk_nt >= 0 THEN @nDu_dk_nt ELSE 0 END,",
+            27
+          ]
+        ],
+        "case when @ndu_dk_nt > = 0": [
+          27,
+          [
+            "CASE WHEN @nDu_dk < 0 THEN -@nDu_dk ELSE 0 END,",
+            27
+          ]
+        ],
+        "close crtran": [
+          135,
+          [
+            "DEALLOCATE crTran",
+            135
+          ]
+        ],
+        "close cur": [
+          20,
+          [
+            "DEALLOCATE Cur",
+            20
+          ]
+        ],
+        "close {1}": [
+          44,
+          [
+            "DEALLOCATE c",
+            44
+          ]
+        ],
+        "deallocate crtran": [
+          135,
+          [
+            "SET NOCOUNT OFF",
+            56
+          ]
+        ],
+        "deallocate {1}": [
+          44,
+          [
+            "END",
+            20
+          ]
+        ],
+        "declare @ce char ( 1 )": [
+          70,
+          [
+            "IF @cLan = 'V' SET @cE = '' ELSE SET @cE = '2'",
+            45
+          ]
+        ],
+        "declare @ndu_dk numeric ( 28 ,": [
+          29,
+          [
+            "DECLARE @nPs_no NUMERIC(28, 6), @nPs_no_nt NUMERIC(28, 6), @nPs_co NUMERIC(28, 6), @nPs_co_nt NUMERIC(28, 6)",
+            22
+          ]
+        ],
+        "declare @ndu_dk numeric ( 28 ,|declare @s1 nvarchar ( 511 )": [
+          26,
+          [
+            "DECLARE @nPs_no NUMERIC(28, 6), @nPs_no_nt NUMERIC(28, 6), @nPs_co NUMERIC(28, 6), @nPs_co_nt NUMERIC(28, 6)",
+            22
+          ]
+        ],
+        "declare @no_dk numeric ( 28 ,": [
+          32,
+          [
+            "UPDATE #report SET @no_dk = no_dk - co_dk, @no_dk_nt = no_dk_nt - co_dk_nt, @no_ck = @no_dk + ps_no - ps_co, @no_ck_nt = @no_dk_nt + ps_no_nt - ps_co_nt",
+            20
+          ]
+        ],
+        "declare {1} cursor for select distinct": [
+          24,
+          [
+            "OPEN c",
+            24
+          ]
+        ],
+        "else|end": [
+          128,
+          [
+            "BEGIN",
+            90
+          ]
+        ],
+        "end|fetch next from {1} into @partition": [
+          22,
+          [
+            "CLOSE c",
+            22
+          ]
+        ],
+        "end|set @s = @s + char": [
+          113,
+          [
+            "SET @s = REPLACE(@s, '@UserID', RTRIM(@UserID))",
+            20
+          ]
+        ],
+        "exec dbo . fastbusiness$app$getaccountkey 'a.tk' ,|select top 0 tk into #": [
+          170,
+          [
+            "SELECT @Key = @Key + CASE WHEN @Key <> '' THEN ' and ' ELSE '' END + @accountKey",
+            56
+          ],
+          [
+            "SET @Key = @Key + ' and ' + @AccountKey",
+            27
+          ]
+        ],
+        "exec fastbusiness$partition$execute @q , null ,|exec fastbusiness$partition$execute @q , null ,": [
+          55,
+          [
+            "IF @y1 <> 0 BEGIN",
+            46
+          ]
+        ],
+        "exec fastbusiness$partition$execute @q2 , null ,": [
+          82,
+          [
+            "DECLARE @k NVARCHAR(4000)",
+            42
+          ]
+        ],
+        "exec sp_executesql @q|'": [
+          174,
+          [
+            "END",
+            48
+          ]
+        ],
+        "exec sp_executesql @q|end": [
+          102,
+          [
+            "SET ANSI_NULLS ON",
+            26
+          ]
+        ],
+        "exec sp_executesql @strsql|set @strsql = @strsql + char": [
+          55,
+          [
+            "END",
+            53
+          ]
+        ],
+        "fetch next from {1} into @partition": [
+          44,
+          [
+            "WHILE @@FETCH_STATUS = 0 BEGIN",
+            22
+          ],
+          [
+            "END",
+            22
+          ]
+        ],
+        "fetch next from {1} into @partition|exec sp_executesql @s": [
+          22,
+          [
+            "END",
+            22
+          ]
+        ],
+        "fetch next from {1} into @partition|open {1}": [
+          22,
+          [
+            "WHILE @@FETCH_STATUS = 0 BEGIN",
+            22
+          ]
+        ],
+        "goto result": [
+          66,
+          [
+            "END",
+            66
+          ]
+        ],
+        "if @account < > '' begin": [
+          152,
+          [
+            "SELECT TOP 0 tk INTO #$dmtk0 FROM dmtk0",
+            104
+          ]
+        ],
+        "if @datatype = '1' begin": [
+          50,
+          [
+            "DECLARE @q2 NVARCHAR(4000)",
+            20
+          ]
+        ],
+        "if @group3 < > '' set": [
+          69,
+          [
+            "IF @unitKey IS NOT NULL SET @key = @key + ' and ' + @unitKey",
+            21
+          ]
+        ],
+        "if @itemaccount < > '' begin": [
+          34,
+          [
+            "SELECT TOP 0 tk INTO #$dmtk0 FROM dmtk0",
+            31
+          ]
+        ],
+        "if @ndu_dk is null set @ndu_dk": [
+          25,
+          [
+            "IF @nDu_dk_nt IS NULL SET @nDu_dk_nt = 0",
+            25
+          ]
+        ],
+        "if @nps_co is null set @nps_co": [
+          22,
+          [
+            "IF @nPs_no_nt IS NULL SET @nPs_no_nt = 0",
+            22
+          ]
+        ],
+        "if @nps_co_nt is null set @nps_co_nt": [
+          22,
+          [
+            "SET @nDu_ck = @nDu_dk + @nPs_no - @nPs_co",
+            22
+          ]
+        ],
+        "if @nps_no is null set @nps_no": [
+          22,
+          [
+            "IF @nPs_co IS NULL SET @nPs_co = 0",
+            22
+          ]
+        ],
+        "if @nps_no_nt is null set @nps_no_nt": [
+          22,
+          [
+            "IF @nPs_co_nt IS NULL SET @nPs_co_nt = 0",
+            22
+          ]
+        ],
+        "if @printtype = 1 begin": [
+          72,
+          [
+            "DECLARE @InvoiceCodes VARCHAR(1024)",
+            59
+          ]
+        ],
+        "if @printtype = 1 begin|insert into #report ( sysorder ,": [
+          22,
+          [
+            "DECLARE @InvoiceCodes VARCHAR(1024)",
+            22
+          ]
+        ],
+        "if @unit is not null set": [
+          40,
+          [
+            "IF @UnitKey IS NOT NULL SET @Key = @UnitKey",
+            32
+          ]
+        ],
+        "if @unit is not null set|select @key = '' , @unitkey": [
+          34,
+          [
+            "IF @UnitKey IS NOT NULL SET @Key = @UnitKey",
+            31
+          ]
+        ],
+        "if exists ( select 1 from|if @code = '' begin": [
+          42,
+          [
+            "END",
+            42
+          ]
+        ],
+        "insert into #o select {1} .": [
+          23,
+          [
+            "FROM tempdb.sys.columns c",
+            21
+          ]
+        ],
+        "insert into #o select {1} .|create table #o ( id int": [
+          21,
+          [
+            "FROM tempdb.sys.columns c",
+            21
+          ]
+        ],
+        "result :": [
+          94,
+          [
+            "IF @ResultType = 1 BEGIN",
+            33
+          ]
+        ],
+        "result :|exec fastbusiness$partition$execute @q , null ,": [
+          33,
+          [
+            "IF @ResultType = 1 BEGIN",
+            32
+          ]
+        ],
+        "return": [
+          909,
+          [
+            "END",
+            834
+          ]
+        ],
+        "return|select 0": [
+          50,
+          [
+            "END",
+            50
+          ]
+        ],
+        "return|set nocount off": [
+          64,
+          [
+            "END",
+            63
+          ]
+        ],
+        "select * from #pivot order by": [
+          42,
+          [
+            "SET NOCOUNT OFF",
+            26
+          ]
+        ],
+        "select * from #report order by": [
+          58,
+          [
+            "SET NOCOUNT OFF",
+            32
+          ]
+        ],
+        "select 0": [
+          50,
+          [
+            "RETURN",
+            50
+          ]
+        ],
+        "select @i = 1 , @n": [
+          46,
+          [
+            "WHILE @i <= @n BEGIN",
+            23
+          ]
+        ],
+        "select @i = @i + 1": [
+          166,
+          [
+            "END",
+            151
+          ]
+        ],
+        "select @key = @key + ' and '": [
+          78,
+          [
+            "END",
+            57
+          ]
+        ],
+        "select @key = @key + ' and '|exec dbo . fastbusiness$app$getaccountkey 'a.tk' ,": [
+          23,
+          [
+            "END",
+            22
+          ]
+        ],
+        "select @key = @key + case": [
+          186,
+          [
+            "END",
+            132
+          ]
+        ],
+        "select @key = @key + case|exec dbo . fastbusiness$app$getaccountkey 'a.tk' ,": [
+          88,
+          [
+            "END",
+            87
+          ]
+        ],
+        "select @language = replace ( rtrim": [
+          34,
+          [
+            "SELECT @m_ma_nt0 = REPLACE(RTRIM(val), '''', '') FROM options WHERE name = 'm_ma_nt0'",
+            28
+          ]
+        ],
+        "select @p = min ( {1}": [
+          72,
+          [
+            "END",
+            34
+          ],
+          [
+            "WHILE @p IS NOT NULL BEGIN",
+            32
+          ]
+        ],
+        "select @q = replace ( replace": [
+          107,
+          [
+            "EXEC sp_executesql @q",
+            56
+          ]
+        ],
+        "select @s1 = case when @language": [
+          48,
+          [
+            "SELECT @s2 = CASE WHEN @Language = 'V' THEN cname ELSE cname2 END FROM reports WHERE ccode = 'PRAMOUNT'",
+            20
+          ]
+        ],
+        "select @yearfrom = @yearfrom + 1": [
+          26,
+          [
+            "END",
+            26
+          ]
+        ],
+        "select id , name , header": [
+          41,
+          [
+            "SET NOCOUNT OFF",
+            27
+          ]
+        ],
+        "select top 0 tk into #|if @account < > '' begin": [
+          119,
+          [
+            "EXEC dbo.FastBusiness$App$GetAccountKey 'a.tk', 'like', @Account, '#$dmtk0', @UserID, @Admin, @AccountKey OUTPUT",
+            83
+          ]
+        ],
+        "select top 0 tk into #|if @itemaccount < > '' begin": [
+          34,
+          [
+            "EXEC dbo.FastBusiness$App$GetAccountKey 'a.tk_vt', 'like', @ItemAccount, '#$dmtk0', @UserID, @Admin, @AccountKey OUTPUT",
+            31
+          ]
+        ],
+        "set @i = @i + 1": [
+          194,
+          [
+            "END",
+            140
+          ]
+        ],
+        "set @i = @i + 1|end": [
+          21,
+          [
+            "END",
+            21
+          ]
+        ],
+        "set @i = @i + 1|exec sp_executesql @q": [
+          27,
+          [
+            "END",
+            24
+          ]
+        ],
+        "set @key = @key + ' and '": [
+          89,
+          [
+            "END",
+            62
+          ]
+        ],
+        "set @key = @key + ' and '|exec dbo . fastbusiness$app$getaccountkey 'a.tk' ,": [
+          27,
+          [
+            "END",
+            27
+          ]
+        ],
+        "set @ndu_ck = @ndu_dk + @nps_no": [
+          22,
+          [
+            "SET @nDu_ck_nt = @nDu_dk_nt + @nPs_no_nt - @nPs_co_nt",
+            22
+          ]
+        ],
+        "set @s = @s + ' from '": [
+          54,
+          [
+            "EXEC sp_executesql @s",
+            51
+          ]
+        ],
+        "set @s = replace ( @s": [
+          58,
+          [
+            "EXEC sp_executesql @s",
+            58
+          ]
+        ],
+        "set @s = replace ( replace": [
+          50,
+          [
+            "EXEC sp_executesql @s",
+            49
+          ]
+        ],
+        "set ansi_nulls off|begin": [
+          80,
+          [
+            "SET NOCOUNT ON",
+            57
+          ]
+        ],
+        "set ansi_nulls on": [
+          1289,
+          [
+            "END",
+            684
+          ],
+          [
+            "SET NOCOUNT OFF",
+            602
+          ]
+        ],
+        "set ansi_nulls on|end": [
+          88,
+          [
+            "SET NOCOUNT OFF",
+            88
+          ]
+        ],
+        "set ansi_nulls on|exec sp_executesql @q": [
+          174,
+          [
+            "SET NOCOUNT OFF",
+            174
+          ]
+        ],
+        "set ansi_nulls on|set nocount off": [
+          687,
+          [
+            "END",
+            684
+          ]
+        ],
+        "set nocount off": [
+          1553,
+          [
+            "END",
+            800
+          ],
+          [
+            "SET ANSI_NULLS ON",
+            687
+          ]
+        ],
+        "set nocount off|deallocate crtran": [
+          56,
+          [
+            "SET ANSI_NULLS ON",
+            56
+          ]
+        ],
+        "set nocount off|end": [
+          165,
+          [
+            "SET ANSI_NULLS ON",
+            96
+          ],
+          [
+            "END",
+            65
+          ]
+        ],
+        "set nocount off|exec sp_executesql @q": [
+          149,
+          [
+            "SET ANSI_NULLS ON",
+            118
+          ]
+        ],
+        "set nocount off|select * from #pivot order by": [
+          26,
+          [
+            "SET ANSI_NULLS ON",
+            26
+          ]
+        ],
+        "set nocount off|select * from #report order by": [
+          32,
+          [
+            "SET ANSI_NULLS ON",
+            32
+          ]
+        ],
+        "set nocount off|select id , name , header": [
+          27,
+          [
+            "SET ANSI_NULLS ON",
+            27
+          ]
+        ],
+        "set nocount off|set ansi_nulls on": [
+          602,
+          [
+            "END",
+            568
+          ],
+          [
+            "RETURN",
+            34
+          ]
+        ],
+        "set nocount on": [
+          1656,
+          [
+            "SET ANSI_NULLS OFF",
+            1343
+          ]
+        ],
+        "set nocount on|as begin": [
+          52,
+          [
+            "SET ANSI_NULLS OFF",
+            26
+          ]
+        ],
+        "set nocount on|begin": [
+          1451,
+          [
+            "SET ANSI_NULLS OFF",
+            1271
+          ]
+        ],
+        "set nocount on|set ansi_nulls off": [
+          59,
+          [
+            "SELECT @idNumber = REPLACE(@idNumber, '''', '')",
+            21
+          ]
+        ],
+        "update #report set @no_dk = no_dk": [
+          21,
+          [
+            ", no_dk = CASE WHEN @no_dk > 0 THEN @no_dk ELSE 0 END, no_dk_nt = CASE WHEN @no_dk_nt > 0 THEN @no_dk_nt ELSE 0 END",
+            21
+          ]
+        ],
+        "values ( 0 , 0 ,": [
+          39,
+          [
+            "CASE WHEN @nDu_dk >= 0 THEN @nDu_dk ELSE 0 END,",
+            23
+          ]
+        ],
+        "while @@fetch_status = 0": [
+          127,
+          [
+            "BEGIN",
+            127
+          ]
+        ],
+        "while charindex ( ',' , @strlist": [
+          23,
+          [
+            "BEGIN",
+            20
+          ]
+        ]
+      }
+    },
+    "next:long": {
+      "minShare": 0.5,
+      "precision": 0.774,
+      "coverage": 0.195,
+      "tested": 22140,
+      "entries": {}
     },
     "same:0": {
       "minShare": 1.01,

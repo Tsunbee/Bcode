@@ -24,7 +24,7 @@ Bcode.App/
 │   ├── CompareObjectsControl.cs  106
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  233
-│   ├── FastAskControl.cs  115
+│   ├── FastAskControl.cs  121
 │   ├── FcodeLexer.cs  465
 │   ├── FileLookupControl.cs  1387
 │   ├── FileLookupControl.QuickGrant.cs  148
@@ -256,11 +256,11 @@ Bcode.App/
 │   ├── EInvoiceSetupService.cs  185
 │   ├── EntityCheckService.cs  263
 │   ├── FastAskKnowledge.cs  306
-│   ├── FastAskService.cs  984
+│   ├── FastAskService.cs  1189
 │   ├── FastCatalogCheck.cs  200
 │   ├── FastCatalogRules.cs  974
-│   ├── FastGhostMiner.cs  429
-│   ├── FastGhostRules.cs  838
+│   ├── FastGhostMiner.cs  518
+│   ├── FastGhostRules.cs  1015
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
 │   ├── FileLookupService.cs  1293
@@ -379,7 +379,7 @@ Bcode.App/
 │       ├── dialog.css  43
 │       ├── editproject.html  121
 │       ├── entitypeek.html  182
-│       ├── fastask.html  276
+│       ├── fastask.html  301
 │       ├── filelookupbar.html  171
 │       ├── filelookuppreview.html  98
 │       ├── filepreview.html  194

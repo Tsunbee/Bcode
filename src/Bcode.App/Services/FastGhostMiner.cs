@@ -75,7 +75,7 @@ public static class FastGhostMiner
     /// <summary>Bước 1 — rút ma trận thô (chưa có ngưỡng, chưa tỉa).</summary>
     public static KnowledgeBase Mine(IEnumerable<(string Name, string Def)> src, string source)
     {
-        var tabs = KnowledgeKinds.Append("line").ToDictionary(k => k, _ => new Dictionary<string, Dictionary<string, (string Text, int N, int Docs, int Last)>>(StringComparer.OrdinalIgnoreCase));
+        var tabs = KnowledgeKinds.Append("line").Append("next").ToDictionary(k => k, _ => new Dictionary<string, Dictionary<string, (string Text, int N, int Docs, int Last)>>(StringComparer.OrdinalIgnoreCase));
         var doc = 0;
         void Add(string kind, string key, string text)
         {
@@ -90,6 +90,14 @@ public static class FastGhostMiner
         {
             doc++;
             foreach (Match dm in DeclTypeRx.Matches(def)) Add("decl", dm.Groups["n"].Value, NormType(dm.Groups["t"].Value));
+            // câu tiếp theo: mỗi dòng code → dòng code kế (ô theo 1 dòng trên + ô theo 2 dòng trên)
+            var code = CodeLines(def.Split('\n')).Select(StripComment).ToList();
+            for (var i = 1; i < code.Count; i++)
+            {
+                if (NextKey(code[i - 1]) is not { } k1) continue;
+                Add("next", k1, code[i]);
+                if (i >= 2 && NextKey(code[i - 2]) is { } k2) Add("next", k1 + "|" + k2, code[i]);
+            }
             foreach (var raw in def.Split('\n'))
             {
                 var line = StripComment(raw);
@@ -135,7 +143,7 @@ public static class FastGhostMiner
                     res.Remove(key);
             return res;
         }
-        return new KnowledgeBase { Filters = Best(tabs["filter"]), Calls = Best(tabs["call"]), Funcs = Best(tabs["func"]), Lines = Best(tabs["line"], 2), Decls = Best(tabs["decl"], 2), Source = source };
+        return new KnowledgeBase { Filters = Best(tabs["filter"]), Calls = Best(tabs["call"]), Funcs = Best(tabs["func"]), Lines = Best(tabs["line"], 2), Decls = Best(tabs["decl"], 2), Nexts = Best(tabs["next"], 2), Source = source };
     }
 
     /// <summary>Bước 2 — giả lập viết store mới trên <paramref name="test"/> (chỉ thấy phần phía trên con trỏ), ghi lại mỗi chỗ: gợi ý gì, độ tin, đúng không.
@@ -169,6 +177,75 @@ public static class FastGhostMiner
     }
 
     public const string AnyLineSite = "dòng bất kỳ (giữa dòng)";
+    public const string NextSite = "dòng trống (câu tiếp theo)";
+    public const string ComposeSite = "lọc tham số chưa gặp (ghép, chỉ Fast dài)";
+
+    /// <summary>Đúng tối thiểu của các gợi ý chỉ hiện ở chế độ "Gợi ý Fast dài".</summary>
+    public const double LongTarget = 0.6;
+
+    /// <summary>Đo "câu tiếp theo": cứ 3 dòng code lấy 1 (tối đa 40 chỗ / store), giả lập vừa Enter xuống dòng trống (thụt lề như dòng thật,
+    /// chỉ thấy phía trên); đáp án = dòng code thật. <paramref name="parts"/> = true: bỏ ngưỡng (để hiệu chỉnh); false: như khi gõ.</summary>
+    public static List<Sample> EvaluateNext(IEnumerable<(string Name, string Def)> test, KnowledgeBase kb, bool parts, CancellationToken ct = default)
+    {
+        var samples = new List<Sample>();
+        foreach (var (_, def) in test)
+        {
+            ct.ThrowIfCancellationRequested();
+            var lines = def.Split('\n');
+            var offsets = new int[lines.Length];
+            for (var i = 1; i < lines.Length; i++) offsets[i] = offsets[i - 1] + lines[i - 1].Length + 1;
+            var code = Enumerable.Range(1, Math.Max(0, lines.Length - 1)).Where(i => StripComment(lines[i]).Trim().Length > 0 && !lines[i].TrimStart().StartsWith("/*") && !lines[i].TrimStart().StartsWith("*")).ToList();
+            var picked = code.Where((_, k) => k % 3 == 1).ToList();
+            if (picked.Count > 40) picked = picked.Where((_, k) => k % (picked.Count / 40 + 1) == 0).ToList();
+            foreach (var li in picked)
+            {
+                var ind = lines[li][..(lines[li].Length - lines[li].TrimStart().Length)];
+                var doc = def[..offsets[li]] + ind;
+                var expected = StripComment(lines[li]).Trim();
+                Ghost? g = null;
+                try { g = parts ? NextLine(doc, doc.Length, kb, 0, false) : Explain(doc, doc.Length, null, kb); } catch { }
+                samples.Add(g is null ? new Sample(NextSite, "next", 0, null)
+                    : new Sample(NextSite, g.Kind, g.Share, Norm(g.Text).Length > 0 && Norm(expected).StartsWith(Norm(g.Text)), ind, g.Text, expected));
+            }
+        }
+        return samples;
+    }
+
+    /// <summary>Đo "ghép" dòng lọc (chỉ chế độ dài): các dòng IF @x &lt;&gt; '' SET @Key … của store đo mà biến @x KHÔNG có ô trong ma trận rút từ nửa kia.</summary>
+    public static List<Sample> EvaluateCompose(IEnumerable<(string Name, string Def)> test, KnowledgeBase kb, bool eachWay = false, CancellationToken ct = default)
+    {
+        var samples = new List<Sample>();
+        var rx = Sites[0].Rx;
+        foreach (var (_, def) in test)
+        {
+            ct.ThrowIfCancellationRequested();
+            var offset = 0;
+            foreach (var raw in def.Split('\n'))
+            {
+                var line = StripComment(raw);
+                if (rx.Match(line) is { Success: true } m && FilterRx.Match(line) is { Success: true } fm && kb.Find("filter", fm.Groups["v"].Value, "") is null)
+                {
+                    var before = def[..offset] + m.Groups["p"].Value;
+                    var full = before + "\n" + def[Math.Min(def.Length, offset + raw.Length + 1)..];
+                    var v = fm.Groups["v"].Value;
+                    var exp = m.Groups["r"].Value.Trim();
+                    Sample S(string kind, string? got) => got is null ? new Sample(ComposeSite, kind, 0, null)
+                        : new Sample(ComposeSite, kind, 0.5, Norm(exp).StartsWith(Norm(got)), m.Groups["p"].Value.Trim(), got, exp);
+                    string? pick = null;
+                    try
+                    {
+                        // từng cách ghép riêng (để chọn thứ tự) + cách đang dùng
+                        if (eachWay) foreach (var (how, t) in ComposeCandidates(v, full, before, kb)) samples.Add(S("compose:" + how, t));
+                        pick = ComposeFilter(v, full, before, kb);
+                    }
+                    catch { }
+                    samples.Add(S("filter:compose", pick));
+                }
+                offset += raw.Length + 1;
+            }
+        }
+        return samples;
+    }
 
     /// <summary>Chừa thêm cho các lớp gợi ý chung ("same", "line") khi hiệu chỉnh.</summary>
     private const double GenericMargin = 0.01;
@@ -235,8 +312,8 @@ public static class FastGhostMiner
 
     private static KnowledgeBase WithThresholds(KnowledgeBase kb, Func<string, double> minShare) => new()
     {
-        Calls = kb.Calls, Funcs = kb.Funcs, Filters = kb.Filters, Lines = kb.Lines, Decls = kb.Decls, Source = kb.Source,
-        Quality = KnowledgeKinds.Concat(SameLadder.Select(SameKind)).Append("line").ToDictionary(k => k, k => new KindQuality(minShare(k), 0, 0, 0), StringComparer.OrdinalIgnoreCase),
+        Calls = kb.Calls, Funcs = kb.Funcs, Filters = kb.Filters, Lines = kb.Lines, Decls = kb.Decls, Nexts = kb.Nexts, Source = kb.Source,
+        Quality = KnowledgeKinds.Concat(SameLadder.Select(SameKind)).Append("line").Append("next").Append("next:long").ToDictionary(k => k, k => new KindQuality(minShare(k), 0, 0, 0), StringComparer.OrdinalIgnoreCase),
     };
 
     /// <summary>Bước 3 — mỗi loại: ngưỡng THẤP nhất (gợi ý dài / nhiều nhất) mà độ chính xác trên store chưa dùng để rút vẫn ≥ <paramref name="target"/>
@@ -289,14 +366,19 @@ public static class FastGhostMiner
         // "line" chỉ chạy khi không bậc "same" nào gợi ý → hiệu chỉnh trên đúng các chỗ đó
         var sameShown = parts.Where(s => s.Kind is { } k && k.StartsWith("same") && s.Hit is not null && s.Share >= generic[k].MinShare).Select(s => s.Id).ToHashSet();
         generic["line"] = CalibrateOffline(parts.Where(s => s.Kind == "line" && !sameShown.Contains(s.Id)).ToList(), "line", target + GenericMargin);
+        // câu tiếp theo: 1 ngưỡng cho ghost tự động (≥ mục tiêu) + 1 ngưỡng cho chế độ dài (≥ LongTarget)
+        var nextParts = EvaluateNext(test, trainKb, true, ct);
+        generic["next"] = CalibrateOffline(nextParts, "next", target + GenericMargin);
+        var nl = CalibrateOffline(nextParts, "next", LongTarget);
+        generic["next:long"] = nl.MinShare > 1 ? nl : nl with { MinShare = Math.Min(nl.MinShare, generic["next"].MinShare) };
         var quality = Calibrate(test, WithThresholds(trainKb, k => generic.TryGetValue(k, out var q) ? q.MinShare : 1.01), target, ct);
         foreach (var (k, q) in generic) quality[k] = q;
         var finalKb = WithThresholds(trainKb, k => quality[k].MinShare);
-        var samples = Evaluate(test, finalKb, true, ct).Concat(EvaluateAnyLine(test, finalKb, false, ct)).ToList();
+        var samples = Evaluate(test, finalKb, true, ct).Concat(EvaluateAnyLine(test, finalKb, false, ct)).Concat(EvaluateNext(test, finalKb, false, ct)).ToList();
 
         var report = new List<(string Site, int Sites, int Suggested, double Precision)>();
         var rules = new Dictionary<string, KindQuality>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (site, kind, _) in Sites.Append((AnyLineSite, "any", null!)))
+        foreach (var (site, kind, _) in Sites.Append((AnyLineSite, "any", null!)).Append((NextSite, "nextsite", null!)))
         {
             var all = samples.Where(s => s.Site == site).ToList();
             var shown = all.Where(s => s.Hit is not null).ToList();
@@ -305,12 +387,19 @@ public static class FastGhostMiner
             if (!KnowledgeKinds.Contains(kind)) rules[kind] = new KindQuality(0, Math.Round(p, 3), Math.Round(shown.Count / (double)Math.Max(1, all.Count), 3), all.Count);
         }
         var totalShown = samples.Where(s => s.Hit is not null).ToList();
+        // chỉ chế độ dài (không tính vào tổng của ghost tự động): câu tiếp theo theo ngưỡng dài + ghép dòng lọc
+        foreach (var (site, list) in new[] { (NextSite + " — Fast dài", nextParts.Where(s => s.Kind == "next" && s.Hit is not null && s.Share >= quality["next:long"].MinShare - 1e-9).ToList()), (ComposeSite, EvaluateCompose(test, trainKb, false, ct)) })
+        {
+            var shown = list.Where(s => s.Hit is not null).ToList();
+            report.Add((site, site == ComposeSite ? list.Count : nextParts.Count, shown.Count, shown.Count == 0 ? 0 : shown.Count(s => s.Hit == true) / (double)shown.Count));
+        }
 
         var full = Mine(mods, source);
         var kb = new KnowledgeBase
         {
             Calls = Prune(full.Calls, quality["call"].MinShare), Funcs = Prune(full.Funcs, quality["func"].MinShare), Filters = Prune(full.Filters, quality["filter"].MinShare),
             Lines = Prune(full.Lines, quality["line"].MinShare), Decls = Prune(full.Decls, quality["decl"].MinShare),
+            Nexts = Prune(full.Nexts, Math.Min(quality["next"].MinShare, quality["next:long"].MinShare)),
             Quality = quality, Rules = rules, Source = source,
         };
         return new LearnResult(kb, mods.Count, train.Count, test.Count, report,
@@ -340,7 +429,7 @@ public static class FastGhostMiner
                  + "(hiệu chỉnh để precision đo trên store chưa dùng để rút ≥ target). Ô không có cách viết = ô chặn. "
                  + "{a} = alias bảng, {lhs} = biến được gán trên dòng, {if} = biến của IF cùng dòng; dòng lọc lưu dạng chuẩn rồi đổi theo văn phong store.",
             rules = kb.Rules.ToDictionary(x => x.Key, x => new { precision = x.Value.Precision, coverage = x.Value.Coverage, tested = x.Value.Tested }),
-            kinds = new[] { "filter", "call", "func", "decl", "line" }.Concat(SameLadder.Select(SameKind)).ToDictionary(k => k, Kind),
+            kinds = new[] { "filter", "call", "func", "decl", "line", "next", "next:long" }.Concat(SameLadder.Select(SameKind)).ToDictionary(k => k, Kind),
         }, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, json);
@@ -387,7 +476,7 @@ public static class FastGhostMiner
         var adjustments = AdjustmentsSource?.Invoke().ToList() ?? new List<Adjustment>();
         if (files.Count == 0 && adjustments.Count == 0) { try { File.Delete(SharedPath); } catch { } return; }
 
-        string[] kinds = { "call", "func", "filter", "decl", "line" };
+        string[] kinds = { "call", "func", "filter", "decl", "line", "next" };
         var cells = kinds.ToDictionary(k => k, _ => new Dictionary<string, (int Count, Dictionary<string, (string Text, int N)> Opts)>(StringComparer.OrdinalIgnoreCase));
         var quality = new Dictionary<string, KindQuality>(StringComparer.OrdinalIgnoreCase);
         var projects = 0;
@@ -421,7 +510,7 @@ public static class FastGhostMiner
         }, StringComparer.OrdinalIgnoreCase);
         var shared = new KnowledgeBase
         {
-            Calls = Build("call"), Funcs = Build("func"), Filters = Build("filter"), Decls = Build("decl"), Lines = Build("line"),
+            Calls = Build("call"), Funcs = Build("func"), Filters = Build("filter"), Decls = Build("decl"), Lines = Build("line"), Nexts = Build("next"),
             Quality = quality, Source = $"Chung {projects} dự án đã học trên máy này" + (adjustments.Count > 0 ? $" + {adjustments.Count} xác nhận ở Hỏi Fast" : ""),
         };
         Save(shared, SharedPath);

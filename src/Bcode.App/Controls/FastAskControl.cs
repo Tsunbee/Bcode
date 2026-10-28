@@ -46,6 +46,12 @@ public class FastAskControl : UserControl
                     root.TryGetProperty("title", out var ti) ? ti.GetString() ?? "" : "");
                 _web.Call($"fa.reply({root.GetProperty("id").GetInt32()}, {JsonSerializer.Serialize(fr, Json)})");
                 break;
+            case "correct":
+                // ✎ Sửa → Lưu bản sửa trên 1 thẻ: ghi như ✘ + cách đúng
+                var cr = _service.Correct(root.GetProperty("ref").GetString() ?? "", root.GetProperty("sig").GetString() ?? "",
+                    root.TryGetProperty("title", out var ct2) ? ct2.GetString() ?? "" : "", root.GetProperty("text").GetString() ?? "");
+                _web.Call($"fa.reply({root.GetProperty("id").GetInt32()}, {JsonSerializer.Serialize(cr, Json)})");
+                break;
             case "learn":
                 _ = LearnAsync(root.GetProperty("id").GetInt32(), root.TryGetProperty("sys", out var ls) && ls.ValueKind == JsonValueKind.True);
                 break;

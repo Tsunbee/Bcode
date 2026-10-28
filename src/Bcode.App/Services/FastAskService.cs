@@ -337,7 +337,7 @@ public sealed class FastAskService
                                      || (state.GetValueOrDefault("step") == "table" && Regex.IsMatch(text, @"^[\w$#]+(?:[\s,|]+[\w$#]+)*$"))))
                 return await ReportFlowAsync(text, state, useSys);
             if (flow == "catalog" && state.GetValueOrDefault("step") is "name" or "cols")
-                return CatalogFlow(text, state);
+                return await CatalogFlowAsync(text, state, useSys);
             if (flow == "saveas" && !text.StartsWith("saveas:") && state.GetValueOrDefault("step") is "source" or "newname" && Regex.IsMatch(text, @"^\[?[\w$#.]+\]?$"))
                 return await SaveAsFlowAsync(text, state, useSys);
         }
@@ -361,13 +361,12 @@ public sealed class FastAskService
         // đếm bảng phân kỳ (quét định nghĩa store, vài giây lần đầu) chạy nền ngay từ đầu để tới bước chọn bảng là có sẵn
         if (Regex.IsMatch(f, @"\b(bao cao|report)\b") || f.StartsWith("rs_")) _ = PartitionTablesAsync(useSys);
         if (Regex.IsMatch(f, @"\b(bao cao|report)\b") || f.StartsWith("rs_")) return await ReportFlowAsync("", new() { ["flow"] = "report", ["topic"] = text }, useSys);
-        if (Regex.IsMatch(f, @"\bdanh muc\b|\bcatalog\b")) return CatalogFlow("", new() { ["flow"] = "catalog", ["topic"] = text });
+        if (Regex.IsMatch(f, @"\bdanh muc\b|\bcatalog\b")) return await CatalogFlowAsync("", new() { ["flow"] = "catalog", ["topic"] = text }, useSys);
 
         // bảng thật trong database: cấu trúc / JOIN (trước tên routine — "r70$000000" là bảng, không phải routine)
         var db = await DbAsync(useSys);
-        var tableHits = Regex.Matches(text, @"[#\w$]+").Select(m => m.Value)
-            .Select(w => db.Tables.FirstOrDefault(t => t.Equals(w, StringComparison.OrdinalIgnoreCase))).Where(t => t is not null).Distinct().ToList();
-        if (tableHits.Count > 0) return await TablesAsync(tableHits!, useSys);
+        var tableHits = ResolveTables(text, f, db);
+        if (tableHits.Count > 0) return await TablesAsync(tableHits, useSys);
 
         // tên routine (FastBusiness$…, ff_…, fs_…, rs_…) → cách gọi hay dùng + mở định nghĩa
         if (Regex.Match(text, @"(?:dbo\.)?\b(?<n>[A-Za-z_]\w*\$[A-Za-z][\w$]*|ff_\w+|fs_\w+|rs_\w+|zrs_\w+|sp_executesql)\b", RegexOptions.IgnoreCase) is { Success: true } rm)
@@ -443,6 +442,16 @@ public sealed class FastAskService
             scored.Insert(0, new AskCard("Câu trả lời bạn đã sửa", $"Bạn sửa lại cho câu hỏi này lúc {fix.At:dd/MM/yyyy HH:mm}.", fix.Correction!, CodeActions(fix.Correction!), "Bạn đã xác nhận")
                 { Ref = "fix|" + sig });
         return r with { Cards = scored, Sig = sig };
+    }
+
+    /// <summary>Người dùng bấm ✎ Sửa trên 1 thẻ rồi lưu: như ✘ + gõ cách đúng trong 1 bước — thẻ cũ không hiện lại cho câu hỏi này, bản sửa hiện đầu tiên
+    /// lần sau (ô ma trận thì cách viết sửa được dùng trước cho cả ghost text).</summary>
+    public AskReply Correct(string reference, string sig, string title, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return Reply("Bản sửa trống — không lưu.");
+        if (reference.Length == 0) reference = "answer|" + title;
+        FastAskFeedback.Instance.Add(new(sig, reference, -1, null, DateTime.Now));
+        return SaveCorrection(text.Trim(), new() { ["ref"] = reference, ["sig"] = sig, ["title"] = title });
     }
 
     /// <summary>Người dùng bấm ✔ / ✘ trên 1 thẻ. ✔: ghi nhận (ô ma trận được cộng điểm). ✘: ghi nhận rồi hỏi cách đúng — câu gõ tiếp theo được lưu làm sửa.</summary>
@@ -707,6 +716,23 @@ public sealed class FastAskService
 
     // ---------------------------------------------------------------- Save as từ store có sẵn
 
+    /// <summary>Store báo cáo (rs_ / zrs_) sửa gần đây nhất (chỉ đọc sys.objects).</summary>
+    private async Task<List<string>> RecentReportsAsync(bool useSys, int top)
+    {
+        var res = new List<string>();
+        if (_connections.Current is null) return res;
+        try
+        {
+            await using var conn = _connections.CreateConnection(useSys);
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand($"SELECT TOP {top} name FROM sys.objects WHERE type = 'P' AND is_ms_shipped = 0 AND (name LIKE 'rs[_]%' OR name LIKE 'zrs[_]%') ORDER BY modify_date DESC", conn) { CommandTimeout = 30 };
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync()) res.Add(r.GetString(0));
+        }
+        catch { /* bỏ qua */ }
+        return res;
+    }
+
     /// <summary>"Save as": chọn store / function có sẵn → tên mới → định nghĩa đọc từ database (OBJECT_DEFINITION, chỉ đọc) với dòng CREATE / ALTER đổi sang
     /// CREATE tên mới. Không ghi gì vào database — người dùng tự chạy script ở SQL Query.</summary>
     private async Task<AskReply> SaveAsFlowAsync(string answer, Dictionary<string, string> state, bool useSys)
@@ -720,18 +746,32 @@ public sealed class FastAskService
         if (!state.ContainsKey("source"))
         {
             state["step"] = "source";
-            var similar = await SimilarReportsAsync(state.GetValueOrDefault("topic") ?? "", Array.Empty<string>(), useSys);
-            return Reply("Save as từ store báo cáo nào? Chọn bên dưới hoặc gõ tên store (vd rs_rptStockCard).",
-                choices: similar.Select(c => new AskChoice(c.Title, c.Title)), state: state);
+            // "save as" trong câu hỏi không phải tên báo cáo (không thì ra rs_SaveDetail… / …Save)
+            var topic = Regex.Replace(state.GetValueOrDefault("topic") ?? "", @"\bsave\s*as\b|\bsave\b", " ", RegexOptions.IgnoreCase);
+            var names = (await SimilarReportsAsync(topic, Array.Empty<string>(), useSys)).Select(c => c.Title).ToList();
+            // câu hỏi chưa nêu báo cáo nào ("tạo báo cáo" → Save as) → các store báo cáo vừa sửa gần đây của dự án
+            var recent = names.Count == 0;
+            if (recent) names = await RecentReportsAsync(useSys, 12);
+            return Reply((recent && names.Count > 0 ? "Save as từ store báo cáo nào? Dưới đây là các store báo cáo sửa gần đây" : "Save as từ store báo cáo nào? Chọn bên dưới")
+                    + " — hoặc gõ tên / 1 phần tên / tên báo cáo (vd rs_rptStockCard, StockCard, thẻ kho).",
+                choices: names.Select(n => new AskChoice(n, n)), state: state);
         }
         var db = await DbAsync(useSys);
         var mod = db.Modules.FirstOrDefault(m => m.Name.Equals(state["source"], StringComparison.OrdinalIgnoreCase));
         if (mod.Name is null)
         {
-            var missing = state["source"];
+            // gõ 1 phần tên / tên tiếng Việt → tìm store khớp: 1 store thì lấy luôn, nhiều thì cho chọn
+            var typed = state["source"];
+            var hits = db.Modules.Where(m => m.Name.Contains(typed, StringComparison.OrdinalIgnoreCase)).Select(m => m.Name)
+                .OrderBy(n => n.StartsWith("rs_", StringComparison.OrdinalIgnoreCase) || n.StartsWith("zrs_", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ThenBy(n => n.Length).Take(12).ToList();
+            if (hits.Count == 0 && Stems(Fold(typed)) is { Count: > 0 } st)
+                hits = (await SearchModulesAsync(useSys, st, Array.Empty<string>(), null, 12)).Select(m => m.Name).ToList();
             state.Remove("source");
             state["step"] = "source";
-            return Reply($"Không thấy store / function \"{missing}\" trong {(useSys ? "Sys" : "App")} Data. Gõ lại tên (hoặc đổi App / Sys ở trên):", state: state);
+            if (hits.Count == 1) { state["source"] = hits[0]; return await SaveAsFlowAsync("", state, useSys); }
+            if (hits.Count > 1)
+                return Reply($"Có {hits.Count} store khớp \"{typed}\" — chọn store nguồn:", choices: hits.Select(n => new AskChoice(n, n)), state: state);
+            return Reply($"Không thấy store / function nào khớp \"{typed}\" trong {(useSys ? "Sys" : "App")} Data. Gõ lại tên (hoặc đổi App / Sys ở trên):", state: state);
         }
         var src = state["source"] = mod.Name;
         if (!state.ContainsKey("newname") || state["newname"].Equals(src, StringComparison.OrdinalIgnoreCase))
@@ -843,6 +883,108 @@ public sealed class FastAskService
 
     // ---------------------------------------------------------------- 4: cấu trúc bảng + JOIN
 
+    /// <summary>Tên bảng người dùng gõ → bảng thật: đúng tên → bảng phân kỳ theo tên gốc (hddt03 → hddt03$000000) → câu hỏi về bảng bằng tên
+    /// tiếng Việt ("cấu trúc bảng kho", "join khách hàng và vật tư") qua lookup của từ điển field (field "Mã kho" tra bảng dmkho) rồi dm + tên.</summary>
+    private static List<string> ResolveTables(string text, string f, DbInfo db)
+    {
+        var set = new HashSet<string>(db.Tables, StringComparer.OrdinalIgnoreCase);
+        string? Real(string w) => set.TryGetValue(w, out var t) ? t : set.TryGetValue(w + "$000000", out var p) ? p : null;
+        var hits = Regex.Matches(text, @"[#\w$]+").Select(m => Real(m.Value)).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (hits.Count > 0 || !Regex.IsMatch(f, @"\b(cau truc|bang|join|ket noi)\b")) return hits;
+        var phrase = Regex.Replace(f, @"\b(xem|tra|cho|toi|minh|cau truc|cua|bang|cac|join|ket noi|table|structure|la gi|la bang gi|nhu the nao|the nao|gom|nhung|cot|nao|giup|nhe|di)\b", " ");
+        foreach (var part in Regex.Split(phrase, @"\s*(?:,|\bva\b|\bvoi\b|&)\s*").Select(p => Regex.Replace(p, @"\s+", " ").Trim()).Where(p => p.Length >= 2))
+            if (TableForName(part, set) is { } t && !hits.Contains(t, StringComparer.OrdinalIgnoreCase)) hits.Add(t);
+        return hits;
+    }
+
+    /// <summary>Tên tiếng Việt (đã bỏ dấu) → bảng: field có tiêu đề "Mã &lt;tên&gt;" trong header.xml mà lookup tra bảng nào (đa số) → bảng đó;
+    /// không có thì dm&lt;tên&gt; / zdm&lt;tên&gt;.</summary>
+    private static string? TableForName(string folded, HashSet<string> tables)
+    {
+        var dict = FieldDictionaryService.Instance;
+        string? Vote(Func<string, bool> match) => dict.Entries.Where(e => match(Fold(e.HeaderV).Trim()))
+            .SelectMany(e => dict.Lookups(e.Name)).Select(l => l.Source.Table).Where(t => t.Length > 0 && tables.Contains(t))
+            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key;
+        var hit = Vote(h => h == "ma " + folded || h == folded) ?? Vote(h => h.StartsWith("ma " + folded + " "));
+        if (hit is not null) return tables.TryGetValue(hit, out var real) ? real : hit;
+        var code = folded.Replace(" ", "");
+        foreach (var c in new[] { "dm" + code, "zdm" + code, code }) if (tables.TryGetValue(c, out var t)) return t;
+        return null;
+    }
+
+    /// <summary>Bảng này là gì / dùng làm gì — ghép từ: chứng từ dùng bảng (dmct.m_phdbf / m_ctdbf), field tra cứu bảng (header.xml),
+    /// quy ước đặt tên Fast, cột đặc trưng, store đang dùng bảng (chỉ đọc).</summary>
+    private async Task<string> DescribeTableAsync(string table, List<(string Name, string Type, bool Nullable, bool IsKey, bool Identity, string Description)> cols, bool useSys)
+    {
+        var lines = new List<string>();
+        var dollar = table.IndexOf('$');
+        var b = dollar > 0 ? table[..dollar] : table;
+        var lb = b.ToLowerInvariant();
+        string? tableDesc = null, vouchers = null;
+        var users = new List<string>();
+        var userCount = 0;
+        try
+        {
+            await using var conn = _connections.CreateConnection(useSys);
+            await conn.OpenAsync();
+            await using (var cmd = new SqlCommand("SELECT CAST(value AS nvarchar(4000)) FROM sys.extended_properties WHERE class = 1 AND minor_id = 0 AND name = 'MS_Description' AND major_id = OBJECT_ID(@t)", conn) { CommandTimeout = 15 })
+            {
+                cmd.Parameters.AddWithValue("@t", "dbo." + table);
+                tableDesc = await cmd.ExecuteScalarAsync() as string;
+            }
+            if (Regex.IsMatch(lb, @"^(ph|ct)\w*\d"))
+                try
+                {
+                    await using var cmd = new SqlCommand("SELECT TOP 8 RTRIM(ma_ct) + ' ' + ten_ct, CASE WHEN RTRIM(m_phdbf) = @b THEN 1 ELSE 0 END FROM dmct WHERE RTRIM(m_phdbf) = @b OR RTRIM(m_ctdbf) = @b ORDER BY ma_ct", conn) { CommandTimeout = 15 };
+                    cmd.Parameters.AddWithValue("@b", b);
+                    var vs = new List<string>(); var isHead = false;
+                    await using var r = await cmd.ExecuteReaderAsync();
+                    while (await r.ReadAsync()) { vs.Add(r.GetString(0)); isHead |= r.GetInt32(1) == 1; }
+                    if (vs.Count > 0) vouchers = $"{(isHead ? "Phần đầu (master)" : "Phần chi tiết (detail)")} của chứng từ: {string.Join(", ", vs)}.";
+                }
+                catch { /* không có dmct (Sys Data) */ }
+            await using (var cmd = new SqlCommand("SELECT TOP 6 o.name, COUNT(*) OVER () FROM sys.sql_modules m JOIN sys.objects o ON o.object_id = m.object_id WHERE m.definition LIKE @p ORDER BY CASE o.type WHEN 'P' THEN 0 ELSE 1 END, LEN(o.name)", conn) { CommandTimeout = 30 })
+            {
+                cmd.Parameters.AddWithValue("@p", "%" + b.Replace("[", "[[]").Replace("_", "[_]") + "%");
+                await using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync()) { users.Add(r.GetString(0)); userCount = r.GetInt32(1); }
+            }
+        }
+        catch { /* chỉ là phần mô tả thêm */ }
+
+        if (!string.IsNullOrWhiteSpace(tableDesc)) lines.Add(tableDesc.Trim());
+        if (vouchers is not null) lines.Add(vouchers);
+        // field nào tra cứu vào bảng này → danh mục gì
+        var dict = FieldDictionaryService.Instance;
+        var lookupBy = dict.Entries.Where(e => dict.Lookups(e.Name).Any(l => l.Source.Table.Equals(b, StringComparison.OrdinalIgnoreCase)) && e.HeaderV.Length > 0)
+            .Select(e => (e.Name, e.HeaderV)).DistinctBy(e => e.Name, StringComparer.OrdinalIgnoreCase).Take(3).ToList();
+        if (lookupBy.Count > 0)
+            lines.Add($"Danh mục {Regex.Replace(lookupBy[0].HeaderV, @"^\s*Mã\s+", "", RegexOptions.IgnoreCase).ToLowerInvariant()} — field {string.Join(", ", lookupBy.Select(e => $"{e.Name} ({e.HeaderV})"))} tra cứu vào bảng này.");
+        // quy ước đặt tên của Fast (suy ra từ tên, không phải tài liệu)
+        var naming = lb switch
+        {
+            _ when lb.StartsWith("z") => "Bảng tuỳ biến riêng của dự án (tiền tố z).",
+            _ when lb.StartsWith("hddt") => "Nhóm hoá đơn điện tử (hddt…): dữ liệu phát hành / đồng bộ hoá đơn điện tử.",
+            _ when Regex.IsMatch(lb, @"^dm") => lookupBy.Count == 0 ? "Danh mục (tiền tố dm)." : null,
+            _ when Regex.IsMatch(lb, @"^ph\d") => vouchers is null ? "Phần đầu (master) của 1 loại chứng từ (ph + số)." : null,
+            _ when Regex.IsMatch(lb, @"^ct\d") => vouchers is null ? "Phần chi tiết (detail) của 1 loại chứng từ (ct + số)." : null,
+            _ when Regex.IsMatch(lb, @"^r\d") => "Bảng sổ / dữ liệu đã ghi sổ theo phân hệ (r + số) — nguồn của các báo cáo.",
+            _ when Regex.IsMatch(lb, @"^cd") => "Số dư đầu kỳ (cd…: cdtk tài khoản, cdkh khách hàng, cdvt vật tư, cdvv vụ việc…).",
+            _ when lb.StartsWith("sys") => "Bảng hệ thống của Fast (sys…).",
+            _ when Regex.IsMatch(lb, @"^(wrk|tmp|temp)") => "Bảng làm việc tạm (wrk / tmp).",
+            _ => null,
+        };
+        if (naming is not null) lines.Add(naming);
+        if (dollar > 0)
+            lines.Add(table.EndsWith("$000000") ? $"Bảng phân kỳ: dữ liệu chia theo kỳ ({b}$yyyymm), {b}$000000 gộp mọi kỳ — dùng lấy cấu trúc; truy vấn theo kỳ viết {b}$%Partition + FastBusiness$Partition$Execute."
+                : $"1 kỳ của bảng phân kỳ {b} (gộp mọi kỳ: {b}$000000).");
+        var names = cols.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (names.Contains("ngay_ct") && names.Contains("so_ct") && vouchers is null && !Regex.IsMatch(lb, @"^(ph|ct)\d")) lines.Add("Có ngày / số chứng từ (ngay_ct, so_ct) → dữ liệu theo chứng từ.");
+        if (!lb.StartsWith("dm") && names.Any(n => Regex.IsMatch(n, @"^(du_no|du_co|ton|du)\d{2}$"))) lines.Add("Có cột số dư / tồn (…00) → bảng số dư.");
+        if (userCount > 0) lines.Add($"Dùng trong {userCount} store / function / view, vd: {string.Join(", ", users.Take(5))}.");
+        return lines.Count == 0 ? "" : string.Join("\n", lines);
+    }
+
     private async Task<AskReply> TablesAsync(List<string> tables, bool useSys)
     {
         var cards = new List<AskCard>();
@@ -857,7 +999,10 @@ public sealed class FastAskService
             var keys = cols.Where(c => c.IsKey).Select(c => c.Name).ToList();
             var info = string.Join("\n", cols.Take(60).Select(c => $"{c.Name,-20} {c.Type}{(c.IsKey ? "  🔑" : "")}{(c.Identity ? "  identity" : "")}{(c.Nullable ? "" : "  NOT NULL")}{(c.Description.Length > 0 ? "  — " + c.Description : "")}"));
             var sel = $"SELECT {string.Join(", ", cols.Take(12).Select(c => c.Name))}\nFROM {t}" + (keys.Count > 0 ? $"\nWHERE {keys[0]} = ''" : "");
-            cards.Add(new AskCard($"{t} — {cols.Count} cột" + (keys.Count > 0 ? $", khoá {string.Join(", ", keys)}" : ""), info + (cols.Count > 60 ? $"\n… còn {cols.Count - 60} cột" : ""), sel, CodeActions(sel), "Database đang kết nối"));
+            // bảng là gì / dùng làm gì (chỉ cho tối đa 2 bảng đầu — mỗi bảng vài truy vấn chỉ đọc)
+            var about = descs.IndexOf((t, cols)) < 2 ? await DescribeTableAsync(t, cols, useSys) : "";
+            cards.Add(new AskCard($"{t} — {cols.Count} cột" + (keys.Count > 0 ? $", khoá {string.Join(", ", keys)}" : ""),
+                (about.Length > 0 ? about + "\n\n" : "") + info + (cols.Count > 60 ? $"\n… còn {cols.Count - 60} cột" : ""), sel, CodeActions(sel), "Database đang kết nối"));
         }
         if (descs.Count >= 2)
         {
@@ -917,7 +1062,47 @@ public sealed class FastAskService
 
     // ---------------------------------------------------------------- 6: danh mục (luật Fast)
 
-    private static AskReply CatalogFlow(string answer, Dictionary<string, string> state)
+    /// <summary>"[varchar](32)" từ "varchar(32)".</summary>
+    private static string Bracket(string type) => Regex.Replace(type, @"^(\w+)", "[$1]");
+
+    /// <summary>Cột người dùng nhập khi tạo danh mục → (tên cột, kiểu). Gõ tên cột (test, ten_test) thì giữ nguyên; gõ tiêu đề tiếng Việt thì tra từ điển
+    /// field theo tiêu đề, không có thì đặt tên theo luật (Mã kho → ma_kho, Tên test → ten_test, Ghi chú → ghi_chu). Kiểu theo tên cột như ghost text.</summary>
+    private static List<(string Name, string Type)> CatalogColumns(string cols, string stem)
+    {
+        var res = new List<(string Name, string Type)>();
+        var dict = FieldDictionaryService.Instance;
+        foreach (var raw in cols.Split(new[] { '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            string name;
+            if (Regex.IsMatch(raw, @"^[A-Za-z_][A-Za-z0-9_]*$")) name = raw.ToLowerInvariant();
+            else
+            {
+                var f = Fold(raw).Trim();
+                name = dict.Entries.FirstOrDefault(e => Fold(e.HeaderV).Trim() == f)?.Name?.ToLowerInvariant()
+                       ?? Regex.Replace(Regex.Replace(f, @"[^a-z0-9 ]", ""), @"\s+", "_");
+            }
+            if (name.Length == 0 || res.Any(r => r.Name == name)) continue;
+            res.Add((name, ColumnType(name)));
+        }
+        return res;
+    }
+
+    /// <summary>Kiểu cột theo quy ước đặt tên Fast (như ghost text khi gõ CREATE TABLE).</summary>
+    private static string ColumnType(string c) => c switch
+    {
+        "status" => "char(1)",
+        "datetime0" or "datetime2" => "datetime",
+        "user_id0" or "user_id2" or "line_nbr" or "stt" or "nam" or "thang" or "ky" or "quy" => "int",
+        "ghi_chu" or "dien_giai" => "nvarchar(512)",
+        _ when c.StartsWith("ten_") => "nvarchar(256)",
+        _ when c.StartsWith("ngay") => "smalldatetime",
+        _ when Regex.IsMatch(c, @"^(so_luong|sl_|tien|t_tien|ps_|du_|gia|thue|ck|tl_|ty_gia)") => "numeric(19,4)",
+        _ when Regex.IsMatch(c, @"^(ma_|nh_|tk|loai_|so_)") => "varchar(32)",
+        _ when c.EndsWith("_yn") => "bit",
+        _ => "nvarchar(256)",
+    };
+
+    private async Task<AskReply> CatalogFlowAsync(string answer, Dictionary<string, string> state, bool useSys)
     {
         var step = state.GetValueOrDefault("step");
         if (step == "name" && answer.Length > 0) state["name"] = answer.Trim();
@@ -946,10 +1131,30 @@ public sealed class FastAskService
             new("Tạo nhanh danh mục theo luật Fast", "Mở Tạo nhanh danh mục, điền sẵn cột theo luật Fast (không AI) — kiểm tra rồi bấm Tạo file như thường lệ.\n\n" + content, "",
                 new List<AskAction> { new("quicklist", "Mở Tạo nhanh danh mục (theo luật Fast)", name, content) }, "Luật danh mục Fast"),
         };
-        if (Snip("tblcat") is { } tbl)
+        // bảng: cột chuẩn của luật Fast + đúng các cột người dùng nhập (tên cột giữ nguyên, tiêu đề tiếng Việt thì tra từ điển field / đặt tên theo luật)
+        var stem = Regex.Replace(code, "^z?dm", "");
+        var userCols = CatalogColumns(cols, stem);
+        var db = await DbAsync(useSys);
+        var exists = db.Tables.FirstOrDefault(t => t.Equals(code, StringComparison.OrdinalIgnoreCase));
+        if (exists is not null)
         {
-            var sql = Plain(tbl.Body, new Dictionary<int, string> { [1] = code, [2] = Regex.Replace(code, "^z?dm", "") });
-            cards.Add(new AskCard("Chỉ cần bảng (CREATE TABLE chuẩn)", tbl.Description, sql, CodeActions(sql), "Mẫu code Fast"));
+            // bảng đã có → chỉ thêm cột chưa có (ALTER TABLE … ADD), không tạo lại
+            var have = (await _tables.GetColumnDescriptionsAsync(useSys, "dbo", exists)).Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var add = userCols.Where(c => !have.Contains(c.Name)).ToList();
+            var alter = add.Count == 0 ? "" : string.Join("\n", add.Select(c => $"ALTER TABLE [dbo].[{exists}] ADD [{c.Name}] {c.Type} NULL"));
+            cards.Add(new AskCard($"Bảng {exists} đã có — thêm cột", add.Count == 0 ? $"Các cột bạn nhập đều đã có trong {exists}." : $"Thêm {add.Count} cột chưa có vào {exists} (không tạo lại bảng):",
+                alter, alter.Length == 0 ? new List<AskAction>() : CodeActions(alter), "Database đang kết nối") { Ref = "catalog|" + exists.ToLowerInvariant() });
+        }
+        else
+        {
+            var std = new List<(string Name, string Def)> { ($"ma_{stem}", "[varchar](32) NOT NULL"), ($"ten_{stem}", "[nvarchar](256) NOT NULL"), ($"ten_{stem}2", "[nvarchar](256) NULL") };
+            var tail = new List<(string Name, string Def)> { ("ghi_chu", "[nvarchar](512) NULL"), ("status", "[char](1) NULL"), ("datetime0", "[datetime] NULL"), ("datetime2", "[datetime] NULL"), ("user_id0", "[int] NULL"), ("user_id2", "[int] NULL") };
+            var mine = userCols.Where(c => !std.Concat(tail).Any(s => s.Name.Equals(c.Name, StringComparison.OrdinalIgnoreCase))).Select(c => (c.Name, Def: Bracket(c.Type) + " NULL")).ToList();
+            var all = std.Concat(mine).Concat(tail).ToList();
+            var sql = $"CREATE TABLE [dbo].[{code}](\n" + string.Join(",\n", all.Select(c => $"\t[{c.Name}] {c.Def}")) + $",\n\tCONSTRAINT [PK_{code}] PRIMARY KEY CLUSTERED ([ma_{stem}])\n)";
+            cards.Add(new AskCard("Chỉ cần bảng (CREATE TABLE theo luật Fast)",
+                $"Cột chuẩn ma_{stem} (khoá), ten_{stem} / ten_{stem}2, ghi_chu, status, datetime0/2, user_id0/2" + (mine.Count > 0 ? $" + {mine.Count} cột bạn nhập: {string.Join(", ", mine.Select(c => c.Name))}." : ".")
+                + " Sửa được ở nút ✎ Sửa trước khi chèn.", sql, CodeActions(sql), "Luật danh mục Fast") { Ref = "catalog|" + code });
         }
         return Reply("Danh mục theo luật Fast:", cards, new[] { new AskChoice("Tạo danh mục khác", "tạo danh mục") });
     }

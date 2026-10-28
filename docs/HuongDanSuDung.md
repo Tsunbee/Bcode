@@ -298,6 +298,7 @@ Chỉ có ở **chế độ Web** (chế độ App chỉ nạp code store/functi
 - **Cách 1 — debug script đang mở**: nhóm 🐞 Debug → bật **Debug từng bước**, rồi `F5`.
 - **Cách 2 — debug store / function được gọi trong script**: 🐞 Debug → **Debug store/function** → hộp "Chọn store/function để debug" liệt kê các câu EXEC / gọi function (Dòng, Loại, Đối tượng, Câu gọi) → chọn → **Debug**. Bcode mở tab mới chứa code của object đó.
 - Object có tham số → hộp "Debug từng bước — tham số": nhập giá trị dạng T-SQL (`'chuỗi'`, số, `NULL`); ô được điền sẵn từ câu EXEC, không có thì lấy DEFAULT → **Bắt đầu debug**.
+- Script dạng `ALTER PROCEDURE …` + `GO` + đoạn gọi thử (vd chép từ SQL Profiler: `declare @0 …` / `select @0='20261028', @1=…` / `exec ten_store 'V', @0, @1, …, default`): Bcode tự tìm câu `exec` của đúng store đó sau `GO` và điền sẵn các ô — biến `@0`, `@1`… thay bằng giá trị gán trong `select` / `set` / `declare … =`, `default` (hoặc biến chưa gán) thì giữ DEFAULT của tham số. Khi debug, đoạn sau `GO` **không** chạy từng bước (chỉ dừng trong thân store); phần chuẩn bị trước câu `exec` — tạo / đổ bảng tạm (`select … into #$query`, `create table #…`, `insert #…`) kèm biến nó dùng — được chạy trước thân store, các câu `select` chỉ để xem kết quả thì bỏ qua.
 
 ### Trong khi debug
 
@@ -309,10 +310,14 @@ Trên ảnh: **①** nhóm 🐞 Debug (Debug store/function, Debug từng bướ
 |---|---|---|
 | `F10` | ⤵ Step | Chạy tới điểm dừng kế |
 | `F5` | ▶ Continue | Chạy tiếp tới breakpoint kế (hoặc hết) |
-| `Ctrl+F10` | ⇥ To cursor | Chạy tới dòng con trỏ |
+| `Ctrl+F10` | ⇥ To cursor | Chạy tới dòng con trỏ (con trỏ ở đoạn đã chạy qua thì lùi về đó) |
+| `Ctrl+Shift+F10` | ⤴ Back | Lùi về điểm dừng trước (chạy lại từ đầu tới đó — vẫn rollback) |
+| `Alt+F10` | 🔍 Tìm lỗi | Tự tìm bước đầu tiên bị lỗi rồi dừng ở đó: chia đôi các điểm dừng (store 30 điểm dừng ≈ 6 lần chạy), mỗi lần đều rollback |
 | `Shift+F5` | ⏹ Stop | Thoát debug |
 
-- Dòng sắp chạy tô vàng; thanh nổi báo "Sắp chạy dòng N · còn M điểm dừng".
+- Dòng sắp chạy tô vàng; thanh nổi báo "Sắp chạy dòng N · còn M điểm dừng". Các dòng debug dừng được có **vạch vàng mờ ở lề** ngay khi bật debug.
+- Bước bị lỗi: đoạn dòng của bước đó tô **đỏ** (✖ ở lề) — bước trước chạy được nên lỗi nằm trong đoạn này; thanh trạng thái ghi "Lỗi ở dòng …".
+- Sửa code ngay trong lúc debug được, không phải tắt debug: tô đỏ mất ngay khi gõ, lần bấm `F10` / `F5` / 🔍 Tìm lỗi kế tiếp dựng lại debug từ code mới và chạy lại từ đầu (giữ giá trị tham số đã nhập).
 - Giá trị biến hiện ở bảng **Variables** (và bảng có tên biến bảng); kết quả thật hiện thành "Kết quả i".
 
 > **Lưu ý:** mỗi bước Bcode chạy lại script từ dòng 1 tới dòng đích trong `BEGIN TRAN` rồi **luôn ROLLBACK** — không thay đổi dữ liệu, nhưng script nặng sẽ chậm dần về cuối. Chưa hỗ trợ CTE, inline table function; không dừng được ở dòng IF / WHILE / ELSE chờ dòng sau hoặc dòng BEGIN trống.

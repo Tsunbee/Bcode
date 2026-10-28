@@ -20,6 +20,10 @@
         .bcodeBp::before { content: '●'; color: #e51400; font-size: 15px; line-height: 18px; }
         .bcodeDbgArrow::before { content: '▶'; color: #ffcc00; font-size: 12px; line-height: 18px; margin-left: 2px; }
         .bcodeDbgLine { background: rgba(255, 204, 0, 0.22); }
+        .bcodeDbgErr { background: rgba(229, 20, 0, 0.22); }
+        /* Dòng debug dừng được: vạch mờ ở lề trái số dòng */
+        .bcodeDbgSafe { border-left: 3px solid rgba(255, 204, 0, 0.55); margin-left: 3px; }
+        .bcodeDbgErrIcon::before { content: '✖'; color: #e51400; font-size: 11px; line-height: 18px; margin-left: 3px; }
         .bcodePeekDecl { background: rgba(47, 178, 106, 0.30); }
         #dbgBar { position: absolute; top: 6px; right: 26px; z-index: 30; display: none; align-items: center; gap: 4px;
                   padding: 4px 6px; border-radius: 8px; font: 12px 'Segoe UI', sans-serif; color: #ddd;
@@ -47,6 +51,8 @@
     <div id="editor-container"></div>
     <div id="dbgBar">
         <span class="info" id="dbgInfo">Debug</span>
+        <button id="dbgFind" title="Tự tìm bước đầu tiên bị lỗi rồi dừng ở đó (Alt+F10) — chia đôi các điểm dừng, mỗi lần chạy đều rollback">🔍 Tìm lỗi</button>
+        <button id="dbgBack" title="Lùi về điểm dừng trước (Ctrl+Shift+F10) — chạy lại từ đầu tới đó, đã rollback nên không ảnh hưởng dữ liệu">⤴ Back</button>
         <button class="primary" id="dbgNext" title="Chạy dòng kế (F10)">⤵ Step</button>
         <button id="dbgCont" title="Chạy tiếp tới breakpoint / hết (F5)">▶ Continue</button>
         <button id="dbgCursor" title="Chạy tới dòng con trỏ (Ctrl+F10)">⇥ To cursor</button>
@@ -866,7 +872,7 @@
                 render(); ped.focus();
             };
             var KEY_DEFAULTS = { 'editor.toggleComment': 'Ctrl+/', 'editor.blockComment': 'Alt+Shift+A', 'editor.peek': 'F12', 'editor.openObject': 'Ctrl+F12', 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.cancel': 'Alt+F5', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
-                'editor.suggest': 'Alt+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5' };
+                'editor.suggest': 'Alt+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5', 'debug.back': 'Ctrl+Shift+F10', 'debug.findError': 'Alt+F10' };
             var KEY_ACTIONS = {
                 'editor.toggleComment': function () { window.toggleComment(); },
                 'editor.blockComment': function () { var a = editor.getAction('editor.action.blockComment'); if (a) a.run(); },
@@ -907,7 +913,9 @@
                 'editor.barGroup9': function () { dbgPost('bar-action', { name: 'bar-group-9' }); },
                 'debug.next': function () { dbgPost('debug-next'); },
                 'debug.cursor': function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); },
-                'debug.stop': function () { dbgPost('debug-stop'); }
+                'debug.stop': function () { dbgPost('debug-stop'); },
+                'debug.back': function () { dbgPost('debug-back'); },
+                'debug.findError': function () { dbgPost('debug-find-error'); }
             };
             var _keyLookup = {};
             window.applyKeymap = function () {
@@ -924,6 +932,8 @@
                 var id = c ? _keyLookup[c] : null;
                 if (id) { e.preventDefault(); e.stopPropagation(); KEY_ACTIONS[id](); }
             });
+            document.getElementById('dbgFind').onclick = function () { dbgPost('debug-find-error'); editor.focus(); };
+            document.getElementById('dbgBack').onclick = function () { dbgPost('debug-back'); editor.focus(); };
             document.getElementById('dbgNext').onclick = function () { dbgPost('debug-next'); editor.focus(); };
             document.getElementById('dbgCont').onclick = function () { dbgPost('debug-continue'); editor.focus(); };
             document.getElementById('dbgCursor').onclick = function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); editor.focus(); };
@@ -954,10 +964,25 @@
                 if (now.join(',') !== _bpLines.join(',')) { _bpLines = now; dbgPost('debug-breakpoints', { lines: _bpLines }); }
             });
 
+            // Sửa code trong lúc debug (đang có đoạn lỗi tô đỏ): báo C# bỏ tô đỏ — lần bấm kế tiếp C# dựng lại debug từ code mới.
+            var _dbgHasError = false;
+            editor.onDidChangeModelContent(function () {
+                if (_dbgHasError) { _dbgHasError = false; dbgPost('debug-edited'); }
+            });
+
             // C# báo trạng thái phiên debug: dòng sắp chạy (next), đã chạy tới (executed), còn bao nhiêu điểm dừng.
-            var _dbgDecos = [];
+            var _dbgDecos = [], _safeDecos = [], _safeKey = '';
             window.setDebugState = function (st) {
                 var bar = document.getElementById('dbgBar');
+                _dbgHasError = !!(st && st.active && st.errorLine);
+                // Vạch ở lề cho mọi dòng debug dừng được (chỉ vẽ lại khi danh sách đổi).
+                var safe = (st && st.active && st.safe) || [];
+                if (safe.join(',') !== _safeKey) {
+                    _safeKey = safe.join(',');
+                    _safeDecos = editor.deltaDecorations(_safeDecos, safe.map(function (l) {
+                        return { range: new monaco.Range(l, 1, l, 1), options: { linesDecorationsClassName: 'bcodeDbgSafe' } };
+                    }));
+                }
                 if (!st || !st.active) {
                     _dbgDecos = editor.deltaDecorations(_dbgDecos, []);
                     bar.style.display = 'none';
@@ -967,14 +992,23 @@
                 document.getElementById('dbgInfo').textContent = st.next
                     ? 'Sắp chạy dòng ' + st.next + ' · còn ' + st.remaining + ' điểm dừng'
                     : 'Đã chạy hết script';
+                document.getElementById('dbgBack').disabled = !st.executed;
+                document.getElementById('dbgFind').disabled = !safe.length;
                 document.getElementById('dbgNext').disabled = !st.next;
                 document.getElementById('dbgCont').disabled = !st.next;
-                document.getElementById('dbgCursor').disabled = !st.next;
+                // To cursor vẫn dùng được khi đã chạy hết: con trỏ ở đoạn đã chạy qua thì lùi về đó.
+                document.getElementById('dbgCursor').disabled = !st.next && !st.executed;
                 var decos = [];
+                // Bước vừa lỗi: tô đỏ đoạn dòng của bước đó (bước trước chạy được nên lỗi nằm trong đoạn này), ✖ ở dòng cuối đoạn.
+                if (st.errorLine) {
+                    decos.push({ range: new monaco.Range(st.errorFrom || st.errorLine, 1, st.errorLine, 1), options: { isWholeLine: true, className: 'bcodeDbgErr' } });
+                    decos.push({ range: new monaco.Range(st.errorLine, 1, st.errorLine, 1), options: { glyphMarginClassName: 'bcodeDbgErrIcon', glyphMarginHoverMessage: { value: 'Bước chạy tới dòng này bị lỗi — xem tab Message' } } });
+                }
                 if (st.next) {
                     decos.push({ range: new monaco.Range(st.next, 1, st.next, 1), options: { isWholeLine: true, className: 'bcodeDbgLine', glyphMarginClassName: 'bcodeDbgArrow' } });
-                    editor.revealLineInCenterIfOutsideViewport(st.next);
                 }
+                var show = st.errorLine || st.next;
+                if (show) editor.revealLineInCenterIfOutsideViewport(show);
                 _dbgDecos = editor.deltaDecorations(_dbgDecos, decos);
             };
 

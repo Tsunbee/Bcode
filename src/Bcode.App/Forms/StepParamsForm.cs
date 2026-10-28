@@ -45,6 +45,55 @@ public sealed class StepParamsForm : WebDialogForm
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Giá trị điền sẵn cho hộp tham số: câu EXEC đã chọn (<paramref name="callText"/>) nếu có, không thì tự tìm câu
+    /// "exec &lt;routine&gt; …" người dùng viết sau GO trong chính script (vd lấy từ SQL Profiler). Biến trong câu gọi (@0, @p1…)
+    /// được thay bằng giá trị gán cho nó trong đoạn đó ("select @0='2026…', @1=5" / "set @x = N'…'" / "declare @x int = 5");
+    /// "default" và biến chưa gán thì bỏ (ô dùng DEFAULT của tham số / NULL như cũ).
+    /// </summary>
+    public static Dictionary<string, string> InitialValues(string script, string? routine, string? callText, IReadOnlyList<StepParam> parameters)
+    {
+        var text = script.Replace("\r\n", "\n").Replace("\r", "\n");
+        // Đoạn sau GO cuối cùng (phần gọi thử); không có GO thì cả script.
+        var gos = System.Text.RegularExpressions.Regex.Matches(text, @"(?im)^[ \t]*GO[ \t]*(?:--.*)?$");
+        var tail = gos.Count > 0 ? text[(gos[^1].Index + gos[^1].Length)..] : text;
+
+        callText ??= FindCall(tail, routine);
+        var args = ParseCallArgs(callText, parameters);
+        if (args.Count == 0) return args;
+
+        var vars = AssignedVariables(tail);
+        foreach (var key in args.Keys.ToList())
+        {
+            var v = args[key].Trim();
+            if (v.Equals("default", StringComparison.OrdinalIgnoreCase)) { args.Remove(key); continue; }
+            if (System.Text.RegularExpressions.Regex.IsMatch(v, @"^@[\w#$]+$"))
+            {
+                if (vars.TryGetValue(v, out var val)) args[key] = val;
+                else args.Remove(key);   // biến không biết giá trị → để ô theo DEFAULT / NULL
+            }
+        }
+        return args;
+    }
+
+    /// <summary>Câu "exec [dbo].[routine] …" cuối cùng trong đoạn (<see cref="SqlStepPlanner.FindRoutineCall"/>).</summary>
+    private static string? FindCall(string text, string? routine) =>
+        string.IsNullOrWhiteSpace(routine) ? null : SqlStepPlanner.FindRoutineCall(text, routine)?.Value.TrimEnd().TrimEnd(';');
+
+    /// <summary>Biến → giá trị (dạng T-SQL) gán trong đoạn: select/set @a = 'x', @b = 5 … và declare @a int = 5. Gán sau cùng thắng.</summary>
+    private static Dictionary<string, string> AssignedVariables(string text)
+    {
+        const string Val = @"(?<v>N?'(?:[^']|'')*'|-?\d+(?:\.\d+)?|null|0x[0-9a-f]+)";
+        var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text,
+                     @"(?<n>@[\w#$]+)\s*=\s*" + Val, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            d[m.Groups["n"].Value] = m.Groups["v"].Value.Equals("null", StringComparison.OrdinalIgnoreCase) ? "NULL" : m.Groups["v"].Value;
+        foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text,
+                     @"(?<n>@[\w#$]+)\s+\w+(?:\s*\([\d\s,max]+\))?\s*=\s*" + Val, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            d[m.Groups["n"].Value] = m.Groups["v"].Value.Equals("null", StringComparison.OrdinalIgnoreCase) ? "NULL" : m.Groups["v"].Value;
+        return d;
+    }
+
     /// <summary>Đọc tham số từ 1 câu gọi "EXEC proc @a = 1, 'x', @c = NULL": theo tên nếu có "@tên =", còn lại theo thứ tự vị trí.</summary>
     public static Dictionary<string, string> ParseCallArgs(string? callText, IReadOnlyList<StepParam> parameters)
     {

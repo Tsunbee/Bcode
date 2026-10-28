@@ -27,7 +27,10 @@ public class RawSqlControl : UserControl, ISqlTab
     private List<DataTable>? _lastResultSchema;   // cấu trúc (không dữ liệu) các bảng kết quả lần chạy gần nhất — cho Write Schema (.xsd)
     private bool _debugStepOn;
     private StepPlan? _plan;          // phiên debug từng bước đang mở (null = không debug)
+    private string _planText = "";    // nội dung script lúc dựng _plan — khác nội dung editor = đã sửa trong lúc debug
+    private Dictionary<string, string>? _planValues;   // giá trị tham số đã nhập (dùng lại khi dựng lại kế hoạch)
     private int _executedLine;        // dòng cuối cùng đã chạy tới (0 = chưa chạy gì)
+    private int _lastOkLine, _errorFrom, _errorLine;   // bước chạy được gần nhất; đoạn dòng của bước vừa lỗi (0 = không lỗi) — tô đỏ trên editor
     private bool _stepRunning;
     private bool _pendingDebugRequested;  // "Debug store/function" mở tab khi editor chưa sẵn sàng — bắt đầu debug ngay khi editor-ready
     private string? _pendingDebugCall;
@@ -466,6 +469,18 @@ public class RawSqlControl : UserControl, ISqlTab
             case "debug-continue": await DebugCommandAsync("continue"); break;
             case "debug-to-cursor": await DebugCommandAsync("to-cursor", root.TryGetProperty("line", out var dl) ? dl.GetInt32() : 0); break;
             case "debug-stop": StopStepDebug(); break;
+            case "debug-back": await DebugCommandAsync("back"); break;
+            case "debug-find-error": await DebugFindErrorAsync(); break;
+            case "debug-edited":
+                // Sửa code trong lúc debug: bỏ tô đỏ cũ ngay, lần bấm Step / Continue / Tìm lỗi kế tiếp chạy lại từ đầu với code mới.
+                if (_plan is not null && _errorLine > 0)
+                {
+                    _errorFrom = _errorLine = 0;
+                    _statusLabel.ForeColor = Color.DarkOrange;
+                    _statusLabel.Text = "Script đã sửa — F10 / F5 / Tìm lỗi sẽ chạy lại từ đầu với code mới (giữ giá trị tham số).";
+                    PushDebugState();
+                }
+                break;
             // Chức năng của thanh Execute gọi bằng phím tắt khai báo trong Template giao diện (Phím tắt → Editor SQL).
             case "bar-action": RunBarAction(root.GetProperty("name").GetString() ?? ""); break;
             case "debug-breakpoints":
@@ -1471,7 +1486,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         Dictionary<string, string>? values = null;
         if (parameters.Any(p => !p.ReadOnly))
         {
-            using var form = new StepParamsForm(name ?? "Script", parameters, StepParamsForm.ParseCallArgs(callText, parameters));
+            await Task.Yield(); // thoát hẳn khỏi callback của WebView2 (GetScriptTextAsync) trước khi mở hộp tham số (WebView2 mới) — không thì hộp trắng trơn
+            using var form = new StepParamsForm(name ?? "Script", parameters, StepParamsForm.InitialValues(text, name, callText, parameters));
             if (form.ShowDialog(this) != DialogResult.OK) { SetBarToggle("debug-step", _debugStepOn = false); return; }
             values = form.Values;
         }
@@ -1486,7 +1502,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }
 
         _plan = plan;
-        _executedLine = 0;
+        _planText = text;
+        _planValues = values;
+        _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
         _debugStepOn = true;
         SetBarToggle("debug-step", true);
         _resultView.Clear();
@@ -1657,6 +1675,9 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             active = _plan is not null,
             next,
             executed = _executedLine,
+            errorFrom = _errorFrom,
+            errorLine = _errorLine,
+            safe = _plan?.SafeLines,   // các dòng dừng được — trang đánh dấu ở lề
             remaining = _plan is null ? 0 : _plan.SafeLines.Count(l => l > _executedLine),
         });
         _ = EdExec($"window.setDebugState && window.setDebugState({state})");
@@ -1665,7 +1686,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     private void StopStepDebug()
     {
         _plan = null;
-        _executedLine = 0;
+        _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
         _debugStepOn = false;
         SetBarToggle("debug-step", false);
         PushDebugState();
@@ -1673,8 +1694,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             _statusLabel.Text = "Đã dừng debug từng bước.";
     }
 
-    /// <summary>"step" = chạy dòng kế; "continue" = tới ngay trước breakpoint kế tiếp (hoặc hết); "to-cursor" = tới ngay trước dòng con trỏ.
-    /// Chưa có phiên debug thì (với "continue") bắt đầu phiên mới.</summary>
+    /// <summary>"step" = chạy dòng kế; "continue" = tới ngay trước breakpoint kế tiếp (hoặc hết); "to-cursor" = tới ngay trước dòng con trỏ
+    /// (con trỏ ở đoạn đã chạy qua thì lùi về đó); "back" = lùi về điểm dừng trước. Chưa có phiên debug thì (với "continue") bắt đầu phiên mới.</summary>
     private async Task DebugCommandAsync(string cmd, int cursorLine = 0)
     {
         if (_plan is null)
@@ -1683,6 +1704,23 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             return;
         }
         if (_stepRunning) return;
+        if (await RefreshPlanIfEditedAsync() && cmd == "back") return;   // code mới: về đầu; lùi thì dừng ở đó
+
+        // Lùi: mỗi bước luôn chạy lại từ đầu rồi rollback, nên lùi = chạy lại tới điểm dừng trước đó (về trước điểm đầu = chưa chạy gì).
+        if (cmd == "back" || (cmd == "to-cursor" && cursorLine > 0 && cursorLine <= _executedLine))
+        {
+            if (_executedLine == 0) return;
+            var limit = cmd == "back" ? _executedLine : cursorLine;
+            var prev = _plan.SafeLines.Where(l => l < limit).DefaultIfEmpty(0).Max();
+            if (prev > 0) { await ExecuteStepAsync(prev); return; }
+            _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+            _resultView.Clear();
+            _tabs.ClearMessages();
+            _statusLabel.ForeColor = AppColors.Success;
+            _statusLabel.Text = $"Đã lùi về đầu — sắp chạy dòng {_plan.NextSafe(0)}.";
+            PushDebugState();
+            return;
+        }
 
         var next = _plan.NextSafe(_executedLine);
         if (next == 0)
@@ -1705,6 +1743,92 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             target = Math.Max(next, LastSafeBefore(cursorLine));
         }
         await ExecuteStepAsync(target);
+    }
+
+    /// <summary>
+    /// "🔍 Tìm lỗi": tìm bước đầu tiên bị lỗi rồi dừng ở đó (tô đỏ đoạn lỗi, hiện biến). Mỗi bước chạy lại từ đầu nên đã lỗi ở bước k thì
+    /// mọi bước sau cũng lỗi → chia đôi các điểm dừng (~log2(n) lần chạy thay vì n). Chạy tới cuối không lỗi thì dừng ở cuối.
+    /// </summary>
+    private async Task DebugFindErrorAsync()
+    {
+        if (_plan is null || _stepRunning) return;
+        await RefreshPlanIfEditedAsync();
+        if (_plan is null) return;
+        var plan = _plan;
+        var lines = plan.SafeLines;
+        var runs = 0;
+        async Task<bool> Fails(int line)
+        {
+            runs++;
+            _statusLabel.ForeColor = Color.DarkOrange;
+            _statusLabel.Text = $"Đang tìm lỗi: lần chạy {runs} — tới dòng {line}... (đã rollback, không lưu dữ liệu)";
+            await using var conn = _service.CreateConnection(UseSysDatabase);
+            await conn.OpenAsync();
+            try { return (await _service.ExecuteScriptOnAsync(plan.BuildBatch(line).Sql, conn)).Any(r => r.Error is not null); }
+            finally
+            {
+                try { await using var rb = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK TRAN;", conn); await rb.ExecuteNonQueryAsync(); }
+                catch { /* connection hỏng — server tự rollback */ }
+            }
+        }
+
+        _stepRunning = true;
+        int bad;
+        try
+        {
+            if (!await Fails(lines[^1])) bad = -1;
+            else
+            {
+                int lo = 0, hi = lines.Count - 1;   // hi luôn là chỉ số lỗi
+                while (lo < hi)
+                {
+                    var mid = (lo + hi) / 2;
+                    if (await Fails(lines[mid])) hi = mid; else lo = mid + 1;
+                    if (_plan != plan) return;   // đã Stop / bắt đầu phiên khác trong lúc tìm
+                }
+                bad = hi;
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.ForeColor = Color.Firebrick;
+            _statusLabel.Text = "Không tìm được lỗi: " + ex.Message;
+            return;
+        }
+        finally { _stepRunning = false; }
+
+        if (_plan != plan) return;
+        if (bad < 0)
+        {
+            await ExecuteStepAsync(lines[^1]);
+            _statusLabel.Text = $"Chạy hết tới dòng {lines[^1]} không có lỗi ({runs} lần chạy, đã rollback).";
+            return;
+        }
+        _lastOkLine = bad > 0 ? lines[bad - 1] : 0;
+        await ExecuteStepAsync(lines[bad]);   // hiện kết quả + tô đỏ đoạn lỗi (_lastOkLine, dòng bad]
+        _statusLabel.Text = $"Tìm thấy lỗi sau {runs + 1} lần chạy: " + _statusLabel.Text;
+    }
+
+    /// <summary>
+    /// Đang debug mà code trong editor đã sửa (vd sửa chỗ lỗi vừa tìm được): dựng lại kế hoạch từ code mới (giữ giá trị tham số đã nhập)
+    /// và chạy lại từ đầu — không phải tắt debug rồi bật lại. Trả true nếu đã dựng lại.
+    /// </summary>
+    private async Task<bool> RefreshPlanIfEditedAsync()
+    {
+        if (_plan is null) return false;
+        var text = await GetScriptTextAsync();
+        if (string.IsNullOrWhiteSpace(text) || text == _planText) return false;
+        var plan = SqlStepPlanner.Build(text, _planValues);
+        if (plan.SafeLines.Count == 0) return false;   // code mới không dừng được ở đâu — giữ kế hoạch cũ
+        _plan = plan;
+        _planText = text;
+        _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+        _resultView.Clear();
+        _tabs.ClearMessages();
+        _statusLabel.ForeColor = AppColors.Success;
+        _statusLabel.Text = $"Script đã sửa — dựng lại debug từ code mới ({plan.SafeLines.Count} điểm dừng), chạy lại từ đầu.";
+        PushDebugState();
+        return true;
     }
 
     private async Task ExecuteStepAsync(int target)
@@ -1748,12 +1872,18 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             var remaining = _plan.SafeLines.Count(l => l > _executedLine);
             if (errorBatch is not null)
             {
+                // Bước trước (tới dòng _lastOkLine) chạy được → lỗi nằm trong đoạn vừa thêm: tô đỏ đoạn đó thay vì chỉ dời mũi tên sang dòng kế.
+                _errorLine = target;
+                _errorFrom = _plan.SafeLines.Where(l => l > _lastOkLine && l <= target).DefaultIfEmpty(target).Min();
+                var where = _errorFrom == target ? $"dòng {target}" : $"đoạn dòng {_errorFrom}–{target}";
                 _statusLabel.ForeColor = Color.Firebrick;
-                _statusLabel.Text = $"Lỗi khi chạy tới dòng {target} (xem tab Message). F10 thử bước kế, Shift+F5 dừng.";
+                _statusLabel.Text = $"Lỗi ở {where} (tô đỏ; bước trước{(_lastOkLine > 0 ? $" tới dòng {_lastOkLine}" : "")} chạy được) — xem tab Message. ⤴ Back để xem lại, Shift+F5 dừng.";
                 _tabs.SetMessages($"LỖI: {errorBatch.Error}", messages, tables.Count);
             }
             else
             {
+                _lastOkLine = target;
+                _errorFrom = _errorLine = 0;
                 _statusLabel.ForeColor = AppColors.Success;
                 _statusLabel.Text = remaining > 0
                     ? $"Đã chạy tới dòng {target} — còn {remaining} điểm dừng. (đã rollback, không lưu dữ liệu)"
@@ -1764,6 +1894,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         catch (Exception ex)
         {
             _executedLine = target;
+            _errorLine = target;
+            _errorFrom = _plan?.SafeLines.Where(l => l > _lastOkLine && l <= target).DefaultIfEmpty(target).Min() ?? target;
             _statusLabel.ForeColor = Color.Firebrick;
             _statusLabel.Text = "Lỗi khi debug từng bước.";
             _tabs.SetMessages($"LỖI: {ex.Message}", null, 0);

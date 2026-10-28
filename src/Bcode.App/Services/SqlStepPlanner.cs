@@ -22,6 +22,8 @@ public sealed class StepPlan
     public required string DeclareSql { get; init; }
     public required List<StepParam> Params { get; init; }
     public string? RoutineName { get; init; }
+    /// <summary>Phần chuẩn bị của đoạn gọi thử sau GO (tạo bảng tạm #… mà store dùng, kèm biến nó cần) — chạy trước thân store, cùng dòng 1.</summary>
+    public string PreludeSql { get; init; } = "";
 
     /// <summary>Dòng an toàn kế tiếp sau <paramref name="after"/> (0 = từ đầu); 0 nếu hết.</summary>
     public int NextSafe(int after) => SafeLines.FirstOrDefault(l => l > after);
@@ -37,7 +39,9 @@ public sealed class StepPlan
 
         var sb = new StringBuilder();
         // Mọi thứ thêm vào đầu nằm CÙNG dòng 1 để không lệch số dòng.
-        sb.Append("SET XACT_ABORT OFF; BEGIN TRAN; ").Append(DeclareSql).Append(' ');
+        sb.Append("SET XACT_ABORT OFF; BEGIN TRAN; ");
+        if (PreludeSql.Length > 0) sb.Append(PreludeSql).Append(' ');
+        sb.Append(DeclareSql).Append(' ');
         sb.Append(prefix);
         var closers = SqlStepPlanner.Closers(code);
         if (closers.Length > 0) sb.Append('\n').Append(closers);
@@ -271,11 +275,21 @@ public static class SqlStepPlanner
         text = text.Replace("\r\n", "\n").Replace("\r", "\n");
         var (name, parameters, bodyStart) = ParseHeader(text);
 
+        // Store/function có đoạn gọi thử sau GO (vd chép từ SQL Profiler: declare @0…, select … into #$query, exec store …):
+        // debug chỉ đi trong thân store — đoạn sau GO thành khoảng trắng, phần chuẩn bị của nó (bảng tạm + biến cần) chạy trước ở dòng 1.
+        var tailStart = text.Length;
+        var prelude = "";
+        if (name is not null && GoLine.Match(text, Math.Min(bodyStart, text.Length)) is { Success: true } go)
+        {
+            tailStart = go.Index;
+            prelude = TailPrelude(text[(go.Index + go.Length)..], name);
+        }
+
         // Dòng GO → trống (không tách batch được khi chạy từng bước).
         var processed = new StringBuilder(text.Length);
         // Header (và mọi thứ trước nó) → khoảng trắng, giữ xuống dòng để không lệch số dòng.
         for (var i = 0; i < text.Length; i++)
-            processed.Append(i < bodyStart && text[i] != '\n' ? ' ' : text[i]);
+            processed.Append((i < bodyStart || i >= tailStart) && text[i] != '\n' ? ' ' : text[i]);
         var body = GoLine.Replace(processed.ToString(), m => new string(' ', m.Length));
 
         var declare = "";
@@ -292,7 +306,74 @@ public static class SqlStepPlanner
 
         var lines = body.Split('\n');
         var safe = Services.SqlLineAnalyzer.FindSafeLines(body).Where(l => IsRealStep(lines[l - 1])).OrderBy(l => l).ToList();
-        return new StepPlan { Lines = lines, SafeLines = safe, DeclareSql = declare, Params = parameters, RoutineName = name };
+        return new StepPlan { Lines = lines, SafeLines = safe, DeclareSql = declare, Params = parameters, RoutineName = name, PreludeSql = prelude };
+    }
+
+    private static readonly Regex StatementStart = new(
+        @"^(SELECT|SET|DECLARE|CREATE|INSERT|UPDATE|DELETE|EXEC|EXECUTE|IF|TRUNCATE|DROP|WITH|ALTER|PRINT|BEGIN|END|WHILE|MERGE)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Câu "exec [schema.]routine …" cuối cùng trong đoạn (kể cả các dòng nối tiếp khi dòng trước kết thúc / dòng sau bắt đầu bằng dấu phẩy).</summary>
+    public static Match? FindRoutineCall(string text, string routine)
+    {
+        var bare = routine.Split('.').Last().Trim('[', ']', ' ');
+        if (bare.Length == 0) return null;
+        var rx = new Regex(
+            @"\bexec(?:ute)?\s+(?:@\w+\s*=\s*)?(?:\[?\w+\]?\.)?\[?" + Regex.Escape(bare) + @"\]?(?![\w$])[^\n]*(?:\n[ \t]*,[^\n]*|(?<=,[ \t]*)\n[^\n]*)*",
+            RegexOptions.IgnoreCase);
+        return rx.Matches(text).LastOrDefault();
+    }
+
+    /// <summary>
+    /// Phần chuẩn bị trước câu gọi store trong đoạn sau GO: câu tạo / đổ bảng tạm (select … into #x, create table #x, insert #x…) và
+    /// lệnh khác ngoài SELECT xem kết quả; nếu chúng dùng biến @… thì kèm các câu declare / gán biến của đoạn. Ghép thành 1 dòng
+    /// (bỏ comment) để đặt ở dòng 1 của batch debug. Không thấy câu gọi store thì không chạy gì.
+    /// </summary>
+    private static string TailPrelude(string tail, string routine)
+    {
+        if (FindRoutineCall(tail, routine) is not { } call) return "";
+        var setup = StripComments(tail[..call.Index].Replace("\r", ""));
+
+        // Gom dòng thành câu lệnh: dòng mở đầu bằng từ khoá câu lệnh = câu mới, còn lại nối vào câu trước.
+        var statements = new List<string>();
+        foreach (var line in setup.Split('\n'))
+        {
+            var t = line.Trim();
+            if (t.Length == 0) continue;
+            if (statements.Count == 0 || StatementStart.IsMatch(t)) statements.Add(t);
+            else statements[^1] += " " + t;
+        }
+
+        static bool IsDeclare(string s) => Regex.IsMatch(s, @"^DECLARE\b", RegexOptions.IgnoreCase);
+        static bool IsAssign(string s) => Regex.IsMatch(s, @"^(SELECT|SET)\s+@[\w#$]+\s*=", RegexOptions.IgnoreCase) && !Regex.IsMatch(s, @"\bINTO\s+#", RegexOptions.IgnoreCase);
+        static bool IsResultOnly(string s) => Regex.IsMatch(s, @"^(SELECT|WITH)\b", RegexOptions.IgnoreCase) && !Regex.IsMatch(s, @"\bINTO\s+[#@]", RegexOptions.IgnoreCase);
+        var setups = statements.Where(s => !IsDeclare(s) && !IsAssign(s) && !IsResultOnly(s)).ToList();
+        if (setups.Count == 0) return "";
+        var needVars = setups.Any(s => Regex.IsMatch(MaskedCode(s), @"(?<!@)@[\w#$]+"));
+        var kept = statements.Where(s => setups.Contains(s) || (needVars && (IsDeclare(s) || IsAssign(s))));
+        return string.Join(" ", kept.Select(s => s.TrimEnd(';') + ";"));
+    }
+
+    /// <summary>Bỏ comment -- và /* */ (giữ nguyên chuỗi '...' và xuống dòng).</summary>
+    private static string StripComments(string s)
+    {
+        var sb = new StringBuilder(s.Length);
+        var inStr = false;
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            var next = i + 1 < s.Length ? s[i + 1] : '\0';
+            if (inStr)
+            {
+                sb.Append(c);
+                if (c == '\'') { if (next == '\'') { sb.Append(next); i++; } else inStr = false; }
+            }
+            else if (c == '\'') { inStr = true; sb.Append(c); }
+            else if (c == '-' && next == '-') { while (i < s.Length && s[i] != '\n') i++; if (i < s.Length) sb.Append('\n'); }
+            else if (c == '/' && next == '*') { var end = s.IndexOf("*/", i + 2, StringComparison.Ordinal); i = end < 0 ? s.Length : end + 1; sb.Append(' '); }
+            else sb.Append(c);
+        }
+        return sb.ToString();
     }
 
     /// <summary>Loại các dòng không dừng được: IF/WHILE/ELSE còn chờ câu lệnh ở dòng sau, và dòng kết thúc bằng BEGIN (khối rỗng là cú pháp sai).</summary>

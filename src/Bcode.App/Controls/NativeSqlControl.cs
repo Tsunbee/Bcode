@@ -61,13 +61,16 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     private bool _themeHooked;
 
     // ---- Debug từng bước (như bản Web: RawSqlControl) ----
-    private const int MarkBreakpoint = 1, MarkNextArrow = 2, MarkNextLine = 3;
+    private const int MarkBreakpoint = 1, MarkNextArrow = 2, MarkNextLine = 3, MarkErrorLine = 4, MarkSafeLine = 5;
     private StepPlan? _plan;
+    private string _planText = "";    // nội dung script lúc dựng _plan — khác nội dung editor = đã sửa trong lúc debug
+    private Dictionary<string, string>? _planValues;   // giá trị tham số đã nhập (dùng lại khi dựng lại kế hoạch)
     private int _executedLine;
+    private int _lastOkLine, _errorFrom, _errorLine;   // bước chạy được gần nhất; đoạn dòng của bước vừa lỗi (0 = không lỗi) — tô đỏ trên editor
     private bool _debugStepOn, _stepRunning;
     private readonly BarFlow _dbgBar = new() { Dock = DockStyle.Top, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(6, 3, 6, 3), Visible = false };
     private readonly MutedLabel _dbgInfo = new() { AutoSize = true, Margin = new Padding(0, 7, 10, 0), Text = "Debug", BackColor = Color.Transparent };
-    private PillButton? _dbgNext, _dbgCont, _dbgCursor;
+    private PillButton? _dbgBack, _dbgNext, _dbgCont, _dbgCursor;
 
     // ---- F12: khung xem nhanh object (peek) ----
     private SqlPeekPanel? _peek;
@@ -126,7 +129,17 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
         // ---- editor ----
         ConfigureEditor();
-        _ed.TextChanged += (_, _) => _version++;
+        _ed.TextChanged += (_, _) =>
+        {
+            _version++;
+            // Sửa code trong lúc debug: bỏ tô đỏ cũ ngay, lần bấm Step / Continue / Tìm lỗi kế tiếp chạy lại từ đầu với code mới.
+            if (_plan is not null && _errorLine > 0)
+            {
+                _errorFrom = _errorLine = 0;
+                SetStatus("Script đã sửa — F10 / F5 / Tìm lỗi sẽ chạy lại từ đầu với code mới (giữ giá trị tham số).", AppColors.Warning);
+                PushDebugState();
+            }
+        };
         _hints = new NativeSqlHints(_ed, this, () => _useSys, () => CurrentProject?.Invoke() ?? "", snippets, _sqlObjectService,
             () => _running ? null : _persistentConn, () => _objectNames, () => _tableNames, () => _service.Connections.Current is not null);
         _ed.MouseWheel += (_, e) => { };
@@ -840,7 +853,11 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         m.Width = NativeSkin.S(16);
         m.Sensitive = true;
         m.Cursor = MarginCursor.Arrow;
-        m.Mask = (1u << MarkBreakpoint) | (1u << MarkNextArrow);
+        m.Mask = (1u << MarkBreakpoint) | (1u << MarkNextArrow) | (1u << MarkSafeLine);
+        // Dòng debug dừng được: vạch vàng mờ ở lề (breakpoint / mũi tên vẽ đè lên).
+        _ed.Markers[MarkSafeLine].Symbol = MarkerSymbol.LeftRect;
+        _ed.Markers[MarkSafeLine].SetBackColor(Color.FromArgb(0xC8, 0xA0, 0x30));
+        _ed.Markers[MarkSafeLine].SetForeColor(Color.FromArgb(0xC8, 0xA0, 0x30));
         _ed.Markers[MarkBreakpoint].Symbol = MarkerSymbol.Circle;
         _ed.Markers[MarkBreakpoint].SetForeColor(Color.FromArgb(0xE5, 0x14, 0x00));
         _ed.Markers[MarkBreakpoint].SetBackColor(Color.FromArgb(0xE5, 0x14, 0x00));
@@ -866,11 +883,18 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         int Mix(int under, int over) => (int)Math.Round(under * (1 - k) + over * k);
         _ed.Markers[MarkNextLine].Symbol = MarkerSymbol.Background;
         _ed.Markers[MarkNextLine].SetBackColor(Color.FromArgb(Mix(bg.R, 0xFF), Mix(bg.G, 0xCC), Mix(bg.B, 0x00)));
+        // Đoạn của bước debug vừa lỗi: đỏ pha cùng tỉ lệ.
+        _ed.Markers[MarkErrorLine].Symbol = MarkerSymbol.Background;
+        _ed.Markers[MarkErrorLine].SetBackColor(Color.FromArgb(Mix(bg.R, 0xE5), Mix(bg.G, 0x14), Mix(bg.B, 0x00)));
     }
 
     private void BuildDebugBar()
     {
         _dbgBar.Controls.Add(_dbgInfo);
+        var find = Btn("🔍 Tìm lỗi", "Tự tìm bước đầu tiên bị lỗi rồi dừng ở đó (Alt+F10) — chia đôi các điểm dừng, mỗi lần chạy đều rollback", () => { _ = DebugFindErrorAsync(); FocusEditor(); });
+        _dbgBar.Controls.Add(find);
+        _dbgBack = Btn("⤴ Back", "Lùi về điểm dừng trước (Ctrl+Shift+F10) — chạy lại từ đầu tới đó, đã rollback nên không ảnh hưởng dữ liệu", () => { _ = DebugCommandAsync("back"); FocusEditor(); });
+        _dbgBar.Controls.Add(_dbgBack);
         _dbgNext = Btn("⤵ Step", "Chạy dòng kế (F10)", () => { _ = DebugCommandAsync("step"); FocusEditor(); }, primary: true);
         _dbgCont = Btn("▶ Continue", "Chạy tiếp tới breakpoint / hết (F5)", () => { _ = DebugCommandAsync("continue"); FocusEditor(); });
         _dbgCursor = Btn("⇥ To cursor", "Chạy tới dòng con trỏ (Ctrl+F10)", () => { _ = DebugCommandAsync("to-cursor", _ed.CurrentLine + 1); FocusEditor(); });
@@ -925,7 +949,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         Dictionary<string, string>? values = null;
         if (parameters.Any(p => !p.ReadOnly))
         {
-            using var form = new Bcode.App.Forms.StepParamsForm(name ?? "Script", parameters, Bcode.App.Forms.StepParamsForm.ParseCallArgs(callText, parameters));
+            using var form = new Bcode.App.Forms.StepParamsForm(name ?? "Script", parameters, Bcode.App.Forms.StepParamsForm.InitialValues(text, name, callText, parameters));
             if (form.ShowDialog(this) != DialogResult.OK) { _debugStepOn = false; return; }
             values = form.Values;
         }
@@ -939,7 +963,9 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         }
 
         _plan = plan;
-        _executedLine = 0;
+        _planText = text;
+        _planValues = values;
+        _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
         _debugStepOn = true;
         _results.Clear();
         _results.ClearMessages();
@@ -956,11 +982,19 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         var active = _plan is not null;
         _ed.MarkerDeleteAll(MarkNextArrow);
         _ed.MarkerDeleteAll(MarkNextLine);
+        _ed.MarkerDeleteAll(MarkErrorLine);
+        _ed.MarkerDeleteAll(MarkSafeLine);
         _dbgBar.Visible = active;
         if (!active) return;
+        foreach (var l in _plan!.SafeLines) if (l <= _ed.Lines.Count) _ed.Lines[l - 1].MarkerAdd(MarkSafeLine);
+        // Đoạn của bước vừa lỗi: nền đỏ (bước trước chạy được nên lỗi nằm trong đoạn này).
+        for (var l = _errorFrom; l > 0 && l <= _errorLine && l <= _ed.Lines.Count; l++) _ed.Lines[l - 1].MarkerAdd(MarkErrorLine);
         var remaining = _plan!.SafeLines.Count(l => l > _executedLine);
         _dbgInfo.Text = next > 0 ? $"Sắp chạy dòng {next} · còn {remaining} điểm dừng" : "Đã chạy hết script";
-        foreach (var b in new[] { _dbgNext, _dbgCont, _dbgCursor }) if (b is not null) b.Enabled = next > 0;
+        foreach (var b in new[] { _dbgNext, _dbgCont }) if (b is not null) b.Enabled = next > 0;
+        if (_dbgBack is not null) _dbgBack.Enabled = _executedLine > 0;
+        // To cursor vẫn dùng được khi đã chạy hết: con trỏ ở đoạn đã chạy qua thì lùi về đó.
+        if (_dbgCursor is not null) _dbgCursor.Enabled = next > 0 || _executedLine > 0;
         if (next > 0 && next <= _ed.Lines.Count)
         {
             var line = _ed.Lines[next - 1];
@@ -976,15 +1010,15 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     {
         var wasActive = _plan is not null || _debugStepOn;
         _plan = null;
-        _executedLine = 0;
+        _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
         _debugStepOn = false;
         PushDebugState();
         if (wasActive && (_status.Text.StartsWith("Debug từng bước", StringComparison.Ordinal) || _status.Text.StartsWith("Đã chạy", StringComparison.Ordinal)))
             SetStatus("Đã dừng debug từng bước.", AppColors.TextMuted);
     }
 
-    /// <summary>"step" = chạy dòng kế; "continue" = tới ngay trước breakpoint kế tiếp (hoặc hết); "to-cursor" = tới ngay trước dòng con trỏ (số dòng từ 1).
-    /// Chưa có phiên debug thì (với "continue") bắt đầu phiên mới.</summary>
+    /// <summary>"step" = chạy dòng kế; "continue" = tới ngay trước breakpoint kế tiếp (hoặc hết); "to-cursor" = tới ngay trước dòng con trỏ (số dòng từ 1;
+    /// con trỏ ở đoạn đã chạy qua thì lùi về đó); "back" = lùi về điểm dừng trước. Chưa có phiên debug thì (với "continue") bắt đầu phiên mới.</summary>
     private async Task DebugCommandAsync(string cmd, int cursorLine = 0)
     {
         if (_plan is null)
@@ -993,6 +1027,22 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             return;
         }
         if (_stepRunning) return;
+        if (RefreshPlanIfEdited() && cmd == "back") return;   // code mới: về đầu; lùi thì dừng ở đó
+
+        // Lùi: mỗi bước luôn chạy lại từ đầu rồi rollback, nên lùi = chạy lại tới điểm dừng trước đó (về trước điểm đầu = chưa chạy gì).
+        if (cmd == "back" || (cmd == "to-cursor" && cursorLine > 0 && cursorLine <= _executedLine))
+        {
+            if (_executedLine == 0) return;
+            var limit = cmd == "back" ? _executedLine : cursorLine;
+            var prev = _plan.SafeLines.Where(l => l < limit).DefaultIfEmpty(0).Max();
+            if (prev > 0) { await ExecuteStepAsync(prev); return; }
+            _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+            _results.Clear();
+            _results.ClearMessages();
+            SetStatus($"Đã lùi về đầu — sắp chạy dòng {_plan.NextSafe(0)}.", AppColors.Success);
+            PushDebugState();
+            return;
+        }
 
         var next = _plan.NextSafe(_executedLine);
         if (next == 0)
@@ -1014,6 +1064,88 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             target = Math.Max(next, LastSafeBefore(cursorLine));
         }
         await ExecuteStepAsync(target);
+    }
+
+    /// <summary>
+    /// "🔍 Tìm lỗi": tìm bước đầu tiên bị lỗi rồi dừng ở đó (tô đỏ đoạn lỗi, hiện biến). Mỗi bước chạy lại từ đầu nên đã lỗi ở bước k thì
+    /// mọi bước sau cũng lỗi → chia đôi các điểm dừng (~log2(n) lần chạy thay vì n). Chạy tới cuối không lỗi thì dừng ở cuối.
+    /// </summary>
+    private async Task DebugFindErrorAsync()
+    {
+        if (_plan is null || _stepRunning) return;
+        RefreshPlanIfEdited();
+        var plan = _plan;
+        var lines = plan.SafeLines;
+        var runs = 0;
+        async Task<bool> Fails(int line)
+        {
+            runs++;
+            SetStatus($"Đang tìm lỗi: lần chạy {runs} — tới dòng {line}... (đã rollback, không lưu dữ liệu)", AppColors.Warning);
+            await using var conn = _service.CreateConnection(_useSys);
+            await conn.OpenAsync();
+            try { return (await _service.ExecuteScriptOnAsync(plan.BuildBatch(line).Sql, conn)).Any(r => r.Error is not null); }
+            finally
+            {
+                try { await using var rb = new SqlCommand("IF @@TRANCOUNT > 0 ROLLBACK TRAN;", conn); await rb.ExecuteNonQueryAsync(); }
+                catch { /* connection hỏng — server tự rollback */ }
+            }
+        }
+
+        _stepRunning = true;
+        int bad;
+        try
+        {
+            if (!await Fails(lines[^1])) bad = -1;
+            else
+            {
+                int lo = 0, hi = lines.Count - 1;   // hi luôn là chỉ số lỗi
+                while (lo < hi)
+                {
+                    var mid = (lo + hi) / 2;
+                    if (await Fails(lines[mid])) hi = mid; else lo = mid + 1;
+                    if (_plan != plan) return;   // đã Stop / bắt đầu phiên khác trong lúc tìm
+                }
+                bad = hi;
+            }
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Không tìm được lỗi: " + ex.Message, AppColors.Danger);
+            return;
+        }
+        finally { _stepRunning = false; }
+
+        if (_plan != plan) return;
+        if (bad < 0)
+        {
+            await ExecuteStepAsync(lines[^1]);
+            SetStatus($"Chạy hết tới dòng {lines[^1]} không có lỗi ({runs} lần chạy, đã rollback).", AppColors.Success);
+            return;
+        }
+        _lastOkLine = bad > 0 ? lines[bad - 1] : 0;
+        await ExecuteStepAsync(lines[bad]);   // hiện kết quả + tô đỏ đoạn lỗi (_lastOkLine, dòng bad]
+        SetStatus($"Tìm thấy lỗi sau {runs + 1} lần chạy: " + _status.Text, AppColors.Danger);
+    }
+
+    /// <summary>
+    /// Đang debug mà code trong editor đã sửa (vd sửa chỗ lỗi vừa tìm được): dựng lại kế hoạch từ code mới (giữ giá trị tham số đã nhập)
+    /// và chạy lại từ đầu — không phải tắt debug rồi bật lại. Trả true nếu đã dựng lại.
+    /// </summary>
+    private bool RefreshPlanIfEdited()
+    {
+        if (_plan is null) return false;
+        var text = _ed.Text;
+        if (string.IsNullOrWhiteSpace(text) || text == _planText) return false;
+        var plan = SqlStepPlanner.Build(text, _planValues);
+        if (plan.SafeLines.Count == 0) return false;   // code mới không dừng được ở đâu — giữ kế hoạch cũ
+        _plan = plan;
+        _planText = text;
+        _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+        _results.Clear();
+        _results.ClearMessages();
+        SetStatus($"Script đã sửa — dựng lại debug từ code mới ({plan.SafeLines.Count} điểm dừng), chạy lại từ đầu.", AppColors.Success);
+        PushDebugState();
+        return true;
     }
 
     private async Task ExecuteStepAsync(int target)
@@ -1057,11 +1189,17 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             var remaining = _plan.SafeLines.Count(l => l > _executedLine);
             if (errorBatch is not null)
             {
-                SetStatus($"Lỗi khi chạy tới dòng {target} (xem tab Message). F10 thử bước kế, Shift+F5 dừng.", AppColors.Danger);
+                // Bước trước (tới dòng _lastOkLine) chạy được → lỗi nằm trong đoạn vừa thêm: tô đỏ đoạn đó thay vì chỉ dời mũi tên sang dòng kế.
+                _errorLine = target;
+                _errorFrom = _plan.SafeLines.Where(l => l > _lastOkLine && l <= target).DefaultIfEmpty(target).Min();
+                var where = _errorFrom == target ? $"dòng {target}" : $"đoạn dòng {_errorFrom}–{target}";
+                SetStatus($"Lỗi ở {where} (tô đỏ; bước trước{(_lastOkLine > 0 ? $" tới dòng {_lastOkLine}" : "")} chạy được) — xem tab Message. ⤴ Back để xem lại, Shift+F5 dừng.", AppColors.Danger);
                 _results.SetMessages($"LỖI: {errorBatch.Error}", messages, tables.Count);
             }
             else
             {
+                _lastOkLine = target;
+                _errorFrom = _errorLine = 0;
                 SetStatus(remaining > 0
                     ? $"Đã chạy tới dòng {target} — còn {remaining} điểm dừng. (đã rollback, không lưu dữ liệu)"
                     : $"Đã chạy hết tới dòng {target}. (đã rollback, không lưu dữ liệu)", AppColors.Success);
@@ -1071,6 +1209,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         catch (Exception ex)
         {
             _executedLine = target;
+            _errorLine = target;
+            _errorFrom = _plan?.SafeLines.Where(l => l > _lastOkLine && l <= target).DefaultIfEmpty(target).Min() ?? target;
             SetStatus("Lỗi khi debug từng bước.", AppColors.Danger);
             _results.SetMessages($"LỖI: {ex.Message}", null, 0);
         }
@@ -1151,6 +1291,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("debug.next")) { _ = DebugCommandAsync("step"); return true; }
             if (combo == ShortcutRegistry.Get("debug.cursor")) { _ = DebugCommandAsync("to-cursor", _ed.CurrentLine + 1); return true; }
             if (combo == ShortcutRegistry.Get("debug.stop")) { StopStepDebug(); return true; }
+            if (combo == ShortcutRegistry.Get("debug.back")) { _ = DebugCommandAsync("back"); return true; }
+            if (combo == ShortcutRegistry.Get("debug.findError")) { _ = DebugFindErrorAsync(); return true; }
         }
         if (keyData == (Keys.Control | Keys.R)) { _split.Panel2Collapsed = !_split.Panel2Collapsed; return true; }
         if (keyData == (Keys.Control | Keys.D0) && _ed.Focused) { ChangeZoom(0); return true; }

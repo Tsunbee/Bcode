@@ -366,6 +366,38 @@ ORDER BY c.column_id;";
         return list;
     }
 
+    /// <summary>Cột SQL Server tự sinh của bảng: <see cref="Identity"/> (tên cột identity, null = không có) và <see cref="Generated"/> = cột computed /
+    /// rowversion (timestamp) — không bao giờ INSERT / UPDATE được. Cột identity chỉ được INSERT khi bật "giữ id" (SET IDENTITY_INSERT ON).</summary>
+    public sealed record TableWriteInfo(string? Identity, HashSet<string> Generated)
+    {
+        public static readonly TableWriteInfo Empty = new(null, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        public bool IsIdentity(string column) => Identity is not null && Identity.Equals(column, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public async Task<TableWriteInfo> GetWriteInfoAsync(bool useSysDatabase, string schema, string table)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        return await GetWriteInfoAsync(conn, null, schema, table);
+    }
+
+    private static async Task<TableWriteInfo> GetWriteInfoAsync(SqlConnection conn, SqlTransaction? tx, string schema, string table)
+    {
+        // system_type_id 189 = timestamp / rowversion.
+        const string sql = @"
+SELECT c.name, c.is_identity
+FROM sys.columns c
+WHERE c.object_id = OBJECT_ID(@full) AND (c.is_identity = 1 OR c.is_computed = 1 OR c.system_type_id = 189);";
+        await using var cmd = new SqlCommand(sql, conn, tx);
+        cmd.Parameters.AddWithValue("@full", "[" + schema + "].[" + table + "]");
+        string? identity = null;
+        var generated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var rd = await cmd.ExecuteReaderAsync();
+        while (await rd.ReadAsync())
+            if (rd.GetBoolean(1)) identity = rd.GetString(0); else generated.Add(rd.GetString(0));
+        return new TableWriteInfo(identity, generated);
+    }
+
     private static string FormatSqlType(string dataType, int? maxLen, int? precision, int? scale) => dataType.ToLowerInvariant() switch
     {
         "char" or "varchar" or "nchar" or "nvarchar" or "binary" or "varbinary" =>
@@ -381,7 +413,9 @@ ORDER BY c.column_id;";
     /// </summary>
     /// <param name="expectedStamp">Dấu vân tay (<see cref="DbConnectionService.CurrentStamp"/>) của nơi dữ liệu được
     /// tải về. Khác với workspace/database hiện tại thì TỪ CHỐI ghi — lớp bảo vệ cuối cùng chống ghi nhầm DB.</param>
-    public async Task<int> SaveChangesAsync(bool useSysDatabase, string schema, string table, List<string> keyColumns, DataTable data, string? expectedStamp = null)
+    /// <param name="keepIdentity">true = dòng mới có giá trị ở cột identity thì INSERT đúng giá trị đó (SET IDENTITY_INSERT ON);
+    /// false (mặc định) = luôn bỏ cột identity, để SQL Server tự sinh.</param>
+    public async Task<int> SaveChangesAsync(bool useSysDatabase, string schema, string table, List<string> keyColumns, DataTable data, string? expectedStamp = null, bool keepIdentity = false)
     {
         if (expectedStamp != null && expectedStamp != _connections.CurrentStamp(useSysDatabase))
             throw new InvalidOperationException("Workspace/Database đã đổi so với lúc tải dữ liệu — từ chối ghi để tránh ghi nhầm. Hãy Load lại.");
@@ -389,37 +423,37 @@ ORDER BY c.column_id;";
         if (keyColumns.Count == 0)
             throw new InvalidOperationException("Bảng này không có Primary Key — chọn cột khoá thủ công trước khi lưu (mục Change Key Columns).");
 
-        var changes = data.GetChanges();
-        if (changes is null) return 0;
+        // Dòng gốc (không phải bản sao của GetChanges): INSERT xong còn ghi id / cột tự sinh vừa đọc lại vào đúng dòng trên lưới.
+        var pending = PendingRows(data);
+        if (pending.Count == 0) return 0;
 
         await using var conn = _connections.CreateConnection(useSysDatabase);
         await conn.OpenAsync();
         await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
 
-        var executed = 0;
+        var fresh = new List<(DataRow Row, Dictionary<string, object> Values)>();
         try
         {
-            foreach (DataRow row in changes.Rows)
+            var info = await GetWriteInfoAsync(conn, tx, schema, table);
+            foreach (var row in pending)
             {
                 switch (row.RowState)
                 {
                     case DataRowState.Added:
-                        await ExecuteInsertAsync(conn, tx, schema, table, row);
-                        executed++;
+                        if (await ExecuteInsertAsync(conn, tx, schema, table, keyColumns, row, info, keepIdentity) is { } values) fresh.Add((row, values));
                         break;
                     case DataRowState.Modified:
-                        await ExecuteUpdateAsync(conn, tx, schema, table, keyColumns, row);
-                        executed++;
+                        await ExecuteUpdateAsync(conn, tx, schema, table, keyColumns, row, info);
                         break;
                     case DataRowState.Deleted:
                         await ExecuteDeleteAsync(conn, tx, schema, table, keyColumns, row);
-                        executed++;
                         break;
                 }
             }
             await tx.CommitAsync();
+            foreach (var (row, values) in fresh) ApplyValues(row, values);
             data.AcceptChanges();
-            return executed;
+            return pending.Count;
         }
         catch
         {
@@ -428,22 +462,26 @@ ORDER BY c.column_id;";
         }
     }
 
+    private static List<DataRow> PendingRows(DataTable data) =>
+        data.Rows.Cast<DataRow>().Where(r => r.RowState is DataRowState.Added or DataRowState.Modified or DataRowState.Deleted).ToList();
+
     /// <summary>Tự động lưu theo TỪNG dòng (mỗi dòng 1 transaction): dòng nào lỗi (trùng khoá, NOT NULL…) được gắn RowError (lưới hiện dấu ! đỏ)
     /// và vẫn nằm chờ trong lưới — Bee sửa lại giá trị rồi rời dòng thì lưu lại; không sửa thì coi như chưa insert (Load lại là mất).
     /// Dòng đã lưu được thì AcceptChanges riêng từng dòng, không bị dòng lỗi kéo theo.</summary>
-    public async Task<(int Saved, List<(DataRow Row, DataRowState State, string Error)> Failed)> SaveChangesTolerantAsync(bool useSysDatabase, string schema, string table, List<string> keyColumns, DataTable data, string? expectedStamp = null)
+    public async Task<(int Saved, List<(DataRow Row, DataRowState State, string Error)> Failed)> SaveChangesTolerantAsync(bool useSysDatabase, string schema, string table, List<string> keyColumns, DataTable data, string? expectedStamp = null, bool keepIdentity = false)
     {
         if (expectedStamp != null && expectedStamp != _connections.CurrentStamp(useSysDatabase))
             throw new InvalidOperationException("Workspace/Database đã đổi so với lúc tải dữ liệu — từ chối ghi để tránh ghi nhầm. Hãy Load lại.");
         if (keyColumns.Count == 0)
             throw new InvalidOperationException("Bảng này không có Primary Key — chọn cột khoá thủ công trước khi lưu (mục Change Key Columns).");
 
-        var pending = data.Rows.Cast<DataRow>().Where(r => r.RowState is DataRowState.Added or DataRowState.Modified or DataRowState.Deleted).ToList();
+        var pending = PendingRows(data);
         var failed = new List<(DataRow, DataRowState, string)>();
         if (pending.Count == 0) return (0, failed);
 
         await using var conn = _connections.CreateConnection(useSysDatabase);
         await conn.OpenAsync();
+        var info = await GetWriteInfoAsync(conn, null, schema, table);
         var saved = 0;
         foreach (var row in pending)
         {
@@ -451,13 +489,15 @@ ORDER BY c.column_id;";
             await using var tx = (SqlTransaction)await conn.BeginTransactionAsync();
             try
             {
+                Dictionary<string, object>? values = null;
                 switch (state)
                 {
-                    case DataRowState.Added: await ExecuteInsertAsync(conn, tx, schema, table, row); break;
-                    case DataRowState.Modified: await ExecuteUpdateAsync(conn, tx, schema, table, keyColumns, row); break;
+                    case DataRowState.Added: values = await ExecuteInsertAsync(conn, tx, schema, table, keyColumns, row, info, keepIdentity); break;
+                    case DataRowState.Modified: await ExecuteUpdateAsync(conn, tx, schema, table, keyColumns, row, info); break;
                     case DataRowState.Deleted: await ExecuteDeleteAsync(conn, tx, schema, table, keyColumns, row); break;
                 }
                 await tx.CommitAsync();
+                if (values is not null) ApplyValues(row, values);
                 row.AcceptChanges();
                 saved++;
             }
@@ -473,23 +513,94 @@ ORDER BY c.column_id;";
         return (saved, failed);
     }
 
-    private static async Task ExecuteInsertAsync(SqlConnection conn, SqlTransaction tx, string schema, string table, DataRow row)
+    /// <summary>INSERT 1 dòng. Cột computed / rowversion không bao giờ đưa vào; cột identity chỉ đưa vào khi <paramref name="keepIdentity"/> và ô có
+    /// giá trị (bọc SET IDENTITY_INSERT ON … OFF, báo trước nếu id đã có trong bảng) — còn lại để SQL Server tự sinh.
+    /// Trả giá trị thật của dòng vừa thêm (id mới, cột computed / mặc định…) để ghi lại lên lưới; null = bảng không có cột tự sinh nào cần đọc lại.</summary>
+    private static async Task<Dictionary<string, object>?> ExecuteInsertAsync(SqlConnection conn, SqlTransaction tx, string schema, string table,
+        List<string> keyColumns, DataRow row, TableWriteInfo info, bool keepIdentity)
     {
-        var columns = row.Table.Columns.Cast<DataColumn>().ToList();
+        var full = $"[{schema}].[{table}]";
+        var idCol = info.Identity is { } idName ? row.Table.Columns[idName] : null;
+        var explicitId = keepIdentity && idCol is not null && !row.IsNull(idCol);
+        var columns = row.Table.Columns.Cast<DataColumn>()
+            .Where(c => !info.Generated.Contains(c.ColumnName) && (!info.IsIdentity(c.ColumnName) || explicitId))
+            .ToList();
+
+        if (explicitId)
+        {
+            // IDENTITY_INSERT không tự chặn trùng khi cột identity không phải khoá / unique — kiểm tra trước, báo rõ id nào.
+            await using var dup = new SqlCommand($"SELECT COUNT(*) FROM {full} WHERE [{idCol!.ColumnName}] = @id;", conn, tx);
+            dup.Parameters.AddWithValue("@id", row[idCol]);
+            if (Convert.ToInt32(await dup.ExecuteScalarAsync()) > 0)
+                throw new InvalidOperationException($"{idCol.ColumnName} = {row[idCol]} đã có trong bảng — không chèn trùng được. Sửa id khác, hoặc tắt \"Giữ id khi dán\" để SQL Server tự sinh.");
+        }
+
         var cmd = new SqlCommand { Connection = conn, Transaction = tx };
-        var colList = string.Join(", ", columns.Select(c => $"[{c.ColumnName}]"));
-        var paramList = string.Join(", ", columns.Select((c, i) => $"@p{i}"));
-        cmd.CommandText = $"INSERT INTO [{schema}].[{table}] ({colList}) VALUES ({paramList});";
+        var insert = columns.Count == 0
+            ? $"INSERT INTO {full} DEFAULT VALUES;"
+            : $"INSERT INTO {full} ({string.Join(", ", columns.Select(c => $"[{c.ColumnName}]"))}) VALUES ({string.Join(", ", columns.Select((_, i) => $"@p{i}"))});";
         for (var i = 0; i < columns.Count; i++)
             cmd.Parameters.AddWithValue($"@p{i}", row[columns[i], DataRowVersion.Current] ?? DBNull.Value);
-        await using (cmd) await cmd.ExecuteNonQueryAsync();
+
+        // Đọc lại dòng vừa thêm: theo id mới (SCOPE_IDENTITY — không dùng OUTPUT inserted vì bảng có trigger sẽ báo lỗi);
+        // bảng không có identity mà lưới có cột computed / rowversion thì đọc theo khoá.
+        string? reread = null;
+        if (info.Identity is not null)
+            reread = $"SELECT * FROM {full} WHERE [{info.Identity}] = SCOPE_IDENTITY();";
+        else if (info.Generated.Any(row.Table.Columns.Contains) && keyColumns.All(row.Table.Columns.Contains))
+        {
+            reread = $"SELECT * FROM {full} WHERE " + string.Join(" AND ", keyColumns.Select((k, i) => $"[{k}] = @r{i}")) + ";";
+            for (var i = 0; i < keyColumns.Count; i++) cmd.Parameters.AddWithValue($"@r{i}", row[keyColumns[i], DataRowVersion.Current] ?? DBNull.Value);
+        }
+        cmd.CommandText = (explicitId ? $"SET IDENTITY_INSERT {full} ON;\n" : "") + insert + (reread is null ? "" : "\n" + reread);
+
+        try
+        {
+            await using (cmd)
+            {
+                if (reread is null) { await cmd.ExecuteNonQueryAsync(); return null; }
+                // Đọc hết các result set (lỗi của INSERT hiện ra ở đây); câu SELECT của mình là result set cuối.
+                var values = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                await using var rd = await cmd.ExecuteReaderAsync();
+                do
+                {
+                    if (!await rd.ReadAsync()) continue;
+                    values.Clear();
+                    for (var i = 0; i < rd.FieldCount; i++) values[rd.GetName(i)] = rd.GetValue(i);
+                    while (await rd.ReadAsync()) { }
+                } while (await rd.NextResultAsync());
+                return values.Count > 0 ? values : null;
+            }
+        }
+        finally
+        {
+            // IDENTITY_INSERT gắn với phiên — luôn tắt lại (kể cả khi INSERT lỗi), nếu không dòng sau trên cùng kết nối sẽ lỗi.
+            if (explicitId)
+                try { await using var off = new SqlCommand($"SET IDENTITY_INSERT {full} OFF;", conn, tx); await off.ExecuteNonQueryAsync(); }
+                catch { /* phiên đã đóng / transaction đã huỷ */ }
+        }
     }
 
-    private static async Task ExecuteUpdateAsync(SqlConnection conn, SqlTransaction tx, string schema, string table, List<string> keyColumns, DataRow row)
+    /// <summary>Ghi giá trị vừa đọc lại từ DB vào dòng trên lưới (cột identity / computed / rowversion là ReadOnly nên mở khoá tạm).</summary>
+    private static void ApplyValues(DataRow row, Dictionary<string, object> values)
+    {
+        foreach (var (name, value) in values)
+        {
+            if (row.Table.Columns[name] is not { } dc) continue;
+            var ro = dc.ReadOnly;
+            try { dc.ReadOnly = false; row[dc] = value; }
+            catch { /* kiểu không khớp — giữ giá trị cũ */ }
+            finally { if (ro) try { dc.ReadOnly = true; } catch { /* bỏ qua */ } }
+        }
+    }
+
+    private static async Task ExecuteUpdateAsync(SqlConnection conn, SqlTransaction tx, string schema, string table, List<string> keyColumns, DataRow row, TableWriteInfo info)
     {
         // Cột khoá: chỉ đưa vào SET khi giá trị khoá thật sự bị sửa (đổi tên khoá 1 / khoá 2...) — WHERE vẫn dùng giá trị khoá GỐC. Trước đây cột khoá luôn bị loại khỏi SET nên sửa khoá không được ghi xuống DB.
+        // Cột identity / computed / rowversion không bao giờ SET được.
         bool KeyChanged(DataColumn c) => !Equals(row[c, DataRowVersion.Original], row[c, DataRowVersion.Current]);
         var columns = row.Table.Columns.Cast<DataColumn>()
+            .Where(c => !info.IsIdentity(c.ColumnName) && !info.Generated.Contains(c.ColumnName))
             .Where(c => !keyColumns.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase) || KeyChanged(c))
             .ToList();
         if (columns.Count == 0) return;

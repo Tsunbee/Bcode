@@ -45,6 +45,7 @@ internal sealed class SqlProfilerBarPage : NativePage
         var row3 = NK.GridRow(8,
             (bRun, 0), (_bClose, 0), (Sep(), 0),
             (NK.Button("📋 Copy SQL Command", () => Post(new { action = "copy-sql" }), tip: "Copy câu SQL (TextData) của dòng đang chọn trong Profiler để dán sang SQL Query chạy"), 0),
+            (NK.Button("🐞 Debug store", () => Post(new { action = "debug-sql" }), tip: "Debug store được gọi trong dòng đang chọn: mở định nghĩa store + câu gọi này rồi bật Debug từng bước (tham số, bảng tạm lấy từ câu gọi)"), 0),
             (NK.Button("📂 Mở thư mục Trace", () => Post(new { action = "open-trace-folder" }), tip: "Mở thư mục chứa file trace"), 0),
             (Lbl("File trace"), 0), (_traceFile, 60), (_status, 40));
         NK.Stack(this, NK.Padded(row1, 12, 8, 12, 4), NK.Padded(row2, 12, 4, 12, 4), NK.Padded(row3, 12, 4, 12, 8));

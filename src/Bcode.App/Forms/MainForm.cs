@@ -331,6 +331,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("claude_web", "Claude", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Claude, null)));
         _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
         _toolSpecs.Add(("help", "Trợ giúp", null, (_, _) => OpenHelpTab(HelpTopicForActiveTab())));
+        _toolSpecs.Add(("fast_ask", "Hỏi Fast", "Ctrl+Shift+M", (_, _) => OpenFastAskTab()));
         // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3;
         // Trợ giúp = Ctrl+F1 — không lấy F1 vì F1 đang là "chi tiết dòng" của lưới Table, phím phạm vi App sẽ chặn mất).
         Bcode.App.UI.ShortcutRegistry.SetTools(_toolSpecs.Select(t => (t.key, t.label,
@@ -1348,6 +1349,67 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private TabPage? _helpTab;
     private HelpControl? _helpControl;
+    private TabPage? _fastAskTab;
+    private FastAskService? _fastAskService;
+
+    /// <summary>Tab "Hỏi Fast" (một tab duy nhất): chat tra kiến thức Fast không qua AI — mẫu code, ma trận ghost text, store / bảng của database đang kết nối,
+    /// từ điển field, luật danh mục, quy ước Fast.</summary>
+    private void OpenFastAskTab()
+    {
+        // đang ở tab SQL Query + bật "Claude/Gemini nhúng vào tab SQL Query" → nhúng Hỏi Fast bên phải tab đó như Claude / Gemini
+        if (AppSettings.AiEmbedded && _documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault() is { } host) { EmbedFastAsk(host); return; }
+        if (_fastAskTab is not null && _documentTabs.TabPages.Contains(_fastAskTab)) { _documentTabs.SelectedTab = _fastAskTab; return; }
+        _fastAskService ??= new FastAskService(_connections, _tableDataService);
+        var control = new FastAskControl(_fastAskService);
+        control.InsertRequested += InsertFromFastAsk;
+        control.OpenObjectRequested += (name, sys, type) => _ = OpenObjectDefinitionAsync(new SqlObjectInfo
+        {
+            Name = name, FromSysDatabase = sys, Kind = type == "P" ? SqlObjectKind.StoredProcedure : SqlObjectKind.Function,
+        });
+        control.QuickListRequested += (name, content) => OpenQuickListWithAssist(name, content, "rules");
+        _fastAskTab = AddDocumentTab("Hỏi Fast", control);
+        _fastAskTab.Disposed += (_, _) => _fastAskTab = null;
+    }
+
+    /// <summary>Khung Hỏi Fast nhúng của từng tab SQL Query (mỗi tab 1 khung, giữ cuộc hỏi khi chuyển qua Claude / Gemini rồi quay lại).</summary>
+    private readonly System.Runtime.CompilerServices.ConditionalWeakTable<ISqlTab, FastAskControl> _embeddedFastAsk = new();
+
+    /// <summary>Hiện Hỏi Fast nhúng bên phải tab SQL Query <paramref name="host"/>; "Chèn vào SQL Query" chèn thẳng vào tab đó.</summary>
+    private void EmbedFastAsk(ISqlTab host)
+    {
+        if (!_embeddedFastAsk.TryGetValue(host, out var control))
+        {
+            _fastAskService ??= new FastAskService(_connections, _tableDataService);
+            control = new FastAskControl(_fastAskService);
+            control.InsertRequested += (text, newTab) =>
+            {
+                if (newTab || host.IsDisposed) { _ = OpenFreeScriptTab().OpenScriptAsync(text); return; }
+                _ = host.InsertSnippetAsync(text);
+                host.FocusEditor();
+            };
+            control.OpenObjectRequested += (name, sys, type) => _ = OpenObjectDefinitionAsync(new SqlObjectInfo
+            {
+                Name = name, FromSysDatabase = sys, Kind = type == "P" ? SqlObjectKind.StoredProcedure : SqlObjectKind.Function,
+            });
+            control.QuickListRequested += (name, content) => OpenQuickListWithAssist(name, content, "rules");
+            _embeddedFastAsk.Add(host, control);
+        }
+        host.ShowFastAsk(control);
+    }
+
+    /// <summary>"Chèn vào SQL Query" ở Hỏi Fast: chèn tại con trỏ của tab SQL Query dùng gần nhất (chưa có thì mở tab mới); "Mở tab SQL mới" = luôn tab mới.</summary>
+    private void InsertFromFastAsk(string text, bool newTab)
+    {
+        var page = newTab ? null : _tabMru.FirstOrDefault(p => _documentTabs.TabPages.Contains(p) && p.Controls.OfType<ISqlTab>().Any(t => !t.IsDisposed));
+        if (page?.Controls.OfType<ISqlTab>().First() is not { } tab)
+        {
+            _ = OpenFreeScriptTab().OpenScriptAsync(text);
+            return;
+        }
+        _documentTabs.SelectedTab = page;
+        _ = tab.InsertSnippetAsync(text);
+        tab.FocusEditor();
+    }
 
     /// <summary>Tab "Trợ giúp" (một tab duy nhất): cây tính năng + hướng dẫn sử dụng, mở sẵn ở mục <paramref name="topic"/> (id trong Help\HuongDanSuDung.md).</summary>
     private void OpenHelpTab(string? topic)
@@ -1370,6 +1432,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ["TableEditControl"] = "table",
         ["SqlQueryControl"] = "command-lookup", ["LookupControl"] = "command-lookup", ["NativeLookupControl"] = "command-lookup",
         ["FileLookupControl"] = "file-lookup",
+        ["FastAskControl"] = "hoi-fast",
         ["GenUpdatePackageControl"] = "gen-update",
         ["NoteControl"] = "note", ["AdvanceNoteControl"] = "note", ["NativeAdvanceNoteControl"] = "note",
         ["QueryHistoryControl"] = "lich-su-sql", ["NativeQueryHistoryControl"] = "lich-su-sql",
@@ -1469,6 +1532,26 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>Tiêu đề tab có thể mở nhiều cái cùng lúc (SQL Query, Command, Table): "SQL Query (1)", "SQL Query (2)"... — lấy số nhỏ nhất
     /// chưa có tab nào đang dùng, nên đóng (1) rồi mở mới thì lại là (1).</summary>
+    private static readonly System.Text.RegularExpressions.Regex CreatedObjectRx = new(
+        @"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(?:PROC(?:EDURE)?|FUNCTION|VIEW|TRIGGER)\s+(?<n>(?:\[?\w+\]?\s*\.\s*)?\[?[\w$#]+\]?)",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Script vừa chạy có CREATE / ALTER PROC | FUNCTION | VIEW | TRIGGER (ngoài comment) → đổi tên tab thành "schema.tên" (object đầu tiên).
+    /// Không có thì giữ tên tab.</summary>
+    private void RenameTabByScript(ISqlTab tab, string script)
+    {
+        if (tab.IsDisposed || string.IsNullOrEmpty(script)) return;
+        // bỏ comment để không lấy nhầm tên trong đoạn đã chú thích
+        var code = System.Text.RegularExpressions.Regex.Replace(script, @"/\*[\s\S]*?\*/|--[^\r\n]*", " ");
+        if (CreatedObjectRx.Match(code) is not { Success: true } m) return;
+        var parts = m.Groups["n"].Value.Replace("[", "").Replace("]", "").Split('.', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var title = parts.Length >= 2 ? $"{parts[^2]}.{parts[^1]}" : $"dbo.{parts[0]}";
+        var page = _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p => p.Controls.Contains(tab.AsControl()));
+        if (page is null || page.Text == title) return;
+        page.Text = title;
+        page.ToolTipText = title;
+    }
+
     private string NumberedTabTitle(string baseTitle)
     {
         var used = new HashSet<int>();
@@ -2133,6 +2216,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             ? new NativeSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets)
             : new RawSqlControl(_rawSqlService, _sqlObjectService, _lookupService, _snippets, prewarm);
         control.ResultReady += table => _lastQueryResult = table;
+        // mỗi lần chạy: script tạo / sửa store, function, view, trigger → tên tab = tên object đó (biết tab nào đang làm store nào)
+        control.ScriptExecuted += (script, _, _, _, _) => BeginInvoke(() => RenameTabByScript(control, script));
         control.CurrentProject = () => _connections.Current?.Name ?? "";
         control.SaveHistoryRequested += (script, sys) => QueryHistoryService.Instance.Save(_connections.Current?.Name ?? "", sys, script);   // chỉ lưu khi người dùng bấm "Lưu lịch sử"
         control.CreateRptRequested += sql => OpenCreateRptTab(sql, pivot: true);
@@ -2146,6 +2231,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _ = OpenProcedureWithQueryAsync(control, identifier, useSys);
         control.DebugTargetChosen += (target, call) => _ = OpenDebugTargetAsync(target, call);
         control.AskAiRequested += (engine, text) => SendScriptToAi(engine, text, control);
+        control.FastAskRequested += () => EmbedFastAsk(control);
         control.OpenObjectInNewTabRequested += (title, sys, text) =>
         {
             var tab = TakeSqlControl();
@@ -2156,12 +2242,46 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         return control;
     }
 
-    private async Task OpenDebugTargetAsync(SqlObjectInfo target, string? callText = null)
+    /// <summary>
+    /// SQL Profiler → "🐞 Debug store": tìm store được gọi trong câu SQL vừa bắt (TextData, vd "declare @0…; select @0=…; exec rs_xxx 'V', @0…"),
+    /// mở tab gồm định nghĩa store + GO + nguyên câu gọi đó rồi bật Debug từng bước — giá trị tham số, biến @0…, bảng tạm (#$query) lấy từ
+    /// câu gọi (StepParamsForm.InitialValues / SqlStepPlanner tail prelude). Định nghĩa giữ nguyên CREATE nên lỡ bấm Execute cũng không đè store.
+    /// </summary>
+    private async Task OpenProfilerDebugAsync(SqlProfilerControl profiler, string sql)
+    {
+        List<DebugCandidate> candidates = new();
+        try
+        {
+            var scanner = new DebugTargetScanner(_sqlObjectService);
+            foreach (var sys in new[] { false, true })
+            {
+                candidates = (await scanner.ScanAsync(sql, sys)).Where(c => c.Target.Kind == SqlObjectKind.StoredProcedure).ToList();
+                if (candidates.Count > 0) break;
+            }
+        }
+        catch (Exception ex) { profiler.ReportStatus("Không tìm được store trong câu SQL: " + ex.Message); return; }
+        if (candidates.Count == 0) { profiler.ReportStatus("Câu SQL đang chọn không gọi store nào có trong App / Sys Data (cần dòng có \"exec <store> …\")."); return; }
+
+        var chosen = candidates.Count == 1 ? candidates[0] : null;
+        if (chosen is null)
+        {
+            await Task.Yield(); // thoát khỏi callback của trang Profiler trước khi mở hộp chọn (WebView2 mới)
+            using var form = new ChooseDebugTargetForm(candidates);
+            if (form.ShowDialog(this) != DialogResult.OK || form.Selected is not { } picked) return;
+            chosen = picked;
+        }
+        profiler.ReportStatus($"Mở debug {chosen.Target.QualifiedName} với câu gọi vừa bắt...");
+        await OpenDebugTargetAsync(chosen.Target, null, definition => definition.TrimEnd() + Environment.NewLine + "GO" + Environment.NewLine + sql.Trim() + Environment.NewLine);
+    }
+
+    /// <param name="compose">Dựng nội dung tab từ định nghĩa object (vd thêm "GO + câu gọi" của Profiler); null = chỉ định nghĩa.</param>
+    private async Task OpenDebugTargetAsync(SqlObjectInfo target, string? callText = null, Func<string, string>? compose = null)
     {
         string definition;
         try
         {
             definition = await _sqlObjectService.GetDefinitionAsync(target);
+            if (compose is not null) definition = compose(definition);
         }
         catch (Exception ex)
         {
@@ -3588,6 +3708,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var sqlTab = OpenFreeScriptTab();
             sqlTab.SetScriptText(sql);
         };
+        // "🐞 Debug store" ở Profiler → định nghĩa store được gọi + GO + câu gọi đó, bật Debug từng bước.
+        control.DebugRequested += sql => _ = OpenProfilerDebugAsync(control, sql);
         _sqlProfilerTab = AddDocumentTab("SQL Profiler", control);
         _sqlProfilerTab.Disposed += (_, _) => _sqlProfilerTab = null;
     }

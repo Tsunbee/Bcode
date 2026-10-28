@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* "Hỏi Fast": chat hỏi kiến thức Fast không qua AI (C#: Services/FastAskService.cs, FastAskKnowledge.cs). Trang giữ trạng thái hội thoại (state),
+     lưu phiên chat sau mỗi lượt (fastask\sessions), ✔ / ✘ từng thẻ để Bcode học lại. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; height: 100vh; margin: 0; overflow: hidden; color: var(--text); }
+  header { flex: none; display: flex; align-items: center; gap: .4rem; padding: calc(.35rem * var(--dens)) .7rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); flex-wrap: wrap; }
+  header .title { font-weight: 600; }
+  .muted { color: var(--text-muted); font-size: .85rem; }
+  header .spacer { flex: 1; }
+  .tbtn { font: inherit; color: var(--text); background: transparent; border: var(--bw) solid transparent; border-radius: var(--r); padding: calc(.2rem * var(--dens)) .7rem; cursor: pointer; }
+  .tbtn:hover { background: var(--button-back); border-color: var(--border); }
+  .tbtn.on { background: var(--selection); border-color: var(--border); font-weight: 600; }
+  #main { flex: 1; min-height: 0; display: flex; }
+  aside { flex: none; width: 17rem; display: none; flex-direction: column; border-right: var(--bw) solid var(--border); background: var(--panel-alt); }
+  aside.open { display: flex; }
+  aside .top { display: flex; align-items: center; gap: .3rem; padding: .45rem .6rem; border-bottom: var(--bw) solid var(--border); }
+  aside .list { flex: 1; overflow: auto; padding: .3rem 0; }
+  .sess { display: flex; align-items: center; gap: .3rem; padding: .35rem .6rem; cursor: pointer; }
+  .sess:hover { background: var(--button-back); }
+  .sess.cur { background: var(--selection); }
+  .sess .st { flex: 1; min-width: 0; }
+  .sess .st div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sess .del { visibility: hidden; border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: .9rem; }
+  .sess:hover .del { visibility: visible; }
+  .sess .del:hover { color: var(--danger); }
+  #chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  #log { flex: 1; min-height: 0; overflow: auto; padding: .8rem 1rem 1.2rem; display: flex; flex-direction: column; gap: .7rem; }
+  .msg { max-width: min(62rem, 96%); }
+  .msg.user { align-self: flex-end; background: color-mix(in srgb, var(--accent) 22%, var(--panel)); border: var(--bw) solid color-mix(in srgb, var(--accent) 45%, var(--border));
+              border-radius: .8rem .8rem .2rem .8rem; padding: .4rem .8rem; white-space: pre-wrap; }
+  .msg.bot { align-self: flex-start; width: min(62rem, 96%); }
+  .msg.bot .say { white-space: pre-wrap; margin-bottom: .45rem; line-height: 1.45; }
+  .msg.bot .ask { color: var(--text-muted); font-size: .82rem; margin-top: .35rem; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--panel-alt); margin: .45rem 0; overflow: hidden; }
+  .card .head { display: flex; align-items: baseline; gap: .5rem; padding: .4rem .7rem; }
+  .card .head .t { font-weight: 600; }
+  .card .head .src { margin-left: auto; font-size: .75rem; color: var(--text-muted); border: var(--bw) solid var(--border); border-radius: 1rem; padding: 0 .5rem; white-space: nowrap; }
+  /* ✔ Đúng / ✘ Chưa đúng: nút thật ở cuối thẻ (bên phải), màu xanh / đỏ để dễ thấy */
+  .card .acts .votes { margin-left: auto; display: flex; gap: .35rem; align-items: center; }
+  .card .acts .votes .lbl { color: var(--text-muted); font-size: .8rem; }
+  .vote { font: inherit; font-size: .88rem; background: transparent; border-radius: var(--r); cursor: pointer; padding: calc(.18rem * var(--dens)) .65rem; font-weight: 600; }
+  .vote.ok { color: var(--success); border: var(--bw) solid var(--success); }
+  .vote.no { color: var(--danger); border: var(--bw) solid var(--danger); }
+  .vote.ok:hover, .vote.ok.on { background: var(--success); color: #fff; }
+  .vote.no:hover, .vote.no.on { background: var(--danger); color: #fff; }
+  .vote:disabled { cursor: default; opacity: .55; }
+  .vote.on:disabled { opacity: 1; }
+  .card .txt { padding: 0 .7rem .45rem; white-space: pre-wrap; color: var(--text); font-size: .92rem; line-height: 1.4; }
+  .card .txt.mono { font-family: Consolas, "Cascadia Mono", monospace; font-size: .85rem; max-height: 16rem; overflow: auto; }
+  .card pre { margin: 0; padding: .55rem .7rem; background: var(--input); border-top: var(--bw) solid var(--border); font-family: Consolas, "Cascadia Mono", monospace; font-size: .85rem;
+              max-height: 22rem; overflow: auto; white-space: pre; tab-size: 4; }
+  .card .acts { display: flex; flex-wrap: wrap; gap: .35rem; padding: .4rem .7rem .5rem; border-top: var(--bw) solid var(--border); }
+  .btn { font: inherit; font-size: .88rem; color: var(--btn-fg, var(--text)); background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.18rem * var(--dens)) .65rem; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.pri { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .3rem; }
+  .chip { font: inherit; font-size: .9rem; color: var(--text); background: transparent; border: var(--bw) solid var(--accent); border-radius: 1rem; padding: .15rem .75rem; cursor: pointer; }
+  .chip:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  .chip.sel { background: var(--accent); color: var(--on-accent); }
+  .chips.done .chip, .chips.done .btn { opacity: .45; pointer-events: none; }
+  .typing { color: var(--text-muted); font-style: italic; white-space: pre-wrap; }
+  footer { flex: none; display: flex; gap: .5rem; padding: .55rem .8rem; border-top: var(--bw) solid var(--border); background: var(--panel-alt); }
+  textarea { flex: 1; font: inherit; color: var(--text); background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .4rem .6rem; resize: none; height: 2.6rem; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <button class="tbtn" id="btnHist" title="Lịch sử các cuộc hỏi (mở lại / xoá)">☰ Lịch sử</button>
+  <span class="title">Hỏi Fast</span>
+  <span class="muted">— tra kiến thức Fast có sẵn trong Bcode, không gọi AI</span>
+  <span class="spacer"></span>
+  <button class="tbtn" id="btnLearn" title="Đọc store của database đang chọn (chỉ đọc), học kiến thức dự án và gộp vào kiến thức chung trên máy — dự án sau dùng lại được">📚 Học dự án này</button>
+  <span class="muted">Database:</span>
+  <button class="tbtn on" id="dbApp" title="Tra bảng / store trong App Data">App</button>
+  <button class="tbtn" id="dbSys" title="Tra bảng / store trong Sys Data">Sys</button>
+  <button class="tbtn" id="btnNew" title="Bắt đầu cuộc hỏi mới (cuộc hiện tại vẫn nằm trong Lịch sử)">＋ Mới</button>
+</header>
+<div id="main">
+  <aside id="hist">
+    <div class="top"><span class="title">Lịch sử</span><span class="spacer" style="flex:1"></span><button class="tbtn" id="btnDelAll" title="Xoá toàn bộ lịch sử">Xoá tất cả</button></div>
+    <div class="list" id="sessList"></div>
+  </aside>
+  <div id="chat">
+    <div id="log"></div>
+    <footer>
+      <textarea id="q" placeholder="Hỏi gì cũng được: tạo báo cáo bảng kê xuất kho · tạo danh mục kho · join ct70 dmvt · GetSiteFilter · save as rs_rptStockCard · %Partition · tra trường tài khoản đối ứng   (Enter = gửi, Shift+Enter = xuống dòng)"></textarea>
+      <button class="btn pri" id="send">Gửi</button>
+    </footer>
+  </div>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var post = function (o) { try { window.chrome.webview.postMessage(JSON.stringify(o)); } catch (e) { } };
+  var state = {}, sys = false, nextId = 1, waiting = {};
+  var sid = newSid(), msgs = [];
+  var log = $('log');
+
+  function newSid() { return 'fa' + Date.now(); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function scroll() { log.scrollTop = log.scrollHeight; }
+
+  // ---- phiên chat: lưu sau mỗi lượt (chỉ khi đã có câu hỏi thật)
+  function saveSession() {
+    var first = msgs.filter(function (m) { return m.t === 'u' && m.s !== 'Bắt đầu'; })[0];
+    if (!first) return;
+    post({ action: 'session-save', sid: sid, data: { title: first.s.slice(0, 80), msgs: msgs, state: state } });
+    if ($('hist').classList.contains('open')) post({ action: 'session-list' });
+  }
+
+  function userBubble(text) { log.appendChild(el('div', 'msg user', text)); }
+
+  function pending(shown) {
+    if (shown != null) { userBubble(shown); msgs.push({ t: 'u', s: shown }); }
+    var t = el('div', 'msg bot typing', 'Đang tra…');
+    log.appendChild(t); scroll();
+    var id = nextId++; waiting[id] = t;
+    return id;
+  }
+
+  function ask(send, shown) {
+    if (!send) return;
+    var id = pending(shown || send);
+    post({ action: 'ask', id: id, text: send, state: state, sys: sys });
+  }
+
+  function act(a) { post({ action: 'act', kind: a.kind, arg: a.arg || '', arg2: a.arg2 || '' }); }
+
+  function renderCard(c, sig, live) {
+    var card = el('div', 'card');
+    var head = el('div', 'head'); head.appendChild(el('span', 't', c.title)); if (c.source) head.appendChild(el('span', 'src', c.source));
+    card.appendChild(head);
+    if (c.text) card.appendChild(el('div', 'txt' + (/\n.*\s{2,}/.test(c.text) && !c.code ? ' mono' : ''), c.text));
+    if (c.code) card.appendChild(el('pre', '', c.code));
+    if ((c.actions && c.actions.length) || c.ref) {
+      var acts = el('div', 'acts');
+      (c.actions || []).forEach(function (a, i) {
+        var b = el('button', 'btn' + (i === 0 ? ' pri' : ''), a.label);
+        b.onclick = function () { act(a); if (a.kind === 'copy') { b.textContent = 'Đã copy'; setTimeout(function () { b.textContent = a.label; }, 1200); } };
+        acts.appendChild(b);
+      });
+      if (c.ref) {
+        // ✔ Đúng / ✘ Chưa đúng ở cuối thẻ, bên phải
+        var votes = el('span', 'votes');
+        votes.appendChild(el('span', 'lbl', 'Kết quả này:'));
+        var ok = el('button', 'vote ok', '✔ Đúng'), no = el('button', 'vote no', '✘ Chưa đúng');
+        ok.title = 'Đúng — Bcode ghi nhớ, lần sau hỏi tương tự đưa thẻ này lên đầu';
+        no.title = 'Chưa đúng — thẻ không hiện lại cho câu hỏi này; gõ cách đúng để Bcode học';
+        [[ok, 1], [no, -1]].forEach(function (p) {
+          p[0].onclick = function () {
+            ok.disabled = no.disabled = true; p[0].classList.add('on');
+            var id = pending((p[1] > 0 ? '✔ Đúng: ' : '✘ Chưa đúng: ') + c.title);
+            post({ action: 'feedback', id: id, vote: p[1], ref: c.ref, sig: sig || '', title: c.title });
+          };
+          if (!live) p[0].disabled = true;
+          votes.appendChild(p[0]);
+        });
+        acts.appendChild(votes);
+      }
+      card.appendChild(acts);
+    }
+    return card;
+  }
+
+  /** live = lượt mới (nút chọn / ✔ ✘ bấm được); false = phiên cũ mở lại (chỉ xem, trừ lượt cuối). */
+  function renderReply(box, r, live) {
+    box.className = 'msg bot'; box.textContent = '';
+    if (r.text) box.appendChild(el('div', 'say', r.text));
+    (r.cards || []).forEach(function (c) { box.appendChild(renderCard(c, r.sig, live)); });
+    if ((r.cards || []).some(function (c) { return c.ref; }) && live)
+      box.appendChild(el('div', 'ask', 'Kết quả có đúng không? Bấm ✔ Đúng / ✘ Chưa đúng ở cuối từng thẻ — Bcode ghi nhớ để lần sau trả lời đúng hơn (✘ thì gõ cách đúng để Bcode học).'));
+    if (r.choices && r.choices.length) {
+      var chips = el('div', 'chips' + (live ? '' : ' done'));
+      if (r.multi) {
+        var picked = [];
+        r.choices.forEach(function (c) {
+          var b = el('button', 'chip', c.label);
+          b.onclick = function () { var i = picked.indexOf(c); if (i >= 0) { picked.splice(i, 1); b.classList.remove('sel'); } else { picked.push(c); b.classList.add('sel'); } };
+          chips.appendChild(b);
+        });
+        var done = el('button', 'btn pri', 'Xong');
+        done.onclick = function () {
+          chips.classList.add('done'); done.disabled = true;
+          ask((r.multiPrefix || '') + picked.map(function (c) { return c.send; }).join('|'), picked.length ? picked.map(function (c) { return c.label; }).join(', ') : '(không chọn)');
+        };
+        chips.appendChild(done);
+      } else {
+        r.choices.forEach(function (c) {
+          var b = el('button', 'chip', c.label);
+          b.onclick = function () { chips.classList.add('done'); ask(c.send, c.label); };
+          chips.appendChild(b);
+        });
+      }
+      box.appendChild(chips);
+    }
+    // đang trong 1 cuộc hỏi nhiều bước (tạo báo cáo, danh mục, Save as, sửa sau ✘) → nút dừng (gõ "bỏ qua" / "quit" / "hủy" cũng được)
+    if (r.state && r.state.flow) {
+      var bar = box.querySelector('.chips') || box.appendChild(el('div', 'chips' + (live ? '' : ' done')));
+      var stop = el('button', 'btn', '✕ Dừng');
+      stop.title = 'Dừng cuộc hỏi này (hoặc gõ: bỏ qua / quit / hủy)';
+      stop.onclick = function () { bar.classList.add('done'); ask('dừng', '✕ Dừng'); };
+      bar.appendChild(stop);
+    }
+    scroll();
+  }
+
+  function renderSessions(list) {
+    var box = $('sessList'); box.textContent = '';
+    if (!list.length) { box.appendChild(el('div', 'muted', '  (chưa có cuộc hỏi nào)')); return; }
+    list.forEach(function (s) {
+      var row = el('div', 'sess' + (s.id === sid ? ' cur' : ''));
+      var st = el('div', 'st'); st.appendChild(el('div', '', s.title)); st.appendChild(el('div', 'muted', s.at)); row.appendChild(st);
+      var del = el('button', 'del', '🗑'); del.title = 'Xoá cuộc hỏi này';
+      del.onclick = function (e) { e.stopPropagation(); post({ action: 'session-delete', sid: s.id }); if (s.id === sid) startNew(); };
+      row.appendChild(del);
+      row.onclick = function () { post({ action: 'session-load', sid: s.id }); };
+      box.appendChild(row);
+    });
+  }
+
+  function startNew() { sid = newSid(); msgs = []; state = {}; log.textContent = ''; ask('hello', 'Bắt đầu'); }
+
+  window.fa = {
+    reply: function (id, r) {
+      var box = waiting[id]; delete waiting[id];
+      if (!box) return;
+      state = r.state || {};
+      renderReply(box, r, true);
+      msgs.push({ t: 'b', r: r });
+      saveSession();
+    },
+    progress: function (id, text) { var box = waiting[id]; if (box) { box.textContent = text; scroll(); } },
+    fail: function (id, msg) { var box = waiting[id]; delete waiting[id]; if (box) { box.className = 'msg bot'; box.textContent = 'Lỗi: ' + msg; } },
+    ask: function (text, shown) { ask(text, shown || text); },
+    sessions: renderSessions,
+    loadSession: function (id, data) {
+      if (!data) return;
+      sid = id; msgs = data.msgs || []; state = data.state || {}; log.textContent = '';
+      var lastBot = -1; msgs.forEach(function (m, i) { if (m.t === 'b') lastBot = i; });
+      msgs.forEach(function (m, i) {
+        if (m.t === 'u') userBubble(m.s);
+        else { var box = el('div', 'msg bot'); log.appendChild(box); renderReply(box, m.r, i === lastBot); }
+      });
+      post({ action: 'session-list' });
+      scroll();
+    }
+  };
+  window.setTheme = function (dark) { document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); };
+
+  function send() { var v = $('q').value.trim(); if (!v) return; $('q').value = ''; ask(v); }
+  $('send').onclick = send;
+  $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  function setDb(s) { sys = s; $('dbApp').classList.toggle('on', !s); $('dbSys').classList.toggle('on', s); }
+  $('dbApp').onclick = function () { setDb(false); };
+  $('dbSys').onclick = function () { setDb(true); };
+  $('btnNew').onclick = startNew;
+  $('btnHist').onclick = function () { var h = $('hist'); h.classList.toggle('open'); $('btnHist').classList.toggle('on', h.classList.contains('open')); if (h.classList.contains('open')) post({ action: 'session-list' }); };
+  $('btnDelAll').onclick = function () { post({ action: 'session-delete-all' }); };
+  $('btnLearn').onclick = function () {
+    var id = pending('📚 Học dự án này (' + (sys ? 'Sys' : 'App') + ' Data)');
+    post({ action: 'learn', id: id, sys: sys });
+  };
+
+  startNew();
+  $('q').focus();
+})();
+</script>
+</body>
+</html>

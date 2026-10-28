@@ -35,11 +35,14 @@ public class DataScriptService
     /// to stream straight to disk instead of holding a multi-MB string in RAM.</summary>
     /// <param name="whereClause">Điều kiện Where đã dùng để lọc dữ liệu đang xem (Table tool). Có thì DELETE chỉ xoá đúng phần đó rồi nạp lại;
     /// để trống = xoá toàn bộ bảng (WHERE 1=1) như cũ.</param>
-    public string GenerateDeleteAndReloadScript(DataTable table, string targetTableName, string? whereClause = null)
+    /// <param name="identityColumn">Cột identity của bảng (null = lấy cột AutoIncrement của DataTable — DataTable.Load đánh dấu identity như vậy).</param>
+    /// <param name="generatedColumns">Cột computed / rowversion — không INSERT được, bỏ khỏi script.</param>
+    public string GenerateDeleteAndReloadScript(DataTable table, string targetTableName, string? whereClause = null,
+        string? identityColumn = null, IReadOnlyCollection<string>? generatedColumns = null)
     {
         var sb = new StringBuilder();
         using (var writer = new StringWriter(sb))
-            WriteDeleteAndReloadScript(writer, table, targetTableName, whereClause);
+            WriteDeleteAndReloadScript(writer, table, targetTableName, whereClause, identityColumn, generatedColumns);
         return sb.ToString();
     }
 
@@ -48,17 +51,27 @@ public class DataScriptService
     /// the direct-to-file path for a large table only ever holds one row's worth of text in
     /// memory at a time, rather than the whole multi-MB script twice over (once to build it,
     /// again inside whatever ends up displaying/holding it).</summary>
-    public void WriteDeleteAndReloadScript(TextWriter writer, DataTable table, string targetTableName, string? whereClause = null)
+    /// <remarks>Bảng có cột identity: "SELECT … INTO #data" sẽ chép luôn thuộc tính identity sang #data (INSERT INTO #data VALUES(id, …) báo lỗi)
+    /// → lấy "[id] + 0 AS [id]" để #data là cột thường; nạp vào bảng thật thì bọc SET IDENTITY_INSERT ON … OFF và ghi rõ danh sách cột
+    /// (IDENTITY_INSERT bắt buộc có danh sách cột) để giữ đúng id. Bảng không có identity / cột tự sinh thì script y như cũ.</remarks>
+    public void WriteDeleteAndReloadScript(TextWriter writer, DataTable table, string targetTableName, string? whereClause = null,
+        string? identityColumn = null, IReadOnlyCollection<string>? generatedColumns = null)
     {
-        var columns = table.Columns.Cast<DataColumn>().ToList();
+        var columns = table.Columns.Cast<DataColumn>()
+            .Where(c => generatedColumns is null || !generatedColumns.Contains(c.ColumnName, StringComparer.OrdinalIgnoreCase)).ToList();
         var columnList = string.Join(", ", columns.Select(c => $"[{c.ColumnName}]"));
         var target = $"[{targetTableName.Trim().Trim('[', ']')}]";
+        var identity = columns.FirstOrDefault(c => identityColumn is not null ? c.ColumnName.Equals(identityColumn, StringComparison.OrdinalIgnoreCase) : c.AutoIncrement)?.ColumnName;
+        var explicitColumns = identity is not null || columns.Count < table.Columns.Count;
 
         writer.WriteLine(Header());
         writer.WriteLine();
         var where = string.IsNullOrWhiteSpace(whereClause) ? "1=1" : whereClause.Trim();
         writer.WriteLine($"DELETE {target} WHERE {where}");
-        writer.WriteLine($"SELECT {columnList} INTO #data FROM {target} WHERE 1=0");
+        if (identity is null)
+            writer.WriteLine($"SELECT {columnList} INTO #data FROM {target} WHERE 1=0");
+        else
+            writer.WriteLine($"SELECT {string.Join(", ", columns.Select(c => c.ColumnName == identity ? $"[{identity}] + 0 AS [{identity}]" : $"[{c.ColumnName}]"))} INTO #data FROM {target} WHERE 1=0   -- [{identity}] + 0: #data không mang identity");
 
         var rowSb = new StringBuilder(256);
         foreach (DataRow row in table.Rows)
@@ -74,7 +87,9 @@ public class DataScriptService
             writer.WriteLine(rowSb.ToString());
         }
 
-        writer.WriteLine($"INSERT INTO {target} SELECT * FROM #data");
+        if (identity is not null) writer.WriteLine($"SET IDENTITY_INSERT {target} ON");
+        writer.WriteLine(explicitColumns ? $"INSERT INTO {target} ({columnList}) SELECT {columnList} FROM #data" : $"INSERT INTO {target} SELECT * FROM #data");
+        if (identity is not null) writer.WriteLine($"SET IDENTITY_INSERT {target} OFF");
         writer.WriteLine("DROP TABLE #data");
     }
 
@@ -87,6 +102,19 @@ public class DataScriptService
         sb.AppendLine();
         sb.AppendLine(sql.Trim());
         sb.AppendLine("GO");
+        return sb.ToString();
+    }
+
+    /// <summary>Add Script của bảng không có dòng dữ liệu: header + script cấu trúc bảng (<paramref name="structureScript"/>, đã có GO).</summary>
+    public string GenerateStructureScript(string targetTableName, string structureScript)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(Header());
+        sb.AppendLine($"-- Bảng {targetTableName} không có dòng dữ liệu → script cấu trúc bảng");
+        sb.AppendLine();
+        var body = structureScript.Replace("\r\n", "\n").TrimEnd().Replace("\n", Environment.NewLine);
+        sb.AppendLine(body);
+        if (!body.EndsWith("GO", StringComparison.OrdinalIgnoreCase)) sb.AppendLine("GO");
         return sb.ToString();
     }
 

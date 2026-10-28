@@ -37,6 +37,10 @@ internal interface ISqlTab
 
     /// <summary>Hiện khung Claude/Gemini nhúng bên phải tab.</summary>
     AiWebPanel ShowAi(Bcode.Shared.AiSite site);
+    /// <summary>Hiện "Hỏi Fast" nhúng bên phải tab, cùng khung với Claude / Gemini (<paramref name="panel"/> = FastAskControl MainForm tạo riêng cho tab này).</summary>
+    void ShowFastAsk(Control panel);
+    /// <summary>Bấm "Hỏi Fast" ở thanh đầu khung nhúng khi tab chưa có khung Hỏi Fast → MainForm tạo rồi gọi <see cref="ShowFastAsk"/>.</summary>
+    event Action? FastAskRequested;
 
     event Action<DataTable>? ResultReady;
     event Action<string>? CreateRptRequested;

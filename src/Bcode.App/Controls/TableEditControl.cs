@@ -58,6 +58,13 @@ public class TableEditControl : UserControl
     private string _schema = "dbo";
     private string _table = "";
     private List<string> _keyColumns = new();
+    /// <summary>Cột identity / computed / rowversion của bảng đang mở — dòng mới để trống cột identity (hiện "(tự sinh)"), lưu xong đọc lại id thật.</summary>
+    private TableDataService.TableWriteInfo _writeInfo = TableDataService.TableWriteInfo.Empty;
+    /// <summary>"Giữ id khi dán": INSERT đúng giá trị identity đã dán (SET IDENTITY_INSERT ON) thay vì để SQL Server tự sinh. Tắt lại khi mở bảng khác.</summary>
+    private bool _keepIdentity;
+    /// <summary>Đã trả lời "No" (để tự sinh) khi dán có giá trị identity — không hỏi lại cho bảng này.</summary>
+    private bool _identityAskSkip;
+    private string _keyText = "";
     private string _structureKey = "";      // (DB|schema|bảng) mà danh sách Structure đang hiển thị
     private bool _autoSaving; // chặn đệ quy — AcceptChanges() trong SaveChangesAsync có thể tự kích lại sự kiện của _grid
 
@@ -207,10 +214,12 @@ public class TableEditControl : UserControl
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0 || e.RowIndex >= _grid.Rows.Count || e.Value is not (null or DBNull)) return;
             if (_grid.Rows[e.RowIndex].IsNewRow || _grid.Columns[e.ColumnIndex] is DataGridViewCheckBoxColumn) return;
+            // Cột identity của dòng mới chưa lưu: SQL Server sẽ tự sinh — lưu xong đọc lại id thật.
+            var autoId = _writeInfo.IsIdentity(GridColName(_grid.Columns[e.ColumnIndex])) && RowAt(e.RowIndex) is { RowState: DataRowState.Added or DataRowState.Detached };
             // Hiện chữ "Null" cho ô NULL (không áp khi đang sửa ô đó để khỏi dính chữ "Null" vào editor).
             if (!_editingCell || e.RowIndex != _grid.CurrentCell?.RowIndex || e.ColumnIndex != _grid.CurrentCell?.ColumnIndex)
             {
-                e.Value = "Null"; e.FormattingApplied = true;
+                e.Value = autoId ? "(tự sinh)" : "Null"; e.FormattingApplied = true;
                 e.CellStyle.ForeColor = Bcode.App.UI.AppColors.IsDark ? Color.FromArgb(150, 150, 150) : Color.FromArgb(140, 140, 140);
                 _nullFont ??= new Font(_grid.Font, FontStyle.Italic);
                 e.CellStyle.Font = _nullFont;
@@ -255,8 +264,10 @@ public class TableEditControl : UserControl
                 .Add("Paste", () => _ = PasteFromClipboardAsync(), shortcut: "Ctrl+V")
                 .Add("Clone Row", () => _ = CloneRowAsync(), shortcut: K("table.cloneRow"))
                 .Add("Insert New Row After", InsertRowAfter, shortcut: K("table.insertAfter"))
-                .Add("Copy One Value", CopyOneValue, shortcut: K("table.copyValue"))
-                .AddSeparator()
+                .Add("Copy One Value", CopyOneValue, shortcut: K("table.copyValue"));
+            if (_writeInfo.Identity is { } idCol)
+                menu.Add($"Giữ id khi dán ([{idCol}] — IDENTITY_INSERT)", ToggleKeepIdentity, @checked: _keepIdentity);
+            menu.AddSeparator()
                 .Add("Alter Null Value", () => _ = AlterNullValueAsync())
                 .AddCaption("Gen script")
                 .Add("Gen Insert (dòng đã chọn)", GenInsertSelected)
@@ -655,6 +666,35 @@ public class TableEditControl : UserControl
         _grid.BeginEdit(true);
     }
 
+    /// <summary>Cột identity / computed / rowversion trong DataTable vừa tải: DataTable.Load coi identity là AutoIncrement nên dòng mới tự mang
+    /// id = lớn nhất + 1 và INSERT gửi luôn giá trị đó → lỗi IDENTITY_INSERT. Bỏ AutoIncrement, cho NULL (dòng mới để trống, hiện "(tự sinh)"),
+    /// vẫn ReadOnly để không sửa được id / cột tự sinh của dòng có sẵn.</summary>
+    private static void PrepareGeneratedColumns(DataTable data, TableDataService.TableWriteInfo info)
+    {
+        foreach (var name in info.Generated.Append(info.Identity ?? ""))
+        {
+            if (name.Length == 0 || data.Columns[name] is not { } dc) continue;
+            try { dc.AutoIncrement = false; dc.Unique = false; dc.AllowDBNull = true; dc.ReadOnly = true; }
+            catch { /* giữ như DataTable.Load đặt */ }
+        }
+    }
+
+    private void UpdateKeyLabel()
+    {
+        _keyLabel.Text = _keyText + (_writeInfo.Identity is { } id
+            ? $" · Identity: {id} — " + (_keepIdentity ? "giữ id khi dán (IDENTITY_INSERT)" : "SQL Server tự sinh")
+            : "");
+    }
+
+    private void ToggleKeepIdentity()
+    {
+        _keepIdentity = !_keepIdentity;
+        UpdateKeyLabel();
+        _statusLabel.Text = _keepIdentity
+            ? $"Giữ id khi dán: BẬT — dòng mới dán có giá trị [{_writeInfo.Identity}] sẽ được INSERT đúng giá trị đó (SET IDENTITY_INSERT ON); id đã có trong bảng sẽ báo lỗi."
+            : $"Giữ id khi dán: TẮT — [{_writeInfo.Identity}] của dòng mới do SQL Server tự sinh.";
+    }
+
     /// <summary>Ctrl+I — Clone Row: nhân bản dòng đang đứng thành dòng mới ngay bên dưới; cột khoá được đổi (chuỗi thêm _2, số = lớn nhất + 1) để không trùng.</summary>
     private async Task CloneRowAsync()
     {
@@ -668,6 +708,7 @@ public class TableEditControl : UserControl
         foreach (var k in _keyColumns)
         {
             if (data.Columns[k] is not { } kc || kc.AutoIncrement || src.IsNull(kc)) continue;
+            if (_writeInfo.IsIdentity(k) && !_keepIdentity) continue;   // identity: để trống, SQL Server tự sinh khi lưu
             if (kc.DataType == typeof(string))
             {
                 var baseVal = Convert.ToString(src[kc])!.TrimEnd(); var n = 2; string cand;
@@ -967,6 +1008,33 @@ public class TableEditControl : UserControl
             if (ask != DialogResult.Yes) return;
         }
 
+        // Cột identity trong vùng dán: dòng có sẵn không đổi id (UPDATE không set identity); dòng mới mặc định bỏ id để SQL Server tự sinh.
+        // Lần đầu dán có giá trị id vào dòng mới thì hỏi có giữ đúng id không (chuyển dữ liệu giữa môi trường cần giữ id).
+        var idPasteCol = _writeInfo.Identity is { } idName ? visibleCols.FindIndex(c => GridColName(c).Equals(idName, StringComparison.OrdinalIgnoreCase)) - startCol : -1;
+        if (idPasteCol >= cols) idPasteCol = -1;
+        bool IsNewTarget(int gridRow) => !(gridRow < _grid.Rows.Count && _grid.Rows[gridRow].DataBoundItem is DataRowView v && v.Row.RowState != DataRowState.Detached);
+        if (idPasteCol >= 0 && !_keepIdentity && !_identityAskSkip)
+        {
+            var ids = Enumerable.Range(0, table.Count)
+                .Where(r => IsNewTarget(startRow + r) && idPasteCol < table[r].Count && table[r][idPasteCol].Trim().Length > 0 && !(knownNulls?.Contains((r, idPasteCol)) ?? false))
+                .Select(r => table[r][idPasteCol].Trim()).ToList();
+            if (ids.Count > 0)
+            {
+                var idDc = data.Columns[_writeInfo.Identity!];
+                var dup = idDc is null ? new List<string>() : ids.Where(v => data.AsEnumerable().Any(x => x.RowState != DataRowState.Deleted && !x.IsNull(idDc) && Convert.ToString(x[idDc]) == v)).Distinct().ToList();
+                var ask = MessageBox.Show(this,
+                    $"Dữ liệu dán có giá trị ở cột identity [{_writeInfo.Identity}] cho {ids.Count} dòng mới (vd: {string.Join(", ", ids.Take(5))}{(ids.Count > 5 ? "…" : "")})." +
+                    (dup.Count > 0 ? $"\n⚠ Đã có trong lưới: {string.Join(", ", dup.Take(5))}{(dup.Count > 5 ? "…" : "")} — giữ id thì các dòng này sẽ báo trùng, không lưu được." : "") +
+                    "\n\nYes — giữ đúng các id này (SET IDENTITY_INSERT ON khi lưu; id đã có trong bảng sẽ báo lỗi, không ghi đè)." +
+                    "\nNo — bỏ id, để SQL Server tự sinh (không hỏi lại cho bảng này; đổi ở chuột phải → Giữ id khi dán)." +
+                    "\nCancel — không dán.",
+                    "Bcode — Table", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (ask == DialogResult.Cancel) return;
+                if (ask == DialogResult.Yes) { _keepIdentity = true; UpdateKeyLabel(); }
+                else _identityAskSkip = true;
+            }
+        }
+
         var errors = 0; var cells = 0; var added = 0;
         var view = _grid.DataSource is DataTable ? data.DefaultView : null;
         for (var r = 0; r < table.Count; r++)
@@ -982,6 +1050,14 @@ public class TableEditControl : UserControl
             for (var c = 0; c < cols && c < table[r].Count; c++)
             {
                 var dc = data.Columns[visibleCols[startCol + c].DataPropertyName.Length > 0 ? visibleCols[startCol + c].DataPropertyName : visibleCols[startCol + c].Name];
+                if (dc is not null && _writeInfo.IsIdentity(dc.ColumnName))
+                {
+                    // Cột identity ReadOnly: chỉ ghi được vào dòng mới chưa gắn vào bảng (Detached), và chỉ khi giữ id.
+                    if (_keepIdentity && newRow && dataRow.RowState == DataRowState.Detached && table[r][c].Trim().Length > 0
+                        && !(knownNulls?.Contains((r, c)) ?? false) && TryConvertCell(table[r][c], dc, out var idVal))
+                    { dataRow[dc] = idVal; cells++; }
+                    continue;
+                }
                 if (dc is null || dc.ReadOnly) continue;
                 object val;
                 if (knownNulls is not null && knownNulls.Contains((r, c)) && dc.AllowDBNull) val = DBNull.Value;
@@ -1716,6 +1792,7 @@ public class TableEditControl : UserControl
 
             List<string> keyColumns;
             string keyText;
+            var writeInfo = TableDataService.TableWriteInfo.Empty;
             if (isPeriodPlaceholder)
             {
                 keyColumns = new List<string>();
@@ -1728,13 +1805,21 @@ public class TableEditControl : UserControl
                 keyText = keyColumns.Count > 0
                     ? $"Primary Key: {string.Join(", ", keyColumns)}"
                     : "⚠ Bảng không có Primary Key.";
+                try { writeInfo = await _service.GetWriteInfoAsync(useSys, schema, table); }
+                catch { /* không tra được — lưu như cũ */ }
+                if (version != _loadVersion) return;
             }
 
             // Từ đây là lần tải mới nhất: gán trạng thái của "bảng đang hiển thị".
+            if (!(_schema.Equals(schema, StringComparison.OrdinalIgnoreCase) && _table.Equals(table, StringComparison.OrdinalIgnoreCase) && _loadedUseSys == useSys))
+            { _keepIdentity = false; _identityAskSkip = false; }   // bảng khác: "giữ id khi dán" về mặc định (tự sinh)
             _schema = schema;
             _table = table;
             _keyColumns = keyColumns;
-            _keyLabel.Text = keyText;
+            _writeInfo = writeInfo;
+            PrepareGeneratedColumns(data, writeInfo);
+            _keyText = keyText;
+            UpdateKeyLabel();
             _loadedUseSys = useSys;
             _loadedStamp = stamp;
 
@@ -1816,7 +1901,7 @@ public class TableEditControl : UserControl
 
                 UpdateRowLabel("💾 Đang lưu thay đổi của dòng " + ((_grid.CurrentCell?.RowIndex ?? 0) + 1) + "…");
                 foreach (DataRow pr in data.Rows) if (pr.RowState != DataRowState.Deleted && pr.HasErrors) pr.ClearErrors();
-                var (count, failed) = await _service.SaveChangesTolerantAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp);
+                var (count, failed) = await _service.SaveChangesTolerantAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp, _keepIdentity);
                 if (failed.Count > 0)
                 {
                     // Dòng lỗi (trùng khoá, NOT NULL…) giữ nguyên trong lưới với dấu ! đỏ — sửa lại giá trị (vd. ma_kh) rồi rời dòng để lưu lại; không sửa = chưa insert, Load lại là mất.
@@ -1880,7 +1965,7 @@ public class TableEditControl : UserControl
 
         try
         {
-            var count = await _service.SaveChangesAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp);
+            var count = await _service.SaveChangesAsync(_loadedUseSys, _schema, _table, _keyColumns, data, _loadedStamp, _keepIdentity);
             _statusLabel.Text = $"Đã lưu {count} thay đổi ({DescribeStamp(_loadedStamp)}).";
         }
         catch (Exception ex)
@@ -1953,11 +2038,28 @@ public class TableEditControl : UserControl
             "Bcode — Add Script", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
     }
 
+    /// <summary>Bảng không có dòng dữ liệu nào: Add Script lấy cấu trúc bảng (như Gen Structure Table — CREATE TABLE + khoá / index / trigger)
+    /// thay cho DELETE + nạp lại. null = chưa mở bảng nào.</summary>
+    private async Task<string?> StructureAddScriptAsync()
+    {
+        if (string.IsNullOrEmpty(_table)) return null;
+        _statusLabel.Text = "Bảng không có dữ liệu — đang lấy cấu trúc bảng...";
+        var target = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
+        string? full = null;
+        try { full = await _sqlObjectService.GetTableSchemaScriptAsync(new SqlObjectInfo { Schema = _schema, Name = _table, Kind = SqlObjectKind.Table, FromSysDatabase = _loadedUseSys }); }
+        catch { /* rơi xuống GenStructureTable: dựng từ danh sách cột đang hiện */ }
+        var script = _dataScript.GenerateStructureScript(target, string.IsNullOrEmpty(full) ? GenStructureTable() : full);
+        _statusLabel.Text = "Bảng không có dữ liệu — đã sinh script cấu trúc bảng.";
+        return script;
+    }
+
     public async Task<(string Script, string TableName)?> BuildAddScriptAsync()
     {
         if (_grid.DataSource is not DataTable data || data.Rows.Count == 0)
         {
-            MessageBox.Show(this, "Chưa có dữ liệu để sinh Script — Load bảng trước.", "Bcode — Add Script");
+            if (await StructureAddScriptAsync() is { } structure)
+                return (Environment.NewLine + structure, _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}");
+            MessageBox.Show(this, "Chưa mở bảng nào để sinh Script.", "Bcode — Add Script");
             return null;
         }
 
@@ -1965,7 +2067,7 @@ public class TableEditControl : UserControl
         var target = _schema.Equals("dbo", StringComparison.OrdinalIgnoreCase) ? _table : $"{_schema}.{_table}";
         _statusLabel.Text = $"Đang sinh script cho {data.Rows.Count} dòng...";
         var loadedWhere = _whereInputText;
-        var script = await Task.Run(() => Environment.NewLine + _dataScript.GenerateDeleteAndReloadScript(data, target, loadedWhere));
+        var script = await Task.Run(() => Environment.NewLine + _dataScript.GenerateDeleteAndReloadScript(data, target, loadedWhere, _writeInfo.Identity, _writeInfo.Generated));
         _statusLabel.Text = $"Đã sinh script ({data.Rows.Count} dòng).";
         return (script, target);
     }
@@ -1974,7 +2076,18 @@ public class TableEditControl : UserControl
     {
         if (_grid.DataSource is not DataTable data || data.Rows.Count == 0)
         {
-            MessageBox.Show(this, "Chưa có dữ liệu để sinh Script — Load bảng trước.", "Bcode — Add Script");
+            try
+            {
+                if (await StructureAddScriptAsync() is not { } structure)
+                {
+                    MessageBox.Show(this, "Chưa mở bảng nào để sinh Script.", "Bcode — Add Script");
+                    return;
+                }
+                Clipboard.SetText(structure);
+                _scriptFileService.AddTextToCart(structure);
+                MessageBox.Show(this, "Bảng không có dữ liệu — đã sinh script cấu trúc bảng (CREATE TABLE) và copy vào clipboard.", "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Add Script", MessageBoxButtons.OK, MessageBoxIcon.Error); }
             return;
         }
 
@@ -1991,7 +2104,7 @@ public class TableEditControl : UserControl
         try
         {
             var loadedWhere = _whereInputText;
-            var script = await Task.Run(() => _dataScript.GenerateDeleteAndReloadScript(data, targetName, loadedWhere));
+            var script = await Task.Run(() => _dataScript.GenerateDeleteAndReloadScript(data, targetName, loadedWhere, _writeInfo.Identity, _writeInfo.Generated));
 
             Clipboard.SetText(script);
             _scriptFileService.AddTextToCart(script);

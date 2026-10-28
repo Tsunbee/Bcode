@@ -66,11 +66,12 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     private string _planText = "";    // nội dung script lúc dựng _plan — khác nội dung editor = đã sửa trong lúc debug
     private Dictionary<string, string>? _planValues;   // giá trị tham số đã nhập (dùng lại khi dựng lại kế hoạch)
     private int _executedLine;
+    private System.Data.DataTable? _lastVars;   // bảng Variables của bước vừa chạy — cho nút "🧩 SQL động"
     private int _lastOkLine, _errorFrom, _errorLine;   // bước chạy được gần nhất; đoạn dòng của bước vừa lỗi (0 = không lỗi) — tô đỏ trên editor
     private bool _debugStepOn, _stepRunning;
     private readonly BarFlow _dbgBar = new() { Dock = DockStyle.Top, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(6, 3, 6, 3), Visible = false };
     private readonly MutedLabel _dbgInfo = new() { AutoSize = true, Margin = new Padding(0, 7, 10, 0), Text = "Debug", BackColor = Color.Transparent };
-    private PillButton? _dbgBack, _dbgNext, _dbgCont, _dbgCursor;
+    private PillButton? _dbgBack, _dbgNext, _dbgCont, _dbgCursor, _dbgDyn;
 
     // ---- F12: khung xem nhanh object (peek) ----
     private SqlPeekPanel? _peek;
@@ -92,6 +93,9 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     public event Action<string, bool, bool, int, int>? ScriptExecuted;
     public event Action<string, bool>? SaveHistoryRequested;
     public Func<string>? CurrentProject { get; set; }
+
+    /// <summary>Khoá database cho ghost text Fast (kiểu cột + ma trận đã học): dự án + app/sys.</summary>
+    private string GhostDbKey => (CurrentProject?.Invoke() ?? "") + (_useSys ? "|sys" : "|app");
     public event Action<List<DataTable>, string>? OpenResultInNewTabRequested;
     public event Action<string, bool, string>? OpenProcedureWithQueryRequested;
     public event Action<string, bool, string>? OpenObjectInNewTabRequested;
@@ -394,6 +398,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     protected override void OnVisibleChanged(EventArgs e)
     {
         base.OnVisibleChanged(e);
+        if (Visible) _settings.SyncEditorFlagsFromDisk();   // tab khác có thể vừa đổi tuỳ chọn gợi ý / engine
         if (Visible && _focusPending && IsHandleCreated) BeginInvoke(new Action(FocusEditor));
     }
 
@@ -710,11 +715,44 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     {
         _ed.AnnotationVisible = ScintillaNET.Annotation.Standard;
         ApplyGhostStyle();
-        _ed.CharAdded += (_, _) => { ClearGhost(); if (_settings.EnableCopilotSuggest) { _ghostTimer.Stop(); _ghostTimer.Start(); } };
+        _ed.CharAdded += (_, _) =>
+        {
+            ClearGhost();
+            if (_settings.EnableFastGhost) { _fastGhostTimer.Stop(); _fastGhostTimer.Start(); }
+            if (_settings.EnableCopilotSuggest) { _ghostTimer.Stop(); _ghostTimer.Start(); }
+        };
+        // Ghost text theo cấu trúc Fast (không AI): ngừng gõ ~0,15s là xét luật, khớp thì hiện ngay (AI 0,6s sau thấy đang có gợi ý thì thôi).
+        _fastGhostTimer.Tick += (_, _) => { _fastGhostTimer.Stop(); ShowFastGhost(); };
+        Disposed += (_, _) => { _fastGhostTimer.Stop(); _fastGhostTimer.Dispose(); };
         _ed.UpdateUI += (_, _) => { if (_ghostText is not null && _ed.CurrentPosition != _ghostPos) ClearGhost(); };
         _ed.TextChanged += (_, _) => { if (_ghostText is not null && _version != _ghostVersion) ClearGhost(); };
         _ghostTimer.Tick += (_, _) => { _ghostTimer.Stop(); _ = SuggestAsync(explicitCall: false); };
         Disposed += (_, _) => { _ghostTimer.Stop(); _ghostTimer.Dispose(); _ghostCts?.Cancel(); _ghostCts?.Dispose(); };
+    }
+
+    private readonly System.Windows.Forms.Timer _fastGhostTimer = new() { Interval = 150 };
+
+    /// <param name="manual">Gọi tay (sau khi đổi dài ⇄ ngắn): chạy cả khi tắt ghost Fast tự động, thay ghost đang hiện. Chế độ lấy theo Tùy chọn.</param>
+    private void ShowFastGhost(bool manual = false)
+    {
+        if (manual) ClearGhost();
+        if (IsDisposed || (!_settings.EnableFastGhost && !manual) || _ghostText is not null || _ed.SelectionStart != _ed.SelectionEnd) return;
+        var pos = _ed.CurrentPosition;
+        var caret = _ed.GetTextRange(0, pos).Length;   // vị trí Scintilla là byte UTF-8 → đổi sang vị trí ký tự
+        var types = FastGhostRules.LoadColumnTypes(GhostDbKey, () => _service.CreateConnection(_useSys));
+        string? text = null;
+        try { text = FastGhostRules.SuggestByMode(_settings.FastGhostLong, _ed.Text, caret, types, FastGhostRules.KnowledgeFor(GhostDbKey)); }
+        catch { /* luật lỗi thì coi như không gợi ý */ }
+        if (!string.IsNullOrEmpty(text) && _ed.CurrentPosition == pos) ShowGhost(text);
+    }
+
+    /// <summary>Đổi ghost Fast dài ⇄ ngắn (lưu Tùy chọn cho mọi tab), báo ở dòng trạng thái rồi gợi ý lại ngay theo chế độ mới.</summary>
+    private void ToggleFastGhostLong()
+    {
+        _settings.FastGhostLong = AppSettings.Update(s => s.FastGhostLong = !s.FastGhostLong).FastGhostLong;
+        SetStatus(_settings.FastGhostLong ? "Gợi ý Fast: DÀI (cả dòng theo chính file)" : "Gợi ý Fast: NGẮN (chỉ gợi ý chắc ≥ 90%)", null);
+        FocusEditor();
+        ShowFastGhost(manual: true);
     }
 
     private void ApplyGhostStyle()
@@ -774,6 +812,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         }
         if (_ed.SelectionStart != _ed.SelectionEnd) return;
         if (!explicitCall && (!_settings.EnableCopilotSuggest || !ProcOrFuncRegex.IsMatch(_ed.Text))) return;
+        if (!explicitCall && _ghostText is not null) return;   // đang có gợi ý theo luật Fast — không gọi AI đè lên
 
         // Cắt ngữ cảnh như bản Web: file dài (>80 dòng) thì giữ 40 dòng đầu (tham số / DECLARE) + 50 dòng sát con trỏ; phía sau lấy 40 dòng.
         var pos = _ed.CurrentPosition;
@@ -808,13 +847,13 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         var key = Bcode.App.Forms.SimplePromptForm.Show(this, gemini ? "Gemini API Key" : "Claude API Key",
             gemini ? "Nhập Google Gemini API Key:" : "Nhập Anthropic API Key (sk-ant-...):", gemini ? _settings.GeminiApiKey : _settings.AnthropicApiKey);
         if (key is null) return;
-        if (gemini) _settings.GeminiApiKey = key.Trim();
-        else
+        // ghi trên bản settings mới nhất (tab giữ bản riêng — ghi cả bản cũ sẽ đè thay đổi ở tab / màn khác)
+        var saved = AppSettings.Update(s =>
         {
-            _settings.AnthropicApiKey = key.Trim();
-            if (_settings.AnthropicApiKey.Length > 0) _settings.CopilotEngine = "claude";   // có key Claude thì dùng luôn Claude cho gợi ý SQL
-        }
-        _settings.Save();
+            if (gemini) s.GeminiApiKey = key.Trim();
+            else { s.AnthropicApiKey = key.Trim(); if (s.AnthropicApiKey.Length > 0) s.CopilotEngine = "claude"; }   // có key Claude thì dùng luôn Claude cho gợi ý SQL
+        });
+        (_settings.GeminiApiKey, _settings.AnthropicApiKey, _settings.CopilotEngine) = (saved.GeminiApiKey, saved.AnthropicApiKey, saved.CopilotEngine);
         MessageBox.Show(this, gemini ? "Đã lưu Gemini API Key." : "Đã lưu Claude API Key. Gợi ý SQL sẽ dùng Claude.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
@@ -893,6 +932,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _dbgBar.Controls.Add(_dbgInfo);
         var find = Btn("🔍 Tìm lỗi", "Tự tìm bước đầu tiên bị lỗi rồi dừng ở đó (Alt+F10) — chia đôi các điểm dừng, mỗi lần chạy đều rollback", () => { _ = DebugFindErrorAsync(); FocusEditor(); });
         _dbgBar.Controls.Add(find);
+        _dbgDyn = Btn("🧩 SQL động", "Xem + kiểm tra cú pháp câu SQL đang ghép trong biến (vd @q) ở điểm dừng này — mở tab mới, dòng lỗi có đánh dấu (Alt+Shift+F10)", () => { _ = ShowDynamicSqlAsync(); });
+        _dbgBar.Controls.Add(_dbgDyn);
         _dbgBack = Btn("⤴ Back", "Lùi về điểm dừng trước (Ctrl+Shift+F10) — chạy lại từ đầu tới đó, đã rollback nên không ảnh hưởng dữ liệu", () => { _ = DebugCommandAsync("back"); FocusEditor(); });
         _dbgBar.Controls.Add(_dbgBack);
         _dbgNext = Btn("⤵ Step", "Chạy dòng kế (F10)", () => { _ = DebugCommandAsync("step"); FocusEditor(); }, primary: true);
@@ -966,6 +1007,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _planText = text;
         _planValues = values;
         _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+        _lastVars = null;
         _debugStepOn = true;
         _results.Clear();
         _results.ClearMessages();
@@ -993,6 +1035,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _dbgInfo.Text = next > 0 ? $"Sắp chạy dòng {next} · còn {remaining} điểm dừng" : "Đã chạy hết script";
         foreach (var b in new[] { _dbgNext, _dbgCont }) if (b is not null) b.Enabled = next > 0;
         if (_dbgBack is not null) _dbgBack.Enabled = _executedLine > 0;
+        if (_dbgDyn is not null) _dbgDyn.Enabled = DynamicSqlInspector.Candidates(_lastVars).Count > 0;
         // To cursor vẫn dùng được khi đã chạy hết: con trỏ ở đoạn đã chạy qua thì lùi về đó.
         if (_dbgCursor is not null) _dbgCursor.Enabled = next > 0 || _executedLine > 0;
         if (next > 0 && next <= _ed.Lines.Count)
@@ -1011,6 +1054,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         var wasActive = _plan is not null || _debugStepOn;
         _plan = null;
         _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+        _lastVars = null;
         _debugStepOn = false;
         PushDebugState();
         if (wasActive && (_status.Text.StartsWith("Debug từng bước", StringComparison.Ordinal) || _status.Text.StartsWith("Đã chạy", StringComparison.Ordinal)))
@@ -1037,6 +1081,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             var prev = _plan.SafeLines.Where(l => l < limit).DefaultIfEmpty(0).Max();
             if (prev > 0) { await ExecuteStepAsync(prev); return; }
             _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+            _lastVars = null;
             _results.Clear();
             _results.ClearMessages();
             SetStatus($"Đã lùi về đầu — sắp chạy dòng {_plan.NextSafe(0)}.", AppColors.Success);
@@ -1141,11 +1186,50 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _plan = plan;
         _planText = text;
         _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
+        _lastVars = null;
         _results.Clear();
         _results.ClearMessages();
         SetStatus($"Script đã sửa — dựng lại debug từ code mới ({plan.SafeLines.Count} điểm dừng), chạy lại từ đầu.", AppColors.Success);
         PushDebugState();
         return true;
+    }
+
+    /// <summary>
+    /// "🧩 SQL động": biến chuỗi đang chứa câu SQL ở điểm dừng (vd @q trước EXEC FastBusiness$Partition$Execute) → mở tab mới với câu đó đã
+    /// thay placeholder Fast, xuống dòng theo từ khoá và kiểm tra cú pháp (SET PARSEONLY), dòng lỗi có đánh dấu. Nhiều biến thì cho chọn.
+    /// </summary>
+    private async Task ShowDynamicSqlAsync()
+    {
+        var cands = DynamicSqlInspector.Candidates(_lastVars);
+        if (cands.Count == 0)
+        {
+            SetStatus("Chưa có biến nào chứa câu SQL ở điểm dừng này — chạy (F10) tới sau chỗ ghép @q rồi bấm lại.", AppColors.Danger);
+            return;
+        }
+        await Task.Yield();   // thoát khỏi callback trước khi mở tab mới
+        if (cands.Count == 1) { await OpenDynamicSqlAsync(cands[0]); return; }
+        var menu = new ContextMenuStrip { Renderer = Bcode.App.UI.FlatToolStripRenderer.Shared };
+        foreach (var c in cands) menu.Items.Add($"{c.Name}  ({c.Value.Length:N0} ký tự)", null, (_, _) => _ = OpenDynamicSqlAsync(c));
+        menu.Closed += (_, _) => BeginInvoke(new Action(menu.Dispose));
+        menu.Show(Cursor.Position);
+    }
+
+    private async Task OpenDynamicSqlAsync((string Name, string Value) v)
+    {
+        var prepared = DynamicSqlInspector.Prepare(v.Value);
+        (int Line, string Message)? err = null;
+        var checkedOk = true;
+        try
+        {
+            await using var conn = _service.CreateConnection(_useSys);
+            err = await DynamicSqlInspector.ParseAsync(conn, prepared);
+        }
+        catch (Exception ex) { checkedOk = false; SetStatus("Không kiểm tra được cú pháp SQL động: " + ex.Message, AppColors.Danger); }
+        var stop = _executedLine;
+        OpenObjectInNewTabRequested?.Invoke($"SQL động {v.Name} (dòng {stop})", _useSys, DynamicSqlInspector.Annotate(v.Name, stop, prepared, err));
+        if (!checkedOk) return;
+        if (err is { } e) { SetStatus($"SQL động {v.Name}: lỗi cú pháp — {e.Message} (đã mở tab, dòng lỗi có đánh dấu ✖).", AppColors.Danger); }
+        else { SetStatus($"SQL động {v.Name}: cú pháp hợp lệ (đã mở tab). Lỗi còn lại nếu có là tên bảng / cột hoặc dữ liệu.", AppColors.Success); }
     }
 
     private async Task ExecuteStepAsync(int target)
@@ -1184,6 +1268,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
                 for (var i = 0; i < real; i++) tables[i].TableName = $"Kết quả {i + 1}";
             }
             if (_split.Panel2Collapsed) _split.Panel2Collapsed = false;
+            _lastVars = reachedWatch ? tables.FirstOrDefault(t => t.TableName == "Variables") : null;
             if (tables.Count > 0) _results.SetTables(tables); else _results.Clear();
 
             var remaining = _plan.SafeLines.Count(l => l > _executedLine);
@@ -1277,6 +1362,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("editor.writeSchema")) { WriteSchema(); return true; }
             if (combo == ShortcutRegistry.Get("editor.ai")) { ShowAiEdit(); return true; }
             if (combo == ShortcutRegistry.Get("editor.suggest")) { _ = SuggestAsync(explicitCall: true); return true; }
+            if (combo == ShortcutRegistry.Get("editor.fastLong")) { ToggleFastGhostLong(); return true; }
             if (combo == ShortcutRegistry.Get("editor.checkFields")) { _ = CheckFieldsAsync(); return true; }
             if (combo == ShortcutRegistry.Get("editor.dbApp")) { _db.Select(0, raise: true); return true; }
             if (combo == ShortcutRegistry.Get("editor.dbSys")) { _db.Select(1, raise: true); return true; }
@@ -1293,6 +1379,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("debug.stop")) { StopStepDebug(); return true; }
             if (combo == ShortcutRegistry.Get("debug.back")) { _ = DebugCommandAsync("back"); return true; }
             if (combo == ShortcutRegistry.Get("debug.findError")) { _ = DebugFindErrorAsync(); return true; }
+            if (combo == ShortcutRegistry.Get("debug.dynSql")) { _ = ShowDynamicSqlAsync(); return true; }
         }
         if (keyData == (Keys.Control | Keys.R)) { _split.Panel2Collapsed = !_split.Panel2Collapsed; return true; }
         if (keyData == (Keys.Control | Keys.D0) && _ed.Focused) { ChangeZoom(0); return true; }
@@ -1586,7 +1673,10 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         .Add("Open (mở file .sql)...", OpenFile)
         .Add("Save (lưu file .sql)...", SaveFile);
 
-    private WebMenu BuildOptionsMenu() => new WebMenu()
+    private WebMenu BuildOptionsMenu()
+    {
+        _settings.SyncEditorFlagsFromDisk();   // dấu tick theo trạng thái mới nhất
+        return new WebMenu()
         .Add("Word Wrap", ToggleWrap, shortcut: ShortcutRegistry.Display("editor.wrap"), @checked: _wordWrap)
         .Add("Gợi ý code khi gõ (mẫu, hàm + tham số, cột, từ khoá, bảng) — Ctrl+Space gọi ngay", ToggleSuggest, @checked: _suggestOn)
         .Add("Reset Connection mỗi lần chạy", ToggleResetConn, @checked: _resetConnOn)
@@ -1598,7 +1688,10 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         .AddCaption("AI (Copilot)")
         .Add("AI: sửa / sinh SQL theo yêu cầu…", ShowAiEdit, shortcut: ShortcutRegistry.Display("editor.ai"))
         .Add("Gọi gợi ý AI ngay", () => _ = SuggestAsync(explicitCall: true), shortcut: ShortcutRegistry.Display("editor.suggest"))
-        .Add("Gợi ý AI tự động khi gõ (chỉ trong procedure / function)", () => { _settings.EnableCopilotSuggest = !_settings.EnableCopilotSuggest; _settings.Save(); if (!_settings.EnableCopilotSuggest) ClearGhost(); }, @checked: _settings.EnableCopilotSuggest)
+        .Add("Gợi ý theo cấu trúc Fast khi gõ (không AI)", () => { _settings.EnableFastGhost = AppSettings.Update(s => s.EnableFastGhost = !s.EnableFastGhost).EnableFastGhost; if (!_settings.EnableFastGhost) ClearGhost(); }, @checked: _settings.EnableFastGhost)
+        .Add("Gợi ý Fast dài (tắt = ngắn, chỉ gợi ý chắc ≥ 90%)", ToggleFastGhostLong, @checked: _settings.FastGhostLong, shortcut: ShortcutRegistry.Display("editor.fastLong"))
+        .Add("Học gợi ý Fast từ database này (chỉ đọc)…", () => BeginInvoke(new Action(() => _ = FastGhostLearnUi.RunAsync(this, GhostDbKey, () => _service.CreateConnection(_useSys)))))
+        .Add("Gợi ý AI tự động khi gõ (chỉ trong procedure / function)", () => { _settings.EnableCopilotSuggest = AppSettings.Update(s => s.EnableCopilotSuggest = !s.EnableCopilotSuggest).EnableCopilotSuggest; if (!_settings.EnableCopilotSuggest) ClearGhost(); }, @checked: _settings.EnableCopilotSuggest)
         .Add("Cấu hình Gemini API Key…", () => ConfigureApiKey(gemini: true))
         .Add("Cấu hình Claude (Anthropic) API Key…", () => ConfigureApiKey(gemini: false))
         .Add("Lịch sử gợi ý AI…", () => { using var form = new Bcode.App.Forms.AiHistoryForm(text => { _ed.ReplaceSelection(text); FocusEditor(); return Task.CompletedTask; }); form.ShowDialog(FindForm()); })
@@ -1612,6 +1705,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         .Add("Gửi script sang Claude (web)", () => SendToAi("claude"))
         .Add("Gửi script sang Gemini (web)", () => SendToAi("gemini"))
         .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded);
+    }
 
     private WebMenu? BuildEditorMenu()
     {
@@ -2020,14 +2114,36 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             panel = new AiWebPanel(site) { Dock = DockStyle.Fill };
             _aiPanels[site] = panel;
         }
+        ShowSide(panel, site == Bcode.Shared.AiSite.Claude ? "Claude" : "Gemini");
+        return panel;
+    }
+
+    /// <summary>Khung "Hỏi Fast" nhúng (MainForm tạo khi mở lần đầu ở tab này).</summary>
+    private Control? _fastPanel;
+    public event Action? FastAskRequested;
+
+    /// <summary>Hiện "Hỏi Fast" trong khung nhúng bên phải (cùng chỗ Claude / Gemini).</summary>
+    public void ShowFastAsk(Control panel)
+    {
+        panel.Dock = DockStyle.Fill;
+        _fastPanel = panel;
+        ShowSide(panel, "Hỏi Fast");
+    }
+
+    /// <summary>Đặt <paramref name="panel"/> vào khung bên phải với thanh đầu Claude · Gemini · Hỏi Fast · ✕ (nút <paramref name="active"/> sáng).</summary>
+    private void ShowSide(Control panel, string active)
+    {
         _aiHost.Controls.Clear();
         var head = new BarFlow { Dock = DockStyle.Top, AutoSize = true, WrapContents = false, Padding = new Padding(4) };
-        foreach (var s in new[] { Bcode.Shared.AiSite.Claude, Bcode.Shared.AiSite.Gemini })
+        foreach (var name in new[] { "Claude", "Gemini", "Hỏi Fast" })
         {
-            var target = s;
-            var b = PillButton.Flat(s == Bcode.Shared.AiSite.Claude ? "Claude" : "Gemini", s == site);
+            var b = PillButton.Flat(name, name == active);
             b.OnPanelAlt = true; b.Margin = new Padding(0, 0, 4, 0);
-            b.Click += (_, _) => ((ISqlTab)this).ShowAi(target);
+            b.Click += (_, _) =>
+            {
+                if (name == "Hỏi Fast") { if (_fastPanel is not null) ShowFastAsk(_fastPanel); else FastAskRequested?.Invoke(); }
+                else ((ISqlTab)this).ShowAi(name == "Claude" ? Bcode.Shared.AiSite.Claude : Bcode.Shared.AiSite.Gemini);
+            };
             head.Controls.Add(b);
         }
         var close = PillButton.Flat("✕");
@@ -2040,6 +2156,5 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             _outer.Panel2Collapsed = false;
             _outer.SplitterDistance = Math.Max(200, (int)(_outer.Width * 0.6));
         }
-        return panel;
     }
 }

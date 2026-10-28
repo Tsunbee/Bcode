@@ -36,6 +36,7 @@ Trong Bcode, tài liệu này mở bằng nút **Trợ giúp** trên thanh trên
    - Xem / sửa dữ liệu bảng: `Ctrl+Shift+T` → gõ tên bảng → `Enter`.
    - Tìm source của một menu: cột trái **WCommand** → double-click menu → tab File Lookup → **Edit in BcodeViewer**.
    - Đóng gói cập nhật: `Ctrl+Shift+G` (Gen Update) hoặc `Ctrl+Shift+4` (Note (New)).
+   - Hỏi kiến thức Fast (khung báo cáo, danh mục, cấu trúc bảng, cách gọi hàm, quy ước): `Ctrl+Shift+M` → [Hỏi Fast](#hoi-fast).
 4. Quên chức năng nằm đâu: `Ctrl+P` (Command Palette) rồi gõ tên.
 5. Đang ở tab nào không biết dùng: bấm **Trợ giúp** (`Ctrl+F1`) — mở đúng mục của tab đó.
 
@@ -214,6 +215,7 @@ Trên ảnh: **①** ▶ Execute (`F5` / `Ctrl+Enter`) · **②** chọn databas
 3. `F5` hoặc `Ctrl+Enter` (nút **▶ Execute**): chạy **đoạn đang bôi đen**, không bôi đen thì chạy cả script. Script nhiều batch tách bằng `GO`.
 4. Đang chạy: nút thành **■ Cancel** (hoặc `Alt+F5`) để dừng.
 5. Dòng trạng thái báo số batch, số dòng kết quả, số dòng bị ảnh hưởng, thời gian. Có lỗi → tab **Message** tự mở, bấm dòng "dòng N" để nhảy tới dòng lỗi trong editor.
+6. Script có `CREATE` / `ALTER PROCEDURE | FUNCTION | VIEW | TRIGGER` (không tính phần comment) thì sau khi chạy, **tên tab đổi thành tên object đó** (vd `dbo.stb_createBC1`; không ghi schema thì lấy `dbo.`) — mở nhiều tab vẫn biết tab nào đang sửa store nào. Script chỉ `EXEC` / `SELECT` thì giữ tên tab cũ.
 
 `Ctrl+R` ẩn / hiện khung kết quả.
 
@@ -269,7 +271,8 @@ Trên ảnh: **①** ▶ Execute · **②** ✦ Beauty · **③** Script ▾ (Wr
 
 | Phím / thao tác | Tác dụng |
 |---|---|
-| Gõ | Gợi ý bảng, cột, procedure, function, snippet theo database đang chọn. Bảng "gõ gì ra gì": ⚙ Settings → **Hướng dẫn gợi ý code SQL**. |
+| Gõ | Gợi ý bảng, cột, procedure, function, snippet theo database đang chọn. Bảng "gõ gì ra gì": ⚙ Settings → **Hướng dẫn gợi ý code SQL**. Mẫu Fast hay dùng (rút từ ~1.900 procedure FBO): `rsrep` / `rsrepq` / `rspivot` (khung báo cáo), `fcust` `fitem` `fsite`… (dòng lọc @Key), `part` (Partition$Execute), `bal…` (số dư), `tblcat` (CREATE TABLE danh mục chuẩn), `total` (dòng Tổng cộng), `dynf` (GetDynamicFields). |
+| Gõ (ghost text Fast) | **Gợi ý theo cấu trúc Fast — không AI, không tốn token**: gõ tới đâu, chữ mờ gợi ý phần tiếp theo kiểu Fast, `Tab` nhận. Vd `IF @Customer <> ''` → ` SET @Key = @Key + ' and a.ma_kh like ''' + REPLACE(RTRIM(@Customer), …) + '%'''`; `EXEC FastBusiness$Partition$Execute ` → tham số; `GetCheckKey(` / `GetUnitFilter(` → tham số; `CREATE TABLE zdmxxx (` → đủ cột danh mục chuẩn + khoá; tên cột trong CREATE / ALTER ADD / `DECLARE @ma_kh` → kiểu hay dùng nhất của cột đó trong database; `CASE WHEN @Language = 'V' THEN ten_kh` → ` ELSE ten_kh2 END AS ten_kh`; `SET NOCOUNT ON` ↵ → `SET ANSI_NULLS OFF`; trước `END` cuối → `SET NOCOUNT OFF / SET ANSI_NULLS ON`. Tham số / dòng lọc lấy từ **ma trận kiến thức Fast** (cách viết hay gặp nhất theo từng routine + ngữ cảnh, rút từ 2.291 procedure/function thật): bỏ cách dùng biến mà store chưa khai báo, tự điền biến được gán trên dòng (vd `SET @Key2 = …GetCheckKey(` → `@Key2)`), dòng lọc theo văn phong dòng lọc ngay phía trên (alias, `CASE WHEN @Key = ''…`); chưa đủ chắc thì chỉ gợi ý phần đầu chắc chắn, không chắc thì **không gợi ý**. Ngoài các chỗ trên còn 2 lớp gợi ý chung ở **giữa dòng bất kỳ**: **theo chính file** — cả phần đã gõ của dòng trùng một đoạn đã có trong file, **phía trên hoặc phía dưới** con trỏ (bỏ qua hoa thường, xuống dòng, dấu phẩy đầu dòng), thì gợi ý phần viết tiếp ở chỗ đó: khớp càng dài gợi ý càng dài — 1 token, 3 token rồi 8 token (vd đã có `loai_kh = CASE WHEN loai_kh ='100000002' THEN '0'`, gõ `, loai_kh = case when loai_kh = '100000002' then ` → `'0'`; chèn `INSERT INTO #apiError SELECT TOP 1 'nh_kh1', N'Group1 not exists in master data' FROM ` phía trên dòng giống hệt → `#dmkh WHERE nh_kh1`; `Tab` rồi gợi ý tiếp); **ma trận đầu dòng** — vài token đầu dòng quen thuộc → phần còn lại (vd `LEFT JOIN dmkh b ON ` → `a.ma_kh = b.ma_kh`, `WHILE @@FETCH_STATUS = ` → `0 BEGIN`, `IF @UnitKey IS NOT NULL ` → `SET @Key = …`). `DECLARE @biến ` (cả biến sau dấu phẩy trong cùng dòng) → kiểu: biến cùng tên đã khai báo trong file → y kiểu đó, không thì kiểu hay dùng nhất của biến tên đó trong code Fast (vd `DECLARE @Key ` → `NVARCHAR(4000)`; kiểu theo chữ hoa / thường đang gõ); biến tên lạ (vd `@Beetest`) không đoán. Đo trên store chưa dùng để học: **đúng ~92% khi có gợi ý** (hàm Fast 90,6%, EXEC 90,6%, lọc 98%, song ngữ 98%, DECLARE 91,9%, giữa dòng bất kỳ 90%). **2 chế độ: dài (mặc định) / ngắn.** Đổi qua lại bằng `Alt+Shift+\` (gợi ý lại ngay theo chế độ mới, dòng trạng thái báo đang DÀI hay NGẮN) hoặc Tùy chọn → **Gợi ý Fast dài** (có dấu tick = dài; lưu cho mọi tab). *Ngắn* = chỉ gợi ý khi chắc ≥ 90%. *Dài* = gợi ý dài hơn, chấp nhận kém chắc hơn (không qua ngưỡng 90%, không gọi AI; không có gợi ý dài thì dùng gợi ý ngắn): lấy cả phần còn lại của dòng ở chỗ giống trong file (vd gõ lại `select top 0 5 as sysorder` → `, 1 AS sysprint, 1 AS systotal, a.stt_rec, …`), hoặc phần chung mà đa số chỗ giống cùng viết (vd `set @q = ` giữa các dòng `SET @q = @q + …` → `@q +`), hoặc kiểu hay gặp nhất của biến (biến mới chưa gặp, vd `declare @z` → kiểu của biến khai báo gần nhất phía trên), `if @customer` → cả điều kiện lọc theo mẫu các dòng IF xung quanh. Dòng trống thì không gợi ý — gõ vài chữ đầu dòng. Tùy chọn → **Học gợi ý Fast từ database này (chỉ đọc)…**: học lại từ chính database đang kết nối (chỉ SELECT `sys.sql_modules`, 1–3 phút), tự chọn ngưỡng để đúng ≥ 90%, lưu riêng `%AppData%\Bcode\ghost\<dự án>_app.json` và tra trước ma trận đi kèm. Chạy trước ghost text AI; tắt / bật: Tùy chọn → **Gợi ý theo cấu trúc Fast khi gõ (không AI)**. |
 | `Ctrl+/` | Bật / tắt chú thích dòng `--` cho dòng hiện tại hoặc các dòng đang chọn (như VS Code) |
 | `Ctrl+K` rồi `Ctrl+C` / `Ctrl+K` rồi `Ctrl+U` | **Comment** / **Uncomment** các dòng đang chọn (chuỗi phím như VS Code) |
 | `Alt+Shift+A` | Chú thích khối `/* ... */` quanh đoạn chọn (bấm lần nữa để gỡ) |
@@ -279,6 +282,8 @@ Trên ảnh: **①** ▶ Execute · **②** ✦ Beauty · **③** Script ▾ (Wr
 | `Ctrl`+chuột phải lên tên procedure / function | Chèn định nghĩa của nó lên **đầu script** + `GO` (đã có thì nhảy tới); `Ctrl+Z` để bỏ |
 | `Ctrl+I` | AI sửa / sinh SQL theo yêu cầu (gõ yêu cầu, `Ctrl+Enter` gửi, xem lại rồi **Insert**). Cần API key: ⚙ Options → Cấu hình Claude / Gemini API Key. |
 | `Alt+\` | Gọi gợi ý AI (ghost text) ngay |
+| `Alt+Shift+\` | Đổi gợi ý Fast dài ⇄ ngắn (mặc định dài) rồi gợi ý lại ngay — không AI |
+| `Ctrl+Shift+M` | Mở **Hỏi Fast** — chat tra kiến thức Fast, không AI ([Hỏi Fast](#hoi-fast)) |
 | `Ctrl+Alt+H` | Lưu đoạn chọn / script vào **Lịch sử SQL** |
 | `Alt+Z` | Bật / tắt tự xuống dòng |
 | Bấm lề trái | Đặt breakpoint (dùng cho Debug từng bước) |
@@ -287,6 +292,35 @@ Trên ảnh: **①** ▶ Execute · **②** ✦ Beauty · **③** Script ▾ (Wr
 Chuột phải trong editor: snippet theo nhóm (Library), Cut / Copy / Paste, Beauty Format; khi có vùng chọn: **Change Field to:** MAX / MIN / SUM / COUNT / AVG, **Alias** (gắn / bỏ tiền tố a., b.…), ISNULL…; Hỏi AI.
 
 > **Lưu ý:** `Ctrl` + lăn chuột (hoặc ⚙ Tùy chọn → Tăng / Giảm cỡ chữ) đổi cỡ chữ editor, `Ctrl+0` về mặc định.
+
+<a id="hoi-fast"></a>
+## Hỏi Fast — chat tra kiến thức Fast (không AI)
+
+Mở bằng `Ctrl+Shift+M` (đổi được trong Settings → Phím tắt) hoặc công cụ **Hỏi Fast**. Gõ câu hỏi bằng tiếng Việt (có dấu hay không đều được), Bcode tra trong kiến thức có sẵn — **không gọi AI, không tốn token**, trả lời ngay. Câu nào cần thêm thông tin thì hỏi lại bằng nút bấm. Đang ở tab **SQL Query** mà bật *Tùy chọn → Claude/Gemini nhúng vào tab SQL Query* thì Hỏi Fast mở **nhúng bên phải tab đó** (thanh đầu Claude · Gemini · Hỏi Fast · ✕, chuyển qua lại vẫn giữ cuộc hỏi; Chèn vào SQL Query chèn thẳng vào tab đó); tắt mục này thì mở thành tab riêng.
+
+| Hỏi | Trả lời |
+|---|---|
+| `tạo báo cáo …` (vd *tạo báo cáo bảng kê xuất kho*) | Store báo cáo có sẵn trong database có tên giống yêu cầu, rồi hỏi lần lượt: loại báo cáo (bảng kê / tổng hợp / PIVOT) → bảng phân kỳ — chọn **1 hoặc nhiều** (đếm số store đang dùng mỗi bảng, vd `r00`, `r70`; nhiều bảng thì mỗi bảng 1 lần `Partition$Execute` vào cùng `#report`, cột kết quả là cột có ở mọi bảng) → tham số lọc (chọn nhiều: kho, khách, vật tư, tài khoản, số chứng từ từ – đến…) → thêm trường động / dòng tổng cộng / song ngữ. Kết quả: **khung store báo cáo** đủ tham số, `@UnitKey`, dòng lọc `@Key` theo cách viết hay gặp nhất, `#report` sysorder, `Partition$Execute`; cột kết quả lấy đúng cột có trong bảng (tổng hợp thì `SUM` cột tiền / số lượng). Kèm store thật giống nhất và cách gọi các hàm hay dùng. |
+| **Save as** từ báo cáo có sẵn: chọn ở bước loại báo cáo, nút **Save as…** trên thẻ store, hoặc gõ `save as rs_rptStockCard` | Chọn store nguồn → nhập tên mới (gợi ý `zrs_…` / `…_Copy`) → toàn bộ định nghĩa store nguồn với dòng CREATE đổi sang tên mới. Chỉ đọc database — chạy script ở SQL Query mới tạo store; tên mới đã có thì báo trước. |
+| `tạo danh mục …` | Hỏi tên + các cột → nút **Mở Tạo nhanh danh mục (theo luật Fast)** (điền sẵn theo luật, như nút ⚙ Theo luật Fast) hoặc chỉ lấy `CREATE TABLE` chuẩn. |
+| Tên bảng: `dmkh` · `join r70$000000 dmvt` | Cấu trúc bảng (cột, kiểu, khoá, identity, mô tả) + câu SELECT mẫu; 2 bảng thì câu **JOIN** theo khoá của bảng sau / cột mã chung. |
+| Tên hàm / store: `FastBusiness$System$GetSiteFilter`, `ff_…`, `rs_…` | Cách gọi hay gặp nhất kèm số lần (ma trận ghost text), nút mở định nghĩa, các store đang gọi nó. |
+| `tra trường tài khoản đối ứng` · `trường ma_kho` | Trường trong từ điển field Fast (header.xml): tiêu đề Việt / Anh, kiểu, lookup. |
+| `%Partition` · `%[ ]%` · `sysorder` · `@Key` · `song ngữ` · `số dư` · `quy ước fast` | Quy ước khi viết / chạy store Fast kèm mẫu code. Câu nêu rõ đối tượng thì chỉ hiện mẫu đúng đối tượng đó, vd *số dư đầu kỳ theo vụ việc* → chỉ mẫu `FastBusiness$Balance$Job`; *số dư cuối kỳ theo khách hàng* → mẫu Customer đã đổi sang `@DateTo`, loại số dư 2; *số dư vụ việc khách hàng* → `JobCustomer_new`. |
+| `viết store …` · `function …` | Khung store / function + SQL động, cursor + store có sẵn liên quan. |
+| Câu khác (vd *sổ chi tiết công nợ khách hàng*) | Tìm chung: store trong database, mẫu code, quy ước; câu kiểu tên báo cáo có thêm nút **Dựng khung báo cáo này**. |
+
+Nút trên mỗi thẻ: **Chèn vào SQL Query** (chèn tại con trỏ của tab SQL Query dùng gần nhất — chưa có thì mở tab mới), **Mở tab SQL mới**, **Copy**, **Mở nội dung**, **Save as…** (store / function). Nút **App / Sys** trên đầu chọn database để tra bảng, store; **＋ Mới** = bắt đầu cuộc hỏi mới.
+
+**Học dự án — dùng chung cho dự án sau.** Nút **📚 Học dự án này** đọc store của database đang chọn (chỉ đọc, 1–3 phút) rồi học: cặp JOIN giữa các bảng và điều kiện ON hay dùng, cột `#report` theo từng bảng phân kỳ, cột ngày truyền `Partition$Execute`, tham số hay có của store báo cáo, cùng ma trận ghost text của dự án (tự đo độ chính xác). Kiến thức gộp vào **kiến thức chung trên máy** (`%AppData%\Bcode\fastask\`, `%AppData%\Bcode\ghost\_shared.json`) — dự án sau chưa học vẫn dùng được: JOIN lấy đúng điều kiện đã học, khung báo cáo lấy cột `#report` và cột ngày hay dùng của bảng, bước chọn tham số lọc có thêm tham số hay có trong dự án.
+
+**Xác nhận ✔ / ✘.** Cuối mỗi thẻ, bên phải hàng nút có **Kết quả này: ✔ Đúng · ✘ Chưa đúng**: ✔ thì lần sau hỏi tương tự thẻ đó lên đầu (ghi "Đã được xác nhận"); ✘ thì thẻ không hiện lại cho câu hỏi đó và Bcode hỏi cách đúng — gõ / dán vào ô chat: với cách gọi hàm (ô ma trận) thì cách bạn gõ được dùng **trước tiên** cho cả ghost text lẫn Hỏi Fast ở mọi dự án; với khung báo cáo / câu trả lời khác thì lần sau hỏi giống vậy hiện **Câu trả lời bạn đã sửa** đầu tiên. Xác nhận lưu ở `%AppData%\Bcode\fastask\feedback.json`.
+
+**Dừng giữa chừng.** Đang trong luồng hỏi lại (tạo báo cáo, danh mục, save as, sửa câu trả lời) mà muốn thôi: gõ `bỏ qua`, `thôi`, `hủy`, `dừng`, `quit`, `cancel`… hoặc bấm **✕ Dừng** cạnh các nút chọn → Bcode ngừng luồng đó, câu hỏi tiếp theo được hiểu như câu mới.
+
+**Lịch sử.** Mỗi cuộc hỏi tự lưu thành 1 phiên (tên = câu hỏi đầu, như Claude) — đóng tab không mất. **☰ Lịch sử** mở danh sách bên trái: bấm để mở lại và hỏi tiếp, 🗑 xoá từng phiên, **Xoá tất cả**.
+
+> **Lưu ý:** Hỏi Fast chỉ ĐỌC database (danh sách bảng, store, cột). Khung store là điểm bắt đầu — sửa tên, cột kết quả rồi chạy thử trước khi dùng. Kiến thức lấy từ: mẫu code Fast, ma trận ghost text, database đang kết nối, từ điển field, luật danh mục, quy ước Fast.
 
 <a id="debug-sql"></a>
 ## Debug từng bước (SQL)
@@ -312,6 +346,7 @@ Trên ảnh: **①** nhóm 🐞 Debug (Debug store/function, Debug từng bướ
 | `F5` | ▶ Continue | Chạy tiếp tới breakpoint kế (hoặc hết) |
 | `Ctrl+F10` | ⇥ To cursor | Chạy tới dòng con trỏ (con trỏ ở đoạn đã chạy qua thì lùi về đó) |
 | `Ctrl+Shift+F10` | ⤴ Back | Lùi về điểm dừng trước (chạy lại từ đầu tới đó — vẫn rollback) |
+| `Alt+Shift+F10` | 🧩 SQL động | Biến đang chứa câu SQL ghép (vd `@q` trước `EXEC FastBusiness$Partition$Execute` / `sp_executesql`) tại điểm dừng → mở tab mới: thay `r00$%Partition` → `r00$000000`, `%[ … ]%` → `( … )`, xuống dòng theo từ khoá, kiểm tra cú pháp (`SET PARSEONLY` — không chạy), dòng lỗi có `-- ✖`, kèm gợi ý "thừa / thiếu dấu nháy" khi 1 chuỗi `'…'` nuốt mất code. Nhiều biến thì chọn trong danh sách |
 | `Alt+F10` | 🔍 Tìm lỗi | Tự tìm bước đầu tiên bị lỗi rồi dừng ở đó: chia đôi các điểm dừng (store 30 điểm dừng ≈ 6 lần chạy), mỗi lần đều rollback |
 | `Shift+F5` | ⏹ Stop | Thoát debug |
 
@@ -450,6 +485,8 @@ Chỉ đọc cấu trúc (INFORMATION_SCHEMA), không sửa bảng nào. Muốn 
 - Sửa ô rồi **rời khỏi dòng là tự lưu** ("Đã tự động lưu N thay đổi lúc …"); dòng lỗi giữ dấu "!" đỏ.
 - **💾 Save (ghi vào DB)** ghi các thay đổi còn lại (hỏi xác nhận nơi ghi).
 - Dán từ Excel (`Ctrl+V`) điền được nhiều ô.
+- **Bảng có cột identity** (vd `id int IDENTITY`, dòng trên lưới ghi "Identity: id — SQL Server tự sinh"): dòng mới (dán / thêm / chèn / nhân bản) để trống ô id, hiện chữ **(tự sinh)**. Khi lưu, Bcode không gửi id, SQL Server tự sinh, rồi Bcode đọc lại id thật lên lưới. Cột computed và rowversion (timestamp) không bao giờ được ghi; lưu xong Bcode đọc lại giá trị của chúng.
+- **Giữ đúng id đã dán** (ví dụ chuyển dữ liệu giữa môi trường): lần đầu dán vào dòng mới mà có giá trị ở cột identity, Bcode hỏi **Yes** = giữ id (khi lưu dùng `SET IDENTITY_INSERT ON … OFF`) · **No** = để SQL Server tự sinh, không hỏi lại cho bảng này · **Cancel** = không dán. Hộp hỏi cảnh báo trước các id đã có trên lưới. Muốn đổi lại thì chuột phải lưới → **Giữ id khi dán ([id] — IDENTITY_INSERT)**; mở bảng khác thì tuỳ chọn về mặc định (tự sinh). Id đã có trong bảng sẽ báo lỗi ở dòng đó (dấu "!" đỏ), Bcode không ghi đè. Dòng có sẵn thì không bao giờ đổi id.
 
 | Phím | Tác dụng |
 |---|---|
@@ -464,11 +501,15 @@ Chỉ đọc cấu trúc (INFORMATION_SCHEMA), không sửa bảng nào. Muốn 
 | `Ctrl+G` | Goto Column |
 | `F5` | Tải lại |
 
-Chuột phải lưới: Add New · Delete · Copy Row · Paste · Clone Row · Insert New Row After · Copy One Value · Alter Null Value · **Gen Insert (dòng đã chọn)** · **Gen Update (dòng đã chọn)** · Set Cells Value to NULL · Description Columns...
+Chuột phải lưới: Add New · Delete · Copy Row · Paste · Clone Row · Insert New Row After · Copy One Value · Giữ id khi dán (chỉ hiện ở bảng có cột identity) · Alter Null Value · **Gen Insert (dòng đã chọn)** · **Gen Update (dòng đã chọn)** · Set Cells Value to NULL · Description Columns...
 
 ### Add Script — đóng gói dữ liệu bảng
 
 Nút **Add Script** (hoặc `Ctrl+Alt+Shift+A`): sinh script DELETE + nạp lại **mọi dòng đang xem**, copy vào clipboard và thêm vào Script Cart.
+
+Bảng **không có dòng dữ liệu nào** (Load ra 0 dòng): Add Script vẫn chạy — sinh **script cấu trúc bảng** như Gen Structure Table (`CREATE TABLE` đủ cột, IDENTITY, DEFAULT + khoá chính, index, trigger; câu DROP để trong chú thích) và thêm vào Script Cart.
+
+Bảng có cột **identity** (vd `crApiConfig.id`): script tự giữ đúng id — `#data` lấy `[id] + 0 AS [id]` (không mang identity), câu nạp vào bảng thật bọc `SET IDENTITY_INSERT <bảng> ON` … `OFF` và ghi rõ danh sách cột. Cột computed / rowversion được bỏ khỏi script (không INSERT được). Bảng không có identity: script như cũ.
 
 > **Lưu ý:** số dòng đang xem bằng đúng giới hạn Top → Bcode cảnh báo phần dữ liệu còn lại sẽ **mất** khi chạy script; đặt Top = 0 rồi Load lại. Bảng tổng hợp `$000000` chỉ để xem (gộp UNION ALL các kỳ) — không Save / xoá được. Database / workspace bị đổi sau khi tải → Bcode không ghi để tránh ghi nhầm; bấm Load lại.
 
@@ -511,7 +552,7 @@ Trên ảnh: **①** mục SQL Object ở cột icon · **②** chọn database 
 | **So sánh object** | `Ctrl+Shift+J` | So code procedure / view / function / trigger giữa 2 database (vd bản dev ↔ bản khách): lọc Khác nhau / Chỉ bên trái / Chỉ bên phải / Chỉ khác khoảng trắng / Mã hoá → chọn mục → **Sinh script ALTER** (Bcode chỉ sinh, không chạy). |
 | **Compare Structure** | Thanh công cụ | So cấu trúc một bảng giữa 2 workspace (Chỉ có ở trái / phải, Khác nhau, Giống nhau). |
 | **Change Owner** | `Ctrl+Shift+O` | Chuyển object sang schema khác (`ALTER SCHEMA TRANSFER`) — không hoàn tác từ Bcode được. |
-| **SQL Profiler** | `Ctrl+3` | Nhúng SQL Profiler thật vào tab: khai đường dẫn Profiler.exe, đăng nhập, chọn trace template → **▶ Bung & Đăng nhập**; **📋 Copy SQL Command** lấy câu SQL của dòng đang chọn. Trace lọc theo Database của dự án và theo **ID (ApplicationName) = u_id**: gõ user cần theo dõi (u_name) → **Tra u_id** (gõ tên mà chưa tra thì lúc bung Bcode tự tra). Ô **u_id** sửa / xoá được: bấm **✕** (hoặc xoá trống) khi ứng dụng không gắn ApplicationName = u_id → trace không lọc theo ID, template đã có filter ID cũng được gỡ (bản cũ giữ thành `.tdf.bak`); Tra u_id hoặc đổi tên user là lọc lại như cũ. Đang đứng trong cửa sổ Profiler vẫn dùng được phím tắt của Bcode (`Ctrl+Tab`, `Ctrl+W`, `Ctrl+Shift+<chữ>`…); các phím khác vẫn thuộc về Profiler. Cần thêm chỗ cho Profiler: bấm **▴** (góc phải hàng trên) để ẩn thanh cấu hình — chỉ còn dải mỏng có dòng trạng thái và **▾ Hiện thanh Profiler** để hiện lại; Bcode nhớ ẩn / hiện cho lần sau. Cửa sổ trace bên trong Profiler tự phóng to kín vùng làm việc khi vừa mở (thu nhỏ / xếp lại bằng nút của chính cửa sổ đó thì Bcode để yên). |
+| **SQL Profiler** | `Ctrl+3` | Nhúng SQL Profiler thật vào tab: khai đường dẫn Profiler.exe, đăng nhập, chọn trace template → **▶ Bung & Đăng nhập**; **📋 Copy SQL Command** lấy câu SQL của dòng đang chọn; **🐞 Debug store** = lấy câu đó, tìm store được gọi (`exec rs_xxx …`), mở tab gồm định nghĩa store + `GO` + nguyên câu gọi rồi bật [Debug từng bước](#debug-sql) — tham số, biến `@0 @1…`, bảng tạm (`#$query`) tự lấy từ câu gọi (định nghĩa giữ `CREATE` nên lỡ bấm Execute cũng không đè store). Trace lọc theo Database của dự án và theo **ID (ApplicationName) = u_id**: gõ user cần theo dõi (u_name) → **Tra u_id** (gõ tên mà chưa tra thì lúc bung Bcode tự tra). Ô **u_id** sửa / xoá được: bấm **✕** (hoặc xoá trống) khi ứng dụng không gắn ApplicationName = u_id → trace không lọc theo ID, template đã có filter ID cũng được gỡ (bản cũ giữ thành `.tdf.bak`); Tra u_id hoặc đổi tên user là lọc lại như cũ. Đang đứng trong cửa sổ Profiler vẫn dùng được phím tắt của Bcode (`Ctrl+Tab`, `Ctrl+W`, `Ctrl+Shift+<chữ>`…); các phím khác vẫn thuộc về Profiler. Cần thêm chỗ cho Profiler: bấm **▴** (góc phải hàng trên) để ẩn thanh cấu hình — chỉ còn dải mỏng có dòng trạng thái và **▾ Hiện thanh Profiler** để hiện lại; Bcode nhớ ẩn / hiện cho lần sau. Cửa sổ trace bên trong Profiler tự phóng to kín vùng làm việc khi vừa mở (thu nhỏ / xếp lại bằng nút của chính cửa sổ đó thì Bcode để yên). |
 
 <a id="wcommand"></a>
 ## WCommand — cây menu ERP

@@ -107,6 +107,7 @@ public static class ShortcutRegistry
             new("editor.wrap", "Bật / tắt tự xuống dòng (Wrap)", "Editor SQL", ShortcutScope.Editor, "Alt+Z"),
             new("editor.ai", "AI: sửa / sinh SQL theo yêu cầu", "Editor SQL", ShortcutScope.Editor, "Ctrl+I"),
             new("editor.suggest", "Gọi gợi ý AI ngay", "Editor SQL", ShortcutScope.Editor, "Alt+\\"),
+            new("editor.fastLong", "Đổi gợi ý Fast dài ⇄ ngắn (dài = cả dòng theo đoạn giống trong chính file; ngắn = chỉ gợi ý chắc ≥ 90%) rồi gợi ý lại ngay, không AI", "Editor SQL", ShortcutScope.Editor, "Alt+Shift+\\"),
             new("editor.saveHistory", "Lưu script vào Lịch sử SQL", "Editor SQL", ShortcutScope.Editor, "Ctrl+Alt+H"),
             new("editor.open", "Open (mở file .sql)", "Editor SQL", ShortcutScope.Editor, ""),
             new("editor.save", "Save (lưu file .sql)", "Editor SQL", ShortcutScope.Editor, "Ctrl+S"),
@@ -175,6 +176,7 @@ public static class ShortcutRegistry
             new("debug.stop", "Debug: dừng", "Debug từng bước", ShortcutScope.Editor, "Shift+F5"),
             new("debug.back", "Debug: lùi về điểm dừng trước (Back)", "Debug từng bước", ShortcutScope.Editor, "Ctrl+Shift+F10"),
             new("debug.findError", "Debug: tự tìm bước đầu tiên bị lỗi rồi dừng ở đó (Tìm lỗi)", "Debug từng bước", ShortcutScope.Editor, "Alt+F10"),
+            new("debug.dynSql", "Debug: xem + kiểm tra cú pháp SQL động (biến @q…) ở điểm dừng", "Debug từng bước", ShortcutScope.Editor, "Alt+Shift+F10"),
 
             // ---- Tab FSG FBO (trang web của project) — chỉ có tác dụng khi con trỏ đang ở trang web trong tab đó ----
             new("fbo.devtools", "FSG FBO: mở / đóng DevTools gắn bên phải trang (như F12 của Chrome)", "FSG FBO", ShortcutScope.Editor, "F12"),

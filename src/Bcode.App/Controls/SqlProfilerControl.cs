@@ -399,6 +399,7 @@ public class SqlProfilerControl : UserControl
             case "refresh-hint": PushWorkspaceHintsToBar(); break;
             case "open-trace-folder": OpenTraceFolder(); break;
             case "copy-sql": await CopySqlCommandAsync(); break;
+            case "debug-sql": await DebugSqlCommandAsync(); break;
             case "open-saved-trace": await OpenSavedTraceAsync(); break;
             case "save-config":
                 SaveConfig(
@@ -450,12 +451,17 @@ public class SqlProfilerControl : UserControl
     /// <summary>Bắn sau "Copy SQL Command" với câu SQL vừa copy — nơi chứa tab (MainForm) mở SQL Query mới và dán câu đó vào.</summary>
     public event Action<string>? OpenInSqlQueryRequested;
 
-    private async Task CopySqlCommandAsync()
+    /// <summary>"🐞 Debug store": lấy câu SQL (TextData) của dòng đang chọn như Copy SQL Command — nơi chứa tab (MainForm) tìm store được gọi
+    /// trong đó, mở định nghĩa store + GO + câu gọi này rồi bật Debug từng bước (tham số / bảng tạm lấy từ chính câu gọi).</summary>
+    public event Action<string>? DebugRequested;
+
+    /// <summary>TextData của dòng đang chọn trong Profiler (khung chi tiết, không được thì Ctrl+C); null (đã báo trạng thái) nếu không lấy được.</summary>
+    private async Task<(string Text, string How)?> ReadSqlCommandAsync()
     {
         if (_profilerHwnd == IntPtr.Zero || _profilerProcess is null || _profilerProcess.HasExited)
         {
             SetStatus("Chưa bung Profiler — bấm \"Bung & Đăng nhập\" trước, chọn 1 dòng sự kiện rồi bấm lại.");
-            return;
+            return null;
         }
 
         var text = ReadSelectedEventText(_profilerHwnd);
@@ -469,8 +475,25 @@ public class SqlProfilerControl : UserControl
         if (string.IsNullOrWhiteSpace(text))
         {
             SetStatus("Không lấy được câu SQL — hãy bấm chọn 1 dòng có TextData trong Profiler rồi thử lại.");
-            return;
+            return null;
         }
+        return (text.Trim(), how);
+    }
+
+    /// <summary>Cho nơi chứa tab báo kết quả "Debug store" lên thanh trạng thái của Profiler.</summary>
+    public void ReportStatus(string text) => SetStatus(text);
+
+    private async Task DebugSqlCommandAsync()
+    {
+        if (await ReadSqlCommandAsync() is not { } r) return;
+        SetStatus($"Đã lấy câu SQL ({r.Text.Length} ký tự) — đang tìm store được gọi để mở debug...");
+        DebugRequested?.Invoke(r.Text);
+    }
+
+    private async Task CopySqlCommandAsync()
+    {
+        if (await ReadSqlCommandAsync() is not { } r) return;
+        var (text, how) = r;
 
         try
         {

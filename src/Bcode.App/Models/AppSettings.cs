@@ -202,6 +202,12 @@ public class AppSettings
     /// </summary>
     public bool EnableCopilotSuggest { get; set; } = true;
 
+    /// <summary>Ghost text theo cấu trúc Fast khi gõ SQL (FastGhostRules — không gọi AI, không tốn token), chạy trước gợi ý AI.</summary>
+    public bool EnableFastGhost { get; set; } = true;
+
+    /// <summary>Chế độ ghost Fast: true = gợi ý dài (cả dòng theo chính file, mặc định), false = ngắn (chỉ gợi ý chắc ≥ 90%). Alt+Shift+\ đổi qua lại.</summary>
+    public bool FastGhostLong { get; set; } = true;
+
     /// <summary>Cỡ chữ editor SQL Query (px) người dùng chọn bằng Ctrl+lăn chuột / Tăng-Giảm cỡ chữ.
     /// 0 = mặc định như FCode (Consolas 11px, xem Web/Shell/sqleditor.html).</summary>
     public double SqlEditorFontSize { get; set; } = 0;
@@ -289,6 +295,35 @@ public class AppSettings
             GeminiApiKey = disk.GeminiApiKey ?? "";
         }
         catch { /* file đang ghi dở / hỏng → giữ key đang có */ }
+    }
+
+    /// <summary>
+    /// Đổi vài mục rồi ghi trên bản MỚI NHẤT của settings.json (không phải bản cũ đang giữ). Tab SQL Query giữ bản AppSettings riêng nạp lúc tạo tab
+    /// (cả tab dựng sẵn): tick 1 tuỳ chọn rồi ghi cả bản cũ thì tab khác / lần mở sau không thấy tick, và còn đè mất thay đổi khác. Trả bản vừa ghi.
+    /// </summary>
+    public static AppSettings Update(Action<AppSettings> change)
+    {
+        var fresh = Load();
+        change(fresh);
+        fresh.Save();
+        return fresh;
+    }
+
+    /// <summary>Đồng bộ các tuỳ chọn editor SQL (gợi ý khi gõ, ghost Fast, engine Claude / Gemini, API key) của bản này theo settings.json.</summary>
+    public void SyncEditorFlagsFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return;
+            if (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) is not { } disk) return;
+            EnableCopilotSuggest = disk.EnableCopilotSuggest;
+            EnableFastGhost = disk.EnableFastGhost;
+            FastGhostLong = disk.FastGhostLong;
+            CopilotEngine = disk.CopilotEngine;
+            AnthropicApiKey = disk.AnthropicApiKey ?? "";
+            GeminiApiKey = disk.GeminiApiKey ?? "";
+        }
+        catch { /* file đang ghi dở / hỏng → giữ bản đang có */ }
     }
 
     public void Save()

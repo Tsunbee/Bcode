@@ -51,6 +51,7 @@
     <div id="editor-container"></div>
     <div id="dbgBar">
         <span class="info" id="dbgInfo">Debug</span>
+        <button id="dbgDyn" title="Xem + kiểm tra cú pháp câu SQL đang ghép trong biến (vd @q) ở điểm dừng này — mở tab mới, dòng lỗi có đánh dấu (Alt+Shift+F10)">🧩 SQL động</button>
         <button id="dbgFind" title="Tự tìm bước đầu tiên bị lỗi rồi dừng ở đó (Alt+F10) — chia đôi các điểm dừng, mỗi lần chạy đều rollback">🔍 Tìm lỗi</button>
         <button id="dbgBack" title="Lùi về điểm dừng trước (Ctrl+Shift+F10) — chạy lại từ đầu tới đó, đã rollback nên không ảnh hưởng dữ liệu">⤴ Back</button>
         <button class="primary" id="dbgNext" title="Chạy dòng kế (F10)">⤵ Step</button>
@@ -629,8 +630,18 @@
             });
 
             // 3. GỢI Ý COPILOT GHOST TEXT (FILL-IN-THE-MIDDLE CHO PROCEDURE / FUNCTION)
-            monaco.languages.registerInlineCompletionsProvider('sql', {
-                provideInlineCompletions: function (model, position, context, token) {
+            // Ghost text theo cấu trúc Fast (C# FastGhostRules, không AI): hỏi trước, có gợi ý thì hiện ngay — không thì mới tới AI.
+            var _fastReq = 0, _fastResolvers = {};
+            window.fastGhostDone = function (id, text) { var r = _fastResolvers[id]; if (r) { delete _fastResolvers[id]; r(text || ''); } };
+            function askFastGhost(model, position, long) {
+                if ((window.fastGhost === false && !long) || !window.chrome || !window.chrome.webview) return Promise.resolve('');
+                return new Promise(function (resolve) {
+                    var id = ++_fastReq; _fastResolvers[id] = resolve;
+                    window.chrome.webview.postMessage(JSON.stringify({ action: 'fast-ghost', requestId: id, text: model.getValue(), offset: model.getOffsetAt(position), long: !!long }));
+                    setTimeout(function () { if (_fastResolvers[id]) { delete _fastResolvers[id]; resolve(''); } }, 500);
+                });
+            }
+            var copilotProvide = function (model, position, context, token) {
                     // Nếu vừa có gợi ý đến trễ và đúng vị trí con trỏ hiện tại thì dùng luôn, khỏi gọi AI lại
                     if (_lateCopilotSuggestion &&
                         _lateCopilotSuggestion.position.lineNumber === position.lineNumber &&
@@ -740,6 +751,16 @@
                                 resolve({ items: [] });
                             }
                         }, 10000);
+                    });
+                };
+            monaco.languages.registerInlineCompletionsProvider('sql', {
+                provideInlineCompletions: function (model, position, context, token) {
+                    // gọi tay sau khi đổi chế độ Fast dài ⇄ ngắn: chỉ hỏi Fast, không rơi xuống AI
+                    var long = !!window._fastLong; window._fastLong = false;
+                    return askFastGhost(model, position, long).then(function (t) {
+                        if (t) return { items: [{ insertText: t, range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column) }] };
+                        if (long) return { items: [] };
+                        return copilotProvide(model, position, context, token);
                     });
                 },
                 freeInlineCompletions: function (completions) {}
@@ -872,7 +893,7 @@
                 render(); ped.focus();
             };
             var KEY_DEFAULTS = { 'editor.toggleComment': 'Ctrl+/', 'editor.blockComment': 'Alt+Shift+A', 'editor.peek': 'F12', 'editor.openObject': 'Ctrl+F12', 'editor.run': 'F5', 'editor.run2': 'Ctrl+Enter', 'editor.cancel': 'Alt+F5', 'editor.beauty': 'F7', 'editor.wrap': 'Alt+Z', 'editor.ai': 'Ctrl+I',
-                'editor.suggest': 'Alt+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5', 'debug.back': 'Ctrl+Shift+F10', 'debug.findError': 'Alt+F10' };
+                'editor.suggest': 'Alt+\\', 'editor.fastLong': 'Alt+Shift+\\', 'debug.next': 'F10', 'debug.cursor': 'Ctrl+F10', 'debug.stop': 'Shift+F5', 'debug.back': 'Ctrl+Shift+F10', 'debug.findError': 'Alt+F10', 'debug.dynSql': 'Alt+Shift+F10' };
             var KEY_ACTIONS = {
                 'editor.toggleComment': function () { window.toggleComment(); },
                 'editor.blockComment': function () { var a = editor.getAction('editor.action.blockComment'); if (a) a.run(); },
@@ -885,6 +906,7 @@
                 'editor.wrap': function () { dbgPost('toggle-wrap-key'); },
                 'editor.ai': function () { window.showAiEdit(); },
                 'editor.suggest': function () { editor.trigger('keyboard', 'editor.action.inlineSuggest.trigger', {}); },
+                'editor.fastLong': function () { dbgPost('fast-ghost-mode'); },   // C# đổi dài ⇄ ngắn rồi gợi ý lại
                 'editor.saveHistory': function () { dbgPost('bar-action', { name: 'save-history' }); },
                 'editor.open': function () { dbgPost('bar-action', { name: 'open' }); },
                 'editor.save': function () { dbgPost('bar-action', { name: 'save' }); },
@@ -915,7 +937,8 @@
                 'debug.cursor': function () { dbgPost('debug-to-cursor', { line: editor.getPosition().lineNumber }); },
                 'debug.stop': function () { dbgPost('debug-stop'); },
                 'debug.back': function () { dbgPost('debug-back'); },
-                'debug.findError': function () { dbgPost('debug-find-error'); }
+                'debug.findError': function () { dbgPost('debug-find-error'); },
+                'debug.dynSql': function () { dbgPost('debug-dynsql'); }
             };
             var _keyLookup = {};
             window.applyKeymap = function () {
@@ -932,6 +955,7 @@
                 var id = c ? _keyLookup[c] : null;
                 if (id) { e.preventDefault(); e.stopPropagation(); KEY_ACTIONS[id](); }
             });
+            document.getElementById('dbgDyn').onclick = function () { dbgPost('debug-dynsql'); };
             document.getElementById('dbgFind').onclick = function () { dbgPost('debug-find-error'); editor.focus(); };
             document.getElementById('dbgBack').onclick = function () { dbgPost('debug-back'); editor.focus(); };
             document.getElementById('dbgNext').onclick = function () { dbgPost('debug-next'); editor.focus(); };
@@ -994,6 +1018,7 @@
                     : 'Đã chạy hết script';
                 document.getElementById('dbgBack').disabled = !st.executed;
                 document.getElementById('dbgFind').disabled = !safe.length;
+                document.getElementById('dbgDyn').disabled = !st.dyn;
                 document.getElementById('dbgNext').disabled = !st.next;
                 document.getElementById('dbgCont').disabled = !st.next;
                 // To cursor vẫn dùng được khi đã chạy hết: con trỏ ở đoạn đã chạy qua thì lùi về đó.

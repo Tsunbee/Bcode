@@ -167,7 +167,8 @@ public class AppSettings
     /// <summary>Note (New) chế độ App: ô "Tách theo từng y/c" khi Generate nhiều y/c (trang web nhớ ở localStorage).</summary>
     public bool NoteSplit { get; set; } = true;
 
-    /// <summary>Gen Update / Note (New) (cả BcodeNote.exe): tạo gói xong thì nén thư mục gói thành &lt;Folder Name&gt;.zip cạnh thư mục đó.</summary>
+    /// <summary>Gen Update / Note (New) (cả BcodeNote.exe): khi <see cref="PackageToNetwork"/> thì đưa lên mạng file &lt;Folder Name&gt;.zip thay cho thư mục gói
+    /// (Save At Path vẫn chỉ có thư mục gói).</summary>
     public bool PackageZip { get; set; }
     /// <summary>Gen Update / Note (New): tạo gói xong thì chép thêm lên <see cref="PackageNetworkRoot"/>\&lt;tên máy&gt;\ (gói ở Save At Path vẫn giữ).</summary>
     public bool PackageToNetwork { get; set; }

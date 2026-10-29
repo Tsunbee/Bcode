@@ -16,7 +16,7 @@ Bcode.App/
 │   ├── rpt/
 │   └── README.md  14
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  568
+│   ├── AdvanceNoteControl.cs  567
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -32,7 +32,7 @@ Bcode.App/
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  170
 │   ├── FsgRequirementReportControl.cs  256
-│   ├── GenUpdatePackageControl.cs  471
+│   ├── GenUpdatePackageControl.cs  470
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  154
@@ -44,7 +44,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  210
-│   ├── NativeAdvanceNoteControl.cs  1174
+│   ├── NativeAdvanceNoteControl.cs  1172
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  278
@@ -188,7 +188,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  350
+│   ├── AppSettings.cs  351
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -271,7 +271,7 @@ Bcode.App/
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  501
 │   ├── GenAllService.cs  789
-│   ├── GenAllService.Delivery.cs  109
+│   ├── GenAllService.Delivery.cs  99
 │   ├── GenAllService.Suggest.cs  241
 │   ├── GenInsertService.cs  47
 │   ├── GenUpdateService.cs  52
@@ -356,7 +356,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  806
+│       ├── advnote.html  805
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  766
 │       ├── apischema.html  470
@@ -391,7 +391,7 @@ Bcode.App/
 │       ├── framehost.html  55
 │       ├── fsgnotify.html  136
 │       ├── fsgreq.html  763
-│       ├── genupdate.html  613
+│       ├── genupdate.html  612
 │       ├── grantsource.html  132
 │       ├── help.html  425
 │       ├── iconrail.html  72

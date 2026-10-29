@@ -458,10 +458,9 @@ public class GenUpdatePackageControl : UserControl
         {
             var count = await Task.Run(() => GenAllService.CreatePackage(destRoot, items, description));
             GenAllService.SavePackageOptions(opts.Zip, opts.Network, opts.NetworkRoot);
-            // Nén zip / chép lên đường dẫn mạng: lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
-            var extra = opts.Zip || opts.Network
-                ? await GenAllService.DeliverPackageAsync(destRoot, opts.Zip, opts.Network, opts.NetworkRoot) : new PackageDelivery();
-            Js($"genUpdate.onCreated({J(new { ok = true, path = destRoot, count, zip = extra.ZipPath, network = extra.NetworkPath, errors = extra.Errors })})");
+            // Chép lên đường dẫn mạng (tick zip = chỉ đưa .zip lên mạng): lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
+            var extra = opts.Network ? await GenAllService.DeliverPackageAsync(destRoot, opts.Zip, opts.NetworkRoot) : new PackageDelivery();
+            Js($"genUpdate.onCreated({J(new { ok = true, path = destRoot, count, network = extra.NetworkPath, errors = extra.Errors })})");
         }
         catch (Exception ex)
         {

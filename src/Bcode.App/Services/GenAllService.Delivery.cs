@@ -3,11 +3,10 @@ using Bcode.App.Models;
 
 namespace Bcode.App.Services;
 
-/// <summary>Kết quả các bước thêm sau khi tạo gói (nén .zip / chép lên đường dẫn mạng). Lỗi ở bước nào thì ghi vào <see cref="Errors"/> —
-/// gói ở Save At Path đã tạo xong vẫn giữ nguyên.</summary>
+/// <summary>Kết quả bước chép gói lên đường dẫn mạng (có thể nén .zip). Lỗi thì ghi vào <see cref="Errors"/> — gói ở Save At Path đã tạo xong vẫn giữ nguyên.</summary>
 public sealed class PackageDelivery
 {
-    public string? ZipPath { get; set; }
+    /// <summary>File .zip hoặc thư mục gói đã chép lên mạng; null = không chép / chép lỗi.</summary>
     public string? NetworkPath { get; set; }
     public List<string> Errors { get; } = new();
 }
@@ -20,7 +19,7 @@ public partial class GenAllService
     /// <summary>Chờ tối đa bấy nhiêu giây để biết thư mục mạng có tới được không (UNC không tới được có thể treo cả phút).</summary>
     private const int NetworkProbeSeconds = 15;
 
-    /// <summary>Đọc 2 tuỳ chọn gói (nén zip / gen vào đường dẫn mạng) từ settings.json mới nhất — mỗi tab giữ bản AppSettings riêng nên không dùng bản cũ.</summary>
+    /// <summary>Đọc 2 tuỳ chọn gói (gen vào đường dẫn mạng / nén zip) từ settings.json mới nhất — mỗi tab giữ bản AppSettings riêng nên không dùng bản cũ.</summary>
     public static (bool Zip, bool Network, string NetworkRoot) LoadPackageOptions()
     {
         var s = AppSettings.Load();
@@ -41,59 +40,50 @@ public partial class GenAllService
     }
 
     /// <summary>
-    /// Bước thêm sau <see cref="CreatePackage"/>: <paramref name="zip"/> = nén <paramref name="destRoot"/> thành &lt;destRoot&gt;.zip (cạnh thư mục gói,
-    /// trong zip có sẵn thư mục gói); <paramref name="toNetwork"/> = chép lên &lt;networkRoot&gt;\&lt;tên máy&gt;\ (thư mục tên máy chưa có thì tạo) —
-    /// có zip thì chép file .zip, không thì chép cả thư mục gói. Không ném lỗi: lỗi từng bước ghi vào <see cref="PackageDelivery.Errors"/>.
+    /// Bước thêm sau <see cref="CreatePackage"/>: chép gói ở <paramref name="destRoot"/> lên &lt;networkRoot&gt;\&lt;tên máy&gt;\ (thư mục tên máy chưa có thì tạo).
+    /// <paramref name="zip"/> = chỉ đưa lên mạng file &lt;Folder Name&gt;.zip (nén ở %TEMP% rồi chép, trong zip có sẵn thư mục gói) — Save At Path vẫn chỉ có
+    /// thư mục gói; không zip = chép cả thư mục gói. Không ném lỗi: lỗi ghi vào <see cref="PackageDelivery.Errors"/>.
     /// </summary>
-    public static async Task<PackageDelivery> DeliverPackageAsync(string destRoot, bool zip, bool toNetwork, string? networkRoot)
+    public static async Task<PackageDelivery> DeliverPackageAsync(string destRoot, bool zip, string? networkRoot)
     {
         var result = new PackageDelivery();
         destRoot = destRoot.TrimEnd('\\', '/');
         var folderName = Path.GetFileName(destRoot);
-
-        if (zip)
+        var root = string.IsNullOrWhiteSpace(networkRoot) ? DefaultNetworkRoot : networkRoot.Trim();
+        string? tempZip = null;
+        try
         {
-            var zipPath = destRoot + ".zip";
-            try
+            var probe = Task.Run(() => Directory.Exists(root));
+            if (await Task.WhenAny(probe, Task.Delay(TimeSpan.FromSeconds(NetworkProbeSeconds))) != probe)
+                throw new IOException($"Không kết nối được {root} sau {NetworkProbeSeconds} giây (kiểm tra mạng / VPN).");
+            if (!await probe)
+                throw new IOException($"Không truy cập được {root} (không có mạng / VPN, sai đường dẫn hoặc tài khoản Windows không có quyền).");
+
+            var machineDir = Path.Combine(root, Environment.MachineName);
+            result.NetworkPath = await Task.Run(() =>
             {
-                await Task.Run(() =>
+                Directory.CreateDirectory(machineDir);   // đã có thì dùng luôn
+                if (zip)
                 {
-                    if (File.Exists(zipPath)) File.Delete(zipPath);
-                    ZipFile.CreateFromDirectory(destRoot, zipPath, CompressionLevel.Optimal, includeBaseDirectory: true);
-                });
-                result.ZipPath = zipPath;
-            }
-            catch (Exception ex) { result.Errors.Add($"Không nén được file zip {zipPath}: {ex.Message}"); }
+                    var tempDir = Path.Combine(Path.GetTempPath(), "Bcode", "PackageZip");
+                    Directory.CreateDirectory(tempDir);
+                    tempZip = Path.Combine(tempDir, folderName + ".zip");
+                    if (File.Exists(tempZip)) File.Delete(tempZip);
+                    ZipFile.CreateFromDirectory(destRoot, tempZip, CompressionLevel.Optimal, includeBaseDirectory: true);
+                    var target = Path.Combine(machineDir, folderName + ".zip");
+                    File.Copy(tempZip, target, overwrite: true);
+                    return target;
+                }
+                var dir = Path.Combine(machineDir, folderName);
+                CopyDirectory(destRoot, dir);
+                return dir;
+            });
         }
-
-        if (toNetwork)
+        catch (UnauthorizedAccessException ex) { result.Errors.Add($"Không có quyền ghi vào {root}: {ex.Message}"); }
+        catch (Exception ex) { result.Errors.Add($"Không gen được vào đường dẫn mạng: {ex.Message}"); }
+        finally
         {
-            var root = string.IsNullOrWhiteSpace(networkRoot) ? DefaultNetworkRoot : networkRoot.Trim();
-            try
-            {
-                var probe = Task.Run(() => Directory.Exists(root));
-                if (await Task.WhenAny(probe, Task.Delay(TimeSpan.FromSeconds(NetworkProbeSeconds))) != probe)
-                    throw new IOException($"Không kết nối được {root} sau {NetworkProbeSeconds} giây (kiểm tra mạng / VPN).");
-                if (!await probe)
-                    throw new IOException($"Không truy cập được {root} (không có mạng / VPN, sai đường dẫn hoặc tài khoản Windows không có quyền).");
-
-                var machineDir = Path.Combine(root, Environment.MachineName);
-                result.NetworkPath = await Task.Run(() =>
-                {
-                    Directory.CreateDirectory(machineDir);   // đã có thì dùng luôn
-                    if (result.ZipPath is not null)
-                    {
-                        var target = Path.Combine(machineDir, Path.GetFileName(result.ZipPath));
-                        File.Copy(result.ZipPath, target, overwrite: true);
-                        return target;
-                    }
-                    var dir = Path.Combine(machineDir, folderName);
-                    CopyDirectory(destRoot, dir);
-                    return dir;
-                });
-            }
-            catch (UnauthorizedAccessException ex) { result.Errors.Add($"Không có quyền ghi vào {root}: {ex.Message}"); }
-            catch (Exception ex) { result.Errors.Add($"Không gen được vào đường dẫn mạng: {ex.Message}"); }
+            if (tempZip is not null) try { File.Delete(tempZip); } catch { /* file tạm, để lại cũng không sao */ }
         }
         return result;
     }

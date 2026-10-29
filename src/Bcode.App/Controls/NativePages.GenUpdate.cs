@@ -27,7 +27,7 @@ internal sealed class GenUpdatePage : NativePage
     private readonly ListView _batchList = new() { Dock = DockStyle.Fill, CheckBoxes = true, View = View.Details, FullRowSelect = true, HeaderStyle = ColumnHeaderStyle.Nonclickable, BorderStyle = BorderStyle.None };
     private readonly PillButton _bAdd, _bRemove, _bClear, _bCreate;
     private readonly Label _resTitle = NK.Muted(""), _resPath = NK.Muted("", true), _resExtra = NK.Muted("", true);
-    private readonly CheckBox _pZip = NK.Check("Nén .zip gói update"), _pNet = NK.Check("Gen vào đường dẫn mạng");
+    private readonly CheckBox _pZip = NK.Check("Nén .zip khi gen lên mạng"), _pNet = NK.Check("Gen vào đường dẫn mạng");
     private readonly RoundedInput _pNetRoot = NK.Input("", mono: true);
     private readonly Label _pNetHint = NK.Muted("", true);
     private string _machine = "";
@@ -52,10 +52,10 @@ internal sealed class GenUpdatePage : NativePage
         _pNetRoot.Dock = DockStyle.Fill; _pNetRoot.Margin = new Padding(0); _pNetHint.Dock = DockStyle.Fill; _pNetHint.Margin = new Padding(0, 4, 0, 0);
         netBox.Controls.Add(_pNetRoot, 0, 0); netBox.Controls.Add(_pNetHint, 0, 1);
         c1.Body.Controls.Add(NK.FormGrid(104, ("Program Path", _pProgram), ("Mobile Path", _pMobile), ("Save At Path", saveRow), ("Folder Name", folRow), ("Description", _pDesc),
-            ("Tuỳ chọn", NK.Row(_pZip, _pNet)), ("Đường dẫn mạng", netBox)));
-        NK.Tip(_pZip, "Tạo gói xong thì nén thư mục gói thành <Folder Name>.zip cạnh thư mục đó.");
-        NK.Tip(_pNet, "Tạo gói xong thì chép thêm vào <đường dẫn mạng>\\<tên máy>\\ (thư mục tên máy chưa có thì tạo). Có nén zip thì chép file .zip. Gói ở Save At Path vẫn giữ.");
-        _pZip.CheckedChanged += (_, _) => SavePkgOpts();
+            ("Tuỳ chọn", NK.Row(_pNet, _pZip)), ("Đường dẫn mạng", netBox)));
+        NK.Tip(_pZip, "Chỉ đưa lên mạng file <Folder Name>.zip (thay cho thư mục gói). Save At Path vẫn chỉ có thư mục gói, không nén.");
+        NK.Tip(_pNet, "Tạo gói xong thì chép thêm vào <đường dẫn mạng>\\<tên máy>\\ (thư mục tên máy chưa có thì tạo). Gói ở Save At Path vẫn giữ.");
+        _pZip.CheckedChanged += (_, _) => { ShowNetRow(); SavePkgOpts(); };
         _pNet.CheckedChanged += (_, _) => { ShowNetRow(); SavePkgOpts(); };
         _pNetRoot.Inner.TextChanged += (_, _) => ShowNetRow();
         _pNetRoot.Inner.Leave += (_, _) => SavePkgOpts();
@@ -181,9 +181,9 @@ internal sealed class GenUpdatePage : NativePage
     private void SavePkgOpts() { if (!_loading) Post(new { action = "pkgOpts", zip = _pZip.Checked, net = _pNet.Checked, netRoot = _pNetRoot.Text.Trim() }); }
     private void ShowNetRow()
     {
-        _pNetRoot.Enabled = _pNet.Checked;
+        _pNetRoot.Enabled = _pZip.Enabled = _pNet.Checked;
         var root = _pNetRoot.Text.Trim().TrimEnd('\\', '/');
-        _pNetHint.Text = _pNet.Checked ? $"Gói được chép vào {(root.Length > 0 ? root : "...")}\\{(_machine.Length > 0 ? _machine : "<tên máy>")}\\" : "";
+        _pNetHint.Text = _pNet.Checked ? $"Gói được chép vào {(root.Length > 0 ? root : "...")}\\{(_machine.Length > 0 ? _machine : "<tên máy>")}\\{(_pZip.Checked ? " (file .zip)" : "")}" : "";
     }
     private void AddChecked()
     {
@@ -370,7 +370,7 @@ internal sealed class GenUpdatePage : NativePage
                 _lastPath = P(r, "path"); _result.Visible = true;
                 _resTitle.Text = $"✔ Đã tạo {P(r, "count")} file tại:"; _resPath.Text = _lastPath; _pFolder.Text = NewFolderName();
                 var errors = PA(r, "errors").Select(e => e.GetString() ?? "").Where(e => e.Length > 0).ToList();
-                _resExtra.Text = string.Join(Environment.NewLine, new[] { P(r, "zip").Length > 0 ? "Zip: " + P(r, "zip") : "", P(r, "network").Length > 0 ? "Mạng: " + P(r, "network") : "" }
+                _resExtra.Text = string.Join(Environment.NewLine, new[] { P(r, "network").Length > 0 ? "Mạng: " + P(r, "network") : "" }
                     .Concat(errors.Select(e => "⚠ " + e)).Where(x => x.Length > 0));
                 if (errors.Count > 0) Toast($"Đã tạo gói update ({P(r, "count")} file) nhưng: " + string.Join(" | ", errors), "err");
                 else Toast($"Đã tạo gói update ({P(r, "count")} file).", "ok");

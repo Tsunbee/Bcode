@@ -224,8 +224,8 @@
               <button id="btnGen" class="primary">⚙ Generate Update</button>
             </div>
             <div id="pkgBar">
-              <label class="chk" title="Tạo gói xong thì nén thư mục gói thành <Folder Name>.zip cạnh thư mục đó."><input type="checkbox" id="gZip" /> Nén .zip gói update</label>
-              <label class="chk" title="Tạo gói xong thì chép thêm vào <đường dẫn mạng>\<tên máy>\ (thư mục tên máy chưa có thì tạo). Có nén zip thì chép file .zip. Gói ở Save At Path vẫn giữ."><input type="checkbox" id="gNet" /> Gen vào đường dẫn mạng</label>
+              <label class="chk" title="Tạo gói xong thì chép thêm vào <đường dẫn mạng>\<tên máy>\ (thư mục tên máy chưa có thì tạo). Gói ở Save At Path vẫn giữ."><input type="checkbox" id="gNet" /> Gen vào đường dẫn mạng</label>
+              <label class="chk" id="gZipRow" title="Chỉ đưa lên mạng file <Folder Name>.zip (thay cho thư mục gói). Save At Path vẫn chỉ có thư mục gói, không nén."><input type="checkbox" id="gZip" /> Nén .zip khi gen lên mạng</label>
               <input type="text" id="gNetRoot" spellcheck="false" title="Thư mục gốc trên mạng — gói được chép vào <thư mục này>\<tên máy>\" />
               <span class="muted" id="gNetHint"></span>
             </div>
@@ -294,10 +294,10 @@
   const pkgOpts = () => ({ zip: $('gZip').checked, net: $('gNet').checked, netRoot: $('gNetRoot').value.trim() });
   function showNetRow() {
     const on = $('gNet').checked;
-    $('gNetRoot').style.display = on ? '' : 'none';
-    $('gNetHint').textContent = on ? 'Gói được chép vào ' + ($('gNetRoot').value.trim().replace(/[\\/]+$/, '') || '...') + '\\' + (S.machine || '<tên máy>') + '\\' : '';
+    $('gNetRoot').style.display = $('gZipRow').style.display = on ? '' : 'none';
+    $('gNetHint').textContent = on ? 'Gói được chép vào ' + ($('gNetRoot').value.trim().replace(/[\\/]+$/, '') || '...') + '\\' + (S.machine || '<tên máy>') + '\\' + ($('gZip').checked ? ' (file .zip)' : '') : '';
   }
-  $('gZip').addEventListener('change', () => post('pkgOpts', pkgOpts()));
+  $('gZip').addEventListener('change', () => { showNetRow(); post('pkgOpts', pkgOpts()); });
   $('gNet').addEventListener('change', () => { showNetRow(); post('pkgOpts', pkgOpts()); });
   $('gNetRoot').addEventListener('input', showNetRow);
   $('gNetRoot').addEventListener('change', () => post('pkgOpts', pkgOpts()));
@@ -726,7 +726,6 @@
       if (!res.ok) { box.innerHTML = '<span style="color:var(--danger)">' + esc(res.message || 'Không tạo được gói.') + '</span>'; return; }
       box.innerHTML = '<span style="color:var(--success)">Đã tạo ' + res.count + ' mục tại:</span> <code>' + esc(res.path) + '</code> ' +
         '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button>' +
-        (res.zip ? '<div class="muted">Zip: <code>' + esc(res.zip) + '</code></div>' : '') +
         (res.network ? '<div class="muted">Mạng: <code>' + esc(res.network) + '</code></div>' : '') +
         (res.errors || []).map((e) => '<div style="color:var(--danger)">⚠ ' + esc(e) + '</div>').join('');
       $('rCopy').onclick = () => post('copy', { text: res.path });

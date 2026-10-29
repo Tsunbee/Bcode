@@ -719,9 +719,9 @@ Mở: nút **Gen Update** (`Ctrl+Shift+G`). Cần Source Path.
 
 Hai tuỳ chọn ở thẻ **Đường dẫn & kết nối** (nhớ cho lần sau, dùng chung với Note (New) và BcodeNote):
 
-- **Nén .zip gói update**: tạo gói xong thì nén thư mục gói thành `<Folder Name>.zip` ngay cạnh thư mục đó (giải nén ra đúng thư mục gói).
-- **Gen vào đường dẫn mạng**: tạo gói xong thì chép thêm vào `<Đường dẫn mạng>\<TÊN MÁY>\` — mặc định `\\172.168.5.14\Send\`, sửa được ở ô **Đường dẫn mạng**. Thư mục tên máy chưa có thì Bcode tự tạo. Bật cả nén zip thì chỉ chép file `.zip`, không thì chép cả thư mục gói.
-- Gói ở Save At Path luôn được tạo trước. Nén hoặc chép mạng lỗi (không có mạng / VPN, sai đường dẫn, không có quyền ghi; mạng không trả lời sau 15 giây) thì Bcode báo lỗi đỏ dưới kết quả, gói ở Save At Path vẫn giữ nguyên.
+- **Gen vào đường dẫn mạng**: tạo gói xong thì chép thêm vào `<Đường dẫn mạng>\<TÊN MÁY>\` — mặc định `\\172.168.5.14\Send\`, sửa được ở ô **Đường dẫn mạng**. Thư mục tên máy chưa có thì Bcode tự tạo.
+- **Nén .zip khi gen lên mạng** (chỉ hiện khi tick ô trên): đưa lên mạng file `<Folder Name>.zip` (giải nén ra đúng thư mục gói) thay cho cả thư mục. Save At Path luôn chỉ có thư mục gói, không nén.
+- Gói ở Save At Path luôn được tạo trước. Chép mạng lỗi (không có mạng / VPN, sai đường dẫn, không có quyền ghi; mạng không trả lời sau 15 giây) thì Bcode báo lỗi đỏ dưới kết quả, gói ở Save At Path vẫn giữ nguyên.
 
 Cấu trúc gói:
 
@@ -755,7 +755,7 @@ Quản lý từng yêu cầu (request) và sinh gói update cho yêu cầu đó:
 1. **⟳ Sync yêu cầu**: nhập Tên lập trình (ma_lt1) → kéo các yêu cầu của bạn trong dự án về (từ FSG). Hoặc **＋ New Request** để tạo tay.
 2. Chọn yêu cầu ở **Request List** (ô **Lọc mã y/c** ngay trên danh sách: gõ một phần mã, nhiều mã cách nhau dấu cách / phẩy; `Enter` mở y/c đầu tiên khớp, `Esc` xoá lọc; ô tick ở tiêu đề chỉ tick các y/c đang hiện) rồi khai: **Gen All** (controller, mỗi dòng một cái), **File Path** (mỗi dòng một đường dẫn; `Ctrl+V` file copy từ Explorer là dán đường dẫn), **SQL Object** / **SQL Top Script** / **Bottom Script** (chọn App / Sys), **Table liên quan** (⟳ Tải table, Cấu trúc / Dữ liệu / Where).
 3. **🔍 Xem trước gói** → cây gói update (double-click file để mở trong tab Query); **▶ Mở tất cả script vào tab Query** để rà lại.
-4. **Generate Update**: Save At Path, Folder Name, **Tách theo từng y/c** (mỗi yêu cầu một thư mục con) → **⚙ Generate Update**. Tick nhiều yêu cầu ở cột đầu danh sách để sinh chung. Có thêm **Nén .zip gói update** và **Gen vào đường dẫn mạng** (ô đường dẫn mạng hiện khi tick) — giống hệt [Gen Update](#gen-update), nhớ chung cho cả Gen Update và BcodeNote.
+4. **Generate Update**: Save At Path, Folder Name, **Tách theo từng y/c** (mỗi yêu cầu một thư mục con) → **⚙ Generate Update**. Tick nhiều yêu cầu ở cột đầu danh sách để sinh chung. Có thêm **Gen vào đường dẫn mạng** và **Nén .zip khi gen lên mạng** (2 ô này hiện khi tick ô mạng) — giống hệt [Gen Update](#gen-update), nhớ chung cho cả Gen Update và BcodeNote.
 5. **📄 Request Content** xem nội dung yêu cầu.
 6. **⚙ Theo luật Fast** (`Ctrl+Alt+Shift+F`, không gọi AI), **🔎 AI phân tích** (`Ctrl+Alt+Shift+I`) và **🤖 AI tạo danh mục** (bản thử, `Ctrl+Alt+I` khi đang ở tab Note (New)): xem [AI tạo danh mục từ yêu cầu](#ai-danh-muc).
 
@@ -827,7 +827,7 @@ Mở từ Bcode: menu **Tool mở rộng → Note (New) nhiều dự án**, ho�
 Màn hình:
 - **Bên trái, trên — Dự án**: các dự án đã khai ở Bcode (Projects), số bên phải = số y/c chưa Done. Gõ vào ô lọc (tên, ID, server); **⟳** đọc lại danh sách khi vừa thêm / sửa dự án ở Bcode; **▴** thu gọn danh sách.
 - **Bên trái, dưới — Menu**: cây menu (wcommand) của dự án đang chọn. Gõ để lọc theo tên, link, sysid, wmenu_id (kết quả kèm đường dẫn menu cha); **⟳** tải lại cây từ database.
-- **Bên phải**: đúng màn Note (New) của Bcode cho dự án đó — Request List, Tên y/c, Mobile / Done, Gen All, File Path (Chọn file…), SQL Object / SQL Top Script / Bottom Script (App / Sys), Table liên quan (Tải table), Xem trước gói, Generate Update (cả Nén .zip / Gen vào đường dẫn mạng như [Gen Update](#gen-update)), và các nút **Sync yêu cầu**, **Request Content**, **Theo luật Fast**, **AI phân tích**, **AI tạo danh mục**.
+- **Bên phải**: đúng màn Note (New) của Bcode cho dự án đó — Request List, Tên y/c, Mobile / Done, Gen All, File Path (Chọn file…), SQL Object / SQL Top Script / Bottom Script (App / Sys), Table liên quan (Tải table), Xem trước gói, Generate Update (cả Gen vào đường dẫn mạng / Nén .zip như [Gen Update](#gen-update)), và các nút **Sync yêu cầu**, **Request Content**, **Theo luật Fast**, **AI phân tích**, **AI tạo danh mục**.
 
 Làm việc:
 1. Chọn dự án → Request List của dự án đó hiện ra (đổi dự án thì phần đang gõ được lưu vào dự án cũ trước).

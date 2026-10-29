@@ -162,8 +162,8 @@
           <label class="f">Save At Path<span class="inl"><input type="text" id="pSave" spellcheck="false" /><button id="bOpenSave" title="Mở thư mục lưu">📂</button></span></label>
           <label class="f">Folder Name<span class="inl"><input type="text" id="pFolder" spellcheck="false" /><button id="bNewFolder" title="Đổi sang thời điểm hiện tại">↻</button></span></label>
           <label class="f">Description<textarea id="pDesc" rows="2" spellcheck="false" placeholder="Mô tả gói update (ghi vào description.txt)"></textarea></label>
-          <label class="ck" title="Tạo gói xong thì nén thư mục gói thành <Folder Name>.zip cạnh thư mục đó."><input type="checkbox" id="pZip" /> Nén .zip gói update</label>
-          <label class="ck" title="Tạo gói xong thì chép thêm vào <đường dẫn mạng>\<tên máy>\ (thư mục tên máy chưa có thì tạo). Có nén zip thì chép file .zip. Gói ở Save At Path vẫn giữ."><input type="checkbox" id="pNet" /> Gen vào đường dẫn mạng</label>
+          <label class="ck" title="Tạo gói xong thì chép thêm vào <đường dẫn mạng>\<tên máy>\ (thư mục tên máy chưa có thì tạo). Gói ở Save At Path vẫn giữ."><input type="checkbox" id="pNet" /> Gen vào đường dẫn mạng</label>
+          <label class="ck" id="pZipRow" title="Chỉ đưa lên mạng file <Folder Name>.zip (thay cho thư mục gói). Save At Path vẫn chỉ có thư mục gói, không nén."><input type="checkbox" id="pZip" /> Nén .zip khi gen lên mạng</label>
           <label class="f" id="pNetRow">Đường dẫn mạng<input type="text" id="pNetRoot" spellcheck="false" /><span class="muted" id="pNetHint"></span></label>
         </div>
       </div>
@@ -540,10 +540,10 @@
   // Nén zip / Gen vào đường dẫn mạng: lưu vào settings.json ngay khi đổi (dùng chung với Note (New)).
   const pkgOpts = () => ({ zip: $('pZip').checked, net: $('pNet').checked, netRoot: $('pNetRoot').value.trim() });
   function showNetRow() {
-    $('pNetRow').style.display = $('pNet').checked ? '' : 'none';
-    $('pNetHint').textContent = 'Gói được chép vào ' + ($('pNetRoot').value.trim().replace(/[\\/]+$/, '') || '...') + '\\' + (S.machine || '<tên máy>') + '\\';
+    $('pNetRow').style.display = $('pZipRow').style.display = $('pNet').checked ? '' : 'none';
+    $('pNetHint').textContent = 'Gói được chép vào ' + ($('pNetRoot').value.trim().replace(/[\\/]+$/, '') || '...') + '\\' + (S.machine || '<tên máy>') + '\\' + ($('pZip').checked ? ' (file .zip)' : '');
   }
-  $('pZip').onchange = () => post('pkgOpts', pkgOpts());
+  $('pZip').onchange = () => { showNetRow(); post('pkgOpts', pkgOpts()); };
   $('pNet').onchange = () => { showNetRow(); post('pkgOpts', pkgOpts()); };
   $('pNetRoot').oninput = showNetRow;
   $('pNetRoot').onchange = () => post('pkgOpts', pkgOpts());
@@ -595,8 +595,7 @@
       $('result').style.display = 'block';
       $('resTitle').textContent = '✔ Đã tạo ' + r.count + ' file tại:';
       $('resPath').textContent = r.path;
-      $('resExtra').innerHTML = (r.zip ? '<div class="muted">Zip: <code>' + esc(r.zip) + '</code></div>' : '') +
-        (r.network ? '<div class="muted">Mạng: <code>' + esc(r.network) + '</code></div>' : '') +
+      $('resExtra').innerHTML = (r.network ?'<div class="muted">Mạng: <code>' + esc(r.network) + '</code></div>' : '') +
         (r.errors || []).map((e) => '<div style="color:var(--danger)">⚠ ' + esc(e) + '</div>').join('');
       $('pFolder').value = newFolderName();
       if (r.errors && r.errors.length) toast('Đã tạo gói update (' + r.count + ' file) nhưng: ' + r.errors.join(' | '), 'err');

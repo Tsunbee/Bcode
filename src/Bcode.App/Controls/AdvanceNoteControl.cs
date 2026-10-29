@@ -467,12 +467,11 @@ public class AdvanceNoteControl : UserControl
         var dest = Path.Combine(savePath, folder);
         var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
         _previewItems = OrderForRun(merged.Items);   // để bấm xem nội dung từng mục của gói vừa tạo
-        // Nén zip / chép lên đường dẫn mạng: lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
+        // Chép lên đường dẫn mạng (tick zip = chỉ đưa .zip lên mạng): lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
         var opts = ReadPackageOptions(root);
         GenAllService.SavePackageOptions(opts.Zip, opts.Network, opts.NetworkRoot);
-        if (opts.Zip || opts.Network) Js("advNote.setBusy(true, " + J(opts.Network ? "Đang chép gói lên đường dẫn mạng..." : "Đang nén zip...") + ")");
-        var extra = opts.Zip || opts.Network
-            ? await GenAllService.DeliverPackageAsync(dest, opts.Zip, opts.Network, opts.NetworkRoot) : new PackageDelivery();
+        if (opts.Network) Js("advNote.setBusy(true, " + J("Đang chép gói lên đường dẫn mạng...") + ")");
+        var extra = opts.Network ? await GenAllService.DeliverPackageAsync(dest, opts.Zip, opts.NetworkRoot) : new PackageDelivery();
 
         var now = DateTime.Now;
         foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
@@ -486,7 +485,7 @@ public class AdvanceNoteControl : UserControl
         SaveList();
 
         Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings),
-            zip = extra.ZipPath, network = extra.NetworkPath, errors = extra.Errors })})");
+            network = extra.NetworkPath, errors = extra.Errors })})");
         SendList(null); // làm mới cột Updated
     }
 

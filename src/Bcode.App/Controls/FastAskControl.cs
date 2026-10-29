@@ -26,8 +26,20 @@ public class FastAskControl : UserControl
         _web.Message += OnMessage;
     }
 
+    /// <summary>Gọi hàm của trang khi trang đã nạp xong. Trang gửi câu "hello" ngay lúc đang nạp (mở tab) mà C# trả lời xong trước khi WebView2 báo
+    /// nạp xong thì <see cref="WebBarHost.Call"/> bỏ qua lời gọi → trang treo ở "Đang tra…"; chờ trang sẵn sàng rồi mới gọi.</summary>
+    private async void ToPage(string script)
+    {
+        try
+        {
+            await _web.WaitReadyAsync();
+            if (!IsDisposed) _web.Call(script);
+        }
+        catch { /* tab đang đóng */ }
+    }
+
     /// <summary>Gửi sẵn 1 câu hỏi (vd mở từ menu kèm chữ đang chọn).</summary>
-    public void Ask(string text) => _web.Call($"fa.ask({WebBarHost.Json(text)})");
+    public void Ask(string text) => ToPage($"fa.ask({WebBarHost.Json(text)})");
 
     private void OnMessage(JsonElement root)
     {
@@ -44,13 +56,13 @@ public class FastAskControl : UserControl
                 // ✔ / ✘ trên 1 thẻ → trả lời như 1 lượt chat (✘ thì hỏi tiếp cách đúng)
                 var fr = _service.Feedback(root.GetProperty("vote").GetInt32(), root.GetProperty("ref").GetString() ?? "", root.GetProperty("sig").GetString() ?? "",
                     root.TryGetProperty("title", out var ti) ? ti.GetString() ?? "" : "");
-                _web.Call($"fa.reply({root.GetProperty("id").GetInt32()}, {JsonSerializer.Serialize(fr, Json)})");
+                ToPage($"fa.reply({root.GetProperty("id").GetInt32()}, {JsonSerializer.Serialize(fr, Json)})");
                 break;
             case "correct":
                 // ✎ Sửa → Lưu bản sửa trên 1 thẻ: ghi như ✘ + cách đúng
                 var cr = _service.Correct(root.GetProperty("ref").GetString() ?? "", root.GetProperty("sig").GetString() ?? "",
                     root.TryGetProperty("title", out var ct2) ? ct2.GetString() ?? "" : "", root.GetProperty("text").GetString() ?? "");
-                _web.Call($"fa.reply({root.GetProperty("id").GetInt32()}, {JsonSerializer.Serialize(cr, Json)})");
+                ToPage($"fa.reply({root.GetProperty("id").GetInt32()}, {JsonSerializer.Serialize(cr, Json)})");
                 break;
             case "learn":
                 _ = LearnAsync(root.GetProperty("id").GetInt32(), root.TryGetProperty("sys", out var ls) && ls.ValueKind == JsonValueKind.True);
@@ -59,19 +71,19 @@ public class FastAskControl : UserControl
                 try { FastAskSessions.Save(root.GetProperty("sid").GetString() ?? "", root.GetProperty("data").GetRawText()); } catch { /* ổ đĩa lỗi → bỏ qua */ }
                 break;
             case "session-list":
-                _web.Call($"fa.sessions({JsonSerializer.Serialize(FastAskSessions.List())})");
+                ToPage($"fa.sessions({JsonSerializer.Serialize(FastAskSessions.List())})");
                 break;
             case "session-load":
                 var sid = root.GetProperty("sid").GetString() ?? "";
-                _web.Call($"fa.loadSession({WebBarHost.Json(sid)}, {FastAskSessions.Load(sid) ?? "null"})");
+                ToPage($"fa.loadSession({WebBarHost.Json(sid)}, {FastAskSessions.Load(sid) ?? "null"})");
                 break;
             case "session-delete":
                 FastAskSessions.Delete(root.GetProperty("sid").GetString() ?? "");
-                _web.Call($"fa.sessions({JsonSerializer.Serialize(FastAskSessions.List())})");
+                ToPage($"fa.sessions({JsonSerializer.Serialize(FastAskSessions.List())})");
                 break;
             case "session-delete-all":
                 if (MessageBox.Show(this, "Xoá toàn bộ lịch sử chat Hỏi Fast?", "Bcode — Hỏi Fast", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) FastAskSessions.DeleteAll();
-                _web.Call($"fa.sessions({JsonSerializer.Serialize(FastAskSessions.List())})");
+                ToPage($"fa.sessions({JsonSerializer.Serialize(FastAskSessions.List())})");
                 break;
             case "act":
                 var kind = root.GetProperty("kind").GetString();
@@ -84,7 +96,7 @@ public class FastAskControl : UserControl
                     case "copy": try { Clipboard.SetText(arg); } catch { /* clipboard bận */ } break;
                     case "open-object": OpenObjectRequested?.Invoke(arg, arg2.StartsWith("sys"), arg2.Contains('|') ? arg2[(arg2.IndexOf('|') + 1)..] : "P"); break;
                     case "quicklist": QuickListRequested?.Invoke(arg, arg2); break;
-                    case "ask": _web.Call($"fa.ask({WebBarHost.Json(arg)}, {WebBarHost.Json(arg2)})"); break;   // arg2 = chữ hiện ở bong bóng người hỏi
+                    case "ask": ToPage($"fa.ask({WebBarHost.Json(arg)}, {WebBarHost.Json(arg2)})"); break;   // arg2 = chữ hiện ở bong bóng người hỏi
                 }
                 break;
         }
@@ -93,16 +105,16 @@ public class FastAskControl : UserControl
     /// <summary>"Học dự án này": tiến độ hiện ngay trong chat, xong thì trả bản tóm tắt.</summary>
     private async Task LearnAsync(int id, bool sys)
     {
-        void Progress(string s) { if (IsDisposed) return; try { BeginInvoke(() => _web.Call($"fa.progress({id}, {WebBarHost.Json(s)})")); } catch { /* đang đóng */ } }
+        void Progress(string s) { if (IsDisposed) return; try { BeginInvoke(() => ToPage($"fa.progress({id}, {WebBarHost.Json(s)})")); } catch { /* đang đóng */ } }
         try
         {
             var summary = await _service.LearnProjectAsync(sys, Progress);
             var reply = new FastAskService.AskReply(summary, Array.Empty<FastAskService.AskCard>(), Array.Empty<FastAskService.AskChoice>(), new Dictionary<string, string>());
-            if (!IsDisposed) _web.Call($"fa.reply({id}, {JsonSerializer.Serialize(reply, Json)})");
+            if (!IsDisposed) ToPage($"fa.reply({id}, {JsonSerializer.Serialize(reply, Json)})");
         }
         catch (Exception ex)
         {
-            if (!IsDisposed) _web.Call($"fa.fail({id}, {WebBarHost.Json(ex.Message)})");
+            if (!IsDisposed) ToPage($"fa.fail({id}, {WebBarHost.Json(ex.Message)})");
         }
     }
 
@@ -111,11 +123,11 @@ public class FastAskControl : UserControl
         try
         {
             var reply = await _service.AskAsync(text, state, sys);
-            if (!IsDisposed) _web.Call($"fa.reply({id}, {JsonSerializer.Serialize(reply, Json)})");
+            if (!IsDisposed) ToPage($"fa.reply({id}, {JsonSerializer.Serialize(reply, Json)})");
         }
         catch (Exception ex)
         {
-            if (!IsDisposed) _web.Call($"fa.fail({id}, {WebBarHost.Json(ex.Message)})");
+            if (!IsDisposed) ToPage($"fa.fail({id}, {WebBarHost.Json(ex.Message)})");
         }
     }
 }

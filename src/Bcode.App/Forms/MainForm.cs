@@ -292,7 +292,6 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("sql_query", "SQL Query", "Q", (_, _) => OpenFreeScriptTab()));
         _toolSpecs.Add(("lookup", "Lookup", "L", (_, _) => OpenLookupTab()));
         _toolSpecs.Add(("table", "Table", "T", (_, _) => OpenTableTab()));
-        _toolSpecs.Add(("command", "Command", "C", (_, _) => OpenSelectBuilderTab()));
         _toolSpecs.Add(("wcommand", "WCommand", "W", (_, _) => SelectWCommandTab()));
         _toolSpecs.Add(("file_lookup", "File Lookup", "F", (_, _) => OpenFileLookupTab()));
         _toolSpecs.Add(("gen_update_package", "Gen Update", "G", (_, _) => OpenGenUpdatePackageTab()));
@@ -1073,7 +1072,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Vùng chức năng của các nút công cụ: giữa hai vùng liền nhau trên thanh có vạch ngăn "|". Nút chưa khai vùng (nút mới) nằm vùng cuối.</summary>
     private static readonly string[][] ToolGroups =
     {
-        new[] { "sql_query", "lookup", "table", "command", "query_history", "sql_profiler" },                                   // truy vấn SQL
+        new[] { "sql_query", "lookup", "table", "query_history", "sql_profiler" },                                   // truy vấn SQL
         new[] { "wcommand", "file_lookup", "file_reference", "change_owner", "compare_objects", "compare_structure", "decrypt_sql_object" },   // đối tượng / cấu hình Fast
         new[] { "gen_update_package", "gen_update", "create_rpt_xlsx", "excel_to_frx", "view_rpt_fec", "create_processing", "catalog_clone" },   // gói cập nhật, báo cáo, danh mục
         new[] { "note", "note_new", "compare_text", "string_beauty" },                                                          // văn bản, ghi chú
@@ -2029,13 +2028,6 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _genUpdatePackageTabPage = AddDocumentTab("Gen Update", control);
         _genUpdatePackageControl = control;
         return control;
-    }
-
-    private void OpenSelectBuilderTab()
-    {
-        var control = new SqlQueryControl(_sqlQueryService, _genInsert, _genUpdate, _sqlObjectService, _dataScript, _scriptFileService);
-        control.ResultReady += table => _lastQueryResult = table;
-        AddDocumentTab(NumberedTabTitle("Command"), control);
     }
 
     // ---- Tab SQL Query dựng sẵn ----------------------------------------------------------------
@@ -3146,7 +3138,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (ResultGridMenu.HandleCopyKey(FromHandle(msg.HWnd), keyData))   // lưới kết quả SQL: Ctrl+Shift+C = Copy kèm tên cột (trùng phím mở Command)
+        if (ResultGridMenu.HandleCopyKey(FromHandle(msg.HWnd), keyData))   // lưới kết quả SQL: phím result.copyColumnName (mặc định Ctrl+Shift+C) = copy tên cột, bắt trước phím toàn cục trùng tổ hợp
             return true;
         if (HandleGlobalShortcut(keyData))
             return true;

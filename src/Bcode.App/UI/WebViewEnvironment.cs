@@ -256,8 +256,8 @@ internal static class WebViewEnvironment
 
     private static readonly Dictionary<object, string[]> KeyClaims = new();
 
-    /// <summary>Phần tử đang focus trong 1 trang muốn tự xử lý vài tổ hợp trùng phím toàn cục (vd lưới kết quả SQL: Ctrl+Shift+C = Copy kèm tên cột
-    /// thay vì mở Command) — trang báo khi focus / blur. Không truyền tổ hợp nào = trả lại. Chỉ gọi trên luồng giao diện.</summary>
+    /// <summary>Phần tử đang focus trong 1 trang muốn tự xử lý vài tổ hợp trùng phím toàn cục (vd lưới kết quả SQL: phím copy tên cột
+    /// result.copyColumnName khi người dùng gán trùng 1 phím toàn cục) — trang báo khi focus / blur. Không truyền tổ hợp nào = trả lại. Chỉ gọi trên luồng giao diện.</summary>
     public static void ClaimKeys(object owner, params string[] combos)
     {
         if (combos.Length == 0) KeyClaims.Remove(owner);

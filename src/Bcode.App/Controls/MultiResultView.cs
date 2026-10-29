@@ -56,9 +56,10 @@ public class MultiResultView : UserControl
                 try { Clipboard.SetText(t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }
             }
             else if (a.GetString() == "save") Save(root);
-            else if (a.GetString() == "keys")   // lưới focus / blur: Ctrl+Shift+C = Copy kèm tên cột, không mở Command
+            else if (a.GetString() == "keys")   // lưới focus / blur: phím copy tên cột (result.copyColumnName) thắng phím toàn cục trùng tổ hợp
             {
-                if (root.TryGetProperty("claim", out var c) && c.ValueKind == JsonValueKind.True) Bcode.App.UI.WebViewEnvironment.ClaimKeys(this, "Ctrl+Shift+C");
+                var combo = Bcode.App.UI.ShortcutRegistry.Get("result.copyColumnName");
+                if (root.TryGetProperty("claim", out var c) && c.ValueKind == JsonValueKind.True && combo.Length > 0) Bcode.App.UI.WebViewEnvironment.ClaimKeys(this, combo);
                 else Bcode.App.UI.WebViewEnvironment.ClaimKeys(this);
             }
         };

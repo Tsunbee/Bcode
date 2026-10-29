@@ -141,12 +141,16 @@
       if (e.key === 'ArrowUp') { e.preventDefault(); post({ action: 'table-key', key: 'up' }); return; }
       if (e.key === 'PageDown') { e.preventDefault(); post({ action: 'table-key', key: 'pagedown' }); return; }
       if (e.key === 'PageUp') { e.preventDefault(); post({ action: 'table-key', key: 'pageup' }); return; }
-      if (e.key === 'Enter') { e.preventDefault(); post({ action: 'table-key', key: 'enter' }); return; }
+      if (e.key === 'Enter') { e.preventDefault(); post({ action: 'table-key', key: 'enter' }); focusWhere(); return; }
       if (e.key === 'Tab') { post({ action: 'table-key', key: 'enter' }); return; } // chọn gợi ý rồi để Tab nhảy ô như bình thường
       if (e.key === 'Escape') { e.preventDefault(); post({ action: 'table-key', key: 'escape' }); return; }
     }
-    if (e.key === 'Enter') triggerLoad();
+    if (e.key === 'Enter') { triggerLoad(); focusWhere(); } // như FCode: Enter ở ô Table = nạp bảng rồi nhảy sang ô Where
   });
+  function focusWhere() {
+    var w = document.getElementById('whereInput');
+    w.focus(); w.setSelectionRange(w.value.length, w.value.length);
+  }
   // Chuột phải ô Table khi đang là bảng phân kỳ (xxx$yyyymm / xxx$000000) → C# hiện menu "Check Partitions Struct"; bảng khác giữ menu mặc định.
   tableInput.addEventListener('contextmenu', function (e) {
     if (!/\$\d{6}\]?\s*$/.test(tableInput.value)) return;
@@ -161,16 +165,46 @@
   ['fieldsInput', 'whereInput', 'orderInput', 'topInput'].forEach(function (id) {
     document.getElementById(id).addEventListener('keydown', function (e) {
       if (colSuggestOpen && colField === id) {
-        var keys = { ArrowDown: 'down', ArrowUp: 'up', PageDown: 'pagedown', PageUp: 'pageup', Enter: 'enter', Tab: 'enter', Escape: 'escape' };
+        var keys = { ArrowDown: 'down', ArrowUp: 'up', PageDown: 'pagedown', PageUp: 'pageup', Enter: 'enter', Tab: 'tab', Escape: 'escape' };
         if (keys[e.key]) {
           if (e.key !== 'Tab') e.preventDefault(); // Tab: chọn gợi ý rồi vẫn để Tab nhảy ô
           post({ action: 'col-key', key: keys[e.key] });
           return;
         }
       }
-      if (e.key === 'Enter') triggerLoad();
+      if (e.key === 'Enter') {
+        if (id === 'whereInput' && whereSnippet(e.target)) { e.preventDefault(); return; }
+        triggerLoad();
+      }
     });
   });
+
+  // ---- Enter sau tên cột ở ô Where (như FCode): cột chuỗi → like '%%' (unicode: like N'%%'), số → " = ", ngày → = '' ----
+  var colTypes = {}; // tên cột (chữ thường) → kiểu, C# đẩy xuống khi dựng khung Structure
+  function snippetFor(type) {
+    var t = String(type || '').toLowerCase().replace(/\(.*$/, '').trim();
+    if (/^(nchar|nvarchar|ntext|sysname)$/.test(t)) return [" like N'%", "%'"];
+    if (/^(char|varchar|text)$/.test(t)) return [" like '%", "%'"];
+    if (t === 'uniqueidentifier' || (/date|time/.test(t) && t !== 'timestamp')) return [" = '", "'"];
+    return [' = ', ''];
+  }
+  // true = đã chèn mẫu (con trỏ đặt sẵn chỗ gõ giá trị); false = chữ trước con trỏ không phải tên cột → Enter = Load như cũ.
+  function whereSnippet(el) {
+    var pos = el.selectionStart;
+    if (pos !== el.selectionEnd) return false;
+    var before = el.value.slice(0, pos);
+    if (((before.match(/'/g) || []).length) % 2 === 1) return false; // đang trong chuỗi '...'
+    var m = /([A-Za-z_][\w$]*)\s*$/.exec(before);
+    if (!m || !colTypes.hasOwnProperty(m[1].toLowerCase())) return false;
+    var head = before.slice(0, m.index).replace(/\s+$/, '');
+    if (/[=<>!@]$/.test(head) || /\b(like|in|between|is)$/i.test(head)) return false; // vế giá trị, không phải tên cột cần lọc
+    var s = snippetFor(colTypes[m[1].toLowerCase()]), keep = m.index + m[1].length;
+    el.value = before.slice(0, keep) + s[0] + s[1] + el.value.slice(pos);
+    var p = keep + s[0].length;
+    el.setSelectionRange(p, p);
+    hideColSuggest();
+    return true;
+  }
 
   // ---- Gợi ý tên cột (Where / Order / Fields): gõ chữ → hiện danh sách cột của bảng đang mở, chọn thay cho chữ đang gõ ----
   var colSuggestOpen = false, colField = null, colTokenStart = 0, colTokenEnd = 0;
@@ -241,6 +275,15 @@
     var p = colTokenStart + name.length;
     el.focus(); el.setSelectionRange(p, p);
     colSuggestOpen = false;
+  };
+  // Cột của bảng đang mở: [{name, type}] — dùng cho Enter sau tên cột ở ô Where.
+  window.setColTypes = function (cols) {
+    colTypes = {};
+    (cols || []).forEach(function (c) { colTypes[String(c.name).toLowerCase()] = c.type; });
+  };
+  // Chọn cột trong danh sách gợi ý (Enter / bấm) → chèn luôn mẫu lọc như FCode (gõ "ghi" + Enter → ghi_chu like N'%|%').
+  window.whereEnter = function () {
+    if (colField === 'whereInput') whereSnippet(document.getElementById('whereInput'));
   };
   window.setSuggestOpen = function (open) {
     suggestOpen = !!open;

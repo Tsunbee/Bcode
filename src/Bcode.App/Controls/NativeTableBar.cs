@@ -77,7 +77,12 @@ public sealed class NativeTableBar : Panel
 
         // ---- ô Table: gợi ý tên bảng ----
         _table.TextChanged += (_, _) => { if (_programmatic) return; var r = Rect(_table); Action?.Invoke(new { action = "table-input", value = _table.Text, x = (double)r.Left, y = (double)r.Top, w = (double)r.Width, h = (double)r.Height }); };
-        _table.InputKeyDown += (_, e) => OnKey(e, _suggestOpen, "table-key", () => TriggerLoad(), isTable: true);
+        _table.InputKeyDown += (_, e) =>
+        {
+            var enter = e.KeyCode == Keys.Enter;
+            OnKey(e, _suggestOpen, "table-key", () => TriggerLoad(), isTable: true);
+            if (enter) BeginInvoke(FocusWhere);   // như FCode: Enter ở ô Table = nạp bảng (hoặc chọn gợi ý) rồi nhảy sang ô Where
+        };
         _table.Inner.Leave += (_, _) => { _suggestOpen = false; Action?.Invoke(new { action = "table-blur" }); };
         // Chuột phải ô Table khi đang là bảng phân kỳ → {action:"table-context"} (chủ hiện menu Check Partitions Struct); bảng khác giữ menu sửa chữ mặc định.
         var hook = new ContextMenuHook(() =>
@@ -94,7 +99,13 @@ public sealed class NativeTableBar : Panel
         foreach (var f in new[] { _fields, _where, _order, _top })
         {
             var field = f;
-            field.InputKeyDown += (_, e) => OnKey(e, _colSuggestOpen && _colField == field, "col-key", () => TriggerLoad(), isTable: false);
+            field.InputKeyDown += (_, e) =>
+            {
+                var popupOpen = _colSuggestOpen && _colField == field;
+                // Enter sau tên cột ở ô Where → chèn mẫu lọc theo kiểu cột; không phải tên cột thì Enter = Load như cũ.
+                if (field == _where && !popupOpen && e.KeyCode == Keys.Enter && WhereSnippet()) { e.Handled = e.SuppressKeyPress = true; return; }
+                OnKey(e, popupOpen, "col-key", () => TriggerLoad(), isTable: false);
+            };
             if (field == _top) continue;
             field.TextChanged += (_, _) => { if (!_programmatic) OnColInput(field); };
             field.Inner.Leave += (_, _) => { _colSuggestOpen = false; Action?.Invoke(new { action = "col-blur" }); };
@@ -121,7 +132,7 @@ public sealed class NativeTableBar : Panel
         {
             string? key = e.KeyCode switch
             {
-                Keys.Down => "down", Keys.Up => "up", Keys.PageDown => "pagedown", Keys.PageUp => "pageup", Keys.Enter => "enter", Keys.Tab => "enter", Keys.Escape => "escape", _ => null,
+                Keys.Down => "down", Keys.Up => "up", Keys.PageDown => "pagedown", Keys.PageUp => "pageup", Keys.Enter => "enter", Keys.Tab => isTable ? "enter" : "tab", Keys.Escape => "escape", _ => null,
             };
             if (key is not null)
             {
@@ -153,6 +164,44 @@ public sealed class NativeTableBar : Panel
 
     private void HideCol() { if (_colSuggestOpen) Action?.Invoke(new { action = "col-blur" }); _colSuggestOpen = false; }
 
+    // ---- Enter sau tên cột ở ô Where (như FCode; giống whereSnippet của tablebar.html) ----
+    private Dictionary<string, string> _colTypes = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Regex WhereToken = new(@"([A-Za-z_][\w$]*)\s*$", RegexOptions.Compiled);
+    private static readonly Regex ValueSide = new(@"([=<>!@]|\b(like|in|between|is))$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>Cột chuỗi → like '%%' (unicode: like N'%%'), số → " = ", ngày / uniqueidentifier → = ''. Trả (phần trước con trỏ, phần sau con trỏ).</summary>
+    private static (string Before, string After) SnippetFor(string type)
+    {
+        var t = type.ToLowerInvariant();
+        var p = t.IndexOf('('); if (p >= 0) t = t[..p];
+        t = t.Trim();
+        if (t is "nchar" or "nvarchar" or "ntext" or "sysname") return (" like N'%", "%'");
+        if (t is "char" or "varchar" or "text") return (" like '%", "%'");
+        if (t == "uniqueidentifier" || ((t.Contains("date") || t.Contains("time")) && t != "timestamp")) return (" = '", "'");
+        return (" = ", "");
+    }
+
+    /// <summary>true = đã chèn mẫu (con trỏ đặt sẵn chỗ gõ giá trị); false = chữ trước con trỏ không phải tên cột của bảng.</summary>
+    private bool WhereSnippet()
+    {
+        var tb = _where.Inner;
+        if (tb.SelectionLength > 0) return false;
+        var pos = Math.Min(tb.SelectionStart, tb.TextLength);
+        var before = tb.Text[..pos];
+        if (before.Count(c => c == '\'') % 2 == 1) return false;   // đang trong chuỗi '...'
+        var m = WhereToken.Match(before);
+        if (!m.Success || !_colTypes.TryGetValue(m.Groups[1].Value, out var type)) return false;
+        if (ValueSide.IsMatch(before[..m.Index].TrimEnd())) return false;   // vế giá trị, không phải tên cột cần lọc
+        var (a, b) = SnippetFor(type);
+        var keep = m.Index + m.Groups[1].Length;
+        _programmatic = true; try { tb.Text = before[..keep] + a + b + tb.Text[pos..]; } finally { _programmatic = false; }
+        tb.SelectionStart = keep + a.Length; tb.SelectionLength = 0;
+        HideCol();
+        return true;
+    }
+
+    private void FocusWhere() { _where.Inner.Focus(); _where.Inner.SelectionStart = _where.Inner.TextLength; _where.Inner.SelectionLength = 0; }
+
     public void TriggerLoad() =>
         Action?.Invoke(new { action = "load", table = _table.Text, fields = _fields.Text, where = _where.Text, order = _order.Text, top = _top.Text });
 
@@ -166,6 +215,14 @@ public sealed class NativeTableBar : Panel
     public void SetSuggestOpen(bool open) => _suggestOpen = open;
     public void SetColSuggestOpen(bool open) => _colSuggestOpen = open;
     public void FocusTable() { _table.Inner.Focus(); _table.Inner.SelectAll(); }
+    /// <summary>Cột của bảng đang mở (tên, kiểu) — dùng cho Enter sau tên cột ở ô Where.</summary>
+    public void SetColumnTypes(IEnumerable<(string Name, string Type)> cols)
+    {
+        _colTypes = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var (n, t) in cols) _colTypes[n] = t;
+    }
+    /// <summary>Chọn cột trong danh sách gợi ý (Enter / bấm) → chèn luôn mẫu lọc như FCode (gõ "ghi" + Enter → ghi_chu like N'%|%').</summary>
+    public void WhereEnter() { if (_colField == _where) WhereSnippet(); }
 
     // ---- Menu của bảng (như .menu-row của tablebar.html): "Menu: Phiếu nhập kho (inctpnd.aspx) · …", bấm = {action:"menu-open", index} ----
     private readonly FlowLayoutPanel _menuRow = new() { Dock = DockStyle.Bottom, Visible = false, WrapContents = false, AutoScroll = false, BackColor = Color.Transparent, Padding = new Padding(0) };

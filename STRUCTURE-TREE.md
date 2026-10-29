@@ -24,7 +24,7 @@ Bcode.App/
 │   ├── CompareObjectsControl.cs  106
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  233
-│   ├── FastAskControl.cs  121
+│   ├── FastAskControl.cs  133
 │   ├── FcodeLexer.cs  465
 │   ├── FileLookupControl.cs  1412
 │   ├── FileLookupControl.QuickGrant.cs  148
@@ -43,7 +43,7 @@ Bcode.App/
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
-│   ├── MultiResultView.cs  210
+│   ├── MultiResultView.cs  211
 │   ├── NativeAdvanceNoteControl.cs  1172
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
@@ -88,7 +88,7 @@ Bcode.App/
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
-│   ├── NativeTableBar.cs  231
+│   ├── NativeTableBar.cs  288
 │   ├── NativeWeeklyMailControl.cs  680
 │   ├── NoteControl.cs  79
 │   ├── PillButton.cs  190
@@ -96,7 +96,7 @@ Bcode.App/
 │   ├── QuickReportControl.cs  491
 │   ├── RawSqlControl.cs  2803
 │   ├── ResultExport.cs  146
-│   ├── ResultGridMenu.cs  602
+│   ├── ResultGridMenu.cs  615
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
 │   ├── ScriptEditorControl.EntityIndex.cs  178
@@ -113,7 +113,7 @@ Bcode.App/
 │   ├── SqlTabSnapshot.cs  19
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  2120
+│   ├── TableEditControl.cs  2133
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
 │   ├── WCommandTreeControl.cs  901
@@ -146,14 +146,14 @@ Bcode.App/
 │   ├── EntityMultiPeekForm.Native.cs  153
 │   ├── FsgNotifyForm.cs  75
 │   ├── FsgRequirementCrawlerForm.cs  618
-│   ├── GotoColumnForm.cs  84
+│   ├── GotoColumnForm.cs  86
 │   ├── GrantSourceForm.cs  198
 │   ├── LibrarySnippetForm.cs  171
 │   ├── LibrarySnippetForm.Native.cs  176
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3945
+│   ├── MainForm.cs  3937
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -257,7 +257,7 @@ Bcode.App/
 │   ├── EntityCheckService.cs  263
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
-│   ├── FastAskService.cs  1385
+│   ├── FastAskService.cs  1455
 │   ├── FastCatalogCheck.cs  200
 │   ├── FastCatalogRules.cs  974
 │   ├── FastGhostMiner.cs  583
@@ -342,7 +342,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  343
+│   ├── ShortcutRegistry.cs  345
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  718
 │   ├── TreeColorOptions.cs  50
@@ -408,7 +408,7 @@ Bcode.App/
 │       ├── quicklist.html  1666
 │       ├── quickreport.html  1027
 │       ├── reportmodes.html  64
-│       ├── resultview.html  621
+│       ├── resultview.html  635
 │       ├── richreq.js  77
 │       ├── rowdetail.html  83
 │       ├── rptschema.html  112
@@ -430,7 +430,7 @@ Bcode.App/
 │       ├── statusbar.html  75
 │       ├── stepparams.html  43
 │       ├── stringbeauty.html  189
-│       ├── tablebar.html  283
+│       ├── tablebar.html  326
 │       ├── tablestruct.html  139
 │       ├── topbar.html  203
 │       ├── ui-designer.js  446

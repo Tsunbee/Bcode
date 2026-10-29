@@ -272,7 +272,7 @@ public class TableEditControl : UserControl
                 .AddCaption("Gen script")
                 .Add("Gen Insert (dòng đã chọn)", GenInsertSelected)
                 .Add("Gen Update (dòng đã chọn)", GenUpdateSelected, shortcut: "Ctrl+Shift+U");
-            ResultGridMenu.AddItemsTo(menu, _grid);
+            ResultGridMenu.AddItemsTo(menu, _grid, K("table.copyColumnName") ?? "");
             menu.AddSeparator()
                 .Add("Set Cells Value to NULL", () => _ = SetCellsToNullAsync(), shortcut: K("table.setNull"))
                 .Add("Description Columns...", () => _ = ShowColumnDescriptionsAsync())
@@ -282,7 +282,11 @@ public class TableEditControl : UserControl
         ResultGridMenu.WireShortcuts(_grid);
         _grid.KeyDown += async (_, e) =>
         {
-            if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
+            // Copy tên cột: TryRunGridShortcut (ProcessCmdKey) bắt khi _grid.ContainsFocus; phím vẫn tới KeyDown của lưới thì bắt luôn ở đây.
+            var copyName = Bcode.App.UI.ShortcutRegistry.Get("table.copyColumnName");
+            if (copyName.Length > 0 && Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData) == copyName && _grid.DataSource is DataTable)
+            { e.Handled = true; e.SuppressKeyPress = true; ResultGridMenu.CopySelectedColumnNames(_grid); }
+            else if (e.Control && e.Shift && e.KeyCode == Keys.U) { e.Handled = true; GenUpdateSelected(); }
             else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.C && !_grid.IsCurrentCellInEditMode && _grid.DataSource is DataTable)
             { e.Handled = true; e.SuppressKeyPress = true; CopySelection(); }
             else if (e.KeyCode == Keys.F5 && !e.Control && !e.Shift && !e.Alt) { e.Handled = true; e.SuppressKeyPress = true; ReloadFromBar(); }
@@ -445,6 +449,7 @@ public class TableEditControl : UserControl
     private void BarSetSuggestOpen(bool o) { if (_barNative is not null) _barNative.SetSuggestOpen(o); else _barWeb!.Call($"window.setSuggestOpen && window.setSuggestOpen({(o ? "true" : "false")})"); }
     private void BarSetColSuggestOpen(bool o) { if (_barNative is not null) _barNative.SetColSuggestOpen(o); else _barWeb!.Call($"window.setColSuggestOpen && window.setColSuggestOpen({(o ? "true" : "false")})"); }
     private void BarInsertColumn(string n) { if (_barNative is not null) _barNative.InsertColumn(n); else _barWeb!.Call($"window.insertColumn && window.insertColumn({WebBarHost.Json(n)})"); }
+    private void BarWhereEnter() { if (_barNative is not null) _barNative.WhereEnter(); else _barWeb!.Call("window.whereEnter && window.whereEnter()"); }
     /// <summary>Hệ số đổi toạ độ ô nhập sang pixel thật: trang web gửi px CSS (nhân DPI và UiScale), thanh WinForms gửi sẵn pixel thiết bị.</summary>
     private double BarScale() => _barNative is not null ? 1.0 : _barWeb!.DeviceDpi / 96.0 * UiScale.Factor;
     private bool BarGone => IsDisposed || Disposing || BarControl.IsDisposed;
@@ -472,6 +477,7 @@ public class TableEditControl : UserControl
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.insertAfter")) { BeginInvoke(new Action(InsertRowAfter)); return true; }
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.copyValue")) { BeginInvoke(new Action(CopyOneValue)); return true; }
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.setNull")) { BeginInvoke(new Action(() => _ = SetCellsToNullAsync())); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.copyColumnName")) { BeginInvoke(new Action(() => ResultGridMenu.CopySelectedColumnNames(_grid))); return true; }
         return false;
     }
 
@@ -1101,6 +1107,9 @@ public class TableEditControl : UserControl
         };
         if (_structNative is not null) _structNative.SetColumns(_structCols.Select(c => new NativeStructPanel.Col(c.Name, c.Type, c.IsKey)), _structChecked, fields);
         else _structWeb!.Call($"window.setColumns && window.setColumns({JsonSerializer.Serialize(payload)})");
+        // Thanh trên cũng cần tên + kiểu cột: Enter sau tên cột ở ô Where chèn like '%%' / N'%%' / " = " theo kiểu.
+        if (_barNative is not null) _barNative.SetColumnTypes(_structCols.Select(c => (c.Name, c.Type)));
+        else _barWeb!.Call($"window.setColTypes && window.setColTypes({JsonSerializer.Serialize(_structCols.Select(c => new { name = c.Name, type = c.Type }))})");
     }
 
     // ------------------------------------------------------------------------------------
@@ -1341,6 +1350,7 @@ public class TableEditControl : UserControl
         {
             HideColumnSuggest();
             BarInsertColumn(name);
+            BarWhereEnter();   // bấm chọn cột ở ô Where → chèn luôn mẫu lọc như FCode
         };
         if (FindForm() is { } form)
         {
@@ -1363,10 +1373,13 @@ public class TableEditControl : UserControl
             case "pagedown": _colSuggest.MoveSelection(10); break;
             case "pageup": _colSuggest.MoveSelection(-10); break;
             case "enter":
+            case "tab":
                 if (_colSuggest.SelectedText is { } picked)
                 {
                     HideColumnSuggest();
                     BarInsertColumn(picked);
+                    // Như FCode: Enter chọn cột (ở ô Where) → chèn luôn mẫu lọc theo kiểu cột (gõ "ghi" + Enter → ghi_chu like N'%|%'). Tab chỉ điền tên.
+                    if (key == "enter") BarWhereEnter();
                 }
                 else HideColumnSuggest();
                 break;

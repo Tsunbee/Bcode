@@ -14,7 +14,7 @@ Trong Bcode, tài liệu này mở bằng nút **Trợ giúp** trên thanh trên
   - [Chọn dự án / workspace](#du-an)
   - [Màn hình chính Bcode](#khung-chinh)
   - [SQL Query](#sql-query) · [Debug từng bước](#debug-sql) · [Lịch sử SQL](#lich-su-sql) · [Write Schema (.xsd / .rpt)](#write-schema)
-  - [Table](#table) · [Command và Lookup](#command-lookup) · [SQL Object, Ai đang dùng, So sánh](#sql-object)
+  - [Table](#table) · [Lookup](#command-lookup) · [SQL Object, Ai đang dùng, So sánh](#sql-object)
   - [WCommand](#wcommand) · [Mobile](#mobile) · [File Lookup](#file-lookup) · [Cấp source, Copy to, Clone](#cap-source)
   - [Gen Update](#gen-update) · [Note và Note (New)](#note) · [BcodeNote (nhiều dự án)](#bcodenote) · [Create RPT & XML, Tạo báo cáo](#create-rpt)
   - [Menu Triển khai](#trien-khai) · [Menu Tool mở rộng](#tool-mo-rong) · [Tiện ích khác](#tien-ich)
@@ -229,8 +229,8 @@ Trên ảnh: **①** ▶ Execute (`F5` / `Ctrl+Enter`) · **②** chọn databas
 - Copy ô (cả chế độ Web lẫn App):
   - **1 ô** (`Ctrl+C`) = đúng giá trị gốc, không bọc ngoặc kép — copy JSON / script trong ô dán ra dùng được luôn.
   - **Nhiều ô** = dạng cột cách nhau bằng tab, dán thẳng vào Excel đúng cột. Ô có tab / xuống dòng (hoặc mở đầu bằng `"`) mới được bọc `"..."` để Excel giữ nguyên trong 1 ô, không vỡ dòng.
-  - `Ctrl+Shift+C` = copy kèm tên cột. Khi con trỏ đang ở lưới kết quả, phím này là copy (không mở tab Command); ở chỗ khác vẫn mở Command như cũ.
-- Chuột phải ô: Copy (`Ctrl+C`) · Copy kèm tên cột (`Ctrl+Shift+C`) · Copy cả bảng · Goto Column (`Ctrl+G`) · Copy tên cột · Filter · Add Index Column Order · Generate Design Fields · Maxlength Column Content · Compare Column Content · Set Color Cell. Chuột phải tiêu đề cột: **Thống kê** Sum / Max / Min / Avg.
+  - `Ctrl+Shift+C` = copy **tên cột** của ô đang chọn (chọn nhiều cột → các tên cách nhau dấu phẩy). Cần copy dữ liệu kèm dòng tiêu đề thì chuột phải → **Copy kèm tên cột**.
+- Chuột phải ô: Copy (`Ctrl+C`) · Copy kèm tên cột · Copy cả bảng · Goto Column (`Ctrl+G`, điền sẵn tên cột đang đứng) · Copy selected Column Name (`Ctrl+Shift+C`) · Copy All Column Name · Filter · Add Index Column Order · Generate Design Fields · Maxlength Column Content · Compare Column Content · Set Color Cell. Chuột phải tiêu đề cột: **Thống kê** Sum / Max / Min / Avg.
 - Chuột phải ô → nhóm **Lưu ra file** (cả chế độ Web lẫn App, cả tab "Command Result" khi bật Result Tab):
   - **Xuất nhanh ra Excel (mở luôn)** (`Ctrl+E` khi con trỏ ở lưới kết quả): không hỏi nơi lưu — ghi file .xlsx vào thư mục tạm `%TEMP%\Bcode\Export` rồi mở ngay bằng Excel (file trong đó cũ hơn 7 ngày tự dọn; muốn giữ thì trong Excel bấm Save As).
   - **Save as Excel (.xlsx)…** · **Save as CSV…** (hỏi nơi lưu, chưa gán phím) — lưu **toàn bộ dòng** của bảng đang chuột phải, kể cả phần lưới không hiện hết (bảng rất lớn). Thứ tự và tên cột giữ như câu SELECT.
@@ -310,6 +310,7 @@ Mở bằng `Ctrl+Shift+M` (đổi được trong Settings → Phím tắt) ho�
 | `tra trường tài khoản đối ứng` · `trường ma_kho` | Trường trong từ điển field Fast (header.xml): tiêu đề Việt / Anh, kiểu, lookup. |
 | `%Partition` · `%[ ]%` · `sysorder` · `@Key` · `song ngữ` · `số dư` · `quy ước fast` | Quy ước khi viết / chạy store Fast kèm mẫu code. Câu nêu rõ đối tượng thì chỉ hiện mẫu đúng đối tượng đó, vd *số dư đầu kỳ theo vụ việc* → chỉ mẫu `FastBusiness$Balance$Job`; *số dư cuối kỳ theo khách hàng* → mẫu Customer đã đổi sang `@DateTo`, loại số dư 2; *số dư vụ việc khách hàng* → `JobCustomer_new`. |
 | `viết store …` · `function …` | Khung store / function + SQL động, cursor + store có sẵn liên quan. |
+| Đếm / liệt kê / thông tin dự án: *Có bao nhiêu danh mục trên chương trình* · *có bao nhiêu báo cáo* · *bao nhiêu store* · *liệt kê các loại chứng từ* · *có bao nhiêu bảng phân kỳ* · *dự án này dùng database nào* | Số thật từ database (chỉ đọc): danh mục / báo cáo / chức năng theo menu wcommand (Sys Data, đếm theo controller), loại chứng từ (dmct), store / function / view / trigger / bảng / bảng phân kỳ (sys.objects), người sử dụng, số trường trong từ điển field, số dự án khai báo trong Bcode; thẻ kèm câu SQL đã dùng (chèn / copy được) và nút **Liệt kê hết** / **Chỉ đếm**. *Dự án này dùng database nào* → server, App / Sys Data, mã phiên bản, đường dẫn của dự án đang chọn (không hiện mật khẩu). Hỏi số cột của 1 bảng (*bảng dmkh có bao nhiêu cột*) → thẻ cấu trúc bảng. |
 | Câu khác — tên báo cáo / nghiệp vụ (vd *thẻ kho*, *Báo cáo tồn theo kho*, *Bảng cân đối kế toán theo đơn vị cơ sở*), tên mẫu code, tên bảng tiếng Việt | **Tìm chung có xếp hạng** (BM25) trên mọi kiến thức: menu báo cáo / chức năng trong Sys Data (tiêu đề tiếng Việt → store `rs_…` của báo cáo đó), store, mẫu code, quy ước, bảng (kèm tiêu đề field tra cứu vào bảng và tên chứng từ dùng bảng), field; cụm 2 từ khớp đúng được ưu tiên. Câu kiểu tên báo cáo có thêm nút **Dựng khung báo cáo này**. Chỉ câu muốn **tạo** (*tạo / làm / viết / dựng … báo cáo / danh mục / store*) mới vào luồng tạo; câu chỉ nhắc tên báo cáo / danh mục thì tìm cái có sẵn. |
 
 Nút trên mỗi thẻ: **Chèn vào SQL Query** (chèn tại con trỏ của tab SQL Query dùng gần nhất — chưa có thì mở tab mới), **Mở tab SQL mới**, **Copy**, **Mở nội dung**, **Save as…** (store / function). Nút **App / Sys** trên đầu chọn database để tra bảng, store; **＋ Mới** = bắt đầu cuộc hỏi mới.
@@ -443,8 +444,10 @@ Trên ảnh: **①** DB · **②** ô Table (gợi ý tên bảng) · **③** Fi
 
 1. Chọn **DB:** App Data / Sys Data.
 2. Gõ tên vào ô **Table** — gợi ý hiện ngay: khớp đầu tên trước, rồi chứa; **bảng phân kỳ** (`d91$000000`, `d91$202501`…) xếp lên đầu theo thứ tự kỳ.
-3. Chọn một gợi ý (bấm / `Enter` / `Tab`) → Bcode **chỉ nạp structure** (khung trái) — "Đã nạp structure — Enter / Load để tải dữ liệu".
+3. Chọn một gợi ý (bấm / `Enter` / `Tab`) → Bcode **chỉ nạp structure** (khung trái) — "Đã nạp structure — Enter / Load để tải dữ liệu". `Enter` ở ô Table (chọn gợi ý hoặc tải bảng) xong thì con trỏ **nhảy sang ô Where** như FCode.
 4. Nhập (tuỳ chọn) **Fields** (mặc định `*`), **Where** (vd `ma_kh like 'KH%' and status = '1'`), **Order** (vd `ngay_ct desc`), **Top** (mặc định `0` = tất cả). Where / Order / Fields có gợi ý tên cột.
+   - Ở ô **Where**, gõ tên một cột của bảng rồi `Enter` → Bcode chèn sẵn mẫu lọc theo kiểu cột (lấy từ khung Structure), con trỏ đứng đúng chỗ gõ giá trị (`|`): cột chuỗi `char` / `varchar` / `text` → `ma_ct like '%|%'`; cột unicode `nchar` / `nvarchar` / `ntext` → `ten_gd like N'%|%'`; cột số (`int`, `numeric`, `decimal`, `bit`, `money`…) → `user_id0 = |`; cột ngày (`datetime`, `smalldatetime`, `date`…) và `uniqueidentifier` → `datetime0 = '|'`. Gõ một phần tên (vd `ghi`) rồi chọn cột trong danh sách gợi ý bằng `Enter` hoặc bấm chuột → điền tên cột **và** chèn luôn mẫu (`ghi_chu like N'%|%'`); `Tab` chỉ điền tên cột.
+   - Chữ trước con trỏ không phải tên cột (vd đã gõ xong `ma_ct = 'BPC'`) → `Enter` tải dữ liệu như cũ.
 5. `Enter`, **Load** hoặc `F5` → tải dữ liệu. Bảng chỉ có ở database kia → Bcode tự chuyển DB.
 
 Trên lưới hiện khoá chính ("Primary Key: …"); bảng không có khoá chính thì không lưu / xoá được an toàn.
@@ -501,8 +504,9 @@ Chỉ đọc cấu trúc (INFORMATION_SCHEMA), không sửa bảng nào. Muốn 
 | `Ctrl+I` | Nhân bản dòng |
 | `Ctrl+N` | Chèn dòng mới sau dòng đang chọn |
 | `Ctrl+'` | Copy giá trị ô đang chọn |
+| `Ctrl+Shift+C` | Copy **tên cột** của ô đang chọn (chọn nhiều cột → các tên cách nhau dấu phẩy: `ma_vt, ten_vt`). `Ctrl+C` vẫn là copy dòng / ô như cũ |
 | `Ctrl+0` | Đặt các ô đang chọn thành NULL |
-| `Ctrl+G` | Goto Column |
+| `Ctrl+G` | Goto Column (điền sẵn tên cột đang đứng, bôi đen — gõ là thay) |
 | `F5` | Tải lại |
 
 Chuột phải lưới: Add New · Delete · Copy Row · Paste · Clone Row · Insert New Row After · Copy One Value · Giữ id khi dán (chỉ hiện ở bảng có cột identity) · Alter Null Value · **Gen Insert (dòng đã chọn)** · **Gen Update (dòng đã chọn)** · Set Cells Value to NULL · Description Columns...
@@ -518,19 +522,9 @@ Bảng có cột **identity** (vd `crApiConfig.id`): script tự giữ đúng id
 > **Lưu ý:** số dòng đang xem bằng đúng giới hạn Top → Bcode cảnh báo phần dữ liệu còn lại sẽ **mất** khi chạy script; đặt Top = 0 rồi Load lại. Bảng tổng hợp `$000000` chỉ để xem (gộp UNION ALL các kỳ) — không Save / xoá được. Database / workspace bị đổi sau khi tải → Bcode không ghi để tránh ghi nhầm; bấm Load lại.
 
 <a id="command-lookup"></a>
-## Command và Lookup
+## Lookup
 
-### Command (`Ctrl+Shift+C`) — dựng câu SELECT nhanh
-
-![Tab Command: tick cột ở khung Fields để dựng SELECT](images/bcode-command.png)
-
-Trên ảnh: **①** SELECT (tự dựng theo cột đã tick) · **②** FROM · **③** WHERE / ORDER BY · **④** Top (mặc định 500) · **⑤** Add Script · **⑥** ▶ Run · **⑦** khung Fields (cột khoá có "(PK)") · **⑧** câu SQL đã thực thi · **⑨** lưới kết quả (chuột phải: Gen Insert / Gen Update).
-
-1. Gõ **FROM** (có gợi ý tên bảng) → khung **Fields** liệt kê cột (cột khoá có "(PK)"). Tick cột để dựng lại SELECT (bỏ hết = `*`).
-2. Nhập **WHERE**, **ORDER BY**, **Top** (mặc định 500; `0` = tất cả). `Enter` ở ô bất kỳ hoặc **▶ Run** để chạy.
-3. FROM là bảng phân kỳ `xxx$000000` → Bcode tự UNION ALL mọi bảng kỳ thật.
-4. Chuột phải lưới: **Gen Insert / Gen Update (dòng đã chọn)** (hỏi tên bảng đích và cột khoá; câu lệnh copy vào clipboard).
-5. **Add Script**: đóng gói mọi dòng đang xem thành DELETE + INSERT (hỏi tên bảng đích).
+Tab **Command** (dựng SELECT / FROM / WHERE) đã bỏ — dùng [SQL Query](#sql-query) hoặc [Table](#table). `Ctrl+Shift+C` giờ là copy tên cột ở lưới Table và lưới kết quả SQL Query.
 
 ### Lookup (`Ctrl+Shift+L`) — tìm object
 
@@ -540,7 +534,7 @@ Trên ảnh: **①** SELECT (tự dựng theo cột đã tick) · **②** FROM �
 
 ### Gen Update (Result) (`Ctrl+Shift+U`)
 
-Sinh câu UPDATE cho **mọi dòng của bảng kết quả gần nhất** (SQL Query hoặc Command): hỏi tên bảng đích + cột khoá (vd `stt_rec` hoặc `ma_ct,ky`) → câu lệnh vào clipboard. Chỉ muốn vài dòng: chọn dòng → chuột phải → Gen Update (dòng đã chọn).
+Sinh câu UPDATE cho **mọi dòng của bảng kết quả gần nhất** (SQL Query): hỏi tên bảng đích + cột khoá (vd `stt_rec` hoặc `ma_ct,ky`) → câu lệnh vào clipboard. Chỉ muốn vài dòng: chọn dòng → chuột phải → Gen Update (dòng đã chọn).
 
 <a id="sql-object"></a>
 ## SQL Object, Ai đang dùng, So sánh object, Profiler
@@ -1029,11 +1023,13 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+Shift+Q` | SQL Query | `Ctrl+Shift+R` | File Reference |
 | `Ctrl+Shift+L` | Lookup | `Ctrl+Shift+O` | Change Owner |
 | `Ctrl+Shift+T` | Table | `Ctrl+Shift+U` | Gen Update (Result) |
-| `Ctrl+Shift+C` | Command | `Ctrl+Shift+E` | Note |
-| `Ctrl+Shift+W` | WCommand | `Ctrl+Shift+4` | Note (New) |
-| `Ctrl+Shift+F` | File Lookup | `Ctrl+Shift+Y` | Lịch sử SQL |
-| `Ctrl+Shift+G` | Gen Update | `Ctrl+Shift+J` | So sánh object |
-| `Ctrl+3` | SQL Profiler | `Ctrl+F1` | Trợ giúp |
+| `Ctrl+Shift+W` | WCommand | `Ctrl+Shift+E` | Note |
+| `Ctrl+Shift+F` | File Lookup | `Ctrl+Shift+4` | Note (New) |
+| `Ctrl+Shift+G` | Gen Update | `Ctrl+Shift+Y` | Lịch sử SQL |
+| `Ctrl+3` | SQL Profiler | `Ctrl+Shift+J` | So sánh object |
+| `Ctrl+F1` | Trợ giúp | | |
+
+`Ctrl+Shift+C` không mở công cụ nào: ở lưới Table và lưới kết quả SQL Query là copy tên cột (xem dưới).
 
 **Cửa sổ, tab, dự án**
 
@@ -1068,10 +1064,11 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+S` | Save file .sql |
 | `Ctrl+R` | Ẩn / hiện khung kết quả |
 | `Ctrl+E` | Lưới kết quả: xuất nhanh cả bảng ra Excel (thư mục tạm, mở luôn). Save as Excel / Save as CSV (hỏi nơi lưu): tự gán phím trong Template → Phím tắt |
+| `Ctrl+Shift+C` | Lưới kết quả: copy tên cột của ô đang chọn (nhiều cột → cách nhau dấu phẩy) |
 | `Ctrl+F` | Tìm (Web: của Monaco; App: thanh tìm) |
 | `F10` · `Ctrl+F10` · `Shift+F5` | Debug: bước kế · tới con trỏ · dừng |
 
-**Lưới Table**: `F1` chi tiết dòng · `F3` khai báo nhanh danh sách · `F4` thêm · `F8` xoá · `Ctrl+I` nhân bản · `Ctrl+N` chèn sau · `Ctrl+'` copy giá trị · `Ctrl+0` NULL · `Ctrl+G` tới cột · `F5` tải lại.
+**Lưới Table**: `F1` chi tiết dòng · `F3` khai báo nhanh danh sách · `F4` thêm · `F8` xoá · `Ctrl+I` nhân bản · `Ctrl+N` chèn sau · `Ctrl+'` copy giá trị · `Ctrl+Shift+C` copy tên cột · `Ctrl+0` NULL · `Ctrl+G` tới cột · `F5` tải lại.
 
 **Cây WCommand**: `Insert` New · `F3` Edit · `F8` Delete · `F4` File Lookup mới · `F12` Gen Script Menu · `F5` Refresh · `Ctrl+F5` Run · `Ctrl+4` Run trong FSG FBO · `Ctrl+C` copy đường dẫn menu. Các nhánh đang bung được giữ nguyên khi chuyển sang mục khác (Object…) rồi quay lại, hoặc khi `F5`.
 
@@ -1459,7 +1456,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | Debug SQL | `F10` · `Ctrl+F10` · `Shift+F5` | **Debug trong Bcode** (gửi sang Bcode) |
 | Xem trước màn hình | — | `Alt+P` Dir / mail |
 
-**Chỉ có ở Bcode**: `Ctrl+Shift+Q` SQL Query · `Ctrl+Shift+T` Table · `Ctrl+Shift+C` Command · `Ctrl+Shift+L` Lookup · `Ctrl+Shift+W` WCommand · `Ctrl+Shift+F` File Lookup · `Ctrl+Shift+G` Gen Update · `Ctrl+Shift+R` File Reference · `Ctrl+Shift+O` Change Owner · `Ctrl+Shift+U` Gen Update (Result) · `Ctrl+Shift+E` Note · `Ctrl+Shift+4` Note (New) · `Ctrl+Shift+Y` Lịch sử SQL · `Ctrl+Shift+J` So sánh object · `Ctrl+3` SQL Profiler · `Ctrl+Shift+P` Projects · `Ctrl+O` Choose Server · `Ctrl+F5` Synchronize · `Ctrl+Shift+N` cửa sổ mới · `Ctrl+1` App ↔ Sys · `Ctrl+4` FSG FBO · `Ctrl+5` Program Path · `Ctrl+Alt+U` Ai đang dùng · `Ctrl+Alt+Shift+A / V` Add / View Script · lưới Table `F1 F3 F4 F8 Ctrl+I Ctrl+N Ctrl+' Ctrl+0 Ctrl+G` · cây WCommand `Insert F3 F4 F8 F12 F5`.
+**Chỉ có ở Bcode**: `Ctrl+Shift+Q` SQL Query · `Ctrl+Shift+T` Table · `Ctrl+Shift+L` Lookup · `Ctrl+Shift+W` WCommand · `Ctrl+Shift+F` File Lookup · `Ctrl+Shift+G` Gen Update · `Ctrl+Shift+R` File Reference · `Ctrl+Shift+O` Change Owner · `Ctrl+Shift+U` Gen Update (Result) · `Ctrl+Shift+E` Note · `Ctrl+Shift+4` Note (New) · `Ctrl+Shift+Y` Lịch sử SQL · `Ctrl+Shift+J` So sánh object · `Ctrl+3` SQL Profiler · `Ctrl+Shift+P` Projects · `Ctrl+O` Choose Server · `Ctrl+F5` Synchronize · `Ctrl+Shift+N` cửa sổ mới · `Ctrl+1` App ↔ Sys · `Ctrl+4` FSG FBO · `Ctrl+5` Program Path · `Ctrl+Alt+U` Ai đang dùng · `Ctrl+Alt+Shift+A / V` Add / View Script · lưới Table `F1 F3 F4 F8 Ctrl+I Ctrl+N Ctrl+' Ctrl+Shift+C Ctrl+0 Ctrl+G` · lưới kết quả SQL `Ctrl+Shift+C` copy tên cột · cây WCommand `Insert F3 F4 F8 F12 F5`.
 
 **Chỉ có ở BcodeViewer**: `Ctrl+N` New from Template · `Ctrl+G` Go to tag · `F11` tới function · `Shift+F12` tìm nơi sử dụng · `Ctrl+Shift+M` Problems · `Ctrl+Shift+U` Outline · `Ctrl+\` tách đôi khung · `Ctrl+/` comment · `Ctrl+D` nhân đôi dòng · `Ctrl+Shift+D` thêm con trỏ ở chỗ giống tiếp theo · `Ctrl+Alt+T` dịch caption · `Ctrl+F` / `Ctrl+H` tìm / thay trong file · `Alt+↑/↓` di chuyển dòng · `F1` bảng lệnh Monaco.
 

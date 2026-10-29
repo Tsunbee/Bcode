@@ -286,14 +286,15 @@
       showMenu(e, t, el ? +el.dataset.c : 0);
     };
     wrap.onkeydown = (e) => keyDown(e, t);
-    // Ctrl+Shift+C (Copy kèm tên cột) trùng phím toàn cục "mở Command": lưới đang focus thì báo C# nhường phím này cho trang (MultiResultView → WebViewEnvironment.ClaimKeys).
+    // Phím copy tên cột (result.copyColumnName, mặc định Ctrl+Shift+C) có thể trùng 1 phím toàn cục người dùng tự gán: lưới đang focus thì báo C# nhường phím này cho trang (MultiResultView → WebViewEnvironment.ClaimKeys).
     wrap.__t = t;
     wrap.addEventListener('focus', () => post('keys', { claim: true }));
     wrap.addEventListener('blur', () => post('keys', { claim: false }));
   }
-  // Script phím toàn cục gắn sẵn ở document (pha capture) chặn Ctrl+Shift+C trước lưới → bắt sớm hơn ở window khi phím bấm trong lưới.
+  // Script phím toàn cục gắn sẵn ở document (pha capture) chặn tổ hợp toàn cục trước lưới → bắt phím copy tên cột sớm hơn ở window khi phím bấm trong lưới.
   window.addEventListener('keydown', (e) => {
-    if (!e.ctrlKey || !e.shiftKey || e.altKey || e.code !== 'KeyC') return;
+    const kn = keyOf('result.copyColumnName', 'Ctrl+Shift+C');
+    if (!kn || !(e.ctrlKey || e.altKey) || comboOfEvent(e) !== kn) return;
     const w = e.target && e.target.closest ? e.target.closest('.gwrap') : null;
     if (w && w.__t) { e.stopPropagation(); keyDown(e, w.__t); }
   }, true);
@@ -381,7 +382,11 @@
   }
 
   function keyDown(e, t) {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') { if (t.sel) { e.preventDefault(); copyText(tsv(t, t.sel, e.shiftKey), 'Đã copy ' + ((t.sel.r1 - t.sel.r0 + 1) * (t.sel.c1 - t.sel.c0 + 1)) + ' ô.'); } return; }
+    if (e.ctrlKey || e.altKey) {
+      const kn = keyOf('result.copyColumnName', 'Ctrl+Shift+C');
+      if (kn && comboOfEvent(e) === kn) { e.preventDefault(); copyColNames(t); return; }
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') { if (t.sel) { e.preventDefault(); copyText(tsv(t, t.sel, false), 'Đã copy ' + ((t.sel.r1 - t.sel.r0 + 1) * (t.sel.c1 - t.sel.c0 + 1)) + ' ô.'); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); t.sel = allRange(t); draw(t, t.card); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); gotoColumn(t); return; }
     if (e.ctrlKey || e.altKey) {
@@ -447,7 +452,7 @@
     if (head) { cap('Thống kê'); ['Sum', 'Max', 'Min', 'Avg'].forEach((k) => add(k + ' value', () => colStat(t, col, k))); }
     cap('Copy');
     add('Copy', () => sel && copyText(tsv(t, sel, false), 'Đã copy.'), 'Ctrl+C');
-    add('Copy kèm tên cột', () => sel && copyText(tsv(t, sel, true), 'Đã copy.'), 'Ctrl+Shift+C');
+    add('Copy kèm tên cột', () => sel && copyText(tsv(t, sel, true), 'Đã copy.'));
     add('Copy cả bảng', () => copyText(tsv(t, allRange(t), true), 'Đã copy cả bảng.'));
     // Lưu ra file: C# ghi từ DataTable gốc (đủ mọi dòng, kể cả phần trang không hiện); "dòng đã chọn" gửi chỉ số dòng gốc theo thứ tự đang hiện.
     cap('Lưu ra file');
@@ -461,7 +466,7 @@
     }
     cap('Cột');
     add('Goto Column ...', () => gotoColumn(t), 'Ctrl+G');
-    add('Copy selected Column Name ...', () => { const c0 = sel ? sel.c0 : col, c1 = sel ? sel.c1 : col; copyText(t.cols.slice(c0, c1 + 1).map((c) => c.n).join(', '), 'Đã copy tên cột.'); });
+    add('Copy selected Column Name ...', () => copyColNames(t, col), keyOf('result.copyColumnName', 'Ctrl+Shift+C'));
     add('Copy All Column Name ...', () => copyText(t.cols.map((c) => c.n).join(', '), 'Đã copy tên mọi cột.'));
     cap('Dữ liệu');
     add('Filter', () => filterDialog(t, col));
@@ -486,6 +491,12 @@
     if (window.__bcodeCombo) return window.__bcodeCombo(e);
     const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;
     return (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + k;
+  }
+  // Copy tên cột của ô đang chọn (chọn nhiều cột = "a, b, c") — mục "Copy selected Column Name" và phím result.copyColumnName.
+  function copyColNames(t, col) {
+    const sel = t.sel, c0 = sel ? sel.c0 : col, c1 = sel ? sel.c1 : col;
+    if (c0 == null || !t.cols[c0]) return;
+    copyText(t.cols.slice(c0, c1 + 1).map((c) => c.n).join(', '), 'Đã copy tên cột.');
   }
   // quick = xuất nhanh: C# ghi vào thư mục tạm rồi mở bằng Excel, không hỏi nơi lưu.
   function saveFile(t, format, selectedOnly, quick) {
@@ -539,6 +550,9 @@
       sug.querySelectorAll('div').forEach((el) => { el.onclick = () => { gv.value = hits[+el.dataset.k].n; $('dBtns').lastChild.click(); }; });
     };
     gv.oninput = () => { hi = -1; showSug(); };
+    // Như FCode: điền sẵn tên cột đang đứng (bôi đen — gõ là thay), danh sách gợi ý lọc theo tên đó.
+    const cur = t.anchor && t.cols[t.anchor.c];
+    if (cur) { gv.value = cur.n; gv.select(); }
     showSug();
     gv.onkeydown = (e) => {
       if (e.key === 'ArrowDown' && hits.length) { e.preventDefault(); hi = (hi + 1) % hits.length; showSug(); }

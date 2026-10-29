@@ -49,22 +49,26 @@ public static class ResultGridMenu
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<DataGridView, object> CopyOn = new();
 
     /// <summary>Thay Ctrl+C mặc định của DataGridView (nhiều ô không bọc "..." → giá trị có xuống dòng làm vỡ dòng Excel) bằng
-    /// <see cref="CopyCells"/>; thêm Ctrl+Shift+C = kèm tên cột và mục Copy / Copy kèm tên cột / Copy cả bảng trên menu.</summary>
+    /// <see cref="CopyCells"/>; thêm phím result.copyColumnName (mặc định Ctrl+Shift+C) = copy tên cột và mục Copy / Copy kèm tên cột / Copy cả bảng trên menu.</summary>
     public static void EnableCopy(DataGridView grid)
     {
         CopyOn.AddOrUpdate(grid, grid);
         grid.KeyDown += (_, e) =>
         {
-            if (e.KeyData == (Keys.Control | Keys.C)) { e.Handled = e.SuppressKeyPress = true; CopyCells(grid, false, false); }   // Ctrl+Shift+C: xem HandleCopyKey
+            if (e.KeyData == (Keys.Control | Keys.C)) { e.Handled = e.SuppressKeyPress = true; CopyCells(grid, false, false); }
+            else if (Bcode.App.UI.ShortcutRegistry.Get("result.copyColumnName") is { Length: > 0 } k && Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData) == k)
+            { e.Handled = e.SuppressKeyPress = true; CopySelectedColumnNames(grid); }   // thường đã bắt ở HandleCopyKey; đây là đường dự phòng
         };
     }
 
-    /// <summary>Ctrl+Shift+C (Copy kèm tên cột) khi lưới kết quả đang focus — MainForm.ProcessCmdKey gọi TRƯỚC phím toàn cục trùng tổ hợp (mở Command);
-    /// KeyDown không dùng được vì DataGridView tự copy kiểu mặc định ở ProcessDialogKey (chạy trước KeyDown) với Ctrl+Shift+C.</summary>
+    /// <summary>Phím result.copyColumnName (mặc định Ctrl+Shift+C = copy tên cột của ô đang chọn) khi lưới kết quả đang focus — MainForm.ProcessCmdKey gọi
+    /// TRƯỚC phím toàn cục trùng tổ hợp; KeyDown không dùng được vì DataGridView tự copy kiểu mặc định ở ProcessDialogKey (chạy trước KeyDown) với Ctrl+Shift+C.</summary>
     public static bool HandleCopyKey(Control? focused, Keys keyData)
     {
-        if (keyData != (Keys.Control | Keys.Shift | Keys.C) || focused is not DataGridView g || !CopyOn.TryGetValue(g, out _)) return false;
-        CopyCells(g, true, false);
+        if (focused is not DataGridView g || !CopyOn.TryGetValue(g, out _)) return false;
+        var combo = Bcode.App.UI.ShortcutRegistry.Get("result.copyColumnName");
+        if (combo.Length == 0 || Bcode.App.UI.ShortcutRegistry.FromKeys(keyData) != combo) return false;
+        CopySelectedColumnNames(g);
         return true;
     }
 
@@ -73,7 +77,7 @@ public static class ResultGridMenu
         if (!CopyOn.TryGetValue(grid, out _)) return;
         menu.AddCaption("Copy");
         menu.Add("Copy", () => CopyCells(grid, false, false), shortcut: "Ctrl+C");
-        menu.Add("Copy kèm tên cột", () => CopyCells(grid, true, false), shortcut: "Ctrl+Shift+C");
+        menu.Add("Copy kèm tên cột", () => CopyCells(grid, true, false));
         menu.Add("Copy cả bảng", () => CopyCells(grid, true, true));
     }
 
@@ -151,8 +155,9 @@ public static class ResultGridMenu
     /// <summary>Appends these items to a menu a host is already building (e.g.
     /// SqlQueryControl's grid adds its own Gen Insert/Gen Update first) — use this so the two
     /// menus merge rather than one silently replacing the other. Call
-    /// <see cref="WireShortcuts"/> once per grid alongside it.</summary>
-    public static WebMenu AddItemsTo(WebMenu menu, DataGridView grid)
+    /// <see cref="WireShortcuts"/> once per grid alongside it. <paramref name="columnNameShortcut"/> = chữ phím hiện cạnh "Copy selected Column Name"
+    /// (lưới Table truyền phím table.copyColumnName; null = lưới kết quả SQL thì hiện phím result.copyColumnName).</summary>
+    public static WebMenu AddItemsTo(WebMenu menu, DataGridView grid, string? columnNameShortcut = null)
     {
         if (!menu.IsEmpty) menu.AddSeparator();
 
@@ -160,7 +165,8 @@ public static class ResultGridMenu
         AddSaveItems(menu, grid);
         menu.AddCaption("Cột");
         menu.Add("Goto Column ...", () => GotoColumn(grid), shortcut: "Ctrl+G");
-        menu.Add("Copy selected Column Name ...", () => CopySelectedColumnNames(grid));
+        columnNameShortcut ??= CopyOn.TryGetValue(grid, out _) ? Bcode.App.UI.ShortcutRegistry.Display("result.copyColumnName") : "";
+        menu.Add("Copy selected Column Name ...", () => CopySelectedColumnNames(grid), shortcut: columnNameShortcut.Length > 0 ? columnNameShortcut : null);
         menu.Add("Copy All Column Name ...", () => CopyAllColumnNames(grid));
 
         menu.Add(TypeColorOn.TryGetValue(grid, out _) ? "Tắt màu chữ theo kiểu dữ liệu" : "Bật màu chữ theo kiểu dữ liệu", () => ToggleTypeColors(grid));
@@ -321,7 +327,7 @@ public static class ResultGridMenu
     private static void GotoColumn(DataGridView grid)
     {
         if (grid.Columns.Count == 0) return;
-        var input = GotoColumnForm.Show(Owner(grid) ?? grid, grid.Columns.Cast<DataGridViewColumn>().OrderBy(c => c.DisplayIndex).Select(c => c.Name));
+        var input = GotoColumnForm.Show(Owner(grid) ?? grid, grid.Columns.Cast<DataGridViewColumn>().OrderBy(c => c.DisplayIndex).Select(c => c.Name), grid.CurrentCell?.OwningColumn?.Name);
         if (string.IsNullOrWhiteSpace(input)) return;
 
         DataGridViewColumn? col = null;
@@ -347,8 +353,15 @@ public static class ResultGridMenu
         }
     }
 
-    private static void CopySelectedColumnNames(DataGridView grid)
+    /// <summary>Copy tên cột của các ô đang chọn (nhiều cột = "a, b, c") — mục "Copy selected Column Name" và phím table.copyColumnName / result.copyColumnName.</summary>
+    public static void CopySelectedColumnNames(DataGridView grid)
     {
+        // Đang chọn cả dòng (bấm số thứ tự dòng) thì lấy cột của ô đang đứng, không phải mọi cột của dòng.
+        if (grid.SelectedRows.Count > 0 && grid.CurrentCell?.OwningColumn is { } cur)
+        {
+            SetClipboard(cur.Name);
+            return;
+        }
         // Theo thứ tự cột đang hiển thị trên lưới (SelectedCells trả theo thứ tự chọn nên trước đây bị lộn xộn).
         var names = grid.SelectedCells.Cast<DataGridViewCell>()
             .Select(c => grid.Columns[c.ColumnIndex])
@@ -361,7 +374,7 @@ public static class ResultGridMenu
             MessageBox.Show(Owner(grid), "Chưa chọn ô/cột nào.", "Bcode — Copy Column Name");
             return;
         }
-        Clipboard.SetText(string.Join(", ", names));
+        SetClipboard(string.Join(", ", names));
     }
 
     private static void CopyAllColumnNames(DataGridView grid)

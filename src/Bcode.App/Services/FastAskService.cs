@@ -434,6 +434,8 @@ public sealed class FastAskService
                 choices: StartChoices);
 
         _ = IndexAsync(useSys);   // dựng kho tìm kiếm ở nền ngay lượt đầu
+        // câu hỏi đếm / liệt kê / thông tin dự án ("có bao nhiêu danh mục trên chương trình", "liệt kê các báo cáo", "dự án này dùng database nào")
+        if (await StatsAsync(f, useSys) is { } stats) return stats;
         // TẠO báo cáo / danh mục chỉ khi câu hỏi muốn tạo ("tạo báo cáo …", "làm danh mục …"); còn lại (vd tên 1 báo cáo có sẵn "Báo cáo tồn theo kho",
         // "danh mục kho là bảng nào") thì tìm kiến thức — đo trên bộ câu hỏi chuẩn: trước đây mọi câu có chữ "báo cáo" đều rơi vào luồng tạo
         var create = Regex.IsMatch(f, @"^\s*(tao|lam|viet|dung|xay dung|them|can|muon)\b") || Regex.IsMatch(f, @"^\s*(bao cao|report|danh muc|catalog)\s*$");
@@ -480,6 +482,74 @@ public sealed class FastAskService
         if (Regex.IsMatch(f, @"\b(tra truong|truong|field)\b") || f.StartsWith("ma ")) return await FieldReplyAsync(f, text, useSys);
 
         return await SearchAllAsync(text, f, useSys);
+    }
+
+    // ---------------------------------------------------------------- đếm / liệt kê / thông tin dự án (số thật từ database, chỉ đọc)
+
+    /// <summary>1 loại đối tượng đếm được: từ khoá (không dấu), tên hiển thị, database (true = Sys), câu SQL trả về (mã, tên).</summary>
+    private sealed record StatKind(string Keys, string Name, bool Sys, string Sql, string Source);
+
+    private static readonly StatKind[] StatKinds =
+    {
+        new(@"danh muc", "danh mục (trên menu chương trình)", true,
+            "SELECT DISTINCT RTRIM(sysid) AS ma, RTRIM(bar) AS ten FROM wcommand WHERE status = '1' AND bar LIKE N'Danh mục%' ORDER BY 2", "menu wcommand (Sys Data), tiêu đề bắt đầu bằng \"Danh mục\""),
+        new(@"bao cao", "báo cáo (trên menu chương trình)", true,
+            "SELECT DISTINCT RTRIM(sysid) AS ma, RTRIM(bar) AS ten FROM wcommand WHERE status = '1' AND sysid LIKE 'rpt%' ORDER BY 2", "menu wcommand (Sys Data), controller rpt…"),
+        new(@"chung tu", "loại chứng từ", false, "SELECT RTRIM(ma_ct) AS ma, ten_ct AS ten FROM dmct ORDER BY 1", "bảng dmct"),
+        new(@"menu|chuc nang", "chức năng trên menu", true,
+            "SELECT DISTINCT RTRIM(sysid) AS ma, RTRIM(bar) AS ten FROM wcommand WHERE status = '1' AND RTRIM(ISNULL(sysid, '')) <> '' ORDER BY 2", "menu wcommand (Sys Data)"),
+        new(@"store|procedure|thu tuc", "store (procedure)", false, "SELECT name AS ma, '' AS ten FROM sys.procedures WHERE is_ms_shipped = 0 ORDER BY 1", "sys.procedures"),
+        new(@"function|ham", "function", false, "SELECT name AS ma, type_desc AS ten FROM sys.objects WHERE type IN ('FN','IF','TF') AND is_ms_shipped = 0 ORDER BY 1", "sys.objects (FN / IF / TF)"),
+        new(@"view", "view", false, "SELECT name AS ma, '' AS ten FROM sys.views WHERE is_ms_shipped = 0 ORDER BY 1", "sys.views"),
+        new(@"trigger", "trigger", false, "SELECT name AS ma, OBJECT_NAME(parent_id) AS ten FROM sys.triggers WHERE is_ms_shipped = 0 ORDER BY 1", "sys.triggers"),
+        new(@"bang phan ky", "bảng phân kỳ (tên gốc)", false,
+            "SELECT LEFT(name, CHARINDEX('$', name) - 1) AS ma, CAST(COUNT(*) AS varchar(10)) + N' kỳ' AS ten FROM sys.tables WHERE name LIKE '%$%' GROUP BY LEFT(name, CHARINDEX('$', name) - 1) ORDER BY 1", "sys.tables (tên có $)"),
+        new(@"bang", "bảng (không tính từng kỳ của bảng phân kỳ)", false, "SELECT name AS ma, '' AS ten FROM sys.tables WHERE is_ms_shipped = 0 AND name NOT LIKE '%$%' ORDER BY 1", "sys.tables"),
+        new(@"nguoi dung|user", "người sử dụng", true, "SELECT CAST(id AS varchar(20)) AS ma, RTRIM(name) AS ten FROM userinfo ORDER BY 2", "bảng userinfo (Sys Data)"),
+    };
+
+    /// <summary>Đếm / liệt kê đối tượng của chương trình, hoặc thông tin dự án đang kết nối; null = không phải câu hỏi loại này.</summary>
+    private async Task<AskReply?> StatsAsync(string f, bool useSys)
+    {
+        var count = Regex.IsMatch(f, @"\b(bao nhieu|so luong|dem|tong so|co may|may cai)\b");
+        var list = Regex.IsMatch(f, @"^\s*(liet ke|ke ra|cho (minh|toi) xem (cac|tat ca|danh sach))\b|\bliet ke\b");
+        if (Regex.IsMatch(f, @"\b(thong tin du an|du an (nay|hien tai|dang (mo|chon|ket noi))|database (nao|gi|ten gi)|ten database|server nao|dang ket noi (database|server|du an|dau)|phien ban (nao|gi|du an|bao nhieu))\b") && _connections.Current is { } ws)
+        {
+            var info = $"Dự án: {ws.Name}" + (ws.ProjectId.Length > 0 ? $" (ID {ws.ProjectId})" : "") + $"\nServer: {ws.Server}\nApp Data: {ws.AppDatabase}\nSys Data: {ws.SysDatabase}"
+                       + (ws.VersionCode.Length > 0 ? $"\nMã phiên bản: {ws.VersionCode}" : "") + (ws.LoginWLink.Length > 0 ? $"\nWLoginLink: {ws.LoginWLink}" : "")
+                       + (ws.SourcePath.Length > 0 ? $"\nSource Path: {ws.SourcePath}" : "") + (ws.ProgramPath.Length > 0 ? $"\nProgram Path: {ws.ProgramPath}" : "");
+            return Reply("Dự án đang kết nối:", new[] { new AskCard(ws.Name, info, "", new List<AskAction> { new("copy", "Copy", info) }, "Dự án đang chọn (settings)") });
+        }
+        // "bảng dmkh có bao nhiêu cột" → thẻ cấu trúc bảng (có sẵn số cột)
+        if (!count && !list || Regex.IsMatch(f, @"\bcot\b")) return null;
+        if (Regex.IsMatch(f, @"\bdu an\b") && !Regex.IsMatch(f, @"\b(bang|store|danh muc|bao cao)\b"))
+        {
+            var all = AppSettings.Load().Workspaces;
+            return Reply($"Bcode đang khai báo {all.Count} dự án.", new[] { new AskCard($"{all.Count} dự án", string.Join("\n", all.Select(w => w.Name).Take(60)) + (all.Count > 60 ? $"\n… còn {all.Count - 60}" : ""), "", Array.Empty<AskAction>(), "Danh sách dự án (settings)") });
+        }
+        if (Regex.IsMatch(f, @"\b(truong|field)\b"))
+        {
+            var n = FieldDictionaryService.Instance.Entries.Select(e => e.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            return Reply($"Từ điển field Fast (header.xml) có {n} trường.", new[] { new AskCard($"{n} trường", "Đếm tên trường khác nhau trong Templates\\fileSource\\header.xml. Tra 1 trường: gõ \"tra trường …\".", "", Array.Empty<AskAction>(), "Từ điển field Fast (header.xml)") });
+        }
+        var kind = StatKinds.FirstOrDefault(k => Regex.IsMatch(f, @"\b(" + k.Keys + @")\b"));
+        if (kind is null) return null;
+        var rows = new List<(string Ma, string Ten)>();
+        try
+        {
+            await using var conn = _connections.CreateConnection(kind.Sys || useSys);
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand(kind.Sql, conn) { CommandTimeout = 30 };
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync()) rows.Add((r.IsDBNull(0) ? "" : r.GetValue(0).ToString() ?? "", r.FieldCount > 1 && !r.IsDBNull(1) ? r.GetValue(1).ToString() ?? "" : ""));
+        }
+        catch (Exception ex) { return Reply($"Không đếm được {kind.Name}: {ex.Message}"); }
+        // menu có thể lặp 1 controller ở nhiều nhánh → đếm theo controller
+        rows = rows.DistinctBy(x => x.Ma, StringComparer.OrdinalIgnoreCase).ToList();
+        var shown = rows.Take(list ? 300 : 40).Select(x => x.Ten.Length > 0 ? $"{x.Ma,-24} {x.Ten}" : x.Ma);
+        var body = $"Nguồn: {kind.Source}.\n\n" + string.Join("\n", shown) + (rows.Count > (list ? 300 : 40) ? $"\n… còn {rows.Count - (list ? 300 : 40)}" : "");
+        return Reply($"Có {rows.Count} {kind.Name}.", new[] { new AskCard($"{rows.Count} {kind.Name}", body, kind.Sql, CodeActions(kind.Sql), kind.Sys ? "Database Sys Data" : "Database đang kết nối") },
+            new[] { new AskChoice(list ? "Chỉ đếm" : "Liệt kê hết", (list ? "có bao nhiêu " : "liệt kê ") + kind.Keys.Split('|')[0]) });
     }
 
     /// <summary>Tiêu đề chứa ≥ 80% từ khoá của câu hỏi.</summary>

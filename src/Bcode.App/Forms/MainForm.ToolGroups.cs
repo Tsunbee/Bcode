@@ -27,11 +27,11 @@ public partial class MainForm
     }
 
     /// <summary>Gợi ý nhóm cho nút "Gợi ý" của Quick Access — dựa trên các vùng chức năng sẵn có (<see cref="ToolGroups"/>);
-    /// SQL Query / Table / Lookup / Command để ghim ngoài thanh.</summary>
+    /// SQL Query / Table / Lookup để ghim ngoài thanh.</summary>
     private List<ToolBarGroup> SuggestedToolGroups()
     {
         string[] names = { "SQL", "Đối tượng", "Gói & báo cáo", "Văn bản", "Dự án / FSG" };
-        var pinned = new HashSet<string> { "sql_query", "table", "lookup", "command" };
+        var pinned = new HashSet<string> { "sql_query", "table", "lookup" };
         var bar = BarToolKeys();
         var groups = new List<ToolBarGroup>();
         for (var i = 0; i < ToolGroups.Length && i < names.Length; i++)

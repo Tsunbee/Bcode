@@ -162,8 +162,10 @@ public static class ShortcutRegistry
             new("table.copyValue", "Table: copy giá trị của ô đang chọn (Copy One Value)", "Lưới Table", ShortcutScope.Grid, "Ctrl+'"),
             new("table.setNull", "Table: đặt các ô đang chọn thành NULL (Set Cells Value to NULL)", "Lưới Table", ShortcutScope.Grid, "Ctrl+0"),
             new("table.listEditor", "Table: khai báo nhanh danh sách (a, b, c) trong các ô đang chọn", "Lưới Table", ShortcutScope.Grid, "F3"),
+            new("table.copyColumnName", "Table: copy tên cột của ô đang chọn (chọn nhiều cột = các tên cách nhau dấu phẩy)", "Lưới Table", ShortcutScope.Grid, "Ctrl+Shift+C"),
 
             // ---- Lưới kết quả SQL Query (tab Result) — chỉ khi con trỏ đang ở lưới kết quả ----
+            new("result.copyColumnName", "Result SQL Query: copy tên cột của ô đang chọn (chọn nhiều cột = các tên cách nhau dấu phẩy)", "Lưới kết quả SQL Query", ShortcutScope.Editor, "Ctrl+Shift+C"),
             new("result.quickExcel", "Result SQL Query: xuất nhanh ra Excel — lưu thẳng vào thư mục tạm rồi mở luôn bằng Excel, không hỏi nơi lưu", "Lưới kết quả SQL Query", ShortcutScope.Editor, "Ctrl+E"),
             new("result.saveXlsx", "Result SQL Query: lưu bảng kết quả ra Excel (.xlsx) — hỏi nơi lưu, toàn bộ dòng của bảng đang chọn", "Lưới kết quả SQL Query", ShortcutScope.Editor, ""),
             new("result.saveCsv", "Result SQL Query: lưu bảng kết quả ra CSV (UTF-8) — toàn bộ dòng của bảng đang chọn", "Lưới kết quả SQL Query", ShortcutScope.Editor, ""),

@@ -11,7 +11,7 @@ public sealed class GotoColumnForm : ThemedForm
     private readonly ListBox _list = new() { Dock = DockStyle.Fill, IntegralHeight = false };
     private readonly List<string> _names;
 
-    private GotoColumnForm(IEnumerable<string> names)
+    private GotoColumnForm(IEnumerable<string> names, string? current)
     {
         _names = names.ToList();
         Text = "Goto Column";
@@ -34,7 +34,9 @@ public sealed class GotoColumnForm : ThemedForm
         _box.TextChanged += (_, _) => Refill();
         _box.KeyDown += OnBoxKey;
         _list.DoubleClick += (_, _) => { if (_list.SelectedItem is string s) { _box.Text = s; Accept(); } };
-        Shown += (_, _) => { _box.Focus(); };
+        // Như FCode: điền sẵn tên cột đang đứng (bôi đen — gõ là thay), danh sách gợi ý lọc theo tên đó.
+        if (!string.IsNullOrEmpty(current)) _box.Text = current;
+        Shown += (_, _) => { _box.Focus(); _box.SelectAll(); };
         Refill();
     }
 
@@ -76,9 +78,9 @@ public sealed class GotoColumnForm : ThemedForm
     }
 
     /// <summary>Hiện hộp thoại; trả về chuỗi người dùng chọn/gõ (tên cột hoặc số thứ tự), null nếu huỷ.</summary>
-    public static string? Show(IWin32Window owner, IEnumerable<string> columnNames)
+    public static string? Show(IWin32Window owner, IEnumerable<string> columnNames, string? currentColumn = null)
     {
-        using var form = new GotoColumnForm(columnNames);
+        using var form = new GotoColumnForm(columnNames, currentColumn);
         return form.ShowDialog(owner) == DialogResult.OK ? form._box.Text : null;
     }
 }

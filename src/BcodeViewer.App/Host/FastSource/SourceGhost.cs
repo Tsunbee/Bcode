@@ -146,10 +146,10 @@ public sealed class SourceGhost
             }
             foreach (var (key, rest) in FieldSites(text)) Count(key, rest);
             var root = RootOf(path, text);
-            foreach (var (name, rest) in FieldLines(text))
+            foreach (var (name, rest, sec) in FieldLines(text))
             {
-                Count("N:" + root + "|" + name, rest);
-                Count("N:" + root + "|*", rest);
+                Count("N:" + root + ":" + sec + "|" + name, rest);
+                Count("N:" + root + ":" + sec + "|*", rest);
             }
         }
         foreach (var (k, d) in counts)
@@ -165,16 +165,28 @@ public sealed class SourceGhost
     }
 
     /// <summary>Các dòng <c>&lt;field name="X" …</c> của 1 văn bản: (tên, phần sau tên — giữ 1 dấu cách đầu nếu có, gộp khoảng trắng).</summary>
-    public static IEnumerable<(string Name, string Tail)> FieldLines(string text)
+    public static IEnumerable<(string Name, string Tail, string Section)> FieldLines(string text)
     {
+        var inViews = false;
         foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
         {
             var m = FieldLineRx.Match(line);
-            if (!m.Success) continue;
-            var r = m.Groups["r"].Value;
-            if (r.Trim().Length == 0) continue;
-            yield return (m.Groups["n"].Value, (char.IsWhiteSpace(r[0]) ? " " : "") + Norm(r));
+            if (m.Success && m.Groups["r"].Value.Trim().Length > 0)
+            {
+                var r = m.Groups["r"].Value;
+                yield return (m.Groups["n"].Value, (char.IsWhiteSpace(r[0]) ? " " : "") + Norm(r), inViews ? "views" : "fields");
+            }
+            if (Regex.IsMatch(line, @"<views\b")) inViews = true;
+            if (line.Contains("</views>")) inViews = false;
         }
+    }
+
+    /// <summary>Mục chứa con trỏ: "views" (trong &lt;views&gt; — field chỉ là tham chiếu, thường <c>&lt;field name="x"/&gt;</c>) hay "fields" (khai báo).
+    /// Người dùng báo: trong &lt;views&gt; của Grid lại gợi ý thuộc tính khai báo (isPrimaryKey, width…) của khu &lt;fields&gt;.</summary>
+    public static string SectionAt(string before)
+    {
+        var open = before.LastIndexOf("<views", StringComparison.Ordinal);
+        return open >= 0 && before.IndexOf("</views>", open, StringComparison.Ordinal) < 0 ? "views" : "fields";
     }
 
     /// <summary>Mọi chỗ của ma trận field trong 1 file: (khoá, phần còn lại của dòng).</summary>
@@ -257,9 +269,10 @@ public sealed class SourceGhost
             var name = fl.Groups["n"].Value;
             var partial = Regex.Replace(fl.Groups["r"].Value.TrimStart(), @"\s+", " ");
             var endsSpace = EndsSpace(lineBefore);
-            if (Fields.TryGetValue("N:" + root + "|" + name, out var byName)) AddDistribution(res, "field", byName, partial, endsSpace);
+            var sec = SectionAt(before);
+            if (Fields.TryGetValue("N:" + root + ":" + sec + "|" + name, out var byName)) AddDistribution(res, "field", byName, partial, endsSpace);
             if (FileFieldShapes(before, after, nl, name) is { } shapes) AddDistribution(res, "same", shapes, partial, endsSpace);
-            if (Fields.TryGetValue("N:" + root + "|*", out var generic)) AddDistribution(res, "field", generic, partial, endsSpace);
+            if (Fields.TryGetValue("N:" + root + ":" + sec + "|*", out var generic)) AddDistribution(res, "field", generic, partial, endsSpace);
         }
 
         // same
@@ -373,7 +386,32 @@ public sealed class SourceGhost
     private static Dictionary<string, int>? SameFile(string before, string after, int nl, List<SourceLexer.Token> toks, string lineBefore)
     {
         var typed = Norm(lineBefore);
-        var lines = (nl < 0 ? "" : before[..nl]).Split('\n').Concat(after.Split('\n')).Select(l => Norm(l)).ToList();
+        var above = (nl < 0 ? "" : before[..nl]).Split('\n');
+        var below = after.Split('\n');
+        if (FieldLineRx.IsMatch(lineBefore))
+        {
+            // dòng <field name="X": chỉ so với dòng cùng mục (<views> tham chiếu ≠ <fields> khai báo) — đi lên / xuống từ con trỏ, đổi mục khi qua <views> / </views>
+            var here = SectionAt(before);
+            var keepAbove = new bool[above.Length];
+            var sec = here;
+            for (var i = above.Length - 1; i >= 0; i--)
+            {
+                if (above[i].Contains("</views>")) sec = "views";   // đi lên qua </views> = vào khối views phía trên
+                keepAbove[i] = sec == here;
+                if (Regex.IsMatch(above[i], @"<views\b")) sec = "fields";
+            }
+            var keepBelow = new bool[below.Length];
+            sec = here;
+            for (var i = 0; i < below.Length; i++)
+            {
+                if (Regex.IsMatch(below[i], @"<views\b")) sec = "views";
+                keepBelow[i] = sec == here;
+                if (below[i].Contains("</views>")) sec = "fields";
+            }
+            above = above.Where((_, i) => keepAbove[i]).ToArray();
+            below = below.Where((_, i) => keepBelow[i]).ToArray();
+        }
+        var lines = above.Concat(below).Select(l => Norm(l)).ToList();
         var d = new Dictionary<string, int>(StringComparer.Ordinal);
         if (toks.Count == 0)
         {

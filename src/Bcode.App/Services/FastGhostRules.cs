@@ -578,6 +578,9 @@ public static class FastGhostRules
 
     /// <summary>Cột mà tham số @v lọc. Ứng viên: chỗ dùng ngay trong script (cột = @v / cột like @v) → ô lọc của tên cùng nghĩa trong ma trận →
     /// bảng biến → cột chuẩn Fast → từ điển field (header.xml). Nhiều ứng viên thì ưu tiên cột đã xuất hiện trong script (dự án đặt cột riêng, vd ma_ns).</summary>
+    /// <summary>Dùng bảng "tham số → cột" rút từ Filter của Fast (<see cref="FastSourceKnowledge.ColumnForParam"/>) khi ghép dòng lọc.</summary>
+    public static bool UseFastFilters { get; set; } = true;
+
     private static string? ColumnFor(string v, string text, KnowledgeBase kb)
     {
         if (Regex.Match(text, @"(?<![\w@.])(?:[A-Za-z]\w{0,2}\.)?(?<c>(?:ma|so|nh|loai|tk)_?\w*)\s*(?:=|like)\s*@" + Regex.Escape(v) + @"\b", RegexOptions.IgnoreCase) is { Success: true } use)
@@ -586,6 +589,10 @@ public static class FastGhostRules
         var cands = new List<string>();
         foreach (var s in names)
             if (kb.Find("filter", s, "") is { } kf && kf.Pattern.Options.Count > 0 && FilterColRx.Match(kf.Pattern.Text) is { Success: true } km) cands.Add(km.Groups["c"].Value.ToLowerInvariant());
+        // Filter của Fast: tiêu đề tiếng Anh / aliasName của ô lọc = tên tham số (ma_kho e="Site" ↔ @Site) — bật / tắt bằng UseFastFilters để đo
+        if (UseFastFilters)
+            foreach (var s in names)
+                if (FastSourceKnowledge.Shipped.ColumnForParam(s) is { } fc) cands.Add(fc.ToLowerInvariant());
         foreach (var s in names)
             if (FilterFields.TryGetValue(s, out var f)) cands.Add(f);
         foreach (var s in names)

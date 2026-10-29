@@ -21,6 +21,8 @@
   #exePath { flex: 1; min-width: 120px; }
   .uid-out { width: 70px; }
   .uid-out:placeholder-shown { font-style: italic; }
+  .db-in { width: 150px; color: var(--accent); }
+  .db-in:placeholder-shown { font-style: italic; }
   .db-hint { color: var(--accent); font-size: 12px; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle; }
   .status { color: var(--text-muted); font-size: 12px; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   label.lbl { color: var(--text); font-size: 12px; white-space: nowrap; flex: none; }
@@ -64,10 +66,10 @@
     <button class="btn btn-icon" id="btnClearUid" title="Xoá u_id — trace không lọc theo ID (ApplicationName)">✕</button>
     <button class="btn" id="btnCopyUid">Copy</button>
     <div class="sep"></div>
-    <label class="lbl">Lọc DatabaseName gợi ý:</label>
-    <span class="db-hint" id="dbHint">(chưa có Workspace)</span>
+    <label class="lbl" id="dbLbl">Lọc DatabaseName gợi ý:</label>
+    <input type="text" class="db-in" id="dbHint" placeholder="(chưa có Workspace)" title="Bộ lọc DatabaseName (Like) của trace — tự gợi ý %mã dự án% theo workspace. Sửa được (vd %KOG_FBISP24% hoặc đúng tên database): Bcode nhớ theo workspace, dùng cho Copy và filter khi Bung Profiler. Để trống hoặc bấm ⟳ = về giá trị gợi ý." />
     <button class="btn" id="btnCopyDb">Copy</button>
-    <button class="btn btn-icon" id="btnRefreshHint" title="Làm mới">⟳</button>
+    <button class="btn btn-icon" id="btnRefreshHint" title="Về giá trị gợi ý theo workspace">⟳</button>
     <div class="sep"></div>
     <label class="lbl">File trace:</label>
     <span class="db-hint" id="traceFile" title="">(chưa có Workspace)</span>
@@ -99,7 +101,7 @@
 
   document.getElementById('btnBrowse').addEventListener('click', () => post({ action: 'browse' }));
   document.getElementById('btnRun').addEventListener('click', () => post({
-    action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template'), targetUser: val('targetUser'), uid: val('uidOut'), uidManual: uidManual
+    action: 'run', exePath: val('exePath'), loginUser: val('loginUser'), loginPass: val('loginPass'), template: val('template'), targetUser: val('targetUser'), uid: val('uidOut'), uidManual: uidManual, dbLike: val('dbHint')
   }));
   document.getElementById('btnClose').addEventListener('click', () => post({ action: 'close' }));
   document.getElementById('btnHideBar').addEventListener('click', () => post({ action: 'hide-bar' }));
@@ -111,7 +113,16 @@
   document.getElementById('targetUser').addEventListener('input', function () { uidManual = false; });
   document.getElementById('btnClearUid').addEventListener('click', function () { document.getElementById('uidOut').value = ''; uidManual = true; post({ action: 'uid-cleared' }); });
   document.getElementById('btnCopyUid').addEventListener('click', () => post({ action: 'copy', value: val('uidOut') }));
-  document.getElementById('btnCopyDb').addEventListener('click', () => post({ action: 'copy', value: document.getElementById('dbHint').textContent }));
+  // Ô Lọc DatabaseName: sửa được — rời ô / Enter thì C# nhớ theo workspace (trống = về gợi ý); Copy và Bung Profiler dùng giá trị đang hiện.
+  var dbSuggested = '', dbSent = '';
+  function dbValue() { return val('dbHint').trim() || dbSuggested; }
+  function saveDb() { var v = val('dbHint').trim(); if (v !== dbSent) { dbSent = v; post({ action: 'set-db-filter', value: v }); } }
+  document.getElementById('dbHint').addEventListener('blur', saveDb);
+  document.getElementById('dbHint').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') e.target.blur();
+    else if (e.key === 'Escape') { e.target.value = dbSent; e.target.blur(); }
+  });
+  document.getElementById('btnCopyDb').addEventListener('click', () => post({ action: 'copy', value: dbValue() }));
   document.getElementById('btnRefreshHint').addEventListener('click', () => post({ action: 'refresh-hint' }));
   document.getElementById('btnOpenTraceFolder').addEventListener('click', () => post({ action: 'open-trace-folder' }));
   document.getElementById('btnCopySql').addEventListener('click', () => post({ action: 'copy-sql' }));
@@ -141,7 +152,15 @@
   };
   window.setStatus = function (text) { document.getElementById('status').textContent = text || ''; };
   window.setUid = function (text) { document.getElementById('uidOut').value = text || ''; uidManual = false; };
-  window.setDbHint = function (text) { document.getElementById('dbHint').textContent = text || ''; };
+  // value = lọc đang dùng (tự sửa hoặc gợi ý), suggested = gợi ý theo workspace (placeholder; nhãn ghi "gợi ý" khi chưa sửa).
+  window.setDbHint = function (value, suggested) {
+    var el = document.getElementById('dbHint');
+    dbSuggested = suggested && suggested.charAt(0) !== '(' ? suggested : '';
+    el.placeholder = suggested || '';
+    el.value = dbSent = value || '';
+    var custom = !!dbSent && dbSent.toLowerCase() !== dbSuggested.toLowerCase();
+    document.getElementById('dbLbl').textContent = custom ? 'Lọc DatabaseName (đã sửa):' : 'Lọc DatabaseName gợi ý:';
+  };
   window.setRunning = function (running) { document.getElementById('btnClose').disabled = !running; };
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

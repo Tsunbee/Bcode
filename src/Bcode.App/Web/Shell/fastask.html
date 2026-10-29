@@ -70,6 +70,14 @@
   footer { flex: none; display: flex; gap: .5rem; padding: .55rem .8rem; border-top: var(--bw) solid var(--border); background: var(--panel-alt); }
   textarea { flex: 1; font: inherit; color: var(--text); background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .4rem .6rem; resize: none; height: 2.6rem; }
   textarea:focus { outline: none; border-color: var(--accent); }
+  /* thanh tìm (Ctrl+F): tìm chữ trong cuộc hỏi, có hoặc không dấu */
+  #findBar { flex: none; display: none; align-items: center; gap: .35rem; padding: .3rem .8rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); }
+  #findBar.on { display: flex; }
+  #findBar input { font: inherit; color: var(--text); background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .2rem .5rem; width: 18rem; }
+  #findBar input:focus { outline: none; border-color: var(--accent); }
+  #findCount { color: var(--text-muted); font-size: .82rem; min-width: 4.5rem; }
+  mark.fh { background: color-mix(in srgb, var(--accent) 35%, transparent); color: inherit; border-radius: 2px; }
+  mark.fh.cur { background: var(--accent); color: var(--on-accent); }
 </style>
 </head>
 <body>
@@ -90,6 +98,13 @@
     <div class="list" id="sessList"></div>
   </aside>
   <div id="chat">
+    <div id="findBar">
+      <input id="findQ" spellcheck="false" placeholder="Tìm trong cuộc hỏi (có / không dấu)" />
+      <span id="findCount"></span>
+      <button class="tbtn" id="findPrev" title="Kết quả trước (Shift+Enter)">▲</button>
+      <button class="tbtn" id="findNext" title="Kết quả kế tiếp (Enter)">▼</button>
+      <button class="tbtn" id="findClose" title="Đóng (Esc)">✕</button>
+    </div>
     <div id="log"></div>
     <footer>
       <textarea id="q" placeholder="Hỏi gì cũng được: tạo báo cáo bảng kê xuất kho · tạo danh mục kho · join ct70 dmvt · GetSiteFilter · save as rs_rptStockCard · %Partition · tra trường tài khoản đối ứng   (Enter = gửi, Shift+Enter = xuống dòng)"></textarea>
@@ -292,6 +307,59 @@
     var id = pending('📚 Học dự án này (' + (sys ? 'Sys' : 'App') + ' Data)');
     post({ action: 'learn', id: id, sys: sys });
   };
+
+  // ---- Ctrl+F: tìm chữ trong cuộc hỏi (bỏ dấu từng ký tự để vị trí khớp đúng chữ gốc), tô màu, Enter / Shift+Enter chuyển, Esc đóng
+  var hits = [], cur = -1;
+  function foldCh(c) { return c === 'đ' || c === 'Đ' ? 'd' : c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().charAt(0) || c; }
+  function fold(s) { var r = ''; for (var i = 0; i < s.length; i++) r += foldCh(s[i]); return r; }
+  function clearMarks() {
+    log.querySelectorAll('mark.fh').forEach(function (m) { var p = m.parentNode; p.replaceChild(document.createTextNode(m.textContent), m); p.normalize(); });
+    hits = []; cur = -1;
+  }
+  function runFind() {
+    clearMarks();
+    var q = fold($('findQ').value.trim());
+    if (!q) { $('findCount').textContent = ''; return; }
+    var walker = document.createTreeWalker(log, NodeFilter.SHOW_TEXT, null), nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function (n) {
+      var txt = n.nodeValue, f = fold(txt), at = [], p = 0;
+      while ((p = f.indexOf(q, p)) >= 0) { at.push(p); p += q.length; }
+      if (!at.length) return;
+      var frag = document.createDocumentFragment(), last = 0;
+      at.forEach(function (a) {
+        frag.appendChild(document.createTextNode(txt.slice(last, a)));
+        var m = document.createElement('mark'); m.className = 'fh'; m.textContent = txt.slice(a, a + q.length); frag.appendChild(m); hits.push(m);
+        last = a + q.length;
+      });
+      frag.appendChild(document.createTextNode(txt.slice(last)));
+      n.parentNode.replaceChild(frag, n);
+    });
+    move(hits.length ? 1 : 0, true);
+  }
+  function move(step, fromStart) {
+    if (!hits.length) { $('findCount').textContent = $('findQ').value.trim() ? 'Không thấy' : ''; return; }
+    if (cur >= 0) hits[cur].classList.remove('cur');
+    cur = fromStart ? 0 : (cur + step + hits.length) % hits.length;
+    hits[cur].classList.add('cur');
+    hits[cur].scrollIntoView({ block: 'center' });
+    $('findCount').textContent = (cur + 1) + '/' + hits.length;
+  }
+  function openFind() { $('findBar').classList.add('on'); $('findQ').focus(); $('findQ').select(); if ($('findQ').value.trim()) runFind(); }
+  function closeFind() { $('findBar').classList.remove('on'); clearMarks(); $('findCount').textContent = ''; $('q').focus(); }
+  var findTimer = 0;
+  $('findQ').addEventListener('input', function () { clearTimeout(findTimer); findTimer = setTimeout(runFind, 200); });
+  $('findQ').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); if (!hits.length) runFind(); else move(e.shiftKey ? -1 : 1); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+  });
+  $('findNext').onclick = function () { move(1); };
+  $('findPrev').onclick = function () { move(-1); };
+  $('findClose').onclick = closeFind;
+  document.addEventListener('keydown', function (e) {
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); openFind(); }
+    else if (e.key === 'Escape' && $('findBar').classList.contains('on')) { e.preventDefault(); closeFind(); }
+  });
 
   startNew();
   $('q').focus();

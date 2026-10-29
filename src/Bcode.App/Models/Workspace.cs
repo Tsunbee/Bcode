@@ -60,6 +60,8 @@ public class Workspace
     public string RegistryName { get; set; } = "";
     public string ProfilerTargetUser { get; set; } = "";
     public string ProfilerTemplateName { get; set; } = "";
+    /// <summary>Lọc DatabaseName (Like) của SQL Profiler do người dùng tự sửa trên thanh Profiler; "" = dùng gợi ý %ProjectId% (hoặc %tên WS%).</summary>
+    public string ProfilerDatabaseLike { get; set; } = "";
     public string WebLoginUser { get; set; } = "";
     private readonly ProtectedText _webLoginPassword = new();
     [JsonIgnore] public string WebLoginPassword { get => _webLoginPassword.Plain; set => _webLoginPassword.Plain = value; }

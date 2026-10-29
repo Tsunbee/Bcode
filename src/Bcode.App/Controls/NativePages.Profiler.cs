@@ -8,11 +8,13 @@ namespace Bcode.App.Controls;
 internal sealed class SqlProfilerBarPage : NativePage
 {
     private readonly RoundedInput _exe = NK.Input("Đường dẫn Profiler.exe", mono: true), _user = NK.Input(), _pass = NK.Input(), _template = NK.Input(),
-        _target = NK.Input("u_name"), _uid = NK.Input("", mono: true);
-    private readonly Label _dbHint = Hint("(chưa có Workspace)"), _traceFile = Hint("(chưa có Workspace)"), _status = NK.Muted("Chưa chạy Profiler.");
+        _target = NK.Input("u_name"), _uid = NK.Input("", mono: true), _db = NK.Input("(chưa có Workspace)", mono: true);
+    private readonly Label _dbLbl = Lbl("Lọc DatabaseName gợi ý"), _traceFile = Hint("(chưa có Workspace)"), _status = NK.Muted("Chưa chạy Profiler.");
     private readonly PillButton _bClose;
     private readonly ToolTip _tip = new();
     private bool _uidManual, _settingUid;
+    // Ô Lọc DatabaseName: _dbSuggested = gợi ý theo workspace, _dbSent = giá trị C# đang dùng (so để biết người dùng có sửa không).
+    private string _dbSuggested = "", _dbSent = "";
 
     public SqlProfilerBarPage()
     {
@@ -24,8 +26,16 @@ internal sealed class SqlProfilerBarPage : NativePage
         foreach (var i in new[] { _exe, _user, _pass, _template }) i.Inner.Leave += (_, _) => SaveConfig();
         _template.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; SaveConfig(); } };
         _target.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Lookup(); } };
+        // Ô Lọc DatabaseName sửa được: rời ô / Enter thì C# nhớ theo workspace (trống = về gợi ý), Esc = bỏ sửa; Copy và Bung Profiler dùng giá trị đang hiện.
+        _tip.SetToolTip(_db.Inner, "Bộ lọc DatabaseName (Like) của trace — tự gợi ý %mã dự án% theo workspace. Sửa được (vd %KOG_FBISP24% hoặc đúng tên database): Bcode nhớ theo workspace, dùng cho Copy và filter khi Bung Profiler. Để trống hoặc bấm ⟳ = về giá trị gợi ý.");
+        _db.Inner.Leave += (_, _) => SaveDb();
+        _db.InputKeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; SaveDb(); }
+            else if (e.KeyCode == Keys.Escape) { e.Handled = e.SuppressKeyPress = true; _db.Text = _dbSent; }
+        };
 
-        var bRun = NK.Button("▶ Bung & Đăng nhập", () => Post(new { action = "run", exePath = _exe.Text, loginUser = _user.Text, loginPass = _pass.Text, template = _template.Text, targetUser = _target.Text, uid = _uid.Text, uidManual = _uidManual }), primary: true);
+        var bRun = NK.Button("▶ Bung & Đăng nhập", () => Post(new { action = "run", exePath = _exe.Text, loginUser = _user.Text, loginPass = _pass.Text, template = _template.Text, targetUser = _target.Text, uid = _uid.Text, uidManual = _uidManual, dbLike = _db.Text }), primary: true);
         _bClose = NK.Button("✕ Đóng Profiler", () => Post(new { action = "close" })); _bClose.Enabled = false;
         _traceFile.AutoSize = false; _traceFile.AutoEllipsis = true; _traceFile.TextAlign = ContentAlignment.MiddleLeft;
         _status.AutoSize = false; _status.AutoEllipsis = true; _status.TextAlign = ContentAlignment.MiddleLeft;
@@ -40,8 +50,8 @@ internal sealed class SqlProfilerBarPage : NativePage
             (Lbl("→ u_id"), 0), (_uid, 12),
             (NK.Button("✕", () => { _uid.Text = ""; _uidManual = true; Post(new { action = "uid-cleared" }); }, tip: "Xoá u_id — trace không lọc theo ID (ApplicationName)"), 0),
             (NK.Button("Copy", () => Post(new { action = "copy", value = _uid.Text })), 0),
-            (Sep(), 0), (Lbl("Lọc DatabaseName gợi ý"), 0), (_dbHint, 0), (NK.Button("Copy", () => Post(new { action = "copy", value = _dbHint.Text })), 0),
-            (NK.Button("⟳", () => Post(new { action = "refresh-hint" }), tip: "Làm mới gợi ý"), 0));
+            (Sep(), 0), (_dbLbl, 0), (_db, 16), (NK.Button("Copy", () => Post(new { action = "copy", value = DbValue() })), 0),
+            (NK.Button("⟳", () => Post(new { action = "refresh-hint" }), tip: "Về giá trị gợi ý theo workspace"), 0));
         var row3 = NK.GridRow(8,
             (bRun, 0), (_bClose, 0), (Sep(), 0),
             (NK.Button("📋 Copy SQL Command", () => Post(new { action = "copy-sql" }), tip: "Copy câu SQL (TextData) của dòng đang chọn trong Profiler để dán sang SQL Query chạy"), 0),
@@ -57,6 +67,14 @@ internal sealed class SqlProfilerBarPage : NativePage
 
     private void SaveConfig() => Post(new { action = "save-config", exePath = _exe.Text, loginUser = _user.Text, loginPass = _pass.Text, template = _template.Text });
     private void Lookup() => Post(new { action = "lookup-uid", targetUser = _target.Text });
+    private string DbValue() => _db.Text.Trim().Length > 0 ? _db.Text.Trim() : _dbSuggested;
+    private void SaveDb()
+    {
+        var v = _db.Text.Trim();
+        if (v == _dbSent) return;
+        _dbSent = v;
+        Post(new { action = "set-db-filter", value = v });
+    }
 
     public override void Dispatch(string path, IReadOnlyList<JsonElement> a)
     {
@@ -73,7 +91,17 @@ internal sealed class SqlProfilerBarPage : NativePage
             }
             case "window.setStatus": _status.Text = Str(a, 0); break;
             case "window.setUid": _settingUid = true; _uid.Text = Str(a, 0); _settingUid = false; _uidManual = false; break;
-            case "window.setDbHint": _dbHint.Text = Str(a, 0); break;
+            case "window.setDbHint":
+            {
+                // (giá trị đang dùng, gợi ý theo workspace) — nhãn ghi "đã sửa" khi khác gợi ý.
+                var suggested = Str(a, 1);
+                _dbSuggested = suggested.StartsWith("(") ? "" : suggested;
+                _db.PlaceholderText = suggested;
+                _db.Text = _dbSent = Str(a, 0);
+                var custom = _dbSent.Length > 0 && !string.Equals(_dbSent, _dbSuggested, StringComparison.OrdinalIgnoreCase);
+                _dbLbl.Text = custom ? "Lọc DatabaseName (đã sửa)" : "Lọc DatabaseName gợi ý";
+                break;
+            }
             case "window.setRunning": _bClose.Enabled = Bool(a, 0); break;
         }
     }

@@ -291,6 +291,20 @@ public sealed class FastAskService
         return IndexCache.GetOrAdd(stamp, _ => Task.Run(async () =>
         {
             var ix = new FastAskIndex();
+            // source Fast (Filter / Grid / Report của dự án, không có thì mẫu đi kèm): điều kiện lọc + mẫu in của báo cáo, bảng + trường của màn hình
+            var src = FastSourceKnowledge.For(_connections.Current?.SourcePath, () => IndexCache.TryRemove(stamp, out var _stale));
+            string SrcText(string controller)
+            {
+                var parts = new List<string>();
+                foreach (var c in src.Find(controller))
+                {
+                    if (c.Table.Length > 0) parts.Add(c.Table);
+                    if (c.VoucherId.Length > 0) parts.Add(c.VoucherId);
+                    parts.AddRange(c.Forms.Select(x => x.V).Distinct().Take(6));
+                }
+                return string.Join(" ", parts);
+            }
+            var menuControllers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var db = await DbAsync(useSys);
             var mods = db.Modules.ToDictionary(m => m.Name, m => m.Type, StringComparer.OrdinalIgnoreCase);
             var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -305,12 +319,16 @@ public sealed class FastAskService
                 {
                     var (bar, bar2, sysid, link) = (r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3));
                     var store = new[] { "rs_" + sysid, "zrs_" + sysid, "fs_" + sysid }.FirstOrDefault(mods.ContainsKey);
-                    if (store is not null && covered.Add(store)) ix.Add(new FastAskIndex.Doc("report", store, bar, $"{bar2} {sysid} {store}", mods[store]), 3);
-                    else if (store is null) ix.Add(new FastAskIndex.Doc("menu", sysid, bar, $"{bar2} {sysid} {link}"));
+                    menuControllers.Add(sysid);
+                    if (store is not null && covered.Add(store)) ix.Add(new FastAskIndex.Doc("report", store, bar, $"{bar2} {sysid} {store} {SrcText(sysid)}", mods[store]), 3);
+                    else if (store is null) ix.Add(new FastAskIndex.Doc("menu", sysid, bar, $"{bar2} {sysid} {link} {SrcText(sysid)}"));
                 }
             }
             catch { /* không đọc được Sys Data → bỏ phần menu */ }
             foreach (var (name, type) in mods.Where(m => !covered.Contains(m.Key))) ix.Add(new FastAskIndex.Doc("store", name, name, "", type));
+            // màn hình (Grid) không có trên menu: vd lưới chi tiết của chứng từ (AIDetail → bảng cthddc, mã HD5)
+            foreach (var c in src.All.Where(c => c.Kind == "Grid" && !menuControllers.Contains(c.Name) && (c.Table.Length > 0 || c.VoucherId.Length > 0)).DistinctBy(c => c.Name, StringComparer.OrdinalIgnoreCase))
+                ix.Add(new FastAskIndex.Doc("controller", c.Name, c.Name, SrcText(c.Name)), 1);
             foreach (var s in SqlHintCatalog.Snippets) ix.Add(new FastAskIndex.Doc("snippet", s.Prefix, s.Name, $"{s.Description} {s.Prefix} {s.Category}"), 3);
             foreach (var t in Topics) ix.Add(new FastAskIndex.Doc("topic", t.Title, t.Title, string.Join(" ", t.Keys) + " " + t.Text), 3);
             // bảng: tiêu đề field tra cứu vào bảng (danh mục) + tên chứng từ dùng bảng (dmct)
@@ -347,13 +365,43 @@ public sealed class FastAskService
     {
         "report" => ModuleCard(d.Key, d.Extra, useSys, "menu: " + d.Title),
         "store" => ModuleCard(d.Key, d.Extra, useSys, "tên khớp"),
-        "menu" => new AskCard(d.Title, $"Chức năng trên menu — controller {d.Key}" + (d.Body.Length > 0 ? $"\n{d.Body}" : ""), "", new List<AskAction> { new("copy", "Copy controller", d.Key) }, "Menu (Sys Data)"),
+        "menu" => ControllerCard(d.Key, d.Title, "Chức năng trên menu") ?? new AskCard(d.Title, $"Chức năng trên menu — controller {d.Key}", "", new List<AskAction> { new("copy", "Copy controller", d.Key) }, "Menu (Sys Data)"),
+        "controller" => ControllerCard(d.Key, d.Key, "Màn hình"),
         "snippet" => Snip(d.Key) is { } s ? SnippetCard(s) : null,
         "topic" => Topics.FirstOrDefault(t => t.Title == d.Key) is { } t ? new AskCard(t.Title, t.Text, "", Array.Empty<AskAction>(), "Quy ước Fast") : null,
         "table" => new AskCard(d.Key, (d.Body.Length > 0 ? d.Body + "\n" : "") + "Bảng trong database đang kết nối.", "", new List<AskAction> { new("ask", "Xem cấu trúc", "cấu trúc bảng " + d.Key, "Cấu trúc bảng " + d.Key), new("copy", "Copy tên", d.Key) }, "Database đang kết nối"),
         "field" => new AskCard(d.Key, d.Title + (d.Body.Length > 0 ? " — " + d.Body : ""), d.Key, new List<AskAction> { new("insert", "Chèn tên trường", d.Key), new("copy", "Copy", d.Key) }, "Từ điển field Fast (header.xml)"),
         _ => null,
     };
+
+    /// <summary>Thẻ màn hình theo source Fast: bảng lưu, mã chứng từ, các trường (tiêu đề Việt), điều kiện lọc, mẫu in; null nếu không có controller.</summary>
+    private AskCard? ControllerCard(string controller, string title, string what)
+    {
+        var cs = FastSourceKnowledge.For(_connections.Current?.SourcePath).Find(controller);
+        if (cs.Count == 0) return null;
+        var lines = new List<string>();
+        foreach (var c in cs.OrderBy(c => c.Kind == "Grid" ? 0 : c.Kind == "Filter" ? 1 : 2))
+        {
+            if (c.Kind == "Grid")
+            {
+                lines.Add($"Màn hình ({c.Type}{(c.Type.Length > 0 ? ", " : "")}{Path.GetFileName(Path.GetDirectoryName(c.Path))}): bảng {(c.Table.Length > 0 ? c.Table : "?")}" + (c.VoucherId.Length > 0 ? $" · mã chứng từ {c.VoucherId}" : ""));
+                var fl = c.Fields.Where(x => x.V.Length > 0).ToList();
+                if (fl.Count > 0) lines.Add($"Trường ({fl.Count}): " + string.Join(", ", fl.Take(30).Select(x => $"{x.Name} ({x.V})")) + (fl.Count > 30 ? ", …" : ""));
+            }
+            else if (c.Kind == "Filter" && c.Fields.Count > 0)
+                lines.Add($"Điều kiện lọc ({c.Fields.Count}): " + string.Join(", ", c.Fields.Where(x => x.V.Length > 0).Take(25).Select(x => $"{x.V} ({x.Name})")));
+            else if (c.Kind == "Report" && c.Fields.Count(x => x.V.Length > 0 && x.Name != "Title" && !x.Name.StartsWith("h_")) is > 0 and var nf)
+            {
+                if (c.Forms.Count > 0) lines.Add($"Mẫu in ({c.Forms.Count}): " + string.Join(" · ", c.Forms.Take(8).Select(x => $"{x.Id} {x.V}")));
+                lines.Add($"Cột trên mẫu in ({nf}): " + string.Join(", ", c.Fields.Where(x => x.V.Length > 0 && x.Name != "Title" && !x.Name.StartsWith("h_")).DistinctBy(x => x.Name).Take(25).Select(x => $"{x.Name} ({x.V})")));
+            }
+            else if (c.Kind == "Report" && c.Forms.Count > 0)
+                lines.Add($"Mẫu in ({c.Forms.Count}): " + string.Join(" · ", c.Forms.Take(8).Select(x => $"{x.Id} {x.V}")));
+        }
+        if (lines.Count == 0) return null;
+        return new AskCard(title, $"{what} — controller {controller}\n" + string.Join("\n", lines), "",
+            new List<AskAction> { new("copy", "Copy controller", controller) }, cs[0].Path.Contains(Path.Combine("Templates", "fileSource")) ? "Mẫu source Fast đi kèm Bcode" : "Source dự án (Controllers)");
+    }
 
     private static AskCard ModuleCard(string name, string type, bool useSys, string why) =>
         new(name, (type == "P" ? "Store" : "Function") + " trong database đang kết nối" + (why.Length > 0 ? " — " + why : ""), "",
@@ -453,6 +501,28 @@ public sealed class FastAskService
 
         var ix = await IndexAsync(useSys);
         var top = ix.Search(text, 3);
+        var detail = Regex.IsMatch(f, @"\b(dieu kien loc|loc theo|tham so|mau in|bang nao|luu (o|vao|trong)|truong (nao|gi)|nhung truong|cot (nao|gi)|lam gi|gom nhung|co nhung)\b");
+        // mã chứng từ (HD5, PN1…) → màn hình chứng từ đó (bảng lưu, trường) theo source Fast
+        var src = FastSourceKnowledge.For(_connections.Current?.SourcePath);
+        var vouchers = Regex.Matches(text, @"\b[A-Za-z]{2,3}\d{0,2}\b").Select(m => m.Value)
+            .SelectMany(v => src.All.Where(c => c.Kind == "Grid" && c.VoucherId.Equals(v, StringComparison.OrdinalIgnoreCase))).DistinctBy(c => c.Name).Take(4).ToList();
+        if (vouchers.Count > 0 && Regex.IsMatch(f, @"\b(chung tu|ma ct|bang|truong|man hinh|luu)\b"))
+            return Reply($"Màn hình của chứng từ {vouchers[0].VoucherId}:", vouchers.Select(c => ControllerCard(c.Name, c.Name, "Màn hình chứng từ " + c.VoucherId)).OfType<AskCard>());
+        // không phải hỏi chi tiết 1 báo cáo: câu mở đầu bằng cách lọc chung ("điều kiện lọc theo đơn vị"), hoặc đã gõ tên store (luồng store có tóm tắt)
+        if (detail && !Regex.IsMatch(f, @"^\s*(dieu kien loc|loc theo|cach loc)\b") && !Regex.IsMatch(text, @"\b(z?rs|fs|ff)_\w+", RegexOptions.IgnoreCase))
+        {
+            var core = Regex.Replace(f, @"\b(co nhung|nhung|dieu kien loc|loc theo|tham so|mau in|bang nao|luu (o|vao|trong)|truong (nao|gi)|truong|cot (nao|gi)|lam gi|gom|nao|gi|cua|cac|co|man hinh|la)\b", " ").Trim();
+            // hỏi màn hình / trường → ưu tiên màn hình nhập liệu (menu / controller) hơn mẫu in báo cáo cùng tên
+            var screen = Regex.IsMatch(f, @"\b(man hinh|truong)\b");
+            var d0 = core.Length == 0 ? null : (screen ? ix.Search(core, 1, d => d.Kind is "menu" or "controller").FirstOrDefault().Doc : null)
+                ?? ix.Search(core, 1, d => d.Kind is "report" or "menu" or "controller").FirstOrDefault().Doc;
+            if (d0 is not null)
+            {
+                var first = d0.Kind == "report" && await DistillAsync(d0.Key, d0.Extra, useSys) is { } sum ? sum with { Title = $"{d0.Key} — {d0.Title}" } : IndexCard(d0, useSys);
+                var rest = await SearchAllAsync(core, core, useSys);
+                return rest with { Cards = (first is null ? rest.Cards : rest.Cards.Prepend(first)).DistinctBy(c => c.Title).Take(6).ToList() };
+            }
+        }
         // tên routine (FastBusiness$…, ff_…, fs_…, rs_…) → cách gọi hay dùng + mở định nghĩa
         // (câu có thêm ≥ 2 từ ngoài tên hàm mà mẫu code / quy ước khớp nhất → tìm chung, vd "SQL động (sp_executesql)")
         var routineM = Regex.Match(text, @"(?:dbo\.)?\b(?<n>[A-Za-z_]\w*\$[A-Za-z][\w$]*|ff_\w+|fs_\w+|rs_\w+|zrs_\w+|sp_executesql)\b", RegexOptions.IgnoreCase);
@@ -479,7 +549,8 @@ public sealed class FastAskService
                 topics.Count == Topics.Length ? null : new[] { new AskChoice("Tạo báo cáo theo quy ước này", "tạo báo cáo") });
 
         if (Regex.IsMatch(f, @"\b(viet|tao|lam)\b.*\b(store|procedure|thu tuc|function|ham)\b")) return await StoreAsync(text, f, useSys);
-        if (Regex.IsMatch(f, @"\b(tra truong|truong|field)\b") || f.StartsWith("ma ")) return await FieldReplyAsync(f, text, useSys);
+        if ((Regex.IsMatch(f, @"\b(tra truong|truong|field)\b") || f.StartsWith("ma ")) && !Regex.IsMatch(f, @"\b(man hinh|chung tu|bao cao|phieu|hoa don|so cai|danh muc)\b.*\b(truong|cot)\b"))
+            return await FieldReplyAsync(f, text, useSys);
 
         return await SearchAllAsync(text, f, useSys);
     }
@@ -1074,7 +1145,8 @@ public sealed class FastAskService
         var ix = await IndexAsync(useSys);
         if (ix.Search(name, 3, d => d.Kind == "report" && d.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).FirstOrDefault() is { Doc: { } menu })
             lines.Add($"Menu: {menu.Title}");
-        if (Regex.Match(code, @"CREATE\s+(?:PROC(?:EDURE)?|FUNCTION)\s+[\w.\[\]$]+(?<h>.*?)\b(?:AS|RETURNS)\b", RegexOptions.IgnoreCase | RegexOptions.Singleline) is { Success: true } hm)
+        var hm2 = Regex.Match(code, @"CREATE\s+(?:PROC(?:EDURE)?|FUNCTION)\s+[\w.\[\]$]+(?<h>.*?)\b(?:AS|RETURNS)\b", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+        if (hm2 is { Success: true } hm)
         {
             var ps = Regex.Matches(hm.Groups["h"].Value, @"@(\w+)\s+([A-Za-z]+(?:\s*\(\s*(?:\d+|max)(?:\s*,\s*\d+)?\s*\))?)", RegexOptions.IgnoreCase).Select(m => $"@{m.Groups[1].Value} {m.Groups[2].Value}").ToList();
             if (ps.Count > 0) lines.Add($"Tham số ({ps.Count}): {string.Join(", ", ps.Take(14))}{(ps.Count > 14 ? ", …" : "")}");
@@ -1097,6 +1169,18 @@ public sealed class FastAskService
             .Concat(Regex.Matches(code, @"\bdbo\.(?<n>[A-Za-z_][\w$]+)\s*\(", RegexOptions.IgnoreCase).Select(m => m.Groups["n"].Value))
             .Where(n => !n.Equals("sp_executesql", StringComparison.OrdinalIgnoreCase)).GroupBy(n => n, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).Select(g => g.Key).Take(8).ToList();
         if (calls.Count > 0) lines.Add($"Gọi: {string.Join(", ", calls)}");
+        // màn hình báo cáo (source Fast): điều kiện lọc + mẫu in của controller cùng tên (rs_rptStockCard → rptStockCard)
+        var controller = Regex.Replace(name, @"^z?rs_", "", RegexOptions.IgnoreCase);
+        var srcK = FastSourceKnowledge.For(_connections.Current?.SourcePath);
+        if (ControllerCard(controller, name, "") is { } cc) lines.AddRange(cc.Text.Split('\n').Skip(1));
+        if (srcK.Find(controller).All(c => c.Kind != "Filter") && hm2 is { Success: true })
+        {
+            var dict = FieldDictionaryService.Instance;
+            var conds = Regex.Matches(hm2.Groups["h"].Value, @"@(\w+)").Select(m => m.Groups[1].Value)
+                .Where(p => !Regex.IsMatch(p, "^(UserID|Admin|Language|SysDB|SysDatabase|Controller|TableName|PrintType|Unit)$", RegexOptions.IgnoreCase))
+                .Select(p => (srcK.ColumnForParam(p) ?? FastSourceKnowledge.Shipped.ColumnForParam(p)) is { } col ? $"{(dict.Header(col)?.V is { Length: > 0 } hv ? hv : col)} (@{p} → {col})" : $"@{p}").ToList();
+            if (conds.Count > 0) lines.Add($"Điều kiện lọc (suy từ tham số store): {string.Join(", ", conds)}");
+        }
         var kind = name.StartsWith("rs_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("zrs_", StringComparison.OrdinalIgnoreCase) || code.Contains("#report", StringComparison.OrdinalIgnoreCase) ? "Store báo cáo"
             : writes.Count > 0 ? "Store xử lý / cập nhật dữ liệu" : type == "P" ? "Store" : "Function";
         lines.Insert(0, $"{kind} — {code.Split('\n').Length} dòng.");
@@ -1442,6 +1526,14 @@ public sealed class FastAskService
         if (hits.Count > 0)
         {
             var best = hits[0].Score;
+            // hỏi chi tiết 1 báo cáo / màn hình ("có những điều kiện lọc nào", "mẫu in", "lưu ở bảng nào", "có những trường gì", "làm gì")
+            // → thẻ tóm tắt (store + source Fast) của kết quả đầu lên trước
+            if (Regex.IsMatch(f, @"\b(dieu kien loc|loc theo|tham so|mau in|bang nao|luu (o|vao|trong)|truong (nao|gi)|nhung truong|cot (nao|gi)|lam gi|gom nhung|co nhung)\b"))
+            {
+                var d0 = hits[0].Doc;
+                if (d0.Kind == "report" && await DistillAsync(d0.Key, d0.Extra, useSys) is { } sum) cards.Add(sum with { Title = $"{d0.Key} — {d0.Title}" });
+                else if (d0.Kind is "menu" or "controller" && IndexCard(d0, useSys) is { } cc) cards.Add(cc);
+            }
             foreach (var (d, s) in hits.Where(h => h.Score >= best * 0.35))
                 if (IndexCard(d, useSys) is { } c && cards.All(x => x.Title != c.Title)) cards.Add(c);
             cards = cards.Take(6).ToList();

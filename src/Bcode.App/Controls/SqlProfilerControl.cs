@@ -379,6 +379,8 @@ public class SqlProfilerControl : UserControl
                 BarHost.Height = Math.Clamp(root.GetProperty("height").GetInt32() + 2, Bcode.App.UI.DpiScale.Px(this, 60), Bcode.App.UI.DpiScale.Px(this, 420));
                 break;
             case "run":
+                // Ô Lọc DatabaseName vừa gõ mà bấm Bung luôn (chưa rời ô) → lưu trước để lần bung này dùng đúng giá trị đó.
+                if (root.TryGetProperty("dbLike", out var dl) && SaveDbLike(dl.GetString() ?? "", report: false)) PushWorkspaceHintsToBar();
                 await RunProfilerAsync(
                     root.GetProperty("exePath").GetString() ?? "",
                     root.GetProperty("loginUser").GetString() ?? "",
@@ -396,7 +398,15 @@ public class SqlProfilerControl : UserControl
                 var value = root.GetProperty("value").GetString() ?? "";
                 if (value.Length > 0 && !value.StartsWith("(")) Clipboard.SetText(value);
                 break;
-            case "refresh-hint": PushWorkspaceHintsToBar(); break;
+            case "set-db-filter":
+                SaveDbLike(root.GetProperty("value").GetString() ?? "");
+                PushWorkspaceHintsToBar();
+                break;
+            case "refresh-hint":
+                // ⟳ = bỏ giá trị tự sửa, đưa ô Lọc DatabaseName về giá trị gợi ý theo workspace.
+                if (_getCurrentWorkspace() is { } rws && rws.ProfilerDatabaseLike.Length > 0) SaveDbLike("");
+                PushWorkspaceHintsToBar();
+                break;
             case "open-trace-folder": OpenTraceFolder(); break;
             case "copy-sql": await CopySqlCommandAsync(); break;
             case "debug-sql": await DebugSqlCommandAsync(); break;
@@ -557,12 +567,43 @@ public class SqlProfilerControl : UserControl
         try { var folder = GetTraceFolder(ws); Directory.CreateDirectory(folder); Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true }); }
         catch (Exception ex) { SetStatus("Không mở được thư mục Trace: " + ex.Message); }
     }
+    /// <summary>Lọc DatabaseName gợi ý theo workspace: %ProjectId% (chưa khai thì %tên WS%); "" nếu không có gì.</summary>
+    private static string SuggestedDbLike(Workspace ws)
+    {
+        var dbKey = !string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.ProjectId.Trim() : ws.Name.Trim();
+        return dbKey.Length == 0 ? "" : "%" + dbKey + "%";
+    }
+
+    /// <summary>Lọc DatabaseName đang dùng: giá trị người dùng tự sửa trên thanh (nhớ theo workspace), chưa sửa thì giá trị gợi ý.</summary>
+    private static string EffectiveDbLike(Workspace ws)
+        => !string.IsNullOrWhiteSpace(ws.ProfilerDatabaseLike) ? ws.ProfilerDatabaseLike.Trim() : SuggestedDbLike(ws);
+
+    /// <summary>Ô "Lọc DatabaseName" trên thanh: (giá trị đang dùng, giá trị gợi ý — làm placeholder / so để biết đã sửa chưa).</summary>
     private void PushWorkspaceHintsToBar()
     {
         if (!BarReady) return;
         var ws = _getCurrentWorkspace();
-        var hint = ws is null ? "(chưa có Workspace)" : string.IsNullOrWhiteSpace(ws.ProjectId) ? "(Workspace chưa khai ID dự án)" : $"%{ws.ProjectId}%";
-        BarExec($"window.setDbHint && window.setDbHint({JsonSerializer.Serialize(hint)})");
+        var value = ws is null ? "" : EffectiveDbLike(ws);
+        var suggested = ws is null ? "(chưa có Workspace)" : SuggestedDbLike(ws);
+        BarExec($"window.setDbHint && window.setDbHint({JsonSerializer.Serialize(value)}, {JsonSerializer.Serialize(suggested)})");
+    }
+
+    /// <summary>Người dùng sửa ô "Lọc DatabaseName": nhớ vào workspace (trống / trùng gợi ý = quay về gợi ý). Trả về true nếu có đổi.</summary>
+    private bool SaveDbLike(string value, bool report = true)
+    {
+        var ws = _getCurrentWorkspace();
+        if (ws is null) return false;
+        value = value.Trim();
+        var suggested = SuggestedDbLike(ws);
+        var stored = value.Length == 0 || string.Equals(value, suggested, StringComparison.OrdinalIgnoreCase) ? "" : value;
+        if (ws.ProfilerDatabaseLike == stored) return false;
+        ws.ProfilerDatabaseLike = stored;
+        try { _settings.Save(); } catch { }
+        if (report)
+            SetStatus(stored.Length == 0
+                ? $"Lọc DatabaseName quay về gợi ý {(suggested.Length == 0 ? "(không lọc)" : suggested)}."
+                : $"Đã lưu lọc DatabaseName = {stored} cho workspace này — lần bung Profiler tới sẽ lọc theo giá trị này (⟳ = về gợi ý).");
+        return true;
     }
     private void SetStatus(string text)
     {
@@ -812,7 +853,7 @@ public class SqlProfilerControl : UserControl
             // Events Selection/Column Filters mặc định thay vào đó (xem ghi chú ở
             // RunNoTemplateSetupAsync — phần rủi ro nhất là bấm theo toạ độ ước lượng).
             if (templateMatched == false)
-                await RunNoTemplateSetupAsync(autoUid, ws.ProjectId);
+                await RunNoTemplateSetupAsync(autoUid, EffectiveDbLike(ws));
             else if (templateMatched == true)
                 await ClickRunAsync(); // Template có sẵn → chạy luôn, khỏi qua Events Selection
 
@@ -1316,7 +1357,7 @@ public class SqlProfilerControl : UserControl
     /// Khung "Column Filters..." (tick ApplicationName/DatabaseName, gõ Like) mình CHƯA có ảnh
     /// nào để ước lượng toạ độ — nên dừng lại ngay sau khi MỞ khung đó, để Bee tự tick + Run như
     /// bình thường lần này, đồng thời chụp giúp khung đó gửi mình để hoàn thiện tự động hoá.</summary>
-    private async Task RunNoTemplateSetupAsync(string autoUid, string? projectId)
+    private async Task RunNoTemplateSetupAsync(string autoUid, string dbLike)
     {
         var traceHwnd = FindWindow(null, "Trace Properties");
         if (traceHwnd == IntPtr.Zero) { SetStatus("Không còn thấy cửa sổ Trace Properties để tự thiết lập."); return; }
@@ -1379,7 +1420,7 @@ public class SqlProfilerControl : UserControl
         await Task.Delay(400);
 
         var uidHint = string.IsNullOrWhiteSpace(autoUid) ? "" : $" (u_id đã tra sẵn: {autoUid} — hoặc bấm nút \"Copy\" cạnh ô \"Tra u_id\" trên thanh công cụ Bcode)";
-        var dbHint = string.IsNullOrWhiteSpace(projectId) ? "" : $", DatabaseName Like %{projectId}%";
+        var dbHint = string.IsNullOrWhiteSpace(dbLike) ? "" : $", DatabaseName Like {dbLike}";
         SetStatus($"Đã bỏ tick Events mặc định, tick Show all columns, và mở Column Filters. Mình CHƯA có ảnh khung này nên chưa tự tick được — Bee tự tick ApplicationName Like{uidHint}{dbHint}, OK rồi tự bấm Run. Chụp lại khung Column Filters gửi mình để lần sau tự động hoá nốt phần này nhé!");
     }
 
@@ -1423,19 +1464,20 @@ public class SqlProfilerControl : UserControl
             }
             if (string.IsNullOrWhiteSpace(version)) return;
 
-            var dbKey = !string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.ProjectId : ws.Name;
+            // Lọc DatabaseName = ô trên thanh (giá trị tự sửa nhớ theo workspace, chưa sửa thì gợi ý %ProjectId%).
+            var dbLike = EffectiveDbLike(ws);
             var result = ProfilerTemplateService.EnsureTemplate(exePath, version, ws.Server, template,
                 string.IsNullOrWhiteSpace(autoUid) ? null : autoUid,
-                string.IsNullOrWhiteSpace(dbKey) ? null : "%" + dbKey + "%");
+                dbLike.Length == 0 ? null : dbLike);
             if (result is { Created: true })
             {
-                SetStatus($"Chưa có template '{template}' — đã tự tạo (chỉ SQL:BatchStarting, lọc DB %{dbKey}%{(string.IsNullOrWhiteSpace(autoUid) ? "" : ", ID " + autoUid)}).");
+                SetStatus($"Chưa có template '{template}' — đã tự tạo (chỉ SQL:BatchStarting, lọc DB {dbLike}{(string.IsNullOrWhiteSpace(autoUid) ? "" : ", ID " + autoUid)}).");
             }
             else if (result is { Created: false } existing)
             {
                 OfferTemplateFilterUpdate(existing.Path, template,
                     removeIdFilter ? "" : string.IsNullOrWhiteSpace(autoUid) ? null : autoUid,
-                    string.IsNullOrWhiteSpace(dbKey) ? null : "%" + dbKey + "%");
+                    dbLike.Length == 0 ? null : dbLike);
             }
         }
         catch (Exception)

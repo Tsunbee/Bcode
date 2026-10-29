@@ -75,7 +75,7 @@ Bcode.App/
 │   ├── NativePages.Note.cs  90
 │   ├── NativePages.Palette.cs  211
 │   ├── NativePages.PartitionCheck.cs  43
-│   ├── NativePages.Profiler.cs  80
+│   ├── NativePages.Profiler.cs  108
 │   ├── NativePages.QuickAccess.cs  215
 │   ├── NativePages.Register.cs  51
 │   ├── NativePages.RptSchema.cs  186
@@ -105,7 +105,7 @@ Bcode.App/
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  499
 │   ├── SqlPeekPanel.cs  128
-│   ├── SqlProfilerControl.cs  1861
+│   ├── SqlProfilerControl.cs  1903
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
 │   ├── SqlScintilla.cs  162
@@ -199,7 +199,7 @@ Bcode.App/
 │   ├── WCommandItem.cs  45
 │   ├── WeeklyMailSent.cs  68
 │   ├── WeeklyMailTemplate.cs  20
-│   └── Workspace.cs  122
+│   └── Workspace.cs  124
 ├── Secrets/
 │   ├── LocalSecrets.cs  30
 │   ├── LocalSecrets.Empty.cs  38
@@ -257,11 +257,12 @@ Bcode.App/
 │   ├── EntityCheckService.cs  263
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
-│   ├── FastAskService.cs  1455
+│   ├── FastAskService.cs  1547
 │   ├── FastCatalogCheck.cs  200
 │   ├── FastCatalogRules.cs  974
 │   ├── FastGhostMiner.cs  583
-│   ├── FastGhostRules.cs  1050
+│   ├── FastGhostRules.cs  1057
+│   ├── FastSourceKnowledge.cs  129
 │   ├── FastTokenModel.cs  371
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
@@ -382,7 +383,7 @@ Bcode.App/
 │       ├── dialog.css  43
 │       ├── editproject.html  121
 │       ├── entitypeek.html  182
-│       ├── fastask.html  301
+│       ├── fastask.html  369
 │       ├── filelookupbar.html  195
 │       ├── filelookuppreview.html  98
 │       ├── filepreview.html  194
@@ -424,7 +425,7 @@ Bcode.App/
 │       ├── sqlmessages.html  93
 │       ├── sqlobjectbar.html  50
 │       ├── sqlpivot.html  117
-│       ├── sqlprofilerbar.html  151
+│       ├── sqlprofilerbar.html  170
 │       ├── sqlquerybar.html  409
 │       ├── sqlresulttabs.html  53
 │       ├── statusbar.html  75
@@ -448,6 +449,9 @@ Bcode.App/
 ```
 BcodeViewer.App/
 ├── Assets/
+│   ├── fastsource/
+│   │   ├── ask.json  1
+│   │   └── ghost.json  1
 │   ├── snippets/
 │   │   ├── csssnippet.xml  211
 │   │   ├── htmlsnippet.xml  374
@@ -456,10 +460,19 @@ BcodeViewer.App/
 │   │   ├── viewsrcsnippet.xml  611
 │   │   └── viewsrcsqlsnippet.xml  427
 ├── Host/
+│   ├── FastSource/
+│   │   ├── FastSourceService.Ask.cs  200
+│   │   ├── FastSourceService.cs  240
+│   │   ├── SourceAsk.cs  568
+│   │   ├── SourceGhost.cs  480
+│   │   ├── SourceGhostMiner.cs  173
+│   │   ├── SourceTokenModel.cs  389
+│   │   ├── SourceVersions.cs  244
+│   │   └── ViewerKnowledge.cs  72
 │   ├── AsyncHostCall.cs  155
 │   ├── CaptionTranslator.cs  225
 │   ├── ClaudeChatService.cs  693
-│   ├── EditorBridge.cs  1436
+│   ├── EditorBridge.cs  1511
 │   ├── IncludeTree.cs  190
 │   ├── MenuLauncher.cs  70
 │   ├── SearchFileCache.cs  139
@@ -479,7 +492,7 @@ BcodeViewer.App/
 │   ├── SharedHistoryStore.cs  317
 │   ├── TemplatePickerForm.cs  78
 │   ├── TranslateDictionary.cs  370
-│   └── ViewerSettings.cs  203
+│   └── ViewerSettings.cs  213
 ├── UI/
 │   ├── AppTheme.cs  397
 │   ├── CodeHighlighter.cs  100
@@ -493,20 +506,21 @@ BcodeViewer.App/
 │   │   └── roboto.css  33
 │   ├── chat.js  83
 │   ├── checkfield.js  457
-│   ├── completion.js  2372
+│   ├── completion.js  2540
 │   ├── contextmenu.js  1105
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
 │   ├── dock.js  162
 │   ├── editor.js  1719
 │   ├── entity.js  1344
+│   ├── fastask.js  356
 │   ├── fcode-language.js  451
 │   ├── goto.js  296
 │   ├── hint-editor.html  74
 │   ├── history.js  484
 │   ├── hostcall.js  106
-│   ├── index.html  233
-│   ├── keys.js  210
+│   ├── index.html  236
+│   ├── keys.js  212
 │   ├── mailpreview.js  718
 │   ├── outline.js  239
 │   ├── perfwatch.js  110
@@ -514,10 +528,10 @@ BcodeViewer.App/
 │   ├── problems.js  1013
 │   ├── quickopen.js  184
 │   ├── search.js  335
-│   ├── settings.js  696
-│   ├── shell.js  815
+│   ├── settings.js  720
+│   ├── shell.js  818
 │   ├── sqlrun.js  631
-│   ├── style.css  997
+│   ├── style.css  1054
 │   ├── tabs.js  247
 │   ├── tabswitcher.js  228
 │   ├── templates.js  428
@@ -526,7 +540,7 @@ BcodeViewer.App/
 │   ├── ui.js  134
 │   └── zoombar.js  99
 ├── BcodePaths.cs  45
-├── BcodeViewer.App.csproj  52
+├── BcodeViewer.App.csproj  54
 ├── HintCodeForm.cs  518
 ├── MainForm.cs  2717
 └── Program.cs  212

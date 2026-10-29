@@ -322,7 +322,7 @@ Bcode.App/
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
-│   ├── WCommandService.cs  846
+│   ├── WCommandService.cs  856
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77
 │   └── XlsxExportService.cs  22
@@ -506,7 +506,7 @@ BcodeViewer.App/
 │   │   └── roboto.css  33
 │   ├── chat.js  83
 │   ├── checkfield.js  457
-│   ├── completion.js  2540
+│   ├── completion.js  2612
 │   ├── contextmenu.js  1105
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437

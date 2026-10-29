@@ -2059,6 +2059,8 @@ class BcodeCompletion {
     if (this.regionAt(model, position) !== 'xml') return null;
 
     const facts = docFacts(model);
+    // File import (Templates\Upload): cùng ý cho khối cột Excel <template><fields row="…"> — xem importTemplateGhost.
+    if (facts.rootKind === 'import') return this.importTemplateGhost(model, position);
     // Chỉ Grid / Lookup liệt kê cột bằng <field name="x"/>. Dir / Filter đặt field bằng <item value="mặt nạ: [x].Label, [x]"/>
     // và hay đặt qua entity (&DetailTaxFormViewAccountLine;) nên "chưa có trong view" đoán sai — ở đó gợi ý <field name> giữa các
     // dòng <item value> là sai cú pháp (người dùng báo ở Dir/SVTran.xml); để gợi ý Fast (học từ <item value> thật) lo.
@@ -2087,6 +2089,76 @@ class BcodeCompletion {
     const full = `<field name="${name}"/>`;
     if (!full.startsWith(typed)) return null;
 
+    return {
+      items: [{
+        insertText: full.slice(typed.length),
+        range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+      }],
+    };
+  }
+
+  /// File import: field đã khai ở khối nhập (<field name="x" column="…"/>, ngoài <template>) mà chưa có cột trong file Excel mẫu
+  /// (<template><fields row="5">) → ở dòng trống của khối đó gợi ý cả khối <field name="x" width="…"><text v e/></field> (Tab là xong).
+  /// Lấy field kế tiếp theo thứ tự khai sau field của cột đứng ngay trên con trỏ; tiêu đề v/e từ header.xml; field nhập allowNulls="false"
+  /// thì thêm starColor như các cột bắt buộc khác của file; width hay dùng nhất trong khối. Người dùng xin: "Grid khai field mới xuống
+  /// view Tab là khai nhanh — upload cũng áp dụng ở fields row".
+  importTemplateGhost(model, position) {
+    const text = model.getValue();
+    const tpl = /<template\b[^>]*>/.exec(text);
+    if (!tpl) return null;
+    const open = /<fields\b[^>]*>/g;
+    open.lastIndex = tpl.index;
+    const fo = open.exec(text);
+    if (!fo) return null;
+    const blockStart = fo.index + fo[0].length;
+    const blockEnd = text.indexOf('</fields>', blockStart);
+    const offset = model.getOffsetAt(position);
+    if (offset < blockStart || (blockEnd >= 0 && offset > blockEnd)) return null;
+
+    // dòng trống (hoặc vừa gõ dở "<fie") và không có chữ sau con trỏ
+    const lineText = model.getLineContent(position.lineNumber);
+    const lineToCaret = lineText.substring(0, position.column - 1);
+    const opening = /^(\s*)(<(?:f(?:i(?:e(?:l(?:d)?)?)?)?)?)?$/.exec(lineToCaret);
+    if (!opening || lineText.substring(position.column - 1).trim()) return null;
+    const indent = opening[1];
+    const typed = opening[2] || '';
+
+    const block = text.slice(blockStart, blockEnd < 0 ? text.length : blockEnd);
+    const inTemplate = new Set(matchAll(block, /<field\s+name\s*=\s*"([^"]+)"/g));
+    // field nhập = <field name … column="…"> ngoài khối <template>, column khác rỗng (column="" là field không lấy từ Excel)
+    const tplEnd = text.indexOf('</template>', tpl.index);
+    const outside = text.slice(0, tpl.index) + (tplEnd < 0 ? '' : text.slice(tplEnd + '</template>'.length));
+    const imported = [];
+    for (const m of outside.matchAll(/<field\s+name\s*=\s*"([^"&]+)"([^>]*)>/g)) {
+      const col = /\scolumn\s*=\s*"([^"]*)"/.exec(m[2]);
+      if (!col || !col[1].trim()) continue;
+      if (!imported.some((x) => x.name === m[1])) imported.push({ name: m[1], required: /\sallowNulls\s*=\s*"false"/.test(m[2]) });
+    }
+    const missing = imported.filter((f) => !inTemplate.has(f.name));
+    if (missing.length === 0) return null;
+
+    // field của cột Excel đứng ngay trên con trỏ → field nhập kế tiếp còn thiếu; không có thì field thiếu đầu tiên
+    const above = model.getValueInRange({ startLineNumber: 1, startColumn: 1, endLineNumber: position.lineNumber, endColumn: 1 }).slice(blockStart);
+    const prevNames = matchAll(above, /<field\s+name\s*=\s*"([^"]+)"/g);
+    const prev = prevNames.length ? prevNames[prevNames.length - 1] : null;
+    const at = prev ? imported.findIndex((f) => f.name === prev) : -1;
+    const pick = (at >= 0 && imported.slice(at + 1).find((f) => !inTemplate.has(f.name))) || missing[0];
+
+    // cách viết của chính khối: width hay dùng nhất, giá trị starColor, thụt lề dòng <text>
+    const widths = matchAll(block, /\swidth\s*=\s*"(\d+)"/g);
+    const counts = new Map();
+    widths.forEach((w) => counts.set(w, (counts.get(w) || 0) + 1));
+    const width = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '16';
+    const star = /\sstarColor\s*=\s*"([^"]+)"/.exec(block);
+    const textIndent = (/\n([ \t]*)<text\b/.exec(block) || [])[1];
+    const fieldIndent = (/\n([ \t]*)<field\b/.exec(block) || [])[1];
+    const childIndent = textIndent !== undefined && fieldIndent !== undefined && textIndent.length > fieldIndent.length
+      ? indent + textIndent.slice(fieldIndent.length) : indent + '  ';
+    const dict = (this.dictFields || []).find((d) => d.name === pick.name);
+    const q = (v) => String(v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const full = `<field name="${pick.name}" width="${width}"${pick.required && star ? ` starColor="${star[1]}"` : ''}>\n`
+      + `${childIndent}<text v="${q(dict && dict.vi)}" e="${q(dict && dict.en)}"/>\n${indent}</field>`;
+    if (!full.startsWith(typed)) return null;
     return {
       items: [{
         insertText: full.slice(typed.length),

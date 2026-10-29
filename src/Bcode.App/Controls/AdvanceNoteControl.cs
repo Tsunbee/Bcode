@@ -485,7 +485,7 @@ public class AdvanceNoteControl : UserControl
         SaveList();
 
         Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings),
-            network = extra.NetworkPath, errors = extra.Errors })})");
+            network = extra.NetworkPath, webLink = extra.WebLink, errors = extra.Errors })})");
         SendList(null); // làm mới cột Updated
     }
 

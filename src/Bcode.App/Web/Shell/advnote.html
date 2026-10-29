@@ -726,9 +726,10 @@
       if (!res.ok) { box.innerHTML = '<span style="color:var(--danger)">' + esc(res.message || 'Không tạo được gói.') + '</span>'; return; }
       box.innerHTML = '<span style="color:var(--success)">Đã tạo ' + res.count + ' mục tại:</span> <code>' + esc(res.path) + '</code> ' +
         '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button>' +
-        (res.network ? '<div class="muted">Mạng: <code>' + esc(res.network) + '</code></div>' : '') +
+        (res.webLink ? '<div>Link: <code>' + esc(res.webLink) + '</code></div>' : '') +
+        (res.network ? '<div class="muted">' + (res.webLink ? 'File trên mạng' : 'Mạng') + ': <code>' + esc(res.network) + '</code></div>' : '') +
         (res.errors || []).map((e) => '<div style="color:var(--danger)">⚠ ' + esc(e) + '</div>').join('');
-      $('rCopy').onclick = () => post('copy', { text: res.path });
+      $('rCopy').onclick = () => post('copy', { text: res.webLink || res.path });
       $('rOpen').onclick = () => post('open', { path: res.path });
       S.defaultFolder = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
       folderTouched = false; refreshFolder();

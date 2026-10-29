@@ -975,7 +975,13 @@ public sealed class NativeAdvanceNoteControl : UserControl
                 return l;
             }
             if (_result.Controls.Count > 0) _result.SetFlowBreak(_result.Controls[^1], true);
-            if (extra.NetworkPath is not null) Line("Mạng: " + extra.NetworkPath);
+            if (extra.WebLink is { } link)
+            {
+                Line("Link: " + link, AppColors.Text);
+                var copy = NK.Button("Copy link web", () => { try { Clipboard.SetText(link); } catch { /* clipboard bận */ } });
+                _result.Controls.Add(copy); _result.SetFlowBreak(copy, true);
+            }
+            if (extra.NetworkPath is not null) Line((extra.WebLink is null ? "Mạng: " : "File trên mạng: ") + extra.NetworkPath);
             foreach (var e in extra.Errors) Line("⚠ " + e, AppColors.Danger);
         }
         _result.Visible = true;

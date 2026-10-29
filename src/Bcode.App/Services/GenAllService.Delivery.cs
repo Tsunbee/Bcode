@@ -8,6 +8,8 @@ public sealed class PackageDelivery
 {
     /// <summary>File .zip hoặc thư mục gói đã chép lên mạng; null = không chép / chép lỗi.</summary>
     public string? NetworkPath { get; set; }
+    /// <summary>Link web tải gói đã chép lên mạng (vd http://dev.fast.com.vn/send/hungvd/PMT_xxx.zip) — null nếu đường dẫn mạng không nằm trên máy chủ có web (<see cref="GenAllService.WebLinkFor"/>).</summary>
+    public string? WebLink => GenAllService.WebLinkFor(NetworkPath);
     public List<string> Errors { get; } = new();
 }
 
@@ -15,6 +17,22 @@ public partial class GenAllService
 {
     /// <summary>Thư mục gốc mặc định của tuỳ chọn "Gen vào đường dẫn mạng" — gói được chép vào &lt;gốc&gt;\&lt;tên máy&gt;\.</summary>
     public const string DefaultNetworkRoot = @"\\172.168.5.14\Send\";
+
+    /// <summary>Máy chủ file → trang web cùng nội dung: \\172.168.5.14\Send\HUNGVD\x.zip tải được ở http://dev.fast.com.vn/send/hungvd/x.zip.</summary>
+    private static readonly (string Host, string WebBase)[] WebHosts = { ("172.168.5.14", "http://dev.fast.com.vn/") };
+
+    /// <summary>Link web của 1 file/thư mục trên máy chủ file (<see cref="WebHosts"/>): bỏ "\\máy chủ\", thư mục viết thường, tên file giữ nguyên, "\" → "/".
+    /// null = không phải đường dẫn trên máy chủ có web.</summary>
+    public static string? WebLinkFor(string? networkPath)
+    {
+        if (string.IsNullOrWhiteSpace(networkPath) || !networkPath.StartsWith(@"\\", StringComparison.Ordinal)) return null;
+        var parts = networkPath.Trim().TrimStart('\\').Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2) return null;
+        var web = WebHosts.FirstOrDefault(h => string.Equals(h.Host, parts[0], StringComparison.OrdinalIgnoreCase)).WebBase;
+        if (web is null) return null;
+        var segs = parts.Skip(1).Select((p, i) => Uri.EscapeDataString(i == parts.Length - 2 ? p : p.ToLowerInvariant()));
+        return web.TrimEnd('/') + "/" + string.Join("/", segs);
+    }
 
     /// <summary>Chờ tối đa bấy nhiêu giây để biết thư mục mạng có tới được không (UNC không tới được có thể treo cả phút).</summary>
     private const int NetworkProbeSeconds = 15;

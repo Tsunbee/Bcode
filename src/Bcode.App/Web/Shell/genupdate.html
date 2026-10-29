@@ -37,6 +37,9 @@
   #main { flex: 1; min-height: 0; display: grid; gap: .7rem; padding: .7rem; grid-template-columns: minmax(16rem, .85fr) minmax(20rem, 1.25fr) minmax(22rem, 1.4fr); }
   .col { min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: .7rem; }
   .col.scroll { overflow: auto; }
+  /* Cột cuộn: khung giữ đủ chiều cao nội dung, thiếu chỗ thì cả cột cuộn — trước đây khung co lại (min-height: 0) trên màn hình thấp / DPI cao
+     nên phần cuối khung (ô Đường dẫn mạng) tràn xuống, bị khung "Gen nhanh Store" đè mất. */
+  .col.scroll > .card { flex-shrink: 0; }
   .card { border: var(--bw) solid var(--border); border-radius: var(--r-lg); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
   .card.fill { flex: 1; }
   .card > .ct { padding: calc(.45rem * var(--dens)) .75rem; display: flex; align-items: center; gap: .5rem; border-bottom: var(--bw) solid var(--border); background: var(--panel-alt); border-radius: var(--r-lg) var(--r-lg) 0 0; font-weight: 600; flex: none; }
@@ -547,7 +550,7 @@
   $('pNet').onchange = () => { showNetRow(); post('pkgOpts', pkgOpts()); };
   $('pNetRoot').oninput = showNetRow;
   $('pNetRoot').onchange = () => post('pkgOpts', pkgOpts());
-  $('bCopyLink').onclick = () => { post('copy', { text: S.lastPath }); toast('Đã copy link.', 'ok'); };
+  $('bCopyLink').onclick = () => { post('copy', { text: S.lastLink || S.lastPath }); toast('Đã copy link' + (S.lastLink ? ': ' + S.lastLink : '.'), 'ok'); };
   $('bOpenRes').onclick = () => post('open', { path: S.lastPath });
 
   attachSuggest($('nameBox'), $('nameSugg'), () => S.names, () => $('bSearch').click());
@@ -591,11 +594,12 @@
     onCreated(r) {
       busy(false);
       if (!r.ok) { toast(r.message || 'Không tạo được gói update.', 'err'); return; }
-      S.lastPath = r.path;
+      S.lastPath = r.path; S.lastLink = r.webLink || '';
       $('result').style.display = 'block';
       $('resTitle').textContent = '✔ Đã tạo ' + r.count + ' file tại:';
       $('resPath').textContent = r.path;
-      $('resExtra').innerHTML = (r.network ?'<div class="muted">Mạng: <code>' + esc(r.network) + '</code></div>' : '') +
+      $('resExtra').innerHTML = (r.webLink ? '<div>Link: <code class="wl">' + esc(r.webLink) + '</code></div>' : '')
+        + (r.network ? '<div class="muted">' + (r.webLink ? 'File trên mạng' : 'Mạng') + ': <code>' + esc(r.network) + '</code></div>' : '') +
         (r.errors || []).map((e) => '<div style="color:var(--danger)">⚠ ' + esc(e) + '</div>').join('');
       $('pFolder').value = newFolderName();
       if (r.errors && r.errors.length) toast('Đã tạo gói update (' + r.count + ' file) nhưng: ' + r.errors.join(' | '), 'err');

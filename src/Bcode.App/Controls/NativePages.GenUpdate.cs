@@ -35,7 +35,7 @@ internal sealed class GenUpdatePage : NativePage
     private readonly List<TblRow> _tbls = new();
     private List<BatchItem> _batch = new();
     private List<string> _cats = new();
-    private string _folderPrefix = "", _lastPath = "", _treeJson = "";
+    private string _folderPrefix = "", _lastPath = "", _lastLink = "", _treeJson = "";
     private bool _busy, _loading;
     private JsonElement _root;
     private int _leafCount;
@@ -110,7 +110,7 @@ internal sealed class GenUpdatePage : NativePage
         var btools = TopBar(); btools.Controls.AddRange(new Control[] { _batchAll, _bRemove, _bClear, _batchSummary });
         _result.Controls.Add(_resExtra); _result.Controls.Add(_resPath); _result.Controls.Add(_resTitle);
         _resTitle.Dock = DockStyle.Top; _resPath.Dock = DockStyle.Top; _resExtra.Dock = DockStyle.Top;
-        var resBtn = NK.Row(NK.Button("Copy link", () => { Post(new { action = "copy", text = _lastPath }); Toast("Đã copy link.", "ok"); }), NK.Button("Mở thư mục", () => Post(new { action = "open", path = _lastPath }))); resBtn.Dock = DockStyle.Top;
+        var resBtn = NK.Row(NK.Button("Copy link", () => { Post(new { action = "copy", text = _lastLink.Length > 0 ? _lastLink : _lastPath }); Toast(_lastLink.Length > 0 ? "Đã copy link: " + _lastLink : "Đã copy link.", "ok"); }), NK.Button("Mở thư mục", () => Post(new { action = "open", path = _lastPath }))); resBtn.Dock = DockStyle.Top;
         _result.Controls.Add(resBtn); _result.Controls.SetChildIndex(resBtn, 0);
         var createBox = new Panel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(8) };
         _bCreate.Dock = DockStyle.Top; _result.Dock = DockStyle.Top;
@@ -367,10 +367,11 @@ internal sealed class GenUpdatePage : NativePage
             {
                 SetBusy(false); var r = Arg(a, 0);
                 if (!PB(r, "ok")) { Toast(P(r, "message").Length > 0 ? P(r, "message") : "Không tạo được gói update.", "err"); break; }
-                _lastPath = P(r, "path"); _result.Visible = true;
+                _lastPath = P(r, "path"); _lastLink = P(r, "webLink"); _result.Visible = true;
                 _resTitle.Text = $"✔ Đã tạo {P(r, "count")} file tại:"; _resPath.Text = _lastPath; _pFolder.Text = NewFolderName();
                 var errors = PA(r, "errors").Select(e => e.GetString() ?? "").Where(e => e.Length > 0).ToList();
-                _resExtra.Text = string.Join(Environment.NewLine, new[] { P(r, "network").Length > 0 ? "Mạng: " + P(r, "network") : "" }
+                _resExtra.Text = string.Join(Environment.NewLine, new[] { _lastLink.Length > 0 ? "Link: " + _lastLink : "",
+                        P(r, "network").Length > 0 ? (_lastLink.Length > 0 ? "File trên mạng: " : "Mạng: ") + P(r, "network") : "" }
                     .Concat(errors.Select(e => "⚠ " + e)).Where(x => x.Length > 0));
                 if (errors.Count > 0) Toast($"Đã tạo gói update ({P(r, "count")} file) nhưng: " + string.Join(" | ", errors), "err");
                 else Toast($"Đã tạo gói update ({P(r, "count")} file).", "ok");

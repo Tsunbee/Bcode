@@ -720,7 +720,7 @@ Mở: nút **Gen Update** (`Ctrl+Shift+G`). Cần Source Path.
 
 Hai tuỳ chọn ở thẻ **Đường dẫn & kết nối** (nhớ cho lần sau, dùng chung với Note (New) và BcodeNote):
 
-- **Gen vào đường dẫn mạng**: tạo gói xong thì chép thêm vào `<Đường dẫn mạng>\<TÊN MÁY>\` — mặc định `\\172.168.5.14\Send\`, sửa được ở ô **Đường dẫn mạng**. Thư mục tên máy chưa có thì Bcode tự tạo.
+- **Gen vào đường dẫn mạng**: tạo gói xong thì chép thêm vào `<Đường dẫn mạng>\<TÊN MÁY>\` — mặc định `\\172.168.5.14\Send\`, sửa được ở ô **Đường dẫn mạng**. Thư mục tên máy chưa có thì Bcode tự tạo. Gói chép lên `\\172.168.5.14\...` thì kết quả hiện thêm **Link** web tải được, vd `http://dev.fast.com.vn/send/hungvd/PMT_HUNGVD_20261029214504.zip` (thư mục viết thường, tên file giữ nguyên) — nút **Copy link** chép link này để gửi; không có link web thì chép đường dẫn gói như trước. Note (New) cũng vậy.
 - **Nén .zip khi gen lên mạng** (chỉ hiện khi tick ô trên): đưa lên mạng file `<Folder Name>.zip` (giải nén ra đúng thư mục gói) thay cho cả thư mục. Save At Path luôn chỉ có thư mục gói, không nén.
 - Gói ở Save At Path luôn được tạo trước. Chép mạng lỗi (không có mạng / VPN, sai đường dẫn, không có quyền ghi; mạng không trả lời sau 15 giây) thì Bcode báo lỗi đỏ dưới kết quả, gói ở Save At Path vẫn giữ nguyên.
 

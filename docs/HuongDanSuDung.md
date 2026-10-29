@@ -1205,7 +1205,7 @@ Viewer kiểm tra file mỗi 4 giây. File đổi trên đĩa (người khác s�
 
 Trên ảnh: **①** chữ vừa gõ · **②** danh sách gợi ý (Enter để chèn khối `<field>`).
 
-Gợi ý có 4 lớp, lớp nào hợp ngữ cảnh con trỏ (XML / SQL / JavaScript) thì hiện:
+Gợi ý có 5 lớp, lớp nào hợp ngữ cảnh con trỏ (XML / SQL / JavaScript) thì hiện:
 
 1. **Hint Code + snippet**: thư viện snippet riêng (nút **Hint**), thư mục snippet dùng chung của nhóm (Settings → Template dùng chung) và snippet FCodeViewer. Gõ từ 2 ký tự của Prefix là hiện chữ mờ (ghost) — `Tab` để chèn và nhảy qua từng ô cần điền.
 2. **Cấu trúc XML + từ điển field**: gợi ý thẻ / thuộc tính / giá trị học từ chính file và các file include.
@@ -1213,8 +1213,13 @@ Gợi ý có 4 lớp, lớp nào hợp ngữ cảnh con trỏ (XML / SQL / JavaS
    - `f.clientscript` → chèn `<clientScript>` với `onchange=onChange<Controller><Field>(this)`.
    - Chữ mờ cấu trúc: trong JS gõ `f.get`, `f.set`, `g.get`, `g.set`, `f.req`; trong XML gõ `<items`, `<item`, `<handle`, `<category`, `<script` → gợi ý cả khối. Trong `<views>` gợi ý `<field name="x"/>` cho field đã khai báo mà chưa có trong view nào.
    - Rê chuột lên `&Entity;` để xem nội dung; rê lên dòng design của Dir để xem độ rộng thật của biến.
-3. **SQL schema**: khi con trỏ ở vùng SQL (`<command>`, `<action>`…) gợi ý tên bảng / cột của **workspace đang chọn trong Bcode**.
-4. **AI ghost text** (tắt mặc định): bật ở Settings → AI → "Bật gợi ý AI khi gõ". Ngừng gõ khoảng 0,4 giây là gọi AI (tính phí theo API key). `Tab` nhận cả gợi ý, `Ctrl+→` nhận từng phần. Nhận trọn một gợi ý AI → Viewer mở hộp **Hint Code** điền sẵn đoạn đó để lưu thành hint nếu muốn.
+3. **Gợi ý theo cấu trúc Fast (không AI, bật sẵn)** — chữ mờ ở cuối dòng khi gõ XML controller, JavaScript, ASPX; chạy trên máy, không gọi mạng. Học từ source Fast mẫu đi kèm, source của dự án đang mở (đọc ở nền lần đầu, nhớ 7 ngày) và source Fast các phiên bản (xem dưới). `Tab` nhận.
+   - Trong khối `<field name="ma_kh">`: dòng trống gợi ý `<header v="…" e="…">` hay dùng của field đó; gõ `<items` gợi ý nguyên `style="AutoComplete" controller="Customer" reference="ten_kh%l" …` theo cách khai thật hay gặp nhất.
+   - Dòng giống trong chính file (khai nhiều field cùng kiểu), cụm token hay gặp (`f.getItemValue('…')`, `<field name=`, `</field>`, `<asp:Content …>`…).
+   - **Ngắn** (mặc định) chỉ hiện chỗ đủ chắc — đo trên nửa file mẫu không dùng để học: có gợi ý ở **~71% chỗ, đúng ~91%**. **Dài** (`Alt+Shift+\` hoặc Settings → Gợi ý & Hỏi Fast) hiện nhiều và dài hơn: **~89% chỗ, đúng ~65%**. Khai thư mục source Fast các phiên bản thì phủ thêm: đo trên source Fast mới nhất, ngắn 48% → 59% chỗ (đúng ~91%), dài 74% → 79% chỗ (đúng ~67%).
+   - Tắt / bật: Settings → **Gợi ý & Hỏi Fast** → "Gợi ý theo cấu trúc Fast khi gõ".
+4. **SQL schema**: khi con trỏ ở vùng SQL (`<command>`, `<action>`…) gợi ý tên bảng / cột của **workspace đang chọn trong Bcode**.
+5. **AI ghost text** (tắt mặc định): bật ở Settings → AI → "Bật gợi ý AI khi gõ". Ngừng gõ khoảng 0,4 giây là gọi AI (tính phí theo API key). `Tab` nhận cả gợi ý, `Ctrl+→` nhận từng phần. Nhận trọn một gợi ý AI → Viewer mở hộp **Hint Code** điền sẵn đoạn đó để lưu thành hint nếu muốn.
 
 Gợi ý thủ công: `Ctrl+Space`.
 
@@ -1371,6 +1376,7 @@ Mở: **File → Settings…** (hoặc **File → Phím tắt…** để vào th
 | **Giao diện** | Phông chữ editor · Kiểu theme Fcode (.xml) · minimap · tự thu nhỏ cỡ chữ khi khung hẹp (cỡ nhỏ nhất) · Wrap · **Chế độ nhẹ (máy yếu)** Tự động / Bật / Tắt · vị trí khung Claude / Gemini (phải / dưới / trên) |
 | **Bố cục** | Ẩn / hiện thanh menu, thanh công cụ, đường dẫn, thanh tab · **Ctrl+Tab bấm nhanh** · vị trí và độ rộng cây file · thanh công cụ: vị trí (trên / cùng hàng menu / dưới), kiểu nút (chữ / icon + chữ / chỉ icon), sắp xếp / ghim / nhóm / thêm nút (kéo ☰, "+ Nhóm mới", "+ Vạch ngăn", "+ Thêm nút") · đưa về mặc định |
 | **Phím tắt** | Bảng mọi lệnh: **Đổi** (bấm tổ hợp mới, `Esc` huỷ) · **Xoá phím** · **Mặc định**; ô lọc theo tên / phím; "Đưa TẤT CẢ phím tắt về mặc định" |
+| **Gợi ý & Hỏi Fast** | Gợi ý theo cấu trúc Fast khi gõ (bật mặc định) · Gợi ý Fast dài · thư mục source Fast các phiên bản + **Học lại ngay** — xem [Hỏi Fast trong BcodeViewer](#viewer-hoi-fast) |
 | **AI (chat + gợi ý)** | Anthropic API key · Gemini API key · model chat · bật gợi ý AI khi gõ (tắt mặc định) · model / engine ghost text · engine dịch caption (Google / Gemini / Claude) |
 | **Template dùng chung** | Thư mục chung (UNC / git) chứa `*.code-snippets`, `*.json` (snippet) và thư mục `files\` (mẫu file cho `Ctrl+N`) — Viewer chỉ đọc |
 | **Gợi ý & chạy SQL** | Gợi ý tên bảng / cột (nút Test) · **Cho phép Chạy SQL thực thi câu ghi** (tắt mặc định) · Config.xml của FCode + mật khẩu SQL (dự phòng khi chưa có Bcode) |
@@ -1386,6 +1392,38 @@ Quy tắc gán phím: phải kèm `Ctrl` hoặc `Alt` (chỉ `F1`–`F24` đư�
 ### Theme
 
 Menu **Theme**: hơn 30 theme có sẵn (Dark+, Dracula, One Dark Pro, Monokai, Light+, GitHub Light…), nhập theme VS Code (`.json` / `.vsix`) hoặc Fcode (`.xml`), hoặc "Theo Windows". Một bảng màu áp cho cả khung, editor và hộp thoại.
+
+<a id="viewer-hoi-fast"></a>
+## Hỏi Fast trong BcodeViewer (không AI)
+
+Khung chat bên phải tra kiến thức **source Fast** — không gọi AI, không cần API key. Mở: `Ctrl+Shift+J`, nút **💬 Hỏi Fast** trên thanh công cụ, hoặc View → Hỏi Fast.
+
+Hỏi được:
+
+| Hỏi về | Ví dụ |
+|---|---|
+| Controller | "controller AIDetail lưu bảng nào", "màn hình Hóa đơn dịch vụ trả lại khai ở file nào" — bảng, mã chứng từ, phân kỳ, field, entity, toolbar, sự kiện, mẫu in |
+| Field | "field ma_kh khai báo lookup thế nào" — tiêu đề v/e, `<items>` hay dùng, khối `<field>` mẫu, các controller có field đó |
+| Lookup | "lookup Customer khai báo thế nào" — các field dùng, khai báo hay gặp |
+| Entity / include | "include nào khai báo DetailTax", "entity XMLStandardDetailToolbar trỏ tới đâu" |
+| Toolbar, JS | "nút Export trên toolbar khai thế nào", "ví dụ js hàm load$GridVoucherDetail$" |
+| Quy ước | "cách khai báo entity", "bảng phân kỳ khai báo thế nào", "clientScript viết thế nào" |
+| Import / dán từ Excel | "import SVTran lưu vào bảng nào", "SVTran nhập từ excel bắt đầu từ dòng mấy", "field import ma_kh kiểm tra thế nào", "cách khai báo import danh mục từ excel" — khai báo ở `Templates\Upload` (gốc `<import>`: loại List / Voucher, dòng bắt đầu, bảng gốc, bảng tạm, field + điều kiện kiểm tra + mã lỗi, thông báo lỗi) và `Templates\Clipboard` |
+| Lịch sử phiên bản | "AIDetail sửa gì ở SP22.5", "field loai của AIDetail thêm từ bản nào", "bản SP23 sửa những file nào" (cần khai thư mục source Fast các phiên bản — xem dưới) |
+| File đang mở | thêm chữ "này": "controller này lưu bảng nào" |
+
+Mỗi thẻ trả lời: **Chèn** (đoạn code vào editor tại con trỏ), **Copy**, **Mở file**, **✔ Đúng** (lần sau đưa thẻ lên đầu), **✘ Chưa đúng** (lần sau bỏ thẻ này), **✎ Sửa** (gõ câu trả lời đúng — lần sau hỏi câu giống sẽ hiện đầu tiên). "Kết quả khác" bên dưới để xem các thẻ gần đúng. Nút 🕘 = lịch sử các phiên hỏi đáp, ＋ = phiên mới, `Ctrl+F` trong khung = tìm trong cuộc trò chuyện (không dấu, `Enter` / `Shift+Enter`, `Esc`).
+
+Đo trên bộ câu hỏi chuẩn: 130 câu về mẫu Fast đi kèm — đúng ngay thẻ đầu **97%**, trong 3 thẻ đầu **98%**; 197 câu khi đã học source Fast các phiên bản (gồm 39 câu lịch sử phiên bản, 30 câu import) — **91%** / **96%** (riêng câu import 93% / 97%).
+
+### Source Fast theo phiên bản
+
+Settings → **Gợi ý & Hỏi Fast** → "Thư mục các phiên bản": chọn thư mục chứa các gói source Fast theo bản (`FBOR1`, `FBOR2SP01` … `FBOR2SP24.2.2`, mỗi thư mục chỉ chứa file đổi của bản đó, dưới `App_Data\Controllers\…` và `Main\…`). Viewer quét ở nền theo thứ tự bản (lần đầu ~1–2 phút cho 60 bản), so từng file với lần trước — field / thuộc tính / entity / hàm JS / command / action / nút toolbar, và với khai báo import (`Templates\Upload`, `Templates\Clipboard`) cả `<setting>` (loại, dòng bắt đầu, bảng…) và thông báo lỗi `<var>` — thêm, bỏ hay sửa — rồi:
+
+- Hỏi Fast trả lời được lịch sử sửa từng controller và từng bản;
+- bản mới nhất của mọi file được học thêm cho gợi ý Fast và Hỏi Fast.
+
+Kết quả lưu ở **Thư mục kiến thức** dùng chung với Bcode (Bcode → Template → Đường dẫn), thư mục con `viewer\`; thư mục bản không đổi thì lần sau chỉ đọc lại. Thêm bản mới → tự học lại; muốn học lại ngay: nút **Học lại ngay** (cũng học lại source dự án đang mở).
 
 <a id="viewer-ai"></a>
 ## AI trong BcodeViewer
@@ -1458,7 +1496,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 
 **Chỉ có ở Bcode**: `Ctrl+Shift+Q` SQL Query · `Ctrl+Shift+T` Table · `Ctrl+Shift+L` Lookup · `Ctrl+Shift+W` WCommand · `Ctrl+Shift+F` File Lookup · `Ctrl+Shift+G` Gen Update · `Ctrl+Shift+R` File Reference · `Ctrl+Shift+O` Change Owner · `Ctrl+Shift+U` Gen Update (Result) · `Ctrl+Shift+E` Note · `Ctrl+Shift+4` Note (New) · `Ctrl+Shift+Y` Lịch sử SQL · `Ctrl+Shift+J` So sánh object · `Ctrl+3` SQL Profiler · `Ctrl+Shift+P` Projects · `Ctrl+O` Choose Server · `Ctrl+F5` Synchronize · `Ctrl+Shift+N` cửa sổ mới · `Ctrl+1` App ↔ Sys · `Ctrl+4` FSG FBO · `Ctrl+5` Program Path · `Ctrl+Alt+U` Ai đang dùng · `Ctrl+Alt+Shift+A / V` Add / View Script · lưới Table `F1 F3 F4 F8 Ctrl+I Ctrl+N Ctrl+' Ctrl+Shift+C Ctrl+0 Ctrl+G` · lưới kết quả SQL `Ctrl+Shift+C` copy tên cột · cây WCommand `Insert F3 F4 F8 F12 F5`.
 
-**Chỉ có ở BcodeViewer**: `Ctrl+N` New from Template · `Ctrl+G` Go to tag · `F11` tới function · `Shift+F12` tìm nơi sử dụng · `Ctrl+Shift+M` Problems · `Ctrl+Shift+U` Outline · `Ctrl+\` tách đôi khung · `Ctrl+/` comment · `Ctrl+D` nhân đôi dòng · `Ctrl+Shift+D` thêm con trỏ ở chỗ giống tiếp theo · `Ctrl+Alt+T` dịch caption · `Ctrl+F` / `Ctrl+H` tìm / thay trong file · `Alt+↑/↓` di chuyển dòng · `F1` bảng lệnh Monaco.
+**Chỉ có ở BcodeViewer**: `Ctrl+Shift+J` Hỏi Fast · `Alt+Shift+\` gợi ý Fast dài ⇄ ngắn · `Ctrl+N` New from Template · `Ctrl+G` Go to tag · `F11` tới function · `Shift+F12` tìm nơi sử dụng · `Ctrl+Shift+M` Problems · `Ctrl+Shift+U` Outline · `Ctrl+\` tách đôi khung · `Ctrl+/` comment · `Ctrl+D` nhân đôi dòng · `Ctrl+Shift+D` thêm con trỏ ở chỗ giống tiếp theo · `Ctrl+Alt+T` dịch caption · `Ctrl+F` / `Ctrl+H` tìm / thay trong file · `Alt+↑/↓` di chuyển dòng · `F1` bảng lệnh Monaco.
 
 <a id="du-lieu"></a>
 ## Dữ liệu lưu ở đâu
@@ -1477,6 +1515,8 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\viewer-*.json`, `viewer-hints.json`, `viewer-recent-files.json` | BcodeViewer | Settings, phím tắt, Hint Code, danh sách file của cây; `viewer-translate-dict.json` = Từ điển dịch |
 | `%LocalAppData%\BcodeViewer\searchcache\` | BcodeViewer | Bản nhớ nội dung file cho Tìm trong project (mỗi dự án 1 file nén, xoá được) |
 | `%AppData%\Bcode\history\` | BcodeViewer | Lịch sử file của máy này |
+| `<Thư mục kiến thức>\viewer\` (mặc định `%AppData%\Bcode\viewer\`) | BcodeViewer | Gợi ý Fast + Hỏi Fast học từ source dự án / source Fast các phiên bản (`ghost\`, `ask\`, `versions\`), ✔ ✘ ✎ của Hỏi Fast (`ask\feedback.json`) — xoá được, tự học lại |
+| `%AppData%\Bcode\viewer-fastask\` | BcodeViewer | Lịch sử các phiên Hỏi Fast (luôn ở máy này) |
 | `<thư mục dự án>\History\` | BcodeViewer | Lịch sử chung của dự án (ai sửa gì) |
 | `<BcodeViewer.exe>\Config\*.txt` | BcodeViewer | Prompt AI ghost text |
 | `<Bcode.exe>\Templates\` | Bcode | Mẫu file (Tạo nhanh danh mục, Tạo báo cáo, Clone danh mục, LCTT…) |

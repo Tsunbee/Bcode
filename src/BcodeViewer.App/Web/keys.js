@@ -37,6 +37,7 @@ const BCODE_COMMANDS = [
   ['Soạn thảo', 'edit.nextBookmark', 'Tới bookmark kế tiếp', '', (b) => b.nextBookmark()],
   ['Soạn thảo', 'edit.hint', 'Hint Code (thư viện snippet)', '', (b) => b.openHintCode()],
   ['Soạn thảo', 'edit.inlineAi', 'AI viết code theo chỉ dẫn (inline)', 'Ctrl+I', (b) => window.bcodeDialogs.showInlineGenerate(b)],
+  ['Soạn thảo', 'edit.fastLong', 'Gợi ý Fast (không AI): đổi dài ⇄ ngắn', 'Alt+Shift+\\', () => window.bcodeCompletion && window.bcodeCompletion.toggleFastLong()],
   ['Soạn thảo', 'edit.translateHeaders', 'Dịch caption <header v e>', 'Ctrl+Alt+T', (b) => window.bcodeDialogs.showTranslateHeaders(b)],
 
   ['Điều hướng', 'nav.goto', 'Go to (tag / chi tiết controller)', 'Ctrl+G', () => window.bcodeGoto && window.bcodeGoto.open()],
@@ -48,6 +49,7 @@ const BCODE_COMMANDS = [
   ['Bảng & khung', 'panel.search', 'Tìm trong toàn bộ project', 'Ctrl+Shift+F', (b) => window.bcodeSearch.open(b.editor.getModel()?.getValueInRange(b.editor.getSelection()) || '')],
   ['Bảng & khung', 'panel.problems', 'Hiện/ẩn bảng Problems', 'Ctrl+Shift+M', () => window.bcodeProblems.toggle()],
   ['Bảng & khung', 'panel.outline', 'Hiện/ẩn Outline', 'Ctrl+Shift+U', () => window.bcodeOutline.toggle()],
+  ['Bảng & khung', 'panel.fastAsk', 'Hỏi Fast (tra kiến thức source Fast, không AI)', 'Ctrl+Shift+J', () => window.bcodeFastAsk && window.bcodeFastAsk.toggle()],
   ['Bảng & khung', 'panel.dirPreview', 'Xem trước màn hình Dir / mail mẫu', 'Alt+P', (b) => b.toggleDirPreview()],
   ['Bảng & khung', 'panel.sidebar', 'Hiện/ẩn cây file bên trái', 'Ctrl+B', () => window.bcodeShell && window.bcodeShell.toggleSidebar()],
   ['Bảng & khung', 'panel.menubar', 'Hiện/ẩn thanh menu + toolbar', '', () => window.bcodeShell && window.bcodeShell.toggleChrome()],

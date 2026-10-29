@@ -157,6 +157,7 @@
   <script src="dirview.js"></script>
   <script src="dirpreview.js"></script>
   <script src="checkfield.js"></script>
+  <script src="fastask.js"></script>
   <script src="mailpreview.js"></script>
   <script src="goto.js"></script>
   <script src="sqlrun.js"></script>
@@ -219,6 +220,8 @@
       window.bcodeMailPreview = new BcodeMailPreview(window.bcodeViewer);
       // Ctrl+G — hộp "Go to" liệt kê tag/chi tiết của controller, nhấp đúp để nhảy tới.
       window.bcodeGoto = new BcodeGoto(window.bcodeViewer);
+      // Hỏi Fast (không AI) — khung bên phải cạnh Outline, Ctrl+Shift+J.
+      window.bcodeFastAsk = new BcodeFastAsk(window.bcodeViewer);
       // Đã xóa dòng khởi tạo BcodeChat
 
       // Tells the host the editor object now exists. MainForm waits for this before

@@ -511,6 +511,29 @@ class BcodeSettingsDialog {
     row('Engine dịch caption:', translateEngine);
     note('Dùng cho "Dịch caption (v → e)". Google gọi endpoint web của Google Translate — không cần key nhưng không chính thức (có thể bị giới hạn tốc độ) và dịch từng caption không có ngữ cảnh; Gemini/Claude dịch tốt hơn nhờ biết tên field và thuật ngữ ERP.');
 
+    // ===== Gợi ý & Hỏi Fast (không AI) =====
+    addPage('fast', 'Gợi ý & Hỏi Fast');
+    section('Gợi ý theo cấu trúc Fast (không AI)');
+    const fastGhost = row('', check('Gợi ý theo cấu trúc Fast khi gõ (XML controller / JavaScript / ASPX)', s.enableFastGhost !== false));
+    const fastLong = row('', check('Gợi ý Fast dài (gợi ý dài / nhiều chỗ hơn, đúng ≥ 60%; tắt = ngắn, đúng ≥ 90%) — Alt+Shift+\\ đổi nhanh', !!s.fastGhostLong));
+    note('Chạy trên máy, không gọi mạng: học từ source Fast mẫu đi kèm, source của dự án đang mở (đọc ở nền lần đầu) và source Fast các phiên bản bên dưới. Tab để nhận.');
+    section('Source Fast theo phiên bản');
+    const versionsPath = input(s.fastSourceVersionsPath || '');
+    row('Thư mục các phiên bản:', versionsPath, button('Browse...', async () => {
+      const p = await window.bcodeHost.call('BeginChooseFolder', versionsPath.value);
+      if (p) versionsPath.value = p;
+    }));
+    const fastStatus = document.createElement('div');
+    fastStatus.className = 'setNote';
+    fastStatus.textContent = s.fastSourceStatus || '';
+    row('', button('Học lại ngay', async () => {
+      fastStatus.textContent = 'Đang học lại…';
+      try { fastStatus.textContent = await window.bcodeHost.call('BeginRelearnFastSource', window.bcodeViewer && window.bcodeViewer.activePath || ''); }
+      catch (e) { fastStatus.textContent = 'Lỗi: ' + e; }
+    }));
+    lastRow.appendChild(fastStatus);
+    note('Thư mục chứa các gói source Fast theo bản (FBOR1, FBOR2SP01 … FBOR2SP24.x, mỗi thư mục chỉ chứa file đổi của bản đó). Bcode quét theo thứ tự bản, so từng file controller với lần trước (field / thuộc tính / entity / hàm JS / command / toolbar thêm-bỏ-sửa) → Hỏi Fast trả lời được "AIDetail sửa gì ở SP22.6", "field ma_kh của AIDetail đổi từ bản nào"; bản mới nhất của mọi file dùng để học ghost text. Lần đầu mất vài phút (đọc ở nền), lưu ở Thư mục kiến thức (Bcode → Template → Đường dẫn).');
+
     // ===== Template =====
     addPage('template', 'Template dùng chung');
     section('Template dùng chung');
@@ -645,6 +668,7 @@ class BcodeSettingsDialog {
         enableAiCompletion: aiCompletion.box.checked, completionModel: completionModel.value,
         completionEngine: engine.value, translateEngine: translateEngine.value, sharedTemplatePath: sharedPath.value,
         enableSqlCompletion: sqlCompletion.box.checked, enableSqlWrites: sqlWrites.box.checked,
+        enableFastGhost: fastGhost.box.checked, fastGhostLong: fastLong.box.checked, fastSourceVersionsPath: versionsPath.value,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
         showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,

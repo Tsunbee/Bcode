@@ -995,3 +995,60 @@ body.shDragging .shRow { cursor: inherit; }
 .histNote { font-size: 11px; color: var(--bc-text-muted); line-height: 1.4; white-space: normal; word-break: break-word; }
 .histRow .histWhen { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .histRow .histSize { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Hỏi Fast (fastask.js) ----------------------------------------------------------- */
+#fastAskPanel {
+  width: 400px; flex: 0 0 auto; border-left: 1px solid var(--bc-border);
+  background: var(--bc-panel); display: flex; flex-direction: column; min-height: 0;
+}
+#main.shSidebarRight #fastAskPanel { order: 3; }
+#fastAskHeader {
+  flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--bc-text-muted); border-bottom: 1px solid var(--bc-border);
+}
+#fastAskHeader .faSub { text-transform: none; letter-spacing: 0; opacity: .8; }
+.faHeadBtns { display: flex; gap: 8px; }
+.faBtn { cursor: pointer; text-transform: none; }
+.faBtn:hover { color: var(--bc-text); }
+#fastAskFind { flex: 0 0 auto; display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--bc-border); }
+#fastAskFind input { flex: 1 1 auto; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 3px; padding: 3px 6px; font-size: 13px; }
+.faFindCount { font-size: 12px; color: var(--bc-text-muted); min-width: 34px; text-align: right; }
+#fastAskHistory { flex: 0 1 auto; max-height: 45%; overflow: auto; border-bottom: 1px solid var(--bc-border); }
+.faHistRow { display: flex; gap: 8px; align-items: center; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+.faHistRow:hover { background: var(--bc-panel-alt); }
+.faHistTitle { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.faHistAt { flex: 0 0 auto; font-size: 11px; color: var(--bc-text-muted); }
+#fastAskLog { flex: 1 1 auto; overflow: auto; padding: 8px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+.faHint { color: var(--bc-text-muted); font-size: 13px; line-height: 1.6; }
+.faExample { cursor: pointer; }
+.faExample:hover { color: var(--bc-accent); }
+.faMsg.faUser { align-self: flex-end; max-width: 85%; background: var(--bc-selection); color: var(--bc-selection-text); padding: 6px 10px; border-radius: 10px 10px 2px 10px; white-space: pre-wrap; }
+.faMsg.faBot { display: flex; flex-direction: column; gap: 6px; }
+.faWait { color: var(--bc-text-muted); font-style: italic; }
+.faCard { border: 1px solid var(--bc-border); border-radius: 6px; background: var(--bc-bg); padding: 8px 10px; }
+.faCard.faCustom { border-color: var(--bc-accent); }
+.faCardHead { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+.faTitle { font-weight: 600; }
+.faSrc { font-size: 11px; color: var(--bc-text-muted); white-space: nowrap; }
+.faText { white-space: pre-wrap; line-height: 1.45; }
+.faCode { margin: 6px 0 0; padding: 6px 8px; background: var(--bc-panel-alt); border-radius: 4px; overflow: auto; max-height: 320px; font-family: var(--bc-editor-font, Consolas, monospace); font-size: 12px; white-space: pre; }
+.faBar { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; align-items: center; }
+.faBar .votes { margin-left: auto; display: flex; gap: 4px; }
+.faAct { background: var(--bc-button); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 3px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+.faAct:hover { border-color: var(--bc-accent); }
+.faAct.on { background: var(--bc-accent); color: var(--bc-accent-text); }
+.faMore { font-size: 12px; color: var(--bc-text-muted); }
+.faMore a { color: var(--bc-accent); text-decoration: none; }
+.faMore a:hover { text-decoration: underline; }
+.faEdit { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.faEdit textarea { background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 3px; padding: 4px 6px; font-size: 13px; resize: vertical; }
+.faEdit .faEditCode { font-family: Consolas, monospace; font-size: 12px; }
+.faEditBtns { display: flex; gap: 6px; justify-content: flex-end; }
+#fastAskStatus { flex: 0 0 auto; font-size: 11px; color: var(--bc-text-muted); padding: 2px 10px; min-height: 0; }
+#fastAskStatus:empty { display: none; }
+#fastAskInputRow { flex: 0 0 auto; display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--bc-border); }
+#fastAskInput { flex: 1 1 auto; resize: none; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border); border-radius: 4px; padding: 5px 7px; font-size: 13px; font-family: inherit; }
+#fastAskInput:focus { outline: none; border-color: var(--bc-accent); }
+mark.fh { background: var(--bc-warn-bg); color: inherit; border-radius: 2px; }
+mark.fh.cur { outline: 2px solid var(--bc-accent); }

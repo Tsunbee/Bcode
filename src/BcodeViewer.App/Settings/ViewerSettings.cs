@@ -70,6 +70,16 @@ public class ViewerSettings
     /// </summary>
     public bool EnableSqlCompletion { get; set; } = true;
 
+    /// <summary>Ghost text theo cấu trúc Fast (không AI, chạy trên máy — Host/FastSource/SourceGhost.cs): XML controller / JS / ASPX.</summary>
+    public bool EnableFastGhost { get; set; } = true;
+
+    /// <summary>Chế độ "Gợi ý Fast dài" (ngưỡng hiệu chỉnh cho đúng ≥ 60%, gợi ý dài / nhiều chỗ hơn); tắt = chế độ ngắn (đúng ≥ 90%). Alt+Shift+\ đổi nhanh.</summary>
+    public bool FastGhostLong { get; set; } = false;
+
+    /// <summary>Thư mục gốc chứa source Fast theo các phiên bản (FBOR1, FBOR2SP01 … FBOR2SP24.x — mỗi thư mục là 1 gói vá). Trống = không học.
+    /// Học ở nền: lịch sử chỉnh sửa từng file (Hỏi Fast) + bản mới nhất của mọi file (ghost text, Hỏi Fast) → thư mục kiến thức.</summary>
+    public string FastSourceVersionsPath { get; set; } = "";
+
     /// <summary>
     /// Whether "Chạy SQL" may run statements that change data (INSERT/UPDATE/DELETE/EXEC…).
     /// OFF by default, and deliberately not a "remember my answer" checkbox on a prompt:

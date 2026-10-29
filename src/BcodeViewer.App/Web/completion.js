@@ -874,6 +874,10 @@ class BcodeCompletion {
     this._aiGhostPrefix = null; // { text, prefix } — để gõ tiếp vẫn dùng lại được, xem reuseGhost
     this._aiTimer = null;       // hẹn giờ debounce, nằm NGOÀI provider — xem scheduleAiFetch
     this._aiPendingKey = null;  // ngữ cảnh mà lượt hẹn đang chờ, để không hẹn trùng
+    this.fastCache = new Map();  // ghost Fast (không AI): đuôi văn bản trước con trỏ -> gợi ý ('' = không có)
+    this._fastPrev = null;       // { before, text } — gõ tiếp đúng gợi ý thì cắt dần, không hỏi lại host
+    this._fastTimer = null;
+    this._fastPendingKey = null;
 
     this.registerProviders();
     this.loadFromHost();
@@ -973,6 +977,8 @@ class BcodeCompletion {
     this._aiGhostPrefix = null;
     clearTimeout(this._aiTimer);
     this._aiPendingKey = null;
+    this.fastCache.clear();
+    this._fastPrev = null;
     await this.loadFromHost();
   }
 
@@ -2052,6 +2058,112 @@ class BcodeCompletion {
     };
   }
 
+  // ---- Ghost text theo cấu trúc Fast (không AI) ----------------------------------------
+  //
+  // Tính ở host (Host/FastSource/SourceGhost.cs): ma trận field (<field name="ma_kh"> → <header>/<items> hay dùng), dòng giống trong
+  // chính file, n-gram token học từ source Fast; ngưỡng hiệu chỉnh trên nửa file mẫu không dùng để học (ngắn đúng ≥ 90%, dài ≥ 60%).
+  // Provider phải trả lời ĐỒNG BỘ (xem computeInline) nên ở đây chỉ đọc bộ nhớ; hỏi host thì hẹn giờ như scheduleAiFetch.
+
+  /// Văn bản quanh con trỏ gửi host: tối đa 300 dòng phía trên (tới con trỏ) và 300 dòng phía dưới dòng đang gõ.
+  fastContext(model, position) {
+    const n = model.getLineCount();
+    const top = Math.max(1, position.lineNumber - 300);
+    const bottom = Math.min(n, position.lineNumber + 300);
+    const before = model.getValueInRange({ startLineNumber: top, startColumn: 1, endLineNumber: position.lineNumber, endColumn: position.column });
+    const after = position.lineNumber < n
+      ? model.getValueInRange({ startLineNumber: position.lineNumber + 1, startColumn: 1, endLineNumber: bottom, endColumn: model.getLineMaxColumn(bottom) })
+      : '';
+    return { before, after };
+  }
+
+  fastGhost(model, position) {
+    if (!this.config.fastGhost || !this.bcode.activePath) return null;
+    // Chỉ ở cuối dòng, hoặc trước các dấu đóng Monaco tự chèn (" ' ) ] > /> ;) — giữa dòng có chữ thì không chen.
+    const lineAfter = model.getLineContent(position.lineNumber).substring(position.column - 1);
+    if (lineAfter.trim() && !/^["'\])>\/;,]+\s*$/.test(lineAfter)) return null;
+    const { before, after } = this.fastContext(model, position);
+    if (!before.trim()) return null;
+
+    const reused = this.reuseFast(before);
+    if (reused) return this.wrapFast(reused, position, lineAfter, null);
+
+    const key = (this.config.fastGhostLong ? 'L' : 'S') + before.slice(-400);
+    if (this.fastCache.has(key)) {
+      const t = this.fastCache.get(key);
+      return t ? this.wrapFast(t, position, lineAfter, before) : null;
+    }
+    this.scheduleFastFetch(model, position, before, after, key);
+    return null;
+  }
+
+  /// Gõ tiếp đúng những chữ ghost Fast đang gợi ý → phần còn lại (không hỏi lại host); null = không dùng lại được.
+  reuseFast(before) {
+    const p = this._fastPrev;
+    if (!p || before.length <= p.before.length || !before.startsWith(p.before)) return null;
+    const typed = before.slice(p.before.length);
+    if (typed.includes('\n') || !p.text.startsWith(typed)) return null;
+    const rest = p.text.slice(typed.length);
+    return rest.trim() ? rest : null;
+  }
+
+  /// Gợi ý → item Monaco. Có dấu đóng tự chèn sau con trỏ thì thay luôn đoạn đó (gợi ý phải chứa các dấu đó theo đúng thứ tự).
+  wrapFast(text, position, lineAfter, before) {
+    const closing = lineAfter.trimEnd();
+    if (closing) {
+      let i = 0;
+      for (const ch of text) if (i < closing.length && ch === closing[i]) i++;
+      if (i < closing.length) return null;
+    }
+    if (before !== null) this._fastPrev = { before, text };
+    return {
+      items: [{
+        insertText: text,
+        range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column + closing.length),
+      }],
+    };
+  }
+
+  scheduleFastFetch(model, position, before, after, key) {
+    if (this._fastPendingKey === key) return;
+    this._fastPendingKey = key;
+    clearTimeout(this._fastTimer);
+    const version = model.getVersionId();
+    this._fastTimer = setTimeout(async () => {
+      this._fastPendingKey = null;
+      if (this.editor.getModel() !== model || model.getVersionId() !== version) return;
+      let text = '';
+      try {
+        const raw = await window.bcodeHost.call('BeginFastGhost', before, after, this.bcode.activePath,
+          this.regionAt(model, position), !!this.config.fastGhostLong);
+        text = raw ? (JSON.parse(raw).text || '') : '';
+      } catch { return; } // lượt mới hơn đã thay lượt này
+      if (this.fastCache.size > 400) this.fastCache.clear();
+      this.fastCache.set(key, text);
+      if (!text || this.editor.getModel() !== model || model.getVersionId() !== version) return;
+      // Lớp dưới (structuralGhost) có thể đã hiện gợi ý ở đúng chỗ này trong lúc chờ host; trigger không thay gợi ý đang hiện
+      // (đo trong Viewer: gõ <items trong field so_luong vẫn giữ mẫu AutoComplete viết tay) → ẩn trước rồi gọi lại.
+      try { this.editor.trigger('fast', 'editor.action.inlineSuggest.hide', {}); } catch { /* editor đang đóng */ }
+      const fire = () => {
+        if (this.editor.getModel() !== model || model.getVersionId() !== version) return;
+        try { this.editor.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }
+      };
+      fire();
+      setTimeout(fire, 0);
+    }, 40);
+  }
+
+  /// Alt+Shift+\ — đổi Gợi ý Fast dài ⇄ ngắn (lưu ở Settings) rồi gợi ý lại ngay tại con trỏ.
+  async toggleFastLong() {
+    try {
+      const mode = await window.bcodeHost.call('BeginToggleFastGhostLong');
+      this.config.fastGhostLong = mode === 'long';
+    } catch { return; }
+    this.fastCache.clear();
+    this._fastPrev = null;
+    if (this.bcode.showToast) this.bcode.showToast(this.config.fastGhostLong ? 'Gợi ý Fast: DÀI (đúng ≥ 60%)' : 'Gợi ý Fast: NGẮN (đúng ≥ 90%)', 1800);
+    try { this.editor.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* không có editor */ }
+  }
+
   // ---- Layer 4: AI ghost text --------------------------------------------------------
 
   /// Monaco đọc `enableForwardStability` từ chính object provider trả về, và mặc định là
@@ -2085,6 +2197,11 @@ class BcodeCompletion {
 
     const cross = this.crossSectionGhost(model, position);
     if (cross) { this.cancelPendingAiFetch(); return cross; }
+
+    // Ghost theo cấu trúc Fast (học từ source Fast, không AI): có câu trả lời trong bộ nhớ thì hiện ngay; chưa có thì hẹn hỏi host
+    // và rơi xuống các lớp dưới — câu trả lời về sẽ gọi lại inlineSuggest.trigger.
+    const fast = this.fastGhost(model, position);
+    if (fast) { this.cancelPendingAiFetch(); return fast; }
 
     const structural = this.structuralGhost(model, position);
     if (structural) { this.cancelPendingAiFetch(); return structural; }

@@ -74,7 +74,12 @@ public class EditorBridge
         _chooseSaveAsPath = chooseSaveAsPath;
         _async = new AsyncHostCall(postJson);
         LoadSharedSnippetsInBackground();
+        Fast = new FastSource.FastSourceService(settings);
+        Fast.Warmup();
     }
+
+    /// <summary>Kiến thức Fast (ghost text theo cấu trúc Fast + Hỏi Fast) — nạp / học ở nền.</summary>
+    public FastSource.FastSourceService Fast { get; }
 
     /// <summary>Raised once a background load has changed what <see cref="GetSnippets"/>
     /// would return, so MainForm can tell the page to re-pull. Raised on a worker thread —
@@ -260,6 +265,10 @@ public class EditorBridge
         translateEngine = _settings.TranslateEngine,
         sharedTemplatePath = _settings.SharedTemplatePath,
         enableSqlCompletion = _settings.EnableSqlCompletion,
+        enableFastGhost = _settings.EnableFastGhost,
+        fastGhostLong = _settings.FastGhostLong,
+        fastSourceVersionsPath = _settings.FastSourceVersionsPath,
+        fastSourceStatus = Fast.Status,
         enableSqlWrites = _settings.EnableSqlWrites,
         fcodeConfigXmlPath = _settings.FcodeConfigXmlPath,
         fcodeSqlPassword = _settings.FcodeSqlPassword,
@@ -293,6 +302,11 @@ public class EditorBridge
             _settings.TranslateEngine = S("translateEngine") is "gemini" or "claude" ? S("translateEngine") : "google";
             _settings.SharedTemplatePath = S("sharedTemplatePath").Trim();
             _settings.EnableSqlCompletion = B("enableSqlCompletion");
+            _settings.EnableFastGhost = B("enableFastGhost");
+            _settings.FastGhostLong = B("fastGhostLong");
+            var versionsPath = S("fastSourceVersionsPath").Trim();
+            var versionsChanged = !string.Equals(versionsPath, _settings.FastSourceVersionsPath, StringComparison.OrdinalIgnoreCase);
+            _settings.FastSourceVersionsPath = versionsPath;
             _settings.EnableSqlWrites = B("enableSqlWrites");
             _settings.FcodeConfigXmlPath = S("fcodeConfigXmlPath").Trim();
             _settings.FcodeSqlPassword = S("fcodeSqlPassword");
@@ -313,6 +327,7 @@ public class EditorBridge
 
             ReloadSnippets();
             InvalidateSqlSchema();
+            if (versionsChanged) Fast.StartVersionsLearn(force: false);
             if (styleChanged) FcodeThemeStyleChanged?.Invoke();
             if (aiPosChanged) AiSidebarPositionChanged?.Invoke();
             return "";
@@ -1301,6 +1316,8 @@ public class EditorBridge
                 ? _settings.GeminiApiKey
                 : _settings.AnthropicApiKey),
         sqlCompletion = _settings.EnableSqlCompletion,
+        fastGhost = _settings.EnableFastGhost,
+        fastGhostLong = _settings.FastGhostLong,
         showMinimap = _settings.ShowMinimap,
         autoFitFont = _settings.AutoFitFont,
         autoFitMinFont = _settings.AutoFitMinFont,
@@ -1341,6 +1358,64 @@ public class EditorBridge
     /// its fields, the entities it resolves, the SQL columns of the tables it uses. Built by
     /// Web/completion.js's buildProjectFacts and travelling in the cached part of the prompt,
     /// which is what makes it affordable to send at all.</param>
+    /// <summary>Ghost text theo cấu trúc Fast (không AI): <paramref name="before"/> = văn bản trước con trỏ (trang cắt còn ~12.000 ký tự cuối),
+    /// <paramref name="after"/> = phần sau dòng đang gõ (~12.000 ký tự đầu). Trả JSON {text, kind, share} hoặc "" — lượt mới thay lượt cũ.</summary>
+    public void BeginFastGhost(string requestId, string before, string after, string? filePath, string? regionHint, bool longMode)
+    {
+        if (!_settings.EnableFastGhost) { _async.Begin(requestId, () => ""); return; }
+        _async.Begin(requestId, "fastGhost", _ => Task.FromResult(
+            Fast.Ghost(before ?? "", after ?? "", filePath, regionHint, longMode) is { } g
+                ? JsonSerializer.Serialize(new { text = g.Text, kind = g.Kind, share = Math.Round(g.Share, 3) })
+                : ""));
+    }
+
+    /// <summary>Alt+Shift+\ — đổi chế độ Gợi ý Fast dài ⇄ ngắn, lưu lại; trả chế độ mới ("long" / "short").</summary>
+    public void BeginToggleFastGhostLong(string requestId) =>
+        _async.Begin(requestId, () =>
+        {
+            _settings.FastGhostLong = !_settings.FastGhostLong;
+            _settings.Save();
+            return _settings.FastGhostLong ? "long" : "short";
+        });
+
+    // ---- Hỏi Fast (Web/fastask.js, Host/FastSource/FastSourceService.Ask.cs) -------------------
+
+    /// <summary>Trả lời 1 câu hỏi (JSON: cards, more, empty, status). Lần đầu dựng kho tìm kiếm ~1–2 giây.</summary>
+    public void BeginFastAsk(string requestId, string question, string? activePath) =>
+        _async.Begin(requestId, () => Fast.Ask(question ?? "", activePath));
+
+    /// <summary>Thẻ của 1 tài liệu ("kind:key") — bấm vào "Kết quả khác".</summary>
+    public void BeginFastAskDoc(string requestId, string kindKey, string question) =>
+        _async.Begin(requestId, () => Fast.Doc(kindKey ?? "", question ?? ""));
+
+    /// <summary>✔ (vote = 1) / ✘ (vote = -1) cho 1 thẻ.</summary>
+    public void BeginFastAskVote(string requestId, string question, string kindKey, int vote) =>
+        _async.Begin(requestId, () => { Fast.Vote(question ?? "", kindKey ?? "", vote); return ""; });
+
+    /// <summary>✎ Sửa: lưu câu trả lời đúng cho câu hỏi.</summary>
+    public void BeginFastAskCorrect(string requestId, string question, string text, string code) =>
+        _async.Begin(requestId, () => { Fast.Correct(question ?? "", text ?? "", code ?? ""); return ""; });
+
+    public void BeginFastAskSessions(string requestId) => _async.Begin(requestId, FastSource.FastSourceService.SessionsList);
+    public void BeginFastAskLoadSession(string requestId, string id) => _async.Begin(requestId, () => FastSource.FastSourceService.SessionLoad(id ?? ""));
+    public void BeginFastAskSaveSession(string requestId, string id, string json) =>
+        _async.Begin(requestId, () => { FastSource.FastSourceService.SessionSave(id ?? "", json ?? "{}"); return ""; });
+    public void BeginFastAskDeleteSession(string requestId, string id) =>
+        _async.Begin(requestId, () => { FastSource.FastSourceService.SessionDelete(id ?? ""); return ""; });
+
+    /// <summary>Trạng thái học kiến thức Fast (Settings / Hỏi Fast).</summary>
+    public string GetFastSourceStatus() => Fast.Status;
+
+    /// <summary>Học lại source Fast theo phiên bản + source dự án của file đang mở (bỏ file kiến thức cũ).</summary>
+    public void BeginRelearnFastSource(string requestId, string? activePath) =>
+        _async.Begin(requestId, () =>
+        {
+            Fast.StartVersionsLearn(force: true);
+            var (name, src) = WorkspaceConnection.ResolveSourceRoot(activePath);
+            if (name is not null && src is not null) Fast.StartProjectLearn(name, src, force: true);
+            return Fast.Status;
+        });
+
     public void BeginInlineCompletion(
         string requestId, string prefix, string suffix, string? filePath, string? regionHint, string? projectFacts)
     {

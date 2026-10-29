@@ -492,7 +492,7 @@ Chỉ đọc cấu trúc (INFORMATION_SCHEMA), không sửa bảng nào. Muốn 
 
 ### Sửa dữ liệu kiểu Excel
 
-- Sửa ô rồi **rời khỏi dòng là tự lưu** ("Đã tự động lưu N thay đổi lúc …"); dòng lỗi giữ dấu "!" đỏ.
+- Sửa ô rồi **rời khỏi dòng là tự lưu** ("Đã tự động lưu N thay đổi lúc …"); dòng lỗi giữ dấu "!" đỏ. Với dòng đã có, sửa xong một ô (chữ hoặc checkbox) rồi `Tab` / `Shift+Tab` / bấm sang ô khác cùng dòng cũng **lưu luôn**, không cần xuống dòng. Dòng mới (dòng trống cuối lưới) vẫn chờ nhập xong rồi rời dòng mới lưu.
 - **💾 Save (ghi vào DB)** ghi các thay đổi còn lại (hỏi xác nhận nơi ghi).
 - Dán từ Excel (`Ctrl+V`) điền được nhiều ô.
 - **Bảng có cột identity** (vd `id int IDENTITY`, dòng trên lưới ghi "Identity: id — SQL Server tự sinh"): dòng mới (dán / thêm / chèn / nhân bản) để trống ô id, hiện chữ **(tự sinh)**. Khi lưu, Bcode không gửi id, SQL Server tự sinh, rồi Bcode đọc lại id thật lên lưới. Cột computed và rowversion (timestamp) không bao giờ được ghi; lưu xong Bcode đọc lại giá trị của chúng.

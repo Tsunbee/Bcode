@@ -1093,9 +1093,12 @@ class BcodeCompletion {
     if (!mm) return { suggestions: [] };
     const m = [mm[0].slice(mm[0].length - mm[1].length - 2 - mm[2].length)]; // đoạn đã gõ: "<f.ma" hoặc "f.ma"
     const lead = mm[1]; // '<' hoặc ''
+    // Gõ '<' thì Monaco tự chèn '>' (autoClosingPairs của fcode-language.js) → "<f.ma_kho|>": thay luôn dấu '>' đó, không thì khối
+    // chèn xong dư 1 '>' ở cuối ("</field>>" — người dùng báo khi gõ <f.ma_kho). Chưa có '>' tự chèn thì giữ như cũ.
+    const autoClosed = lead === '<' && model.getLineContent(position.lineNumber).charAt(position.column - 1) === '>';
     const range = {
       startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
-      startColumn: position.column - m[0].length, endColumn: position.column,
+      startColumn: position.column - m[0].length, endColumn: position.column + (autoClosed ? 1 : 0),
     };
     const rules = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
     const suggestions = this.fieldTemplateEntries().map((e) => ({

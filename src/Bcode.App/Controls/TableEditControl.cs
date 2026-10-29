@@ -238,7 +238,20 @@ public class TableEditControl : UserControl
             _statusLabel.Text = "Giá trị không hợp lệ: " + (e.Exception?.Message ?? "sai kiểu dữ liệu") + " — nhấn Esc để huỷ ô đang sửa.";
         };
         _grid.CellBeginEdit += (_, _) => _editingCell = true;
-        _grid.CellEndEdit += (_, _) => _editingCell = false;
+        _grid.CellEndEdit += (_, e) =>
+        {
+            _editingCell = false;
+            // Như FCode: sửa xong 1 ô của dòng ĐÃ CÓ rồi Tab / Shift+Tab / bấm sang ô khác cùng dòng → chốt dòng + tự lưu ngay
+            // (trước đây giá trị treo ở bản nháp của DataRowView, phải rời dòng mới lưu). Dòng mới chưa insert vẫn chờ rời dòng — nhập dở mà lưu sẽ lỗi khoá / NOT NULL.
+            if (_loading || RowAt(e.RowIndex) is not { RowState: DataRowState.Unchanged or DataRowState.Modified }) return;
+            var r = e.RowIndex;
+            BeginInvoke(new Action(() =>
+            {
+                if (IsDisposed || r >= _grid.Rows.Count || _grid.Rows[r].DataBoundItem is not DataRowView { IsEdit: true } drv) return;
+                try { drv.EndEdit(); } catch (Exception ex) { _statusLabel.Text = "Giá trị không hợp lệ: " + ex.Message; return; }
+                _ = AutoSaveRowAsync();
+            }));
+        };
         _grid.CurrentCellChanged += (_, _) => UpdateRowHighlight();
         _grid.CellValueChanged += (_, _) => UpdateRowLabel();
         _grid.DataBindingComplete += (_, _) => UpdateRowHighlight();

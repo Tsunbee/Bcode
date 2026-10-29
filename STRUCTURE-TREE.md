@@ -113,7 +113,7 @@ Bcode.App/
 │   ├── SqlTabSnapshot.cs  19
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  2133
+│   ├── TableEditControl.cs  2146
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
 │   ├── WCommandTreeControl.cs  901
@@ -506,7 +506,7 @@ BcodeViewer.App/
 │   │   └── roboto.css  33
 │   ├── chat.js  83
 │   ├── checkfield.js  457
-│   ├── completion.js  2612
+│   ├── completion.js  2615
 │   ├── contextmenu.js  1105
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437

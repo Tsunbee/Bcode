@@ -90,7 +90,9 @@ public class WCommandService
             await using var cmd = new SqlCommand("SELECT COUNT_BIG(*), CHECKSUM_AGG(BINARY_CHECKSUM(*)) FROM dbo.wcommand", conn);
             await using var reader = await cmd.ExecuteReaderAsync();
             if (!await reader.ReadAsync()) return null;
-            return reader.GetInt64(0) + ":" + (reader.IsDBNull(1) ? "n" : reader.GetInt32(1).ToString());
+            // Tiền tố "2:" = cách chọn nguồn menu hiện tại (APP có kèm wcommand đọc thêm command) — chữ ký lưu từ bản cũ không khớp
+            // nên mỗi workspace tải lại đúng 1 lần, bản lưu chỉ có wcommand của dự án APP (BMT) không bị giữ mãi.
+            return "2:" + reader.GetInt64(0) + ":" + (reader.IsDBNull(1) ? "n" : reader.GetInt32(1).ToString());
         }
         catch { return null; }
     }
@@ -150,13 +152,39 @@ public class WCommandService
         // `command` (menu_id / menu_id0 / bar / bar2) — như tab Command của FCode.
         if (all.Count == 0)
             all = await LoadAppCommandAsync();
+        // APP có thêm vài menu báo cáo web (vd BMT FF31: wcommand 13 dòng, command 1028 dòng): menu chính vẫn là command —
+        // trước đây wcommand khác rỗng là bỏ hẳn command nên cây chỉ còn mấy nhóm báo cáo. Giờ command (có menu_id0 + bar) nhiều
+        // gấp bội wcommand thì hiện cả hai: cây command trước, các menu web giữ nguyên phía sau (BuildHierarchy dựng riêng từng loại).
+        else if (await CommandMenuCountAsync(conn) > all.Count * AppCommandRatio)
+        {
+            var app = await LoadAppCommandAsync();
+            if (app.Count > all.Count * AppCommandRatio) all = app.Concat(all).ToList();
+        }
 
         LastSignature = SignatureOf(all);
-        SaveCacheFlat(all, all.Count > 0 && !all[0].IsAppCommand ? lightSig : null);          // bản lưu trên máy: lần sau hiện cây ngay, không đợi database
+        SaveCacheFlat(all, all.Count > 0 && all.All(i => !i.IsAppCommand) ? lightSig : null);  // bản lưu trên máy: lần sau hiện cây ngay, không đợi database
         var roots = BuildHierarchy(all);
         if (string.IsNullOrWhiteSpace(filterLike)) return roots;
 
         return FilterTree(roots, filterLike.Trim());
+    }
+
+    /// <summary>command nhiều hơn wcommand bấy nhiêu lần thì coi là sản phẩm APP có kèm menu web. Sản phẩm web (FBO/FBI) mỗi menu
+    /// wcommand ứng 1 dòng command nên 2 bảng xấp xỉ nhau — không chạm ngưỡng.</summary>
+    private const int AppCommandRatio = 4;
+
+    /// <summary>Số dòng bảng command ở Sys Data nếu nó là bảng menu APP (có cột menu_id0 + bar); 0 nếu không có bảng / thiếu cột / lỗi.
+    /// Chỉ đếm (database tự tính), không tải bảng.</summary>
+    private static async Task<int> CommandMenuCountAsync(SqlConnection conn)
+    {
+        try
+        {
+            await using var cmd = new SqlCommand(
+                "SELECT CASE WHEN COL_LENGTH('dbo.command', 'menu_id0') IS NOT NULL AND COL_LENGTH('dbo.command', 'bar') IS NOT NULL " +
+                "THEN (SELECT COUNT(*) FROM dbo.command) ELSE 0 END", conn);
+            return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        }
+        catch (SqlException) { return 0; }
     }
 
     /// <summary>Menu của sản phẩm APP: bảng <c>command</c> có đủ cột menu_id0 + bar. Thử Sys Data trước rồi
@@ -442,6 +470,12 @@ public class WCommandService
 
     private static List<WCommandItem> BuildHierarchy(List<WCommandItem> all, bool inferParent = true)
     {
+        // Lẫn menu command (APP) và wcommand (web): 2 bảng đánh mã riêng, trùng mã là chuyện thường (02.01.00 ở cả hai) → dựng riêng
+        // từng loại, cây command trước rồi tới menu web.
+        if (all.Any(i => i.IsAppCommand) && all.Any(i => !i.IsAppCommand))
+            return BuildHierarchy(all.Where(i => i.IsAppCommand).ToList(), inferParent)
+                .Concat(BuildHierarchy(all.Where(i => !i.IsAppCommand).ToList(), inferParent)).ToList();
+
         var byId = all.Where(i => !string.IsNullOrEmpty(i.WMenuId))
                        .GroupBy(i => i.WMenuId)
                        .ToDictionary(g => g.Key, g => g.First());
@@ -467,7 +501,17 @@ public class WCommandService
         // Ẩn menu mồ côi: ở cấp gốc mà không có menu con (cha khai báo không tồn tại → bị đẩy lên gốc, hoặc nhóm rỗng,
         // gồm cả các dòng "-" ngăn cách) — không có ích khi duyệt cây.
         // Bảng chỉ tin cột cha (dvcommand): giữ cả nhóm gốc chưa có menu con — vừa tạo nhóm mới thì phải thấy nó để thêm menu con.
-        return roots.Where(r => !inferParent || r.Children.Count > 0).OrderBy(r => r.WMenuId).ToList();
+        // wcommand cũng vậy với nhóm gốc thật (X.00.00, không khai cha, không phải dòng "-"): người dùng tạo nhóm 02.00.00 Dashboard
+        // bằng script rồi không thấy / không tìm được trên cây vì chưa có menu con.
+        return roots.Where(r => !inferParent || r.Children.Count > 0 || IsEmptyRootGroup(r)).OrderBy(r => r.WMenuId).ToList();
+    }
+
+    /// <summary>Nhóm gốc vừa tạo, chưa có menu con: mã dạng X.00.00, cột cha trống, có tên và không phải dòng ngăn cách "-".</summary>
+    private static bool IsEmptyRootGroup(WCommandItem r)
+    {
+        var bar = (r.Bar ?? "").Trim();
+        return string.IsNullOrWhiteSpace(r.WMenuId0) && bar.Length > 0 && bar.Trim('-').Length > 0
+            && System.Text.RegularExpressions.Regex.IsMatch((r.WMenuId ?? "").Trim(), @"^\d+\.00\.00$");
     }
 
     private static string InferParentId(string wmenuId)

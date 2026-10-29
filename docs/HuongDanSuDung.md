@@ -560,11 +560,15 @@ Trên ảnh: **①** mục SQL Object ở cột icon · **②** chọn database 
 
 Mở: biểu tượng **WCommand** ở cột icon bên trái (hoặc nút **WCommand** / `Ctrl+Shift+W`). Cây đọc bảng `wcommand` + `command` của **Sys Data**.
 
+- Sản phẩm dạng APP (FBFF…) không có `wcommand` (hoặc rỗng): cây dựng từ bảng `command` (`menu_id` / `menu_id0` / `bar`), như tab Command của FCode.
+- Sản phẩm APP có kèm vài menu báo cáo web (vd BMT FF31: `wcommand` 13 dòng, `command` 1028 dòng): khi `command` nhiều gấp 4 lần `wcommand` trở lên, cây hiện **cả hai** — các nhóm của `command` trước, các nhóm menu web (`wcommand`) ở cuối. Trước đây chỉ hiện mấy nhóm web nên trông như thiếu menu.
+
 ### Lọc cây
 
 - Ô "Tìm theo tên menu, ID hoặc link..." (chế độ App: gõ xong bấm `Enter`). Đang lọc thì cây tự mở hết.
 - Ô **(C)**: chỉ hiện menu customize (tên có "(C)" hoặc "(*)") kèm menu cha của chúng.
 - **Refresh**: nạp lại cây từ database.
+- Menu ở cấp gốc không có menu con thì không hiện (dòng mồ côi có cha không tồn tại, dòng `-`), **trừ nhóm gốc vừa tạo**: mã dạng `X.00.00`, cột cha `wmenu_id0` trống, có tên — vẫn hiện và tìm được để thêm menu con.
 
 ### Thao tác trên menu
 

@@ -322,7 +322,7 @@ Bcode.App/
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
-│   ├── WCommandService.cs  812
+│   ├── WCommandService.cs  846
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77
 │   └── XlsxExportService.cs  22
@@ -464,7 +464,7 @@ BcodeViewer.App/
 │   │   ├── FastSourceService.Ask.cs  200
 │   │   ├── FastSourceService.cs  240
 │   │   ├── SourceAsk.cs  568
-│   │   ├── SourceGhost.cs  480
+│   │   ├── SourceGhost.cs  498
 │   │   ├── SourceGhostMiner.cs  173
 │   │   ├── SourceTokenModel.cs  389
 │   │   ├── SourceVersions.cs  244

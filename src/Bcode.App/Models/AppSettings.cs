@@ -118,6 +118,10 @@ public class AppSettings
     /// Sửa ở File Lookup → chuột phải → "Bỏ qua file theo đuôi tên...". Để trống = không bỏ qua file nào.</summary>
     public string FileLookupIgnoreSuffixes { get; set; } = "_bk, _copy, - copy";
 
+    /// <summary>Ô Search (lọc tên file) của File Lookup: false = gõ là tìm (chờ 200 ms, mặc định), true = chỉ tìm khi ấn Enter (máy yếu gõ không khựng).
+    /// Sửa ở Template → "Tìm file"; tab đang mở nhận ngay qua <see cref="Services.FileLookupService.SearchModeChanged"/>.</summary>
+    public bool FileLookupSearchOnEnter { get; set; }
+
     // ---- File Lookup → Search Box (String search): các file/thư mục bị LOẠI khi tìm nội dung. Mặc định = đúng như trước đây; sửa ở Template → "Tìm file".
     /// <summary>Đuôi file ĐƯỢC tìm khi File Type là *.* (chỉ quét các đuôi này; để trống = mọi đuôi trừ 2 danh sách loại trừ). Gõ rõ đuôi ở File Type thì không áp.</summary>
     public string SearchIncludeExtensions { get; set; } = ".xml, .f, .txt, .js, .sql, .ent, .xsd, .css, .config, .json, .html";
@@ -163,6 +167,13 @@ public class AppSettings
     /// <summary>Note (New) chế độ App: ô "Tách theo từng y/c" khi Generate nhiều y/c (trang web nhớ ở localStorage).</summary>
     public bool NoteSplit { get; set; } = true;
 
+    /// <summary>Gen Update / Note (New) (cả BcodeNote.exe): tạo gói xong thì nén thư mục gói thành &lt;Folder Name&gt;.zip cạnh thư mục đó.</summary>
+    public bool PackageZip { get; set; }
+    /// <summary>Gen Update / Note (New): tạo gói xong thì chép thêm lên <see cref="PackageNetworkRoot"/>\&lt;tên máy&gt;\ (gói ở Save At Path vẫn giữ).</summary>
+    public bool PackageToNetwork { get; set; }
+    /// <summary>Thư mục gốc trên mạng của tuỳ chọn <see cref="PackageToNetwork"/> — người dùng sửa được.</summary>
+    public string PackageNetworkRoot { get; set; } = Services.GenAllService.DefaultNetworkRoot;
+
     /// <summary>
     /// Whether the "(nội dung tạm)" bar at the top of a generated script tab
     /// (SQL Object definition, Script Cart view — anything not backed by a real
@@ -207,6 +218,10 @@ public class AppSettings
 
     /// <summary>Chế độ ghost Fast: true = gợi ý dài (cả dòng theo chính file, mặc định), false = ngắn (chỉ gợi ý chắc ≥ 90%). Alt+Shift+\ đổi qua lại.</summary>
     public bool FastGhostLong { get; set; } = true;
+
+    /// <summary>Thư mục lưu kiến thức ghost text + Hỏi Fast (Template → Đường dẫn). Trống = %AppData%\Bcode trên máy này; khai cùng 1 thư mục mạng cho
+    /// nhiều máy để dùng chung (xem <see cref="Services.KnowledgePaths"/>).</summary>
+    public string KnowledgeDir { get; set; } = "";
 
     /// <summary>Cỡ chữ editor SQL Query (px) người dùng chọn bằng Ctrl+lăn chuột / Tăng-Giảm cỡ chữ.
     /// 0 = mặc định như FCode (Consolas 11px, xem Web/Shell/sqleditor.html).</summary>

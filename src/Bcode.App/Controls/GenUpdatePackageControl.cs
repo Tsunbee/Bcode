@@ -145,6 +145,7 @@ public class GenUpdatePackageControl : UserControl
     {
         var ws = _workspace;
         var folderPrefix = string.Join("_", new[] { ws?.ProjectId, Environment.MachineName }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        var opts = GenAllService.LoadPackageOptions();
         Js($"genUpdate.init({J(new
         {
             workspace = ws?.Name ?? "",
@@ -152,6 +153,7 @@ public class GenUpdatePackageControl : UserControl
             mobile = ws?.MobilePath ?? "",
             save = ws?.WorkingPath ?? "",
             folderPrefix,
+            zip = opts.Zip, net = opts.Network, netRoot = opts.NetworkRoot, machine = Environment.MachineName,
             categories = ControllerCategories.Select(c => new { label = c.Label, value = c.Folder }),
             batch = BatchView(),
         })})");
@@ -363,8 +365,15 @@ public class GenUpdatePackageControl : UserControl
 
                 case "create":
                     await CreateAsync(root.GetProperty("savePath").GetString() ?? "", root.GetProperty("folder").GetString() ?? "",
-                        root.TryGetProperty("description", out var d) ? d.GetString() : "");
+                        root.TryGetProperty("description", out var d) ? d.GetString() : "", ReadPackageOptions(root));
                     break;
+
+                case "pkgOpts":
+                {
+                    var o = ReadPackageOptions(root);
+                    GenAllService.SavePackageOptions(o.Zip, o.Network, o.NetworkRoot);
+                    break;
+                }
 
                 case "copy":
                     try { Clipboard.SetText(root.GetProperty("text").GetString() ?? ""); } catch { /* clipboard bận */ }
@@ -423,7 +432,13 @@ public class GenUpdatePackageControl : UserControl
         }
     }
 
-    private async Task CreateAsync(string savePath, string folder, string? description)
+    /// <summary>2 tuỳ chọn gói trang gửi kèm (zip, net, netRoot) — trang cũ không gửi thì coi như tắt.</summary>
+    private static (bool Zip, bool Network, string NetworkRoot) ReadPackageOptions(JsonElement root) =>
+        (root.TryGetProperty("zip", out var z) && z.ValueKind == JsonValueKind.True,
+         root.TryGetProperty("net", out var n) && n.ValueKind == JsonValueKind.True,
+         root.TryGetProperty("netRoot", out var r) ? r.GetString() ?? "" : "");
+
+    private async Task CreateAsync(string savePath, string folder, string? description, (bool Zip, bool Network, string NetworkRoot) opts)
     {
         savePath = savePath.Trim();
         folder = folder.Trim();
@@ -442,7 +457,11 @@ public class GenUpdatePackageControl : UserControl
         try
         {
             var count = await Task.Run(() => GenAllService.CreatePackage(destRoot, items, description));
-            Js($"genUpdate.onCreated({J(new { ok = true, path = destRoot, count })})");
+            GenAllService.SavePackageOptions(opts.Zip, opts.Network, opts.NetworkRoot);
+            // Nén zip / chép lên đường dẫn mạng: lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
+            var extra = opts.Zip || opts.Network
+                ? await GenAllService.DeliverPackageAsync(destRoot, opts.Zip, opts.Network, opts.NetworkRoot) : new PackageDelivery();
+            Js($"genUpdate.onCreated({J(new { ok = true, path = destRoot, count, zip = extra.ZipPath, network = extra.NetworkPath, errors = extra.Errors })})");
         }
         catch (Exception ex)
         {

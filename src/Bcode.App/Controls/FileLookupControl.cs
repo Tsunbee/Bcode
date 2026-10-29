@@ -276,10 +276,14 @@ public partial class FileLookupControl : UserControl
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBars;
         Bcode.App.UI.ThemeManager.ThemeChanged += RecolorTreeOnTheme;
+        // Ô Search: gõ là tìm / ấn Enter mới tìm (Template → Tìm file) — đẩy lúc thanh nạp xong và mỗi lần đổi trong Template.
+        _barWeb.Ready += PushSearchMode;
+        FileLookupService.SearchModeChanged += OnSearchModeChanged;
         Disposed += (_, _) =>
         {
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToBars;
             Bcode.App.UI.ThemeManager.ThemeChanged -= RecolorTreeOnTheme;
+            FileLookupService.SearchModeChanged -= OnSearchModeChanged;
             _contentSearchCts?.Cancel();
         };
         WireBars();
@@ -290,6 +294,9 @@ public partial class FileLookupControl : UserControl
             {
                 switch (root.GetProperty("action").GetString())
                 {
+                    case "__height":
+                        FitBarHeight(_barWeb, root);
+                        break;
                     case "load":
                         _menuMode = _menuBeforeSearch = false;
                         _pathText = root.GetProperty("path").GetString() ?? "";
@@ -342,6 +349,15 @@ public partial class FileLookupControl : UserControl
         }
 
         void PushThemeToBars() { }   // WebBarHost tự đẩy theme cho trang của nó
+    }
+
+    private void PushSearchMode() =>
+        _barWeb.Call($"window.setSearchOnEnter && window.setSearchOnEnter({(FileLookupService.SearchOnEnter ? "true" : "false")})");
+
+    private void OnSearchModeChanged()
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        try { BeginInvoke(new Action(PushSearchMode)); } catch { /* đang đóng */ }
     }
 
     private bool _reloadWhenVisible;
@@ -610,8 +626,17 @@ public partial class FileLookupControl : UserControl
 
     private void EnsureSearchBoxWeb() { }
 
+    /// <summary>Trang web của thanh báo chiều cao nội dung thật (px thiết bị — đã gồm DPI và tỉ lệ giao diện): đặt đúng chiều cao đó thay cho số cố định
+    /// lúc thiết kế, để cột cây hẹp (hàng xuống dòng) hay tỉ lệ giao diện &gt; 100% không làm phần dưới thanh bị cây file che mất.</summary>
+    private static void FitBarHeight(WebBarHost bar, System.Text.Json.JsonElement root)
+    {
+        if (!root.TryGetProperty("height", out var hv) || !hv.TryGetInt32(out var h) || h <= 0) return;
+        bar.Height = Math.Clamp(h + 1, Bcode.App.UI.DpiScale.Px(bar, 40), Bcode.App.UI.DpiScale.Px(bar, 480));
+    }
+
     private void OnSearchBoxMessage(System.Text.Json.JsonElement root)
     {
+        if (root.GetProperty("action").GetString() == "__height") { FitBarHeight(_searchBoxPanel, root); return; }
         if (root.TryGetProperty("fileType", out var fileType)) _sbFileTypeText = fileType.GetString() ?? "";
         if (root.TryGetProperty("searchIn", out var searchIn)) _sbSearchInText = searchIn.GetString() ?? "";
         if (root.TryGetProperty("text", out var text)) _sbStringText = text.GetString() ?? "";

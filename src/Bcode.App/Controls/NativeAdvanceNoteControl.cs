@@ -65,6 +65,9 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private readonly FlowLayoutPanel _warnings = new() { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent };
     private readonly RoundedInput _gSave = NK.Input("", mono: true), _gFolder = NK.Input("", mono: true);
     private readonly CheckBox _gSplit = NK.Check("Tách theo từng y/c");
+    private readonly CheckBox _gZip = NK.Check("Nén .zip gói update"), _gNet = NK.Check("Gen vào đường dẫn mạng");
+    private readonly RoundedInput _gNetRoot = NK.Input("", mono: true);
+    private readonly Label _gNetHint = NK.Muted("");
     private readonly FlowLayoutPanel _result = new() { AutoSize = true, WrapContents = true, BackColor = Color.Transparent, Visible = false };
     private readonly FlowLayoutPanel _history = new() { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent };
     private bool _busy;
@@ -250,8 +253,16 @@ public sealed class NativeAdvanceNoteControl : UserControl
         var genRow = NK.Row(_gSplit, NK.Button("⚙ Generate Update", () => { Flush(); _ = GenerateAsync(); }, primary: true));
         genRow.Dock = DockStyle.Top;
         NK.Tip(_gSplit, "Tick nhiều y/c: bật = mỗi y/c 1 thư mục con riêng (1585\\, 1586\\...); tắt = gộp tất cả vào 1 gói chung (1 file APP_Script.sql).");
+        // Nén zip / Gen vào đường dẫn mạng: lưu vào settings.json ngay khi đổi (dùng chung với Gen Update và BcodeNote.exe).
+        var pkgRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, RowCount = 2, BackColor = Color.Transparent };
+        pkgRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); pkgRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize)); pkgRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _gNetRoot.Dock = DockStyle.Fill; _gNetRoot.Margin = new Padding(0, 0, 0, 4);
+        pkgRow.Controls.Add(_gZip, 0, 0); pkgRow.Controls.Add(_gNet, 1, 0); pkgRow.Controls.Add(_gNetRoot, 2, 0);
+        pkgRow.Controls.Add(_gNetHint, 2, 1);
+        NK.Tip(_gZip, "Tạo gói xong thì nén thư mục gói thành <Folder Name>.zip cạnh thư mục đó.");
+        NK.Tip(_gNet, "Tạo gói xong thì chép thêm vào <đường dẫn mạng>\\<tên máy>\\ (thư mục tên máy chưa có thì tạo). Có nén zip thì chép file .zip. Gói ở Save At Path vẫn giữ.");
         _result.Dock = DockStyle.Top; _history.Dock = DockStyle.Top;
-        cGenUp.Body.Controls.Add(_history); cGenUp.Body.Controls.Add(_result); cGenUp.Body.Controls.Add(genRow); cGenUp.Body.Controls.Add(saveRow);
+        cGenUp.Body.Controls.Add(_history); cGenUp.Body.Controls.Add(_result); cGenUp.Body.Controls.Add(pkgRow); cGenUp.Body.Controls.Add(genRow); cGenUp.Body.Controls.Add(saveRow);
         _gFolder.Inner.TextChanged += (_, _) => { if (!_loading) _folderTouched = true; };
 
         var cards = new Control[] { cName, two1, dbBar, two2, _cBottom, cTbl, cPkg, cGenUp };
@@ -289,6 +300,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
             _settings.NoteSplit = _gSplit.Checked;
             try { _settings.Save(); } catch { /* không lưu được thì lần sau về mặc định */ }
         };
+        var pkg = GenAllService.LoadPackageOptions();
+        _gZip.Checked = pkg.Zip; _gNet.Checked = pkg.Network; _gNetRoot.Text = pkg.NetworkRoot; ShowNetRow();
+        _gZip.CheckedChanged += (_, _) => SavePkgOpts();
+        _gNet.CheckedChanged += (_, _) => { ShowNetRow(); SavePkgOpts(); };
+        _gNetRoot.Inner.TextChanged += (_, _) => ShowNetRow();
+        _gNetRoot.Inner.Leave += (_, _) => SavePkgOpts();
         Disposed += (_, _) => { try { Flush(); } catch { } _saveTimer.Dispose(); };
     }
 
@@ -905,6 +922,11 @@ public sealed class NativeAdvanceNoteControl : UserControl
             var dest = Path.Combine(savePath, folder);
             var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
             _preview = AdvancePackageBuilder.OrderForRun(merged.Items);
+            // Nén zip / chép lên đường dẫn mạng: lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
+            var zip = _gZip.Checked; var net = _gNet.Checked;
+            SavePkgOpts();
+            if (zip || net) SetBusy(true, net ? "Đang chép gói lên đường dẫn mạng..." : "Đang nén zip...");
+            var extra = zip || net ? await GenAllService.DeliverPackageAsync(dest, zip, net, _gNetRoot.Text) : new PackageDelivery();
             var now = DateTime.Now;
             foreach (var req in picked)
             {
@@ -913,19 +935,30 @@ public sealed class NativeAdvanceNoteControl : UserControl
                 if (req.Generations.Count > AdvanceRequest.MaxGenerations) req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
             }
             _store.Save(WorkspaceName, _requests);
-            ShowResult(true, $"Đã tạo {count} mục tại:", dest);
+            ShowResult(true, $"Đã tạo {count} mục tại:", dest, extra);
             _defaultFolder = Regex.Replace(_defaultFolder, @"\d{14}$", "") + DateTime.Now.ToString("yyyyMMddHHmmss");
             _folderTouched = false; RefreshFolder();
             ShowPreview(merged.Warnings, "gói vừa tạo — bấm đôi file để mở vào tab Query");
             _previewSummary.Text = "Gói vừa tạo — bấm 1 dòng để xem nội dung:";
             RenderList(); RenderHistory();
-            SetStatus("Đã tạo gói update.", ok: true);
+            if (extra.Errors.Count > 0) SetStatus("Đã tạo gói update nhưng: " + string.Join(" | ", extra.Errors), true);
+            else SetStatus("Đã tạo gói update.", ok: true);
         }
         catch (Exception ex) { SetStatus(ex.Message, true); }
         finally { SetBusy(false); }
     }
 
-    private void ShowResult(bool ok, string message, string path)
+    private void SavePkgOpts() => GenAllService.SavePackageOptions(_gZip.Checked, _gNet.Checked, _gNetRoot.Text);
+
+    private void ShowNetRow()
+    {
+        _gNetRoot.Visible = _gNet.Checked;
+        var root = _gNetRoot.Text.Trim().TrimEnd('\\', '/');
+        _gNetHint.Text = _gNet.Checked ? $"Gói được chép vào {(root.Length > 0 ? root : "...")}\\{Environment.MachineName}\\" : "";
+        _gNetHint.Visible = _gNet.Checked;
+    }
+
+    private void ShowResult(bool ok, string message, string path, PackageDelivery? extra = null)
     {
         _result.Controls.Clear();
         _result.Controls.Add(new Label { Text = message, AutoSize = true, ForeColor = ok ? AppColors.Success : AppColors.Danger, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0) });
@@ -933,6 +966,19 @@ public sealed class NativeAdvanceNoteControl : UserControl
         {
             _result.Controls.Add(new Label { Text = path, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0), Font = ThemeManager.MonoFont });
             _result.Controls.Add(NK.Button("Copy link", () => NK.CopyText(path))); _result.Controls.Add(NK.Button("Mở thư mục", () => NK.OpenFolder(path)));
+        }
+        if (extra is not null)
+        {
+            Label Line(string text, Color? color = null)
+            {
+                var l = new Label { Text = text, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0), ForeColor = color ?? AppColors.TextMuted };
+                _result.Controls.Add(l); _result.SetFlowBreak(l, true);
+                return l;
+            }
+            if (_result.Controls.Count > 0) _result.SetFlowBreak(_result.Controls[^1], true);
+            if (extra.ZipPath is not null) Line("Zip: " + extra.ZipPath);
+            if (extra.NetworkPath is not null) Line("Mạng: " + extra.NetworkPath);
+            foreach (var e in extra.Errors) Line("⚠ " + e, AppColors.Danger);
         }
         _result.Visible = true;
     }

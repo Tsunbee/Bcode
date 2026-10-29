@@ -183,6 +183,53 @@ public static class FastGhostMiner
     /// <summary>Đúng tối thiểu của các gợi ý chỉ hiện ở chế độ "Gợi ý Fast dài".</summary>
     public const double LongTarget = 0.6;
 
+    /// <summary>1 chỗ đo "ma trận token": chuỗi token đoán được (kèm độ chắc dồn) và phần thật của dòng.</summary>
+    public sealed record TokSample(TokenModel.Decoded? Dec, string Expected, string Typed);
+
+    /// <summary>Đo "ma trận token" ở đúng các chỗ của <see cref="EvaluateAnyLine"/> (giữa dòng bất kỳ, thấy cả phía trên lẫn phía dưới);
+    /// <paramref name="useLocal"/> = trộn n-gram của chính file (G3).</summary>
+    public static List<TokSample> EvaluateTok(IEnumerable<(string Name, string Def)> test, TokenModel g, bool useLocal, CancellationToken ct = default)
+    {
+        var samples = new List<TokSample>();
+        foreach (var (_, def) in test)
+        {
+            ct.ThrowIfCancellationRequested();
+            var lines = def.Split('\n');
+            var offsets = new int[lines.Length];
+            for (var i = 1; i < lines.Length; i++) offsets[i] = offsets[i - 1] + lines[i - 1].Length + 1;
+            var picked = Enumerable.Range(0, lines.Length).Where(i => i % 3 == 0).ToList();
+            if (picked.Count > 40) picked = picked.Where((_, k) => k % (picked.Count / 40 + 1) == 0).ToList();
+            foreach (var li in picked)
+            {
+                var line = StripComment(lines[li]);
+                var toks = Tokens(line);
+                if (toks.Count < 2) continue;
+                var j = 1 + li * 7 % (toks.Count - 1);
+                var typed = line[..toks[j].Start];
+                var rest = li + 1 < lines.Length ? def[offsets[li + 1]..] : "";
+                var doc = def[..offsets[li]] + typed + "\n" + rest;
+                if (GenericSplit(doc, offsets[li] + typed.Length) is not var (before, after)) continue;
+                TokenModel.Decoded? d = null;
+                try { d = TokenModel.Decode(g, useLocal ? TokenModel.LocalOf(before, after) : null, before); } catch { }
+                samples.Add(new TokSample(d, line[toks[j].Start..].Trim(), typed.Trim()));
+            }
+        }
+        return samples;
+    }
+
+    /// <summary>Ngưỡng độ chắc dồn thấp nhất của "ma trận token" để đúng ≥ <paramref name="target"/> (gợi ý = phần dài nhất còn ≥ ngưỡng).</summary>
+    public static KindQuality CalibrateTok(List<TokSample> samples, double target)
+    {
+        for (var t = 0.3; t <= 1.0001; t += 0.025)
+        {
+            var shown = samples.Select(s => (s, cut: s.Dec?.Cut(t) ?? "")).Where(x => Norm(x.cut).Length > 0).ToList();
+            if (shown.Count < 30) break;
+            var p = shown.Count(x => Norm(x.s.Expected).StartsWith(Norm(x.cut))) / (double)shown.Count;
+            if (p >= target) return new KindQuality(Math.Round(t, 3), Math.Round(p, 3), Math.Round(shown.Count / (double)Math.Max(1, samples.Count), 3), samples.Count);
+        }
+        return new KindQuality(1.01, 0, 0, samples.Count);
+    }
+
     /// <summary>Đo "câu tiếp theo": cứ 3 dòng code lấy 1 (tối đa 40 chỗ / store), giả lập vừa Enter xuống dòng trống (thụt lề như dòng thật,
     /// chỉ thấy phía trên); đáp án = dòng code thật. <paramref name="parts"/> = true: bỏ ngưỡng (để hiệu chỉnh); false: như khi gõ.</summary>
     public static List<Sample> EvaluateNext(IEnumerable<(string Name, string Def)> test, KnowledgeBase kb, bool parts, CancellationToken ct = default)
@@ -310,10 +357,10 @@ public static class FastGhostMiner
         return new KindQuality(1.01, 0, 0, tested);
     }
 
-    private static KnowledgeBase WithThresholds(KnowledgeBase kb, Func<string, double> minShare) => new()
+    private static KnowledgeBase WithThresholds(KnowledgeBase kb, Func<string, double> minShare, TokenModel? tokens = null) => new()
     {
-        Calls = kb.Calls, Funcs = kb.Funcs, Filters = kb.Filters, Lines = kb.Lines, Decls = kb.Decls, Nexts = kb.Nexts, Source = kb.Source,
-        Quality = KnowledgeKinds.Concat(SameLadder.Select(SameKind)).Append("line").Append("next").Append("next:long").ToDictionary(k => k, k => new KindQuality(minShare(k), 0, 0, 0), StringComparer.OrdinalIgnoreCase),
+        Calls = kb.Calls, Funcs = kb.Funcs, Filters = kb.Filters, Lines = kb.Lines, Decls = kb.Decls, Nexts = kb.Nexts, Source = kb.Source, Tokens = tokens ?? kb.Tokens,
+        Quality = KnowledgeKinds.Concat(SameLadder.Select(SameKind)).Append("line").Append("next").Append("next:long").Append("tok").Append("tok:long").ToDictionary(k => k, k => new KindQuality(minShare(k), 0, 0, 0), StringComparer.OrdinalIgnoreCase),
     };
 
     /// <summary>Bước 3 — mỗi loại: ngưỡng THẤP nhất (gợi ý dài / nhiều nhất) mà độ chính xác trên store chưa dùng để rút vẫn ≥ <paramref name="target"/>
@@ -371,9 +418,17 @@ public static class FastGhostMiner
         generic["next"] = CalibrateOffline(nextParts, "next", target + GenericMargin);
         var nl = CalibrateOffline(nextParts, "next", LongTarget);
         generic["next:long"] = nl.MinShare > 1 ? nl : nl with { MinShare = Math.Min(nl.MinShare, generic["next"].MinShare) };
+        // ma trận token (n-gram): rút từ nửa train, ngưỡng độ chắc dồn cho ghost tự động (≥ mục tiêu) và chế độ dài (≥ LongTarget)
+        var trainTok = TokenModel.Train(train.Select(m => m.Def));
+        // đo trong luồng đang học không trộn file đang sửa (trộn chậm ~5 lần); ghost text đang gõ ở luồng khác không bị ảnh hưởng
+        using var localOff = TokenModel.LocalOff();
+        // đo không trộn file đang sửa (nhanh gấp ~5 lần; khi gõ có trộn thì đúng hơn chút → ngưỡng này an toàn)
+        var tokParts = EvaluateTok(test, trainTok, false, ct);
+        generic["tok"] = CalibrateTok(tokParts, target + GenericMargin);
+        generic["tok:long"] = CalibrateTok(tokParts, LongTarget);
         var quality = Calibrate(test, WithThresholds(trainKb, k => generic.TryGetValue(k, out var q) ? q.MinShare : 1.01), target, ct);
         foreach (var (k, q) in generic) quality[k] = q;
-        var finalKb = WithThresholds(trainKb, k => quality[k].MinShare);
+        var finalKb = WithThresholds(trainKb, k => quality[k].MinShare, trainTok);
         var samples = Evaluate(test, finalKb, true, ct).Concat(EvaluateAnyLine(test, finalKb, false, ct)).Concat(EvaluateNext(test, finalKb, false, ct)).ToList();
 
         var report = new List<(string Site, int Sites, int Suggested, double Precision)>();
@@ -393,6 +448,8 @@ public static class FastGhostMiner
             var shown = list.Where(s => s.Hit is not null).ToList();
             report.Add((site, site == ComposeSite ? list.Count : nextParts.Count, shown.Count, shown.Count == 0 ? 0 : shown.Count(s => s.Hit == true) / (double)shown.Count));
         }
+        var tl = quality["tok:long"];
+        report.Add((AnyLineSite + " — Fast dài (ma trận token)", tokParts.Count, (int)Math.Round(tl.Coverage * tokParts.Count), tl.Precision));
 
         var full = Mine(mods, source);
         var kb = new KnowledgeBase
@@ -400,6 +457,8 @@ public static class FastGhostMiner
             Calls = Prune(full.Calls, quality["call"].MinShare), Funcs = Prune(full.Funcs, quality["func"].MinShare), Filters = Prune(full.Filters, quality["filter"].MinShare),
             Lines = Prune(full.Lines, quality["line"].MinShare), Decls = Prune(full.Decls, quality["decl"].MinShare),
             Nexts = Prune(full.Nexts, Math.Min(quality["next"].MinShare, quality["next:long"].MinShare)),
+            // ma trận token rút từ toàn bộ store, bỏ ngữ cảnh gặp < 3 lần cho gọn file
+            Tokens = TokenModel.Train(mods.Select(m => m.Def)).Filter(3),
             Quality = quality, Rules = rules, Source = source,
         };
         return new LearnResult(kb, mods.Count, train.Count, test.Count, report,
@@ -429,10 +488,14 @@ public static class FastGhostMiner
                  + "(hiệu chỉnh để precision đo trên store chưa dùng để rút ≥ target). Ô không có cách viết = ô chặn. "
                  + "{a} = alias bảng, {lhs} = biến được gán trên dòng, {if} = biến của IF cùng dòng; dòng lọc lưu dạng chuẩn rồi đổi theo văn phong store.",
             rules = kb.Rules.ToDictionary(x => x.Key, x => new { precision = x.Value.Precision, coverage = x.Value.Coverage, tested = x.Value.Tested }),
-            kinds = new[] { "filter", "call", "func", "decl", "line", "next", "next:long" }.Concat(SameLadder.Select(SameKind)).ToDictionary(k => k, Kind),
+            kinds = new[] { "filter", "call", "func", "decl", "line", "next", "next:long", "tok", "tok:long" }.Concat(SameLadder.Select(SameKind)).ToDictionary(k => k, Kind),
         }, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, json);
+        KnowledgePaths.WriteAtomic(path, json);
+        // ma trận token ghi riêng, gọn 1 dòng (cạnh file: <tên>.json.tok) — ghi thụt lề thì to gấp ~5 lần
+        var tokPath = path + ".tok";
+        if (kb.Tokens is { } tk) KnowledgePaths.WriteAtomic(tokPath, JsonSerializer.Serialize(tk.ToJson()));
+        else if (File.Exists(tokPath)) File.Delete(tokPath);
     }
 
     /// <summary>Học từ database đang kết nối (chỉ đọc) → ghi ma trận riêng của database đó; lần gõ sau tra ma trận này trước ma trận đi kèm.</summary>
@@ -480,9 +543,11 @@ public static class FastGhostMiner
         var cells = kinds.ToDictionary(k => k, _ => new Dictionary<string, (int Count, Dictionary<string, (string Text, int N)> Opts)>(StringComparer.OrdinalIgnoreCase));
         var quality = new Dictionary<string, KindQuality>(StringComparer.OrdinalIgnoreCase);
         var projects = 0;
+        var tokenModels = new List<TokenModel>();
         foreach (var f in files)
         {
             var kb = LoadKnowledgeFile(f);
+            if (kb.Tokens is { } tk) tokenModels.Add(tk);
             if (kb.Quality.Count == 0) continue;
             projects++;
             foreach (var (k, q) in kb.Quality)
@@ -510,7 +575,7 @@ public static class FastGhostMiner
         }, StringComparer.OrdinalIgnoreCase);
         var shared = new KnowledgeBase
         {
-            Calls = Build("call"), Funcs = Build("func"), Filters = Build("filter"), Decls = Build("decl"), Lines = Build("line"), Nexts = Build("next"),
+            Calls = Build("call"), Funcs = Build("func"), Filters = Build("filter"), Decls = Build("decl"), Lines = Build("line"), Nexts = Build("next"), Tokens = tokenModels.Count == 0 ? null : tokenModels.Count == 1 ? tokenModels[0] : TokenModel.Merge(tokenModels),
             Quality = quality, Source = $"Chung {projects} dự án đã học trên máy này" + (adjustments.Count > 0 ? $" + {adjustments.Count} xác nhận ở Hỏi Fast" : ""),
         };
         Save(shared, SharedPath);

@@ -11,7 +11,7 @@ internal sealed class FileLookupBarPage : NativePage
     private readonly PillButton _only, _toggleSb, _copyTo;
     private readonly System.Windows.Forms.Timer _debounce = new() { Interval = 200 };
     private static readonly string[] Exts = { ".*", ".f", ".xml", ".aspx", ".xlsx", ".rpt" };
-    private bool _loading;
+    private bool _loading, _searchOnEnter;
 
     public FileLookupBarPage()
     {
@@ -22,7 +22,8 @@ internal sealed class FileLookupBarPage : NativePage
         _copyTo = NK.Button("Copy to (0)", () => Post(new { action = "copy-to" }), tip: "Copy các file đã tick (hoặc file đang chọn) sang thư mục khác, có đổi tên");
         _path.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Load(); } };
         _debounce.Tick += (_, _) => { _debounce.Stop(); Post(new { action = "search", value = _search.Text }); };
-        _search.TextChanged += (_, _) => { if (_loading) return; _debounce.Stop(); _debounce.Start(); };
+        // Template → Tìm file: "Ấn Enter mới tìm" (máy yếu) — gõ không chạy tìm.
+        _search.TextChanged += (_, _) => { if (_loading) return; _debounce.Stop(); if (!_searchOnEnter) _debounce.Start(); };
         // Enter ở ô Search = lọc ngay (không chờ 200 ms), như Enter ở ô Path = Load.
         _search.InputKeyDown += (_, e) =>
         {
@@ -68,6 +69,12 @@ internal sealed class FileLookupBarPage : NativePage
             case "window.setOnlyShowLabel": _only.Text = Str(a, 0); break;
             case "window.setOnlyShowChecked": _only.IsPrimary = Bool(a, 0); _only.Invalidate(); break;
             case "window.setSearchBoxToggleText": _toggleSb.Text = Str(a, 0); break;
+            case "window.setSearchOnEnter":
+                _searchOnEnter = Bool(a, 0);
+                if (_searchOnEnter) _debounce.Stop();
+                _search.PlaceholderText = _searchOnEnter ? "Search... (Enter để tìm)" : "Search...";
+                _search.Invalidate();
+                break;
             case "window.setPath": _loading = true; _path.Text = Str(a, 0); _loading = false; break;
         }
     }

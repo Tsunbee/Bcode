@@ -75,10 +75,23 @@ public static class FastGhostRules
         if (GenericSplit(text, caret) is not var (before, after)) return null;
         var m = SameCandidates(before, after);
         if (ignoreThresholds) return SameFile(m, 1) ?? LineStart(before, kb, 0);
-        // dài trước: bậc nào đủ ngưỡng của bậc đó thì lấy
+        // gộp nguồn (G6): mỗi nguồn tự qua ngưỡng đã hiệu chỉnh của nó (đúng ≥ mục tiêu) → lấy gợi ý DÀI NHẤT trong các ứng viên
+        var cands = new List<Ghost>();
         foreach (var k in SameLadder)
-            if ((k == 1 || kb.QualityOf(SameKind(k)) is not null) && SameFile(m, k) is { } s && s.Share >= kb.MinShareOf(SameKind(k))) return s;
-        return LineStart(before, kb, kb.MinShareOf("line")) is { } l && l.Share >= kb.MinShareOf("line") ? l : null;
+            if ((k == 1 || kb.QualityOf(SameKind(k)) is not null) && SameFile(m, k) is { } s && s.Share >= kb.MinShareOf(SameKind(k))) { cands.Add(s); break; }
+        if (LineStart(before, kb, kb.MinShareOf("line")) is { } l && l.Share >= kb.MinShareOf("line")) cands.Add(l);
+        if (TokGhost(before, after, kb, "tok") is { } t) cands.Add(t);
+        return cands.OrderByDescending(c => FastGhostMiner.Norm(c.Text).Length).FirstOrDefault();
+    }
+
+    /// <summary>Gợi ý của "ma trận token" (<see cref="TokenModel"/>): phần dài nhất mà độ chắc dồn còn ≥ ngưỡng của <paramref name="kind"/> ("tok" / "tok:long").</summary>
+    private static Ghost? TokGhost(string before, string after, KnowledgeBase kb, string kind)
+    {
+        if (kb.TokensOf() is not { } tm || kb.QualityOf(kind) is not { MinShare: <= 1 } q) return null;
+        var d = TokenModel.Decode(tm, TokenModel.UseLocal ? TokenModel.LocalOf(before, after) : null, before);
+        if (d is null || d.Cut(q.MinShare) is not { Length: > 0 } text) return null;
+        var n = d.Cum.Count(c => c >= q.MinShare - 1e-9);
+        return new Ghost(text, kind, Math.Round(d.Cum[n - 1], 3));
     }
 
     /// <summary>Tỷ lệ tối thiểu các chỗ khớp cùng viết tiếp giống nhau để "Gợi ý Fast dài" lấy bậc độ dài đó.</summary>
@@ -95,10 +108,14 @@ public static class FastGhostRules
         // dòng trống: câu tiếp theo theo ngưỡng riêng của chế độ dài (hiệu chỉnh để đúng ≥ 60%), cho gợi ý phần đầu chắc chắn
         if (NextLine(text, caret, kb, kb.MinShareOf("next:long"), true) is { } nx) return nx.Text;
         if (GenericSplit(text, caret) is not var (before, after)) return null;
+        // gộp nguồn như ghost tự động nhưng theo ngưỡng của chế độ dài → lấy gợi ý dài nhất
+        var cands = new List<string>();
         if (SameCandidates(before, after) is { } m)
             foreach (var k in new[] { 0, 8, 3, 2, 1 })
-                if (SameFile(m, k) is { } s && s.Share / (1 - 1.0 / (m.LineTokens + 1)) >= LongAgreement - 1e-9) return s.Text;
-        return LineStart(before, kb, 0.6, partial: true) is { } l && l.Share >= 0.5 ? l.Text : null;
+                if (SameFile(m, k) is { } s && s.Share / (1 - 1.0 / (m.LineTokens + 1)) >= LongAgreement - 1e-9) { cands.Add(s.Text); break; }
+        if (LineStart(before, kb, 0.6, partial: true) is { } l && l.Share >= 0.5) cands.Add(l.Text);
+        if (TokGhost(before, after, kb, "tok:long") is { } t) cands.Add(t.Text);
+        return cands.OrderByDescending(c => FastGhostMiner.Norm(c).Length).FirstOrDefault();
     }
 
     /// <summary>Phần văn bản trước con trỏ và sau dòng đang gõ khi được gợi ý chung: con trỏ cuối dòng, dòng có chữ, không nằm trong chuỗi / comment;
@@ -813,6 +830,8 @@ public static class FastGhostRules
         public Dictionary<string, Pattern> Decls { get; init; } = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>Câu tiếp theo: khoá = đầu dòng code phía trên (như ma trận đầu dòng), ô "khoá|đầu dòng trên nữa" khi 2 dòng cho biết rõ hơn → cả dòng kế.</summary>
         public Dictionary<string, Pattern> Nexts { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Ma trận token (n-gram) — gợi ý giữa dòng bất kỳ, xem <see cref="TokenModel"/>.</summary>
+        public TokenModel? Tokens { get; init; }
         /// <summary>"call" / "func" / "filter" → ngưỡng + độ chính xác đo được. Thiếu = dùng <see cref="DefaultMinShare"/>.</summary>
         public Dictionary<string, KindQuality> Quality { get; init; } = new(StringComparer.OrdinalIgnoreCase);
         /// <summary>Độ chính xác của các luật cố định (song ngữ, REPLACE…) đo cùng lúc — chỉ để báo cáo.</summary>
@@ -838,6 +857,9 @@ public static class FastGhostRules
             return null;
         }
 
+        /// <summary>Ma trận token của lớp trên cùng có ma trận token (dự án → chung → đi kèm).</summary>
+        public TokenModel? TokensOf() { for (var k = this; k is not null; k = k.Fallback) if (k.Tokens is { } t) return t; return null; }
+
         public bool Has(string kind) { for (var k = this; k is not null; k = k.Fallback) if (k.Table(kind).Count > 0) return true; return false; }
     }
 
@@ -862,12 +884,12 @@ public static class FastGhostRules
 
     /// <summary>Ma trận tự học từ từng database (nút "Học gợi ý Fast từ database này").</summary>
     public static string LearnedPath(string dbKey) =>
-        Path.Combine(BcodePaths.AppData, "Bcode", "ghost", string.Concat(dbKey.Select(c => Path.GetInvalidFileNameChars().Contains(c) || c == '|' ? '_' : c)) + ".json");
+        Path.Combine(KnowledgePaths.Root, "ghost", string.Concat(dbKey.Select(c => Path.GetInvalidFileNameChars().Contains(c) || c == '|' ? '_' : c)) + ".json");
 
     private static readonly ConcurrentDictionary<string, (DateTime Stamp, KnowledgeBase Kb)> Learned = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Ma trận chung của mọi dự án đã học trên máy này (+ xác nhận ✔/✘ ở Hỏi Fast) — gộp bằng <see cref="FastGhostMiner.MergeShared"/>.</summary>
-    public static string SharedPath => Path.Combine(BcodePaths.AppData, "Bcode", "ghost", "_shared.json");
+    public static string SharedPath => Path.Combine(KnowledgePaths.Root, "ghost", "_shared.json");
 
     private static (DateTime Stamp, KnowledgeBase Kb)? _shared;
 
@@ -926,6 +948,18 @@ public static class FastGhostRules
         return kb;
     }
 
+    /// <summary>Ma trận token cạnh file ma trận (<c>&lt;tên&gt;.json.tok</c>); null = chưa có (học bằng bản cũ / không có).</summary>
+    private static TokenModel? LoadTokens(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            return TokenModel.FromJson(doc.RootElement);
+        }
+        catch { return null; }
+    }
+
     public static KnowledgeBase LoadKnowledgeFile(string path, KnowledgeBase? fallback = null)
     {
         try
@@ -962,6 +996,7 @@ public static class FastGhostRules
             return new KnowledgeBase
             {
                 Calls = calls, Funcs = funcs, Filters = filters, Lines = lines, Decls = decls, Nexts = nexts, Quality = quality, Rules = rules, Fallback = fallback,
+                Tokens = LoadTokens(path + ".tok"),
                 Source = root.TryGetProperty("source", out var s) ? s.GetString() ?? "" : "",
             };
         }

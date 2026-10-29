@@ -37,7 +37,30 @@ public class ProjectPickerForm : WebDialogForm, IProjectPicker
     protected override void OnReady()
     {
         PushData();
+        FocusFilter();
         Bcode.App.UI.ThemeManager.LogTiming($"Projects: trang sẵn sàng sau {_openWatch.ElapsedMilliseconds} ms ({_settings.Workspaces.Count} project)");
+    }
+
+    // Ô lọc "thỉnh thoảng không gõ được": phím chỉ vào được trang khi focus bàn phím nằm trong lõi trình duyệt của WebView2. Gõ ngay khi hộp vừa hiện
+    // (trang chưa nạp xong, ~0,3–0,5 s, máy chậm lâu hơn) hoặc khi lõi không nhận focus thì phím rơi vào cửa sổ vỏ WinForms và mất.
+    // KeyPreview của form chỉ thấy phím trong đúng trường hợp đó → giữ lại các ký tự, đẩy focus vào trang rồi điền tiếp vào ô lọc.
+    private readonly System.Text.StringBuilder _lostKeys = new();
+
+    protected override void OnKeyPress(KeyPressEventArgs e)
+    {
+        base.OnKeyPress(e);
+        if (e.Handled || char.IsControl(e.KeyChar)) return;
+        _lostKeys.Append(e.KeyChar);
+        e.Handled = true;
+        if (Web.IsReady) FocusFilter();     // chưa nạp xong thì OnReady điền
+    }
+
+    private void FocusFilter()
+    {
+        if (ReferenceEquals(Form.ActiveForm, this)) Web.FocusWeb();
+        var typed = _lostKeys.ToString();
+        _lostKeys.Clear();
+        Js($"projects.focusFilter({J(typed)})");
     }
 
     private void PushData()

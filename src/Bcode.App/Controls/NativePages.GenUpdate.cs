@@ -26,7 +26,11 @@ internal sealed class GenUpdatePage : NativePage
     private readonly CheckBox _checkAll = NK.Check("Check All"), _batchAll = NK.Check("Chọn tất cả");
     private readonly ListView _batchList = new() { Dock = DockStyle.Fill, CheckBoxes = true, View = View.Details, FullRowSelect = true, HeaderStyle = ColumnHeaderStyle.Nonclickable, BorderStyle = BorderStyle.None };
     private readonly PillButton _bAdd, _bRemove, _bClear, _bCreate;
-    private readonly Label _resTitle = NK.Muted(""), _resPath = NK.Muted("", true);
+    private readonly Label _resTitle = NK.Muted(""), _resPath = NK.Muted("", true), _resExtra = NK.Muted("", true);
+    private readonly CheckBox _pZip = NK.Check("Nén .zip gói update"), _pNet = NK.Check("Gen vào đường dẫn mạng");
+    private readonly RoundedInput _pNetRoot = NK.Input("", mono: true);
+    private readonly Label _pNetHint = NK.Muted("", true);
+    private string _machine = "";
     private readonly Panel _result = new() { Dock = DockStyle.Bottom, AutoSize = true, Visible = false, Padding = new Padding(8) };
     private readonly List<TblRow> _tbls = new();
     private List<BatchItem> _batch = new();
@@ -42,7 +46,19 @@ internal sealed class GenUpdatePage : NativePage
         var c1 = new CardPanel("Đường dẫn & kết nối") { Dock = DockStyle.Top };
         var saveRow = NK.InputWithButton(_pSave, NK.Button("📂", () => Post(new { action = "open", path = _pSave.Text }), tip: "Mở thư mục lưu"), gap: 6);
         var folRow = NK.InputWithButton(_pFolder, NK.Button("↻", () => _pFolder.Text = NewFolderName(), tip: "Đổi sang thời điểm hiện tại"), gap: 6);
-        c1.Body.Controls.Add(NK.FormGrid(104, ("Program Path", _pProgram), ("Mobile Path", _pMobile), ("Save At Path", saveRow), ("Folder Name", folRow), ("Description", _pDesc)));
+        // Nén zip / Gen vào đường dẫn mạng: lưu vào settings.json ngay khi đổi (dùng chung với Note (New)).
+        var netBox = new TableLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, RowCount = 2, BackColor = Color.Transparent };
+        netBox.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _pNetRoot.Dock = DockStyle.Fill; _pNetRoot.Margin = new Padding(0); _pNetHint.Dock = DockStyle.Fill; _pNetHint.Margin = new Padding(0, 4, 0, 0);
+        netBox.Controls.Add(_pNetRoot, 0, 0); netBox.Controls.Add(_pNetHint, 0, 1);
+        c1.Body.Controls.Add(NK.FormGrid(104, ("Program Path", _pProgram), ("Mobile Path", _pMobile), ("Save At Path", saveRow), ("Folder Name", folRow), ("Description", _pDesc),
+            ("Tuỳ chọn", NK.Row(_pZip, _pNet)), ("Đường dẫn mạng", netBox)));
+        NK.Tip(_pZip, "Tạo gói xong thì nén thư mục gói thành <Folder Name>.zip cạnh thư mục đó.");
+        NK.Tip(_pNet, "Tạo gói xong thì chép thêm vào <đường dẫn mạng>\\<tên máy>\\ (thư mục tên máy chưa có thì tạo). Có nén zip thì chép file .zip. Gói ở Save At Path vẫn giữ.");
+        _pZip.CheckedChanged += (_, _) => SavePkgOpts();
+        _pNet.CheckedChanged += (_, _) => { ShowNetRow(); SavePkgOpts(); };
+        _pNetRoot.Inner.TextChanged += (_, _) => ShowNetRow();
+        _pNetRoot.Inner.Leave += (_, _) => SavePkgOpts();
 
         var c2 = new CardPanel("Gen nhanh Store (Procedure)") { Dock = DockStyle.Top };
         _storeName.Inner.AutoCompleteMode = AutoCompleteMode.SuggestAppend; _storeName.Inner.AutoCompleteSource = AutoCompleteSource.CustomSource; _storeName.Inner.AutoCompleteCustomSource = _procSrc;
@@ -92,8 +108,8 @@ internal sealed class GenUpdatePage : NativePage
         _bClear = NK.Button("Xoá hết", () => { if (_batch.Count > 0) Post(new { action = "clearBatch" }); }); _bClear.ForeOverride = AppColors.Danger;
         _bCreate = NK.Button("⚙ Create Update File", Create, primary: true);
         var btools = TopBar(); btools.Controls.AddRange(new Control[] { _batchAll, _bRemove, _bClear, _batchSummary });
-        _result.Controls.Add(_resPath); _result.Controls.Add(_resTitle);
-        _resTitle.Dock = DockStyle.Top; _resPath.Dock = DockStyle.Top;
+        _result.Controls.Add(_resExtra); _result.Controls.Add(_resPath); _result.Controls.Add(_resTitle);
+        _resTitle.Dock = DockStyle.Top; _resPath.Dock = DockStyle.Top; _resExtra.Dock = DockStyle.Top;
         var resBtn = NK.Row(NK.Button("Copy link", () => { Post(new { action = "copy", text = _lastPath }); Toast("Đã copy link.", "ok"); }), NK.Button("Mở thư mục", () => Post(new { action = "open", path = _lastPath }))); resBtn.Dock = DockStyle.Top;
         _result.Controls.Add(resBtn); _result.Controls.SetChildIndex(resBtn, 0);
         var createBox = new Panel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(8) };
@@ -160,7 +176,14 @@ internal sealed class GenUpdatePage : NativePage
         if (_batch.Count == 0) { Toast("Chưa có file nào trong gói update — tick file bên Source File rồi bấm Add.", "err"); return; }
         if (_pSave.Text.Trim().Length == 0) { Toast("Chưa nhập Save At Path.", "err"); return; }
         if (_pFolder.Text.Trim().Length == 0) { Toast("Chưa nhập Folder Name.", "err"); return; }
-        SetBusy(true, "Đang tạo gói update..."); Post(new { action = "create", savePath = _pSave.Text, folder = _pFolder.Text, description = _pDesc.Text });
+        SetBusy(true, "Đang tạo gói update..."); Post(new { action = "create", savePath = _pSave.Text, folder = _pFolder.Text, description = _pDesc.Text, zip = _pZip.Checked, net = _pNet.Checked, netRoot = _pNetRoot.Text.Trim() });
+    }
+    private void SavePkgOpts() { if (!_loading) Post(new { action = "pkgOpts", zip = _pZip.Checked, net = _pNet.Checked, netRoot = _pNetRoot.Text.Trim() }); }
+    private void ShowNetRow()
+    {
+        _pNetRoot.Enabled = _pNet.Checked;
+        var root = _pNetRoot.Text.Trim().TrimEnd('\\', '/');
+        _pNetHint.Text = _pNet.Checked ? $"Gói được chép vào {(root.Length > 0 ? root : "...")}\\{(_machine.Length > 0 ? _machine : "<tên máy>")}\\" : "";
     }
     private void AddChecked()
     {
@@ -297,6 +320,9 @@ internal sealed class GenUpdatePage : NativePage
                 var d = Arg(a, 0);
                 _ws.Text = P(d, "workspace"); _pProgram.Text = P(d, "program"); _pMobile.Text = P(d, "mobile"); _pSave.Text = P(d, "save");
                 _folderPrefix = P(d, "folderPrefix"); if (_pFolder.Text.Length == 0) _pFolder.Text = NewFolderName();
+                var wasLoading = _loading; _loading = true;
+                _machine = P(d, "machine"); _pZip.Checked = PB(d, "zip"); _pNet.Checked = PB(d, "net"); _pNetRoot.Text = P(d, "netRoot"); ShowNetRow();
+                _loading = wasLoading;
                 _cats = PA(d, "categories").Select(c => P(c, "value")).ToList();
                 _cat.SetItems(_cats.Count > 0 ? PA(d, "categories").Select(c => P(c, "label")).ToList() : new List<string> { "(chưa có)" }, 0);
                 _batch = PA(d, "batch").Select(b => new BatchItem { Key = P(b, "key"), Name = P(b, "name"), Rel = P(b, "rel"), Kind = P(b, "kind") }).ToList(); RenderBatch();
@@ -343,7 +369,11 @@ internal sealed class GenUpdatePage : NativePage
                 if (!PB(r, "ok")) { Toast(P(r, "message").Length > 0 ? P(r, "message") : "Không tạo được gói update.", "err"); break; }
                 _lastPath = P(r, "path"); _result.Visible = true;
                 _resTitle.Text = $"✔ Đã tạo {P(r, "count")} file tại:"; _resPath.Text = _lastPath; _pFolder.Text = NewFolderName();
-                Toast($"Đã tạo gói update ({P(r, "count")} file).", "ok");
+                var errors = PA(r, "errors").Select(e => e.GetString() ?? "").Where(e => e.Length > 0).ToList();
+                _resExtra.Text = string.Join(Environment.NewLine, new[] { P(r, "zip").Length > 0 ? "Zip: " + P(r, "zip") : "", P(r, "network").Length > 0 ? "Mạng: " + P(r, "network") : "" }
+                    .Concat(errors.Select(e => "⚠ " + e)).Where(x => x.Length > 0));
+                if (errors.Count > 0) Toast($"Đã tạo gói update ({P(r, "count")} file) nhưng: " + string.Join(" | ", errors), "err");
+                else Toast($"Đã tạo gói update ({P(r, "count")} file).", "ok");
                 break;
             }
             case "genUpdate.toast": Toast(Str(a, 0), Str(a, 1)); break;

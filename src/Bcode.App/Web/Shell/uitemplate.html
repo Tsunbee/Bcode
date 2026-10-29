@@ -279,9 +279,25 @@
         <button class="btn btn-border" id="pSrcAdd">＋ Thêm thư mục...</button></div></div>
     <div class="muted" style="font-size:11.5px;white-space:pre-line" id="pSrcExtraNote"></div>
   </div>
+  <div class="panel">
+    <h3>Thư mục kiến thức (ghost text + Hỏi Fast)</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Nơi lưu ma trận gợi ý đã học của các dự án (<code>ghost\</code>), kiến thức Hỏi Fast và các xác nhận ✔ / ✘ / bản sửa (<code>fastask\</code>). Để trống = lưu trên máy này (<code>%AppData%\Bcode</code>). Khai <b>cùng 1 thư mục mạng</b> cho các máy dùng Bcode (vd <code>\\server\Bcode\knowledge</code>) để dùng chung: máy nào bấm Học dự án / chấm ✔ ✘ / sửa câu trả lời thì máy khác dùng được luôn. Đổi thư mục: kiến thức đang có được chép sang (không ghi đè file đã có, xác nhận thì gộp). Lịch sử chat Hỏi Fast vẫn lưu riêng từng máy. Thư mục không với tới được (mất mạng) thì tạm dùng thư mục trên máy.</div>
+    <div class="row"><label>Thư mục</label>
+      <div class="ctl"><input type="text" id="pKnow" spellcheck="false" placeholder="(trống = trên máy này) \\server\Bcode\knowledge" />
+        <button class="btn btn-border" id="pKnowBrowse">Chọn...</button>
+        <button class="btn btn-border" id="pKnowLocal">Dùng máy này</button></div></div>
+    <div class="muted" style="font-size:11.5px" id="pKnowNote"></div>
+  </div>
 </div>
 
 <div id="tabSearch" style="display:none">
+  <div class="panel">
+    <h3>File Lookup → ô Search (lọc tên file)</h3>
+    <div class="row"><label>Khi gõ vào ô Search</label>
+      <div class="ctl"><select id="sOnEnter"><option value="typing">Gõ là tìm luôn (mặc định)</option><option value="enter">Ấn Enter mới tìm (máy yếu)</option></select>
+        <span class="muted" id="sOnEnterNote" style="font-size:12px"></span></div></div>
+    <div class="muted" style="font-size:11.5px">“Ấn Enter mới tìm”: gõ không chạy tìm (đỡ khựng trên máy yếu / dự án nhiều file), chỉ khi bấm <b>Enter</b> mới tìm; xoá trống ô rồi Enter = về lại danh sách / cây menu đầy đủ. Lưu ngay khi chọn, tab File Lookup đang mở đổi theo luôn.</div>
+  </div>
   <div class="panel">
     <h3>File Lookup → Search Box: file / thư mục được tìm và bị loại khi tìm nội dung (String search)</h3>
     <div class="muted" style="font-size:12.5px;margin-bottom:10px">Đây là các quy tắc Bcode đang áp dụng khi bấm <b>Search</b> trong Search Box. Sửa tự do — cách nhau bằng dấu phẩy hoặc xuống dòng — rồi bấm <b>Lưu</b>; áp dụng ngay cho lần tìm sau. Gõ rõ đuôi ở ô <b>File Type</b> (vd <code>*.rpt</code>) thì vẫn quét đúng loại đó dù nằm trong danh sách nhị phân.</div>
@@ -745,11 +761,23 @@
   $('pSrcMain').onchange = () => post('paths-set', { key: 'srcMain', value: $('pSrcMain').value });
   $('pSrcExtra').onchange = () => post('paths-set', { key: 'srcExtra', value: $('pSrcExtra').value });
   $('pSrcAdd').onclick = () => post('paths-browse', { key: 'srcAdd' });
+  // Thư mục kiến thức (ghost text + Hỏi Fast): C# kiểm tra truy cập ở luồng nền rồi gọi lại setKnowledge
+  window.setKnowledge = (k) => {
+    if (document.activeElement !== $('pKnow')) $('pKnow').value = k.path;
+    $('pKnowNote').textContent = k.checking ? 'Đang kiểm tra / chép kiến thức sang…'
+      : !k.path ? 'Đang lưu trên máy này: ' + k.local
+      : k.ok ? '✔ Đang dùng: ' + k.root : '✘ Không với tới được thư mục này (sai đường dẫn / mất mạng / không đủ quyền) — tạm dùng trên máy: ' + k.local;
+  };
+  $('pKnow').onchange = () => { post('paths-set', { key: 'knowledge', value: $('pKnow').value.trim() }); window.setKnowledge({ path: $('pKnow').value.trim(), checking: true }); };
+  $('pKnowBrowse').onclick = () => post('paths-browse', { key: 'knowledge' });
+  $('pKnowLocal').onclick = () => { $('pKnow').value = ''; $('pKnow').onchange(); };
   // ---- tab Tìm file: quy tắc loại trừ của Search Box (File Lookup) ----
   window.setSearchRules = (r) => {
     $('sInclude').value = r.include || ''; $('sNever').value = r.never; $('sBinary').value = r.binary; $('sFolders').value = r.folders;
     $('sSkipF').checked = !!r.skipF; $('sCompiled').value = r.compiled; $('sMax').value = r.maxMb; $('sIgnore').value = r.ignore;
+    $('sOnEnter').value = r.onEnter ? 'enter' : 'typing';
   };
+  $('sOnEnter').onchange = () => { post('search-mode-set', { onEnter: $('sOnEnter').value === 'enter' }); $('sOnEnterNote').textContent = 'Đã lưu.'; setTimeout(() => { $('sOnEnterNote').textContent = ''; }, 2500); };
   $('sSave').onclick = () => { post('search-set', { include: $('sInclude').value, never: $('sNever').value, binary: $('sBinary').value, folders: $('sFolders').value, skipF: $('sSkipF').checked, compiled: $('sCompiled').value, maxMb: $('sMax').value, ignore: $('sIgnore').value }); $('sNote').textContent = 'Đã lưu — áp dụng cho lần tìm sau.'; setTimeout(() => { $('sNote').textContent = ''; }, 3000); };
   $('sDefault').onclick = () => post('search-default');
   window.setHistoryPath = p => { S.historyPath = p || ''; renderHist(); };

@@ -80,6 +80,9 @@
   html[data-theme="light"] .tag.script { background: #dbe8ff; color: #1d3f78; }
   #genBar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
   #genBar label.f { flex: 1; min-width: 180px; }
+  #pkgBar { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 8px; }
+  #pkgBar label.chk { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  #gNetRoot { flex: 1; min-width: 200px; }
   #result { padding: 6px 0; display: none; }
   #history { margin-top: 4px; }
   #history .hh { font-size: 11.5px; color: var(--text-muted); padding: 4px 0; }
@@ -220,6 +223,12 @@
               <label class="chk" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap" title="Tick nhiều y/c: bật = mỗi y/c 1 thư mục con riêng (1585\, 1586\...); tắt = gộp tất cả vào 1 gói chung (1 file APP_Script.sql)."><input type="checkbox" id="gSplit" checked /> Tách theo từng y/c</label>
               <button id="btnGen" class="primary">⚙ Generate Update</button>
             </div>
+            <div id="pkgBar">
+              <label class="chk" title="Tạo gói xong thì nén thư mục gói thành <Folder Name>.zip cạnh thư mục đó."><input type="checkbox" id="gZip" /> Nén .zip gói update</label>
+              <label class="chk" title="Tạo gói xong thì chép thêm vào <đường dẫn mạng>\<tên máy>\ (thư mục tên máy chưa có thì tạo). Có nén zip thì chép file .zip. Gói ở Save At Path vẫn giữ."><input type="checkbox" id="gNet" /> Gen vào đường dẫn mạng</label>
+              <input type="text" id="gNetRoot" spellcheck="false" title="Thư mục gốc trên mạng — gói được chép vào <thư mục này>\<tên máy>\" />
+              <span class="muted" id="gNetHint"></span>
+            </div>
             <div id="result"></div>
             <div id="history"></div>
           </div>
@@ -281,6 +290,17 @@
   try { $('gSplit').checked = localStorage.getItem('advSplit') !== '0'; } catch (e) { }
   $('gSplit').addEventListener('change', () => { try { localStorage.setItem('advSplit', $('gSplit').checked ? '1' : '0'); } catch (e) { } });
   $('gFolder').addEventListener('input', () => { folderTouched = true; });
+  // Nén zip / Gen vào đường dẫn mạng: lưu vào settings.json ngay khi đổi (dùng chung với Gen Update và BcodeNote.exe).
+  const pkgOpts = () => ({ zip: $('gZip').checked, net: $('gNet').checked, netRoot: $('gNetRoot').value.trim() });
+  function showNetRow() {
+    const on = $('gNet').checked;
+    $('gNetRoot').style.display = on ? '' : 'none';
+    $('gNetHint').textContent = on ? 'Gói được chép vào ' + ($('gNetRoot').value.trim().replace(/[\\/]+$/, '') || '...') + '\\' + (S.machine || '<tên máy>') + '\\' : '';
+  }
+  $('gZip').addEventListener('change', () => post('pkgOpts', pkgOpts()));
+  $('gNet').addEventListener('change', () => { showNetRow(); post('pkgOpts', pkgOpts()); });
+  $('gNetRoot').addEventListener('input', showNetRow);
+  $('gNetRoot').addEventListener('change', () => post('pkgOpts', pkgOpts()));
 
   // Lọc theo mã (tên) y/c: không phân biệt hoa thường / dấu; nhiều mã cách nhau dấu cách / phẩy = khớp một trong các mã. Chỉ ẩn dòng — y/c đã tick vẫn giữ tick.
   const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
@@ -571,7 +591,7 @@
     const ids = S.checked.size ? [...S.checked] : (S.currentId ? [S.currentId] : []);
     const picked = S.requests.filter((r) => ids.includes(r.id));
     const description = picked.map((r) => r.name + (r.content ? '\n' + r.content : '')).join('\n\n');
-    post('generate', { ids, savePath: $('gSave').value, folder: $('gFolder').value, description, split: $('gSplit').checked });
+    post('generate', Object.assign({ ids, savePath: $('gSave').value, folder: $('gFolder').value, description, split: $('gSplit').checked }, pkgOpts()));
   };
   $('btnNew').onclick = () => { flushSave(); post('newRequest'); };
   // ---- Khung nội dung phóng to: sửa trực tiếp, đồng bộ 2 chiều với ô Request Content (tự lưu như khi gõ ở ô nhỏ) ----
@@ -663,6 +683,8 @@
     init(state) {
       S.ws = state.workspace || {}; S.requests = state.requests || []; S.defaultFolder = state.defaultFolder || '';
       $('gSave').value = S.ws.savePath || ''; folderTouched = false; refreshFolder(); $('syncProg').value = state.programmer || '';
+      const pkg = state.pkg || {};
+      S.machine = pkg.machine || ''; $('gZip').checked = !!pkg.zip; $('gNet').checked = !!pkg.net; $('gNetRoot').value = pkg.netRoot || ''; showNetRow();
       $('btnNoteHub').style.display = state.noteHub ? '' : 'none';
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
       select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
@@ -703,7 +725,10 @@
       $('warnings').innerHTML = (res.warnings || []).map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
       if (!res.ok) { box.innerHTML = '<span style="color:var(--danger)">' + esc(res.message || 'Không tạo được gói.') + '</span>'; return; }
       box.innerHTML = '<span style="color:var(--success)">Đã tạo ' + res.count + ' mục tại:</span> <code>' + esc(res.path) + '</code> ' +
-        '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button>';
+        '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button>' +
+        (res.zip ? '<div class="muted">Zip: <code>' + esc(res.zip) + '</code></div>' : '') +
+        (res.network ? '<div class="muted">Mạng: <code>' + esc(res.network) + '</code></div>' : '') +
+        (res.errors || []).map((e) => '<div style="color:var(--danger)">⚠ ' + esc(e) + '</div>').join('');
       $('rCopy').onclick = () => post('copy', { text: res.path });
       $('rOpen').onclick = () => post('open', { path: res.path });
       S.defaultFolder = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
@@ -711,7 +736,8 @@
       const gi = (res.items && res.items.items) || [];
       $('previewSummary').textContent = 'Gói vừa tạo — bấm 1 dòng để xem nội dung:';
       $('previewBox').style.display = gi.length ? 'block' : 'none'; renderItems(gi); renderTree(gi, 'gói vừa tạo — bấm đôi file để mở vào tab Query');
-      setStatus('Đã tạo gói update.', 'ok');
+      if (res.errors && res.errors.length) setStatus('Đã tạo gói update nhưng: ' + res.errors.join(' | '), 'err');
+      else setStatus('Đã tạo gói update.', 'ok');
     },
     onItemText(i, text) {
       const tr = $('previewRows').querySelector('.itRow[data-i="' + i + '"]');

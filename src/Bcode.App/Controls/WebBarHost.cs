@@ -165,7 +165,10 @@ public sealed class WebBarHost : Panel, IWebPage
     {
         if (_native is not null) { _native.FocusPrimary(); return; }
         if (!_ready || _web.IsDisposed || _web.CoreWebView2 is null) return;
-        _web.Focus();
+        // Vỏ WinForms của WebView2 đang giữ focus mà lõi trình duyệt không nhận (MoveFocus lúc GotFocus bị bỏ qua / lỗi bị nuốt): Focus() lần nữa
+        // không bắn GotFocus nên phím gõ cứ rơi vào cửa sổ vỏ — tự đẩy focus vào lõi.
+        if (_web.Focused) { try { WebViewEnvironment.ControllerOf(_web)?.MoveFocus(Microsoft.Web.WebView2.Core.CoreWebView2MoveFocusReason.Programmatic); } catch { /* đang đóng */ } }
+        else _web.Focus();
     }
 
     /// <summary>JSON-encodes a string for embedding in a <see cref="Call"/> script.</summary>

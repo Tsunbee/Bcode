@@ -1043,7 +1043,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var id = string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId;
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"ID: {id}");
-        sb.AppendLine($"SQL: {ws.Server} | {id} | {ws.User} | {ws.SysDatabase} | {ws.AppDatabase}");
+        // Dòng SQL theo mẫu "Server | User | Pass | Sys | App" (Password là bản đã giải mã DPAPI). Windows Authentication thì không có user/pass.
+        var (sqlUser, sqlPass) = ws.IntegratedSecurity ? ("Windows Authentication", "") : (ws.User, ws.Password);
+        sb.AppendLine($"SQL: {ws.Server} | {sqlUser} | {sqlPass} | {ws.SysDatabase} | {ws.AppDatabase}");
         sb.AppendLine($"Web: {ws.LoginWLink}");
         sb.AppendLine($"Program: {ws.ProgramPath}");
         sb.AppendLine($"Source: {ws.SourcePath}");

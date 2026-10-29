@@ -280,6 +280,81 @@ public sealed class FastAskService
         return res;
     }
 
+    // ---------------------------------------------------------------- kho tìm kiếm BM25 (H1) + từ đồng nghĩa tự rút (H2)
+
+    private static readonly ConcurrentDictionary<string, Task<FastAskIndex>> IndexCache = new();
+
+    /// <summary>Kho tìm kiếm của database đang chọn (dựng 1 lần / workspace, chỉ đọc): menu (Sys wcommand), store, mẫu code, quy ước, bảng, field.</summary>
+    private Task<FastAskIndex> IndexAsync(bool useSys)
+    {
+        var stamp = _connections.CurrentStamp(useSys);
+        return IndexCache.GetOrAdd(stamp, _ => Task.Run(async () =>
+        {
+            var ix = new FastAskIndex();
+            var db = await DbAsync(useSys);
+            var mods = db.Modules.ToDictionary(m => m.Name, m => m.Type, StringComparer.OrdinalIgnoreCase);
+            var covered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // menu chức năng / báo cáo (Sys Data): báo cáo có store rs_<controller> thì tài liệu là store đó, mang tiêu đề menu tiếng Việt
+            try
+            {
+                await using var sc = _connections.CreateConnection(true);
+                await sc.OpenAsync();
+                await using var cmd = new SqlCommand("SELECT RTRIM(bar), RTRIM(ISNULL(bar2, '')), RTRIM(sysid), RTRIM(ISNULL(link, '')) FROM wcommand WHERE status = '1' AND RTRIM(ISNULL(bar, '')) <> '' AND RTRIM(ISNULL(sysid, '')) <> ''", sc) { CommandTimeout = 30 };
+                await using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    var (bar, bar2, sysid, link) = (r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3));
+                    var store = new[] { "rs_" + sysid, "zrs_" + sysid, "fs_" + sysid }.FirstOrDefault(mods.ContainsKey);
+                    if (store is not null && covered.Add(store)) ix.Add(new FastAskIndex.Doc("report", store, bar, $"{bar2} {sysid} {store}", mods[store]), 3);
+                    else if (store is null) ix.Add(new FastAskIndex.Doc("menu", sysid, bar, $"{bar2} {sysid} {link}"));
+                }
+            }
+            catch { /* không đọc được Sys Data → bỏ phần menu */ }
+            foreach (var (name, type) in mods.Where(m => !covered.Contains(m.Key))) ix.Add(new FastAskIndex.Doc("store", name, name, "", type));
+            foreach (var s in SqlHintCatalog.Snippets) ix.Add(new FastAskIndex.Doc("snippet", s.Prefix, s.Name, $"{s.Description} {s.Prefix} {s.Category}"), 3);
+            foreach (var t in Topics) ix.Add(new FastAskIndex.Doc("topic", t.Title, t.Title, string.Join(" ", t.Keys) + " " + t.Text), 3);
+            // bảng: tiêu đề field tra cứu vào bảng (danh mục) + tên chứng từ dùng bảng (dmct)
+            var dict = FieldDictionaryService.Instance;
+            var lookupBy = dict.Entries.Where(e => e.Lookup is not null && e.Lookup.Source.Table.Length > 0 && e.HeaderV.Length > 0)
+                .GroupBy(e => e.Lookup!.Source.Table, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => string.Join(" ", g.Select(e => Regex.Replace(e.HeaderV, @"^\s*Mã\s+", "", RegexOptions.IgnoreCase)).Distinct().Take(6)), StringComparer.OrdinalIgnoreCase);
+            var vouchers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                await using var ac = _connections.CreateConnection(useSys);
+                await ac.OpenAsync();
+                await using var cmd = new SqlCommand("SELECT RTRIM(m_phdbf), RTRIM(m_ctdbf), RTRIM(ma_ct) + ' ' + ten_ct FROM dmct", ac) { CommandTimeout = 30 };
+                await using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                    foreach (var (t, part) in new[] { (r.GetString(0), "phieu dau"), (r.GetString(1), "chi tiet") })
+                        if (t.Length > 0) vouchers[t] = (vouchers.GetValueOrDefault(t) + " " + part + " " + r.GetString(2)).Trim();
+            }
+            catch { /* Sys Data không có dmct */ }
+            foreach (var t in db.Tables.Where(t => !t.Contains('$') || t.EndsWith("$000000")))
+            {
+                var b = t.Split('$')[0];
+                var body = (lookupBy.TryGetValue(b, out var lb) ? "danh muc " + lb : "") + (vouchers.TryGetValue(b, out var v) ? " " + v : "");
+                ix.Add(new FastAskIndex.Doc("table", t, t, body), 1);
+            }
+            foreach (var g in dict.Entries.Where(e => e.HeaderV.Length > 0).GroupBy(e => e.Name, StringComparer.OrdinalIgnoreCase))
+                ix.Add(new FastAskIndex.Doc("field", g.Key, g.First().HeaderV, g.Key + " " + g.First().HeaderE), 2);
+            return ix;
+        }));
+    }
+
+    /// <summary>Thẻ cho 1 kết quả tìm kiếm.</summary>
+    private AskCard? IndexCard(FastAskIndex.Doc d, bool useSys) => d.Kind switch
+    {
+        "report" => ModuleCard(d.Key, d.Extra, useSys, "menu: " + d.Title),
+        "store" => ModuleCard(d.Key, d.Extra, useSys, "tên khớp"),
+        "menu" => new AskCard(d.Title, $"Chức năng trên menu — controller {d.Key}" + (d.Body.Length > 0 ? $"\n{d.Body}" : ""), "", new List<AskAction> { new("copy", "Copy controller", d.Key) }, "Menu (Sys Data)"),
+        "snippet" => Snip(d.Key) is { } s ? SnippetCard(s) : null,
+        "topic" => Topics.FirstOrDefault(t => t.Title == d.Key) is { } t ? new AskCard(t.Title, t.Text, "", Array.Empty<AskAction>(), "Quy ước Fast") : null,
+        "table" => new AskCard(d.Key, (d.Body.Length > 0 ? d.Body + "\n" : "") + "Bảng trong database đang kết nối.", "", new List<AskAction> { new("ask", "Xem cấu trúc", "cấu trúc bảng " + d.Key, "Cấu trúc bảng " + d.Key), new("copy", "Copy tên", d.Key) }, "Database đang kết nối"),
+        "field" => new AskCard(d.Key, d.Title + (d.Body.Length > 0 ? " — " + d.Body : ""), d.Key, new List<AskAction> { new("insert", "Chèn tên trường", d.Key), new("copy", "Copy", d.Key) }, "Từ điển field Fast (header.xml)"),
+        _ => null,
+    };
+
     private static AskCard ModuleCard(string name, string type, bool useSys, string why) =>
         new(name, (type == "P" ? "Store" : "Function") + " trong database đang kết nối" + (why.Length > 0 ? " — " + why : ""), "",
             new List<AskAction>
@@ -358,17 +433,29 @@ public sealed class FastAskService
             return Reply("Mình tra kiến thức Fast có sẵn trong Bcode (mẫu code, ma trận ghost text, store / bảng của database đang kết nối, từ điển field, luật danh mục, quy ước Fast) — không gọi AI. Bạn cần gì?",
                 choices: StartChoices);
 
-        // đếm bảng phân kỳ (quét định nghĩa store, vài giây lần đầu) chạy nền ngay từ đầu để tới bước chọn bảng là có sẵn
-        if (Regex.IsMatch(f, @"\b(bao cao|report)\b") || f.StartsWith("rs_")) _ = PartitionTablesAsync(useSys);
-        if (Regex.IsMatch(f, @"\b(bao cao|report)\b") || f.StartsWith("rs_")) return await ReportFlowAsync("", new() { ["flow"] = "report", ["topic"] = text }, useSys);
-        if (Regex.IsMatch(f, @"\bdanh muc\b|\bcatalog\b")) return await CatalogFlowAsync("", new() { ["flow"] = "catalog", ["topic"] = text }, useSys);
+        _ = IndexAsync(useSys);   // dựng kho tìm kiếm ở nền ngay lượt đầu
+        // TẠO báo cáo / danh mục chỉ khi câu hỏi muốn tạo ("tạo báo cáo …", "làm danh mục …"); còn lại (vd tên 1 báo cáo có sẵn "Báo cáo tồn theo kho",
+        // "danh mục kho là bảng nào") thì tìm kiến thức — đo trên bộ câu hỏi chuẩn: trước đây mọi câu có chữ "báo cáo" đều rơi vào luồng tạo
+        var create = Regex.IsMatch(f, @"^\s*(tao|lam|viet|dung|xay dung|them|can|muon)\b") || Regex.IsMatch(f, @"^\s*(bao cao|report|danh muc|catalog)\s*$");
+        if (create && Regex.IsMatch(f, @"\b(bao cao|report)\b")) _ = PartitionTablesAsync(useSys);
+        if (create && Regex.IsMatch(f, @"\b(bao cao|report)\b")) return await ReportFlowAsync("", new() { ["flow"] = "report", ["topic"] = text }, useSys);
+        if (create && Regex.IsMatch(f, @"\bdanh muc\b|\bcatalog\b")) return await CatalogFlowAsync("", new() { ["flow"] = "catalog", ["topic"] = text }, useSys);
 
         // bảng thật trong database: cấu trúc / JOIN (trước tên routine — "r70$000000" là bảng, không phải routine)
         var db = await DbAsync(useSys);
         var tableHits = ResolveTables(text, f, db);
+        // "store nào dùng bảng hddt03" → danh sách store dùng bảng lên đầu
+        if (tableHits.Count > 0 && Regex.IsMatch(f, @"\b(store|ham|function|procedure|thu tuc|noi nao|cho nao|ai)\b.*\b(dung|goi|su dung|doc|ghi)\b|\b(dung|su dung)\b.*\bbang\b"))
+            return await TableUsersAsync(tableHits[0], useSys);
         if (tableHits.Count > 0) return await TablesAsync(tableHits, useSys);
 
+        var ix = await IndexAsync(useSys);
+        var top = ix.Search(text, 3);
         // tên routine (FastBusiness$…, ff_…, fs_…, rs_…) → cách gọi hay dùng + mở định nghĩa
+        // (câu có thêm ≥ 2 từ ngoài tên hàm mà mẫu code / quy ước khớp nhất → tìm chung, vd "SQL động (sp_executesql)")
+        var routineM = Regex.Match(text, @"(?:dbo\.)?\b(?<n>[A-Za-z_]\w*\$[A-Za-z][\w$]*|ff_\w+|fs_\w+|rs_\w+|zrs_\w+|sp_executesql)\b", RegexOptions.IgnoreCase);
+        if (routineM.Success && Words(Fold(text.Replace(routineM.Value, " "))).Count >= 2 && top.FirstOrDefault().Doc?.Kind is "snippet" or "topic")
+            return await SearchAllAsync(text, f, useSys);
         if (Regex.Match(text, @"(?:dbo\.)?\b(?<n>[A-Za-z_]\w*\$[A-Za-z][\w$]*|ff_\w+|fs_\w+|rs_\w+|zrs_\w+|sp_executesql)\b", RegexOptions.IgnoreCase) is { Success: true } rm)
             return await RoutineAsync(rm.Groups["n"].Value, useSys);
         if (Regex.IsMatch(f, @"\b(cau truc|join|ket noi bang)\b") && !Regex.IsMatch(f, @"\bbao cao\b"))
@@ -377,15 +464,41 @@ public sealed class FastAskService
         // quy ước
         var topics = Topics.Where(t => t.Keys.Any(k => f.Contains(k))).ToList();
         if (Regex.IsMatch(f, @"\bquy uoc\b")) topics = Topics.ToList();
+        else if (topics.Count > 0)
+        {
+            // báo cáo có sẵn khớp nhất (tên báo cáo) / mẫu code khớp gần trọn câu hỏi → tìm chung thay vì thẻ quy ước
+            if (top.FirstOrDefault().Doc is { Kind: "report" } || (top.FirstOrDefault().Doc is { Kind: "snippet" } sd && Covers(sd.Title, text))) return await SearchAllAsync(text, f, useSys);
+            var tscore = ix.Search(text, 30, d => d.Kind == "topic").ToDictionary(h => h.Doc.Key, h => h.Score);
+            topics = topics.OrderByDescending(t => tscore.GetValueOrDefault(t.Title)).ToList();
+        }
         if (topics.Count > 0)
             return Reply(topics.Count == Topics.Length ? "Các quy ước Fast hay gặp khi viết / chạy store:" : "Quy ước Fast liên quan:",
                 topics.Count == Topics.Length ? Topics.Select(t => new AskCard(t.Title, t.Text, "", Array.Empty<AskAction>(), "Quy ước Fast")) : topics.SelectMany(t => TopicCards(t, f)).Take(8),
                 topics.Count == Topics.Length ? null : new[] { new AskChoice("Tạo báo cáo theo quy ước này", "tạo báo cáo") });
 
-        if (Regex.IsMatch(f, @"\b(store|procedure|thu tuc|function|ham)\b")) return await StoreAsync(text, f, useSys);
-        if (Regex.IsMatch(f, @"\b(tra truong|truong|field)\b") || f.StartsWith("ma ")) return FieldReply(f, text);
+        if (Regex.IsMatch(f, @"\b(viet|tao|lam)\b.*\b(store|procedure|thu tuc|function|ham)\b")) return await StoreAsync(text, f, useSys);
+        if (Regex.IsMatch(f, @"\b(tra truong|truong|field)\b") || f.StartsWith("ma ")) return await FieldReplyAsync(f, text, useSys);
 
         return await SearchAllAsync(text, f, useSys);
+    }
+
+    /// <summary>Tiêu đề chứa ≥ 80% từ khoá của câu hỏi.</summary>
+    private static bool Covers(string title, string question)
+    {
+        var q = FastAskIndex.Terms(question).Where(t => !t.Contains('_')).Distinct().ToList();
+        var t = FastAskIndex.Terms(title).ToHashSet();
+        return q.Count > 0 && q.Count(t.Contains) >= 0.8 * q.Count;
+    }
+
+    /// <summary>Store / function / view đang dùng bảng (tìm tên bảng gốc trong định nghĩa, chỉ đọc).</summary>
+    private async Task<AskReply> TableUsersAsync(string table, bool useSys)
+    {
+        var b = table.Split('$')[0];
+        var users = await SearchModulesAsync(useSys, Array.Empty<string>(), new[] { b }, null, 20);
+        if (users.Count == 0) return Reply($"Không thấy store / function nào nhắc tới {b}.");
+        var card = new AskCard($"Store / function dùng {b} ({users.Count}{(users.Count == 20 ? "+" : "")})", string.Join("\n", users.Select(u => u.Name)), "",
+            users.Take(4).Select(u => new AskAction("open-object", "Mở " + u.Name, u.Name, (useSys ? "sys" : "app") + "|" + u.Type)).ToList(), "Database đang kết nối");
+        return Reply($"Nơi đang dùng bảng {b}:", new[] { card }, new[] { new AskChoice("Xem cấu trúc " + table, "cấu trúc bảng " + table) });
     }
 
     // ---------------------------------------------------------------- điểm vào + xác nhận ✔ / ✘
@@ -505,7 +618,7 @@ public sealed class FastAskService
         var k = await Task.Run(() => FastAskKnowledge.Mine(mods, key), ct);
         k.Save(FastAskKnowledge.ProjectPath(key));
         var shared = FastAskKnowledge.MergeShared();
-        progress("Đang học ma trận ghost text của dự án và tự đo độ chính xác (1–3 phút)…");
+        progress("Đang học ma trận ghost text của dự án và tự đo độ chính xác (3–5 phút)…");
         var res = await Task.Run(() => FastGhostMiner.LearnFromModules(key, mods, ct: ct), ct);
         return $"Đã học dự án {key}: {k.Joins.Count} cặp JOIN, cột #report của {k.ReportCols.Count} bảng phân kỳ, cột ngày của {k.DateCols.Count} bảng, {k.Params.Count} tham số báo cáo.\n" +
                $"Kiến thức chung trên máy: {shared.Projects.Count} lần học dự án ({string.Join("; ", shared.Projects.TakeLast(5))}).\n\n" + res.Summary();
@@ -709,6 +822,12 @@ public sealed class FastAskService
     private async Task<List<AskCard>> SimilarReportsAsync(string topic, IReadOnlyList<string> vars, bool useSys)
     {
         var stems = Stems(Fold(topic));
+        var q = Regex.Replace(Fold(topic), @"\b(tao|lam|viet|dung|bao cao|report|save ?as|tu|co san)\b", " ").Trim();
+        if (q.Length > 0 && vars.Count == 0)
+        {
+            var hits = (await IndexAsync(useSys)).Search(q + " " + string.Join(" ", stems), 5, d => d.Kind == "report");
+            if (hits.Count > 0) return hits.Where(h => h.Score >= hits[0].Score * 0.5).Select(h => ModuleCard(h.Doc.Key, h.Doc.Extra, useSys, "menu: " + h.Doc.Title)).ToList();
+        }
         if (stems.Count == 0 && vars.Count == 0) return new();
         var mods = await SearchModulesAsync(useSys, stems, vars.Select(v => "@" + v).Take(3).ToList(), "rs", 5);
         return mods.Select(m => ModuleCard(m.Name, m.Type, useSys, m.Score > 0 ? "tên khớp " + string.Join(", ", stems.Where(s => m.Name.Contains(s, StringComparison.OrdinalIgnoreCase))) : "dùng cùng tham số lọc")).ToList();
@@ -853,7 +972,10 @@ public sealed class FastAskService
         var cards = CallCards(new[] { name.ToLowerInvariant() }, useSys).ToList();
         var db = await DbAsync(useSys);
         if (db.Modules.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { Name: not null } mod && mod.Name.Length > 0)
+        {
+            if (await DistillAsync(mod.Name, mod.Type, useSys) is { } sum) cards.Insert(0, sum);
             cards.Add(ModuleCard(mod.Name, mod.Type, useSys, "định nghĩa"));
+        }
         var users = await SearchModulesAsync(useSys, Array.Empty<string>(), new[] { name }, null, 6);
         if (users.Count > 0)
             cards.Add(new AskCard($"Nơi đang gọi {name}", string.Join("\n", users.Select(u => u.Name)), "", users.Take(4).Select(u => new AskAction("open-object", "Mở " + u.Name, u.Name, (useSys ? "sys" : "app") + "|" + u.Type)).ToList(),
@@ -861,6 +983,56 @@ public sealed class FastAskService
         return cards.Count == 0
             ? Reply($"Chưa thấy \"{name}\" trong ma trận, mẫu code hay database đang kết nối.")
             : Reply($"Kiến thức về {name}:", cards);
+    }
+
+    /// <summary>Chắt lọc 1 store (H5, chỉ đọc định nghĩa): menu gọi nó, tham số, bảng đọc / ghi, cột #report, store / hàm gọi tới — trả lời "store này làm gì".</summary>
+    private async Task<AskCard?> DistillAsync(string name, string type, bool useSys)
+    {
+        string? def;
+        try
+        {
+            await using var conn = _connections.CreateConnection(useSys);
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@n))", conn) { CommandTimeout = 30 };
+            cmd.Parameters.AddWithValue("@n", "dbo." + name);
+            def = await cmd.ExecuteScalarAsync() as string;
+        }
+        catch { return null; }
+        if (string.IsNullOrEmpty(def)) return null;
+        var code = Regex.Replace(def, @"--[^\n]*|/\*[\s\S]*?\*/", " ");
+        var lines = new List<string>();
+        var ix = await IndexAsync(useSys);
+        if (ix.Search(name, 3, d => d.Kind == "report" && d.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).FirstOrDefault() is { Doc: { } menu })
+            lines.Add($"Menu: {menu.Title}");
+        if (Regex.Match(code, @"CREATE\s+(?:PROC(?:EDURE)?|FUNCTION)\s+[\w.\[\]$]+(?<h>.*?)\b(?:AS|RETURNS)\b", RegexOptions.IgnoreCase | RegexOptions.Singleline) is { Success: true } hm)
+        {
+            var ps = Regex.Matches(hm.Groups["h"].Value, @"@(\w+)\s+([A-Za-z]+(?:\s*\(\s*(?:\d+|max)(?:\s*,\s*\d+)?\s*\))?)", RegexOptions.IgnoreCase).Select(m => $"@{m.Groups[1].Value} {m.Groups[2].Value}").ToList();
+            if (ps.Count > 0) lines.Add($"Tham số ({ps.Count}): {string.Join(", ", ps.Take(14))}{(ps.Count > 14 ? ", …" : "")}");
+        }
+        var tables = Regex.Matches(code, @"\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:\[?dbo\]?\.)?\[?(?<t>[A-Za-z][\w$%]*)\]?", RegexOptions.IgnoreCase)
+            .Select(m => Regex.Replace(m.Groups["t"].Value, @"\$%Partition$", "$$000000", RegexOptions.IgnoreCase))   // "$$" = dấu $ thật trong chuỗi thay thế
+            .Where(t => !t.StartsWith('#') && !Regex.IsMatch(t, @"^(select|where|set|sys|inserted|deleted|openjson|string_split)$", RegexOptions.IgnoreCase))
+            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).Select(g => g.Key).Take(10).ToList();
+        if (tables.Count > 0) lines.Add($"Bảng: {string.Join(", ", tables)}");
+        var writes = Regex.Matches(code, @"\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(?:\[?dbo\]?\.)?\[?(?<t>[A-Za-z][\w$]*)", RegexOptions.IgnoreCase).Select(m => m.Groups["t"].Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(6).ToList();
+        if (writes.Count > 0) lines.Add($"Ghi dữ liệu vào: {string.Join(", ", writes)}");
+        if (Regex.Match(code, @"SELECT\s+TOP\s+0\s+(?<c>.{1,3000}?)\s+INTO\s+#report\b", RegexOptions.IgnoreCase | RegexOptions.Singleline) is { Success: true } rm)
+        {
+            var cols = Regex.Matches(rm.Groups["c"].Value, @"(?:\bAS\s+|\.|^|,\s*)(?<c>[A-Za-z_]\w*)\s*(?=,|$)", RegexOptions.IgnoreCase | RegexOptions.Multiline).Select(m => m.Groups["c"].Value)
+                .Where(c => !Regex.IsMatch(c, "^(sysorder|sysprint|systotal)$", RegexOptions.IgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (cols.Count > 0) lines.Add($"Cột #report ({cols.Count}): {string.Join(", ", cols.Take(14))}{(cols.Count > 14 ? ", …" : "")}");
+        }
+        var calls = Regex.Matches(code, @"\bEXEC(?:UTE)?\s+(?:@\w+\s*=\s*)?(?:\[?dbo\]?\.)?(?<n>[A-Za-z_][\w$]+)", RegexOptions.IgnoreCase).Select(m => m.Groups["n"].Value)
+            .Concat(Regex.Matches(code, @"\bdbo\.(?<n>[A-Za-z_][\w$]+)\s*\(", RegexOptions.IgnoreCase).Select(m => m.Groups["n"].Value))
+            .Where(n => !n.Equals("sp_executesql", StringComparison.OrdinalIgnoreCase)).GroupBy(n => n, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).Select(g => g.Key).Take(8).ToList();
+        if (calls.Count > 0) lines.Add($"Gọi: {string.Join(", ", calls)}");
+        var kind = name.StartsWith("rs_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("zrs_", StringComparison.OrdinalIgnoreCase) || code.Contains("#report", StringComparison.OrdinalIgnoreCase) ? "Store báo cáo"
+            : writes.Count > 0 ? "Store xử lý / cập nhật dữ liệu" : type == "P" ? "Store" : "Function";
+        lines.Insert(0, $"{kind} — {code.Split('\n').Length} dòng.");
+        return new AskCard($"{name} — tóm tắt", string.Join("\n", lines), "",
+            new List<AskAction> { new("open-object", "Mở nội dung", name, (useSys ? "sys" : "app") + "|" + type), new("ask", "Save as…", "saveas:" + name, "Save as từ " + name), new("copy", "Copy tên", name) },
+            "Chắt lọc từ định nghĩa store");
     }
 
     // ---------------------------------------------------------------- 3: store / function
@@ -890,8 +1062,8 @@ public sealed class FastAskService
         var set = new HashSet<string>(db.Tables, StringComparer.OrdinalIgnoreCase);
         string? Real(string w) => set.TryGetValue(w, out var t) ? t : set.TryGetValue(w + "$000000", out var p) ? p : null;
         var hits = Regex.Matches(text, @"[#\w$]+").Select(m => Real(m.Value)).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        if (hits.Count > 0 || !Regex.IsMatch(f, @"\b(cau truc|bang|join|ket noi)\b")) return hits;
-        var phrase = Regex.Replace(f, @"\b(xem|tra|cho|toi|minh|cau truc|cua|bang|cac|join|ket noi|table|structure|la gi|la bang gi|nhu the nao|the nao|gom|nhung|cot|nao|giup|nhe|di)\b", " ");
+        if (hits.Count > 0 || !(Regex.IsMatch(f, @"\b(cau truc|join|ket noi|bang nao|la bang|bang gi|luu o bang)\b") || Regex.IsMatch(f, @"^\s*bang\s+\S+(\s+\S+)?\s*$"))) return hits;
+        var phrase = Regex.Replace(f, @"\b(xem|tra|cho|toi|minh|cau truc|danh muc|cua|bang|cac|join|ket noi|table|structure|la gi|la bang gi|nhu the nao|the nao|gom|nhung|cot|nao|giup|nhe|di|la|luu o)\b", " ");
         foreach (var part in Regex.Split(phrase, @"\s*(?:,|\bva\b|\bvoi\b|&)\s*").Select(p => Regex.Replace(p, @"\s+", " ").Trim()).Where(p => p.Length >= 2))
             if (TableForName(part, set) is { } t && !hits.Contains(t, StringComparer.OrdinalIgnoreCase)) hits.Add(t);
         return hits;
@@ -902,10 +1074,16 @@ public sealed class FastAskService
     private static string? TableForName(string folded, HashSet<string> tables)
     {
         var dict = FieldDictionaryService.Instance;
-        string? Vote(Func<string, bool> match) => dict.Entries.Where(e => match(Fold(e.HeaderV).Trim()))
-            .SelectMany(e => dict.Lookups(e.Name)).Select(l => l.Source.Table).Where(t => t.Length > 0 && tables.Contains(t))
+        // lookup của đúng dòng có tiêu đề khớp (1 tên field có nhiều biến thể: ma_dtqt "Mã đối tượng 2" → dmdtqt2, biến thể khác → dmdtqt1 / 3)
+        string? Vote(Func<string, bool> match) => dict.Entries.Where(e => match(Fold(e.HeaderV).Trim()) && e.Lookup is not null)
+            .Select(e => e.Lookup!.Source.Table).Where(t => t.Length > 0 && tables.Contains(t))
             .GroupBy(t => t, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key;
-        var hit = Vote(h => h == "ma " + folded || h == folded) ?? Vote(h => h.StartsWith("ma " + folded + " "));
+        // dòng khớp tiêu đề không tra vào bảng nào (vd "Mã vật tư" → view) → các biến thể khác của cùng field (ma_vt "Mã hàng" → dmvt)
+        string? VoteName(Func<string, bool> match) => dict.Entries.Where(e => match(Fold(e.HeaderV).Trim())).Select(e => e.Name).Distinct(StringComparer.OrdinalIgnoreCase)
+            .SelectMany(n => dict.Lookups(n)).Select(l => l.Source.Table).Where(t => t.Length > 0 && tables.Contains(t))
+            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key;
+        bool Exact(string h) => h == "ma " + folded || h == folded;
+        var hit = Vote(Exact) ?? Vote(h => h.StartsWith("ma " + folded + " ")) ?? VoteName(Exact);
         if (hit is not null) return tables.TryGetValue(hit, out var real) ? real : hit;
         var code = folded.Replace(" ", "");
         foreach (var c in new[] { "dm" + code, "zdm" + code, code }) if (tables.TryGetValue(c, out var t)) return t;
@@ -1048,7 +1226,28 @@ public sealed class FastAskService
             })
             .Where(x => x.Score >= Math.Max(1, (int)Math.Ceiling(words.Count * 0.6))).OrderByDescending(x => x.Score).ThenBy(x => x.Name.Length).Take(8).ToList();
         if (hits.Count == 0) return Reply($"Không thấy trường nào khớp \"{text}\" trong từ điển field (header.xml).");
-        var cards = hits.Select(h =>
+        return FieldCards(hits.Select(h => h.Name).ToList());
+    }
+
+    /// <summary>Tra trường: xếp hạng BM25 theo tiêu đề Việt / Anh + tên field (cụm 2 từ khớp đúng thì lên trước), không ra thì cách đếm từ cũ.</summary>
+    private async Task<AskReply> FieldReplyAsync(string f, string text, bool useSys)
+    {
+        var q = Regex.Replace(f, @"\b(tra truong|truong|field|ma nao|cot nao)\b", " ").Trim();
+        if (q.Length > 0)
+        {
+            var dict = FieldDictionaryService.Instance;
+            var exact = dict.Entries.FirstOrDefault(e => e.Name.Equals(q, StringComparison.OrdinalIgnoreCase))?.Name;
+            var hits = (await IndexAsync(useSys)).Search(q, 8, d => d.Kind == "field").Select(h => h.Doc.Key).ToList();
+            if (exact is not null) hits = hits.Prepend(exact).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (hits.Count > 0) return FieldCards(hits.Take(8).ToList());
+        }
+        return FieldReply(f, text);
+    }
+
+    private static AskReply FieldCards(List<string> names)
+    {
+        var dict = FieldDictionaryService.Instance;
+        var cards = names.Select(n => (Name: n, Score: 0)).Select(h =>
         {
             var hd = dict.Header(h.Name);
             var lay = dict.Layout(h.Name);
@@ -1163,23 +1362,20 @@ public sealed class FastAskService
 
     private async Task<AskReply> SearchAllAsync(string text, string f, bool useSys)
     {
-        var words = Words(f);
-        // phải khớp đa số từ của câu hỏi (khớp 1 từ chung chung như "chi", "tiet" thì không tính)
-        var need = Math.Max(1, (int)Math.Ceiling(words.Count * 0.5));
-        int Score(string hay) { var h = Fold(hay); return words.Count(w => Regex.IsMatch(h, @"\b" + Regex.Escape(w) + @"\b")); }
         var cards = new List<AskCard>();
-        // store trong database (câu hỏi kiểu tên báo cáo / nghiệp vụ thì đây là thứ cần nhất → lên đầu)
-        var stems = Stems(f);
-        if (stems.Count > 0)
-            cards.AddRange((await SearchModulesAsync(useSys, stems, Array.Empty<string>(), null, 5))
-                .Select(m => ModuleCard(m.Name, m.Type, useSys, "tên khớp " + string.Join(", ", stems.Where(s => m.Name.Contains(s, StringComparison.OrdinalIgnoreCase))))));
-        // mẫu code
-        foreach (var s in SqlHintCatalog.Snippets.Select(s => (s, score: Score(s.Prefix + " " + s.Name + " " + s.Description)))
-                     .Where(x => x.score >= need).OrderByDescending(x => x.score).Take(4).Select(x => x.s))
-            cards.Add(SnippetCard(s));
-        // quy ước
-        foreach (var t in Topics.Where(t => Score(t.Title + " " + t.Text) >= need).Take(2))
-            cards.Add(new AskCard(t.Title, t.Text, "", Array.Empty<AskAction>(), "Quy ước Fast"));
+        // kho tìm kiếm BM25: menu báo cáo (tiêu đề tiếng Việt → store), store, mẫu code, quy ước, bảng, field — điểm cao nhất lên đầu;
+        // thêm từ tiếng Anh tương ứng (Glossary) để khớp tên store không có menu
+        var ix = await IndexAsync(useSys);
+        var query = text + " " + string.Join(" ", Stems(f));
+        var hits = ix.Search(query, 12, d => d.Kind != "field");
+        if (hits.Count == 0) hits = ix.Search(query, 8);
+        if (hits.Count > 0)
+        {
+            var best = hits[0].Score;
+            foreach (var (d, s) in hits.Where(h => h.Score >= best * 0.35))
+                if (IndexCard(d, useSys) is { } c && cards.All(x => x.Title != c.Title)) cards.Add(c);
+            cards = cards.Take(6).ToList();
+        }
         if (cards.Count == 0)
             return Reply("Mình chưa tìm thấy kiến thức khớp câu này. Thử hỏi theo các nhóm dưới, hoặc gõ tên bảng / tên store / tên hàm Fast.", choices: StartChoices);
         var reportish = Regex.IsMatch(f, @"\b(so chi tiet|so cai|bang ke|nhat ky|tong hop|so du|the kho|ton kho|cong no|doanh thu)\b");

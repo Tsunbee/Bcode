@@ -36,12 +36,17 @@ public class FileLookupService
     /// trong ô Search) đều gọi GetDirectories/GetFiles lại cho từng thư mục một.</summary>
     private sealed class FileIndex
     {
-        public FileIndex(DateTime builtAtUtc, List<string> dirs, List<string> files)
+        public FileIndex(DateTime builtAtUtc, List<string> dirs, List<string> files, IReadOnlyDictionary<string, DateTime>? dirTimes = null)
         {
             BuiltAtUtc = builtAtUtc;
             Dirs = dirs;
             Files = files;
+            DirTimes = dirTimes;
         }
+
+        /// <summary>Giờ sửa (UTC, theo đồng hồ máy chủ) của từng thư mục lúc quét — thư mục có file thêm / xoá / đổi tên sau đó thì giờ này đổi.
+        /// null = không biết (bản lưu file-index trên đĩa không ghi giờ thư mục).</summary>
+        public IReadOnlyDictionary<string, DateTime>? DirTimes { get; }
 
         private int _menuVersion = -1;
         private List<string>? _menuFiles;
@@ -115,7 +120,7 @@ public class FileLookupService
             if (i < 0) continue;
             // Bản mới thay cho bản cũ (không sửa danh sách tại chỗ: lần dựng cây ở luồng nền có thể đang duyệt nó).
             var files = new List<string>(index.Files) { [i] = newPath };
-            var renamed = new FileIndex(index.BuiltAtUtc, index.Dirs, files);
+            var renamed = new FileIndex(index.BuiltAtUtc, index.Dirs, files, index.DirTimes);
             if (!_indexCache.TryUpdate(key, new Lazy<FileIndex?>(renamed), lazy)) continue;
             try { if (File.Exists(SnapshotPath(key))) SaveSnapshotInBackground(key, renamed); }
             catch { /* không ghi được bản lưu thì lần quét nền sau tự sửa */ }
@@ -427,11 +432,12 @@ public class FileLookupService
                     ? sysIds.SelectMany(n => index.MenuByName[n]).Concat(templateFiles).Distinct(StringComparer.OrdinalIgnoreCase)
                     : index.MenuFiles.Where(f => sysIds.Contains(Path.GetFileNameWithoutExtension(f)) || templateFiles.Contains(f));
                 var wantedExt = string.IsNullOrWhiteSpace(onlyExtension) ? ".f" : (onlyExtension.StartsWith('.') ? onlyExtension : "." + onlyExtension);
-                var matched = candidates.Where(f =>
-                    !RequiresF(f) || (onlyF && wantedExt == ".*") || Path.GetExtension(f).Equals(onlyF ? wantedExt : ".f", StringComparison.OrdinalIgnoreCase));
+                bool Keep(string f) =>
+                    !RequiresF(f) || (onlyF && wantedExt == ".*") || Path.GetExtension(f).Equals(onlyF ? wantedExt : ".f", StringComparison.OrdinalIgnoreCase);
 
                 var controllersNode = new FileLookupNode { Name = "Controllers", FullPath = controllersDir, IsDirectory = true };
-                var matchedList = matched.ToList();
+                var candidateList = candidates.ToList();
+                var matchedList = candidateList.Where(Keep).ToList();
                 // Danh sách file đang lấy từ chỉ mục quét sẵn: nếu có file trong đó đã bị xoá / đổi tên (bởi Bcode hay công cụ khác) thì quét lại ổ đĩa một lần rồi dựng lại,
                 // thay vì hiện file không còn tồn tại (mở ra báo lỗi). File MỚI do người khác tạo thì do hạn 2 phút của chỉ mục hoặc nút Refresh / Load lo.
                 if (!retried && matchedList.Any(f => !File.Exists(f)))
@@ -439,6 +445,10 @@ public class FileLookupService
                     InvalidateCache();
                     return BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, session, onlyExtension, retried: true);
                 }
+                // ...trừ file MỚI cùng tên với file đã có của menu (biên dịch Filter\X.xml → X.f bằng FCode / BcodeViewer sau lần quét): dò thẳng ổ đĩa.
+                var siblingNames = new HashSet<string>(sysIds, StringComparer.OrdinalIgnoreCase);
+                siblingNames.UnionWith(lookupNames);
+                matchedList.AddRange(FindUnindexedSiblings(candidateList, index, controllersKey, siblingNames, Keep));
                 FillFromPaths(controllersNode, controllersKey, Array.Empty<string>(), matchedList);
                 AttachEntityIssues(controllersNode, matchedList, session);
                 if (controllersNode.Children.Count > 0)
@@ -447,6 +457,43 @@ public class FileLookupService
         }
 
         return root;
+    }
+
+    /// <summary>Chỉ mục file (bản lưu file-index, hoặc lần quét chưa quá 2 phút) có thể cũ hơn ổ đĩa: Filter\X.xml vừa được biên dịch ra X.f bằng FCode /
+    /// BcodeViewer thì X.f chưa có trong chỉ mục → cây menu chỉ có .xml (máy quét sau lúc đó thì thấy đủ). Với mỗi thư mục đang có file mang tên trong
+    /// <paramref name="names"/> (<paramref name="candidates"/> = file của menu theo chỉ mục, TRƯỚC khi lọc đuôi — Gen Update / Only Show .f bỏ X.xml nhưng vẫn
+    /// phải dò ra X.f cạnh nó), dò thẳng ổ đĩa các file cùng tên (X.*) và trả về file chưa có trong chỉ mục mà <paramref name="keep"/> nhận. Thư mục mà giờ
+    /// sửa vẫn y như lúc quét (<see cref="FileIndex.DirTimes"/>: thêm / xoá / đổi tên file đều làm đổi giờ này) thì bỏ qua — thường chỉ tốn 1 lần hỏi giờ / thư mục.</summary>
+    private static ICollection<string> FindUnindexedSiblings(List<string> candidates, FileIndex index, string controllersKey, HashSet<string> names, Func<string, bool> keep)
+    {
+        var prefix = controllersKey + Path.DirectorySeparatorChar;
+        var byDir = candidates
+            .Where(f => f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) && names.Contains(Path.GetFileNameWithoutExtension(f)))
+            .GroupBy(f => Path.GetDirectoryName(f)!, StringComparer.OrdinalIgnoreCase)
+            .Select(g => (Dir: g.Key, Names: g.Select(f => Path.GetFileNameWithoutExtension(f)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()))
+            .ToList();
+        if (byDir.Count == 0) return Array.Empty<string>();
+
+        var known = new HashSet<string>(candidates, StringComparer.OrdinalIgnoreCase);
+        var found = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            Parallel.ForEach(byDir, new ParallelOptions { MaxDegreeOfParallelism = 8 }, d =>
+            {
+                try
+                {
+                    if (index.DirTimes is { } times && times.TryGetValue(d.Dir, out var scanned)
+                        && Directory.GetLastWriteTimeUtc(d.Dir) == scanned) return;   // không có file nào thêm vào thư mục này từ lúc quét
+                    foreach (var name in d.Names)
+                        foreach (var f in Directory.EnumerateFiles(d.Dir, name + ".*"))
+                            if (Path.GetFileNameWithoutExtension(f).Equals(name, StringComparison.OrdinalIgnoreCase) && !known.Contains(f) && keep(f))
+                                found.TryAdd(f, 0);
+                }
+                catch (Exception) { /* UNC chớp tắt — giữ đúng như chỉ mục */ }
+            });
+        }
+        catch (AggregateException) { /* như trên */ }
+        return found.Keys;
     }
 
     /// <summary>Kiểm entity cho từng file .xml của menu (song song — đọc qua UNC là phần tốn thời
@@ -613,7 +660,21 @@ public class FileLookupService
         => _rules = BuildRules(include, never, binary, folders, skipCompiledF, compiledFolders, maxMegabytes);
 
     public static void SetSearchRules(Bcode.App.Models.AppSettings s)
-        => SetSearchRules(s.SearchIncludeExtensions, s.SearchNeverExtensions, s.SearchBinaryExtensions, s.SearchFolders, s.SearchSkipCompiledF, s.SearchCompiledFolders, s.SearchMaxMegabytes);
+    {
+        SetSearchRules(s.SearchIncludeExtensions, s.SearchNeverExtensions, s.SearchBinaryExtensions, s.SearchFolders, s.SearchSkipCompiledF, s.SearchCompiledFolders, s.SearchMaxMegabytes);
+        SetSearchOnEnter(s.FileLookupSearchOnEnter);
+    }
+
+    /// <summary>Ô Search (lọc tên) của File Lookup chỉ tìm khi ấn Enter (AppSettings.FileLookupSearchOnEnter). Đổi thì báo <see cref="SearchModeChanged"/>
+    /// để các tab File Lookup đang mở đổi theo ngay.</summary>
+    public static bool SearchOnEnter { get; private set; }
+    public static event Action? SearchModeChanged;
+    public static void SetSearchOnEnter(bool on)
+    {
+        if (SearchOnEnter == on) return;
+        SearchOnEnter = on;
+        SearchModeChanged?.Invoke();
+    }
 
 
     /// <summary>Các thư mục thật sự quét. Search in là site gốc, App_Data hoặc chính Controllers → chỉ các thư mục con trong
@@ -1092,7 +1153,8 @@ public class FileLookupService
             var sub = new FileIndex(
                 parent.BuiltAtUtc,
                 parent.Dirs.Where(d => d.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList(),
-                parent.Files.Where(f => f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList());
+                parent.Files.Where(f => f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList(),
+                parent.DirTimes);
             _indexCache[rootKey] = new Lazy<FileIndex?>(sub);
             return sub;
         }
@@ -1238,18 +1300,22 @@ public class FileLookupService
 
             var dirs = new List<string>();
             var files = new List<string>();
+            var dirTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
             var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
             var complete = true;
             try
             {
-                var entries = new FileSystemEnumerable<(string Path, bool IsDirectory)>(
-                    rootKey, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory), options);
-                foreach (var (path, isDirectory) in entries)
-                    (isDirectory ? dirs : files).Add(path);
+                var entries = new FileSystemEnumerable<(string Path, bool IsDirectory, DateTime Written)>(
+                    rootKey, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory, e.IsDirectory ? e.LastWriteTimeUtc.UtcDateTime : default), options);
+                foreach (var (path, isDirectory, written) in entries)
+                {
+                    if (isDirectory) { dirs.Add(path); dirTimes[path] = written; }
+                    else files.Add(path);
+                }
             }
             catch (Exception) { complete = false; }   // UNC rớt giữa chừng
 
-            if (complete && files.Count > 0) return new FileIndex(DateTime.UtcNow, dirs, files);
+            if (complete && files.Count > 0) return new FileIndex(DateTime.UtcNow, dirs, files, dirTimes);
             if (attempt < 2) Thread.Sleep(600 * (attempt + 1));
         }
         return null;

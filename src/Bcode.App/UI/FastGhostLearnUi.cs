@@ -14,7 +14,7 @@ public static class FastGhostLearnUi
         if (MessageBox.Show(owner,
                 "Học gợi ý Fast (ghost text) từ toàn bộ procedure / function của database đang kết nối?\n\n" +
                 "• Chỉ ĐỌC định nghĩa (SELECT sys.sql_modules) — không ghi gì vào database.\n" +
-                "• Tự đo trên 1 nửa số store chưa dùng để học, chọn ngưỡng để gợi ý đúng ≥ 90% (mất 1–3 phút).\n" +
+                "• Tự đo trên 1 nửa số store chưa dùng để học, chọn ngưỡng để gợi ý đúng ≥ 90% (mất 3–5 phút).\n" +
                 "• Kết quả lưu riêng cho database này, tra trước ma trận đi kèm Bcode." + again,
                 "Bcode — Học gợi ý Fast", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) != DialogResult.OK) return;
         owner.UseWaitCursor = true;

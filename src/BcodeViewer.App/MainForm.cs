@@ -1859,7 +1859,9 @@ public class MainForm : Form
         if (_statusWs is not { } ws) return;
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"ID: {ProjectLabel(ws)}");
-        sb.AppendLine($"SQL: {ws.Server} | {ProjectLabel(ws)} | {ws.User} | {ws.SysDatabase} | {ws.AppDatabase}");
+        // Dòng SQL theo mẫu "Server | User | Pass | Sys | App" (Password là bản đã giải mã DPAPI). Windows Authentication thì không có user/pass.
+        var (sqlUser, sqlPass) = ws.IntegratedSecurity ? ("Windows Authentication", "") : (ws.User, ws.Password);
+        sb.AppendLine($"SQL: {ws.Server} | {sqlUser} | {sqlPass} | {ws.SysDatabase} | {ws.AppDatabase}");
         sb.AppendLine($"Web: {ws.LoginWLink}");
         sb.AppendLine($"Program: {ws.ProgramPath}");
         sb.AppendLine($"Source: {ws.SourcePath}");

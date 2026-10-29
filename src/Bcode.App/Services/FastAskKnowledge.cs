@@ -4,6 +4,81 @@ using System.Text.RegularExpressions;
 namespace Bcode.App.Services;
 
 /// <summary>
+/// Thư mục gốc lưu kiến thức (ma trận ghost text <c>ghost\</c>, kiến thức + xác nhận Hỏi Fast <c>fastask\</c>): Template → Đường dẫn → "Thư mục kiến thức"
+/// (<see cref="Models.AppSettings.KnowledgeDir"/>). Khai cùng 1 thư mục mạng cho nhiều máy thì máy nào học dự án / chấm ✔ ✘ / sửa câu trả lời, máy khác
+/// dùng luôn (các file được đọc lại khi đổi). Trống hoặc không với tới được → <c>%AppData%\Bcode</c> của máy này. Lịch sử chat luôn ở máy này.
+/// </summary>
+public static class KnowledgePaths
+{
+    private static string? _custom;
+    private static bool _loaded;
+    private static (string Dir, bool Ok, DateTime At)? _probe;
+
+    /// <summary>Thư mục kiến thức trên máy này (mặc định).</summary>
+    public static string Local => Path.Combine(BcodePaths.AppData, "Bcode");
+
+    /// <summary>Đặt lại thư mục (trống = mặc định); chép kiến thức đang có ở thư mục cũ sang nếu thư mục mới chưa có file đó.</summary>
+    public static void Configure(string? dir)
+    {
+        var old = Root;
+        _custom = string.IsNullOrWhiteSpace(dir) ? null : dir.Trim();
+        _loaded = true;
+        _probe = null;
+        var now = Root;
+        if (!string.Equals(Path.GetFullPath(old), Path.GetFullPath(now), StringComparison.OrdinalIgnoreCase)) CopyMissing(old, now);
+    }
+
+    /// <summary>Thư mục đang dùng: thư mục khai báo nếu tạo / ghi được (kiểm tra lại mỗi phút — ổ mạng có lúc mất), không thì máy này.</summary>
+    public static string Root
+    {
+        get
+        {
+            if (!_loaded) { _loaded = true; try { _custom = Models.AppSettings.Load().KnowledgeDir is { Length: > 0 } d ? d.Trim() : null; } catch { _custom = null; } }
+            if (_custom is null) return Local;
+            if (_probe is { } p && p.Dir == _custom && (DateTime.UtcNow - p.At).TotalSeconds < 60) return p.Ok ? _custom : Local;
+            var ok = false;
+            try { Directory.CreateDirectory(_custom); ok = Directory.Exists(_custom); } catch { /* không với tới được */ }
+            _probe = (_custom, ok, DateTime.UtcNow);
+            return ok ? _custom : Local;
+        }
+    }
+
+    /// <summary>Thư mục khai báo có đang dùng được không (null = chưa khai báo).</summary>
+    public static bool? CustomOk => _custom is null ? null : Root == _custom;
+
+    /// <summary>Chép ghost\*.json, fastask\projects\*.json, fastask\shared.json sang thư mục mới (không ghi đè); xác nhận ✔ ✘ thì gộp.</summary>
+    private static void CopyMissing(string from, string to)
+    {
+        try
+        {
+            foreach (var sub in new[] { "ghost", Path.Combine("fastask", "projects"), "fastask" })
+            {
+                var src = Path.Combine(from, sub);
+                if (!Directory.Exists(src)) continue;
+                var dst = Path.Combine(to, sub);
+                Directory.CreateDirectory(dst);
+                foreach (var f in Directory.GetFiles(src, "*.json").Concat(Directory.GetFiles(src, "*.json.tok")))
+                {
+                    var target = Path.Combine(dst, Path.GetFileName(f));
+                    if (Path.GetFileName(f).Equals("feedback.json", StringComparison.OrdinalIgnoreCase)) FastAskFeedback.MergeFrom(f);
+                    else if (!File.Exists(target)) File.Copy(f, target);
+                }
+            }
+        }
+        catch { /* chép được phần nào hay phần đó */ }
+    }
+
+    /// <summary>Ghi file kiểu "ghi tạm rồi đổi tên" để máy khác đang đọc cùng thư mục mạng không gặp file ghi dở.</summary>
+    public static void WriteAtomic(string path, string content)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var tmp = path + "." + Environment.MachineName + ".tmp";
+        File.WriteAllText(tmp, content);
+        File.Move(tmp, path, overwrite: true);
+    }
+}
+
+/// <summary>
 /// Kiến thức "Hỏi Fast" học từ store của từng dự án (nút "Học dự án này" — chỉ đọc sys.sql_modules), lưu riêng từng dự án rồi gộp thành kiến thức
 /// chung trên máy để dự án sau dùng lại (<c>%AppData%\Bcode\fastask\</c>):
 /// <list type="bullet">
@@ -26,7 +101,7 @@ public sealed class FastAskKnowledge
     /// <summary>Dự án đã gộp vào (tên + ngày học + số store).</summary>
     public List<string> Projects { get; set; } = new();
 
-    public static string Dir => Path.Combine(BcodePaths.AppData, "Bcode", "fastask");
+    public static string Dir => Path.Combine(KnowledgePaths.Root, "fastask");
     public static string SharedPath => Path.Combine(Dir, "shared.json");
     public static string ProjectPath(string key) =>
         Path.Combine(Dir, "projects", string.Concat(key.Select(c => Path.GetInvalidFileNameChars().Contains(c) || c == '|' ? '_' : c)) + ".json");
@@ -133,7 +208,7 @@ public sealed class FastAskKnowledge
     public void Save(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, JsonSerializer.Serialize(this, Json));
+        KnowledgePaths.WriteAtomic(path, JsonSerializer.Serialize(this, Json));
     }
 
     public static FastAskKnowledge Load(string path)
@@ -221,21 +296,56 @@ public sealed class FastAskFeedback
     public List<Vote> Votes { get; set; } = new();
 
     public static string FilePath => Path.Combine(FastAskKnowledge.Dir, "feedback.json");
-    private static FastAskFeedback? _instance;
-    public static FastAskFeedback Instance => _instance ??= Load();
+    private static (string Path, DateTime Stamp, FastAskFeedback F)? _cache;
+    private static readonly object Sync = new();
 
-    private static FastAskFeedback Load()
+    /// <summary>Bản đang có trên đĩa (đọc lại khi file đổi — thư mục kiến thức dùng chung thì máy khác có thể vừa ghi).</summary>
+    public static FastAskFeedback Instance
     {
-        try { return File.Exists(FilePath) ? JsonSerializer.Deserialize<FastAskFeedback>(File.ReadAllText(FilePath)) ?? new() : new(); }
+        get
+        {
+            var path = FilePath;
+            var stamp = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
+            lock (Sync)
+            {
+                if (_cache is { } c && c.Path == path && c.Stamp == stamp) return c.F;
+                var f = Load(path);
+                _cache = (path, stamp, f);
+                return f;
+            }
+        }
+    }
+
+    private static FastAskFeedback Load(string path)
+    {
+        try { return File.Exists(path) ? JsonSerializer.Deserialize<FastAskFeedback>(File.ReadAllText(path)) ?? new() : new(); }
         catch { return new(); }
     }
 
+    /// <summary>Thêm 1 xác nhận: đọc lại file mới nhất rồi mới ghi (không đè xác nhận máy khác vừa ghi vào thư mục chung).</summary>
     public void Add(Vote v)
     {
-        lock (Votes) Votes.Add(v);
-        Directory.CreateDirectory(FastAskKnowledge.Dir);
-        lock (Votes) File.WriteAllText(FilePath, JsonSerializer.Serialize(this));
+        lock (Sync)
+        {
+            var fresh = Load(FilePath);
+            fresh.Votes.Add(v);
+            KnowledgePaths.WriteAtomic(FilePath, JsonSerializer.Serialize(fresh));
+            _cache = null;
+        }
         if (v.Ref.StartsWith("m|")) FastGhostMiner.MergeShared();   // ô ma trận ghost text → gộp lại lớp chung ngay
+    }
+
+    /// <summary>Gộp xác nhận từ 1 file khác (đổi thư mục kiến thức): bỏ trùng theo (câu hỏi, thẻ, lúc).</summary>
+    public static void MergeFrom(string otherFile)
+    {
+        lock (Sync)
+        {
+            var mine = Load(FilePath);
+            var seen = mine.Votes.Select(x => (x.Sig, x.Ref, x.At)).ToHashSet();
+            mine.Votes.AddRange(Load(otherFile).Votes.Where(x => !seen.Contains((x.Sig, x.Ref, x.At))));
+            KnowledgePaths.WriteAtomic(FilePath, JsonSerializer.Serialize(mine));
+            _cache = null;
+        }
     }
 
     /// <summary>Tổng ✔ − ✘ của thẻ cho đúng câu hỏi này / cho mọi câu hỏi.</summary>
@@ -270,7 +380,8 @@ public sealed class FastAskFeedback
 /// <summary>Lịch sử chat Hỏi Fast theo phiên (<c>%AppData%\Bcode\fastask\sessions\*.json</c>) — trang gửi nguyên danh sách tin nhắn sau mỗi lượt.</summary>
 public static class FastAskSessions
 {
-    public static string Dir => Path.Combine(FastAskKnowledge.Dir, "sessions");
+    // lịch sử chat là của từng người → luôn ở máy này, kể cả khi thư mục kiến thức là thư mục chung
+    public static string Dir => Path.Combine(KnowledgePaths.Local, "fastask", "sessions");
     private static string PathOf(string id) => Path.Combine(Dir, Regex.Replace(id, @"[^\w-]", "") + ".json");
 
     public static void Save(string id, string json)

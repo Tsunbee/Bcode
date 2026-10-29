@@ -173,6 +173,11 @@ public class UiTemplateForm : ThemedForm
                     break;
                 }
                 case "search-get": PushSearchRules(); break;
+                case "search-mode-set":
+                    _settings.FileLookupSearchOnEnter = data.TryGetProperty("onEnter", out var soe) && soe.ValueKind == JsonValueKind.True;
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    Bcode.App.Services.FileLookupService.SetSearchOnEnter(_settings.FileLookupSearchOnEnter);
+                    break;
                 case "search-set":
                 {
                     string S(string k) => data.TryGetProperty(k, out var e) ? (e.GetString() ?? "").Trim() : "";
@@ -346,8 +351,28 @@ public class UiTemplateForm : ThemedForm
         else if (key == "designer") _settings.ScreenDesignerExePath = value;
         else if (key == "srcMain") _settings.SourceCollectionPath = value;
         else if (key == "srcExtra") _settings.SourceCollectionExtraPaths = value.Split(new[] { (char)10, (char)13 }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        else if (key == "knowledge")
+        {
+            // lưu ngay (các tab SQL / Hỏi Fast dùng bản settings riêng → ghi thẳng vào file), đổi thư mục + chép kiến thức đang có sang ở luồng nền (ổ mạng chậm)
+            _settings.KnowledgeDir = value;
+            AppSettings.Update(s => s.KnowledgeDir = value);
+            _ = Task.Run(() => { Bcode.App.Services.KnowledgePaths.Configure(value); try { BeginInvoke(new Action(PushKnowledgeStatus)); } catch { /* form đã đóng */ } });
+            return;
+        }
         else return;
         _settings.Save();
+    }
+
+    /// <summary>Thư mục kiến thức đang dùng + có với tới được không (kiểm tra ở luồng nền như kho source).</summary>
+    private void PushKnowledgeStatus()
+    {
+        var path = _settings.KnowledgeDir ?? "";
+        _ = Task.Run(() =>
+        {
+            var root = Bcode.App.Services.KnowledgePaths.Root;
+            var state = new { path, root, ok = path.Length == 0 || Bcode.App.Services.KnowledgePaths.CustomOk == true, local = Bcode.App.Services.KnowledgePaths.Local };
+            try { BeginInvoke(new Action(() => Js($"window.setKnowledge && window.setKnowledge({JsonSerializer.Serialize(state)})"))); } catch { /* form đã đóng */ }
+        });
     }
 
     /// <summary>Đẩy trạng thái Chế độ hiệu năng cho trang: lựa chọn đang lưu + giá trị thực tế + cấu hình máy + có cần mở lại Bcode không.</summary>
@@ -386,6 +411,7 @@ public class UiTemplateForm : ThemedForm
         {
             include = _settings.SearchIncludeExtensions, never = _settings.SearchNeverExtensions, binary = _settings.SearchBinaryExtensions, folders = _settings.SearchFolders,
             skipF = _settings.SearchSkipCompiledF, compiled = _settings.SearchCompiledFolders, maxMb = _settings.SearchMaxMegabytes, ignore = _settings.FileLookupIgnoreSuffixes,
+            onEnter = _settings.FileLookupSearchOnEnter,
         };
         Js($"window.setSearchRules({JsonSerializer.Serialize(s)})");
     }
@@ -400,6 +426,7 @@ public class UiTemplateForm : ThemedForm
         };
         Js($"window.setPaths({JsonSerializer.Serialize(state)})");
         PushSourceStatus();
+        PushKnowledgeStatus();
     }
 
     /// <summary>Kho source (chính + bổ sung) có truy cập được không — kiểm tra ở luồng nền vì ổ mạng không với tới được có thể treo nhiều giây; trang hiện "đang kiểm tra" rồi cập nhật khi xong.</summary>
@@ -429,6 +456,14 @@ public class UiTemplateForm : ThemedForm
     private void BrowseToolPath(string? key)
     {
         if (key == "srcAdd") { BrowseSourceExtra(); return; }
+        if (key == "knowledge")
+        {
+            using var dlg = new FolderBrowserDialog { Description = "Chọn thư mục lưu kiến thức ghost text + Hỏi Fast (vd thư mục mạng dùng chung cho các máy)", UseDescriptionForTitle = true };
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            SetToolPath("knowledge", dlg.SelectedPath);
+            Js($"window.setKnowledge && window.setKnowledge({JsonSerializer.Serialize(new { path = dlg.SelectedPath, root = "", ok = true, local = Bcode.App.Services.KnowledgePaths.Local, checking = true })})");
+            return;
+        }
         BrowseToolPathCore(key);
     }
 

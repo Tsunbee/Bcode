@@ -92,6 +92,13 @@
 
   window.projects = {
     init(d) { const c = cur(); items = d.items; renderRecent(d.recent); apply(c ? items.find((x) => x.id === c.id)?.i ?? null : null); $('filter').focus(); },
+    // C# gọi khi trang vừa nạp hoặc khi phím gõ bị rơi ra ngoài trang (xem ProjectPickerForm.FocusFilter): focus ô lọc + điền các ký tự đó.
+    focusFilter(typed) {
+      const f = $('filter'); f.focus();
+      if (!typed) return;
+      f.setRangeText(typed, f.selectionStart, f.selectionEnd, 'end');
+      f.dispatchEvent(new Event('input'));
+    },
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 })();

@@ -1,7 +1,7 @@
 {
   "version": 2,
   "source": "Fast — rút từ 2291 procedure/function thật, chỉ giữ routine chuẩn Fast (FastBusiness$…, ff_, fs_, rs_)",
-  "built": "2026-10-28",
+  "built": "2026-10-29",
   "target": 0.9,
   "note": "Ma trận ghost text Fast: loại × khoá ('routine' hoặc 'routine|ngữ cảnh', biến lọc) → [tổng số lần, [cách viết, số lần] …] (nhiều → ít). Khi gõ: bỏ cách dùng biến store chưa khai báo, độ tin = số lần / (tổng các cách còn lại + phần đuôi + 1); chỉ gợi ý khi ≥ minShare của loại (hiệu chỉnh để precision đo trên store chưa dùng để rút ≥ target). Ô không có cách viết = ô chặn. {a} = alias bảng, {lhs} = biến được gán trên dòng, {if} = biến của IF cùng dòng; dòng lọc lưu dạng chuẩn rồi đổi theo văn phong store.",
   "rules": {
@@ -17,7 +17,7 @@
     },
     "any": {
       "precision": 0.9,
-      "coverage": 0.162,
+      "coverage": 0.392,
       "tested": 17662
     },
     "nextsite": {
@@ -19862,6 +19862,20 @@
       "precision": 0.774,
       "coverage": 0.195,
       "tested": 22140,
+      "entries": {}
+    },
+    "tok": {
+      "minShare": 0.8,
+      "precision": 0.912,
+      "coverage": 0.323,
+      "tested": 17662,
+      "entries": {}
+    },
+    "tok:long": {
+      "minShare": 0.3,
+      "precision": 0.628,
+      "coverage": 0.622,
+      "tested": 17662,
       "entries": {}
     },
     "same:0": {

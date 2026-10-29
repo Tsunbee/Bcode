@@ -9,11 +9,15 @@
 
   body {
     margin: 0;
-    padding: 6px 8px 8px 8px;
     background: var(--panel);
-    border-bottom: 1px solid var(--border);
     overflow: hidden;
     width: 100%;
+  }
+
+  /* Khung nội dung: cao theo nội dung (body cao 100% khung WebView2) — C# đặt chiều cao khung theo số đo này (xem __height ở dưới). */
+  #bar {
+    padding: 6px 8px 8px 8px;
+    border-bottom: 1px solid var(--border);
   }
 
   .title {
@@ -62,11 +66,17 @@
 
   .opts {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 14px;
+    column-gap: 14px;
+    row-gap: 4px;
     flex: 1 1 auto;
     min-width: 0;
   }
+
+  /* Khung hẹp (cột cây file ~250px, hoặc tỉ lệ giao diện lớn): ô tick và nút Search xuống dòng thay vì tràn ra ngoài. */
+  .row.wrap { flex-wrap: wrap; row-gap: 4px; }
+  .row.wrap #btnSearch { margin-left: auto; }
 
   label.chk {
     display: inline-flex;
@@ -83,6 +93,7 @@
 </style>
 </head>
 <body>
+ <div id="bar">
   <div class="title">Search Box</div>
   <div class="grid">
     <span class="lbl">File Type</span>
@@ -98,7 +109,7 @@
     <input type="text" id="text" spellcheck="false" />
 
     <span></span>
-    <div class="row">
+    <div class="row wrap">
       <div class="opts">
         <label class="chk"><input type="checkbox" id="matchCase" /> Match Case</label>
         <label class="chk"><input type="checkbox" id="showPattern" /> Show Pattern</label>
@@ -106,11 +117,26 @@
       <button class="btn btn-primary" id="btnSearch">Search</button>
     </div>
   </div>
+ </div>
 
 <script>
   var running = false;
   function el(id) { return document.getElementById(id); }
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  // Báo chiều cao nội dung (px thiết bị: devicePixelRatio đã gồm DPI màn hình + tỉ lệ giao diện) — C# đặt chiều cao khung theo đó, nên
+  // cửa sổ hẹp (hàng xuống dòng) hay tỉ lệ giao diện > 100% không còn làm phần dưới bị cây file che mất.
+  (function () {
+    var bar = el('bar'), last = 0;
+    function send() {
+      var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
+      if (h && h !== last) { last = h; post({ action: '__height', height: h }); }
+    }
+    if (window.ResizeObserver) new ResizeObserver(send).observe(bar);
+    window.addEventListener('load', send);
+    window.addEventListener('resize', send);
+    setTimeout(send, 50);
+  })();
 
   function state(action) {
     return {

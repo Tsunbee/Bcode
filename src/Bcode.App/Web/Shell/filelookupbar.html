@@ -11,15 +11,18 @@
 
   body {
     margin: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    padding: 4px 6px;
     background: var(--panel);
-    border-bottom: 1px solid var(--border);
     overflow: hidden;
     width: 100%;
+  }
+
+  /* Khung nội dung cao theo nội dung — C# đặt chiều cao thanh theo số đo này (xem __height ở dưới). */
+  #bar {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
   }
 
   .row {
@@ -81,6 +84,7 @@
 </style>
 </head>
 <body>
+ <div id="bar">
   <div class="row">
     <span class="muted">Path:</span>
     <input type="text" id="pathInput" placeholder="\\server\CustomerPro\...\App_Data" />
@@ -105,9 +109,23 @@
     <button class="btn" id="btnUncheckAll" title="Bỏ mọi dấu tick">Bỏ tick</button>
     <button class="btn" id="btnGrant" title="Cấp source (.xml) từ kho SourceCollection cho các file đã tick (hoặc file đang chọn), tự chọn theo phiên bản">Cấp source</button>
   </div>
+ </div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+
+  // Báo chiều cao nội dung (px thiết bị, gồm DPI + tỉ lệ giao diện) mỗi khi đổi — cột cây hẹp làm các hàng xuống dòng thì thanh cao thêm thay vì bị cắt.
+  (function () {
+    var bar = document.getElementById('bar'), last = 0;
+    function send() {
+      var h = Math.ceil(bar.getBoundingClientRect().height * (window.devicePixelRatio || 1));
+      if (h && h !== last) { last = h; post({ action: '__height', height: h }); }
+    }
+    if (window.ResizeObserver) new ResizeObserver(send).observe(bar);
+    window.addEventListener('load', send);
+    window.addEventListener('resize', send);
+    setTimeout(send, 50);
+  })();
 
   function load() { post({ action: 'load', path: document.getElementById('pathInput').value }); }
 
@@ -137,9 +155,10 @@
 
   // Debounced live filename search — mirrors the original's "search as you type", just
   // batched a little so fast typing doesn't fire a full tree rebuild per keystroke.
-  var searchDebounce;
+  var searchDebounce, searchOnEnter = false;
   document.getElementById('searchInput').addEventListener('input', function (e) {
     clearTimeout(searchDebounce);
+    if (searchOnEnter) return;   // Template → Tìm file: "Ấn Enter mới tìm" (máy yếu) — gõ không chạy tìm
     var value = e.target.value;
     searchDebounce = setTimeout(function () { post({ action: 'search', value: value }); }, 200);
   });
@@ -159,6 +178,11 @@
   };
   window.setSearchBoxToggleText = function (text) {
     document.getElementById('btnSearchBoxToggle').textContent = text;
+  };
+  window.setSearchOnEnter = function (on) {
+    searchOnEnter = !!on;
+    if (on) clearTimeout(searchDebounce);
+    document.getElementById('searchInput').placeholder = on ? 'Search... (Enter để tìm)' : 'Search...';
   };
   window.setPath = function (path) {
     document.getElementById('pathInput').value = path;

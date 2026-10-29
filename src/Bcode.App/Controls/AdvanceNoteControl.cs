@@ -67,10 +67,12 @@ public class AdvanceNoteControl : UserControl
         var ws = _workspace();
         var defaultFolder = string.Join("_", new[] { ws?.ProjectId, Environment.MachineName, DateTime.Now.ToString("yyyyMMddHHmmss") }
             .Where(s => !string.IsNullOrWhiteSpace(s)));
+        var opts = GenAllService.LoadPackageOptions();
         Js($"advNote.init({J(new
         {
             workspace = new { name = ws?.Name ?? "", sourcePath = ws?.SourcePath ?? "", savePath = ws?.WorkingPath ?? "", projectId = ws?.ProjectId ?? "" },
             defaultFolder,
+            pkg = new { zip = opts.Zip, net = opts.Network, netRoot = opts.NetworkRoot, machine = Environment.MachineName },
             programmer = _settings?.NoteProgrammer ?? "",
             noteHub = NoteHubRequested is not null,   // nút "🗂 Nhiều dự án" chỉ hiện ở Bcode (BcodeNote.exe không nối event này)
             requests = _requests,
@@ -211,6 +213,13 @@ public class AdvanceNoteControl : UserControl
                 case "generate":
                     await GenerateAsync(root);
                     break;
+
+                case "pkgOpts":
+                {
+                    var o = ReadPackageOptions(root);
+                    GenAllService.SavePackageOptions(o.Zip, o.Network, o.NetworkRoot);
+                    break;
+                }
 
                 case "loadTables":
                 {
@@ -427,6 +436,12 @@ public class AdvanceNoteControl : UserControl
         Js($"advNote.setBusy(false); advNote.onSynced({J(new { ok = true, message })})");
     }
 
+    /// <summary>2 tuỳ chọn gói trang gửi kèm (zip, net, netRoot) — trang cũ không gửi thì coi như tắt.</summary>
+    private static (bool Zip, bool Network, string NetworkRoot) ReadPackageOptions(JsonElement root) =>
+        (root.TryGetProperty("zip", out var z) && z.ValueKind == JsonValueKind.True,
+         root.TryGetProperty("net", out var n) && n.ValueKind == JsonValueKind.True,
+         root.TryGetProperty("netRoot", out var r) ? r.GetString() ?? "" : "");
+
     private async Task GenerateAsync(JsonElement root)
     {
         var ws = _workspace();
@@ -452,6 +467,12 @@ public class AdvanceNoteControl : UserControl
         var dest = Path.Combine(savePath, folder);
         var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
         _previewItems = OrderForRun(merged.Items);   // để bấm xem nội dung từng mục của gói vừa tạo
+        // Nén zip / chép lên đường dẫn mạng: lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
+        var opts = ReadPackageOptions(root);
+        GenAllService.SavePackageOptions(opts.Zip, opts.Network, opts.NetworkRoot);
+        if (opts.Zip || opts.Network) Js("advNote.setBusy(true, " + J(opts.Network ? "Đang chép gói lên đường dẫn mạng..." : "Đang nén zip...") + ")");
+        var extra = opts.Zip || opts.Network
+            ? await GenAllService.DeliverPackageAsync(dest, opts.Zip, opts.Network, opts.NetworkRoot) : new PackageDelivery();
 
         var now = DateTime.Now;
         foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
@@ -464,7 +485,8 @@ public class AdvanceNoteControl : UserControl
         }
         SaveList();
 
-        Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings) })})");
+        Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings),
+            zip = extra.ZipPath, network = extra.NetworkPath, errors = extra.Errors })})");
         SendList(null); // làm mới cột Updated
     }
 

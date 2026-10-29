@@ -517,6 +517,19 @@ class BcodeSettingsDialog {
     const fastGhost = row('', check('Gợi ý theo cấu trúc Fast khi gõ (XML controller / JavaScript / ASPX)', s.enableFastGhost !== false));
     const fastLong = row('', check('Gợi ý Fast dài (gợi ý dài / nhiều chỗ hơn, đúng ≥ 60%; tắt = ngắn, đúng ≥ 90%) — Alt+Shift+\\ đổi nhanh', !!s.fastGhostLong));
     note('Chạy trên máy, không gọi mạng: học từ source Fast mẫu đi kèm, source của dự án đang mở (đọc ở nền lần đầu) và source Fast các phiên bản bên dưới. Tab để nhận.');
+    section('Kiến thức chung (cả nhóm)');
+    const knowledgeDir = input(s.knowledgeDir || '');
+    row('Thư mục kiến thức chung:', knowledgeDir, button('Browse...', async () => {
+      const p = await window.bcodeHost.call('BeginChooseFolder', knowledgeDir.value);
+      if (p) knowledgeDir.value = p;
+    }));
+    const knowledgeStatus = document.createElement('div');
+    knowledgeStatus.className = 'setNote';
+    knowledgeStatus.textContent = s.knowledgeSummary || '';
+    row('', knowledgeStatus);
+    note('Đặt 1 thư mục mạng cả nhóm cùng đọc / ghi (vd \\\\172.168.5.14\\Bee\\Knowledge): ma trận học từ source các dự án được gộp thành KIẾN THỨC CHUNG (dự án chưa mở lần nào vẫn được gợi ý theo cách viết của các dự án khác), '
+      + 'và mỗi lần ai đó nhận (Tab) hay bỏ qua 1 gợi ý, ô ma trận sinh ra nó được chỉnh lại — gợi ý hay bị bỏ qua tự ít hiện đi, hay được nhận thì chắc hơn, cho cả nhóm. '
+      + 'Trống = dùng "Thư mục kiến thức" của Bcode (Template → Đường dẫn), Bcode cũng trống thì chỉ máy này.');
     section('Source Fast theo phiên bản');
     const versionsPath = input(s.fastSourceVersionsPath || '');
     row('Thư mục các phiên bản:', versionsPath, button('Browse...', async () => {
@@ -668,7 +681,7 @@ class BcodeSettingsDialog {
         enableAiCompletion: aiCompletion.box.checked, completionModel: completionModel.value,
         completionEngine: engine.value, translateEngine: translateEngine.value, sharedTemplatePath: sharedPath.value,
         enableSqlCompletion: sqlCompletion.box.checked, enableSqlWrites: sqlWrites.box.checked,
-        enableFastGhost: fastGhost.box.checked, fastGhostLong: fastLong.box.checked, fastSourceVersionsPath: versionsPath.value,
+        enableFastGhost: fastGhost.box.checked, fastGhostLong: fastLong.box.checked, fastSourceVersionsPath: versionsPath.value, knowledgeDir: knowledgeDir.value,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
         showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,

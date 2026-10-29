@@ -13,6 +13,7 @@ namespace BcodeViewer.App.Host.FastSource;
 /// <item>Source của dự án đang mở (SourcePath của workspace trong Bcode): <c>App_Data\Controllers</c> + <c>Main</c> → <c>viewer\ghost\&lt;dự án&gt;.json</c>.</item>
 /// </list>
 /// Ghost dùng = gộp các lớp đã có; lớp nào chưa xong thì dùng lớp đã có (lần đầu đọc source qua ổ mạng mất hàng chục giây).
+/// Thêm lớp kiến thức chung của mọi dự án + học từ người dùng — xem FastSourceService.Shared.cs.
 /// </summary>
 public sealed partial class FastSourceService
 {
@@ -47,6 +48,8 @@ public sealed partial class FastSourceService
             var shipped = LoadShipped();
             if (shipped is not null && !_hasFast) { _base = shipped; _merged.Clear(); }
         });
+        // kiến thức chung của mọi dự án + phản hồi người dùng (gộp lại nếu có dự án mới học) → dựng lại nền
+        MergeShared();
         StartVersionsLearn(force: false);
         // dựng sẵn kho Hỏi Fast (~vài giây với source Fast các phiên bản) để câu hỏi đầu không phải chờ
         StartJob("askwarm", () => { _shippedLoad?.Wait(); AskFor(null); }, oneShot: true);
@@ -61,22 +64,30 @@ public sealed partial class FastSourceService
     }
 
     /// <summary>Gộp mẫu đi kèm với ma trận học từ source Fast mới nhất thành nền mới.</summary>
-    private void SetFastGhost(SourceGhost fast)
+    private void SetFastGhost(SourceGhost fast, string file)
     {
         _shippedLoad?.Wait();
         var shipped = LoadShipped();
         _base = shipped is null ? fast : SourceGhost.Merge(shipped, fast);
         _hasFast = true;
+        _fastGhostFile = file;
         _merged.Clear();
+        ComposeBase();   // + kiến thức chung + phản hồi
     }
 
     /// <summary>Gợi ý tại con trỏ; "" = không có. <paramref name="path"/> = file đang mở (chọn loại xml / aspx / js và dự án).</summary>
-    public SourceGhost.Ghost? Ghost(string before, string after, string? path, string? region, bool longMode)
+    /// <returns>Gợi ý + id để trang báo lại nhận / bỏ qua (<see cref="GhostFeedback"/>).</returns>
+    public (SourceGhost.Ghost? Ghost, string? Id) Ghost(string before, string after, string? path, string? region, bool longMode)
     {
         var kind = SourceGhost.KindOfPath(path);
-        if (kind == "") return null;
+        if (kind == "") return (null, null);
         var g = GhostFor(path);
-        return g?.Explain(before, after, kind, region, longMode, root: SourceGhost.RootOf(path, before));
+        if (g is null) return (null, null);
+        var root = SourceGhost.RootOf(path, before);
+        var ghost = g.Explain(before, after, kind, region, longMode, root: root, siblings: SiblingsFor(path, before, after));
+        if (ghost is null) return (null, null);
+        var area = SourceGhost.AreaFor(kind, region, root, before[(before.LastIndexOf('\n') + 1)..]);
+        return (ghost, RememberShown(g, ghost, ghost.Kind + "@" + area + (longMode ? ":long" : "")));
     }
 
     /// <summary>Kiến thức ghost cho file: đi kèm + source Fast theo bản + dự án của file (gộp 1 lần, nhớ lại).</summary>
@@ -87,7 +98,8 @@ public sealed partial class FastSourceService
         var (project, sourcePath) = SafeResolve(path);
         if (project is not null && sourcePath is not null) StartProjectLearn(project, sourcePath);
         var pg = project is not null && _projectGhost.TryGetValue(project, out var p) ? p : null;
-        if (pg is null) return b;
+        // dự án đã nằm trong kiến thức chung (nền đã gồm nó) → khỏi gộp lần nữa
+        if (pg is null || _sharedProjects.Contains(ViewerKnowledge.SafeName(project!))) return b;
         if (_merged.TryGetValue(project!, out var m)) return m;
         // gộp tốn vài giây với ma trận lớn → gộp ở nền, tạm dùng nền; chỉ giữ bản gộp của dự án vừa dùng
         StartJob("merge:" + project, () =>
@@ -121,7 +133,7 @@ public sealed partial class FastSourceService
 
     /// <summary>Đổi khi cách rút kiến thức đổi (2 = thêm ma trận dòng <field name="X"> + khai báo import; 3 = tách dòng field của <views> với <fields>; 4 = thêm mục <template> của file import, name ="x")
     /// — file cũ bị bỏ qua, tự học lại 1 lần.</summary>
-    public const string Format = "v4";
+    public const string Format = "v5";   // 5 = thêm ma trận đầu dòng / dòng tiếp theo (vùng JS, SQL) + kiến thức chung _shared
 
     private static string ProjectGhostFile(string project) => ViewerKnowledge.Viewer("ghost", ViewerKnowledge.SafeName(project) + "." + Format + ".json");
 
@@ -140,22 +152,28 @@ public sealed partial class FastSourceService
             {
                 g = SourceGhost.FromJson(JsonDocument.Parse(File.ReadAllText(file)).RootElement);
                 _projectDocs[project] = SourceAsk.FromJson(File.ReadAllText(askFile));
+                LoadSiblingIndex(project);
             }
             else
             {
                 var files = ReadSource(sourcePath, s => Status = s).ToList();
                 if (files.Count == 0) return;
                 var full = SourceGhost.Train(files);
+                BuildSiblingIndex(project, files);
                 g = new SourceGhost();
                 foreach (var (k, m) in full.Models) g.Models[k] = m.Filter(3);
                 foreach (var (k, d) in full.Fields) g.Fields[k] = d;
+                foreach (var (k, d) in full.Lines) g.Lines[k] = d;
+                foreach (var (k, d) in full.Nexts) g.Nexts[k] = d;
                 ViewerKnowledge.WriteAtomic(file, JsonSerializer.Serialize(g.ToJson(), ViewerKnowledge.Json));
+                MergeShared();   // dự án mới vào kiến thức chung
                 var docs = SourceAsk.Build(files, "dự án " + project).Concat(SourceAsk.BuildFunctions(files, "dự án " + project)).ToList();
                 ViewerKnowledge.WriteAtomic(askFile, SourceAsk.ToJson(docs));
                 _projectDocs[project] = docs;
                 Status = $"Đã học source dự án {project}: {files.Count} file";
             }
             _projectGhost[project] = g;
+            if (!_sharedProjects.Contains(ViewerKnowledge.SafeName(project))) MergeShared();   // học từ trước nhưng chưa có trong _shared (vd _shared của bản cũ)
             _merged.Clear();
             _askCache = null;
             KnowledgeChanged?.Invoke();
@@ -194,7 +212,7 @@ public sealed partial class FastSourceService
         if (root.Length == 0)
         {
             Versions = null; _fastDocs = null; _askCache = null;
-            if (_hasFast) { _hasFast = false; _base = LoadShipped(); _merged.Clear(); }
+            if (_hasFast) { _hasFast = false; _fastGhostFile = null; _base = LoadShipped(); _merged.Clear(); ComposeBase(); }
             return;
         }
         if (force) _jobs.TryRemove("versions:" + root, out _);
@@ -208,7 +226,7 @@ public sealed partial class FastSourceService
             if (!force && saved is not null && saved.Signature == sig && File.Exists(ghostFile) && File.Exists(askFile))
             {
                 Versions = saved;
-                SetFastGhost(SourceGhost.FromJson(JsonDocument.Parse(File.ReadAllText(ghostFile)).RootElement));
+                SetFastGhost(SourceGhost.FromJson(JsonDocument.Parse(File.ReadAllText(ghostFile)).RootElement), ghostFile);
                 _fastDocs = SourceAsk.FromJson(File.ReadAllText(askFile));
                 Status = $"Source Fast: {saved.Versions.Count} bản, {saved.Latest.Count} file, {saved.Changes.Count} thay đổi (học lúc {saved.ScannedAt:dd/MM HH:mm})";
             }
@@ -225,8 +243,11 @@ public sealed partial class FastSourceService
                 // ~9.000 file: giữ ngữ cảnh gặp ≥ 6 lần, ô field ≥ 3 lần (đủ chính xác, RAM gọn hơn nhiều)
                 foreach (var (k, m) in full.Models) g.Models[k] = m.Filter(6);
                 foreach (var (k, d) in full.Fields) if (d.Where(x => x.Key != "").Sum(x => x.Value) >= 3) g.Fields[k] = d;
+                // ma trận dòng: ô có cách viết gặp ở ≥ 3 file (9.000 file — giữ gọn RAM)
+                foreach (var (k, d) in full.Lines) if (d.Where(x => x.Key != "").Max(x => x.Value) >= 3) g.Lines[k] = d;
+                foreach (var (k, d) in full.Nexts) if (d.Where(x => x.Key != "").Max(x => x.Value) >= 3) g.Nexts[k] = d;
                 ViewerKnowledge.WriteAtomic(ghostFile, JsonSerializer.Serialize(g.ToJson(), ViewerKnowledge.Json));
-                SetFastGhost(g);
+                SetFastGhost(g, ghostFile);
                 var docs = SourceAsk.Build(files, "Fast " + v.Versions.LastOrDefault(x => x.Product == "FBO")?.Name).Concat(SourceAsk.BuildFunctions(files, "Fast")).ToList();
                 ViewerKnowledge.WriteAtomic(askFile, SourceAsk.ToJson(docs));
                 _fastDocs = docs;

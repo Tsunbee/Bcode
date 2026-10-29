@@ -74,6 +74,7 @@ public class EditorBridge
         _chooseSaveAsPath = chooseSaveAsPath;
         _async = new AsyncHostCall(postJson);
         LoadSharedSnippetsInBackground();
+        FastSource.ViewerKnowledge.Configure(settings.KnowledgeDir);
         Fast = new FastSource.FastSourceService(settings);
         Fast.Warmup();
     }
@@ -269,6 +270,8 @@ public class EditorBridge
         fastGhostLong = _settings.FastGhostLong,
         fastSourceVersionsPath = _settings.FastSourceVersionsPath,
         fastSourceStatus = Fast.Status,
+        knowledgeDir = _settings.KnowledgeDir,
+        knowledgeSummary = Fast.KnowledgeSummary(),
         enableSqlWrites = _settings.EnableSqlWrites,
         fcodeConfigXmlPath = _settings.FcodeConfigXmlPath,
         fcodeSqlPassword = _settings.FcodeSqlPassword,
@@ -307,6 +310,9 @@ public class EditorBridge
             var versionsPath = S("fastSourceVersionsPath").Trim();
             var versionsChanged = !string.Equals(versionsPath, _settings.FastSourceVersionsPath, StringComparison.OrdinalIgnoreCase);
             _settings.FastSourceVersionsPath = versionsPath;
+            var knowledgeDir = S("knowledgeDir").Trim();
+            var knowledgeChanged = !string.Equals(knowledgeDir, _settings.KnowledgeDir, StringComparison.OrdinalIgnoreCase);
+            _settings.KnowledgeDir = knowledgeDir;
             _settings.EnableSqlWrites = B("enableSqlWrites");
             _settings.FcodeConfigXmlPath = S("fcodeConfigXmlPath").Trim();
             _settings.FcodeSqlPassword = S("fcodeSqlPassword");
@@ -327,7 +333,8 @@ public class EditorBridge
 
             ReloadSnippets();
             InvalidateSqlSchema();
-            if (versionsChanged) Fast.StartVersionsLearn(force: false);
+            if (knowledgeChanged) { FastSource.ViewerKnowledge.Configure(knowledgeDir); Fast.ResetKnowledge(); }
+            else if (versionsChanged) Fast.StartVersionsLearn(force: false);
             if (styleChanged) FcodeThemeStyleChanged?.Invoke();
             if (aiPosChanged) AiSidebarPositionChanged?.Invoke();
             return "";
@@ -1364,10 +1371,15 @@ public class EditorBridge
     {
         if (!_settings.EnableFastGhost) { _async.Begin(requestId, () => ""); return; }
         _async.Begin(requestId, "fastGhost", _ => Task.FromResult(
-            Fast.Ghost(before ?? "", after ?? "", filePath, regionHint, longMode) is { } g
-                ? JsonSerializer.Serialize(new { text = g.Text, kind = g.Kind, share = Math.Round(g.Share, 3) })
+            Fast.Ghost(before ?? "", after ?? "", filePath, regionHint, longMode) is ({ } g, var id)
+                ? JsonSerializer.Serialize(new { text = g.Text, kind = g.Kind, share = Math.Round(g.Share, 3), id })
                 : ""));
     }
+
+    /// <summary>Trang báo gợi ý Fast <paramref name="id"/> (id trả về từ BeginFastGhost) được nhận (Tab / gõ đúng hết) hay bị bỏ qua — học vào ma trận
+    /// (FastSourceService.GhostFeedback), dùng chung cả nhóm qua thư mục kiến thức.</summary>
+    public void BeginFastFeedback(string requestId, string id, bool accepted) =>
+        _async.Begin(requestId, () => { Fast.GhostFeedback(id ?? "", accepted); return ""; });
 
     /// <summary>Alt+Shift+\ — đổi chế độ Gợi ý Fast dài ⇄ ngắn, lưu lại; trả chế độ mới ("long" / "short").</summary>
     public void BeginToggleFastGhostLong(string requestId) =>

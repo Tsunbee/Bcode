@@ -44,7 +44,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  211
-│   ├── NativeAdvanceNoteControl.cs  1172
+│   ├── NativeAdvanceNoteControl.cs  1178
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  278
@@ -69,7 +69,7 @@ Bcode.App/
 │   ├── NativePages.EInvoice.cs  136
 │   ├── NativePages.FileLookup.cs  177
 │   ├── NativePages.FileTools.cs  76
-│   ├── NativePages.GenUpdate.cs  385
+│   ├── NativePages.GenUpdate.cs  386
 │   ├── NativePages.HintsHelp.cs  123
 │   ├── NativePages.IncludeCheck.cs  371
 │   ├── NativePages.Note.cs  90
@@ -201,7 +201,6 @@ Bcode.App/
 │   ├── WeeklyMailTemplate.cs  20
 │   └── Workspace.cs  124
 ├── Secrets/
-│   ├── LocalSecrets.cs  30
 │   ├── LocalSecrets.Empty.cs  38
 │   └── README.md  19
 ├── Services/
@@ -272,7 +271,7 @@ Bcode.App/
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  501
 │   ├── GenAllService.cs  789
-│   ├── GenAllService.Delivery.cs  99
+│   ├── GenAllService.Delivery.cs  117
 │   ├── GenAllService.Suggest.cs  241
 │   ├── GenInsertService.cs  47
 │   ├── GenUpdateService.cs  52
@@ -357,7 +356,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  805
+│       ├── advnote.html  806
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  766
 │       ├── apischema.html  470
@@ -392,7 +391,7 @@ Bcode.App/
 │       ├── framehost.html  55
 │       ├── fsgnotify.html  136
 │       ├── fsgreq.html  763
-│       ├── genupdate.html  612
+│       ├── genupdate.html  616
 │       ├── grantsource.html  132
 │       ├── help.html  425
 │       ├── iconrail.html  72
@@ -462,17 +461,19 @@ BcodeViewer.App/
 ├── Host/
 │   ├── FastSource/
 │   │   ├── FastSourceService.Ask.cs  200
-│   │   ├── FastSourceService.cs  240
+│   │   ├── FastSourceService.cs  261
+│   │   ├── FastSourceService.Shared.cs  226
+│   │   ├── FastSourceService.Siblings.cs  96
 │   │   ├── SourceAsk.cs  568
-│   │   ├── SourceGhost.cs  498
-│   │   ├── SourceGhostMiner.cs  173
+│   │   ├── SourceGhost.cs  843
+│   │   ├── SourceGhostMiner.cs  164
 │   │   ├── SourceTokenModel.cs  389
 │   │   ├── SourceVersions.cs  244
-│   │   └── ViewerKnowledge.cs  72
+│   │   └── ViewerKnowledge.cs  86
 │   ├── AsyncHostCall.cs  155
 │   ├── CaptionTranslator.cs  225
 │   ├── ClaudeChatService.cs  693
-│   ├── EditorBridge.cs  1511
+│   ├── EditorBridge.cs  1523
 │   ├── IncludeTree.cs  190
 │   ├── MenuLauncher.cs  70
 │   ├── SearchFileCache.cs  139
@@ -492,7 +493,7 @@ BcodeViewer.App/
 │   ├── SharedHistoryStore.cs  317
 │   ├── TemplatePickerForm.cs  78
 │   ├── TranslateDictionary.cs  370
-│   └── ViewerSettings.cs  213
+│   └── ViewerSettings.cs  217
 ├── UI/
 │   ├── AppTheme.cs  397
 │   ├── CodeHighlighter.cs  100
@@ -506,7 +507,7 @@ BcodeViewer.App/
 │   │   └── roboto.css  33
 │   ├── chat.js  83
 │   ├── checkfield.js  457
-│   ├── completion.js  2615
+│   ├── completion.js  2647
 │   ├── contextmenu.js  1105
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
@@ -528,7 +529,7 @@ BcodeViewer.App/
 │   ├── problems.js  1013
 │   ├── quickopen.js  184
 │   ├── search.js  335
-│   ├── settings.js  720
+│   ├── settings.js  733
 │   ├── shell.js  818
 │   ├── sqlrun.js  631
 │   ├── style.css  1054
@@ -593,7 +594,7 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  94
+└── Program.cs  90
 ```
 ```
 Shared/

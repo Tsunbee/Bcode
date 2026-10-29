@@ -902,13 +902,14 @@ class BcodeCompletion {
     this._aiTimer = null;       // hẹn giờ debounce, nằm NGOÀI provider — xem scheduleAiFetch
     this._aiPendingKey = null;  // ngữ cảnh mà lượt hẹn đang chờ, để không hẹn trùng
     this.fastCache = new Map();  // ghost Fast (không AI): đuôi văn bản trước con trỏ -> gợi ý ('' = không có)
+    this.fastIds = new Map();    // cùng khoá -> id host trả kèm gợi ý (để báo nhận / bỏ qua — học vào ma trận)
     this._fastPrev = null;       // { before, text } — gõ tiếp đúng gợi ý thì cắt dần, không hỏi lại host
     this._fastTimer = null;
     this._fastPendingKey = null;
 
     this.registerProviders();
     this.loadFromHost();
-    this.editor.onDidChangeModelContent((e) => this.checkAiGhostAccepted(e));
+    this.editor.onDidChangeModelContent((e) => { this.checkAiGhostAccepted(e); this.checkFastFeedback(); });
     this.editor.updateOptions({
       inlineSuggest: { enabled: true },
       suggestOnTriggerCharacters: true,
@@ -2202,7 +2203,11 @@ class BcodeCompletion {
     const key = (this.config.fastGhostLong ? 'L' : 'S') + before.slice(-400);
     if (this.fastCache.has(key)) {
       const t = this.fastCache.get(key);
-      return t ? this.wrapFast(t, position, lineAfter, before) : null;
+      const item = t ? this.wrapFast(t, position, lineAfter, before) : null;
+      // gợi ý vừa hiện (lần đầu ở chỗ này) → theo dõi người dùng nhận hay bỏ qua (checkFastFeedback)
+      const id = this.fastIds.get(key);
+      if (item && id && (!this._fastFb || this._fastFb.id !== id)) this._fastFb = { id, before, text: t };
+      return item;
     }
     this.scheduleFastFetch(model, position, before, after, key);
     return null;
@@ -2255,7 +2260,9 @@ class BcodeCompletion {
       try {
         const raw = await window.bcodeHost.call('BeginFastGhost', before, after, this.bcode.activePath,
           this.regionAt(model, position), !!this.config.fastGhostLong);
-        text = raw ? (JSON.parse(raw).text || '') : '';
+        const r = raw ? JSON.parse(raw) : null;
+        text = r ? (r.text || '') : '';
+        if (r && r.id) { if (this.fastIds.size > 400) this.fastIds.clear(); this.fastIds.set(key, r.id); }
       } catch { return; } // lượt mới hơn đã thay lượt này
       if (this.fastCache.size > 400) this.fastCache.clear();
       this.fastCache.set(key, text);
@@ -2276,6 +2283,31 @@ class BcodeCompletion {
       fire();
       setTimeout(fire, 0);
     }, 40);
+  }
+
+  /// Gợi ý Fast đang hiện (this._fastFb) — sau mỗi lần sửa văn bản xem người dùng đã NHẬN (Tab, hoặc tự gõ đúng hết gợi ý) hay BỎ QUA (gõ khác đi,
+  /// Enter sang dòng khác khi chưa gõ hết) rồi báo host 1 lần (BeginFastFeedback → học vào ô ma trận, dùng chung cả nhóm). Sửa ở chỗ khác / lùi con trỏ
+  /// / Esc: không tính. So khớp gộp khoảng trắng như lúc đo (SourceGhostMiner.IsHit).
+  checkFastFeedback() {
+    const fb = this._fastFb;
+    if (!fb) return;
+    const model = this.editor.getModel();
+    const position = this.editor.getPosition();
+    if (!model || !position) return;
+    const { before } = this.fastContext(model, position);
+    if (!before.startsWith(fb.before)) { this._fastFb = null; return; }
+    const typed = before.slice(fb.before.length);
+    if (!typed) return;
+    const norm = (s) => s.replace(/\s+/g, ' ');
+    const want = norm(fb.text).trim();
+    const nl = typed.indexOf('\n');
+    const line = norm(nl >= 0 ? typed.slice(0, nl) : typed).trimStart();
+    let verdict = null;
+    if (want && line.startsWith(want)) verdict = true;              // nhận (Tab) hoặc gõ đúng hết
+    else if (nl >= 0 || !want.startsWith(line)) verdict = false;    // gõ khác đi / Enter khi chưa hết
+    if (verdict === null) return;                                    // đang gõ đúng dần — chờ tiếp
+    this._fastFb = null;
+    window.bcodeHost.call('BeginFastFeedback', fb.id, verdict).catch(() => {});
   }
 
   /// Alt+Shift+\ — đổi Gợi ý Fast dài ⇄ ngắn (lưu ở Settings) rồi gợi ý lại ngay tại con trỏ.

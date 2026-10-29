@@ -80,6 +80,10 @@ public class ViewerSettings
     /// Học ở nền: lịch sử chỉnh sửa từng file (Hỏi Fast) + bản mới nhất của mọi file (ghost text, Hỏi Fast) → thư mục kiến thức.</summary>
     public string FastSourceVersionsPath { get; set; } = "";
 
+    /// <summary>Thư mục kiến thức chung (thư mục mạng cả nhóm cùng đọc / ghi): ma trận học từ source dự án, kiến thức chung của mọi dự án (_shared),
+    /// phản hồi nhận / bỏ qua gợi ý của mọi người. Trống = dùng "Thư mục kiến thức" của Bcode (Template → Đường dẫn), Bcode cũng trống thì máy này.</summary>
+    public string KnowledgeDir { get; set; } = "";
+
     /// <summary>
     /// Whether "Chạy SQL" may run statements that change data (INSERT/UPDATE/DELETE/EXEC…).
     /// OFF by default, and deliberately not a "remember my answer" checkbox on a prompt:

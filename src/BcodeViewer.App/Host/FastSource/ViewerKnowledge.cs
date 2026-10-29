@@ -4,8 +4,8 @@ using System.Text.Json;
 namespace BcodeViewer.App.Host.FastSource;
 
 /// <summary>
-/// Thư mục kiến thức dùng chung với Bcode (Template → Đường dẫn → "Thư mục kiến thức" = <c>KnowledgeDir</c> trong settings.json của Bcode; trống hoặc
-/// không với tới được → <c>%AppData%\Bcode</c>). Phần của BcodeViewer nằm trong thư mục con <c>viewer\</c>: ma trận ghost học từ source
+/// Thư mục kiến thức: Settings của BcodeViewer → "Thư mục kiến thức chung" (<c>KnowledgeDir</c> của Viewer), trống thì dùng chung với Bcode
+/// (Template → Đường dẫn → "Thư mục kiến thức" = <c>KnowledgeDir</c> trong settings.json của Bcode); trống hoặc không với tới được → <c>%AppData%\Bcode</c>. Phần của BcodeViewer nằm trong thư mục con <c>viewer\</c>: ma trận ghost học từ source
 /// (<c>viewer\ghost\</c>), lịch sử chỉnh sửa theo phiên bản (<c>viewer\versions\</c>), xác nhận ✔ / ✘ của Hỏi Fast (<c>viewer\ask\feedback.json</c>).
 /// Lịch sử chat luôn ở máy này (<c>%AppData%\Bcode\viewer-fastask\</c>). Kiến thức học từ source Fast / dự án KHÔNG nằm trong repo.
 /// </summary>
@@ -14,6 +14,15 @@ public static class ViewerKnowledge
     /// <summary>Đặt khi chạy thử (không ghi vào %AppData% thật).</summary>
     internal static string? _rootOverride;
     private static (string Dir, DateTime At)? _probe;
+    /// <summary>Thư mục kiến thức khai ở Settings của BcodeViewer (ưu tiên hơn của Bcode); null / trống = theo Bcode.</summary>
+    private static string? _viewerDir;
+
+    /// <summary>Đặt thư mục kiến thức theo Settings của BcodeViewer (gọi lúc mở app và khi lưu Settings).</summary>
+    public static void Configure(string? dir)
+    {
+        _viewerDir = string.IsNullOrWhiteSpace(dir) ? null : dir.Trim();
+        _probe = null;
+    }
 
     public static string LocalBase => Path.Combine(BcodePaths.AppData, "Bcode");
 
@@ -25,6 +34,11 @@ public static class ViewerKnowledge
             if (_rootOverride is { } o) return o;
             if (_probe is { } p && (DateTime.UtcNow - p.At).TotalSeconds < 60) return p.Dir;
             var dir = LocalBase;
+            if (_viewerDir is { } vd)
+            {
+                try { Directory.CreateDirectory(vd); if (Directory.Exists(vd)) { _probe = (vd, DateTime.UtcNow); return vd; } }
+                catch { /* ổ mạng không với tới → theo Bcode / máy này */ }
+            }
             try
             {
                 var settings = Path.Combine(LocalBase, "settings.json");

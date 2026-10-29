@@ -4,6 +4,7 @@ namespace BcodeViewer.App.Host.FastSource;
 /// Đo và hiệu chỉnh ghost text Fast của BcodeViewer — cùng cách đo với <c>Bcode.App/Services/FastGhostMiner.cs</c>: rút từ một nửa file, giả lập
 /// gõ trên nửa còn lại (cứ 3 dòng lấy 1, tối đa 40 chỗ / file, cắt sau 1 token bất kỳ của dòng; thấy cả phía trên lẫn phía dưới dòng đang gõ)
 /// và dòng trống (vừa Enter, chỉ thấy phía trên). Gợi ý đúng = phần thật của dòng bắt đầu đúng bằng gợi ý (gộp khoảng trắng, phân biệt hoa thường).
+/// Chấm / hiệu chỉnh chọn gợi ý đúng như lúc gõ (<see cref="SourceGhost.Choose"/>: "close" thắng, rồi độ tin cao nhất).
 /// </summary>
 public static class SourceGhostMiner
 {
@@ -43,7 +44,9 @@ public static class SourceGhostMiner
     }
 
     /// <summary>Dựng các chỗ đo trên file thử (gồm danh sách nguồn gợi ý chưa áp ngưỡng — để hiệu chỉnh 1 lần, chấm ở mọi ngưỡng).</summary>
-    public static List<Site> Sites(IEnumerable<(string Path, string Text)> test, SourceGhost g, bool useLocal = true, int perFile = 40)
+    /// <param name="siblingsFor">Nếu có: (đường dẫn, nội dung) của file thử → dòng các file anh em (nguồn "sib", như lúc gõ có dự án).</param>
+    public static List<Site> Sites(IEnumerable<(string Path, string Text)> test, SourceGhost g, bool useLocal = true, int perFile = 40,
+        Func<string, string, IReadOnlyList<string[]>?>? siblingsFor = null)
     {
         var res = new List<Site>();
         foreach (var (path, raw) in test)
@@ -55,6 +58,7 @@ public static class SourceGhostMiner
             var offsets = new int[lines.Length];
             for (var i = 1; i < lines.Length; i++) offsets[i] = offsets[i - 1] + lines[i - 1].Length + 1;
             var regions = Regions(def, kind);
+            var sibs = siblingsFor?.Invoke(path, def);
 
             // giữa dòng
             var picked = Enumerable.Range(0, lines.Length).Where(i => i % 3 == 0).ToList();
@@ -71,7 +75,7 @@ public static class SourceGhostMiner
                 var after = li + 1 < lines.Length ? def[offsets[li + 1]..] : "";
                 List<(string, string, double, Func<double, string>)> c;
                 var root = SourceGhost.RootOf(path, def);
-                try { c = g.Candidates(before, after, kind, regions[li], useLocal, root); } catch { continue; }
+                try { c = g.Candidates(before, after, kind, regions[li], useLocal, root, siblings: sibs); } catch { continue; }
                 res.Add(new Site(path, regions[li], "line", typed.Trim(), expected, c, SourceGhost.AreaFor(kind, regions[li], root, typed)));
             }
 
@@ -85,7 +89,7 @@ public static class SourceGhostMiner
                 var before = def[..offsets[li]] + ind;
                 List<(string, string, double, Func<double, string>)> c;
                 var root = SourceGhost.RootOf(path, def);
-                try { c = g.Candidates(before, "", kind, regions[li], useLocal, root); } catch { continue; }
+                try { c = g.Candidates(before, "", kind, regions[li], useLocal, root, siblings: sibs); } catch { continue; }
                 res.Add(new Site(path, regions[li], "next", "", lines[li].Trim(), c, SourceGhost.AreaFor(kind, regions[li], root, ind)));
             }
         }
@@ -107,23 +111,15 @@ public static class SourceGhostMiner
         return new Score(n, shown, hit);
     }
 
-    public static string Pick(Site s, Func<string, double> threshold, Func<string, bool>? kindOn = null)
-    {
-        var best = "";
-        foreach (var (k, _, _, cut) in s.Cands)
-        {
-            if (kindOn is not null && !kindOn(k)) continue;
-            var t = cut(threshold(k));
-            if (SourceGhost.Norm(t).Length > SourceGhost.Norm(best).Length) best = t;
-        }
-        return best;
-    }
+    /// <summary>Gợi ý được chọn ở 1 chỗ — đúng cách chọn lúc gõ (<see cref="SourceGhost.Choose"/>).</summary>
+    public static string Pick(Site s, Func<string, double> threshold, Func<string, bool>? kindOn = null) =>
+        SourceGhost.Choose(kindOn is null ? s.Cands : s.Cands.Where(c => kindOn(c.Kind)), threshold)?.Text ?? "";
 
     /// <summary>Ngưỡng thấp nhất của từng loại để riêng loại đó đúng ≥ <paramref name="target"/> (cần ≥ 30 gợi ý), rồi nâng dần loại kém nhất tới khi
     /// gộp các loại (gợi ý dài nhất) cũng ≥ mục tiêu.</summary>
     public static Dictionary<string, SourceGhost.Quality> Calibrate(List<Site> sites, double target, string suffix = "")
     {
-        var kinds = new[] { "field", "same", "tok" };
+        var kinds = new[] { "field", "same", "tok", "line", "next", "agree", "sib" };
         var th = new Dictionary<string, double>();
         foreach (var k in kinds)
         {
@@ -158,15 +154,10 @@ public static class SourceGhostMiner
         int n = 0, hit = 0;
         foreach (var s in sites)
         {
-            string best = "", from = "";
-            foreach (var (k, _, _, cut) in s.Cands)
-            {
-                var t = cut(th.GetValueOrDefault(k, 1.01));
-                if (SourceGhost.Norm(t).Length > SourceGhost.Norm(best).Length) { best = t; from = k; }
-            }
-            if (from != kind) continue;
+            var chosen = SourceGhost.Choose(s.Cands, k => th.GetValueOrDefault(k, 1.01));
+            if (chosen is null || chosen.Kind != kind) continue;
             n++;
-            if (IsHit(s.Expected, best)) hit++;
+            if (IsHit(s.Expected, chosen.Text)) hit++;
         }
         return new Score(n, n, hit);
     }

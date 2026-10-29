@@ -90,7 +90,7 @@ public sealed class SourceGhost
     // ---------------------------------------------------------------- ngữ cảnh field
 
     /// <summary>Dòng khai 1 field: <c>&lt;field name="X"</c> + phần còn lại của dòng (thuộc tính).</summary>
-    private static readonly Regex FieldLineRx = new(@"^\s*<field\s+name=""(?<n>[^""&]+)""(?<r>.*)$", RegexOptions.Compiled);
+    private static readonly Regex FieldLineRx = new(@"^\s*<field\s+name\s*=\s*""(?<n>[^""&]+)""(?<r>.*)$", RegexOptions.Compiled);
 
     /// <summary>Loại controller của file: import / clipboard (Templates\Upload, Clipboard), dir, grid, filter, report, lookup — theo đường dẫn, không thì
     /// theo thẻ gốc trong văn bản; "" = không rõ. Cùng thẻ &lt;field&gt; nhưng mỗi loại khai thuộc tính khác hẳn (import: column / resource / check).</summary>
@@ -167,17 +167,19 @@ public sealed class SourceGhost
     /// <summary>Các dòng <c>&lt;field name="X" …</c> của 1 văn bản: (tên, phần sau tên — giữ 1 dấu cách đầu nếu có, gộp khoảng trắng).</summary>
     public static IEnumerable<(string Name, string Tail, string Section)> FieldLines(string text)
     {
-        var inViews = false;
+        bool inViews = false, inTemplate = false;
         foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
         {
             var m = FieldLineRx.Match(line);
             if (m.Success && m.Groups["r"].Value.Trim().Length > 0)
             {
                 var r = m.Groups["r"].Value;
-                yield return (m.Groups["n"].Value, (char.IsWhiteSpace(r[0]) ? " " : "") + Norm(r), inViews ? "views" : "fields");
+                yield return (m.Groups["n"].Value, (char.IsWhiteSpace(r[0]) ? " " : "") + Norm(r), inTemplate ? "template" : inViews ? "views" : "fields");
             }
             if (Regex.IsMatch(line, @"<views\b")) inViews = true;
             if (line.Contains("</views>")) inViews = false;
+            if (Regex.IsMatch(line, @"<template\b")) inTemplate = true;
+            if (line.Contains("</template>")) inTemplate = false;
         }
     }
 
@@ -185,8 +187,13 @@ public sealed class SourceGhost
     /// Người dùng báo: trong &lt;views&gt; của Grid lại gợi ý thuộc tính khai báo (isPrimaryKey, width…) của khu &lt;fields&gt;.</summary>
     public static string SectionAt(string before)
     {
-        var open = before.LastIndexOf("<views", StringComparison.Ordinal);
-        return open >= 0 && before.IndexOf("</views>", open, StringComparison.Ordinal) < 0 ? "views" : "fields";
+        static bool Inside(string text, string tag)
+        {
+            var open = text.LastIndexOf("<" + tag, StringComparison.Ordinal);
+            return open >= 0 && text.IndexOf("</" + tag + ">", open, StringComparison.Ordinal) < 0;
+        }
+        // file import: <template><fields row="5"> = cột của file Excel mẫu (width / starColor), khác hẳn khối field nhập (column / resource / check)
+        return Inside(before, "template") ? "template" : Inside(before, "views") ? "views" : "fields";
     }
 
     /// <summary>Mọi chỗ của ma trận field trong 1 file: (khoá, phần còn lại của dòng).</summary>
@@ -277,7 +284,8 @@ public sealed class SourceGhost
 
         // same
         var same = SameFile(before, after, nl, toks, lineBefore);
-        if (same is not null) AddDistribution(res, "same", same, "", EndsSpace(lineBefore));
+        // dòng <field name="X" mà X đã khai trong chính file (cùng mục): chép đúng cách khai đó — 1 lần gặp đã đủ chắc (làm trơn 0.25 thay 1)
+        if (same is not null) AddDistribution(res, "same", same, "", EndsSpace(lineBefore), FieldLineRx.IsMatch(lineBefore) ? 0.25 : 1);
 
         // tok
         var model = ModelFor(kind, region);
@@ -319,7 +327,7 @@ public sealed class SourceGhost
     /// (cắt ở ranh giới token) mà tổng số lần còn ≥ ngưỡng.</summary>
     private static bool EndsSpace(string s) => s.Length == 0 || char.IsWhiteSpace(s[^1]);
 
-    private static void AddDistribution(List<(string, string, double, Func<double, string>)> res, string kind, Dictionary<string, int> raw, string partial, bool endsSpace)
+    private static void AddDistribution(List<(string, string, double, Func<double, string>)> res, string kind, Dictionary<string, int> raw, string partial, bool endsSpace, double smoothing = 1)
     {
         var total = raw.Values.Sum();
         // dấu cách đầu: bỏ khi đã gõ khoảng trắng / đang gõ dở token
@@ -333,7 +341,7 @@ public sealed class SourceGhost
         var opts = d.Where(x => x.Key.Length > 0 && x.Key.StartsWith(partial, StringComparison.Ordinal) && x.Key.Length > partial.Length)
             .OrderByDescending(x => x.Value).ThenBy(x => x.Key, StringComparer.Ordinal).ToList();
         if (opts.Count == 0) return;
-        double denom = (partial.Length > 0 ? opts.Sum(x => x.Value) : total) + 1;
+        double denom = (partial.Length > 0 ? opts.Sum(x => x.Value) : total) + smoothing;
         var top = opts[0];
         string Cut(double th)
         {
@@ -383,6 +391,9 @@ public sealed class SourceGhost
 
     /// <summary>"Theo chính file": các dòng khác trong file (trên + dưới) bắt đầu đúng như phần đã gõ của dòng → phần còn lại. Dòng trống: các dòng đứng sau
     /// 1 dòng giống dòng phía trên.</summary>
+    /// <summary>Chỉ dấu "=" của thuộc tính (ngay trước dấu nháy mở giá trị) — không đụng "=" trong câu SQL của check="ma_phi = ''".</summary>
+    private static readonly Regex EqRx = new(@"(?<=[\w:-])\s*=\s*(?="")", RegexOptions.Compiled);
+
     private static Dictionary<string, int>? SameFile(string before, string after, int nl, List<SourceLexer.Token> toks, string lineBefore)
     {
         var typed = Norm(lineBefore);
@@ -396,22 +407,29 @@ public sealed class SourceGhost
             var sec = here;
             for (var i = above.Length - 1; i >= 0; i--)
             {
-                if (above[i].Contains("</views>")) sec = "views";   // đi lên qua </views> = vào khối views phía trên
+                // đi lên qua </views> = vào khối views phía trên; qua <views> = ra khỏi nó (tương tự <template>)
+                if (above[i].Contains("</template>")) sec = "template";
+                else if (above[i].Contains("</views>")) sec = "views";
                 keepAbove[i] = sec == here;
-                if (Regex.IsMatch(above[i], @"<views\b")) sec = "fields";
+                if (Regex.IsMatch(above[i], @"<(views|template)\b")) sec = "fields";
             }
             var keepBelow = new bool[below.Length];
             sec = here;
             for (var i = 0; i < below.Length; i++)
             {
-                if (Regex.IsMatch(below[i], @"<views\b")) sec = "views";
+                if (Regex.IsMatch(below[i], @"<template\b")) sec = "template";
+                else if (Regex.IsMatch(below[i], @"<views\b")) sec = "views";
                 keepBelow[i] = sec == here;
-                if (below[i].Contains("</views>")) sec = "fields";
+                if (below[i].Contains("</views>") || below[i].Contains("</template>")) sec = "fields";
             }
             above = above.Where((_, i) => keepAbove[i]).ToArray();
             below = below.Where((_, i) => keepBelow[i]).ToArray();
         }
-        var lines = above.Concat(below).Select(l => Norm(l)).ToList();
+        var fieldLine = FieldLineRx.IsMatch(lineBefore);
+        // dòng field: so khớp không phân biệt khoảng trắng quanh "=" (gõ name ="ma_td2" vẫn khớp dòng name="ma_td2" đã khai)
+        string Key(string l) => fieldLine ? EqRx.Replace(Norm(l), "=") : Norm(l);
+        var lines = above.Concat(below).Select(Key).ToList();
+        if (fieldLine) typed = Key(lineBefore);
         var d = new Dictionary<string, int>(StringComparer.Ordinal);
         if (toks.Count == 0)
         {

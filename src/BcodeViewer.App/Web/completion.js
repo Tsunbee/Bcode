@@ -2117,7 +2117,7 @@ class BcodeCompletion {
     if (!this.config.fastGhost || !this.bcode.activePath) return null;
     // Chỉ ở cuối dòng, hoặc trước các dấu đóng Monaco tự chèn (" ' ) ] > /> ;) — giữa dòng có chữ thì không chen.
     const lineAfter = model.getLineContent(position.lineNumber).substring(position.column - 1);
-    if (lineAfter.trim() && !/^["'\])>\/;,]+\s*$/.test(lineAfter)) return null;
+    if (lineAfter.trim() && !/^\s*["'\])>\/;,]+\s*$/.test(lineAfter)) return null;   // cho phép khoảng trắng trước dấu đóng: <field name="x"  |  >
     const { before, after } = this.fastContext(model, position);
     if (!before.trim()) return null;
 

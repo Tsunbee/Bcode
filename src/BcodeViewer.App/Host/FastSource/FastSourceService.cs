@@ -119,9 +119,9 @@ public sealed partial class FastSourceService
 
     // ---------------------------------------------------------------- source dự án
 
-    /// <summary>Đổi khi cách rút kiến thức đổi (2 = thêm ma trận dòng <field name="X"> + khai báo import; 3 = tách dòng field của <views> với <fields>)
+    /// <summary>Đổi khi cách rút kiến thức đổi (2 = thêm ma trận dòng <field name="X"> + khai báo import; 3 = tách dòng field của <views> với <fields>; 4 = thêm mục <template> của file import, name ="x")
     /// — file cũ bị bỏ qua, tự học lại 1 lần.</summary>
-    public const string Format = "v3";
+    public const string Format = "v4";
 
     private static string ProjectGhostFile(string project) => ViewerKnowledge.Viewer("ghost", ViewerKnowledge.SafeName(project) + "." + Format + ".json");
 

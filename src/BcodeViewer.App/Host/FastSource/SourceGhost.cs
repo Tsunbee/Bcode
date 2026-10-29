@@ -34,7 +34,21 @@ public sealed class SourceGhost
     public double MinShareOf(string kind, string area, bool longMode)
     {
         var sfx = longMode ? ":long" : "";
-        return Thresholds.TryGetValue(kind + "@" + area + sfx, out var q) ? q.MinShare : MinShareOf(kind + sfx);
+        // vùng riêng chưa hiệu chỉnh thì lùi dần: "import/fl" → "xml/fl" → "import" → "xml" → ngưỡng chung của loại
+        foreach (var a in new[] { area, area.Replace("import", "xml"), area.Split('/')[0], area.Split('/')[0].Replace("import", "xml") })
+            if (Thresholds.TryGetValue(kind + "@" + a + sfx, out var q)) return q.MinShare;
+        return MinShareOf(kind + sfx);
+    }
+
+    /// <summary>Vùng ngưỡng của 1 chỗ gõ: vùng cơ bản (<see cref="AreaOf"/>), file import / clipboard dùng "import" thay "xml",
+    /// dòng vừa gõ tên field (<c>&lt;field name="X"</c> …) thêm "/fl" — đo trên source Fast: 2 loại chỗ này đúng khác hẳn XML thường.</summary>
+    public static string AreaFor(string kind, string? region, string root, string lineBefore)
+    {
+        var empty = lineBefore.Trim().Length == 0;
+        var area = AreaOf(kind, region, empty);
+        if (root is "import" or "clipboard" && area.StartsWith("xml")) area = "import" + area[3..];
+        if (!empty && FieldLineRx.IsMatch(lineBefore)) area = area.Split('/')[0] + "/fl";
+        return area;
     }
 
     /// <summary>Vùng để chọn ngưỡng: aspx / js / sql / xml (giống <see cref="SourceGhostMiner.Regions"/>), thêm "/next" khi con trỏ ở dòng trống
@@ -75,7 +89,20 @@ public sealed class SourceGhost
 
     // ---------------------------------------------------------------- ngữ cảnh field
 
-    private static readonly Regex FieldOpenRx = new(@"<field\s+name=""(?<n>[^""]+)""[^>]*?(?<sc>/?)>|<field\s+name=""(?<n>[^""]+)""[^>]*$", RegexOptions.Compiled | RegexOptions.RightToLeft);
+    /// <summary>Dòng khai 1 field: <c>&lt;field name="X"</c> + phần còn lại của dòng (thuộc tính).</summary>
+    private static readonly Regex FieldLineRx = new(@"^\s*<field\s+name=""(?<n>[^""&]+)""(?<r>.*)$", RegexOptions.Compiled);
+
+    /// <summary>Loại controller của file: import / clipboard (Templates\Upload, Clipboard), dir, grid, filter, report, lookup — theo đường dẫn, không thì
+    /// theo thẻ gốc trong văn bản; "" = không rõ. Cùng thẻ &lt;field&gt; nhưng mỗi loại khai thuộc tính khác hẳn (import: column / resource / check).</summary>
+    public static string RootOf(string? path, string text)
+    {
+        var p = (path ?? "").Replace('\\', '/');
+        if (Regex.Match(p, @"/Templates/(Upload|Clipboard)/", RegexOptions.IgnoreCase) is { Success: true } t) return t.Groups[1].Value.ToLowerInvariant() == "upload" ? "import" : "clipboard";
+        if (Regex.Match(p, @"/(Dir|Grid|Filter|Report|Lookup)/", RegexOptions.IgnoreCase) is { Success: true } m) return m.Groups[1].Value.ToLowerInvariant();
+        return Regex.Match(text, @"<(dir|grid|filter|report|lookup|import|clipboard)\b") is { Success: true } r ? r.Groups[1].Value : "";
+    }
+
+    private static readonly Regex FieldOpenRx =new(@"<field\s+name=""(?<n>[^""]+)""[^>]*?(?<sc>/?)>|<field\s+name=""(?<n>[^""]+)""[^>]*$", RegexOptions.Compiled | RegexOptions.RightToLeft);
 
     /// <summary>Tên field của khối &lt;field name="…"&gt; chứa con trỏ (chưa đóng), null nếu không ở trong khối field.</summary>
     public static string? FieldAt(string before)
@@ -112,10 +139,17 @@ public sealed class SourceGhost
         foreach (var (path, text) in files)
         {
             if (KindOfPath(path) != "xml") continue;
-            foreach (var (key, rest) in FieldSites(text))
+            void Count(string key, string rest)
             {
                 if (!counts.TryGetValue(key, out var d)) counts[key] = d = new(StringComparer.Ordinal);
                 d[rest] = d.GetValueOrDefault(rest) + 1;
+            }
+            foreach (var (key, rest) in FieldSites(text)) Count(key, rest);
+            var root = RootOf(path, text);
+            foreach (var (name, rest) in FieldLines(text))
+            {
+                Count("N:" + root + "|" + name, rest);
+                Count("N:" + root + "|*", rest);
             }
         }
         foreach (var (k, d) in counts)
@@ -128,6 +162,19 @@ public sealed class SourceGhost
             g.Fields[k] = kept;
         }
         return g;
+    }
+
+    /// <summary>Các dòng <c>&lt;field name="X" …</c> của 1 văn bản: (tên, phần sau tên — giữ 1 dấu cách đầu nếu có, gộp khoảng trắng).</summary>
+    public static IEnumerable<(string Name, string Tail)> FieldLines(string text)
+    {
+        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+        {
+            var m = FieldLineRx.Match(line);
+            if (!m.Success) continue;
+            var r = m.Groups["r"].Value;
+            if (r.Trim().Length == 0) continue;
+            yield return (m.Groups["n"].Value, (char.IsWhiteSpace(r[0]) ? " " : "") + Norm(r));
+        }
     }
 
     /// <summary>Mọi chỗ của ma trận field trong 1 file: (khoá, phần còn lại của dòng).</summary>
@@ -159,10 +206,10 @@ public sealed class SourceGhost
 
     /// <summary>Gợi ý tại con trỏ: <paramref name="before"/> = toàn bộ văn bản trước con trỏ, <paramref name="after"/> = phần sau dòng đang gõ.
     /// <paramref name="longMode"/> = chế độ dài (ngưỡng 60%). null = không gợi ý.</summary>
-    public Ghost? Explain(string before, string after, string kind, string? region, bool longMode, bool useLocal = true)
+    public Ghost? Explain(string before, string after, string kind, string? region, bool longMode, bool useLocal = true, string root = "")
     {
-        var cands = Candidates(before, after, kind, region, useLocal);
-        var area = AreaOf(kind, region, before[(before.LastIndexOf('\n') + 1)..].Trim().Length == 0);
+        var cands = Candidates(before, after, kind, region, useLocal, root);
+        var area = AreaFor(kind, region, root, before[(before.LastIndexOf('\n') + 1)..]);
         Ghost? best = null;
         foreach (var (k, text, share, cut) in cands)
         {
@@ -174,7 +221,7 @@ public sealed class SourceGhost
     }
 
     /// <summary>Từng nguồn gợi ý: (loại, gợi ý đầy đủ, độ tin, cắt theo ngưỡng).</summary>
-    public List<(string Kind, string Text, double Share, Func<double, string> Cut)> Candidates(string before, string after, string kind, string? region, bool useLocal = true)
+    public List<(string Kind, string Text, double Share, Func<double, string> Cut)> Candidates(string before, string after, string kind, string? region, bool useLocal = true, string root = "")
     {
         var res = new List<(string, string, double, Func<double, string>)>();
         var nl = before.LastIndexOf('\n');
@@ -201,6 +248,18 @@ public sealed class SourceGhost
                 partial = toks[^1].Text;
             }
             if (Fields.TryGetValue(key, out var d)) AddDistribution(res, "field", d, partial, EndsSpace(lineBefore));
+        }
+
+        // dòng <field name="X" … (gõ xong tên field): phần thuộc tính còn lại theo (1) cách khai field X hay gặp ở loại file này,
+        // (2) khai báo đặc thù của CHÍNH file — các dòng <field> gần nhất (import: column="." resource="master"/>), (3) cách khai chung của loại file.
+        if (kind == "xml" && FieldLineRx.Match(lineBefore) is { Success: true } fl && !fl.Groups["r"].Value.Contains('>'))
+        {
+            var name = fl.Groups["n"].Value;
+            var partial = Regex.Replace(fl.Groups["r"].Value.TrimStart(), @"\s+", " ");
+            var endsSpace = EndsSpace(lineBefore);
+            if (Fields.TryGetValue("N:" + root + "|" + name, out var byName)) AddDistribution(res, "field", byName, partial, endsSpace);
+            if (FileFieldShapes(before, after, nl, name) is { } shapes) AddDistribution(res, "same", shapes, partial, endsSpace);
+            if (Fields.TryGetValue("N:" + root + "|*", out var generic)) AddDistribution(res, "field", generic, partial, endsSpace);
         }
 
         // same
@@ -278,6 +337,35 @@ public sealed class SourceGhost
             return "";
         }
         res.Add((kind, top.Key[partial.Length..], top.Value / denom, Cut));
+    }
+
+    /// <summary>Phần sau tên của 30 dòng &lt;field name=…&gt; gần con trỏ nhất trong CÙNG khối &lt;fields&gt; / &lt;views&gt; đang gõ (trên + dưới), trừ field đang gõ.
+    /// Không vượt ra ngoài khối: file import có nhiều khối field khác kiểu (danh sách cột Excel width="16" ≠ field nhập column / resource).</summary>
+    private static Dictionary<string, int>? FileFieldShapes(string before, string after, int nl, string current)
+    {
+        var above = (nl < 0 ? "" : before[..nl]).Split('\n');
+        var below = after.Split('\n');
+        var near = new List<(int Dist, string Tail)>();
+        static bool Opens(string l) => Regex.IsMatch(l, @"<(fields|views|view)\b");
+        static bool Closes(string l) => Regex.IsMatch(l, @"</(fields|views|view)>");
+        for (var i = above.Length - 1; i >= 0 && near.Count < 60 && above.Length - i < 400; i--)
+        {
+            if (Closes(above[i])) break;
+            if (FieldLineRx.Match(above[i]) is { Success: true } m && m.Groups["n"].Value != current && m.Groups["r"].Value.Trim().Length > 0)
+                near.Add((above.Length - i, (char.IsWhiteSpace(m.Groups["r"].Value[0]) ? " " : "") + Norm(m.Groups["r"].Value)));
+            if (Opens(above[i])) break;
+        }
+        for (var i = 0; i < below.Length && i < 400; i++)
+        {
+            if (Opens(below[i])) break;
+            if (FieldLineRx.Match(below[i]) is { Success: true } m && m.Groups["n"].Value != current && m.Groups["r"].Value.Trim().Length > 0)
+                near.Add((i + 1, (char.IsWhiteSpace(m.Groups["r"].Value[0]) ? " " : "") + Norm(m.Groups["r"].Value)));
+            if (Closes(below[i])) break;
+        }
+        if (near.Count == 0) return null;
+        var d = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (_, r) in near.OrderBy(x => x.Dist).Take(30)) d[r] = d.GetValueOrDefault(r) + 1;
+        return d;
     }
 
     /// <summary>"Theo chính file": các dòng khác trong file (trên + dưới) bắt đầu đúng như phần đã gõ của dòng → phần còn lại. Dòng trống: các dòng đứng sau

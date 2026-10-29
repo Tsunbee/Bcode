@@ -76,7 +76,7 @@ public sealed partial class FastSourceService
         var kind = SourceGhost.KindOfPath(path);
         if (kind == "") return null;
         var g = GhostFor(path);
-        return g?.Explain(before, after, kind, region, longMode);
+        return g?.Explain(before, after, kind, region, longMode, root: SourceGhost.RootOf(path, before));
     }
 
     /// <summary>Kiến thức ghost cho file: đi kèm + source Fast theo bản + dự án của file (gộp 1 lần, nhớ lại).</summary>
@@ -119,7 +119,10 @@ public sealed partial class FastSourceService
 
     // ---------------------------------------------------------------- source dự án
 
-    private static string ProjectGhostFile(string project) => ViewerKnowledge.Viewer("ghost", ViewerKnowledge.SafeName(project) + ".json");
+    /// <summary>Đổi khi cách rút kiến thức đổi (2 = thêm ma trận dòng <field name="X"> + khai báo import) — file cũ bị bỏ qua, tự học lại 1 lần.</summary>
+    public const string Format = "v2";
+
+    private static string ProjectGhostFile(string project) => ViewerKnowledge.Viewer("ghost", ViewerKnowledge.SafeName(project) + "." + Format + ".json");
 
     /// <summary>Học source dự án ở nền (đã có file kiến thức dưới 7 ngày thì chỉ đọc lại).</summary>
     public void StartProjectLearn(string project, string sourcePath, bool force = false)
@@ -181,7 +184,7 @@ public sealed partial class FastSourceService
 
     // ---------------------------------------------------------------- source Fast theo phiên bản
 
-    private static string FastGhostFile(string root) => ViewerKnowledge.Viewer("ghost", "fastsource-" + ViewerKnowledge.SafeName(root.TrimEnd('\\', '/')) + ".json");
+    private static string FastGhostFile(string root) => ViewerKnowledge.Viewer("ghost", "fastsource-" + Format + "-" + ViewerKnowledge.SafeName(root.TrimEnd('\\', '/')) + ".json");
 
     /// <summary>Nạp / học lịch sử phiên bản ở nền: đã học và thư mục không đổi (chữ ký = tên + giờ sửa các thư mục bản) thì chỉ đọc lại.</summary>
     public void StartVersionsLearn(bool force)

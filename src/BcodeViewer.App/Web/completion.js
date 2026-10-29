@@ -54,6 +54,20 @@ const REGION_CATEGORIES = {
   xml: ['XML', 'CSS'],
 };
 
+// Khai báo import (Templates\Upload — nhập danh mục / chứng từ từ Excel) và clipboard (Templates\Clipboard): cùng thẻ <field> nhưng bộ
+// thuộc tính khác hẳn Grid / Dir (lấy từ các file Upload / Clipboard của source Fast). Dùng thay SEED_ATTRIBUTES khi gốc file là <import> / <clipboard>.
+const SEED_ATTRIBUTES_BY_ROOT = {
+  import: {
+    field: ['name', 'column', 'allowNulls', 'upperCase', 'type', 'resource', 'reference', 'check', 'errorCode', 'category',
+            'updateValue', 'insertValue', 'defaultValue', 'maxLength', 'isPrimaryKey'],
+    fields: ['identity', 'name', 'index'],
+  },
+  clipboard: {
+    field: ['name', 'defaultValue', 'type', 'upperCase'],
+    check: ['generate'],
+  },
+};
+
 // Attribute names seeded per tag, for when the document cannot teach them: a new file, or
 // a tag used once with only two of its attributes. The document-derived list
 // (collectTagAttributes) still comes first, because it reflects how this project actually
@@ -543,10 +557,22 @@ function availableEntities(localNames, activePath) {
   return items;
 }
 
+/// Tên field khai trong các khối <fields>…</fields> (bỏ phần CDATA: clientScript / query), chỉ tên hợp lệ (ma_kh, ten_kh%l, t_tien$).
+function declaredFieldNames(text) {
+  const names = [];
+  const blocks = /<fields\b[^>]*>([\s\S]*?)<\/fields>/g;
+  let b;
+  while ((b = blocks.exec(text))) {
+    const body = b[1].replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '');
+    for (const n of matchAll(body, /<field\b[^>]*?\sname="([^"]+)"/g)) if (/^[A-Za-z_][\w%$.]*$/.test(n)) names.push(n);
+  }
+  return unique(names);
+}
+
 /// 'dir' | 'grid' | 'report' | 'lookup', from the document's own root element. A Filter
 /// file has a <dir> root too, which is correct here: it is laid out the same way.
 function rootKindOf(text) {
-  const m = /<(dir|grid|report|lookup)\b/i.exec(text);
+  const m = /<(dir|grid|report|lookup|import|clipboard)\b/i.exec(text);
   return m ? m[1].toLowerCase() : 'dir';
 }
 
@@ -588,13 +614,14 @@ function collectTagAttributes(text) {
   let m;
   while ((m = tagRe.exec(text))) {
     const tag = m[1].toLowerCase();
-    const attrs = map[tag] || (map[tag] = new Set());
+    const attrs = map[tag] || (map[tag] = new Map());
     const attrRe = /([A-Za-z0-9_:-]+)\s*=\s*"/g;
     let a;
-    while ((a = attrRe.exec(m[2]))) attrs.add(a[1]);
+    while ((a = attrRe.exec(m[2]))) attrs.set(a[1], (attrs.get(a[1]) || 0) + 1);
   }
+  // Xếp theo số lần dùng trong chính file (thuộc tính hay khai của file này lên đầu dropdown — vd import: column, resource, check).
   const plain = {};
-  for (const [tag, set] of Object.entries(map)) plain[tag] = Array.from(set);
+  for (const [tag, counts] of Object.entries(map)) plain[tag] = Array.from(counts.entries()).sort((x, y) => y[1] - x[1]).map((x) => x[0]);
   return plain;
 }
 
@@ -1350,6 +1377,9 @@ class BcodeCompletion {
       // chủ động (triggerKind = Invoke) thì vẫn luôn hiện đủ danh sách như trước.
       const isAutoTrigger = context && context.triggerKind !== monaco.languages.CompletionTriggerKind.Invoke;
       if (isAutoTrigger && this.config.aiCompletion) return { suggestions: [] };
+      // Cùng cách với AI: gợi ý Fast đã đủ chắc ở đúng chỗ này (vd vừa gõ xong <field name="x" ) thì nhường cho chữ mờ — dropdown mở là Monaco
+      // ẩn chữ mờ. Ctrl+Space vẫn mở đủ danh sách.
+      if (isAutoTrigger && this.fastGhostReadyAt(model, position)) return { suggestions: [] };
       const tag = openTagMatch[1].toLowerCase();
       const already = new Set((openTagMatch[2].match(/([A-Za-z0-9_:-]+)\s*=/g) || [])
         .map((a) => a.replace(/\s*=$/, '').toLowerCase()));
@@ -1360,15 +1390,16 @@ class BcodeCompletion {
       const override = (SECTION_TAG_ATTRIBUTES[sectionAt(facts.sections, model.getOffsetAt(position))] || {})[tag];
       const candidates = (override
         ? override.slice()
-        : unique([...(facts.tagAttributes[tag] || []), ...(SEED_ATTRIBUTES[tag] || [])])
+        : unique([...(facts.tagAttributes[tag] || []), ...(((SEED_ATTRIBUTES_BY_ROOT[facts.rootKind] || {})[tag]) || SEED_ATTRIBUTES[tag] || [])])
       ).filter((a) => !already.has(a.toLowerCase()));
       const range = wordRange(model, position);
       return {
-        suggestions: candidates.map((a) => {
+        suggestions: candidates.map((a, i) => {
           const known = this.attributeValues(model, tag, a.toLowerCase(), facts);
           const def = known.length ? snippetEscape(known[0].value) : '';
           return {
             label: a,
+            sortText: String(i).padStart(3, '0'), // giữ thứ tự: hay dùng trong file trước, rồi bộ hạt giống theo loại file
             kind: monaco.languages.CompletionItemKind.Property,
             detail: known.length ? `thuộc tính của <${tag}> — vd: ${known[0].value}` : `thuộc tính của <${tag}>`,
             insertText: `${a}="\${1:${def}}"`,
@@ -2028,6 +2059,10 @@ class BcodeCompletion {
     if (this.regionAt(model, position) !== 'xml') return null;
 
     const facts = docFacts(model);
+    // Chỉ Grid / Lookup liệt kê cột bằng <field name="x"/>. Dir / Filter đặt field bằng <item value="mặt nạ: [x].Label, [x]"/>
+    // và hay đặt qua entity (&DetailTaxFormViewAccountLine;) nên "chưa có trong view" đoán sai — ở đó gợi ý <field name> giữa các
+    // dòng <item value> là sai cú pháp (người dùng báo ở Dir/SVTran.xml); để gợi ý Fast (học từ <item value> thật) lo.
+    if (facts.rootKind !== 'grid' && facts.rootKind !== 'lookup') return null;
     const { start, end, referenced } = facts.viewInfo;
     if (start < 0) return null;
 
@@ -2043,7 +2078,9 @@ class BcodeCompletion {
 
     if (model.getLineContent(position.lineNumber).substring(position.column - 1).trim()) return null;
 
-    const missing = facts.fields.filter((name) => !referenced.has(name));
+    // Chỉ field khai TRONG <fields> (bỏ CDATA) và tên field hợp lệ: facts.fields quét cả file nên nhặt cả chuỗi '<field name="…' trong
+    // đoạn JavaScript — người dùng báo ở Grid/SRDetail.xml: gợi ý <field name="/* <flatten type="Javascript"> */"/> trong <views>.
+    const missing = declaredFieldNames(model.getValue()).filter((name) => !referenced.has(name));
     if (missing.length === 0) return null;
 
     const name = missing[missing.length - 1];
@@ -2096,6 +2133,14 @@ class BcodeCompletion {
     return null;
   }
 
+  /// Đã có gợi ý Fast (không rỗng) trong bộ nhớ cho đúng chỗ con trỏ — dropdown tự bật nhường cho nó.
+  fastGhostReadyAt(model, position) {
+    if (!this.config.fastGhost || !this.bcode.activePath) return false;
+    const { before } = this.fastContext(model, position);
+    if (this.reuseFast(before)) return true;
+    return !!this.fastCache.get((this.config.fastGhostLong ? 'L' : 'S') + before.slice(-400));
+  }
+
   /// Gõ tiếp đúng những chữ ghost Fast đang gợi ý → phần còn lại (không hỏi lại host); null = không dùng lại được.
   reuseFast(before) {
     const p = this._fastPrev;
@@ -2143,6 +2188,12 @@ class BcodeCompletion {
       // Lớp dưới (structuralGhost) có thể đã hiện gợi ý ở đúng chỗ này trong lúc chờ host; trigger không thay gợi ý đang hiện
       // (đo trong Viewer: gõ <items trong field so_luong vẫn giữ mẫu AutoComplete viết tay) → ẩn trước rồi gọi lại.
       try { this.editor.trigger('fast', 'editor.action.inlineSuggest.hide', {}); } catch { /* editor đang đóng */ }
+      // Dropdown thuộc tính tự bật sau dấu cách (trước khi kết quả về) che chữ mờ → đóng nó, chỉ khi con trỏ đứng ở ranh giới thuộc tính
+      // (vừa gõ dấu cách) — đang gõ dở 1 từ thì giữ dropdown. Ctrl+Space mở lại được.
+      const lineToCaret = model.getLineContent(position.lineNumber).substring(0, position.column - 1);
+      if (/\s$/.test(lineToCaret) && /<[A-Za-z][\w-]*\s(?:[^<>"]|"[^"]*")*$/.test(lineToCaret)) {
+        try { this.editor.trigger('fast', 'hideSuggestWidget', {}); } catch { /* không có dropdown */ }
+      }
       const fire = () => {
         if (this.editor.getModel() !== model || model.getVersionId() !== version) return;
         try { this.editor.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }

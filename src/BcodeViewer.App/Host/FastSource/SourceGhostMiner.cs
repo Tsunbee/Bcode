@@ -7,9 +7,10 @@ namespace BcodeViewer.App.Host.FastSource;
 /// </summary>
 public static class SourceGhostMiner
 {
-    /// <summary>1 chỗ đo: vùng (xml / js / sql / aspx), loại chỗ (line / next), các nguồn gợi ý (kèm hàm cắt) và đáp án.</summary>
+    /// <summary>1 chỗ đo: vùng (xml / js / sql / aspx), loại chỗ (line / next), các nguồn gợi ý (kèm hàm cắt), đáp án và vùng ngưỡng
+    /// (<see cref="SourceGhost.AreaFor"/> — giống hệt lúc gõ thật).</summary>
     public sealed record Site(string File, string Region, string Where, string Typed, string Expected,
-        List<(string Kind, string Text, double Share, Func<double, string> Cut)> Cands);
+        List<(string Kind, string Text, double Share, Func<double, string> Cut)> Cands, string Area = "");
 
     public sealed record Score(int Sites, int Shown, int Hit)
     {
@@ -69,8 +70,9 @@ public static class SourceGhostMiner
                 var before = def[..offsets[li]] + typed;
                 var after = li + 1 < lines.Length ? def[offsets[li + 1]..] : "";
                 List<(string, string, double, Func<double, string>)> c;
-                try { c = g.Candidates(before, after, kind, regions[li], useLocal); } catch { continue; }
-                res.Add(new Site(path, regions[li], "line", typed.Trim(), expected, c));
+                var root = SourceGhost.RootOf(path, def);
+                try { c = g.Candidates(before, after, kind, regions[li], useLocal, root); } catch { continue; }
+                res.Add(new Site(path, regions[li], "line", typed.Trim(), expected, c, SourceGhost.AreaFor(kind, regions[li], root, typed)));
             }
 
             // dòng trống (câu tiếp theo): chỉ thấy phía trên
@@ -82,8 +84,9 @@ public static class SourceGhostMiner
                 var ind = lines[li][..(lines[li].Length - lines[li].TrimStart().Length)];
                 var before = def[..offsets[li]] + ind;
                 List<(string, string, double, Func<double, string>)> c;
-                try { c = g.Candidates(before, "", kind, regions[li], useLocal); } catch { continue; }
-                res.Add(new Site(path, regions[li], "next", "", lines[li].Trim(), c));
+                var root = SourceGhost.RootOf(path, def);
+                try { c = g.Candidates(before, "", kind, regions[li], useLocal, root); } catch { continue; }
+                res.Add(new Site(path, regions[li], "next", "", lines[li].Trim(), c, SourceGhost.AreaFor(kind, regions[li], root, ind)));
             }
         }
         return res;

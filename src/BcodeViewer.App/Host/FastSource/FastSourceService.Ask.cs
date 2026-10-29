@@ -15,7 +15,7 @@ public sealed partial class FastSourceService
     private readonly object _askLock = new();
 
     public static string ShippedAskPath => Path.Combine(AppContext.BaseDirectory, "Assets", "fastsource", "ask.json");
-    private static string AskFile(string name) => ViewerKnowledge.Viewer("ask", name + ".json");
+    private static string AskFile(string name) => ViewerKnowledge.Viewer("ask", name + "." + Format + ".json");
     private static string FeedbackFile => ViewerKnowledge.Viewer("ask", "feedback.json");
 
     // ---------------------------------------------------------------- xác nhận ✔ / ✘ / ✎

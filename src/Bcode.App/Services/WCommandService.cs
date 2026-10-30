@@ -291,7 +291,14 @@ public class WCommandService
         item.Link.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
         item.WMenuId.Contains(filter, StringComparison.OrdinalIgnoreCase);
 
-    public async Task<string> SuggestNextWMenuIdAsync(string? parentWMenuId)
+    /// <summary>
+    /// Gợi ý <c>wmenu_id</c> chưa có trong wcommand. Có <paramref name="seedWMenuId"/> dạng <c>GG.SS.LL</c> (menu đang đứng / id đang gõ,
+    /// SS khác 00, cùng nhóm GG với menu cha) → giữ nguyên <c>GG.SS.</c>, chỉ thay 2 ký tự cuối: mã trống ĐẦU TIÊN theo thứ tự
+    /// <see cref="LeafCodes"/> (01..99, rồi A1..Z1, A2..Z2, ... A9..Z9). Vd đứng ở 07.10.08 → 07.10.xx trống đầu tiên.
+    /// Không có seed hợp lệ (New ở gốc / ở nhóm GG.00.00, đổi menu cha sang nhóm khác) hoặc hết mã → cách cũ theo menu cha:
+    /// cha rỗng → nhóm GG.00.00 trống đầu tiên; có cha → GG.(SS lớn nhất + 1).01.
+    /// </summary>
+    public async Task<string> SuggestNextWMenuIdAsync(string? parentWMenuId, string? seedWMenuId = null)
     {
         await using var conn = _connections.CreateConnection(useSysDatabase: true);
         await conn.OpenAsync();
@@ -309,6 +316,15 @@ public class WCommandService
 
         var parent = (parentWMenuId ?? "").Trim();
         var group = parent.Length > 0 ? parent.Split('.')[0] : "";
+
+        var seed = (seedWMenuId ?? "").Trim().ToUpperInvariant().Split('.');
+        if (seed.Length == 3 && seed.All(p => p.Length == 2) && seed[1] != "00"
+            && (group.Length == 0 || string.Equals(seed[0], group, StringComparison.OrdinalIgnoreCase)))
+        {
+            var prefix = $"{seed[0]}.{seed[1]}.";
+            foreach (var leaf in LeafCodes())
+                if (!all.Contains(prefix + leaf)) return prefix + leaf;
+        }
 
         if (string.IsNullOrEmpty(group))
         {
@@ -336,6 +352,28 @@ public class WCommandService
         }
 
         return $"{group}.99.99";
+    }
+
+    /// <summary>Thứ tự 2 ký tự cuối của wmenu_id khi gợi ý: 01..99, hết số thì chữ + số — A1..Z1, rồi A2..Z2, ... A9..Z9.</summary>
+    private static IEnumerable<string> LeafCodes()
+    {
+        for (var n = 1; n <= 99; n++) yield return n.ToString("D2");
+        for (var d = '1'; d <= '9'; d++)
+            for (var c = 'A'; c <= 'Z'; c++) yield return $"{c}{d}";
+    }
+
+    /// <summary>Sau khi Save New/Edit menu: chạy ngầm sync menu sang QLYC đúng như Actions &gt; Create Menu
+    /// (<see cref="FsgProjectLookupService.CreateMenuAsync"/> với mã dự án của workspace đang chọn). Không chặn UI, lỗi thì bỏ qua im lặng.</summary>
+    public void SyncQlycInBackground()
+    {
+        var ws = _connections.Current;
+        var code = ws is null ? "" : (string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId).Trim();
+        if (code.Length == 0) return;
+        _ = Task.Run(async () =>
+        {
+            try { await new FsgProjectLookupService().CreateMenuAsync(code); }
+            catch { /* sync phụ — lỗi thì thôi */ }
+        });
     }
 
     /// <summary>Tồn tại gì rồi — để chặn New ghi đè nhầm menu khác (SaveAsync luôn DELETE theo

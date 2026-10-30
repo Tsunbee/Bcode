@@ -24,7 +24,7 @@ Bcode.App/
 │   ├── CompareObjectsControl.cs  106
 │   ├── CreateRptControl.cs  199
 │   ├── DecryptSqlObjectControl.cs  233
-│   ├── FastAskControl.cs  133
+│   ├── FastAskControl.cs  162
 │   ├── FcodeLexer.cs  465
 │   ├── FileLookupControl.cs  1412
 │   ├── FileLookupControl.QuickGrant.cs  148
@@ -105,7 +105,7 @@ Bcode.App/
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  499
 │   ├── SqlPeekPanel.cs  128
-│   ├── SqlProfilerControl.cs  1903
+│   ├── SqlProfilerControl.cs  1938
 │   ├── SqlQueryControl.cs  355
 │   ├── SqlResultTabs.cs  150
 │   ├── SqlScintilla.cs  162
@@ -153,7 +153,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3937
+│   ├── MainForm.cs  3940
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -180,15 +180,15 @@ Bcode.App/
 │   ├── TabSwitcherForm.cs  175
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
-│   ├── UiTemplateForm.cs  718
+│   ├── UiTemplateForm.cs  723
 │   ├── WCommandDuplicateForm.cs  29
-│   ├── WCommandEditForm.cs  373
+│   ├── WCommandEditForm.cs  375
 │   ├── WCommandScriptForm.cs  133
 │   └── WebDialogForm.cs  78
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  351
+│   ├── AppSettings.cs  354
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -201,6 +201,7 @@ Bcode.App/
 │   ├── WeeklyMailTemplate.cs  20
 │   └── Workspace.cs  124
 ├── Secrets/
+│   ├── LocalSecrets.cs  30
 │   ├── LocalSecrets.Empty.cs  38
 │   └── README.md  19
 ├── Services/
@@ -256,7 +257,8 @@ Bcode.App/
 │   ├── EntityCheckService.cs  263
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
-│   ├── FastAskService.cs  1547
+│   ├── FastAskNotes.cs  141
+│   ├── FastAskService.cs  1609
 │   ├── FastCatalogCheck.cs  200
 │   ├── FastCatalogRules.cs  974
 │   ├── FastGhostMiner.cs  583
@@ -321,7 +323,7 @@ Bcode.App/
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
-│   ├── WCommandService.cs  856
+│   ├── WCommandService.cs  894
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77
 │   └── XlsxExportService.cs  22
@@ -382,7 +384,7 @@ Bcode.App/
 │       ├── dialog.css  43
 │       ├── editproject.html  121
 │       ├── entitypeek.html  182
-│       ├── fastask.html  369
+│       ├── fastask.html  371
 │       ├── filelookupbar.html  195
 │       ├── filelookuppreview.html  98
 │       ├── filepreview.html  194
@@ -435,7 +437,7 @@ Bcode.App/
 │       ├── topbar.html  203
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
-│       ├── uitemplate.html  1127
+│       ├── uitemplate.html  1135
 │       ├── usages.html  133
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
@@ -465,8 +467,8 @@ BcodeViewer.App/
 │   │   ├── FastSourceService.Shared.cs  226
 │   │   ├── FastSourceService.Siblings.cs  96
 │   │   ├── SourceAsk.cs  568
-│   │   ├── SourceGhost.cs  843
-│   │   ├── SourceGhostMiner.cs  164
+│   │   ├── SourceGhost.cs  924
+│   │   ├── SourceGhostMiner.cs  183
 │   │   ├── SourceTokenModel.cs  389
 │   │   ├── SourceVersions.cs  244
 │   │   └── ViewerKnowledge.cs  86
@@ -507,7 +509,7 @@ BcodeViewer.App/
 │   │   └── roboto.css  33
 │   ├── chat.js  83
 │   ├── checkfield.js  457
-│   ├── completion.js  2647
+│   ├── completion.js  2693
 │   ├── contextmenu.js  1105
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
@@ -594,7 +596,7 @@ Bcode.ReportBuilder/
 ```
 Bcode.KeyGen/
 ├── Bcode.KeyGen.csproj  19
-└── Program.cs  90
+└── Program.cs  94
 ```
 ```
 Shared/

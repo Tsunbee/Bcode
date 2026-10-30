@@ -38,6 +38,32 @@ public class FastAskControl : UserControl
         catch { /* tab đang đóng */ }
     }
 
+    /// <summary>📥 Nạp kiến thức: chọn bảng tra Excel (vd danh sách mã lỗi HĐĐT) → <see cref="FastAskNotes.ImportExcel"/> → báo số mục; Hỏi Fast tra được ngay.</summary>
+    private void ImportNotes(int id)
+    {
+        BeginInvoke(() =>
+        {
+            using var dlg = new OpenFileDialog { Title = "Chọn bảng tra để nạp vào Hỏi Fast (Excel có cột Mã số / Nội dung / Ghi chú hoặc Diễn giải)", Filter = "Excel (*.xlsx)|*.xlsx" };
+            if (dlg.ShowDialog(FindForm()) != DialogResult.OK)
+            {
+                ToPage($"fa.fail({id}, {WebBarHost.Json("Đã huỷ nạp kiến thức.")})");
+                return;
+            }
+            var file = dlg.FileName;
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    var (n, path) = FastAskNotes.ImportExcel(file);
+                    var reply = new FastAskService.AskReply($"Đã nạp {n} mục từ {Path.GetFileName(file)} → {path}.\nHỏi thử: gõ mã lỗi (vd \"lỗi 435\") hoặc nội dung (vd \"chứng thư số hết hạn\"). Nạp lại cùng tên file = thay bản cũ.",
+                        new List<FastAskService.AskCard>(), new List<FastAskService.AskChoice>(), new());
+                    ToPage($"fa.reply({id}, {JsonSerializer.Serialize(reply, Json)})");
+                }
+                catch (Exception ex) { ToPage($"fa.fail({id}, {WebBarHost.Json("Không nạp được: " + ex.Message)})"); }
+            });
+        });
+    }
+
     /// <summary>Gửi sẵn 1 câu hỏi (vd mở từ menu kèm chữ đang chọn).</summary>
     public void Ask(string text) => ToPage($"fa.ask({WebBarHost.Json(text)})");
 
@@ -66,6 +92,9 @@ public class FastAskControl : UserControl
                 break;
             case "learn":
                 _ = LearnAsync(root.GetProperty("id").GetInt32(), root.TryGetProperty("sys", out var ls) && ls.ValueKind == JsonValueKind.True);
+                break;
+            case "import-notes":
+                ImportNotes(root.GetProperty("id").GetInt32());
                 break;
             case "session-save":
                 try { FastAskSessions.Save(root.GetProperty("sid").GetString() ?? "", root.GetProperty("data").GetRawText()); } catch { /* ổ đĩa lỗi → bỏ qua */ }

@@ -186,7 +186,8 @@ public class WCommandEditForm : ThemedForm
         await Js("window.setBusy(true)");
         try
         {
-            var id = await _service.SuggestNextWMenuIdAsync(Get(f, "wmenuId0"));
+            // Seed = id đang có trong ô (New: id của menu đang đứng trên cây) → giữ GG.SS., chỉ thay 2 ký tự cuối.
+            var id = await _service.SuggestNextWMenuIdAsync(Get(f, "wmenuId0"), Get(f, "wmenuId"));
             await Js(focus ? $"window.setValue('wmenuId', {Json(id)})" : $"window.setFieldValue('wmenuId', {Json(id)})");
             await Js($"window.setHint('w', {Json("Gợi ý: chưa tồn tại trong wcommand")}, 'ok')");
         }
@@ -268,6 +269,7 @@ public class WCommandEditForm : ThemedForm
             }
 
             await _service.SaveAsync(item, _existing?.WMenuId, _existing?.MenuId);
+            _service.SyncQlycInBackground();
             DialogResult = DialogResult.OK;
             Close();
         }

@@ -87,6 +87,7 @@
   <span class="muted">— tra kiến thức Fast có sẵn trong Bcode, không gọi AI</span>
   <span class="spacer"></span>
   <button class="tbtn" id="btnLearn" title="Đọc store của database đang chọn (chỉ đọc), học kiến thức dự án và gộp vào kiến thức chung trên máy — dự án sau dùng lại được">📚 Học dự án này</button>
+  <button class="tbtn" id="btnNotes" title="Nạp bảng tra Excel của nhóm (vd danh sách mã lỗi hoá đơn điện tử: cột Mã số / Nội dung / Ghi chú hoặc Diễn giải) — lưu ở thư mục kiến thức, hỏi được ngay">📥 Nạp kiến thức</button>
   <span class="muted">Database:</span>
   <button class="tbtn on" id="dbApp" title="Tra bảng / store trong App Data">App</button>
   <button class="tbtn" id="dbSys" title="Tra bảng / store trong Sys Data">Sys</button>
@@ -303,6 +304,7 @@
   $('btnNew').onclick = startNew;
   $('btnHist').onclick = function () { var h = $('hist'); h.classList.toggle('open'); $('btnHist').classList.toggle('on', h.classList.contains('open')); if (h.classList.contains('open')) post({ action: 'session-list' }); };
   $('btnDelAll').onclick = function () { post({ action: 'session-delete-all' }); };
+  $('btnNotes').onclick = function () { post({ action: 'import-notes', id: pending('📥 Nạp kiến thức (bảng tra Excel)') }); };
   $('btnLearn').onclick = function () {
     var id = pending('📚 Học dự án này (' + (sys ? 'Sys' : 'App') + ' Data)');
     post({ action: 'learn', id: id, sys: sys });

@@ -15,6 +15,7 @@ namespace BcodeViewer.App.Host.FastSource;
 /// NextLine) nhưng học từ chính JS / SQL trong source Fast: vài token đầu dòng (≤ 6) → phần còn lại của dòng; đầu dòng phía trên (≤ 4 token, kèm dòng
 /// trên nữa nếu có) → cả dòng kế tiếp. Đếm theo SỐ FILE có cách viết đó, giữ cách viết có ở ≥ 2 file. Đo: JS + SQL chế độ ngắn 980 → 1.747 gợi ý đúng,
 /// vẫn đúng ≥ 90%. (Dùng thẳng ma trận SQL của Bcode — học từ stored procedure — thì đo chỉ đúng 33%: SQL trong controller viết khác hẳn.)</item>
+/// <item>"word" — đang gõ dở 1 tên (<c>f.setIt</c>): hoàn tất bằng tên trong chính file, gần + cùng ngữ cảnh thì nặng hơn (<see cref="AddWord"/>).</item>
 /// </list>
 /// <item>"close" — gõ <c>&lt;/</c>: tên thẻ mở gần nhất chưa đóng (theo cấu trúc, không thống kê; đo 99,9% đúng) — thắng mọi nguồn khác.</item>
 /// Mỗi loại có ngưỡng riêng hiệu chỉnh trên nửa file mẫu không dùng để rút (ngắn ≥ 90%, dài ≥ 60%); gộp = <see cref="Choose"/>: nguồn qua ngưỡng có độ tin
@@ -84,7 +85,17 @@ public sealed class SourceGhost
         var area = AreaOf(kind, region, empty);
         if (root is "import" or "clipboard" && area.StartsWith("xml")) area = "import" + area[3..];
         if (!empty && FieldLineRx.IsMatch(lineBefore)) area = area.Split('/')[0] + "/fl";
+        else if (!empty && EndsInName(lineBefore)) area += "/mw";
         return area;
+    }
+
+    /// <summary>Con trỏ sát sau 1 tên (≥ 2 chữ: <c>f.setIt|</c>) — có thể đang gõ dở tên đó: các nguồn đúng khác hẳn chỗ ranh giới token nên có vùng ngưỡng "/mw".</summary>
+    public static bool EndsInName(string lineBefore)
+    {
+        var i = lineBefore.Length;
+        while (i > 0 && SourceLexer.IsWord(lineBefore[i - 1])) i--;
+        return lineBefore.Length - i >= 2 && SourceLexer.IsWordStart(lineBefore[i]) && lineBefore[i] != '@' && (i == 0 || lineBefore[i - 1] is not ('"' or '\''))
+            && SourceLexer.Tokens(lineBefore) is { Count: > 0 } t && t[^1].Start == i;
     }
 
     /// <summary>Vùng để chọn ngưỡng: aspx / js / sql / xml (giống <see cref="SourceGhostMiner.Regions"/>), thêm "/next" khi con trỏ ở dòng trống
@@ -496,8 +507,78 @@ public sealed class SourceGhost
             var dec = SourceTokenModel.Decode(model, local, ctxText.TrimEnd(' ', '\t'));
             if (dec is not null) res.Add(("tok", dec.Cut(0), dec.Cum[0], t => dec.Cut(t)));
         }
+        AddWord(res, before, after, nl, toks, lineBefore);
         AddAgreement(res);
         return res;
+    }
+
+    private static readonly Regex NameRx = new(@"(?<![\w$])[A-Za-z_$][\w$]*", RegexOptions.Compiled);
+
+    /// <summary>"word" — đang gõ dở 1 tên (hàm / biến / thành viên: <c>f.setIt</c>, <c>function onChange$Voucher$Ta</c>): hoàn tất bằng các tên trong
+    /// CHÍNH file (trên + dưới, kể cả trong chuỗi / CDATA như <c>onchange="onChange$Voucher$X(this)"</c>) bắt đầu đúng phần đã gõ. Mỗi lần gặp nặng theo
+    /// độ gần dòng đang gõ, gặp sau cùng token đứng trước ("f" "." …) nặng gấp 4–8. Sau <c>function</c>: bỏ các tên đã khai hàm (khai lại là trùng) —
+    /// còn lại là tên được gọi mà chưa có hàm. Thêm "(" khi tên đó hầu như luôn được gọi. Cắt theo ngưỡng ở ranh giới chữ hoa / $ / _ của tên.</summary>
+    private static void AddWord(List<(string Kind, string Text, double Share, Func<double, string> Cut)> res, string before, string after, int nl,
+        List<SourceLexer.Token> toks, string lineBefore)
+    {
+        if (toks.Count == 0) return;
+        var last = toks[^1];
+        if (last.Text.Length < 2 || last.Start + last.Text.Length != lineBefore.Length || !SourceLexer.IsWordStart(last.Text[0]) || last.Text[0] == '@') return;
+        var prefix = last.Text;
+        var prev = toks.Count > 1 ? toks[^2].Text : "";
+        var prev2 = toks.Count > 2 ? toks[^3].Text : "";
+        var decl = prev == "function";
+        var w = new Dictionary<string, (double W, double Call)>(StringComparer.Ordinal);
+        var declared = new HashSet<string>(StringComparer.Ordinal);
+        void Scan(string line, int dist)
+        {
+            if (line.IndexOf(prefix, StringComparison.Ordinal) < 0) return;
+            foreach (Match m in NameRx.Matches(line))
+            {
+                var name = m.Value;
+                if (name.Length <= prefix.Length || !name.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                var pre = line[..m.Index].TrimEnd();
+                if (pre.EndsWith("function", StringComparison.Ordinal) && (pre.Length == 8 || !SourceLexer.IsWord(pre[^9]))) declared.Add(name);
+                double ctx = 1;
+                if (prev.Length > 0 && pre.EndsWith(prev, StringComparison.Ordinal))
+                    ctx = prev2.Length > 0 && pre[..^prev.Length].TrimEnd().EndsWith(prev2, StringComparison.Ordinal) ? 8 : 4;
+                // sau "function": chỗ gọi thường ở xa (<clientScript> phía trên) — đếm số lần gọi, không tính độ gần
+                var weight = decl ? 1 : ctx / (1 + dist / 20.0);
+                var call = line.AsSpan(m.Index + m.Length).TrimStart().StartsWith("(") ? weight : 0;
+                var o = w.GetValueOrDefault(name);
+                w[name] = (o.W + weight, o.Call + call);
+            }
+        }
+        var above = nl < 0 ? Array.Empty<string>() : before[..nl].Split('\n');
+        for (var i = above.Length - 1; i >= 0; i--) Scan(above[i], above.Length - i);
+        var below = after.Split('\n');
+        for (var i = 0; i < below.Length; i++) Scan(below[i], i + 1);
+        if (decl)
+        {
+            foreach (var d in declared) w.Remove(d);
+            // nguồn khác (line / tok…) gợi ý ra tên hàm đã khai trong file → khai lại là trùng: bỏ
+            res.RemoveAll(c => c.Kind != "close" && declared.Contains(prefix + new string(c.Text.TakeWhile(SourceLexer.IsWord).ToArray())));
+        }
+        if (w.Count == 0) return;
+        // sau "function" chỉ còn tên được gọi mà chưa có hàm — 1 tên duy nhất đã khá chắc (làm trơn 0.25 thay 1)
+        var total = w.Values.Sum(x => x.W) + (decl ? 0.25 : 1);
+        var opts = w.OrderByDescending(x => x.Value.W).ThenBy(x => x.Key, StringComparer.Ordinal).ToList();
+        var (top, (topW, topCall)) = (opts[0].Key, opts[0].Value);
+        var text = top[prefix.Length..] + (topCall >= 0.8 * topW ? "(" : "");
+        var share = topW / total;
+        string Cut(double th)
+        {
+            if (share >= th - 1e-9) return text;
+            // phần đầu chung của các tên: lùi dần theo ranh giới chữ hoa / $ / _ của tên hay gặp nhất
+            for (var j = top.Length - 1; j > prefix.Length; j--)
+            {
+                if (!(char.IsUpper(top[j]) || top[j] is '$' or '_')) continue;
+                var p = top[..j];
+                if (opts.Where(x => x.Key.StartsWith(p, StringComparison.Ordinal)).Sum(x => x.Value.W) / total >= th - 1e-9) return p[prefix.Length..];
+            }
+            return "";
+        }
+        res.Add(("word", text, share, Cut));
     }
 
     /// <summary>"agree": 2 nguồn KHÁC LOẠI (field / same / tok / line / next — đếm độc lập với nhau) cùng gợi ý 1 phần đầu (cắt ở ranh giới token) thì phần đó

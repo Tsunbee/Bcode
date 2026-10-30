@@ -354,6 +354,11 @@
         <div class="muted" style="font-size:11.5px">Đóng nhầm 1 tab: Ctrl+Shift+B (hoặc chuột phải thanh tab → Reopen Closed Tab; chuột phải vùng trống thanh tab → "Tab đã đóng gần đây"). Tắt = mở Bcode lên là trống, không dựng lại tab của lần trước. Lưu ngay, không cần bấm "Áp dụng". Cũng bật / tắt được ở menu ⚙ → "Khôi phục các tab khi mở lại Bcode".</div>
       </div>
       <div class="panel">
+        <h3>SQL Profiler</h3>
+        <div class="row"><label>Chế độ mở</label><div class="ctl"><select id="profMode"><option value="manual">Thủ công — tự bấm "▶ Bung &amp; Đăng nhập"</option><option value="auto">Tự động — Ctrl+3 bung Profiler luôn, ẩn thanh cấu hình</option></select></div></div>
+        <div class="muted" style="font-size:11.5px">Tự động: mở tab SQL Profiler (Ctrl+3) là bung Profiler ngay theo cấu hình đã lưu (Profiler.exe, đăng nhập, Trace Template, user theo dõi, lọc DatabaseName của workspace) và thu thanh cấu hình thành dải mỏng — bấm "▾ Hiện thanh Profiler" để mở lại. Khôi phục phiên lúc mở Bcode không tự bung. Lưu ngay, không cần bấm "Áp dụng".</div>
+      </div>
+      <div class="panel">
         <h3>Hiệu năng (máy cấu hình thấp)</h3>
         <div class="row"><label>Chế độ</label><div class="ctl"><select id="perfMode"><option value="auto">Tự động (theo CPU / RAM máy)</option><option value="low">Thấp — tiết kiệm RAM nhất</option><option value="medium">Trung bình</option><option value="high">Cao — như mặc định cũ</option></select></div></div>
         <div class="row"><label>Tiến trình hiển thị</label><div class="ctl"><select id="perfLimit"><option value="">Theo chế độ</option><option value="0">Không giới hạn</option><option value="1">Tối đa 1</option><option value="2">Tối đa 2</option><option value="4">Tối đa 4</option><option value="6">Tối đa 6</option></select></div></div>
@@ -737,6 +742,9 @@
   const sendPerf = () => post('perf-set', { mode: $('perfMode').value, limit: $('perfLimit').value, prewarm: $('perfPrewarm').value, merge: $('perfMerge').value, mergeEd: $('perfMergeEd').value, hibernate: $('perfHibernate').value });
   $('perfMode').onchange = sendPerf; $('perfLimit').onchange = sendPerf; $('perfPrewarm').onchange = sendPerf; $('perfMerge').onchange = sendPerf; $('perfMergeEd').onchange = sendPerf; $('perfHibernate').onchange = sendPerf;
   $('sesOn').onchange = sendSession; $('sesAsk').onchange = sendSession; $('sesMode').onchange = sendSession;
+  // ---- chế độ mở SQL Profiler (lưu ngay vào AppSettings.ProfilerAutoStart) ----
+  window.setProfilerMode = auto => { $('profMode').value = auto ? 'auto' : 'manual'; };
+  $('profMode').onchange = () => post('profiler-mode-set', { auto: $('profMode').value === 'auto' });
 
   // ---- tab Đường dẫn ----
   window.setPaths = (p) => {
@@ -1090,7 +1098,7 @@
     $('tabStruct').style.display = name === 'struct' ? 'block' : 'none';
     $('tabEditor').style.display = name === 'editor' ? 'block' : 'none';
     $('tabWindow').style.display = name === 'window' ? 'block' : 'none';
-    if (name === 'window') { post('session-get'); post('perf-get'); }
+    if (name === 'window') { post('session-get'); post('perf-get'); post('profiler-mode-get'); }
     $('tabKeys').style.display = name === 'keys' ? 'block' : 'none';
     $('tabBtnEditor').classList.toggle('active', name === 'editor'); $('tabBtnWindow').classList.toggle('active', name === 'window');
     $('tabHtml').style.display = name === 'html' ? 'block' : 'none';

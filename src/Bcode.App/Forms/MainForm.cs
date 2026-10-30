@@ -3689,9 +3689,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
     private void OpenSqlProfilerTab()
     {
+        // Chế độ Tự động (Template → Cửa sổ → SQL Profiler): Ctrl+3 bung Profiler luôn — trừ lúc khôi phục phiên, để mở Bcode không tự chạy Profiler.
         if (_sqlProfilerTab != null && _documentTabs.TabPages.Contains(_sqlProfilerTab))
         {
             _documentTabs.SelectedTab = _sqlProfilerTab;
+            if (!_sessionRestoring) _sqlProfilerTab.Controls.OfType<SqlProfilerControl>().FirstOrDefault()?.AutoStartIfEnabled();
             return;
         }
 
@@ -3706,6 +3708,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.DebugRequested += sql => _ = OpenProfilerDebugAsync(control, sql);
         _sqlProfilerTab = AddDocumentTab("SQL Profiler", control);
         _sqlProfilerTab.Disposed += (_, _) => _sqlProfilerTab = null;
+        if (!_sessionRestoring) control.AutoStartIfEnabled();
     }
 
     private void OpenCompareTextTab()

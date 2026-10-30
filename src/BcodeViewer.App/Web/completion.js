@@ -910,6 +910,7 @@ class BcodeCompletion {
     this.registerProviders();
     this.loadFromHost();
     this.editor.onDidChangeModelContent((e) => { this.checkAiGhostAccepted(e); this.checkFastFeedback(); });
+    this.watchSuggestForFast();
     this.editor.updateOptions({
       inlineSuggest: { enabled: true },
       suggestOnTriggerCharacters: true,
@@ -2177,11 +2178,13 @@ class BcodeCompletion {
   // chính file, n-gram token học từ source Fast; ngưỡng hiệu chỉnh trên nửa file mẫu không dùng để học (ngắn đúng ≥ 90%, dài ≥ 60%).
   // Provider phải trả lời ĐỒNG BỘ (xem computeInline) nên ở đây chỉ đọc bộ nhớ; hỏi host thì hẹn giờ như scheduleAiFetch.
 
-  /// Văn bản quanh con trỏ gửi host: tối đa 300 dòng phía trên (tới con trỏ) và 300 dòng phía dưới dòng đang gõ.
+  /// Văn bản quanh con trỏ gửi host: tối đa 300 dòng phía trên (tới con trỏ) và 300 dòng phía dưới dòng đang gõ. Đang khai "function X" thì cả file:
+  /// tên hàm cần khai lấy từ chỗ gọi (onchange="onChange$Voucher$X(this)" trong <clientScript>) — thường cách đoạn script cả nghìn dòng.
   fastContext(model, position) {
     const n = model.getLineCount();
-    const top = Math.max(1, position.lineNumber - 300);
-    const bottom = Math.min(n, position.lineNumber + 300);
+    const decl = /(?:^|[^\w$.])function\s+[\w$]*$/.test(model.getLineContent(position.lineNumber).substring(0, position.column - 1));
+    const top = decl ? 1 : Math.max(1, position.lineNumber - 300);
+    const bottom = decl ? n : Math.min(n, position.lineNumber + 300);
     const before = model.getValueInRange({ startLineNumber: top, startColumn: 1, endLineNumber: position.lineNumber, endColumn: position.column });
     const after = position.lineNumber < n
       ? model.getValueInRange({ startLineNumber: position.lineNumber + 1, startColumn: 1, endLineNumber: bottom, endColumn: model.getLineMaxColumn(bottom) })
@@ -2275,7 +2278,7 @@ class BcodeCompletion {
       const lineToCaret = model.getLineContent(position.lineNumber).substring(0, position.column - 1);
       if (/\s$/.test(lineToCaret) && /<[A-Za-z][\w-]*\s(?:[^<>"]|"[^"]*")*$/.test(lineToCaret)) {
         try { this.editor.trigger('fast', 'hideSuggestWidget', {}); } catch { /* không có dropdown */ }
-      }
+      } else this.yieldSuggestToFast(lineToCaret, text);
       const fire = () => {
         if (this.editor.getModel() !== model || model.getVersionId() !== version) return;
         try { this.editor.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }
@@ -2283,6 +2286,49 @@ class BcodeCompletion {
       fire();
       setTimeout(fire, 0);
     }, 40);
+  }
+
+  /// Đang gõ dở 1 tên (f.setIt|) mà dropdown mở: Monaco chỉ vẽ chữ mờ khi nó nối dài được mục đang chọn — mục hàm FCode là snippet có tham số
+  /// (setItemControlBehavior(name, nameValue, …)) nên chữ mờ "emControlBehavior(" bị giấu (thử trong Viewer: Esc là hiện). Gợi ý Fast ra ĐÚNG tên
+  /// mục đang chọn thì đóng dropdown — cùng tên, chữ mờ còn kèm "(" / tham số hay dùng. Fast đoán tên khác thì giữ dropdown, trừ dòng khai
+  /// "function X": dropdown chỉ là các từ trong file xếp theo chữ cái (thử: chọn sẵn hàm đã khai — khai lại là trùng), còn Fast ở đó chỉ gợi ý tên
+  /// được gọi mà chưa có hàm (SourceGhost.AddWord) → luôn nhường cho chữ mờ.
+  yieldSuggestToFast(lineToCaret, text) {
+    const word = /[A-Za-z_$][\w$]*$/.exec(lineToCaret);
+    if (!word || !/^[\w$]/.test(text)) return;
+    const label = this.focusedSuggestLabel();
+    if (!label) return;
+    const decl = /(?:^|[^\w$.])function\s+[\w$]*$/.test(lineToCaret);
+    if (!decl && label !== word[0] + /^[\w$]*/.exec(text)[0]) return;
+    try { this.editor.trigger('fast', 'hideSuggestWidget', {}); } catch { /* không có dropdown */ }
+  }
+
+  /// Dropdown hiện / đổi mục đang chọn khi gợi ý Fast cho chỗ con trỏ đã có sẵn (gõ tiếp đúng gợi ý, hoặc lấy từ bộ nhớ) → yieldSuggestToFast.
+  /// Kết quả Fast về sau khi dropdown đã mở thì scheduleFastFetch gọi nó.
+  watchSuggestForFast() {
+    let w;
+    try { w = this.editor.getContribution('editor.contrib.suggestController')?.widget?.value; } catch { return; }
+    if (!w || !w.onDidShow || !w.onDidFocus) return;
+    const check = () => setTimeout(() => {
+      const model = this.editor.getModel(), position = this.editor.getPosition();
+      if (!model || !position) return;
+      const text = this.fastGhost(model, position)?.items?.[0]?.insertText;   // chỉ chữ mờ sẽ hiện thật (cuối dòng / trước dấu đóng)
+      if (text) this.yieldSuggestToFast(model.getLineContent(position.lineNumber).substring(0, position.column - 1), text);
+    }, 0);
+    w.onDidShow(check);
+    w.onDidFocus(check);
+  }
+
+  /// Nhãn mục đang chọn trong dropdown gợi ý (null = dropdown đóng / không đọc được).
+  focusedSuggestLabel() {
+    try {
+      const sc = this.editor.getContribution('editor.contrib.suggestController');
+      const w = sc && sc.widget && sc.widget.value;
+      const node = this.editor.getDomNode()?.querySelector('.suggest-widget');
+      if (!w || !node || !node.classList.contains('visible')) return null;
+      const label = w.getFocusedItem()?.item?.completion?.label;
+      return typeof label === 'string' ? label : label?.label ?? null;
+    } catch { return null; } // API nội bộ Monaco đổi — chỉ mất phần đóng dropdown, chữ mờ vẫn như cũ
   }
 
   /// Gợi ý Fast đang hiện (this._fastFb) — sau mỗi lần sửa văn bản xem người dùng đã NHẬN (Tab, hoặc tự gõ đúng hết gợi ý) hay BỎ QUA (gõ khác đi,

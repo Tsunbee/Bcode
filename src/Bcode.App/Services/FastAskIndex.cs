@@ -45,7 +45,7 @@ public sealed class FastAskIndex
 
     private static readonly HashSet<string> Stop = new(StringComparer.Ordinal)
     {
-        "va", "cua", "cho", "cac", "nhung", "mot", "la", "co", "khong", "duoc", "theo", "tu", "den", "ve", "trong", "voi", "nao", "gi", "nhu", "hay", "minh", "toi",
+        "va", "cua", "cho", "cac", "nhung", "mot", "la", "co", "duoc",   // "khong" giữ lại: câu báo lỗi "không hợp lệ" / "không tồn tại" "theo", "tu", "den", "ve", "trong", "voi", "nao", "gi", "nhu", "hay", "minh", "toi",
         "xem", "tra", "tim", "giup", "nhe", "a", "di", "of", "for", "by", "and", "to", "in", "on", "dbo",
     };
 

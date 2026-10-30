@@ -23,7 +23,7 @@ internal sealed class WCommandEditPage : DialogPage
         foreach (var k in Fields) { var i = NK.Input(""); if (MaxLen.TryGetValue(k, out var m)) i.Inner.MaxLength = m; _f[k] = i; i.TextChanged += (_, _) => { if (_loading) return; i.Inner.ForeColor = AppColors.Text; if (k == "wmenuId") _hintW.Text = ""; if (k == "menuId") _hintM.Text = ""; }; }
         _tableM.ReadOnly = _tableD.ReadOnly = true;
         _lang.SetItems(Langs.Select(l => l.Name).ToList(), 0);
-        _sugW = NK.Button("Suggest", () => Post(new { action = "suggest-wmenu", data = Collect() }), tip: "Gợi ý WMenu Id chưa tồn tại theo menu cha");
+        _sugW = NK.Button("Suggest", () => Post(new { action = "suggest-wmenu", data = Collect() }), tip: "Gợi ý WMenu Id chưa tồn tại: giữ GG.SS. của menu đang đứng, thay 2 ký tự cuối (01..99, rồi A1..Z1, A2..Z2...)");
         _sugM = NK.Button("Suggest", () => Post(new { action = "suggest-menu", data = Collect() }), tip: "Gợi ý Menu Id chưa có trong command/wcommand");
         _tr = NK.Button("🌐 Dịch", Translate, tip: "Dịch Bar (tiếng Việt) sang ngôn ngữ chọn bằng Google Dịch rồi điền vào Bar2");
         Control With(RoundedInput i, params Control[] extra) { var p = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.Transparent }; i.Width = NativeSkin.S(200); p.Controls.Add(i); p.Controls.AddRange(extra); return p; }

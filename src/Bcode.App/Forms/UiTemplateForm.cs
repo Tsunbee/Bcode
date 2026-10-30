@@ -157,6 +157,11 @@ public class UiTemplateForm : ThemedForm
                     if (data.TryGetProperty("mode", out var smode) && smode.GetString() is "query" or "query_table" or "all") _settings.SessionMode = smode.GetString()!;
                     try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
                     break;
+                case "profiler-mode-get": Js($"window.setProfilerMode({(_settings.ProfilerAutoStart ? "true" : "false")})"); break;
+                case "profiler-mode-set":
+                    _settings.ProfilerAutoStart = data.TryGetProperty("auto", out var pauto) && pauto.ValueKind == JsonValueKind.True;
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    break;
                 case "perf-get": PushPerf(); break;
                 case "perf-set":
                 {

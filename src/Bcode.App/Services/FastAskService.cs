@@ -360,6 +360,61 @@ public sealed class FastAskService
         }));
     }
 
+    // ---------------------------------------------------------------- bảng tra nạp thêm (FastAskNotes — vd lỗi HĐĐT)
+
+    private static (string Stamp, FastAskIndex Index)? _noteIndex;
+
+    /// <summary>Kho tìm kiếm riêng của bảng tra nạp thêm (lỗi HĐĐT, forum…) — tách khỏi kho chính: hàng nghìn bài forum dài chứa "kho", "thẻ kho"…
+    /// sẽ làm lệch trọng số từ (IDF) khi xếp báo cáo / menu. Dựng lại khi thư mục notes đổi.</summary>
+    private static FastAskIndex NoteIndex()
+    {
+        var stamp = FastAskNotes.Stamp;
+        if (_noteIndex is { } c && c.Stamp == stamp) return c.Index;
+        var ix = new FastAskIndex();
+        foreach (var n in FastAskNotes.Merged)
+            ix.Add(new FastAskIndex.Doc("note", n.Id, NoteTitle(n), $"{n.Topic} {n.Group} {n.Detail} {n.Code}"), 3);
+        _noteIndex = (stamp, ix);
+        return ix;
+    }
+
+    private static string NoteTitle(FastAskNotes.Note n) => (n.Code.Length > 0 ? $"Lỗi {n.Code} — " : "") + n.Title;
+
+    private static AskCard NoteCard(FastAskNotes.Note n) =>
+        new(NoteTitle(n), $"{n.Group}" + (n.Detail.Length > 0 && n.Detail != n.Title ? $"\nDiễn giải / cách xử lý: {n.Detail}" : ""), "",
+            new List<AskAction> { new("copy", "Copy", NoteTitle(n) + (n.Detail.Length > 0 ? "\n" + n.Detail : "")) }, $"Bảng tra: {n.Topic}");
+
+    /// <summary>Hỏi mã lỗi / nội dung lỗi trong bảng tra đã nạp: số trong câu trùng mã → các mục mã đó (xếp theo từ còn lại của câu, vd "20001 nmdctdtu");
+    /// câu nói về HĐĐT / chứng thư / ký số / cơ quan thuế… → tìm theo nội dung. null = không phải câu hỏi loại này.</summary>
+    private async Task<AskReply?> NoteAnswerAsync(string text, string f, bool useSys)
+    {
+        var all = FastAskNotes.Merged;
+        if (all.Count == 0) return null;
+        var errorish = Regex.IsMatch(f, @"\b(loi|ma loi|error|hddt|hoa don dien tu|chung thu|ky so|token|hsm|may tinh tien|cqt|tct|co quan thue|tong cuc thue|phat hanh|cap ma|to khai|cap nhat|thong tu|nghi dinh|huong dan|forum|frd|bao loi|sua loi)\b");
+        var codes = Regex.Matches(text, @"\b\d{3,6}\b").Select(m => m.Value).ToHashSet();
+        var byCode = all.Where(n => codes.Contains(n.Code)).ToList();
+        if (byCode.Count > 0 && (errorish || Regex.IsMatch(f, @"^\s*\d{3,6}\s*$")))
+        {
+            // từ chung của câu hỏi lỗi không dùng để xếp (vd "mã lỗi 20001 nmdctdtu" → chỉ xét "nmdctdtu")
+            var rest = FastAskIndex.Terms(Regex.Replace(text, @"\b\d{3,6}\b", " ")).Where(t => !t.Contains('_') && !Regex.IsMatch(t, "^(ma|loi|hddt|hoa|don|dien|tu|cqt|tct|error|bao)$")).ToHashSet();
+            var ranked = byCode.OrderByDescending(n => FastAskIndex.Terms(n.Title + " " + n.Detail + " " + n.Group).Count(rest.Contains))
+                .DistinctBy(n => NoteTitle(n).TrimEnd('.')).Take(8).Select(NoteCard).ToList();
+            return Reply($"Mã {string.Join(", ", byCode.Select(n => n.Code).Distinct())} trong bảng tra ({byCode.Count} mục):", ranked);
+        }
+        if (!errorish) return null;
+        var hits = await Task.Run(() => NoteIndex().Search(text, 8));
+        if (hits.Count == 0) return null;
+        // chỉ nhận khi bài khớp đủ: tiêu đề + nội dung chứa ≥ 50% từ của câu (bỏ từ chung) — "hướng dẫn tạo báo cáo" không bị bảng tra giành;
+        // tiêu đề cũng phải chứa ≥ 30% — bài forum dài (nội dung + trả lời) dễ chứa đủ từ của tên báo cáo ("tờ khai thuế TNDN tạm tính")
+        var qt = FastAskIndex.Terms(text).Where(t => !t.Contains('_') && !Regex.IsMatch(t, "^(loi|ma|hddt|cap|nhat|huong|dan|bao|sua|forum|frd)$")).Distinct().ToList();
+        var best = all.FirstOrDefault(n => n.Id == hits[0].Doc.Key);
+        if (best is null) return null;
+        if (qt.Count > 0 && (qt.Count(FastAskIndex.Terms(best.Title + " " + best.Detail + " " + best.Group).ToHashSet().Contains) < 0.5 * qt.Count
+            || qt.Count(FastAskIndex.Terms(NoteTitle(best) + " " + best.Group).ToHashSet().Contains) < 0.3 * qt.Count)) return null;
+        var cards = hits.Where(h => h.Score >= hits[0].Score * 0.45).Select(h => all.FirstOrDefault(n => n.Id == h.Doc.Key)).OfType<FastAskNotes.Note>()
+            .DistinctBy(n => NoteTitle(n).TrimEnd('.')).Take(6).Select(NoteCard).ToList();
+        return cards.Count == 0 ? null : Reply("Trong bảng tra đã nạp:", cards);
+    }
+
     /// <summary>Thẻ cho 1 kết quả tìm kiếm.</summary>
     private AskCard? IndexCard(FastAskIndex.Doc d, bool useSys) => d.Kind switch
     {
@@ -367,6 +422,7 @@ public sealed class FastAskService
         "store" => ModuleCard(d.Key, d.Extra, useSys, "tên khớp"),
         "menu" => ControllerCard(d.Key, d.Title, "Chức năng trên menu") ?? new AskCard(d.Title, $"Chức năng trên menu — controller {d.Key}", "", new List<AskAction> { new("copy", "Copy controller", d.Key) }, "Menu (Sys Data)"),
         "controller" => ControllerCard(d.Key, d.Key, "Màn hình"),
+        "note" => FastAskNotes.Merged.FirstOrDefault(n => n.Id == d.Key) is { } note ? NoteCard(note) : null,
         "snippet" => Snip(d.Key) is { } s ? SnippetCard(s) : null,
         "topic" => Topics.FirstOrDefault(t => t.Title == d.Key) is { } t ? new AskCard(t.Title, t.Text, "", Array.Empty<AskAction>(), "Quy ước Fast") : null,
         "table" => new AskCard(d.Key, (d.Body.Length > 0 ? d.Body + "\n" : "") + "Bảng trong database đang kết nối.", "", new List<AskAction> { new("ask", "Xem cấu trúc", "cấu trúc bảng " + d.Key, "Cấu trúc bảng " + d.Key), new("copy", "Copy tên", d.Key) }, "Database đang kết nối"),
@@ -482,8 +538,11 @@ public sealed class FastAskService
                 choices: StartChoices);
 
         _ = IndexAsync(useSys);   // dựng kho tìm kiếm ở nền ngay lượt đầu
+        _ = Task.Run(NoteIndex);
         // câu hỏi đếm / liệt kê / thông tin dự án ("có bao nhiêu danh mục trên chương trình", "liệt kê các báo cáo", "dự án này dùng database nào")
         if (await StatsAsync(f, useSys) is { } stats) return stats;
+        // mã lỗi / nội dung lỗi trong bảng tra đã nạp (vd lỗi hoá đơn điện tử)
+        if (await NoteAnswerAsync(text, f, useSys) is { } noteReply) return noteReply;
         // TẠO báo cáo / danh mục chỉ khi câu hỏi muốn tạo ("tạo báo cáo …", "làm danh mục …"); còn lại (vd tên 1 báo cáo có sẵn "Báo cáo tồn theo kho",
         // "danh mục kho là bảng nào") thì tìm kiến thức — đo trên bộ câu hỏi chuẩn: trước đây mọi câu có chữ "báo cáo" đều rơi vào luồng tạo
         var create = Regex.IsMatch(f, @"^\s*(tao|lam|viet|dung|xay dung|them|can|muon)\b") || Regex.IsMatch(f, @"^\s*(bao cao|report|danh muc|catalog)\s*$");
@@ -1521,7 +1580,10 @@ public sealed class FastAskService
         // thêm từ tiếng Anh tương ứng (Glossary) để khớp tên store không có menu
         var ix = await IndexAsync(useSys);
         var query = text + " " + string.Join(" ", Stems(f));
-        var hits = ix.Search(query, 12, d => d.Kind != "field");
+        // bảng tra nạp thêm (lỗi HĐĐT, bài forum) xếp chung nhưng nhẹ hơn (x0,7): tiêu đề bài forum dễ trùng tên báo cáo / menu
+        var hits = ix.Search(query, 12, d => d.Kind != "field")
+            .Concat(NoteIndex().Search(query, 4).Select(h => (h.Doc, Score: h.Score * 0.7)))
+            .OrderByDescending(h => h.Item2).Take(12).ToList();
         if (hits.Count == 0) hits = ix.Search(query, 8);
         if (hits.Count > 0)
         {

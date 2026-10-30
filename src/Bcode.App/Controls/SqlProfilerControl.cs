@@ -616,11 +616,46 @@ public class SqlProfilerControl : UserControl
     // Thanh nạp xong muộn (đang ẩn lúc mở tab, hoặc trang web nạp lại): đặt lại trạng thái / nút Đóng đã đổi trong lúc chưa sẵn sàng.
     private void PushStateToBar() { SetStatus(_lastStatus); SetRunning(_running); }
 
-    /// <summary>Ẩn / hiện thanh 2 hàng phía trên (nhớ vào settings.json). Ẩn thì còn dải mỏng: dòng trạng thái + nút "▾ Hiện thanh Profiler";
-    /// _hostPanel (Dock Fill) tự giãn → Resize → Profiler nhúng khít theo.</summary>
-    private void SetBarHidden(bool hidden)
+    private bool _autoStarting;
+
+    /// <summary>Chế độ Tự động (AppSettings.ProfilerAutoStart): Ctrl+3 bung Profiler luôn theo cấu hình đã lưu (Profiler.exe, đăng nhập, Template,
+    /// user theo dõi, lọc DatabaseName của workspace) và ẩn thanh cấu hình (không ghi vào ProfilerBarHidden). Thủ công / Profiler đang chạy → không làm gì.
+    /// Thiếu cấu hình thì giữ thanh để người dùng sửa.</summary>
+    public void AutoStartIfEnabled()
     {
-        if (_settings.ProfilerBarHidden != hidden) { _settings.ProfilerBarHidden = hidden; try { _settings.Save(); } catch { } }
+        if (!_settings.ProfilerAutoStart || _autoStarting || _profilerProcess is { HasExited: false }) return;
+        if (!IsHandleCreated) { HandleCreated += OnHandleCreatedAutoStart; return; }
+        BeginInvoke(new Action(() => _ = AutoStartAsync()));
+    }
+
+    private void OnHandleCreatedAutoStart(object? sender, EventArgs e)
+    {
+        HandleCreated -= OnHandleCreatedAutoStart;
+        BeginInvoke(new Action(() => _ = AutoStartAsync()));
+    }
+
+    private async Task AutoStartAsync()
+    {
+        if (_autoStarting || _profilerProcess is { HasExited: false }) return;
+        var ws = _getCurrentWorkspace();
+        if (ws is null) { SetStatus("Chế độ Tự động: chưa chọn Workspace — chưa bung Profiler."); return; }
+        var exePath = (_settings.SqlProfilerPath ?? "").Trim();
+        if (!File.Exists(exePath)) { SetBarHidden(false, persist: false); SetStatus("Chế độ Tự động: chưa khai đúng đường dẫn Profiler.exe — chọn lại rồi bấm \"Bung & Đăng nhập\"."); return; }
+
+        _autoStarting = true;
+        try
+        {
+            SetBarHidden(true, persist: false);
+            await RunProfilerAsync(exePath, _settings.ProfilerLoginUser, _settings.ProfilerLoginPassword, ws.ProfilerTemplateName, ws.ProfilerTargetUser);
+        }
+        finally { _autoStarting = false; }
+    }
+
+    /// <summary>Ẩn / hiện thanh 2 hàng phía trên (nhớ vào settings.json, trừ khi <paramref name="persist"/> = false — chế độ Tự động ẩn tạm).
+    /// Ẩn thì còn dải mỏng: dòng trạng thái + nút "▾ Hiện thanh Profiler"; _hostPanel (Dock Fill) tự giãn → Resize → Profiler nhúng khít theo.</summary>
+    private void SetBarHidden(bool hidden, bool persist = true)
+    {
+        if (persist && _settings.ProfilerBarHidden != hidden) { _settings.ProfilerBarHidden = hidden; try { _settings.Save(); } catch { } }
         SuspendLayout();
         BarHost.Visible = !hidden;
         _barStrip.Visible = hidden;

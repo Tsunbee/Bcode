@@ -106,6 +106,9 @@ public class AppSettings
     public string ProfilerTemplateName { get; set; } = "";
     /// <summary>Tab SQL Profiler: true = ẩn thanh 2 hàng phía trên (chỉ còn dải mỏng có nút "Hiện thanh") cho Profiler nhúng rộng hơn.</summary>
     public bool ProfilerBarHidden { get; set; }
+    /// <summary>Chế độ mở SQL Profiler (Template → Cửa sổ): true = Tự động — Ctrl+3 bung Profiler luôn theo cấu hình đã lưu và ẩn thanh cấu hình;
+    /// false = Thủ công (mặc định) — người dùng tự bấm "Bung &amp; Đăng nhập".</summary>
+    public bool ProfilerAutoStart { get; set; }
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
     public int FileLookupSplitterDistance { get; set; } = 0;

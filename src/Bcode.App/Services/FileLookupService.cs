@@ -36,17 +36,23 @@ public class FileLookupService
     /// trong ô Search) đều gọi GetDirectories/GetFiles lại cho từng thư mục một.</summary>
     private sealed class FileIndex
     {
-        public FileIndex(DateTime builtAtUtc, List<string> dirs, List<string> files, IReadOnlyDictionary<string, DateTime>? dirTimes = null)
+        public FileIndex(DateTime builtAtUtc, List<string> dirs, List<string> files, IReadOnlyDictionary<string, DateTime>? dirTimes = null, long checkedTicks = 0)
         {
             BuiltAtUtc = builtAtUtc;
             Dirs = dirs;
             Files = files;
             DirTimes = dirTimes;
+            _checkedTicks = checkedTicks;
         }
 
-        /// <summary>Giờ sửa (UTC, theo đồng hồ máy chủ) của từng thư mục lúc quét — thư mục có file thêm / xoá / đổi tên sau đó thì giờ này đổi.
-        /// null = không biết (bản lưu file-index trên đĩa không ghi giờ thư mục).</summary>
+        /// <summary>Giờ sửa (UTC, theo đồng hồ máy chủ) của từng thư mục lúc quét, KỂ CẢ chính gốc — thư mục có file / thư mục con thêm, xoá, đổi tên
+        /// trực tiếp bên trong thì giờ này đổi (sửa nội dung file thì không — phần đó FileParseCache tự kiểm). null = không biết (bản lưu file-index
+        /// kiểu cũ không ghi giờ thư mục) → dùng hạn <see cref="IndexLifetime"/> như trước.</summary>
         public IReadOnlyDictionary<string, DateTime>? DirTimes { get; }
+
+        private long _checkedTicks;
+        /// <summary>Lần cuối đối chiếu <see cref="DirTimes"/> với ổ đĩa (UTC ticks, 0 = chưa) — xem <see cref="Revalidate"/>.</summary>
+        public long CheckedTicks { get => Interlocked.Read(ref _checkedTicks); set => Interlocked.Exchange(ref _checkedTicks, value); }
 
         private int _menuVersion = -1;
         private List<string>? _menuFiles;
@@ -87,9 +93,14 @@ public class FileLookupService
             _byName ??= Files.ToLookup(f => Path.GetFileNameWithoutExtension(f), StringComparer.OrdinalIgnoreCase);
     }
 
-    // Lưới an toàn khi file trên site đổi mà không qua Bcode (người khác deploy, copy tay...):
-    // hết hạn thì lần build kế tiếp tự quét lại. Bấm Load trên File Lookup luôn quét lại ngay.
+    // File trên site đổi mà không qua Bcode (người khác deploy, copy tay, git pull...): chỉ mục có giờ thư mục (DirTimes) thì mỗi lần dùng
+    // đối chiếu lại giờ sửa từng thư mục (Revalidate) nên không hết hạn; chỉ mục KHÔNG có giờ thư mục (bản lưu kiểu cũ) thì hết hạn này
+    // là lần build kế tiếp quét lại. Bấm Load trên File Lookup luôn quét lại ngay.
     private static readonly TimeSpan IndexLifetime = TimeSpan.FromMinutes(2);
+
+    // Đối chiếu giờ thư mục tối đa 1 lần / khoảng này cho mỗi gốc: gõ Search / bật tắt ô đuôi dựng lại cây liên tục không phải hỏi lại ổ đĩa mỗi lần.
+    private static readonly TimeSpan RecheckInterval = TimeSpan.FromSeconds(1);
+    private readonly ConcurrentDictionary<string, object> _revalidateLocks = new(StringComparer.OrdinalIgnoreCase);
 
     // Lazy (ExecutionAndPublication) để hai yêu cầu cùng lúc cho cùng một gốc (vd gõ search
     // trong khi lần quét đầu còn chạy) dùng chung một lần quét thay vì quét UNC hai lần.
@@ -122,7 +133,7 @@ public class FileLookupService
             var files = new List<string>(index.Files) { [i] = newPath };
             var renamed = new FileIndex(index.BuiltAtUtc, index.Dirs, files, index.DirTimes);
             if (!_indexCache.TryUpdate(key, new Lazy<FileIndex?>(renamed), lazy)) continue;
-            try { if (File.Exists(SnapshotPath(key))) SaveSnapshotInBackground(key, renamed); }
+            try { if (File.Exists(SnapshotPath(key)) || File.Exists(LegacySnapshotPath(key))) SaveSnapshotInBackground(key, renamed); }
             catch { /* không ghi được bản lưu thì lần quét nền sau tự sửa */ }
         }
         FileParseCache.ForgetFile(oldPath);
@@ -439,16 +450,20 @@ public class FileLookupService
                 var candidateList = candidates.ToList();
                 var matchedList = candidateList.Where(Keep).ToList();
                 // Danh sách file đang lấy từ chỉ mục quét sẵn: nếu có file trong đó đã bị xoá / đổi tên (bởi Bcode hay công cụ khác) thì quét lại ổ đĩa một lần rồi dựng lại,
-                // thay vì hiện file không còn tồn tại (mở ra báo lỗi). File MỚI do người khác tạo thì do hạn 2 phút của chỉ mục hoặc nút Refresh / Load lo.
+                // thay vì hiện file không còn tồn tại (mở ra báo lỗi). File MỚI tạo ngoài Bcode thì GetIndex đã đối chiếu giờ thư mục (Revalidate) nên có sẵn trong chỉ mục.
                 if (!retried && matchedList.Any(f => !File.Exists(f)))
                 {
                     InvalidateCache();
                     return BuildMenuTreeCore(sourceRootPath, link, sysId, onlyFInGridFilterDir, onlyF, session, onlyExtension, retried: true);
                 }
-                // ...trừ file MỚI cùng tên với file đã có của menu (biên dịch Filter\X.xml → X.f bằng FCode / BcodeViewer sau lần quét): dò thẳng ổ đĩa.
-                var siblingNames = new HashSet<string>(sysIds, StringComparer.OrdinalIgnoreCase);
-                siblingNames.UnionWith(lookupNames);
-                matchedList.AddRange(FindUnindexedSiblings(candidateList, index, controllersKey, siblingNames, Keep));
+                // Chỉ mục không có giờ thư mục (bản lưu kiểu cũ, trước lần quét nền): dò thẳng ổ đĩa file MỚI cùng tên với file đã có của menu
+                // (biên dịch Filter\X.xml → X.f bằng FCode / BcodeViewer sau lần quét).
+                if (index.DirTimes is null)
+                {
+                    var siblingNames = new HashSet<string>(sysIds, StringComparer.OrdinalIgnoreCase);
+                    siblingNames.UnionWith(lookupNames);
+                    matchedList.AddRange(FindUnindexedSiblings(candidateList, controllersKey, siblingNames, Keep));
+                }
                 FillFromPaths(controllersNode, controllersKey, Array.Empty<string>(), matchedList);
                 AttachEntityIssues(controllersNode, matchedList, session);
                 if (controllersNode.Children.Count > 0)
@@ -462,9 +477,9 @@ public class FileLookupService
     /// <summary>Chỉ mục file (bản lưu file-index, hoặc lần quét chưa quá 2 phút) có thể cũ hơn ổ đĩa: Filter\X.xml vừa được biên dịch ra X.f bằng FCode /
     /// BcodeViewer thì X.f chưa có trong chỉ mục → cây menu chỉ có .xml (máy quét sau lúc đó thì thấy đủ). Với mỗi thư mục đang có file mang tên trong
     /// <paramref name="names"/> (<paramref name="candidates"/> = file của menu theo chỉ mục, TRƯỚC khi lọc đuôi — Gen Update / Only Show .f bỏ X.xml nhưng vẫn
-    /// phải dò ra X.f cạnh nó), dò thẳng ổ đĩa các file cùng tên (X.*) và trả về file chưa có trong chỉ mục mà <paramref name="keep"/> nhận. Thư mục mà giờ
-    /// sửa vẫn y như lúc quét (<see cref="FileIndex.DirTimes"/>: thêm / xoá / đổi tên file đều làm đổi giờ này) thì bỏ qua — thường chỉ tốn 1 lần hỏi giờ / thư mục.</summary>
-    private static ICollection<string> FindUnindexedSiblings(List<string> candidates, FileIndex index, string controllersKey, HashSet<string> names, Func<string, bool> keep)
+    /// phải dò ra X.f cạnh nó), dò thẳng ổ đĩa các file cùng tên (X.*) và trả về file chưa có trong chỉ mục mà <paramref name="keep"/> nhận. Chỉ dùng khi chỉ mục
+    /// không có <see cref="FileIndex.DirTimes"/> — có giờ thư mục thì <see cref="Revalidate"/> đã đưa mọi file mới (mọi tên, mọi thư mục) vào chỉ mục.</summary>
+    private static ICollection<string> FindUnindexedSiblings(List<string> candidates, string controllersKey, HashSet<string> names, Func<string, bool> keep)
     {
         var prefix = controllersKey + Path.DirectorySeparatorChar;
         var byDir = candidates
@@ -482,8 +497,6 @@ public class FileLookupService
             {
                 try
                 {
-                    if (index.DirTimes is { } times && times.TryGetValue(d.Dir, out var scanned)
-                        && Directory.GetLastWriteTimeUtc(d.Dir) == scanned) return;   // không có file nào thêm vào thư mục này từ lúc quét
                     foreach (var name in d.Names)
                         foreach (var f in Directory.EnumerateFiles(d.Dir, name + ".*"))
                             if (Path.GetFileNameWithoutExtension(f).Equals(name, StringComparison.OrdinalIgnoreCase) && !known.Contains(f) && keep(f))
@@ -1138,11 +1151,12 @@ public class FileLookupService
     /// <summary>Danh sách folder/file dưới <paramref name="rootKey"/> (đã NormalizeDir): lấy từ
     /// cache nếu còn hạn, cắt ra từ index của một thư mục cha đã quét nếu có (vd Controllers
     /// nằm trong gốc App_Data đã load ở File Lookup), còn không thì quét ổ đĩa. Null khi thư
-    /// mục không tồn tại — không cache kết quả đó để lần sau (UNC lên lại) còn thử lại.</summary>
+    /// mục không tồn tại — không cache kết quả đó để lần sau (UNC lên lại) còn thử lại.
+    /// Chỉ mục có giờ thư mục thì trước khi trả về được đối chiếu lại với ổ đĩa (<see cref="Revalidate"/>) — file tạo ngoài Bcode hiện ngay, không cần F5.</summary>
     private FileIndex? GetIndex(string rootKey)
     {
         if (_indexCache.TryGetValue(rootKey, out var cached) && IsFresh(cached))
-            return cached.Value;
+            return Revalidate(rootKey, cached);
 
         foreach (var (ancestorKey, ancestor) in _indexCache)
         {
@@ -1154,18 +1168,24 @@ public class FileLookupService
                 parent.BuiltAtUtc,
                 parent.Dirs.Where(d => d.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList(),
                 parent.Files.Where(f => f.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList(),
-                parent.DirTimes);
-            _indexCache[rootKey] = new Lazy<FileIndex?>(sub);
-            return sub;
+                // chỉ giữ giờ của gốc con + thư mục bên dưới: đối chiếu gốc con không phải hỏi giờ cả cây của gốc cha
+                parent.DirTimes?.Where(t => t.Key.Equals(rootKey, StringComparison.OrdinalIgnoreCase) || t.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    .ToDictionary(t => t.Key, t => t.Value, StringComparer.OrdinalIgnoreCase),
+                parent.CheckedTicks);
+            var subEntry = new Lazy<FileIndex?>(sub);
+            _indexCache[rootKey] = subEntry;
+            return Revalidate(rootKey, subEntry);
         }
 
         // Có bản lưu trên đĩa của lần quét trước (cùng gốc) → hiện NGAY từ đó, quét lại ở nền rồi tự cập nhật. Đổi project / mở lại Bcode không còn phải
-        // chờ quét lại hàng chục nghìn file qua UNC. (Nút Load / Refresh gọi InvalidateCache → bỏ bản lưu cũ, quét thật như trước.)
+        // chờ quét lại hàng chục nghìn file qua UNC. Bản lưu có giờ thư mục thì đối chiếu ngay (thư mục nào đổi từ lần lưu mới liệt kê lại).
+        // (Nút Load / Refresh gọi InvalidateCache → bỏ bản lưu cũ, quét thật như trước.)
         if (LoadSnapshot(rootKey) is { } snapshot)
         {
-            _indexCache[rootKey] = new Lazy<FileIndex?>(snapshot);
+            var snapEntry = new Lazy<FileIndex?>(snapshot);
+            _indexCache[rootKey] = snapEntry;
             StartBackgroundRescan(rootKey, snapshot);
-            return snapshot;
+            return Revalidate(rootKey, snapEntry);
         }
 
         var fresh = new Lazy<FileIndex?>(() => { var scanned = ScanDirectory(rootKey); if (scanned is not null) SaveSnapshotInBackground(rootKey, scanned); return scanned; }, LazyThreadSafetyMode.ExecutionAndPublication);
@@ -1181,21 +1201,28 @@ public class FileLookupService
     private DateTime _invalidatedAtUtc = DateTime.MinValue;
     private readonly ConcurrentDictionary<string, byte> _rescanning = new(StringComparer.OrdinalIgnoreCase);
 
-    private static string SnapshotPath(string rootKey)
-    {
-        var hash = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(rootKey.ToLowerInvariant())))[..16];
-        return Path.Combine(BcodePaths.AppData, "Bcode", "file-index", hash + ".gz");
-    }
+    private static string SnapshotHash(string rootKey) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(Encoding.UTF8.GetBytes(rootKey.ToLowerInvariant())))[..16];
 
-    /// <summary>Đọc bản lưu của <paramref name="rootKey"/>; null nếu chưa có / hỏng / cũ hơn lần bấm Load gần nhất. Dòng: "D|đường dẫn" (folder) hoặc "F|đường dẫn" (file).</summary>
+    /// <summary>Bản lưu có giờ thư mục ("&lt;băm&gt;.t.gz"). Tên khác bản cũ để Bcode bản cũ (dùng chung %AppData%) không đọc nhầm dòng "D|đường dẫn|giờ".</summary>
+    private static string SnapshotPath(string rootKey) => Path.Combine(BcodePaths.AppData, "Bcode", "file-index", SnapshotHash(rootKey) + ".t.gz");
+
+    /// <summary>Bản lưu kiểu cũ ("&lt;băm&gt;.gz", không có giờ thư mục) — vẫn đọc được khi chưa có bản mới.</summary>
+    private static string LegacySnapshotPath(string rootKey) => Path.Combine(BcodePaths.AppData, "Bcode", "file-index", SnapshotHash(rootKey) + ".gz");
+
+    /// <summary>Đọc bản lưu của <paramref name="rootKey"/>; null nếu chưa có / hỏng / cũ hơn lần bấm Load gần nhất. Dòng: "D|đường dẫn|giờ" (folder + giờ sửa,
+    /// ticks UTC), "T|giờ" (giờ sửa của chính gốc) hoặc "F|đường dẫn" (file); bản kiểu cũ chỉ có "D|đường dẫn" / "F|đường dẫn" → không có giờ thư mục.</summary>
     private FileIndex? LoadSnapshot(string rootKey)
     {
         try
         {
             var path = SnapshotPath(rootKey);
+            var timed = File.Exists(path);
+            if (!timed) path = LegacySnapshotPath(rootKey);
             if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) <= _invalidatedAtUtc) return null;
             var dirs = new List<string>();
             var files = new List<string>();
+            var dirTimes = timed ? new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase) : null;
             using (var fs = File.OpenRead(path))
             using (var gz = new System.IO.Compression.GZipStream(fs, System.IO.Compression.CompressionMode.Decompress))
             using (var reader = new StreamReader(gz, Encoding.UTF8))
@@ -1205,11 +1232,19 @@ public class FileLookupService
                 while ((line = reader.ReadLine()) is not null)
                 {
                     if (line.Length < 3) continue;
-                    (line[0] == 'D' ? dirs : files).Add(line[2..]);
+                    if (line[0] == 'F') { files.Add(line[2..]); continue; }
+                    if (dirTimes is null) { dirs.Add(line[2..]); continue; }
+                    var bar = line.LastIndexOf('|');   // đường dẫn Windows không chứa '|'
+                    if (!long.TryParse(line.AsSpan(bar + 1), out var ticks)) return null;
+                    var when = new DateTime(ticks, DateTimeKind.Utc);
+                    if (line[0] == 'T') dirTimes[rootKey] = when;
+                    else { var dir = line[2..bar]; dirs.Add(dir); dirTimes[dir] = when; }
                 }
             }
             if (files.Count == 0) return null;   // bản lưu rỗng (lần quét hỏng trước đó) → không dùng
-            return new FileIndex(DateTime.UtcNow, dirs, files);   // coi như mới trong IndexLifetime; bản quét thật chạy ở nền ngay sau đó
+            if (dirTimes is not null && !dirTimes.ContainsKey(rootKey)) dirTimes = null;
+            // coi như mới trong IndexLifetime; có giờ thư mục thì GetIndex đối chiếu ngay (CheckedTicks = 0), bản quét thật vẫn chạy ở nền sau đó
+            return new FileIndex(DateTime.UtcNow, dirs, files, dirTimes);
         }
         catch { return null; }
     }
@@ -1227,8 +1262,19 @@ public class FileLookupService
                 using (var writer = new StreamWriter(gz, new UTF8Encoding(false)))
                 {
                     writer.WriteLine(rootKey);
-                    foreach (var d in index.Dirs) writer.WriteLine("D|" + d);
+                    var times = index.DirTimes;
+                    if (times is not null && times.TryGetValue(rootKey, out var rootTime))
+                    {
+                        writer.WriteLine("T|" + rootTime.Ticks);
+                        foreach (var d in index.Dirs) writer.WriteLine("D|" + d + "|" + (times.TryGetValue(d, out var t) ? t.Ticks : 0));   // 0 = chưa biết → lần đối chiếu đầu liệt kê lại
+                    }
+                    else
+                    {
+                        times = null;
+                        foreach (var d in index.Dirs) writer.WriteLine("D|" + d);
+                    }
                     foreach (var f in index.Files) writer.WriteLine("F|" + f);
+                    if (times is null) path = LegacySnapshotPath(rootKey);   // không có giờ thư mục → ghi kiểu cũ
                 }
                 File.Move(tmp, path, overwrite: true);
             }
@@ -1243,8 +1289,8 @@ public class FileLookupService
         if (_indexCache.TryGetValue(rootKey, out var cached) && IsFresh(cached)) return true;
         try
         {
-            var file = SnapshotPath(rootKey);
-            if (File.Exists(file) && File.GetLastWriteTimeUtc(file) > _invalidatedAtUtc) return true;
+            foreach (var file in new[] { SnapshotPath(rootKey), LegacySnapshotPath(rootKey) })
+                if (File.Exists(file) && File.GetLastWriteTimeUtc(file) > _invalidatedAtUtc) return true;
         }
         catch { /* coi như chưa có */ }
         // gốc con của một gốc đã có trong bộ nhớ cũng được cắt ra ngay (xem GetIndex)
@@ -1266,6 +1312,8 @@ public class FileLookupService
                 await Task.Delay(RescanDelay);
                 var fresh = ScanDirectory(rootKey);
                 if (fresh is null) return;
+                // so với bản ĐANG dùng (có thể đã được Revalidate cập nhật sau khi nạp bản lưu), không phải bản lưu lúc đầu → không dựng lại cây thừa
+                if (_indexCache.TryGetValue(rootKey, out var current) && current.IsValueCreated && current.Value is { } now) shown = now;
                 _indexCache[rootKey] = new Lazy<FileIndex?>(fresh);
                 SaveSnapshotInBackground(rootKey, fresh);
                 var changed = fresh.Files.Count != shown.Files.Count || fresh.Dirs.Count != shown.Dirs.Count
@@ -1278,9 +1326,119 @@ public class FileLookupService
     }
 
     // An entry whose scan is still running counts as fresh — callers wait on it instead of
-    // starting a second scan of the same folder.
+    // starting a second scan of the same folder. Có giờ thư mục thì không hết hạn: GetIndex đối chiếu lại (Revalidate) trước khi dùng.
     private static bool IsFresh(Lazy<FileIndex?> entry) =>
-        !entry.IsValueCreated || (entry.Value is { } index && DateTime.UtcNow - index.BuiltAtUtc < IndexLifetime);
+        !entry.IsValueCreated || (entry.Value is { } index && (index.DirTimes is not null || DateTime.UtcNow - index.BuiltAtUtc < IndexLifetime));
+
+    /// <summary>Đưa chỉ mục về khớp ổ đĩa mà không quét lại cả cây: hỏi giờ sửa của mọi thư mục đã biết (song song — ~100 thư mục ở Controllers, mỗi thư mục
+    /// 1 lần hỏi), thư mục nào giờ khác lúc quét thì liệt kê lại riêng nó (không đệ quy), thư mục con MỚI thì quét đủ cả nhánh, thư mục đã mất thì bỏ
+    /// cả nhánh. Nhờ vậy file tạo / copy / xoá / đổi tên ngoài Bcode (Explorer, FCode, git pull, người khác deploy...) có ngay trong lần lọc kế tiếp,
+    /// không cần F5. Tối đa 1 lần / <see cref="RecheckInterval"/> cho mỗi gốc; chỉ mục không có giờ thư mục thì trả nguyên. Lỗi ổ đĩa / UNC rớt giữa
+    /// chừng → giữ chỉ mục cũ, lần sau đối chiếu lại.</summary>
+    private FileIndex? Revalidate(string rootKey, Lazy<FileIndex?> entry)
+    {
+        if (entry.Value is not { DirTimes: not null } index) return entry.Value;
+        if (DateTime.UtcNow.Ticks - index.CheckedTicks < RecheckInterval.Ticks) return index;
+        lock (_revalidateLocks.GetOrAdd(rootKey, _ => new object()))
+        {
+            // luồng khác vừa đối chiếu xong trong lúc chờ khoá → dùng luôn kết quả đó
+            if (_indexCache.TryGetValue(rootKey, out var current) && current.IsValueCreated && current.Value is { DirTimes: not null } latest)
+            {
+                entry = current;
+                index = latest;
+                if (DateTime.UtcNow.Ticks - index.CheckedTicks < RecheckInterval.Ticks) return index;
+            }
+            var startedTicks = DateTime.UtcNow.Ticks;
+            FileIndex? updated;
+            try { updated = ApplyDirChanges(rootKey, index); }
+            catch (Exception) { updated = null; }
+            if (updated is null) return index;   // không đối chiếu được — giữ bản cũ, CheckedTicks giữ nguyên để lần sau thử lại
+            updated.CheckedTicks = startedTicks;
+            if (ReferenceEquals(updated, index)) return index;
+            if (_indexCache.TryUpdate(rootKey, new Lazy<FileIndex?>(updated), entry))
+                try { if (File.Exists(SnapshotPath(rootKey)) || File.Exists(LegacySnapshotPath(rootKey))) SaveSnapshotInBackground(rootKey, updated); }
+                catch { /* lần quét nền sau tự sửa bản lưu */ }
+            return updated;
+        }
+    }
+
+    private static readonly DateTime MissingDirTime = DateTime.FromFileTimeUtc(0);   // Directory.GetLastWriteTimeUtc của đường dẫn không tồn tại
+
+    /// <summary>Phần việc của <see cref="Revalidate"/>: trả về chính <paramref name="index"/> nếu không thư mục nào đổi, bản mới nếu có, null nếu không đối chiếu được.</summary>
+    private static FileIndex? ApplyDirChanges(string rootKey, FileIndex index)
+    {
+        var times = index.DirTimes!;
+        var keys = times.Keys.ToArray();
+        var now = new DateTime[keys.Length];
+        Parallel.For(0, keys.Length, new ParallelOptions { MaxDegreeOfParallelism = 16 }, i => now[i] = Directory.GetLastWriteTimeUtc(keys[i]));
+
+        var changed = new List<(string Dir, DateTime Time)>();
+        for (var i = 0; i < keys.Length; i++)
+            if (now[i] != times[keys[i]]) changed.Add((keys[i], now[i]));
+        if (changed.Count == 0) return index;
+        // gốc "biến mất" thường là UNC rớt chứ không phải bị xoá thật — đừng bỏ cả danh sách
+        if (changed.Any(c => c.Time == MissingDirTime && c.Dir.Equals(rootKey, StringComparison.OrdinalIgnoreCase)) || !Directory.Exists(rootKey)) return null;
+
+        // Liệt kê lại (không đệ quy) từng thư mục đã đổi; thư mục không còn → bỏ cả nhánh.
+        var removed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var relisted = new Dictionary<string, (DateTime Time, List<string> Files, List<(string Dir, DateTime Time)> Subdirs)>(StringComparer.OrdinalIgnoreCase);
+        var shallow = new EnumerationOptions { RecurseSubdirectories = false, IgnoreInaccessible = true, AttributesToSkip = 0 };
+        foreach (var (dir, time) in changed)
+        {
+            if (time == MissingDirTime) { removed.Add(dir); continue; }
+            var direct = new List<string>();
+            var subdirs = new List<(string, DateTime)>();
+            foreach (var (path, isDirectory, written) in new FileSystemEnumerable<(string Path, bool IsDirectory, DateTime Written)>(
+                         dir, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory, e.IsDirectory ? e.LastWriteTimeUtc.UtcDateTime : default), shallow))
+            {
+                if (isDirectory) subdirs.Add((path, written));
+                else direct.Add(path);
+            }
+            relisted[dir] = (time, direct, subdirs);
+        }
+
+        // Thư mục con: mới (chưa có giờ) → quét đủ nhánh; cũ mà không còn trong lần liệt kê → bỏ nhánh. Thư mục con cũ còn đó giữ giờ cũ của nó
+        // (chưa liệt kê lại nội dung nó — nếu nó cũng đổi thì đã nằm trong changed).
+        var newTimes = new Dictionary<string, DateTime>(times, StringComparer.OrdinalIgnoreCase);
+        var addedDirs = new List<string>();
+        var addedFiles = new List<string>();
+        foreach (var (dir, listing) in relisted)
+        {
+            newTimes[dir] = listing.Time;   // giờ hỏi TRƯỚC khi liệt kê: file thêm trong lúc liệt kê làm giờ lệch → lần sau liệt kê lại
+            addedFiles.AddRange(listing.Files);
+            var present = new HashSet<string>(listing.Subdirs.Select(s => s.Dir), StringComparer.OrdinalIgnoreCase);
+            foreach (var known in times.Keys)
+                if (!present.Contains(known) && string.Equals(Path.GetDirectoryName(known), dir, StringComparison.OrdinalIgnoreCase))
+                    removed.Add(known);
+            foreach (var (sub, written) in listing.Subdirs)
+            {
+                if (times.ContainsKey(sub)) continue;
+                addedDirs.Add(sub);
+                newTimes[sub] = written;
+                foreach (var (path, isDirectory, subWritten) in new FileSystemEnumerable<(string Path, bool IsDirectory, DateTime Written)>(
+                             sub, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory, e.IsDirectory ? e.LastWriteTimeUtc.UtcDateTime : default),
+                             new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 }))
+                {
+                    if (isDirectory) { addedDirs.Add(path); newTimes[path] = subWritten; }
+                    else addedFiles.Add(path);
+                }
+            }
+        }
+
+        bool Gone(string path)
+        {
+            if (removed.Count == 0) return false;
+            for (var p = path; p is not null && p.Length > rootKey.Length; p = Path.GetDirectoryName(p))
+                if (removed.Contains(p)) return true;
+            return false;
+        }
+        foreach (var key in times.Keys)
+            if (Gone(key)) newTimes.Remove(key);
+        var dirs = index.Dirs.Where(d => !Gone(d)).Concat(addedDirs.Where(d => !Gone(d))).ToList();
+        var files = index.Files.Where(f => Path.GetDirectoryName(f) is not { } parent || (!relisted.ContainsKey(parent) && !Gone(parent)))
+            .Concat(addedFiles.Where(f => !Gone(Path.GetDirectoryName(f) ?? rootKey))).ToList();
+        return new FileIndex(DateTime.UtcNow, dirs, files, newTimes);
+    }
 
     /// <summary>One recursive enumeration of the whole folder — a single directory listing
     /// per folder (the old walk issued GetDirectories AND GetFiles for each one), and
@@ -1301,10 +1459,13 @@ public class FileLookupService
             var dirs = new List<string>();
             var files = new List<string>();
             var dirTimes = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+            var startedTicks = DateTime.UtcNow.Ticks;
             var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = 0 };
             var complete = true;
             try
             {
+                // giờ của chính gốc (Revalidate cần), hỏi TRƯỚC khi liệt kê như giờ thư mục con lấy từ lần liệt kê thư mục cha
+                dirTimes[rootKey] = Directory.GetLastWriteTimeUtc(rootKey);
                 var entries = new FileSystemEnumerable<(string Path, bool IsDirectory, DateTime Written)>(
                     rootKey, (ref FileSystemEntry e) => (e.ToFullPath(), e.IsDirectory, e.IsDirectory ? e.LastWriteTimeUtc.UtcDateTime : default), options);
                 foreach (var (path, isDirectory, written) in entries)
@@ -1315,7 +1476,7 @@ public class FileLookupService
             }
             catch (Exception) { complete = false; }   // UNC rớt giữa chừng
 
-            if (complete && files.Count > 0) return new FileIndex(DateTime.UtcNow, dirs, files, dirTimes);
+            if (complete && files.Count > 0) return new FileIndex(DateTime.UtcNow, dirs, files, dirTimes, startedTicks);   // vừa quét = vừa đối chiếu
             if (attempt < 2) Thread.Sleep(600 * (attempt + 1));
         }
         return null;

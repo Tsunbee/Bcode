@@ -267,7 +267,7 @@ Bcode.App/
 │   ├── FastTokenModel.cs  371
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FileLookupService.cs  1359
+│   ├── FileLookupService.cs  1520
 │   ├── FileParseCache.cs  405
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  550

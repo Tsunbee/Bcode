@@ -49,6 +49,8 @@ public sealed class FsgProjectLookupService
         public int Inserted, Updated, Skipped;
         public string? Error;
         public List<string> Notes { get; } = new();
+        /// <summary>Mỗi dòng 1 dự án: "MÃ: các trường đã thay theo Web.config" (mật khẩu chỉ ghi tên trường, không ghi giá trị).</summary>
+        public List<string> WebConfigFixes { get; } = new();
         public bool Success => Error is null;
         public string Summary => Error ?? $"Thêm {Inserted}, cập nhật {Updated}, bỏ qua {Skipped}.";
     }
@@ -84,12 +86,17 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             if (row is null) return new Result { Error = $"FSG không có dự án \"{maDa}\" (hoặc dự án chưa gán phân bổ sản phẩm)." };
 
             var ws = ToWorkspace(row);
+            var configs = await WebConfigConnectionReader.ReadManyAsync(new[] { ws.ProgramPath });
+            var info = configs.GetValueOrDefault(ws.ProgramPath.Trim());
+            var fixes = info is null ? new List<string>() : OverrideFromWebConfig(ws, info);
             return new Result
             {
                 Found = true,
                 Workspace = ws,
                 Summary = $"Server: {ws.Server}\nUser: {ws.User}\nSys Data: {ws.SysDatabase}\nApp Data: {ws.AppDatabase}\n" +
-                          $"Login WLink: {ws.LoginWLink}\nProgram Path: {ws.ProgramPath}\nSource Path: {ws.SourcePath}\nWorking Path: {ws.WorkingPath}",
+                          $"Login WLink: {ws.LoginWLink}\nProgram Path: {ws.ProgramPath}\nSource Path: {ws.SourcePath}\nWorking Path: {ws.WorkingPath}" +
+                          (info is null ? "\n\n(Không đọc được Web.config ở Program Path — giữ theo QLYC.)"
+                           : fixes.Count > 0 ? "\n\nĐã sửa theo Web.config: " + string.Join("; ", fixes) : "\n\nWeb.config khớp với QLYC."),
             };
         }
         catch (Exception ex)
@@ -100,7 +107,8 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
 
     /// <summary>Đồng bộ vào <paramref name="target"/> (danh sách Workspace đang dùng) theo <paramref name="mode"/>. Không tự lưu file.</summary>
     /// <param name="maDa">Bắt buộc với <see cref="SyncMode.AddOne"/>; bỏ qua ở 2 chế độ còn lại.</param>
-    public async Task<SyncResult> SyncAsync(SyncMode mode, string? maDa, List<Workspace> target)
+    /// <param name="progress">Nhận câu tiến độ lúc đối chiếu Web.config (chế độ hàng loạt đọc vài nghìn file qua mạng, mất cỡ chục giây).</param>
+    public async Task<SyncResult> SyncAsync(SyncMode mode, string? maDa, List<Workspace> target, IProgress<string>? progress = null)
     {
         var result = new SyncResult();
         maDa = maDa?.Trim();
@@ -133,14 +141,16 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             if (!string.IsNullOrWhiteSpace(w.Name)) byCode.TryAdd(w.Name, w);
         }
 
+        // Lượt 1: chọn dòng nào sẽ thêm / cập nhật. Chưa đụng vào target để còn sửa theo Web.config trước.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var plan = new List<(Workspace Fresh, Workspace? Existing)>();
         foreach (var row in rows)
         {
             if (string.IsNullOrWhiteSpace(row.MaDa) || !seen.Add(row.MaDa)) continue;
 
             if (byCode.TryGetValue(row.MaDa, out var existing))
             {
-                if (mode == SyncMode.OverwriteAll) { ApplyTo(existing, row); result.Updated++; }
+                if (mode == SyncMode.OverwriteAll) plan.Add((ToWorkspace(row), existing));
                 else
                 {
                     result.Skipped++;
@@ -148,11 +158,43 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
                 }
                 continue;
             }
+            plan.Add((ToWorkspace(row), null));
+        }
 
-            var ws = ToWorkspace(row);
-            target.Add(ws);
-            byCode[row.MaDa] = ws;
-            result.Inserted++;
+        // Lượt 2: Web.config ở Program Path là cái site thật dùng → lệch với QLYC thì lấy theo Web.config. Đọc song song, có hạn chờ;
+        // dự án không đọc được thì giữ dữ liệu QLYC.
+        if (plan.Count > 0)
+        {
+            static string PathOf((Workspace Fresh, Workspace? Existing) p) =>
+                (string.IsNullOrWhiteSpace(p.Fresh.ProgramPath) ? p.Existing?.ProgramPath ?? "" : p.Fresh.ProgramPath).Trim();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var total = plan.Select(PathOf).Where(p => p.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            var lastShown = -1;
+            var fileProgress = progress is null ? null : new Progress<int>(n =>
+            {
+                // Progress<T> gửi về luồng UI; chỉ đẩy câu mới mỗi ~5% cho đỡ gọi giao diện vài nghìn lần
+                var pct = total == 0 ? 100 : n * 100 / total;
+                if (pct / 5 == lastShown / 5 && n < total) return;
+                lastShown = pct;
+                progress.Report($"Đang đối chiếu Web.config ở Program Path: {n}/{total}...");
+            });
+            var configs = await WebConfigConnectionReader.ReadManyAsync(plan.Select(PathOf), progress: fileProgress);
+            var read = 0;
+            foreach (var p in plan)
+            {
+                if (configs.GetValueOrDefault(PathOf(p)) is not { } info) continue;
+                read++;
+                var fixes = OverrideFromWebConfig(p.Fresh, info);
+                if (fixes.Count > 0) result.WebConfigFixes.Add($"{p.Fresh.ProjectId}: {string.Join("; ", fixes)}");
+            }
+            result.Notes.Add($"Web.config: đọc được {read}/{plan.Count} dự án trong {sw.Elapsed.TotalSeconds:0.0} s" +
+                             (result.WebConfigFixes.Count > 0 ? $", sửa theo Web.config {result.WebConfigFixes.Count} dự án." : ", không lệch với QLYC."));
+        }
+
+        foreach (var (fresh, existing) in plan)
+        {
+            if (existing is not null) { ApplyTo(existing, fresh); result.Updated++; }
+            else { target.Add(fresh); result.Inserted++; }
         }
         return result;
     }
@@ -479,14 +521,49 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
         return string.Join(", ", list);
     }
 
-    /// <summary>Ghi đè bằng giá trị FSG có (không rỗng); giá trị FSG rỗng thì giữ cái đang có.</summary>
-    private static void ApplyTo(Workspace w, FsgRow r)
+    /// <summary>
+    /// Sửa Workspace vừa dựng từ QLYC theo Web.config: Server, Sys Data, App Data, User, Password (và Windows Auth nếu Web.config dùng).
+    /// Web.config không khai trường nào thì giữ giá trị QLYC. appConnectionString của FBO thường để <c>Initial Catalog=%Database</c> (chọn
+    /// lúc đăng nhập) → khi đó App Data suy lại từ Sys Data mới theo quy ước "_S" → "_A". Trả về danh sách trường đã thay để báo người dùng.
+    /// </summary>
+    private static List<string> OverrideFromWebConfig(Workspace w, WebConfigConnectionReader.Info info)
+    {
+        var changes = new List<string>();
+        void Set(string label, string value, string old, Action<string> set, bool secret = false)
+        {
+            if (value.Length == 0 || (secret ? value == old : value.Equals(old.Trim(), StringComparison.OrdinalIgnoreCase))) return;
+            set(value);
+            changes.Add(secret ? label : $"{label} \"{old}\" → \"{value}\"");
+        }
+
+        Set("Server", info.Server, w.Server, v => w.Server = v);
+        if (info.IntegratedSecurity)
+        {
+            if (!w.IntegratedSecurity) { w.IntegratedSecurity = true; changes.Add("Windows Auth"); }
+        }
+        else
+        {
+            Set("User", info.User, w.User, v => w.User = v);
+            Set("Password", info.Password, w.Password, v => w.Password = v, secret: true);
+        }
+        var oldSys = w.SysDatabase;
+        Set("Sys Data", info.SysDatabase, w.SysDatabase, v => w.SysDatabase = v);
+        var sysChanged = !w.SysDatabase.Equals(oldSys, StringComparison.OrdinalIgnoreCase);
+        var app = info.AppDatabase.Length > 0 ? info.AppDatabase : sysChanged ? InferAppDatabase(w.SysDatabase) : "";
+        Set("App Data", app, w.AppDatabase, v => w.AppDatabase = v);
+        if (sysChanged && app.Length == 0 && w.AppDatabase.Length > 0) changes.Add($"App Data \"{w.AppDatabase}\" (theo QLYC) cần kiểm tra lại");
+        if (changes.Count > 0) w.DbAccess = BuildDbAccess(w.SysDatabase, w.AppDatabase, w.ProjectId);
+        return changes;
+    }
+
+    /// <summary>Ghi đè bằng giá trị FSG có (không rỗng, đã sửa theo Web.config); giá trị FSG rỗng thì giữ cái đang có.</summary>
+    private static void ApplyTo(Workspace w, Workspace fresh)
     {
         static string Keep(string fresh, string old) => string.IsNullOrWhiteSpace(fresh) ? old : fresh;
-        var fresh = ToWorkspace(r);
         w.ProjectId = Keep(fresh.ProjectId, w.ProjectId);
         w.Server = Keep(fresh.Server, w.Server);
-        if (!string.IsNullOrWhiteSpace(fresh.User)) { w.IntegratedSecurity = false; w.User = fresh.User; }
+        if (fresh.IntegratedSecurity) w.IntegratedSecurity = true;
+        else if (!string.IsNullOrWhiteSpace(fresh.User)) { w.IntegratedSecurity = false; w.User = fresh.User; }
         w.Password = Keep(fresh.Password, w.Password);
         w.SysDatabase = Keep(fresh.SysDatabase, w.SysDatabase);
         w.AppDatabase = Keep(fresh.AppDatabase, w.AppDatabase);

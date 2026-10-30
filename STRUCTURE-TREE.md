@@ -137,7 +137,7 @@ Bcode.App/
 │   ├── CommandPaletteForm.cs  113
 │   ├── CompareStructureForm.cs  64
 │   ├── CompareTextForm.cs  644
-│   ├── ConnectionSettingsForm.cs  328
+│   ├── ConnectionSettingsForm.cs  341
 │   ├── CopyMultiFileForm.cs  262
 │   ├── CopySourceStandardForm.cs  99
 │   ├── CreateRptXlsxForm.cs  86
@@ -271,7 +271,7 @@ Bcode.App/
 │   ├── FileParseCache.cs  405
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  550
-│   ├── FsgProjectLookupService.cs  501
+│   ├── FsgProjectLookupService.cs  578
 │   ├── GenAllService.cs  806
 │   ├── GenAllService.Delivery.cs  117
 │   ├── GenAllService.Suggest.cs  241
@@ -324,6 +324,7 @@ Bcode.App/
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
 │   ├── WCommandService.cs  894
+│   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77
 │   └── XlsxExportService.cs  22

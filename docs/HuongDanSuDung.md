@@ -120,6 +120,13 @@ Mở: ⚙ Settings → **Choose Server / Workspaces...**, hoặc **＋ New / ✎
 
 Hộp **Synchronize** có 3 chế độ: **Thêm mới 1 mã dự án (ma_da)** · **Chỉ sync dự án mới** · **Overwrite tất cả** (hỏi xác nhận; mật khẩu web, Mobile Path, cấu hình Profiler được giữ). Kết quả "Thêm X, cập nhật Y, bỏ qua Z" — **phải bấm Apply / Save** mới lưu.
 
+**Đối chiếu Web.config**: lấy dữ liệu từ QLYC xong, Bcode đọc `Web.config` trong **Program Path** của từng dự án (chỉ đọc, không sửa file) — key `sysDatabaseName`, connection string `sysConnectionString` / `appConnectionString` — rồi so **Server, User, Password, Sys Data, App Data**. Trường nào QLYC khai lệch thì **lấy theo Web.config** (cái site đang chạy thật dùng) và hiện hộp liệt kê dự án + trường đã thay (mật khẩu chỉ ghi chữ "Password", không hiện giá trị); dòng trạng thái có "Web.config: đọc được X/Y dự án trong … s".
+
+- Web.config khai server cục bộ (`.\SQL2019`, `(local)`, `localhost`) được đổi thành máy chủ chứa Program Path (vd `172.168.5.14\SQL2019`).
+- App Data: connection string thường để `Initial Catalog=%Database` (chọn lúc đăng nhập) nên không có tên; khi Sys Data đổi theo Web.config thì App Data suy lại theo quy ước `…_S` → `…_A`. Không suy được thì giữ theo QLYC và ghi "cần kiểm tra lại".
+- Không có Program Path / không có Web.config (dự án dạng app) / thư mục không tới được → **giữ nguyên dữ liệu QLYC**. Mỗi file chờ tối đa 4 giây; máy chủ không trả lời thì bỏ qua các dự án còn lại trên máy đó.
+- Tốc độ: 1 dự án thêm khoảng 0,05–0,2 giây. Chế độ hàng loạt đọc vài nghìn Web.config qua mạng (đo thật ~2900 dự án: 13–30 giây, tuỳ tải máy chủ) — dòng trạng thái hiện tiến độ "Đang đối chiếu Web.config x/y".
+
 ### Đổi dự án và nhiều cửa sổ
 
 | Phím | Tác dụng |

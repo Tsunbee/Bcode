@@ -267,7 +267,8 @@ public class ConnectionSettingsForm : ThemedForm
         await Js("window.setBusy(true); window.setStatus('Đang đồng bộ...')");
         try
         {
-            var result = await new FsgProjectLookupService().SyncAsync(mode, code, _settings.Workspaces);
+            var progress = new Progress<string>(text => _ = Js($"window.setStatus({Json(text)})"));
+            var result = await new FsgProjectLookupService().SyncAsync(mode, code, _settings.Workspaces, progress);
             if (!result.Success)
             {
                 await Js($"window.setStatus({Json(result.Error!)}, 'err')");
@@ -279,6 +280,18 @@ public class ConnectionSettingsForm : ThemedForm
                 : _settings.Workspaces.FindIndex(w => w.Name == keepName);
             await PushListAsync(select >= 0 ? select : 0);
             await Js($"window.setStatus({Json(result.Summary + (result.Notes.Count > 0 ? "  " + string.Join(" ", result.Notes) : "") + "  Bấm Apply/Save để lưu.")}, 'ok')");
+
+            // QLYC lệch Web.config → đã lấy theo Web.config; liệt kê để người dùng biết trường nào bị thay.
+            if (result.WebConfigFixes.Count > 0)
+            {
+                const int max = 40;
+                var lines = result.WebConfigFixes.Take(max).ToList();
+                if (result.WebConfigFixes.Count > max) lines.Add($"... và {result.WebConfigFixes.Count - max} dự án khác.");
+                MessageBox.Show(this,
+                    "Thông tin trên QLYC lệch với Web.config ở Program Path — đã lấy theo Web.config:\n\n" + string.Join("\n", lines) +
+                    "\n\nBấm Apply / Save & Close để lưu.",
+                    "Synchronize — sửa theo Web.config", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
         finally
         {

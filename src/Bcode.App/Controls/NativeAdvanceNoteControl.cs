@@ -88,6 +88,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _toolbar.Controls.Add(_syncProg);
         _toolbar.Controls.Add(NK.Button("⟳ Sync yêu cầu", () => { Flush(); _ = SyncAsync(); }, tip: "Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có"));
         _toolbar.Controls.Add(NK.Button("📄 Request Content", OpenContent, tip: "Xem / sửa nội dung y/c & những gì đã sửa — Ctrl+Shift+4"));
+        _toolbar.Controls.Add(_noteButton = NK.Button("📝 Note", OpenNote, tip: "Lưu ý cho người triển khai — Generate Update ghi vào note.txt trong thư mục gói update"));
         _toolbar.Controls.Add(NK.Button("⚙ Theo luật Fast", () => RequestCatalogAssist("rules"),
             tip: "Mở Tạo nhanh danh mục điền ngay theo luật cấu trúc Fast cho y/c đang chọn — không gọi AI, không cần API key — Ctrl+Alt+Shift+F"));
         _toolbar.Controls.Add(NK.Button("🔎 AI phân tích", () => RequestCatalogAssist("analyze"),
@@ -559,6 +560,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
             }
             finally { _loading = false; }
         }
+        PaintNoteButton();
         RenderList();
     }
 
@@ -820,7 +822,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _items.Rows.Clear();
         foreach (var it in _preview)
         {
-            var i = _items.Rows.Add(it.IsScript ? "script" : "file", it.Origin, it.RelativeDestPath, it.IsScript ? "Mở" : "");
+            var i = _items.Rows.Add(it.IsScript ? "script" : "file", it.Origin, GenAllService.PackagePath(it.RelativeDestPath), it.IsScript ? "Mở" : "");
             var tip = it.SourceFilePath ?? it.Origin;   // như title của dòng trên trang web: đường dẫn nguồn
             foreach (DataGridViewCell c in _items.Rows[i].Cells) c.ToolTipText = c.OwningColumn!.Name == "open" && it.IsScript ? "Mở script này vào tab SQL Query" : tip;
         }
@@ -850,7 +852,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     {
         _pkgTree.BeginUpdate();
         _pkgTree.Nodes.Clear();
-        for (var n = 0; n < _preview.Count; n++) NK.AddPath(_pkgTree.Nodes, _preview[n].RelativeDestPath, n, _preview[n].Origin);
+        for (var n = 0; n < _preview.Count; n++) NK.AddPath(_pkgTree.Nodes, GenAllService.PackagePath(_preview[n].RelativeDestPath), n, _preview[n].Origin);
         NK.SortTree(_pkgTree.Nodes);   // như trang web: thư mục trước, file sau, thứ tự tự nhiên
         _pkgTree.ExpandAll();
         if (_pkgTree.Nodes.Count > 0) _pkgTree.TopNode = _pkgTree.Nodes[0];
@@ -920,7 +922,8 @@ public sealed class NativeAdvanceNoteControl : UserControl
                 return;
             }
             var dest = Path.Combine(savePath, folder);
-            var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
+            var note = AdvancePackageBuilder.NoteText(picked);
+            var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description, note));
             _preview = AdvancePackageBuilder.OrderForRun(merged.Items);
             // Chép lên đường dẫn mạng (tick zip = chỉ đưa .zip lên mạng): lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
             SavePkgOpts();
@@ -1062,6 +1065,25 @@ public sealed class NativeAdvanceNoteControl : UserControl
         dlg.ShowDialog(FindForm());
         if (dlg.Text.Length >= 0 && dlg.ResultText != _cur.Content) { _cur.Content = dlg.ResultText; Dirty(); Flush(); }
     }
+
+    private PillButton? _noteButton;
+
+    private void OpenNote()
+    {
+        if (_cur is null) return;
+        using var dlg = new RequestContentDialog(_cur.Name, _cur.Note ?? "", plain: true);
+        dlg.ShowDialog(FindForm());
+        if (dlg.ResultText != (_cur.Note ?? "")) { _cur.Note = dlg.ResultText; Dirty(); Flush(); }
+        PaintNoteButton();
+    }
+
+    /// <summary>Y/c đang chọn có Note → nút thành "📝 Note ●" (như nút App / Sys có script).</summary>
+    private void PaintNoteButton()
+    {
+        if (_noteButton is null) return;
+        _noteButton.Text = string.IsNullOrWhiteSpace(_cur?.Note) ? "📝 Note" : "📝 Note ●";
+        _noteButton.Invalidate();
+    }
 }
 
 /// <summary>Khung "Request Content" phóng to: xem định dạng (dòng Menu / Ghi chú / thông tin bộ phận tô màu) hoặc sửa chữ thuần; Copy; Esc đóng.</summary>
@@ -1073,19 +1095,20 @@ internal sealed class RequestContentDialog : ThemedForm
 
     public string ResultText => _edit.Text;
 
-    public RequestContentDialog(string name, string content)
+    /// <param name="plain">true = khung Note (lưu ý cho người triển khai → note.txt): chỉ sửa chữ thuần, không có chế độ xem định dạng.</param>
+    public RequestContentDialog(string name, string content, bool plain = false)
     {
-        Text = "Request Content — " + name;
+        Text = (plain ? "Note (note.txt) — " : "Request Content — ") + name;
         Width = NativeSkin.S(980); Height = NativeSkin.S(700); StartPosition = FormStartPosition.CenterParent; KeyPreview = true; ShowIcon = false;
         _edit.Text = content;
         var bar = new BarFlow { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8, 6, 8, 6) };
         _toggle = NK.Button("✏ Sửa", () => SetMode(!_edit.Visible));
-        bar.Controls.Add(_toggle);
+        if (!plain) bar.Controls.Add(_toggle);
         bar.Controls.Add(NK.Button("Copy", () => NK.CopyText(_edit.Text), tip: "Copy toàn bộ nội dung"));
         bar.Controls.Add(NK.Button("Đóng", Close, primary: true));
         Controls.Add(_rich); Controls.Add(_edit); Controls.Add(bar);
         KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) Close(); };
-        Shown += (_, _) => SetMode(string.IsNullOrWhiteSpace(_edit.Text));   // có nội dung → xem định dạng; trống thì vào luôn chế độ sửa
+        Shown += (_, _) => SetMode(plain || string.IsNullOrWhiteSpace(_edit.Text));   // có nội dung → xem định dạng; trống (hoặc Note) thì vào luôn chế độ sửa
     }
 
     private void SetMode(bool edit)

@@ -769,14 +769,29 @@ public partial class GenAllService
 
     // ---- Tạo gói update -------------------------------------------------------------------------------
 
-    /// <summary>Ghi các mục ra thư mục gói (cùng cách Gen Update hiện có: copy file / ghi script). Trả về số mục đã ghi.</summary>
-    public static int CreatePackage(string destRoot, IEnumerable<PackageItem> items, string? description)
+    /// <summary>File cấu hình dùng chung của site: vào gói update thì đổi tên thành <see cref="GuardPrefix"/> + tên (Web.config → __Web.config) để người
+    /// triển khai không chép đè nhầm bản đang chạy của khách mà phải tự xem / ghép.</summary>
+    public static readonly string[] GuardedFileNames = { "Web.config", "MasterPage.master", "Options.xml", "Message.xml" };
+    public const string GuardPrefix = "__";
+
+    /// <summary>Đường dẫn THẬT của 1 mục trong thư mục gói (đã đổi tên file thuộc <see cref="GuardedFileNames"/>) — dùng khi ghi gói và khi hiện xem trước.</summary>
+    public static string PackagePath(string relativeDestPath)
+    {
+        var name = Path.GetFileName(relativeDestPath);
+        return GuardedFileNames.Contains(name, StringComparer.OrdinalIgnoreCase)
+            ? Path.Combine(Path.GetDirectoryName(relativeDestPath) ?? "", GuardPrefix + name)
+            : relativeDestPath;
+    }
+
+    /// <summary>Ghi các mục ra thư mục gói (cùng cách Gen Update hiện có: copy file / ghi script). Trả về số mục đã ghi.
+    /// <paramref name="note"/> khác rỗng → note.txt (lưu ý cho người triển khai).</summary>
+    public static int CreatePackage(string destRoot, IEnumerable<PackageItem> items, string? description, string? note = null)
     {
         Directory.CreateDirectory(destRoot);
         var count = 0;
         foreach (var item in items)
         {
-            var dest = Path.Combine(destRoot, item.RelativeDestPath);
+            var dest = Path.Combine(destRoot, PackagePath(item.RelativeDestPath));
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
             if (item.GeneratedContent is not null) File.WriteAllText(dest, item.GeneratedContent);
             else File.Copy(item.SourceFilePath!, dest, overwrite: true);
@@ -784,6 +799,8 @@ public partial class GenAllService
         }
         if (!string.IsNullOrWhiteSpace(description))
             File.WriteAllText(Path.Combine(destRoot, "description.txt"), description);
+        if (!string.IsNullOrWhiteSpace(note))
+            File.WriteAllText(Path.Combine(destRoot, "note.txt"), note);
         return count;
     }
 }

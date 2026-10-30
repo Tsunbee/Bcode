@@ -37,7 +37,7 @@
   .dbsw { display: inline-flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
   .dbsw button { border: 0; border-radius: 0; background: transparent; color: var(--text-muted); padding: 1px 12px; font: inherit; font-weight: 600; cursor: pointer; }
   .dbsw button.on { background: var(--accent); color: var(--on-accent, #fff); }
-  .dbsw button.has::after { content: " ●"; font-size: .7em; vertical-align: middle; }
+  .dbsw button.has::after, #btnNote.has::after { content: " ●"; font-size: .7em; vertical-align: middle; }
   .title .hint { color: var(--text-muted); font-family: "Segoe UI", sans-serif; font-weight: normal; font-size: 11px; }
   #left { min-height: 0; }
   #listWrap { flex: 1 1 0; min-height: 80px; overflow: auto; }   /* y/c nhiều: cuộn xuống tìm */
@@ -109,6 +109,7 @@
     <input type="text" id="syncProg" placeholder="Tên lập trình (ma_lt1)" title="Tên lập trình cần đồng bộ yêu cầu về" spellcheck="false" style="width:170px" />
     <button id="btnSync" title="Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có">⟳ Sync yêu cầu</button>
     <button id="btnContent" title="Xem / sửa nội dung y/c &amp; những gì đã sửa (đi kèm gói update) — Ctrl+Shift+4">📄 Request Content</button>
+    <button id="btnNote" title="Lưu ý cho người triển khai — Generate Update ghi vào note.txt trong thư mục gói update">📝 Note</button>
     <button id="btnFastRules" title="Mở Tạo nhanh danh mục điền ngay theo luật cấu trúc Fast cho y/c đang chọn — không gọi AI, không cần API key — Ctrl+Alt+Shift+F">⚙ Theo luật Fast</button>
     <button id="btnAiAnalyze" title="AI đọc y/c đang chọn và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận ở Tạo nhanh danh mục rồi luật Fast mới tạo. Cần API key — Ctrl+Alt+Shift+I">🔎 AI phân tích</button>
     <button id="btnAiCatalog" title="Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)">🤖 AI tạo danh mục</button>
@@ -142,6 +143,7 @@
             <label class="f" style="display:none"><button type="button" class="expand" id="bExpand" title="Mở rộng khung nội dung (hoặc nhấp đúp vào ô nội dung)">⤢ Phóng to</button>Request Content — nội dung y/c &amp; những gì đã sửa (đi kèm gói update)
               <textarea id="fContent" rows="4" spellcheck="false" style="font-family: 'Segoe UI', sans-serif; font-size: 13px"></textarea>
             </label>
+            <textarea id="fNote" style="display:none"></textarea><!-- Note → note.txt của gói; sửa qua nút 📝 Note (khung cModal) -->
           </div>
         </div>
 
@@ -364,7 +366,8 @@
     $('editor').style.display = r ? 'flex' : 'none';
     if (r) {
       $('fName').value = r.name; $('fMobile').checked = !!r.mobile; $('fDone').checked = !!r.done;
-      $('fContent').value = r.content || ''; $('fGenAll').value = r.genAll || '';
+      $('fContent').value = r.content || ''; $('fNote').value = r.note || ''; $('fGenAll').value = r.genAll || '';
+      $('btnNote').classList.toggle('has', !!(r.note || '').trim());
       $('fFilePaths').value = r.filePaths || '';
       migrateScripts(r);
       if (changed) S.scriptDb = (!hasScript(r, 'app') && hasScript(r, 'sys')) ? 'sys' : 'app';   // mở y/c: đứng ở database đang có script (ưu tiên App)
@@ -452,7 +455,8 @@
     const r = cur(); if (!r) return null;
     r.name = $('fName').value.trim() || r.name;
     r.mobile = $('fMobile').checked; r.done = $('fDone').checked;
-    r.content = $('fContent').value; r.genAll = $('fGenAll').value;
+    r.content = $('fContent').value; r.note = $('fNote').value; r.genAll = $('fGenAll').value;
+    $('btnNote').classList.toggle('has', !!r.note.trim());
     r.filePaths = $('fFilePaths').value;
     r[procKey(S.scriptDb)] = $('fProcedures').value; r.objectsSplit = true;
     r[topKey(S.scriptDb)] = $('fTopScript').value; r[bottomKey(S.scriptDb)] = $('fBottomScript').value; r.scriptsSplit = true;
@@ -467,7 +471,7 @@
     post('save', { request: r });
     renderList();
   }
-  ['fName', 'fMobile', 'fDone', 'fContent', 'fGenAll', 'fFilePaths', 'fProcedures', 'fTopScript', 'fBottomScript'].forEach((id) => {
+  ['fName', 'fMobile', 'fDone', 'fContent', 'fNote', 'fGenAll', 'fFilePaths', 'fProcedures', 'fTopScript', 'fBottomScript'].forEach((id) => {
     $(id).addEventListener('input', scheduleSave);
     $(id).addEventListener('change', scheduleSave);
   });
@@ -595,13 +599,20 @@
   };
   $('btnNew').onclick = () => { flushSave(); post('newRequest'); };
   // ---- Khung nội dung phóng to: sửa trực tiếp, đồng bộ 2 chiều với ô Request Content (tự lưu như khi gõ ở ô nhỏ) ----
-  function openContent() {
+  // Khung dùng chung cho Note (nút 📝 Note → note.txt của gói): S.cField = ô ẩn đang sửa; Note chỉ sửa chữ thuần (không có Xem đẹp).
+  S.cField = 'fContent';
+  function openContent() { openBox('fContent'); }
+  function openBox(field) {
     const r = cur(); if (!r) return;
-    $('cTitle').textContent = 'Request Content — ' + (r.name || '');
-    $('cText').value = $('fContent').value;
+    S.cField = field;
+    const note = field === 'fNote';
+    $('cTitle').textContent = (note ? 'Note (note.txt) — ' : 'Request Content — ') + (r.name || '');
+    $('cText').placeholder = note ? 'Lưu ý cho người triển khai (ghi vào note.txt trong thư mục gói update)...' : 'Nội dung yêu cầu...';
+    $('cEdit').style.display = note ? 'none' : '';
+    $('cText').value = $(field).value;
     $('cModal').style.display = 'block';
-    // Có nội dung → mở ở chế độ XEM định dạng (menu / ghi chú tô màu); nội dung trống thì vào luôn chế độ sửa.
-    setEditMode(!$('cText').value.trim());
+    // Có nội dung → mở ở chế độ XEM định dạng (menu / ghi chú tô màu); nội dung trống (hoặc Note) thì vào luôn chế độ sửa.
+    setEditMode(note || !$('cText').value.trim());
   }
   function renderRich() { $('cRich').innerHTML = window.RichReq ? window.RichReq.build(window.RichReq.parse($('cText').value)) : ''; }
   function setEditMode(edit) {
@@ -615,10 +626,11 @@
   function closeContent() {
     if ($('cModal').style.display !== 'block') return;
     $('cModal').style.display = 'none';
-    $('fContent').focus();
+    if (S.cField === 'fContent') $('fContent').focus();
   }
   $('bExpand').onclick = (e) => { e.preventDefault(); openContent(); };
   $('btnContent').onclick = openContent;
+  $('btnNote').onclick = () => openBox('fNote');
   document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.shiftKey && (e.key === '4' || e.key === '$' || e.code === 'Digit4')) { e.preventDefault(); openContent(); } });
   // Ctrl+C file ở Explorer rồi Ctrl+V vào ô File Path → chèn ĐƯỜNG DẪN của các file đó (như FCode); trình duyệt không lộ đường dẫn nên nhờ host đọc clipboard.
   $('fFilePaths').addEventListener('paste', (e) => {
@@ -627,10 +639,10 @@
   });
   $('fContent').addEventListener('dblclick', openContent);
   $('cClose').onclick = closeContent;
-  $('cCopy').onclick = () => { post('copy', { text: $('cText').value }); setStatus('Đã copy nội dung y/c.', 'ok'); };
+  $('cCopy').onclick = () => { post('copy', { text: $('cText').value }); setStatus(S.cField === 'fNote' ? 'Đã copy Note.' : 'Đã copy nội dung y/c.', 'ok'); };
   $('cText').addEventListener('input', () => {
-    $('fContent').value = $('cText').value;
-    $('fContent').dispatchEvent(new Event('input', { bubbles: true })); // kích hoạt tự lưu
+    $(S.cField).value = $('cText').value;
+    $(S.cField).dispatchEvent(new Event('input', { bubbles: true })); // kích hoạt tự lưu
   });
   $('cModal').addEventListener('mousedown', (e) => { if (e.target === $('cModal')) closeContent(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeContent(); });

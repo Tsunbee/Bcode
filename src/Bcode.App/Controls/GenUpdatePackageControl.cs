@@ -127,7 +127,7 @@ public class GenUpdatePackageControl : UserControl
     {
         key = b.Key,
         name = b.DisplayName,
-        rel = MergedPath(b) is { } merged ? $"{merged} ← {Path.GetFileNameWithoutExtension(b.RelativeDestPath)}" : b.RelativeDestPath,
+        rel = MergedPath(b) is { } merged ? $"{merged} ← {Path.GetFileNameWithoutExtension(b.RelativeDestPath)}" : GenAllService.PackagePath(b.RelativeDestPath),
         kind = b.GeneratedContent is not null ? "script" : "file",
     });
 

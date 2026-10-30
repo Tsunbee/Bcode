@@ -341,7 +341,7 @@ public class AdvanceNoteControl : UserControl
         items = items.Select(i => new
         {
             origin = i.Origin,
-            rel = i.RelativeDestPath,
+            rel = GenAllService.PackagePath(i.RelativeDestPath),
             kind = i.IsScript ? "script" : "file",
             source = i.SourceFilePath ?? "",
         }),
@@ -465,7 +465,8 @@ public class AdvanceNoteControl : UserControl
         }
 
         var dest = Path.Combine(savePath, folder);
-        var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description));
+        var note = AdvancePackageBuilder.NoteText(_requests.Where(r => ids.Contains(r.Id)));
+        var count = await Task.Run(() => GenAllService.CreatePackage(dest, merged.Items, description, note));
         _previewItems = OrderForRun(merged.Items);   // để bấm xem nội dung từng mục của gói vừa tạo
         // Chép lên đường dẫn mạng (tick zip = chỉ đưa .zip lên mạng): lỗi chỉ báo, gói ở Save At Path đã tạo xong vẫn giữ.
         var opts = ReadPackageOptions(root);

@@ -15,6 +15,15 @@ public static class AdvancePackageBuilder
             .OrderBy(i => i.RelativeDestPath.Replace('/', '\\').Contains("\\sys\\", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
             .ThenBy(i => Path.GetFileName(i.RelativeDestPath), StringComparer.OrdinalIgnoreCase)).ToList();
 
+    /// <summary>Nội dung note.txt của gói: Note của các y/c đã chọn (bỏ y/c không có note); từ 2 y/c có note trở lên thì mỗi khối có tên y/c đứng đầu.</summary>
+    public static string NoteText(IEnumerable<AdvanceRequest> picked)
+    {
+        var withNote = picked.Where(r => !string.IsNullOrWhiteSpace(r.Note)).ToList();
+        return withNote.Count == 1
+            ? withNote[0].Note.Trim()
+            : string.Join("\r\n\r\n", withNote.Select(r => "[" + r.Name + "]\r\n" + r.Note.Trim()));
+    }
+
     public static string SafeFolder(string? name)
     {
         var s = string.Concat((name ?? "").Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c)).Trim();

@@ -16,7 +16,7 @@ Bcode.App/
 │   ├── rpt/
 │   └── README.md  14
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  567
+│   ├── AdvanceNoteControl.cs  568
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -44,7 +44,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  211
-│   ├── NativeAdvanceNoteControl.cs  1178
+│   ├── NativeAdvanceNoteControl.cs  1201
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  278
@@ -222,8 +222,8 @@ Bcode.App/
 │   │   ├── RptSchemaService.cs  124
 │   │   ├── RptXmlBuilder.cs  103
 │   │   └── XsdSchemaWriter.cs  110
-│   ├── AdvanceNoteService.cs  166
-│   ├── AdvancePackageBuilder.cs  170
+│   ├── AdvanceNoteService.cs  169
+│   ├── AdvancePackageBuilder.cs  179
 │   ├── AiCatalogService.cs  581
 │   ├── AiChatService.cs  79
 │   ├── AiHistoryStore.cs  76
@@ -272,7 +272,7 @@ Bcode.App/
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  501
-│   ├── GenAllService.cs  789
+│   ├── GenAllService.cs  806
 │   ├── GenAllService.Delivery.cs  117
 │   ├── GenAllService.Suggest.cs  241
 │   ├── GenInsertService.cs  47
@@ -358,7 +358,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  806
+│       ├── advnote.html  818
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  766
 │       ├── apischema.html  470

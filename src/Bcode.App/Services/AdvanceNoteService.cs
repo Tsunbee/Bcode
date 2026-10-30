@@ -43,6 +43,9 @@ public class AdvanceRequest
     /// <summary>"Request Content" — mô tả y/c và những gì đã sửa (đi kèm gói update dạng description.txt).</summary>
     public string Content { get; set; } = "";
 
+    /// <summary>"Note" — lưu ý cho người triển khai (nút 📝 Note), ghi vào note.txt của thư mục gói update.</summary>
+    public string Note { get; set; } = "";
+
     /// <summary>Gen All: tên controller, mỗi dòng (hoặc cách nhau dấu phẩy) 1 tên.</summary>
     public string GenAll { get; set; } = "";
 

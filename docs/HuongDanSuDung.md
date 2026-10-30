@@ -737,7 +737,10 @@ Cấu trúc gói:
   Script\sys\SYS_Script.sql
   Web\App_Data\...   Web\Main\...   (giữ đường dẫn tương đối so với site)
   description.txt
+  note.txt          (chỉ Note (New) / BcodeNote, khi yêu cầu có 📝 Note)
 ```
+
+File cấu hình dùng chung của site được đổi tên trong gói, thêm `__` ở đầu: `Web.config` → `__Web.config`, `MasterPage.master` → `__MasterPage.master`, `Options.xml` → `__Options.xml`, `Message.xml` → `__Message.xml` (cùng thư mục, không phân biệt hoa thường). Người triển khai phải tự xem / ghép, tránh chép đè nhầm bản đang chạy của khách. Áp dụng cho mọi gói: Gen Update, Note (New), BcodeNote; khung xem trước cũng hiện tên mới.
 
 Script gộp giống Note (New): mỗi database 1 file, xếp table (cấu trúc → dữ liệu) → view → trigger / function / stored; mỗi đoạn mở đầu bằng dòng `-- ===== <nguồn> · <tên> =====` và kết thúc bằng `GO`.
 
@@ -762,7 +765,8 @@ Quản lý từng yêu cầu (request) và sinh gói update cho yêu cầu đó:
 2. Chọn yêu cầu ở **Request List** (ô **Lọc mã y/c** ngay trên danh sách: gõ một phần mã, nhiều mã cách nhau dấu cách / phẩy; `Enter` mở y/c đầu tiên khớp, `Esc` xoá lọc; ô tick ở tiêu đề chỉ tick các y/c đang hiện) rồi khai: **Gen All** (controller, mỗi dòng một cái), **File Path** (mỗi dòng một đường dẫn; `Ctrl+V` file copy từ Explorer là dán đường dẫn), **SQL Object** / **SQL Top Script** / **Bottom Script** (chọn App / Sys), **Table liên quan** (⟳ Tải table, Cấu trúc / Dữ liệu / Where).
 3. **🔍 Xem trước gói** → cây gói update (double-click file để mở trong tab Query); **▶ Mở tất cả script vào tab Query** để rà lại.
 4. **Generate Update**: Save At Path, Folder Name, **Tách theo từng y/c** (mỗi yêu cầu một thư mục con) → **⚙ Generate Update**. Tick nhiều yêu cầu ở cột đầu danh sách để sinh chung. Có thêm **Gen vào đường dẫn mạng** và **Nén .zip khi gen lên mạng** (2 ô này hiện khi tick ô mạng) — giống hệt [Gen Update](#gen-update), nhớ chung cho cả Gen Update và BcodeNote.
-5. **📄 Request Content** xem nội dung yêu cầu.
+5. **📄 Request Content** xem nội dung yêu cầu (đi vào `description.txt` của gói, kèm tên yêu cầu).
+   **📝 Note**: ghi lưu ý cho người triển khai (vd "ghép tay Web.config", "chạy script trước khi chép file") → Generate Update ghi ra `note.txt` trong thư mục gói. Mỗi yêu cầu có Note riêng (nút hiện ● khi yêu cầu đang chọn có Note); sinh chung nhiều yêu cầu thì `note.txt` gộp Note của từng yêu cầu, mỗi khối có `[Tên yêu cầu]` đứng đầu. Không có Note thì không tạo `note.txt`.
 6. **⚙ Theo luật Fast** (`Ctrl+Alt+Shift+F`, không gọi AI), **🔎 AI phân tích** (`Ctrl+Alt+Shift+I`) và **🤖 AI tạo danh mục** (bản thử, `Ctrl+Alt+I` khi đang ở tab Note (New)): xem [AI tạo danh mục từ yêu cầu](#ai-danh-muc).
 
 Dữ liệu lưu ở `%AppData%\Bcode\AdvanceNotes\<workspace>.json`.

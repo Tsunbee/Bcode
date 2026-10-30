@@ -592,7 +592,7 @@ Trên ảnh: **①** ô lọc theo tên / ID / link · **②** ô (C) chỉ menu
 | Thêm menu | `Insert` hoặc chuột phải → **New** (điền sẵn mọi thông tin của menu đang chọn + tự gợi ý WMenu Id / Menu Id còn trống) |
 | Sửa / xoá | `F3` **Edit** · `F8` **Delete** (hỏi xác nhận) |
 | Chạy menu trên web | `Ctrl+F5` hoặc **Run...** → mở `{Login WLink}/Main/{Link}` bằng trình duyệt mặc định |
-| Chạy menu trong FSG FBO | `Ctrl+4` hoặc **Run trong FSG FBO** → mở tab FSG FBO, tự đăng nhập rồi vào đúng trang của menu (tab đã mở và đã đăng nhập thì vào menu luôn) |
+| Chạy menu trong FSG FBO | `Ctrl+4` hoặc **Run trong FSG FBO** → mở tab FSG FBO, tự đăng nhập rồi vào đúng trang của menu. Dự án đã có tab FSG FBO đăng nhập rồi thì menu khác mở **thêm 1 tab mới** đi thẳng tới menu đó, dùng chung phiên đăng nhập (như nhiều tab Chrome, không đăng nhập lại); ấn lại đúng menu đã có tab thì chuyển sang tab đó và tải lại trang. Phiên hết hạn (bị đẩy về trang đăng nhập) thì tự đăng nhập lại rồi vào menu |
 | Sinh script menu | `F12` **Gen Script Menu** → cửa sổ "Script — {WMenuId}" (DELETE + INSERT cho wcommand và command, mỗi câu kết thúc GO) |
 | Kiểm tra trùng | **Check WCommand** → hộp "Duplicate Menu" (tab "Not exists in Command" và "Difference Sysid" — sysid của wcommand khác của command; menu không khai sysid như menu nhóm, dòng kẻ "-" được bỏ qua) |
 | Thiết kế màn hình | **Thiết kế màn hình (Screen Designer)** — chỉ bật khi menu có SysId |
@@ -973,7 +973,7 @@ Khi tester / triển khai ghi chú hay ghi lỗi vào y/c trên QLYC (FSG), Bcod
 | **Library...** | Thư viện script hay dùng (snippet) theo dự án: New / Save / Delete / Copy / **Insert vào Script Editor**. Gọi nhanh trong `Ctrl+P` bằng tiền tố `$`. |
 | **Setup eInvoice (FE)** | Cấu hình hoá đơn điện tử: kết nối (link trung gian, CSDL Proxy), Portal Key từ mail, link portal, tài khoản → **Step 1: View UpdateKey Script** → **Step 2: Exec Insert in Server (SQL)** → **Cập nhật / Update Key**. Mật khẩu không được lưu. |
 | **Check Mail** | Thử gửi mail: **⟳ Lấy từ Message.xml** (hoặc nhập Host / Port / tài khoản), người nhận → **⚡ Test kết nối** / **✉ Send**; xem log. Mật khẩu không được lưu. |
-| **FSG FBO** | Mở web đăng nhập của dự án (Login WLink) và tự điền tài khoản — mở trong **tab** (mỗi dự án 1 tab, phím tắt `Ctrl+4`; mở lại = chuyển tới tab đó; `Ctrl+Tab` để qua lại). Mỗi dự án giữ phiên đăng nhập riêng: đăng nhập dự án này (kể cả ở 1 Bcode khác) không làm văng phiên của dự án kia. Bấm `F12` khi đang ở trang web → **DevTools** (Elements, Console, Network…) mở ngay bên phải trang như Chrome, kéo thanh chia để đổi rộng; `F12` lần nữa (ở trang hoặc trong DevTools) để đóng. Đổi phím ở Template giao diện → Phím tắt (mục "FSG FBO"); bỏ trống phím thì F12 mở DevTools thành cửa sổ riêng như trước. |
+| **FSG FBO** | Mở web đăng nhập của dự án (Login WLink) và tự điền tài khoản — mở trong **tab** (phím tắt `Ctrl+4`; mở lại = chuyển tới tab đó; `Ctrl+Tab` để qua lại). Từ cây WCommand, `Ctrl+4` ở nhiều menu của cùng dự án mở nhiều tab, mỗi tab 1 menu, chung một phiên đăng nhập. Vì dùng chung phiên: đăng xuất / hết hạn / đổi tài khoản ở 1 tab thì các tab khác của dự án đó cũng theo (mở menu lại bằng `Ctrl+4` sẽ tự đăng nhập lại); mỗi tab tốn thêm RAM như 1 tab Chrome. Mỗi dự án giữ phiên đăng nhập riêng: đăng nhập dự án này (kể cả ở 1 Bcode khác) không làm văng phiên của dự án kia. Bấm `F12` khi đang ở trang web → **DevTools** (Elements, Console, Network…) mở ngay bên phải trang như Chrome, kéo thanh chia để đổi rộng; `F12` lần nữa (ở trang hoặc trong DevTools) để đóng. Đổi phím ở Template giao diện → Phím tắt (mục "FSG FBO"); bỏ trống phím thì F12 mở DevTools thành cửa sổ riêng như trước. |
 | **FSG Yêu cầu** | Cập nhật & tra cứu yêu cầu FSG — mở trong **tab** (1 tab, mở lại = chuyển tới tab đó). |
 | **Create Processing**, **View Rpt in FEC** | Chưa làm (chỉ hiện form trống). |
 
@@ -1067,7 +1067,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+Shift+N` | Cửa sổ Bcode mới |
 | `Ctrl+Shift+H` | Ẩn / hiện cây bên trái |
 | `Ctrl+1` | Đổi database App ↔ Sys |
-| `Ctrl+4` | Mở FSG FBO (web đăng nhập của dự án, trong tab) — trong cây WCommand: mở FSG FBO, đăng nhập rồi vào menu đang chọn |
+| `Ctrl+4` | Mở FSG FBO (web đăng nhập của dự án, trong tab) — trong cây WCommand: mở FSG FBO, đăng nhập rồi vào menu đang chọn (menu khác cùng dự án = thêm tab, chung phiên đăng nhập) |
 | `Ctrl+5` | Mở thư mục Program Path |
 | `Ctrl+Alt+U` | Ai đang dùng object (tab SQL mở từ cây SQL Object) |
 | `Ctrl+Tab` · `Ctrl+Shift+Tab` | Hộp chọn tab (tab kế / tab trước) — giữ Ctrl bấm Tab để chọn, thả Ctrl để chuyển |

@@ -117,7 +117,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private TabPage? _compareTextTab;
     private TabPage? _sqlProfilerTab;
     private readonly ViewerControlServer _viewerControl = new();
-    private QuickLaunchLoginForm? _quickLaunchForm;
+    // Các tab FSG FBO đang mở (nhiều tab / workspace được: Ctrl+4 ở menu khác mở thêm tab, chung phiên đăng nhập). Tab mở sau cùng ở cuối.
+    private readonly List<QuickLaunchLoginForm> _quickLaunchForms = new();
     private QuickListForm? _quickListForm;
 
     /// <summary>"Tạo nhanh danh mục" mở song song (modeless) — vẫn quay lại Bcode được trong lúc làm; mở lại khi đang mở thì chỉ đưa cửa sổ đó lên.</summary>
@@ -1639,14 +1640,26 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         page.Disposed += (_, _) => _fsgCrawlerForm = null;
     }
 
-    /// <summary>"FSG FBO" (đăng nhập web chương trình của workspace): mỗi workspace 1 tab; mở lại cùng workspace thì chuyển tới tab đó.</summary>
-    private QuickLaunchLoginForm ShowQuickLaunchTab(Workspace ws, string? url = null, string note = "")
+    /// <summary>Các tab FSG FBO còn mở của <paramref name="ws"/>, tab mở sau cùng ở cuối.</summary>
+    private List<QuickLaunchLoginForm> FboTabsOf(Workspace ws) =>
+        _quickLaunchForms.Where(f => !f.IsDisposed && ReferenceEquals(f.Workspace, ws) && f.Parent is TabPage p && _documentTabs.TabPages.Contains(p)).ToList();
+
+    /// <summary>Tab FSG FBO "chính" của <paramref name="ws"/>: tab đang xem nếu là của workspace đó, không thì tab mở sau cùng.</summary>
+    private QuickLaunchLoginForm? CurrentFboTabOf(Workspace ws)
     {
-        if (_quickLaunchForm is { IsDisposed: false } existing && ReferenceEquals(existing.Workspace, ws) && SelectFormTab(existing)) return existing;
-        var form = url is null && note.Length == 0 ? new QuickLaunchLoginForm(ws, _settings) : new QuickLaunchLoginForm(ws, _settings, url, note);
-        _quickLaunchForm = form;
-        var page = AddFormTab("FSG FBO · " + ws.Name, form);
-        page.Disposed += (_, _) => { if (ReferenceEquals(_quickLaunchForm, form)) _quickLaunchForm = null; };
+        var tabs = FboTabsOf(ws);
+        return tabs.FirstOrDefault(f => ReferenceEquals(f.Parent, _documentTabs.SelectedTab)) ?? tabs.LastOrDefault();
+    }
+
+    /// <summary>"FSG FBO" (đăng nhập web chương trình của workspace): mở lại cùng workspace thì chuyển tới tab đang có
+    /// (<paramref name="reuseSession"/> = mở thêm tab, dùng lại phiên đăng nhập của các tab cùng workspace).</summary>
+    private QuickLaunchLoginForm ShowQuickLaunchTab(Workspace ws, string? url = null, string note = "", bool reuseSession = false, string? menuTitle = null)
+    {
+        if (!reuseSession && CurrentFboTabOf(ws) is { } existing && SelectFormTab(existing)) return existing;
+        var form = url is null && note.Length == 0 ? new QuickLaunchLoginForm(ws, _settings) : new QuickLaunchLoginForm(ws, _settings, url, note, reuseSession);
+        _quickLaunchForms.Add(form);
+        var page = AddFormTab("FSG FBO · " + ws.Name + (string.IsNullOrWhiteSpace(menuTitle) ? "" : " · " + menuTitle.Trim()), form);
+        page.Disposed += (_, _) => _quickLaunchForms.Remove(form);
         return form;
     }
 
@@ -3556,7 +3569,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Tab FSG FBO của <paramref name="ws"/>: đang mở thì chuyển tới và đi tới menu (chưa đăng nhập thì chờ đăng nhập xong); chưa có thì mở mới, tự đăng nhập rồi vào menu.</summary>
     private async Task OpenMenuInFboTabAsync(Workspace ws, string? url, string note)
     {
-        if (_quickLaunchForm is { IsDisposed: false } existing && ReferenceEquals(existing.Workspace, ws) && SelectFormTab(existing))
+        if (CurrentFboTabOf(ws) is { } existing && SelectFormTab(existing))
         {
             await existing.RunMenuAsync(url, note);
             return;
@@ -3564,7 +3577,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ShowQuickLaunchTab(ws, url, note);
     }
 
-    /// <summary>Ctrl+4 trên cây menu: mở FSG FBO, đăng nhập rồi vào trang của menu đang chọn (menu nhóm / không có link: chỉ mở FSG FBO).</summary>
+    /// <summary>Ctrl+4 trên cây menu: mở FSG FBO, đăng nhập rồi vào trang của menu đang chọn (menu nhóm / không có link: chỉ mở FSG FBO).
+    /// Workspace đã có tab FSG FBO đăng nhập rồi thì menu khác mở thêm 1 tab, đi thẳng tới menu bằng phiên đăng nhập sẵn có (như nhiều tab Chrome).</summary>
     private async Task RunMenuInFboAsync(WCommandItem item)
     {
         var ws = _connections.Current;
@@ -3573,7 +3587,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         {
             var url = BuildMenuUrl(ws.LoginWLink, item);
             var note = url is null ? $"Menu \"{item.Bar}\" không có link — chỉ mở FSG FBO." : $"Menu: {item.Bar} ({item.WMenuId})";
-            await OpenMenuInFboTabAsync(ws, url, note);
+            var tabs = FboTabsOf(ws);
+            // Chưa có tab / menu không có link / chưa tab nào đăng nhập xong (đang chờ gõ User/Pass): như cũ — dùng tab đang có, đăng nhập xong mới vào menu.
+            if (url is null || !tabs.Any(f => f.IsLoggedIn))
+            {
+                await OpenMenuInFboTabAsync(ws, url, note);
+                return;
+            }
+            if (tabs.FirstOrDefault(f => string.Equals(f.MenuUrl, url, StringComparison.OrdinalIgnoreCase)) is { } same && SelectFormTab(same))
+            {
+                await same.RunMenuAsync(url, note);   // menu này đã có tab: chuyển tới tab đó và nạp lại trang menu
+                return;
+            }
+            ShowQuickLaunchTab(ws, url, note, reuseSession: true, menuTitle: item.Bar);
         }
         catch (Exception ex)
         {

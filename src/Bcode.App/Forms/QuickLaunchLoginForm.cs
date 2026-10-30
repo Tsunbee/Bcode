@@ -129,15 +129,26 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     private string? _pendingUrl;
     private string _pendingNote = "";
     private bool _loggedIn;
+    // Tab mở thêm (Ctrl+4 ở menu khác cùng workspace): bỏ bước đăng nhập, đi thẳng tới menu bằng phiên (cookie) chung hồ sơ WebView2 với các tab kia.
+    private readonly bool _reuseSession;
+    // Lúc vừa đi tới URL menu: trang đăng nhập hiện ra trong khoảng này = phiên đã hết hạn → tự đăng nhập lại rồi quay lại menu.
+    private DateTime _menuNavAt = DateTime.MinValue;
+    private bool _loggingIn;
+    private bool _reloginTried;
 
     public Workspace Workspace => _ws;
+    /// <summary>Đã đăng nhập (tự động, tay rồi bấm ➡ Menu, hoặc tab mở thêm đã vào được menu bằng phiên chung).</summary>
+    public bool IsLoggedIn => _loggedIn;
+    /// <summary>URL menu tab này được mở để chạy (Ctrl+4 / F5 từ BcodeViewer); null = chỉ mở FSG FBO.</summary>
+    public string? MenuUrl => _pendingUrl;
 
-    public QuickLaunchLoginForm(Workspace ws, AppSettings settings, string? startUrl = null, string startNote = "")
+    public QuickLaunchLoginForm(Workspace ws, AppSettings settings, string? startUrl = null, string startNote = "", bool reuseSession = false)
     {
         _ws = ws;
         _settings = settings;
         _pendingUrl = startUrl;
         _pendingNote = startNote;
+        _reuseSession = reuseSession && !string.IsNullOrEmpty(startUrl);
 
         Text = $"Bung link chương trình — {ws.Name}";
         Width = 1400;
@@ -296,6 +307,17 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
             {
                 if (!_txtUrl.Focused) _txtUrl.Text = _web.CoreWebView2.Source;
             };
+            _web.CoreWebView2.NavigationCompleted += async (_, _) => await CheckMenuPageAsync();
+
+            if (_reuseSession)
+            {
+                // Tab mở thêm: phiên đăng nhập nằm ở cookie chung hồ sơ — vào thẳng menu; bị đẩy về trang đăng nhập thì CheckMenuPageAsync tự đăng nhập lại.
+                _menuNavigatedOnce = true;
+                SetStatus($"{_pendingNote}  →  dùng lại phiên đăng nhập của tab FSG FBO đang mở...");
+                _menuNavAt = DateTime.UtcNow;
+                _web.CoreWebView2.Navigate(_pendingUrl!);
+                return;
+            }
 
             // Chỉ tự bấm đăng nhập ngay khi đã có sẵn User/Pass (từ Workspace) — còn để trống
             // thì chỉ mở trang lên, chờ Bee gõ vào 2 ô trên thanh công cụ rồi tự bấm/Enter.
@@ -329,7 +351,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     {
         _pendingUrl = url;
         _pendingNote = note;
-        if (_loggedIn) await GoToPendingMenuAsync();
+        if (_loggedIn || _reuseSession) await GoToPendingMenuAsync();   // tab mở thêm: vào thẳng menu, phiên hết thì CheckMenuPageAsync tự đăng nhập lại
         else SetStatus((string.IsNullOrEmpty(note) ? "" : note + " — ") + "chưa đăng nhập, sẽ tự mở menu sau khi đăng nhập.");
     }
 
@@ -345,10 +367,48 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         if (!_menuNavigatedOnce) await Task.Delay(1500);
         _menuNavigatedOnce = true;
         SetStatus($"{_pendingNote}  →  {url}");
+        _menuNavAt = DateTime.UtcNow;
         _web.CoreWebView2.Navigate(url);
     }
 
     private bool _menuNavigatedOnce;
+
+    /// <summary>Sau khi đi tới URL menu: vào được trang menu = phiên còn (đánh dấu đã đăng nhập); bị đẩy về trang đăng nhập = phiên hết hạn
+    /// → tự đăng nhập lại (có sẵn User/Pass) rồi quay lại menu. Chỉ thử lại 1 lần cho tới khi vào được menu, tránh lặp khi sai mật khẩu.</summary>
+    private async Task CheckMenuPageAsync()
+    {
+        if (_loggingIn || _web.CoreWebView2 is null || DateTime.UtcNow - _menuNavAt > TimeSpan.FromSeconds(8)) return;
+        bool onLogin;
+        try
+        {
+            var src = _web.CoreWebView2.Source ?? "";
+            onLogin = src.Contains("login.aspx", StringComparison.OrdinalIgnoreCase)
+                || await _web.ExecuteScriptAsync("!!document.getElementById('LoginExtender_txtUserName')") == "true";
+        }
+        catch { return; }
+        if (!onLogin)
+        {
+            _loggedIn = true;
+            _reloginTried = false;
+            return;
+        }
+
+        _menuNavAt = DateTime.MinValue;
+        _loggedIn = false;
+        _menuNavigatedOnce = false;   // đăng nhập xong còn chuyển hướng về trang chủ: chờ 1 nhịp như lần đầu
+        if (_reloginTried)
+        {
+            SetStatus("Đã tự đăng nhập lại mà vẫn bị đẩy về trang đăng nhập — kiểm tra User/Pass rồi bấm \"▶ Đăng nhập\".");
+            return;
+        }
+        if (_txtUser.Text.Trim().Length > 0 && _txtPass.Text.Length > 0)
+        {
+            _reloginTried = true;
+            SetStatus("Phiên đăng nhập đã hết — đang tự đăng nhập lại...");
+            await AutoLoginAsync();
+        }
+        else SetStatus("Phiên đăng nhập đã hết — gõ User/Pass rồi bấm \"▶ Đăng nhập\", xong sẽ tự vào menu.");
+    }
 
     private async Task AutoLoginAsync()
     {
@@ -366,6 +426,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         if (_chkRemember.Checked) SaveToWorkspace(user, pass);
 
         _btnLogin.Enabled = false;
+        _loggingIn = true;
         try
         {
             SetStatus("Đang điều hướng đến trang đăng nhập...");
@@ -471,6 +532,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
             }
 
             _loggedIn = true;
+            _loggingIn = false;
             SetStatus("Đã đăng nhập.");
             await GoToPendingMenuAsync();
         }
@@ -480,6 +542,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         }
         finally
         {
+            _loggingIn = false;
             _btnLogin.Enabled = true;
         }
     }

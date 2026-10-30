@@ -153,7 +153,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3940
+│   ├── MainForm.cs  3966
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -163,7 +163,7 @@ Bcode.App/
 │   ├── ProjectActions.cs  52
 │   ├── ProjectPickerForm.cs  131
 │   ├── QuickAccessForm.cs  165
-│   ├── QuickLaunchLoginForm.cs  558
+│   ├── QuickLaunchLoginForm.cs  621
 │   ├── QuickListForm.cs  764
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41

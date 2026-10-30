@@ -115,6 +115,17 @@ public class AdvanceNoteService
 
     public static JsonSerializerOptions Json => JsonOptions;
 
+    /// <summary>Xoá thư mục gói đã gen (để gen lại) và bỏ link đó khỏi lịch sử Generate của mọi y/c. Chỉ nhận đường dẫn có trong lịch sử —
+    /// không xoá thư mục bất kỳ. Bản đã chép lên đường dẫn mạng KHÔNG bị đụng tới. Trả về false nếu path không thuộc lịch sử.</summary>
+    public static bool DeletePackage(IEnumerable<AdvanceRequest> requests, string path)
+    {
+        var owners = requests.Where(r => r.Generations.Any(g => string.Equals(g.Path, path, StringComparison.OrdinalIgnoreCase))).ToList();
+        if (owners.Count == 0 || string.IsNullOrWhiteSpace(path)) return false;
+        if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+        foreach (var r in owners) r.Generations.RemoveAll(g => string.Equals(g.Path, path, StringComparison.OrdinalIgnoreCase));
+        return true;
+    }
+
     private static string FilePath(string workspaceName)
     {
         var safe = string.IsNullOrWhiteSpace(workspaceName) ? "_no_workspace" : workspaceName;

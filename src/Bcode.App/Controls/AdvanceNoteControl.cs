@@ -278,6 +278,17 @@ public class AdvanceNoteControl : UserControl
                     try { Clipboard.SetText(root.GetProperty("text").GetString() ?? ""); } catch { /* clipboard bận */ }
                     break;
 
+                // 🗑 Xoá gói đã gen (kết quả vừa tạo / dòng "Đã gen trước đó") để gen lại — trang đã hỏi xác nhận.
+                case "deletePackage":
+                {
+                    var path = root.GetProperty("path").GetString() ?? "";
+                    if (!AdvanceNoteService.DeletePackage(_requests, path)) { Js("advNote.onError('Đường dẫn không có trong lịch sử gen — không xoá.')"); break; }
+                    SaveList();
+                    SendList(null);
+                    Js($"advNote.onPackageDeleted({J(path)})");
+                    break;
+                }
+
                 case "open":
                 {
                     var path = root.GetProperty("path").GetString();

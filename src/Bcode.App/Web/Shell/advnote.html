@@ -394,9 +394,16 @@
       const c = document.createElement('code'); c.textContent = g.path; c.title = g.path;
       const bc = document.createElement('button'); bc.textContent = 'Copy link'; bc.onclick = () => { post('copy', { text: g.path }); setStatus('Đã copy link.', 'ok'); };
       const bo = document.createElement('button'); bo.textContent = 'Mở thư mục'; bo.onclick = () => post('open', { path: g.path });
-      row.append(t, c, bc, bo);
+      const bd = document.createElement('button'); bd.textContent = '🗑 Xoá'; bd.title = 'Xoá thư mục gói này để gen lại'; bd.onclick = () => deletePackage(g.path);
+      row.append(t, c, bc, bo, bd);
       box.appendChild(row);
     });
+  }
+
+  // Xoá thư mục gói đã gen (ở Save At Path) để gen lại; bỏ luôn link khỏi lịch sử. Bản đã chép lên đường dẫn mạng không bị xoá.
+  function deletePackage(path) {
+    if (!confirm('Xoá thư mục gói update này để gen lại?\n\n' + path + '\n\nXoá hẳn thư mục trên ổ đĩa (không vào Recycle Bin). Bản đã chép lên đường dẫn mạng (nếu có) KHÔNG bị xoá.')) return;
+    post('deletePackage', { path });
   }
 
   // ---- SQL Top / Bottom Script: App và Sys mỗi bên một bản riêng (r.topScript / r.bottomScript = App, r.topScriptSys / r.bottomScriptSys = Sys) ----
@@ -737,12 +744,14 @@
       $('warnings').innerHTML = (res.warnings || []).map((w) => '<div class="warn">⚠ ' + esc(w) + '</div>').join('');
       if (!res.ok) { box.innerHTML = '<span style="color:var(--danger)">' + esc(res.message || 'Không tạo được gói.') + '</span>'; return; }
       box.innerHTML = '<span style="color:var(--success)">Đã tạo ' + res.count + ' mục tại:</span> <code>' + esc(res.path) + '</code> ' +
-        '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button>' +
+        '<button id="rCopy">Copy link</button> <button id="rOpen">Mở thư mục</button> <button id="rDel" title="Xoá thư mục gói vừa tạo để gen lại">🗑 Xoá</button>' +
         (res.webLink ? '<div>Link: <code>' + esc(res.webLink) + '</code></div>' : '') +
         (res.network ? '<div class="muted">' + (res.webLink ? 'File trên mạng' : 'Mạng') + ': <code>' + esc(res.network) + '</code></div>' : '') +
         (res.errors || []).map((e) => '<div style="color:var(--danger)">⚠ ' + esc(e) + '</div>').join('');
       $('rCopy').onclick = () => post('copy', { text: res.webLink || res.path });
       $('rOpen').onclick = () => post('open', { path: res.path });
+      $('rDel').onclick = () => deletePackage(res.path);
+      S.lastGenPath = res.path;
       S.defaultFolder = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
       folderTouched = false; refreshFolder();
       const gi = (res.items && res.items.items) || [];
@@ -756,6 +765,10 @@
       const pre = tr && tr.nextElementSibling && tr.nextElementSibling.querySelector('.itText');
       if (pre) pre.textContent = text;
       $('pkgTree').querySelectorAll('.treeText[data-i="' + i + '"]').forEach((e) => { e.textContent = text; });
+    },
+    onPackageDeleted(path) {
+      if (S.lastGenPath === path) { clearPreview(); S.lastGenPath = null; }
+      setStatus('Đã xoá gói: ' + path, 'ok');
     },
     onError(msg) { setBusy(false); setStatus(msg, 'err'); },
     onSynced(res) { setBusy(false); setStatus(res.message, res.ok ? 'ok' : 'err'); },

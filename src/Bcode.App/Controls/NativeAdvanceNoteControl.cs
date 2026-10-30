@@ -653,10 +653,28 @@ public sealed class NativeAdvanceNoteControl : UserControl
             var path = g.Path;
             var row = NK.Row(new MutedLabel { Text = Fmt(g.Time), AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0) },
                 new Label { Text = path, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0), Font = ThemeManager.MonoFont },
-                NK.Button("Copy link", () => { NK.CopyText(path); SetStatus("Đã copy link.", ok: true); }), NK.Button("Mở thư mục", () => NK.OpenFolder(path)));
+                NK.Button("Copy link", () => { NK.CopyText(path); SetStatus("Đã copy link.", ok: true); }), NK.Button("Mở thư mục", () => NK.OpenFolder(path)),
+                NK.Button("🗑 Xoá", () => DeletePackage(path), tip: "Xoá thư mục gói này để gen lại"));
             _history.Controls.Add(row);
         }
     }
+
+    /// <summary>Xoá thư mục gói đã gen (ở Save At Path) để gen lại; bỏ luôn link khỏi lịch sử. Bản đã chép lên đường dẫn mạng không bị xoá.</summary>
+    private void DeletePackage(string path)
+    {
+        if (!NK.Confirm(this, $"Xoá thư mục gói update này để gen lại?\n\n{path}\n\nXoá hẳn thư mục trên ổ đĩa (không vào Recycle Bin). Bản đã chép lên đường dẫn mạng (nếu có) KHÔNG bị xoá.")) return;
+        try
+        {
+            if (!AdvanceNoteService.DeletePackage(_requests, path)) { SetStatus("Đường dẫn không có trong lịch sử gen — không xoá.", true); return; }
+            _store.Save(WorkspaceName, _requests);
+            if (_lastGenPath == path) { ClearPreview(); _lastGenPath = null; }
+            RenderHistory();
+            SetStatus("Đã xoá gói: " + path, ok: true);
+        }
+        catch (Exception ex) { SetStatus(ex.Message, true); }
+    }
+
+    private string? _lastGenPath;
 
     // =====================================================================  Table liên quan
 
@@ -968,6 +986,8 @@ public sealed class NativeAdvanceNoteControl : UserControl
         {
             _result.Controls.Add(new Label { Text = path, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0), Font = ThemeManager.MonoFont });
             _result.Controls.Add(NK.Button("Copy link", () => NK.CopyText(path))); _result.Controls.Add(NK.Button("Mở thư mục", () => NK.OpenFolder(path)));
+            _result.Controls.Add(NK.Button("🗑 Xoá", () => DeletePackage(path), tip: "Xoá thư mục gói vừa tạo để gen lại"));
+            _lastGenPath = path;
         }
         if (extra is not null)
         {

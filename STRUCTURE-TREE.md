@@ -26,7 +26,7 @@ Bcode.App/
 │   ├── DecryptSqlObjectControl.cs  233
 │   ├── FastAskControl.cs  162
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1412
+│   ├── FileLookupControl.cs  1445
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
@@ -344,7 +344,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  54
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  345
+│   ├── ShortcutRegistry.cs  346
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  718
 │   ├── TreeColorOptions.cs  50

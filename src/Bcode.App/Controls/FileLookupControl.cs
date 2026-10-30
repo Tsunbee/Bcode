@@ -128,6 +128,14 @@ public partial class FileLookupControl : UserControl
         {
             if (e.Button == MouseButtons.Right) SelectNodeForMenu(_tree.GetNodeAt(e.Location));
         };
+        // Ctrl+click vào tên / biểu tượng: đảo tick (tick nhanh nhiều file rồi Ctrl+C / Copy to...); bấm thẳng ô tick thì TreeView tự xử lý.
+        _tree.NodeMouseClick += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Left || ModifierKeys != Keys.Control) return;
+            var hit = _tree.HitTest(e.Location);
+            if (hit.Node is null || hit.Location is not (TreeViewHitTestLocations.Label or TreeViewHitTestLocations.Image)) return;
+            ToggleChecked(hit.Node);
+        };
         // Menu đóng xong mới nạp xem trước của node vừa chuột phải (nếu menu không làm gì khiến node đổi).
         _fileContextMenu.Closed += (_, _) =>
         {
@@ -209,6 +217,13 @@ public partial class FileLookupControl : UserControl
             {
                 e.Handled = e.SuppressKeyPress = true;
                 BeginRenameSelected();
+                return;
+            }
+            // Ctrl+C (cấu hình được: "fileLookup.copyPaths"): copy đường dẫn các file đã tick, chưa tick thì dòng đang chọn.
+            if (Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData) is { } copyCombo && copyCombo == Bcode.App.UI.ShortcutRegistry.Get("fileLookup.copyPaths"))
+            {
+                e.Handled = e.SuppressKeyPress = true;
+                CopyCheckedPaths();
                 return;
             }
             if (e.Control && e.KeyCode == Keys.F && _previewEditor.CurrentPath is not null)
@@ -1059,6 +1074,15 @@ public partial class FileLookupControl : UserControl
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
     }
 
+    /// <summary>Ctrl+C trên cây: đường dẫn đầy đủ các file đã tick (theo thứ tự trên cây, mỗi dòng 1 file); không tick file nào = <see cref="CopyPath"/>.</summary>
+    private void CopyCheckedPaths()
+    {
+        var paths = CheckedFiles().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (paths.Count == 0) { CopyPath(); return; }
+        try { Clipboard.SetText(string.Join("\r\n", paths)); _statusLabel.Text = $"Đã copy {paths.Count} đường dẫn."; }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
+
     /// <summary>"Get Hash Source": JSON [{fullpath, subpath, name, ext, size, date, hash}] (SHA-256 hoa + giờ ghi file cuối) để so
     /// hash/ngày sửa bản cũ với mới. Ở chế độ menu = TOÀN BỘ file đang hiện trên cây (cả chuỗi controller của menu); chọn 1 thư mục
     /// (chế độ duyệt tự do) = các file dưới thư mục đó; chọn 1 file ngoài chế độ menu = riêng file đó.</summary>
@@ -1268,6 +1292,15 @@ public partial class FileLookupControl : UserControl
         if (_suspendCheck || e.Action == TreeViewAction.Unknown) return;
         _suspendCheck = true;
         try { SetCheckedRecursive(e.Node, e.Node.Checked); }
+        finally { _suspendCheck = false; }
+        PushCheckedCount();
+    }
+
+    /// <summary>Đảo tick 1 node như bấm ô tick (thư mục kéo theo mọi thứ bên trong).</summary>
+    private void ToggleChecked(TreeNode node)
+    {
+        _suspendCheck = true;
+        try { node.Checked = !node.Checked; SetCheckedRecursive(node, node.Checked); }
         finally { _suspendCheck = false; }
         PushCheckedCount();
     }

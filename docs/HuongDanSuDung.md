@@ -677,7 +677,9 @@ Nhập **Search in** (thư mục) + **String search**, tuỳ chọn File Type / 
 
 Go to File/Folder · **Copy to...** (file đã tick) · Chuyển sang .frx (Excel → FRX / Crystal → FRX) · Copy path · Get Hash Source · **Cấp source (tự động theo phiên bản)...** · Cấp source thủ công (Add Source)... · **Clone files...** (đặt tên mới, có thể clone kèm file cùng tên, không ghi đè) · **Rename...** (`F2`, đổi tên file — xem dưới) · Delete file (không khôi phục được) · Refresh (`F5`).
 
-Phím trong cây file: `F2` đổi tên file đang chọn, `F5` quét lại (giữ cache), `F4` nhân bản tab File Lookup hiện tại.
+Phím trong cây file: `F2` đổi tên file đang chọn, `F5` quét lại (giữ cache), `F4` nhân bản tab File Lookup hiện tại, `Ctrl+C` copy đường dẫn.
+
+**Copy đường dẫn nhiều file một lúc**: tick các file (bấm ô tick, hoặc giữ `Ctrl` + click vào tên file để tick / bỏ tick nhanh; `Ctrl` + click thư mục = tick / bỏ tick cả thư mục) → `Ctrl+C` → clipboard có đường dẫn đầy đủ của mọi file đã tick, mỗi dòng một file, theo thứ tự trên cây; dòng trạng thái báo "Đã copy N đường dẫn". Không tick file nào thì `Ctrl+C` copy đường dẫn dòng đang chọn (như chuột phải → Copy path). `Ctrl+C` chỉ có tác dụng khi con trỏ đang ở cây file — ở ô Path / Search / khung xem trước vẫn copy chữ như thường.
 
 ### Đổi tên file (F2)
 
@@ -1088,7 +1090,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 
 **Cây WCommand**: `Insert` New · `F3` Edit · `F8` Delete · `F4` File Lookup mới · `F12` Gen Script Menu · `F5` Refresh · `Ctrl+F5` Run · `Ctrl+4` Run trong FSG FBO · `Ctrl+C` copy đường dẫn menu. Các nhánh đang bung được giữ nguyên khi chuyển sang mục khác (Object…) rồi quay lại, hoặc khi `F5`.
 
-**Cây file File Lookup**: `F2` đổi tên file · `F5` quét lại · `F4` nhân bản tab File Lookup.
+**Cây file File Lookup**: `F2` đổi tên file · `F5` quét lại · `F4` nhân bản tab File Lookup · `Ctrl+C` copy đường dẫn các file đã tick (không tick thì dòng đang chọn) · `Ctrl` + click tick / bỏ tick nhanh.
 
 **Khai báo API**: `Ctrl+Shift+Enter` gửi · `Ctrl+S` lưu · `Ctrl+Shift+T` lấy token · `Ctrl+Shift+F` format · `Ctrl+Shift+K` validate.
 

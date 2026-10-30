@@ -152,6 +152,7 @@ public static class ShortcutRegistry
 
             // ---- Cây file File Lookup ----
             new("fileLookup.rename", "Cây file File Lookup: đổi tên file đang chọn (sửa tên ngay trên cây — Enter đổi, Esc huỷ)", "Cây file File Lookup", ShortcutScope.Tree, "F2"),
+            new("fileLookup.copyPaths", "Cây file File Lookup: copy đường dẫn các file đã tick (mỗi dòng 1 file); không tick file nào thì copy đường dẫn dòng đang chọn", "Cây file File Lookup", ShortcutScope.Tree, "Ctrl+C"),
 
             // ---- Lưới Table ----
             new("table.rowDetail", "Table: xem / sửa chi tiết dòng đang chọn (View Detail Datarow)", "Lưới Table", ShortcutScope.Grid, "F1"),

@@ -89,7 +89,7 @@ public class ReportDeployService
         return new(ok, log, backupRoot);
     }
 
-    private static string NewBackupDir(string workspaceName)
+    internal static string NewBackupDir(string workspaceName)
     {
         var safe = string.Concat((string.IsNullOrWhiteSpace(workspaceName) ? "workspace" : workspaceName).Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
         var dir = Path.Combine(BcodePaths.AppData, "Bcode", "Backups", safe, DateTime.Now.ToString("yyyyMMdd_HHmmss"));

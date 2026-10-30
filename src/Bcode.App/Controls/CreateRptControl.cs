@@ -139,33 +139,59 @@ public class CreateRptControl : UserControl
 
     private sealed record VarsPayload(List<RptVar> Vars, string Name, string Title, string TitleE, string SavePath);
 
-    private string BuildXml(JsonElement root, out string xmlPath)
+    /// <summary>Thư mục lưu là gốc một site FBO (có App_Data\Controllers — vd bấm "Program Folder") thì .xlsx vào
+    /// <c>App_Data\Controllers\Templates\Excel</c>, .xml vào <c>App_Data\Controllers\Report</c> như quy ước của source; thư mục khác
+    /// (Desktop...) thì cả 2 file nằm chung trong thư mục đó.</summary>
+    private static (string XlsxPath, string XmlPath, bool InSite) Targets(string savePath, string name)
+    {
+        var site = savePath.Length > 0 && Directory.Exists(Path.Combine(savePath, "App_Data", "Controllers"));
+        return site
+            ? (Path.Combine(ReportDeployService.ExcelDir(savePath), name + ".xlsx"), Path.Combine(ReportDeployService.ReportDir(savePath), name + ".xml"), true)
+            : (Path.Combine(savePath, name + ".xlsx"), Path.Combine(savePath, name + ".xml"), false);
+    }
+
+    private string BuildXml(JsonElement root, out string xmlPath, out string xlsxPath, out bool inSite)
     {
         var p = root.Deserialize<VarsPayload>(JsonOpts) ?? throw new InvalidOperationException("Dữ liệu không hợp lệ.");
-        xmlPath = Path.Combine(p.SavePath, p.Name + ".xml");
+        (xlsxPath, xmlPath, inSite) = Targets(p.SavePath, p.Name);
         // Ưu tiên file xml đã có ở thư mục lưu (làm tiếp trên bản đã sinh trước đó); không có thì lấy bản của source project.
         var existing = File.Exists(xmlPath) ? File.ReadAllText(xmlPath) : _sourceXmlText;
         return _xml.Build(existing, p.Vars, p.Name, p.Title, p.TitleE);
     }
 
-    private void Preview(JsonElement root) => Js($"createRpt.onXml({J(BuildXml(root, out _))})");
+    private void Preview(JsonElement root) => Js($"createRpt.onXml({J(BuildXml(root, out _, out _, out _))})");
 
     private void Create(JsonElement root)
     {
-        var xml = BuildXml(root, out var xmlPath);
+        var xml = BuildXml(root, out var xmlPath, out var xlsxPath, out var inSite);
         var layout = root.GetProperty("layout").Deserialize<SheetLayout>(JsonOpts) ?? throw new InvalidOperationException("Chưa có bố cục Excel.");
-        var dir = Path.GetDirectoryName(xmlPath)!;
         var name = Path.GetFileNameWithoutExtension(xmlPath);
         if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) throw new InvalidOperationException("Tên file không hợp lệ.");
-        Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(Path.GetDirectoryName(xlsxPath)!);
+        Directory.CreateDirectory(Path.GetDirectoryName(xmlPath)!);
 
-        var xlsxPath = Path.Combine(dir, name + ".xlsx");
-        Backup(xlsxPath); Backup(xmlPath);
+        // Ghi thẳng vào site: bản cũ backup trên máy (%AppData%\Bcode\Backups) như "Đưa vào source", không để .bak trong App_Data của site.
+        string? backupDir = null;
+        if (inSite) backupDir = BackupToLocal(xlsxPath, xmlPath);
+        else { Backup(xlsxPath); Backup(xmlPath); }
         if (layout.Pivot is not null) _pivot.Write(layout, xlsxPath);   // báo cáo pivot: 2 sheet Main + Main - Pivot
         else _excel.Write(layout, xlsxPath);
         File.WriteAllText(xmlPath, xml, new System.Text.UTF8Encoding(true));
         _lastXlsx = xlsxPath; _lastXml = xmlPath;
-        Js($"createRpt.onCreated({J(new { xlsxPath, xmlPath })})");
+        // Vừa ghi đúng chỗ của source thì "Đưa vào source" không còn gì để chép.
+        var src = _workspace()?.SourcePath;
+        var inSource = inSite && !string.IsNullOrWhiteSpace(src)
+            && string.Equals(Path.GetFullPath(xlsxPath), Path.GetFullPath(Path.Combine(ReportDeployService.ExcelDir(src), name + ".xlsx")), StringComparison.OrdinalIgnoreCase);
+        Js($"createRpt.onCreated({J(new { xlsxPath, xmlPath, dir = Path.GetDirectoryName(xlsxPath), inSource, backupDir })})");
+    }
+
+    private string? BackupToLocal(params string[] paths)
+    {
+        var existing = paths.Where(File.Exists).ToList();
+        if (existing.Count == 0) return null;
+        var dir = ReportDeployService.NewBackupDir(_workspace()?.Name ?? "");
+        foreach (var f in existing) File.Copy(f, Path.Combine(dir, Path.GetFileName(f)), overwrite: true);
+        return dir;
     }
 
     /// <summary>"Đưa vào source" bước 1: chỉ so sánh với bản trên server (diff XML, file nào trùng hệt) — chưa ghi gì.</summary>

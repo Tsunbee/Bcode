@@ -188,7 +188,7 @@
     <h3>Save As ...</h3>
     <div class="body">
       <div class="f"><label>Path</label><div class="row" style="gap:.5rem"><input type="text" id="path" class="grow" spellcheck="false">
-        <span class="links"><a id="lnkDesk">Desktop Folder</a><a id="lnkProg">Program Folder</a></span></div></div>
+        <span class="links"><a id="lnkDesk">Desktop Folder</a><a id="lnkProg" title="Lưu thẳng vào site: .xlsx vào App_Data\Controllers\Templates\Excel, .xml vào App_Data\Controllers\Report (bản cũ backup trên máy)">Program Folder</a></span></div></div>
       <div class="f"><label>Name</label><input type="text" id="name" class="narrow" spellcheck="false"></div>
     </div>
   </div>
@@ -270,6 +270,7 @@
   let xmlTimer = null, nameTouched = false;
   let rerun = false;              // đang chạy lại profiler ở bước 2: giữ nguyên lựa chọn field
   let pvOff = 0;                  // số cột trống bên trái PivotTable
+  let createdDir = '';            // thư mục chứa .xlsx vừa Create (nút "Mở thư mục")
   let alias = {}, codes = {};     // alias[col] = tên biến h_ do người dùng đổi; codes[col] = tên biến tự khớp
 
   /* ---------- tiện ích chung ---------- */
@@ -1058,7 +1059,7 @@
     $('dClose').onclick = depClose;
   }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $('dep').classList.contains('on')) depClose(); });
-  $('bOpen').onclick = () => post('openFolder', { path: $('path').value.trim() });
+  $('bOpen').onclick = () => post('openFolder', { path: createdDir || $('path').value.trim() });
 
   /* ---------- C# → trang ---------- */
   const colorXml = (s) => esc(s).replace(/(&lt;\/?)([\w:.-]+)/g, '$1<span style="color:var(--accent)">$2</span>').replace(/([\w:.-]+)=(&quot;.*?&quot;)/g, '<span style="color:var(--text-muted)">$1</span>=<span style="color:var(--success)">$2</span>');
@@ -1100,7 +1101,9 @@
     onDeployPlan(p) { renderPlan(p); },
     onDeployed(r) { renderDeployed(r); },
     onCreated(r) {
-      setBusy(false); setState('Đã tạo: ' + r.xlsxPath + ' và ' + r.xmlPath, true); $('bOpen').style.display = ''; $('bDeploy').style.display = '';
+      createdDir = r.dir || '';
+      setBusy(false); setState('Đã tạo: ' + r.xlsxPath + ' và ' + r.xmlPath + (r.backupDir ? ' (bản cũ backup ở ' + r.backupDir + ')' : ''), true);
+      $('bOpen').style.display = ''; $('bDeploy').style.display = r.inSource ? 'none' : '';
     },
     onError(action, msg) { setBusy(false, ''); showErr(msg); }
   };

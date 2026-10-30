@@ -879,11 +879,11 @@ Trên ảnh: **①** 3 bước của trình hướng dẫn · **②** loại fil
 
 Trình hướng dẫn 3 bước (**< Back** / **Next >** / **Create**). Cũng mở được từ tab **Pivot** của SQL Query ("Tạo file Excel pivot…").
 
-1. **Path & Orientation**: chọn **Excel (*.xlsx)** hoặc **Pivot Excel** (Crystal *.rpt hiện chưa hỗ trợ — ô bị mờ), tuỳ chọn Add Comment to Bold Cell; dán **SQL Statement** (profiler của báo cáo) và **Grid Controller**; Portrait / Landscape; **Save As** (Path, Name).
+1. **Path & Orientation**: chọn **Excel (*.xlsx)** hoặc **Pivot Excel** (Crystal *.rpt hiện chưa hỗ trợ — ô bị mờ), tuỳ chọn Add Comment to Bold Cell; dán **SQL Statement** (profiler của báo cáo) và **Grid Controller**; Portrait / Landscape; **Save As** (Path, Name). Path là gốc site (bấm **Program Folder**, hoặc thư mục nào có `App_Data\Controllers`) thì Create ghi thẳng vào đúng chỗ của site: `.xlsx` vào `App_Data\Controllers\Templates\Excel`, `.xml` vào `App_Data\Controllers\Report` (thiếu thư mục thì tự tạo; file cũ sao lưu vào `%AppData%\Bcode\Backups` trước khi ghi đè). Path khác (vd **Desktop Folder**) thì cả 2 file nằm chung trong thư mục đó, bản cũ giữ cạnh bên dạng `.bak`.
 2. **Choose Fields**: chọn bảng / field; sửa tham số profiler rồi **Chạy lại profiler** nếu cần.
 3. **Design Column**: thiết kế Excel (Merge, Unmerge, kiểu ô, ẩn / hiện dòng cột, Hoàn tác / Làm lại, Vừa khít, Zoom), tab **Parameters & Report XML** (+ Biến, Re-Generate, Copy script) → **Create**.
 
-Sau khi tạo: **Mở thư mục** hoặc **Đưa vào source…** (hiện diff, sao lưu file cũ vào `%AppData%\Bcode\Backups`, cảnh báo nếu file trên server vừa bị đổi).
+Sau khi tạo: **Mở thư mục** (thư mục chứa file .xlsx vừa tạo) hoặc **Đưa vào source…** (hiện diff, sao lưu file cũ vào `%AppData%\Bcode\Backups`, cảnh báo nếu file trên server vừa bị đổi; nút này ẩn khi đã Create thẳng vào Source Path của workspace).
 
 ### Excel → FRX
 
@@ -1544,7 +1544,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\Notes\`, `AdvanceNotes\` | Bcode (AdvanceNotes dùng chung với BcodeNote) | Note, Note (New) |
 | `%AppData%\Bcode\bcodenote.json` | BcodeNote | Dự án mở gần nhất, bố cục khung trái |
 | `%AppData%\Bcode\FileLookupCache\` | Bcode | Cache phân tích file / menu (xoá được) |
-| `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" |
+| `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" (hoặc Create RPT ghi thẳng vào site) |
 | `%AppData%\Bcode\license.key` | Bcode | Key bản quyền |
 | `%AppData%\Bcode\viewer-*.json`, `viewer-hints.json`, `viewer-recent-files.json` | BcodeViewer | Settings, phím tắt, Hint Code, danh sách file của cây; `viewer-translate-dict.json` = Từ điển dịch |
 | `%LocalAppData%\BcodeViewer\searchcache\` | BcodeViewer | Bản nhớ nội dung file cho Tìm trong project (mỗi dự án 1 file nén, xoá được) |

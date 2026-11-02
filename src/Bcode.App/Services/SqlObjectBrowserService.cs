@@ -84,6 +84,26 @@ ORDER BY o.type, s.name, o.name;";
         return o => rx.IsMatch(qualified ? o.QualifiedName : o.Name);
     }
 
+    /// <summary>Ô "Tìm trong nội dung" của cây SQL Object: tên đầy đủ (schema.tên) các procedure / function / view / trigger có định nghĩa CHỨA
+    /// <paramref name="text"/> (so nguyên văn, không có ký tự đại diện; hoa thường theo collation của database).</summary>
+    public async Task<HashSet<string>> SearchDefinitionsAsync(bool useSysDatabase, string text, CancellationToken ct = default)
+    {
+        const string sql = @"
+SELECT s.name, o.name
+FROM sys.sql_modules m
+JOIN sys.objects o ON o.object_id = m.object_id
+JOIN sys.schemas s ON s.schema_id = o.schema_id
+WHERE o.is_ms_shipped = 0 AND CHARINDEX(@text, m.definition) > 0;";
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync(ct);
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
+        cmd.Parameters.Add("@text", System.Data.SqlDbType.NVarChar, -1).Value = text;
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct)) result.Add(r.GetString(0) + "." + r.GetString(1));
+        return result;
+    }
+
     // ---- Cache danh sách object (cây SQL Object) --------------------------------------------------------------------
     // Danh sách được lưu ra đĩa theo (server, database). Lần sau hiện ngay từ cache, rồi chỉ hỏi 1 câu rất nhẹ ("chữ ký" = số object + ngày
     // sửa/tạo mới nhất): khớp thì giữ cache, KHÁC (có procedure/function/view/bảng mới hoặc vừa sửa/xoá) mới nạp lại cả danh sách.

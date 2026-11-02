@@ -18,6 +18,8 @@ public class SqlObjectTreeControl : UserControl
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
     private bool _useSysDatabase;
     private string _filterText = "";
+    /// <summary>Ô tick "Tìm trong nội dung": ô lọc tìm chữ trong định nghĩa procedure / function / view / trigger (hỏi database) thay vì lọc theo tên.</summary>
+    private bool _searchText;
     private readonly SqlObjectBrowserService _service;
 
     /// <summary>Mở object: tham số 2 = true khi double-click (procedure / function / view / trigger mở dạng IF EXISTS → DROP → CREATE), false = dạng ALTER
@@ -84,11 +86,13 @@ public class SqlObjectTreeControl : UserControl
                         case "db":
                             _useSysDatabase = root.GetProperty("value").GetInt32() == 1;
                             _filterText = root.GetProperty("filter").GetString() ?? "";
+                            _searchText = root.TryGetProperty("text", out var t1) && t1.GetBoolean();
                             _loadedOnce = false; _currentSignature = null; // mỗi database có cache riêng
                             await ReloadAsync();
                             break;
                         case "reload":
                             _filterText = root.GetProperty("filter").GetString() ?? "";
+                            _searchText = root.TryGetProperty("text", out var t2) && t2.GetBoolean();
                             if (_loadedOnce) await RenderAsync(); else await ReloadAsync(); // lọc ngay ở máy, không hỏi lại database
                             break;
                     }
@@ -121,14 +125,24 @@ public class SqlObjectTreeControl : UserControl
     /// <summary>Thanh trên cây bản native: tương đương sqlobjectbar.html (chọn App/Sys Data + lọc theo tên, gõ tới đâu lọc tới đó sau 120ms).</summary>
     private Control BuildNativeBar()
     {
-        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 82), Padding = new Padding(6, 6, 6, 6) };
+        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 108), Padding = new Padding(6, 6, 6, 6) };
         var db = new DropDownButton { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 28) };
         db.SetItems(new[] { "App Data", "Sys Data" }, 0);
         var filter = new RoundedInput { Dock = DockStyle.Top, PlaceholderText = "Lọc theo tên (gõ là lọc luôn)..." };
         var gap = new Panel { Dock = DockStyle.Top, Height = 4 };
+        var text = NK.Check("Tìm trong nội dung (text)");
+        text.AutoSize = false; text.Dock = DockStyle.Top; text.Height = Bcode.App.UI.NativeSkin.Dens(null, 24);
         var timer = new System.Windows.Forms.Timer { Interval = 120 };
         timer.Tick += async (_, _) => { timer.Stop(); _filterText = filter.Text; if (_loadedOnce) await RenderAsync(); else await ReloadAsync(); };
-        filter.TextChanged += (_, _) => { timer.Stop(); timer.Start(); };
+        // Tìm trong nội dung phải hỏi database → chờ lâu hơn sau phím cuối cho đỡ gửi nhiều câu.
+        filter.TextChanged += (_, _) => { timer.Stop(); timer.Interval = _searchText ? 500 : 120; timer.Start(); };
+        text.CheckedChanged += async (_, _) =>
+        {
+            _searchText = text.Checked;
+            filter.PlaceholderText = _searchText ? "Tìm chữ trong nội dung proc / func / view..." : "Lọc theo tên (gõ là lọc luôn)...";
+            timer.Stop(); _filterText = filter.Text;
+            if (_loadedOnce) await RenderAsync(); else await ReloadAsync();
+        };
         filter.InputKeyDown += async (_, e) =>
         {
             if (e.KeyCode != Keys.Enter) return;
@@ -142,7 +156,7 @@ public class SqlObjectTreeControl : UserControl
             await ReloadAsync();
         };
         Disposed += (_, _) => timer.Dispose();
-        panel.Controls.Add(filter); panel.Controls.Add(gap); panel.Controls.Add(db);
+        panel.Controls.Add(text); panel.Controls.Add(filter); panel.Controls.Add(gap); panel.Controls.Add(db);
         return panel;
     }
 
@@ -333,7 +347,7 @@ public class SqlObjectTreeControl : UserControl
         try { key = _service.CacheId(UseSysDatabase); } catch { /* chưa chọn workspace */ }
         var sig = _currentSignature;
         // Cùng từ khoá + cùng danh sách với cây đang hiện (vd. Enter sau khi đã lọc) → giữ nguyên, không dựng lại (và không cắt ngang phần đang nối).
-        var renderKey = $"{key}|{sig}|{UseSysDatabase}|{filter}";
+        var renderKey = $"{key}|{sig}|{UseSysDatabase}|{_searchText}|{filter}";
         if (renderKey == _renderedKey && _renderedSeq == _renderSeq && _tree.Nodes.Count > 0 && ReferenceEquals(_tree.Nodes[0], _renderedFirst)) return;   // _renderedSeq == _renderSeq: không có lần dựng nào mới hơn đang chạy
         var seq = ++_renderSeq;
         GroupItems[]? groups = null;
@@ -353,7 +367,13 @@ public class SqlObjectTreeControl : UserControl
         if (filter.Length > 0)
         {
             var all = groups;
-            groups = await Task.Run(() => FilterGroups(all, filter));
+            if (_searchText)
+            {
+                var hits = await GetTextHitsAsync(key, sig, filter, seq);
+                if (hits is null || seq != _renderSeq) return;   // lỗi (đã báo trong cây) / đã gõ thêm chữ
+                groups = await Task.Run(() => FilterGroups(all, o => hits.Contains(o.QualifiedName)));
+            }
+            else groups = await Task.Run(() => FilterGroups(all, SqlObjectBrowserService.NameMatcher(filter)));
             if (seq != _renderSeq) return;   // đã gõ thêm chữ — bỏ kết quả cũ
         }
 
@@ -426,10 +446,49 @@ public class SqlObjectTreeControl : UserControl
     private TreeNode? _renderedFirst;
     private int _renderedSeq = -1;
 
-    /// <summary>Lọc theo tên trên các nhóm đã sắp xếp (giữ nguyên thứ tự, bỏ nhóm rỗng) — cùng quy tắc khớp với <see cref="SqlObjectBrowserService.NameMatcher"/>.</summary>
-    private static GroupItems[] FilterGroups(GroupItems[] groups, string filter)
+    private CancellationTokenSource? _textCts;
+    private string? _textHitsKey;
+    private HashSet<string>? _textHits;
+
+    /// <summary>Tên các object có nội dung chứa <paramref name="text"/> (hỏi database; nhớ kết quả lần gần nhất theo database + chữ ký + chữ tìm).
+    /// Trong lúc chờ, cây hiện "Đang tìm..."; null = bị lần tìm mới thay chỗ hoặc lỗi (lỗi đã hiện trong cây).</summary>
+    private async Task<HashSet<string>?> GetTextHitsAsync(string? key, string? sig, string text, int seq)
     {
-        var match = SqlObjectBrowserService.NameMatcher(filter);
+        var k = $"{key}|{sig}|{text}";
+        if (k == _textHitsKey && _textHits is not null) return _textHits;
+        _textCts?.Cancel();
+        var cts = _textCts = new CancellationTokenSource();
+        ShowStatus($"Đang tìm \"{text}\" trong nội dung...");
+        try
+        {
+            var hits = await _service.SearchDefinitionsAsync(UseSysDatabase, text, cts.Token);
+            if (cts.IsCancellationRequested) return null;
+            _textHitsKey = k; _textHits = hits;
+            return hits;
+        }
+        catch (Exception ex)
+        {
+            if (!cts.IsCancellationRequested && seq == _renderSeq) ShowStatus("Không tìm được trong nội dung: " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>Thay cả cây bằng một dòng chữ xám (đang tìm / lỗi).</summary>
+    private void ShowStatus(string message)
+    {
+        _renderedKey = null;
+        _tree.BeginUpdate();
+        try
+        {
+            _tree.Nodes.Clear();
+            _tree.Nodes.Add(new TreeNode(message) { ForeColor = Color.Gray });
+        }
+        finally { _tree.EndUpdate(); }
+    }
+
+    /// <summary>Lọc trên các nhóm đã sắp xếp (giữ nguyên thứ tự, bỏ nhóm rỗng) — theo tên (<see cref="SqlObjectBrowserService.NameMatcher"/>) hoặc theo kết quả tìm trong nội dung.</summary>
+    private static GroupItems[] FilterGroups(GroupItems[] groups, Func<SqlObjectInfo, bool> match)
+    {
         var result = new List<GroupItems>(groups.Length);
         foreach (var g in groups)
         {

@@ -23,22 +23,30 @@
     <option value="1">Sys Data</option>
   </select>
   <input type="text" id="filterInput" placeholder="Lọc theo tên (gõ là lọc luôn)..." />
+  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none"><input type="checkbox" id="textCheck" style="margin:0" />Tìm trong nội dung (text)</label>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
+  var filterInput = document.getElementById('filterInput'), textCheck = document.getElementById('textCheck');
 
   document.getElementById('dbSelect').addEventListener('change', function (e) {
-    post({ action: 'db', value: parseInt(e.target.value, 10), filter: document.getElementById('filterInput').value });
+    post({ action: 'db', value: parseInt(e.target.value, 10), filter: filterInput.value, text: textCheck.checked });
   });
-  document.getElementById('filterInput').addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') post({ action: 'reload', filter: e.target.value });
+  filterInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { clearTimeout(filterTimer); post({ action: 'reload', filter: e.target.value, text: textCheck.checked }); }
   });
   // Gõ tới đâu lọc tới đó (không cần Enter): lọc ngay ở máy trên danh sách đã nạp sẵn nên không hỏi database; chờ 120ms sau phím cuối cho đỡ giật.
+  // Tìm trong nội dung thì phải hỏi database → chờ 500ms.
   var filterTimer = 0;
-  document.getElementById('filterInput').addEventListener('input', function (e) {
+  filterInput.addEventListener('input', function (e) {
     clearTimeout(filterTimer);
     var v = e.target.value;
-    filterTimer = setTimeout(function () { post({ action: 'reload', filter: v }); }, 120);
+    filterTimer = setTimeout(function () { post({ action: 'reload', filter: v, text: textCheck.checked }); }, textCheck.checked ? 500 : 120);
+  });
+  textCheck.addEventListener('change', function () {
+    clearTimeout(filterTimer);
+    filterInput.placeholder = textCheck.checked ? 'Tìm chữ trong nội dung proc / func / view...' : 'Lọc theo tên (gõ là lọc luôn)...';
+    post({ action: 'reload', filter: filterInput.value, text: textCheck.checked });
   });
 
   // ---- Called from C# (SqlObjectTreeControl) ----

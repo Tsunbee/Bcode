@@ -26,8 +26,11 @@ internal sealed record ProjectGroupTag(string ProjectName);
 /// the bridge object is what the page calls back into for file I/O, AI, and native pickers
 /// (Save As needs a real file dialog, which only this side can show).
 /// </summary>
-public class MainForm : Form
+public class MainForm : DpiForm
 {
+    // Khung chính dàn bằng Dock / WebView2: không co lúc mở, chỉ để WinForms co khi kéo sang màn khác DPI (xem UI/DpiForm).
+    protected override bool ScaleOnLoad => false;
+
     /// <summary>Host name the page is served under (see the WebView2 setup in
     /// MainForm_Load). Must not be a real registrable domain — WebView2 intercepts it
     /// before any DNS lookup, and a name that also exists publicly would be confusing to
@@ -605,7 +608,7 @@ public class MainForm : Form
         split.SizeChanged += (_, _) =>
         {
             if (split.Width <= 0) return;
-            var clamped = Math.Max(0, Math.Min(260, split.Width - split.SplitterWidth - 200));
+            var clamped = Math.Max(0, Math.Min(Px(260), split.Width - split.SplitterWidth - Px(200)));
             if (split.SplitterDistance != clamped) split.SplitterDistance = clamped;
         };
 
@@ -1535,7 +1538,7 @@ public class MainForm : Form
         var build = plus >= 0 ? version[(plus + 1)..] : "";
         if (plus >= 0) version = version[..plus];
 
-        using var dialog = new Form
+        using var dialog = new DpiForm
         {
             Text = "Giới thiệu",
             FormBorderStyle = FormBorderStyle.FixedDialog,

@@ -54,7 +54,7 @@ public class LineNumberGutter : Control
         if (_target is null) return;
         var lineCount = GetTotalLineCount();
         var digits = Math.Max(2, lineCount.ToString().Length);
-        var calculatedWidth = TextRenderer.MeasureText(new string('9', digits), _target.Font).Width + 16 + 14;
+        var calculatedWidth = TextRenderer.MeasureText(new string('9', digits), _target.Font).Width + NativeSkin.Px(this, 16 + 14);
         if (Width != calculatedWidth)
         {
             Width = calculatedWidth;
@@ -109,7 +109,7 @@ public class LineNumberGutter : Control
 
             var textColor = isCurrent ? Color.Black : ForeColor;
             TextRenderer.DrawText(e.Graphics, lineNumber.ToString(), _target.Font,
-                new Rectangle(14, pos.Y, Width - 6 - 14, lineHeight + 2),
+                new Rectangle(NativeSkin.Px(this, 14), pos.Y, Width - NativeSkin.Px(this, 6 + 14), lineHeight + 2),
                 textColor, TextFormatFlags.Right | TextFormatFlags.Top | TextFormatFlags.NoPadding);
         }
     }

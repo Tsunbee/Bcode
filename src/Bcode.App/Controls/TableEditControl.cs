@@ -183,8 +183,8 @@ public class TableEditControl : UserControl
         VisibleChanged += (_, _) => { if (!Visible) HideTableSuggest(); };
         Disposed += (_, _) => { _tableSuggest?.Dispose(); _colSuggest?.Dispose(); };
 
-        _keyLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
+        _keyLabel = new Label { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.S(20), ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0) };
+        _statusLabel = new Label { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.S(20), ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
         _statusLabel.TextChanged += (_, _) => _statusLabel.Visible = _statusLabel.Text.Length > 0; // chỉ hiện khi có thông báo (lỗi, tự động lưu...)
 
         _grid = new DataGridView
@@ -354,15 +354,15 @@ public class TableEditControl : UserControl
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterWidth = 6, FixedPanel = FixedPanel.Panel1 };
         split.Panel1.Controls.Add(StructControl);
         split.Panel2.Controls.Add(_grid);
-        _rowLabel = new Label { Dock = DockStyle.Bottom, Height = 22, ForeColor = Bcode.App.UI.AppColors.Accent, Padding = new Padding(6, 3, 0, 0), AutoEllipsis = true };
+        _rowLabel = new Label { Dock = DockStyle.Bottom, Height = Bcode.App.UI.NativeSkin.S(22), ForeColor = Bcode.App.UI.AppColors.Accent, Padding = new Padding(6, 3, 0, 0), AutoEllipsis = true };
         split.Panel2.Controls.Add(_rowLabel);
-        var selSummary = new Label { Dock = DockStyle.Bottom, Height = 20, ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
+        var selSummary = new Label { Dock = DockStyle.Bottom, Height = Bcode.App.UI.NativeSkin.S(20), ForeColor = Color.DimGray, Padding = new Padding(4, 2, 0, 0), Visible = false };
         selSummary.TextChanged += (_, _) => selSummary.Visible = selSummary.Text.Length > 0; // chỉ hiện khi đang quét khối ô số
         split.Panel2.Controls.Add(selSummary);
         ResultGridMenu.AttachSelectionSummary(_grid, selSummary);
         split.Panel1MinSize = 0;
         split.Panel2MinSize = 0;
-        const int desiredStructureWidth = 220;
+        var desiredStructureWidth = Bcode.App.UI.NativeSkin.S(220);
         void ApplySplitterDistance()
         {
             if (split.Width <= 0) return;
@@ -829,7 +829,7 @@ public class TableEditControl : UserControl
         List<(string Name, string Type, bool Nullable, bool IsKey, bool Identity, string Description)> cols;
         try { cols = await _service.GetColumnDescriptionsAsync(_loadedUseSys, _schema, _table); }
         catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Description Columns", MessageBoxButtons.OK, MessageBoxIcon.Error); return; }
-        using var form = new Form { Text = $"Description Columns — [{_schema}].[{_table}]", Width = 920, Height = 600, StartPosition = FormStartPosition.CenterParent, ShowInTaskbar = false };
+        using var form = new Bcode.App.UI.ThemedForm { Text = $"Description Columns — [{_schema}].[{_table}]", Width = 920, Height = 600, StartPosition = FormStartPosition.CenterParent, ShowInTaskbar = false };
         var g = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false, RowHeadersVisible = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells };
         g.Columns.Add("c", "Cột"); g.Columns.Add("t", "Kiểu"); g.Columns.Add("n", "Cho NULL"); g.Columns.Add("k", "Khoá"); g.Columns.Add("i", "Identity"); g.Columns.Add("d", "Mô tả");
         g.Columns[5].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
@@ -837,7 +837,7 @@ public class TableEditControl : UserControl
         var note = new Label { Dock = DockStyle.Bottom, Height = 22, Padding = new Padding(6, 3, 0, 0), Text = cols.Any(c => c.Description.Length > 0) ? $"{cols.Count} cột." : $"{cols.Count} cột — bảng này chưa khai mô tả (MS_Description) cho cột nào." };
         form.Controls.Add(g); form.Controls.Add(note);
         form.KeyPreview = true; form.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) form.Close(); };
-        Bcode.App.UI.ThemeManager.Apply(form);
+        // ThemedForm: co theo DPI × UiScale rồi áp theme lúc Load (px thiết kế ở trên)
         form.ShowDialog(FindForm());
     }
 

@@ -28,7 +28,7 @@ namespace BcodeViewer.App;
 /// instead of stock WinForms Buttons for the same reason — sitting right above a WebView2
 /// editor, plain square buttons read as a leftover control glued onto a newer one.
 /// </summary>
-public class HintCodeForm : Form
+public class HintCodeForm : DpiForm
 {
     private static readonly string[] Categories = { "JS", "SQL", "XML", "CSS" };
 
@@ -111,7 +111,7 @@ public class HintCodeForm : Form
         root.SizeChanged += (_, _) =>
         {
             if (root.Width <= 0) return;
-            var clamped = Math.Max(0, Math.Min(320, root.Width - root.SplitterWidth - 300));
+            var clamped = Math.Max(0, Math.Min(Px(320), root.Width - root.SplitterWidth - Px(300)));
             if (root.SplitterDistance != clamped) root.SplitterDistance = clamped;
         };
 
@@ -128,6 +128,7 @@ public class HintCodeForm : Form
         ShowDetail(null);
         if (!string.IsNullOrEmpty(_initialCode)) _prefixBox.Focus();
 
+        Load += (_, _) => _list.ItemHeight = Px(42);   // ItemHeight không theo lượt co của DpiForm — đặt thẳng theo DPI
         Load += async (_, _) => await InitEditorAsync();
     }
 
@@ -308,8 +309,9 @@ public class HintCodeForm : Form
 
         var font = e.Font ?? _list.Font;
         using var badgeBrush = new SolidBrush(badgeColor);
-        var badgeRect = new Rectangle(e.Bounds.Left + 6, e.Bounds.Top + 5, 40, 16);
-        using (var badgePath = RoundedRect(badgeRect, 3))
+        int P(int v) => (int)Math.Round(v * _list.DeviceDpi / 96.0);   // px thiết kế của dòng 2 tầng → px màn hình
+        var badgeRect = new Rectangle(e.Bounds.Left + P(6), e.Bounds.Top + P(5), P(40), P(16));
+        using (var badgePath = RoundedRect(badgeRect, P(3)))
             e.Graphics.FillPath(badgeBrush, badgePath);
         using var boldFont = new Font(font, FontStyle.Bold);
         e.Graphics.DrawString(s.Category, boldFont, Brushes.Black, badgeRect, new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center });
@@ -324,10 +326,10 @@ public class HintCodeForm : Form
             ? s.ModifiedDate.ToString("dd/MM/yyyy")
             : $"{s.Prefix}  ·  {s.ModifiedDate:dd/MM/yyyy}";
         if (s.IsShared) topLine += $"  ·  chung ({s.SourceLabel})";
-        e.Graphics.DrawString(topLine, font, mutedBrush, e.Bounds.Left + 54, e.Bounds.Top + 3);
+        e.Graphics.DrawString(topLine, font, mutedBrush, e.Bounds.Left + P(54), e.Bounds.Top + P(3));
 
         var title = string.IsNullOrWhiteSpace(s.Tags) ? s.Description : s.Tags;
-        e.Graphics.DrawString(title, font, textBrush, e.Bounds.Left + 54, e.Bounds.Top + 18);
+        e.Graphics.DrawString(title, font, textBrush, e.Bounds.Left + P(54), e.Bounds.Top + P(18));
 
         using var borderPen = new Pen(AppColors.Border);
         e.Graphics.DrawLine(borderPen, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);

@@ -65,7 +65,7 @@ internal sealed class HintPopup : Form
         var rows = Math.Min(_items.Count, MaxRows);
         var scroll = _items.Count > MaxRows ? SystemInformation.VerticalScrollBarWidth : 0;
         var widest = _items.Take(60).Max(i => TextRenderer.MeasureText(i.Label, _list.Font).Width + TextRenderer.MeasureText(Short(i.Detail), _list.Font).Width);
-        var width = Math.Clamp(widest + 90 + scroll, 380, 680);
+        var width = Math.Clamp(widest + NativeSkin.Px(_list, 90) + scroll, NativeSkin.Px(_list, 380), NativeSkin.Px(_list, 680));
         var listH = rows * _list.ItemHeight;
         var height = listH + _doc.Height + Padding.Vertical;
         var wa = Screen.FromPoint(caretTop).WorkingArea;
@@ -120,7 +120,8 @@ internal sealed class HintPopup : Form
         using (var back = new SolidBrush(sel ? AppColors.Selection : AppColors.Input)) e.Graphics.FillRectangle(back, e.Bounds);
         var g = e.Graphics;
         var (glyph, color) = Icon(it.Kind);
-        var box = new Rectangle(e.Bounds.X + 6, e.Bounds.Y + (e.Bounds.Height - 16) / 2, 16, 16);
+        var ib = NativeSkin.Px(_list, 16);
+        var box = new Rectangle(e.Bounds.X + NativeSkin.Px(_list, 6), e.Bounds.Y + (e.Bounds.Height - ib) / 2, ib, ib);
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         using (var p = FlatToolStripRenderer.RoundedRect(box, 4)) { using var f = new SolidBrush(Color.FromArgb(40, color)); g.FillPath(f, p); }
         TextRenderer.DrawText(g, glyph, _list.Font, box, color, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix);

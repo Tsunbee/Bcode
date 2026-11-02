@@ -284,8 +284,8 @@ public sealed class ThemedListBox : SmoothListBox
 {
     public ThemedListBox()
     {
-        FontChanged += (_, _) => ItemHeight = Math.Max(16, Font.Height + UI.UiTemplate.Dens(6));
-        ItemHeight = Math.Max(16, Font.Height + UI.UiTemplate.Dens(6));
+        FontChanged += (_, _) => ItemHeight = Math.Max(16, Font.Height + UI.NativeSkin.Dens(this, 6));
+        ItemHeight = Math.Max(16, Font.Height + UI.NativeSkin.Dens(this, 6));
     }
 
     protected override void DrawRow(DrawItemEventArgs e)

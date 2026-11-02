@@ -262,10 +262,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _topBarWeb.Dock = DockStyle.Top;
             _topBarWeb.Height = 46;
             _iconRailWeb.Dock = DockStyle.Left;
-            _iconRailWeb.Width = 52;
             _statusBarWeb.Dock = DockStyle.Bottom;
-            _statusBarWeb.Height = Bcode.App.UI.UiTemplate.Dens(26); // theo Mật độ của Template giao diện
         }
+        FitShellBars();
+        Bcode.App.UI.UiScale.Changed += FitShellBars;
+        Disposed += (_, _) => Bcode.App.UI.UiScale.Changed -= FitShellBars;
 
         _settingsMenu = () => new WebMenu()
             .Add("Choose Server / Workspaces...", OpenConnectionSettings)
@@ -343,7 +344,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var sw = System.Diagnostics.Stopwatch.StartNew();
             RebuildToolsBar(); var a = sw.ElapsedMilliseconds;
             PushTopBarLayout(); var b = sw.ElapsedMilliseconds;
-            StatusBarControl.Height = Bcode.App.UI.UiTemplate.Dens(26);
+            FitShellBars();
             if (Bcode.App.UI.UiMode.IsNative) Invalidate(true);   // control native tự vẽ đọc bo góc/viền/mật độ từ Template → vẽ lại
             ApplyWindowLayout(first: false);
             Bcode.App.UI.ThemeManager.LogTiming($"MainForm.OnTemplateChanged: tổng {sw.ElapsedMilliseconds} ms (RebuildToolsBar {a}, PushTopBarLayout {b - a}, ApplyWindowLayout {sw.ElapsedMilliseconds - b})");
@@ -960,6 +961,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         var table = _documentTabs.SelectedTab?.Controls.OfType<TableEditControl>().FirstOrDefault();
         ApplyActiveDatabase(!(table?.UseSysDatabase ?? _topDbSys));
+    }
+
+    /// <summary>Cột icon / thanh trạng thái: trang WebView2 phóng theo DPI × UiScale (ZoomFactor) nên khung cũng theo cùng tỉ lệ — px thiết kế 52 / 26 (× Mật độ).</summary>
+    private void FitShellBars()
+    {
+        if (IsDisposed) return;
+        StatusBarControl.Height = Bcode.App.UI.NativeSkin.Dens(StatusBarControl, 26);
+        if (_railNative is null) _iconRailWeb.Width = Bcode.App.UI.NativeSkin.Px(_iconRailWeb, 52);
     }
 
     private void PushThemeToShell()
@@ -2969,7 +2978,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     // Tính lại hệ số co giãn khi cửa sổ hiện ra, đổi DPI, đổi cỡ hoặc chuyển sang màn hình khác.
     protected override void OnShown(EventArgs e) { base.OnShown(e); Bcode.App.UI.UiScale.Update(this); }
-    protected override void OnDpiChanged(DpiChangedEventArgs e) { base.OnDpiChanged(e); Bcode.App.UI.UiScale.Update(this); }
+    protected override void OnDpiChanged(DpiChangedEventArgs e) { base.OnDpiChanged(e); Bcode.App.UI.UiScale.Update(this); FitShellBars(); }
     protected override void OnResizeEnd(EventArgs e) { base.OnResizeEnd(e); Bcode.App.UI.UiScale.Update(this); }
     protected override void OnLocationChanged(EventArgs e) { base.OnLocationChanged(e); if (IsHandleCreated) Bcode.App.UI.UiScale.Update(this); }
 

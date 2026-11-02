@@ -23,8 +23,8 @@ public sealed class NativeStructPanel : Panel
 
         public CheckList()
         {
-            FontChanged += (_, _) => ItemHeight = Math.Max(18, Font.Height + UiTemplate.Dens(8));
-            ItemHeight = Math.Max(18, Font.Height + UiTemplate.Dens(8));
+            FontChanged += (_, _) => ItemHeight = Math.Max(18, Font.Height + NativeSkin.Dens(this, 8));
+            ItemHeight = Math.Max(18, Font.Height + NativeSkin.Dens(this, 8));
         }
 
         /// <summary>Danh sách không đổi (vd chỉ tick / bỏ tick) thì chỉ vẽ lại, không nạp lại — trước đây mỗi lần tick là xoá trắng cả danh sách (chớp + nhảy cuộn).</summary>

@@ -260,6 +260,7 @@ internal sealed class CfsDiagPage : NativePage
     // ====================== Mẫu chuẩn ======================
     private sealed class StdDialog : ThemedForm
     {
+        protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
         private static readonly Dictionary<string, string> StatName = new() { ["std"] = "chuẩn", ["carried"] = "suy từ TT200", ["guide"] = "thông lệ", ["new"] = "mới TT99", ["confirm"] = "CHƯA xác nhận" };
         private readonly Action<object> _post; private readonly Action<string> _toast;
         private readonly DropDownButton _sel = new() { Width = NativeSkin.S(420) };
@@ -394,6 +395,7 @@ internal sealed class CfsDiagPage : NativePage
     // ====================== Import mẫu chỉ tiêu ======================
     private sealed class ImportDialog : ThemedForm
     {
+        protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
         private static readonly string[] Kinds = { "cf-indirect", "cf-direct", "bs" };
         private static readonly Dictionary<string, string> KindName = new() { ["cf-indirect"] = "LCTT gián tiếp", ["cf-direct"] = "LCTT trực tiếp", ["bs"] = "CĐKT" };
         private readonly Action<object> _post; private readonly Action<string> _toast;

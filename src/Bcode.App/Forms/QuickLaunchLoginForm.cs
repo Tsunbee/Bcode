@@ -35,8 +35,10 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     private readonly AppSettings _settings;
 
     private readonly TextBox _txtUrl = new();
-    private readonly TextBox _txtUser = new() { Width = 130 };
-    private readonly TextBox _txtPass = new() { Width = 130, UseSystemPasswordChar = true };
+    private readonly TextBox _txtUser = new() { Width = Bcode.App.UI.NativeSkin.S(130) };
+    private readonly TextBox _txtPass = new() { Width = Bcode.App.UI.NativeSkin.S(130), UseSystemPasswordChar = true };
+
+    protected override Bcode.App.UI.DpiLayout DpiLayoutMode => Bcode.App.UI.DpiLayout.PreScaled;   // thanh trên dựng bằng NativeSkin (RowHeight / S)
     private readonly CheckBox _chkRemember = new() { Text = "Lưu vào Workspace", AutoSize = true, Checked = true };
     // Nút kiểu Bcode (bo tròn, theo theme) — trông như thanh SQL Query khi form nằm trong tab, thay cho Button WinForms thô.
     private readonly Bcode.App.Controls.PillButton _btnLogin = Bcode.App.Controls.PillButton.Flat("▶ Đăng nhập", primary: true);

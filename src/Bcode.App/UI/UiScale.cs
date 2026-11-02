@@ -20,6 +20,14 @@ public static class UiScale
     public static double Factor { get; private set; } = 1.0;
     public static event Action? Changed;
 
+    /// <summary>DPI hệ thống (màn chính lúc mở chương trình): font pt của WinForms được dựng theo DPI này.</summary>
+    public static readonly int SystemDpi = GetSystemDpi();
+    private static int GetSystemDpi() { try { using var g = Graphics.FromHwnd(IntPtr.Zero); return (int)g.DpiX; } catch { return 96; } }
+
+    /// <summary>DPI của màn đang chứa cửa sổ chính (cập nhật ở <see cref="Update"/>). Control native dựng mới đặt kích thước theo DPI này:
+    /// WinForms tự nhân font của control tạo trên màn khác DPI hệ thống nhưng không nhân khung.</summary>
+    public static int Dpi { get; private set; } = SystemDpi;
+
     /// <summary>Đặt chế độ ("Auto" hoặc số phần trăm) rồi tính lại theo màn hình đang chứa <paramref name="host"/>.</summary>
     public static void SetMode(string? mode, Control host)
     {
@@ -30,6 +38,7 @@ public static class UiScale
     /// <summary>Tính lại hệ số (gọi khi mở form, đổi DPI, đổi kích thước/chuyển màn hình); chỉ báo <see cref="Changed"/> khi giá trị đổi.</summary>
     public static void Update(Control host)
     {
+        Dpi = Math.Max(1, host.DeviceDpi);
         double f;
         if (!Mode.Equals(Auto, StringComparison.OrdinalIgnoreCase) && double.TryParse(Mode, out var pct) && pct > 0)
             f = Math.Clamp(pct / 100.0, 0.5, 2.0);

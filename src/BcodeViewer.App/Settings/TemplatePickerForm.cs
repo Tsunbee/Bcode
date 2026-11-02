@@ -6,7 +6,7 @@ namespace BcodeViewer.App.Settings;
 /// actual content on the right. The preview is the point: these files differ by a few lines
 /// buried in a hundred, and a name alone ("Mau - Dir Controller") is not enough to tell two
 /// of them apart at the moment of choosing.</summary>
-public class TemplatePickerForm : Form
+public class TemplatePickerForm : DpiForm
 {
     private readonly ListBox _list = new() { Dock = DockStyle.Fill, IntegralHeight = false, BorderStyle = BorderStyle.None };
     private readonly TextBox _preview = new()
@@ -30,6 +30,7 @@ public class TemplatePickerForm : Form
         var split = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 260, SplitterWidth = 6 };
         split.Panel1.Controls.Add(_list);
         split.Panel2.Controls.Add(_preview);
+        Load += (_, _) => { try { split.SplitterDistance = Px(260); } catch (InvalidOperationException) { } };   // px thiết kế → theo DPI (SplitterDistance không theo lượt co)
 
         foreach (var t in templates) _list.Items.Add(t.IsShared ? $"{t.Name}   (dùng chung)" : t.Name);
         _list.SelectedIndexChanged += (_, _) => ShowPreview();

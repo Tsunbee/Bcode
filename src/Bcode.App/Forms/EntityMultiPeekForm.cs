@@ -14,6 +14,9 @@ namespace Bcode.App.Forms;
 /// </summary>
 public sealed partial class EntityMultiPeekForm : DpiForm
 {
+    // Chế độ App: thân form dựng bằng NK / NativeSkin (đã gồm DPI × UiScale) → chỉ co cỡ cửa sổ; chế độ Web: px thiết kế như cũ.
+    protected override DpiLayout DpiLayoutMode => UiMode.IsNative ? DpiLayout.WindowOnly : DpiLayout.Design;
+
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly List<EntityPreviewItem> _items;
     private readonly AppSettings? _settings;

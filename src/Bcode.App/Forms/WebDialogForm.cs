@@ -15,6 +15,9 @@ public abstract class WebDialogForm : ThemedForm
     protected static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     protected readonly WebBarHost Web;
 
+    /// <summary>width/height là px thiết kế của cửa sổ; trang lấp đầy form tự co (WebView2: DPI + ZoomFactor, chế độ App: trang native dựng bằng NativeSkin).</summary>
+    protected override DpiLayout DpiLayoutMode => DpiLayout.WindowOnly;
+
     protected WebDialogForm(string title, string page, int width, int height, int minWidth = 420, int minHeight = 260, bool resizable = true)
     {
         Text = title;

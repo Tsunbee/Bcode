@@ -341,6 +341,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             }
             _zoomPanel = new Panel { Width = 62 + 30 + 30 + 78 + 10, Height = 34, Visible = false };
             _zoomPanel.Controls.AddRange(new Control[] { _zoomPct, Btn("−", 62, 30, () => ChangeZoom(-1)), Btn("+", 92, 30, () => ChangeZoom(1)), Btn("Đặt lại", 124, 78, () => ChangeZoom(0), accent: true) });
+            var k = Bcode.App.UI.NativeSkin.Px(host, 1000) / 1000f;   // số trên là px thiết kế → nhân DPI × UiScale (cùng tỉ lệ với chữ)
+            if (Math.Abs(k - 1f) > 0.001f) _zoomPanel.Scale(new SizeF(k, k));
             _zoomPanel.MouseEnter += (_, _) => _zoomHide.Stop();
             foreach (Control c in _zoomPanel.Controls) c.MouseEnter += (_, _) => _zoomHide.Stop();
             _zoomPanel.MouseLeave += (_, _) => { _zoomHide.Stop(); _zoomHide.Start(); };
@@ -356,7 +358,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         }
         var size = Math.Max(1, _ed.Styles[Style.Default].Size);   // 100% = cỡ chữ gốc; Zoom của Scintilla = số điểm cộng thêm
         _zoomPct.Text = Math.Max(10, (int)Math.Round((size + _ed.Zoom) * 100.0 / size)) + "%";
-        _zoomPanel.Location = new Point(Math.Max(0, _ed.Right - _zoomPanel.Width - 30), _ed.Top + 6);
+        _zoomPanel.Location = new Point(Math.Max(0, _ed.Right - _zoomPanel.Width - Bcode.App.UI.NativeSkin.Px(host, 30)), _ed.Top + Bcode.App.UI.NativeSkin.Px(host, 6));
         _zoomPanel.Visible = true;
         _zoomPanel.BringToFront();
         _zoomHide.Stop(); _zoomHide.Start();

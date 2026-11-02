@@ -35,7 +35,7 @@ public sealed partial class EntityMultiPeekForm
         head.Controls.Add(titles); head.Controls.Add(modes);
 
         _bPrev = NK.Button("◀", () => Step(-1), tip: "Entity trước (Alt+←)"); _bNext = NK.Button("▶", () => Step(1), tip: "Entity sau (Alt+→)");
-        _nCounter = NK.Muted(""); _chips = new FlowLayoutPanel { AutoSize = true, WrapContents = true, BackColor = Color.Transparent, MaximumSize = new Size(900, 0) };
+        _nCounter = NK.Muted(""); _chips = new FlowLayoutPanel { AutoSize = true, WrapContents = true, BackColor = Color.Transparent, MaximumSize = new Size(NativeSkin.S(900), 0) };
         var navFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, BackColor = Color.Transparent };
         navFlow.Controls.Add(_bPrev); navFlow.Controls.Add(_nCounter); navFlow.Controls.Add(_bNext); navFlow.Controls.Add(_chips);
         _nav = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(12, 0, 12, 4) };

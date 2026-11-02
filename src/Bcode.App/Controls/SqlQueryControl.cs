@@ -51,7 +51,7 @@ public class SqlQueryControl : UserControl
         _scriptFileService = scriptFileService;
         Dock = DockStyle.Fill;
 
-        _statusLabel = new Label { Dock = DockStyle.Top, Height = 20, ForeColor = Color.DimGray };
+        _statusLabel = new Label { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.S(20), ForeColor = Color.DimGray };
 
         // AutoSizeColumnsMode.DisplayedCells left continuously ON recalculates every column's width on basically every paint/scroll —
         // GridDisplayHelper.BindOptimized runs that sizing pass ONCE right after data loads instead, then leaves column widths fixed (None).

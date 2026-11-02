@@ -81,7 +81,7 @@ public partial class FileLookupControl : UserControl
         _statusLabel = new Label
         {
             Dock = DockStyle.Bottom,
-            Height = 22,
+            Height = NativeSkin.S(22),
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(4, 0, 0, 0),
             ForeColor = SystemColors.GrayText,
@@ -93,7 +93,7 @@ public partial class FileLookupControl : UserControl
         _issueBox = new TextBox
         {
             Dock = DockStyle.Bottom,
-            Height = 96,
+            Height = NativeSkin.S(96),
             Multiline = true,
             ReadOnly = true,
             ScrollBars = ScrollBars.Vertical,
@@ -104,7 +104,7 @@ public partial class FileLookupControl : UserControl
        
         ControlPerf.EnableDoubleBuffering(_tree);
         
-        var images = new ImageList { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+        var images = new ImageList { ImageSize = new Size(16 * UiScale.Dpi / 96, 16 * UiScale.Dpi / 96), ColorDepth = ColorDepth.Depth32Bit };
         if (AppIcons.FileTreeBitmap is { } beeIcon) images.Images.Add("bee", beeIcon);
         if (AppIcons.FolderTreeBitmap is { } folderIcon) images.Images.Add("folder", folderIcon);
         images.Images.Add("excel", AppIcons.ExcelTreeBitmap);   // .xlsx/.xls — biểu tượng Excel
@@ -272,9 +272,9 @@ public partial class FileLookupControl : UserControl
         split.Panel2MinSize = 0;
 
         
-        const int desiredTreeWidth = 360;
+        var desiredTreeWidth = NativeSkin.S(360);
        
-        const int minPreviewWidth = 120;
+        var minPreviewWidth = NativeSkin.S(120);
         void ApplySplitterDistance()
         {
             if (split.Width <= 0) return;

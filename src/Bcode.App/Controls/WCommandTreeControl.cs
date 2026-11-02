@@ -83,7 +83,8 @@ public class WCommandTreeControl : UserControl
         Dock = DockStyle.Fill;
 
         _barWeb.Dock = DockStyle.Top;
-        _barWeb.Height = 34;
+        _barWeb.Height = Bcode.App.UI.NativeSkin.S(34);   // trang phóng theo DPI × UiScale → khung cũng vậy (đổi UiScale: xem ThemeManager.Subscribe bên dưới)
+        Bcode.App.UI.ThemeManager.Subscribe(this, () => _barWeb.Height = Bcode.App.UI.NativeSkin.Px(_barWeb, 34));
 
         _tree = new SafeTreeView { Dock = DockStyle.Fill, HideSelection = false };
         // "Fcode's lookup bars are smooth — check what makes them not lag." TreeView (like
@@ -265,7 +266,7 @@ public class WCommandTreeControl : UserControl
     /// <summary>Thanh lọc bản native (tương đương wcommandbar.html): ô lọc + ô (C) (chỉ menu customize) + nút Refresh; Enter, đổi (C) hoặc Refresh = tải lại theo bộ lọc.</summary>
     private Control BuildNativeBar()
     {
-        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.UiTemplate.Dens(40), Padding = new Padding(6, 6, 6, 6) };
+        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 40), Padding = new Padding(6, 6, 6, 6) };
         var refresh = PillButton.Flat("Refresh");
         refresh.Dock = DockStyle.Right;
         _nativeFilter = new RoundedInput { Dock = DockStyle.Fill, PlaceholderText = "Tìm theo tên menu, ID hoặc link..." };

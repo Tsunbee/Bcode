@@ -5,7 +5,7 @@ namespace BcodeViewer.App.Settings;
 /// <summary>Everything BcodeViewer needs configured: the Anthropic API key and model for
 /// the AI features, the team's shared template folder, and the two IntelliSense sources
 /// that reach outside the open file (the database, and Claude).</summary>
-public class SettingsForm : Form
+public class SettingsForm : DpiForm
 {
     private readonly ViewerSettings _settings;
     private readonly Func<string> _describeSqlStatus;

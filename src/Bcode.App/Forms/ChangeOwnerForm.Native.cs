@@ -18,7 +18,7 @@ public partial class ChangeOwnerForm
         var head = new Label { Text = "Change Owner", AutoSize = true, Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 3, FontStyle.Bold), Padding = new Padding(0, 0, 0, 2) };
         var sub = NK.Wrap("Chuyển 1 object SQL sang schema khác (ALTER SCHEMA ... TRANSFER). Mọi code/view/proc tham chiếu object bằng tên schema cũ sẽ phải sửa lại.", this, 60);
 
-        _nDb = new DropDownButton { Height = NativeSkin.RowHeight(this, 28), Width = 200 };
+        _nDb = new DropDownButton { Height = NativeSkin.RowHeight(this, 28), Width = NativeSkin.S(200) };
         _nDb.SetItems(new[] { "App Data", "Sys Data" }, 0);
         _nSchema = NK.Input("vd: dbo");
         _nObj = NK.Input("dbo.tenobject"); _nObj.Text = _preselected;

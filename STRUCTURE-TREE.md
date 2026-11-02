@@ -16,13 +16,13 @@ Bcode.App/
 │   ├── rpt/
 │   └── README.md  14
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  568
+│   ├── AdvanceNoteControl.cs  579
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
 │   ├── CheckMailControl.cs  146
 │   ├── CompareObjectsControl.cs  106
-│   ├── CreateRptControl.cs  199
+│   ├── CreateRptControl.cs  225
 │   ├── DecryptSqlObjectControl.cs  233
 │   ├── FastAskControl.cs  162
 │   ├── FcodeLexer.cs  465
@@ -35,7 +35,7 @@ Bcode.App/
 │   ├── GenUpdatePackageControl.cs  470
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
-│   ├── HintPopup.cs  154
+│   ├── HintPopup.cs  155
 │   ├── IconRailControl.cs  158
 │   ├── IncludeCheckControl.cs  200
 │   ├── ISqlTab.cs  61
@@ -44,23 +44,23 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  210
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  211
-│   ├── NativeAdvanceNoteControl.cs  1201
+│   ├── NativeAdvanceNoteControl.cs  1222
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
-│   ├── NativeCompareObjectsControl.cs  278
+│   ├── NativeCompareObjectsControl.cs  279
 │   ├── NativeFindBar.cs  65
 │   ├── NativeInputs.cs  304
 │   ├── NativeKit.cs  515
 │   ├── NativeLookupControl.cs  295
 │   ├── NativePage.cs  274
-│   ├── NativePages.Api.cs  866
+│   ├── NativePages.Api.cs  867
 │   ├── NativePages.Bars.cs  31
 │   ├── NativePages.Bars2.cs  113
-│   ├── NativePages.Bbxn.cs  439
+│   ├── NativePages.Bbxn.cs  440
 │   ├── NativePages.Catalog.cs  271
-│   ├── NativePages.CfsDiag.cs  447
+│   ├── NativePages.CfsDiag.cs  449
 │   ├── NativePages.Commands.cs  320
-│   ├── NativePages.Connections.cs  183
+│   ├── NativePages.Connections.cs  184
 │   ├── NativePages.Decrypt.cs  131
 │   ├── NativePages.Dialogs.cs  443
 │   ├── NativePages.Dialogs2.cs  180
@@ -71,7 +71,7 @@ Bcode.App/
 │   ├── NativePages.FileTools.cs  76
 │   ├── NativePages.GenUpdate.cs  386
 │   ├── NativePages.HintsHelp.cs  123
-│   ├── NativePages.IncludeCheck.cs  371
+│   ├── NativePages.IncludeCheck.cs  372
 │   ├── NativePages.Note.cs  90
 │   ├── NativePages.Palette.cs  211
 │   ├── NativePages.PartitionCheck.cs  43
@@ -79,12 +79,12 @@ Bcode.App/
 │   ├── NativePages.QuickAccess.cs  215
 │   ├── NativePages.Register.cs  51
 │   ├── NativePages.RptSchema.cs  186
-│   ├── NativePages.SqlHistory.cs  299
+│   ├── NativePages.SqlHistory.cs  300
 │   ├── NativePages.Usages.cs  132
-│   ├── NativeQueryHistoryControl.cs  344
+│   ├── NativeQueryHistoryControl.cs  346
 │   ├── NativeResultPane.cs  303
 │   ├── NativeShellBars.cs  314
-│   ├── NativeSqlControl.cs  2160
+│   ├── NativeSqlControl.cs  2162
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -116,44 +116,44 @@ Bcode.App/
 │   ├── TableEditControl.cs  2146
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
-│   ├── WCommandTreeControl.cs  901
+│   ├── WCommandTreeControl.cs  902
 │   ├── WebActionBar.cs  264
-│   ├── WebBarHost.cs  212
+│   ├── WebBarHost.cs  222
 │   ├── WebFrameHost.cs  210
-│   ├── WebMenu.cs  332
+│   ├── WebMenu.cs  337
 │   └── WeeklyMailControl.cs  245
 ├── Forms/
 │   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
 │   ├── ApiDeclarationForm.cs  186
-│   ├── ApiSchemaBuilderForm.cs  274
+│   ├── ApiSchemaBuilderForm.cs  277
 │   ├── ApiSchemaBuilderForm.Native.cs  322
 │   ├── AppCommandEditForm.cs  255
 │   ├── CatalogCloneForm.cs  146
-│   ├── ChangeOwnerForm.cs  155
+│   ├── ChangeOwnerForm.cs  158
 │   ├── ChangeOwnerForm.Native.cs  87
 │   ├── ChooseDebugTargetForm.cs  84
 │   ├── ColumnDesignForm.cs  60
 │   ├── CommandPaletteForm.cs  113
 │   ├── CompareStructureForm.cs  64
-│   ├── CompareTextForm.cs  644
+│   ├── CompareTextForm.cs  647
 │   ├── ConnectionSettingsForm.cs  341
 │   ├── CopyMultiFileForm.cs  262
 │   ├── CopySourceStandardForm.cs  99
 │   ├── CreateRptXlsxForm.cs  86
 │   ├── EditProjectForm.cs  183
-│   ├── EntityMultiPeekForm.cs  164
+│   ├── EntityMultiPeekForm.cs  167
 │   ├── EntityMultiPeekForm.Native.cs  153
 │   ├── FsgNotifyForm.cs  75
 │   ├── FsgRequirementCrawlerForm.cs  618
 │   ├── GotoColumnForm.cs  86
 │   ├── GrantSourceForm.cs  198
-│   ├── LibrarySnippetForm.cs  171
+│   ├── LibrarySnippetForm.cs  174
 │   ├── LibrarySnippetForm.Native.cs  176
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3966
+│   ├── MainForm.cs  3975
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -163,7 +163,7 @@ Bcode.App/
 │   ├── ProjectActions.cs  52
 │   ├── ProjectPickerForm.cs  131
 │   ├── QuickAccessForm.cs  165
-│   ├── QuickLaunchLoginForm.cs  621
+│   ├── QuickLaunchLoginForm.cs  623
 │   ├── QuickListForm.cs  764
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
@@ -172,19 +172,19 @@ Bcode.App/
 │   ├── SetupEInvoiceForm.cs  368
 │   ├── SimplePromptForm.cs  78
 │   ├── SourceViewForm.cs  125
-│   ├── SqlAiEditForm.cs  107
+│   ├── SqlAiEditForm.cs  108
 │   ├── SqlHistoryForm.cs  329
 │   ├── StepParamsForm.cs  134
 │   ├── StringBeautyForm.cs  170
 │   ├── StubForm.cs  91
-│   ├── TabSwitcherForm.cs  175
+│   ├── TabSwitcherForm.cs  178
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
 │   ├── UiTemplateForm.cs  723
 │   ├── WCommandDuplicateForm.cs  29
 │   ├── WCommandEditForm.cs  375
 │   ├── WCommandScriptForm.cs  133
-│   └── WebDialogForm.cs  78
+│   └── WebDialogForm.cs  81
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
@@ -222,7 +222,7 @@ Bcode.App/
 │   │   ├── RptSchemaService.cs  124
 │   │   ├── RptXmlBuilder.cs  103
 │   │   └── XsdSchemaWriter.cs  110
-│   ├── AdvanceNoteService.cs  169
+│   ├── AdvanceNoteService.cs  180
 │   ├── AdvancePackageBuilder.cs  179
 │   ├── AiCatalogService.cs  581
 │   ├── AiChatService.cs  79
@@ -334,7 +334,7 @@ Bcode.App/
 │   ├── ColorPalette.cs  140
 │   ├── ControlPerf.cs  18
 │   ├── DevToolsDock.cs  190
-│   ├── DpiForm.cs  53
+│   ├── DpiForm.cs  112
 │   ├── FastGhostLearnUi.cs  32
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
@@ -343,15 +343,15 @@ Bcode.App/
 │   ├── LineNumberGutter.cs  116
 │   ├── MousePointer.cs  55
 │   ├── NativeAppLauncher.cs  42
-│   ├── NativeSkin.cs  54
+│   ├── NativeSkin.cs  58
 │   ├── PerformanceProfile.cs  75
 │   ├── ShortcutRegistry.cs  346
 │   ├── ThemedForm.cs  11
-│   ├── ThemeManager.cs  718
+│   ├── ThemeManager.cs  723
 │   ├── TreeColorOptions.cs  50
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
-│   ├── UiScale.cs  60
+│   ├── UiScale.cs  69
 │   ├── UiTemplate.cs  509
 │   ├── UiThemes.cs  341
 │   └── WebViewEnvironment.cs  384
@@ -359,7 +359,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  818
+│       ├── advnote.html  831
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  766
 │       ├── apischema.html  470
@@ -380,7 +380,7 @@ Bcode.App/
 │       ├── contextmenu.html  145
 │       ├── copymulti.html  185
 │       ├── copysourcestandard.html  89
-│       ├── createrpt.html  1113
+│       ├── createrpt.html  1116
 │       ├── decryptsql.html  141
 │       ├── dialog.css  43
 │       ├── editproject.html  121
@@ -494,12 +494,13 @@ BcodeViewer.App/
 │   ├── RecentFilesStore.cs  187
 │   ├── SettingsForm.cs  244
 │   ├── SharedHistoryStore.cs  317
-│   ├── TemplatePickerForm.cs  78
+│   ├── TemplatePickerForm.cs  79
 │   ├── TranslateDictionary.cs  370
 │   └── ViewerSettings.cs  217
 ├── UI/
 │   ├── AppTheme.cs  397
 │   ├── CodeHighlighter.cs  100
+│   ├── DpiForm.cs  39
 │   ├── PillButton.cs  138
 │   ├── ThemeCatalog.cs  1066
 │   ├── VsCodeThemeImporter.cs  820
@@ -544,9 +545,9 @@ BcodeViewer.App/
 │   ├── ui.js  134
 │   └── zoombar.js  99
 ├── BcodePaths.cs  45
-├── BcodeViewer.App.csproj  54
-├── HintCodeForm.cs  518
-├── MainForm.cs  2717
+├── BcodeViewer.App.csproj  56
+├── HintCodeForm.cs  520
+├── MainForm.cs  2720
 └── Program.cs  212
 ```
 ```

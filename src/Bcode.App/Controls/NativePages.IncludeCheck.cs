@@ -289,6 +289,7 @@ internal sealed class IncludeCheckPage : NativePage
     /// <summary>Hộp thêm / sửa 1 tính năng của catalog (kèm dán nhanh hướng dẫn để tự tách điều kiện).</summary>
     private sealed class FeatureEditor : ThemedForm
     {
+        protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
         private readonly RoundedInput _group = NK.Input(""), _ver = NK.Input(""), _title = NK.Input(""), _id = NK.Input(""), _prod = NK.Input(""), _paste = NK.Memo(3, "Dán nguyên các dòng hướng dẫn vào đây rồi bấm “Tách điều kiện”"), _guide = NK.Memo(4, "");
         private readonly Panel _conds = new() { Dock = DockStyle.Top, AutoSize = true };
         private readonly Action<string> _parse;

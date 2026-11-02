@@ -65,6 +65,7 @@ internal sealed class DiffView : Scintilla
 /// <summary>Hộp xem script sinh ra (chỉ đọc, tô màu SQL) + Chép + "Mở trong tab SQL". Bcode chỉ sinh script, không chạy.</summary>
 internal sealed class ScriptPreviewDialog : ThemedForm
 {
+    protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
     private readonly Scintilla _sc = new() { Dock = DockStyle.Fill, BorderStyle = ScintillaNET.BorderStyle.None };
 
     public bool OpenInSql { get; private set; }

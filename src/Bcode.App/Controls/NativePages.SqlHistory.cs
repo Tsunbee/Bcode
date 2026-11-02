@@ -244,6 +244,7 @@ internal sealed class SqlHistoryPage : DialogPage
     /// <summary>Hộp "Theo dõi thay đổi ngoài Bcode": trạng thái DDL trigger từng database + Cài / Gỡ.</summary>
     private sealed class TrackingDialog : ThemedForm
     {
+        protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
         private readonly FlowLayoutPanel _list = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(12) };
         private readonly Label _status = NK.Muted("", true);
         private readonly Action<string, string> _act;

@@ -295,7 +295,7 @@ public class SqlProfilerControl : UserControl
         _stripShow.MouseEnter += (_, _) => _stripShow.BackColor = Bcode.App.UI.AppColors.Selection;
         _stripShow.MouseLeave += (_, _) => _stripShow.BackColor = Bcode.App.UI.AppColors.PanelAlt;
         new ToolTip().SetToolTip(_stripShow, "Hiện lại thanh cấu hình Profiler (Profiler.exe, đăng nhập, Template, u_id, file trace...)");
-        _barStrip = new Panel { Dock = DockStyle.Top, Height = 22, Visible = false };
+        _barStrip = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.S(22), Visible = false };
         _barStrip.Controls.Add(_stripStatus);
         _barStrip.Controls.Add(_stripShow);
         ApplyStripTheme();

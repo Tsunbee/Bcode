@@ -14,6 +14,9 @@ namespace Bcode.App.Forms;
 /// </summary>
 public partial class ChangeOwnerForm : ThemedForm
 {
+    // Chế độ App: thân form dựng bằng NK / NativeSkin (đã gồm DPI × UiScale) → chỉ co cỡ cửa sổ; chế độ Web: px thiết kế như cũ.
+    protected override DpiLayout DpiLayoutMode => UiMode.IsNative ? DpiLayout.WindowOnly : DpiLayout.Design;
+
     private readonly ChangeOwnerService _service;
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly string _preselected;

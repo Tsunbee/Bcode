@@ -9,13 +9,15 @@ namespace Bcode.App.Forms;
 /// </summary>
 public class TabSwitcherForm : DpiForm
 {
+    protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước tính bằng NativeSkin.S (ItemHeight của ListBox không theo Scale)
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int vKey);
 
     private readonly ListBox _list = new()
     {
         Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, IntegralHeight = false,
-        DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = 28,
+        DrawMode = DrawMode.OwnerDrawFixed, ItemHeight = NativeSkin.S(28),
     };
     private readonly int _current;
     private readonly bool _commitOnCtrlUp;
@@ -48,7 +50,7 @@ public class TabSwitcherForm : DpiForm
             Text = commitOnCtrlUp
                 ? "Chuyển tab  —  giữ Ctrl, bấm Tab / ↑ ↓ để chọn, thả Ctrl để đi, Esc để đóng"
                 : "Chuyển tab  —  ↑ ↓ hoặc Tab để chọn, Enter hoặc bấm chuột để đi, Esc để đóng",
-            Dock = DockStyle.Top, Height = 30, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 8, 0),
+            Dock = DockStyle.Top, Height = NativeSkin.S(30), TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(NativeSkin.S(10), 0, NativeSkin.S(8), 0),
             BackColor = AppColors.PanelAlt, ForeColor = AppColors.TextMuted, AutoEllipsis = true,
         };
         _list.BackColor = AppColors.Panel;
@@ -72,7 +74,7 @@ public class TabSwitcherForm : DpiForm
         Controls.Add(header);
 
         var rows = Math.Clamp(Math.Max(1, tabs.Count), 1, 14);
-        ClientSize = new Size(460, 30 + rows * _list.ItemHeight + 2);
+        ClientSize = new Size(NativeSkin.S(460), NativeSkin.S(30) + rows * _list.ItemHeight + 2);
         Deactivate += (_, _) => { if (!_done) Cancel(); };
         _ctrlWatch.Tick += (_, _) => { if (!CtrlHeld) Accept(); };
         FormClosed += (_, _) => _ctrlWatch.Stop();
@@ -102,16 +104,17 @@ public class TabSwitcherForm : DpiForm
         try
         {
             var fore = selected ? AppColors.OnAccent : AppColors.Text;
-            var num = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, 28, e.Bounds.Height);
+            var num = new Rectangle(e.Bounds.X + NativeSkin.Px(_list, 8), e.Bounds.Y, NativeSkin.Px(_list, 28), e.Bounds.Height);
             TextRenderer.DrawText(e.Graphics, (e.Index + 1).ToString(), _list.Font, num, selected ? AppColors.OnAccent : AppColors.TextMuted,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
-            var text = new Rectangle(e.Bounds.X + 38, e.Bounds.Y, e.Bounds.Width - 46, e.Bounds.Height);
+            var text = new Rectangle(e.Bounds.X + NativeSkin.Px(_list, 38), e.Bounds.Y, e.Bounds.Width - NativeSkin.Px(_list, 46), e.Bounds.Height);
             TextRenderer.DrawText(e.Graphics, _list.Items[e.Index]?.ToString() ?? "", font, text, fore,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
             if (isCurrent) // dấu chấm: tab đang mở
             {
                 using var dot = new SolidBrush(selected ? AppColors.OnAccent : AppColors.Accent);
-                e.Graphics.FillEllipse(dot, e.Bounds.Right - 16, e.Bounds.Y + (e.Bounds.Height - 7) / 2, 7, 7);
+                var d = NativeSkin.Px(_list, 7);
+                e.Graphics.FillEllipse(dot, e.Bounds.Right - NativeSkin.Px(_list, 16), e.Bounds.Y + (e.Bounds.Height - d) / 2, d, d);
             }
         }
         finally { if (isCurrent) font.Dispose(); }

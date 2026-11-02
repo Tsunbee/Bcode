@@ -146,7 +146,7 @@ public partial class ScriptEditorControl : UserControl
             Text = "✕",
             CornerRadius = 4,
             Dock = DockStyle.Right,
-            Width = 24,
+            Width = NativeSkin.S(24),
             TabStop = false
         };
         _hideBarButton.Click += (_, _) =>
@@ -157,7 +157,7 @@ public partial class ScriptEditorControl : UserControl
         var hideTip = new ToolTip();
         hideTip.SetToolTip(_hideBarButton, "Ẩn dòng này (áp dụng cho các tab nội dung tạm mở sau này)");
 
-        _topBar = new Panel { Dock = DockStyle.Top, Height = 22 };
+        _topBar = new Panel { Dock = DockStyle.Top, Height = NativeSkin.S(22) };
         _topBar.Controls.Add(_pathLabel);
         _topBar.Controls.Add(_hideBarButton);
 
@@ -179,7 +179,7 @@ public partial class ScriptEditorControl : UserControl
             IsPrimary = true,
             CornerRadius = 6,
             Dock = DockStyle.Right,
-            Width = 72,
+            Width = NativeSkin.S(72),
             TabStop = false,
             Margin = new Padding(2),
         };
@@ -189,7 +189,7 @@ public partial class ScriptEditorControl : UserControl
             Text = "✕",
             CornerRadius = 4,
             Dock = DockStyle.Right,
-            Width = 24,
+            Width = NativeSkin.S(24),
             TabStop = false
         };
         _externalChangeDismissButton.FlatAppearance.BorderSize = 0;
@@ -201,7 +201,7 @@ public partial class ScriptEditorControl : UserControl
         _externalChangeBar = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 24,
+            Height = NativeSkin.S(24),
             BackColor = AppColors.Warning,
             Visible = false
         };
@@ -341,10 +341,10 @@ public partial class ScriptEditorControl : UserControl
     {
         var host = FindHost;
         if (host is null) return;
-        var width = Math.Min(420, Math.Max(240, Width - 80));
+        var width = Math.Min(NativeSkin.Px(this, 420), Math.Max(NativeSkin.Px(this, 240), Width - NativeSkin.Px(this, 80)));
         host.Width = width;
-        if (_findNative is null) host.Height = 38;
-        host.Location = new Point(Math.Max(0, Width - width - SystemInformation.VerticalScrollBarWidth - 10), _textBox.Top + 8);
+        if (_findNative is null) host.Height = NativeSkin.Px(this, 38);
+        host.Location = new Point(Math.Max(0, Width - width - SystemInformation.VerticalScrollBarWidth - NativeSkin.Px(this, 10)), _textBox.Top + NativeSkin.Px(this, 8));
     }
 
     // ---- Tìm trong file (Ctrl+F): thanh tìm là 1 trang WebView2 nhỏ (Web/Shell/findbar.html) nổi ở góc trên-phải ----
@@ -383,7 +383,7 @@ public partial class ScriptEditorControl : UserControl
             _findWebReady = true;
             return;
         }
-        _findWeb = new Microsoft.Web.WebView2.WinForms.WebView2 { Size = new Size(420, 38), Visible = false, DefaultBackgroundColor = AppColors.PanelAlt };
+        _findWeb = new Microsoft.Web.WebView2.WinForms.WebView2 { Size = new Size(NativeSkin.S(420), NativeSkin.S(38)), Visible = false, DefaultBackgroundColor = AppColors.PanelAlt };
         Controls.Add(_findWeb);
         _findWeb.BringToFront();
         _ = InitFindWebAsync();
@@ -523,7 +523,7 @@ public partial class ScriptEditorControl : UserControl
         private void UpdateWidth()
         {
             var digits = Math.Max(2, (_box.GetLineFromCharIndex(_box.TextLength) + 1).ToString().Length);
-            var w = TextRenderer.MeasureText(new string('9', digits), _box.Font).Width + 14;
+            var w = TextRenderer.MeasureText(new string('9', digits), _box.Font).Width + NativeSkin.Px(this, 14);
             if (w != Width) Width = w;
         }
 
@@ -543,7 +543,7 @@ public partial class ScriptEditorControl : UserControl
                 if (ci < 0) break;
                 var y = _box.GetPositionFromCharIndex(ci).Y;
                 if (y > Height) break;
-                var r = new Rectangle(0, y, Width - 6, _box.Font.Height + 2);
+                var r = new Rectangle(0, y, Width - NativeSkin.Px(this, 6), _box.Font.Height + 2);
                 TextRenderer.DrawText(e.Graphics, (line + 1).ToString(), _box.Font, r,
                     line == currentLine ? AppColors.Text : AppColors.TextMuted,
                     TextFormatFlags.Right | TextFormatFlags.NoPadding | TextFormatFlags.NoClipping);

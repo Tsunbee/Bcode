@@ -15,6 +15,11 @@ public static class ThemeManager
     /// cho từng control đậm / từng lưới và không ai giải phóng (rò handle GDI mỗi lần mở tab hay đổi Template).</summary>
     public static Font BoldFont => UiTemplate.GetFont(_baseFont.FontFamily.Name, _baseFont.Size, true);
 
+    /// <summary>Font pt của WinForms dựng theo DPI hệ thống. WinForms chỉ tự nhân font cho màn khác DPI lúc tạo handle / lúc đổi DPI — gán font cho control
+    /// ĐÃ có handle nằm trên màn khác DPI (Áp dụng theme, đổi UiScale khi kéo sang màn phụ) thì chữ giữ cỡ của màn chính. Trả bản đã nhân tỉ lệ DPI.</summary>
+    public static Font ForDpi(Control c, Font f) =>
+        !c.IsHandleCreated || c.DeviceDpi == UiScale.SystemDpi ? f : UiTemplate.GetFont(f.FontFamily.Name, f.Size * c.DeviceDpi / UiScale.SystemDpi, f.Bold);
+
     static ThemeManager()
     {
         void Rebuild()
@@ -384,7 +389,7 @@ public static class ThemeManager
                 tree.DrawNode -= TreeViewDrawNode; // avoid double-subscribing if Apply runs again
                 tree.DrawNode += TreeViewDrawNode;
                 // Chiều cao dòng cây theo "Mật độ" — tính theo font hiện tại của cây (áp lại sau khi font đổi ở cuối StyleControl).
-                tree.ItemHeight = Math.Max(10, tree.Font.Height + UiTemplate.Dens(6));
+                tree.ItemHeight = Math.Max(10, tree.Font.Height + NativeSkin.Dens(tree, 6));
                 break;
 
             case ListView listView:
@@ -425,7 +430,7 @@ public static class ThemeManager
         if (c.ContextMenuStrip is { } ownContextMenu) ApplyMenu(ownContextMenu);
 
         if (c.Font.FontFamily.Name != "Consolas")
-            c.Font = c.Font.Bold ? BoldFont : BaseFont;
+            c.Font = ForDpi(c, c.Font.Bold ? BoldFont : BaseFont);
 
         // Style khai báo theo loại control (UiTemplate) — ghi đè lên mặc định của theme ở trên.
         if (UiTemplate.StyleFor(c) is { } custom) ApplyTemplateStyle(c, custom);
@@ -433,7 +438,7 @@ public static class ThemeManager
         // Style theo KHU VỰC (cây menu, thanh tab, thanh trên...) — cụ thể hơn "theo loại control" nên áp sau cùng.
         if (AreaOf(c) is { } area && UiTemplate.AreaStyle(area) is { } areaStyle) ApplyTemplateStyle(c, areaStyle);
 
-        if (c is TreeView treeView) treeView.ItemHeight = Math.Max(10, treeView.Font.Height + UiTemplate.Dens(6)); // font có thể vừa đổi ở trên
+        if (c is TreeView treeView) treeView.ItemHeight = Math.Max(10, treeView.Font.Height + NativeSkin.Dens(treeView, 6)); // font có thể vừa đổi ở trên
     }
 
     // ---- Khu vực giao diện (UiTemplate.AreaList) ----
@@ -538,9 +543,9 @@ public static class ThemeManager
         // --- UX/UI HIỆN ĐẠI (CHỐNG CẮT CHỮ) ---
         button.AutoSize = true; // Tự động giãn chiều rộng nếu chữ dài
         button.AutoSizeMode = AutoSizeMode.GrowOnly; // Không bị bóp méo
-        button.Padding = new Padding(UiTemplate.Dens(8), UiTemplate.Dens(4), UiTemplate.Dens(8), UiTemplate.Dens(4)); // Không gian thở xung quanh chữ
-        button.MinimumSize = new Size(88, UiTemplate.Dens(34)); // Đảm bảo nút đủ to dễ bấm
-        button.Margin = new Padding(UiTemplate.Dens(4)); // Khoảng cách giữa các nút rộng hơn
+        button.Padding = new Padding(NativeSkin.Dens(button, 8), NativeSkin.Dens(button, 4), NativeSkin.Dens(button, 8), NativeSkin.Dens(button, 4)); // Không gian thở xung quanh chữ
+        button.MinimumSize = new Size(NativeSkin.Px(button, 88), NativeSkin.Dens(button, 34)); // Đảm bảo nút đủ to dễ bấm
+        button.Margin = new Padding(NativeSkin.Dens(button, 4)); // Khoảng cách giữa các nút rộng hơn
     }
 
     private static void StyleTabControl(TabControl tab)
@@ -556,7 +561,7 @@ public static class ThemeManager
                 ControlPerf.EnableDoubleBuffering(tab);
             }
         }
-        tab.Padding = new Point(UiTemplate.Dens(18), UiTemplate.Dens(7)); // theo Mật độ — đặt lại mỗi lần Apply
+        tab.Padding = new Point(NativeSkin.Dens(tab, 18), NativeSkin.Dens(tab, 7)); // theo Mật độ × DPI × UiScale — đặt lại mỗi lần Apply
         tab.Invalidate();
     }
 
@@ -706,13 +711,13 @@ public static class ThemeManager
         
         // --- UX/UI HIỆN ĐẠI ---
         // Chiều cao dòng/tiêu đề theo "Mật độ" của Template giao diện (Gọn 0,8 / Vừa 1 / Thoáng 1,25).
-        grid.RowTemplate.Height = UiTemplate.Dens(28);
-        grid.ColumnHeadersHeight = UiTemplate.Dens(34);
+        grid.RowTemplate.Height = NativeSkin.Dens(grid, 28);
+        grid.ColumnHeadersHeight = NativeSkin.Dens(grid, 34);
         if (grid.Rows.Count > 0 && grid.Rows.Count <= 3000)
-            foreach (DataGridViewRow row in grid.Rows) if (!row.IsNewRow && row.Height != grid.RowTemplate.Height && row.Height <= 40) row.Height = grid.RowTemplate.Height;
+            foreach (DataGridViewRow row in grid.Rows) if (!row.IsNewRow && row.Height != grid.RowTemplate.Height && row.Height <= NativeSkin.Px(grid, 40)) row.Height = grid.RowTemplate.Height;
         grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
-        grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
-        grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
-        grid.RowHeadersWidth = 28;
+        grid.DefaultCellStyle.Padding = new Padding(NativeSkin.Px(grid, 6), 0, NativeSkin.Px(grid, 6), 0);
+        grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(NativeSkin.Px(grid, 6), 0, NativeSkin.Px(grid, 6), 0);
+        grid.RowHeadersWidth = NativeSkin.Px(grid, 28);
     }
 }

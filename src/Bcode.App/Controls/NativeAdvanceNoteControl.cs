@@ -1109,6 +1109,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
 /// <summary>Khung "Request Content" phóng to: xem định dạng (dòng Menu / Ghi chú / thông tin bộ phận tô màu) hoặc sửa chữ thuần; Copy; Esc đóng.</summary>
 internal sealed class RequestContentDialog : ThemedForm
 {
+    protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
     private readonly RichTextBox _rich = new() { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.None };
     private readonly TextBox _edit = new() { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Both, AcceptsReturn = true, WordWrap = true, Visible = false };
     private readonly PillButton _toggle;

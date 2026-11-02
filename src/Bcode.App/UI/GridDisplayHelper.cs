@@ -181,8 +181,8 @@ public static class GridDisplayHelper
         foreach (DataGridViewRow row in grid.Rows)
         {
             if (row.IsNewRow) continue;
-            if (cols.Any(c => row.Cells[c].Value is byte[] b && LooksLikeImage(b)) && row.Height < ImageRowHeight)
-                row.Height = ImageRowHeight;
+            if (cols.Any(c => row.Cells[c].Value is byte[] b && LooksLikeImage(b)) && row.Height < NativeSkin.Px(grid, ImageRowHeight))
+                row.Height = NativeSkin.Px(grid, ImageRowHeight);
         }
     }
 

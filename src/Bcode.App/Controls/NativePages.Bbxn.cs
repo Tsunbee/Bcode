@@ -383,6 +383,7 @@ internal sealed class BbxnPage : NativePage
     /// <summary>Hộp sửa / tạo 1 mẫu biên bản (tiêu đề, căn cứ, nội dung, song ngữ, bảng, biến riêng).</summary>
     private sealed class TemplateDialog : ThemedForm
     {
+        protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
         private readonly JsonObject? _src;
         private readonly RoundedInput _name = NK.Input(""), _abbr = NK.Input(""), _title = NK.Memo(2, ""), _basis = NK.Memo(3, ""), _intro = NK.Input(""), _items = NK.Memo(7, ""), _closing = NK.Memo(2, ""),
             _titleEn = NK.Memo(2, ""), _basisEn = NK.Memo(2, ""), _introEn = NK.Input(""), _itemsEn = NK.Memo(6, ""), _closingEn = NK.Memo(2, ""), _tableIntro = NK.Input(""), _vars = NK.Memo(3, "so_trang|Số trang tài liệu|…");

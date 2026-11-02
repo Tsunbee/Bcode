@@ -140,7 +140,7 @@ internal sealed class UiScalePage : DialogPage
         _mode.Height = NativeSkin.RowHeight(_mode, 28);
         body.Controls.Add(NK.Text("Tỉ lệ giao diện")); body.Controls.Add(_mode);
         var hint = NK.Muted("Tự động: chữ và nội dung co giãn để vừa khung màn hình hiện tại (khung chuẩn 1600×900). Chọn một mức cố định nếu muốn tự điều chỉnh.", wrap: true);
-        hint.MaximumSize = new Size(380, 0); hint.Margin = new Padding(0, 12, 0, 0); body.Controls.Add(hint);
+        hint.MaximumSize = new Size(NativeSkin.S(380), 0); hint.Margin = new Padding(0, 12, 0, 0); body.Controls.Add(hint);
         Bottom.FlowDirection = FlowDirection.RightToLeft;
         Bottom.Controls.Add(NK.Button("OK", Ok, primary: true)); Bottom.Controls.Add(NK.Button("Hủy", () => Post(new { action = "cancel" })));
         Layout(null, body);
@@ -233,7 +233,7 @@ internal sealed class ListEditorPage : DialogPage
         foreach (var c in cols) _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = c.Name, SortMode = DataGridViewColumnSortMode.NotSortable });
         var n = Math.Max(1, cols.Count == 0 ? 1 : cols.Max(c => c.Items.Count));
         for (var r = 0; r < n; r++) _grid.Rows.Add(cols.Select(c => (object)(r < c.Items.Count ? c.Items[r] : "")).ToArray());
-        _grid.RowHeadersWidth = 56;
+        _grid.RowHeadersWidth = NativeSkin.S(56);
         UpdateNumbers();
         if (_grid.Rows.Count > 0 && _grid.Columns.Count > 0) _grid.CurrentCell = _grid.Rows[0].Cells[0];
     }
@@ -253,7 +253,7 @@ internal sealed class RowDetailPage : DialogPage
 
     public RowDetailPage()
     {
-        _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220)); _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, NativeSkin.S(220))); _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _cap.Dock = DockStyle.Top; _scroll.Controls.Add(_grid); _scroll.Controls.Add(_cap);
         Bottom.FlowDirection = FlowDirection.RightToLeft;
         Bottom.Controls.Add(NK.Button("Cancel", () => Post(new { action = "cancel" }))); Bottom.Controls.Add(NK.Button("✓ OK", Save, primary: true));
@@ -412,7 +412,7 @@ internal sealed class StepParamsPage : DialogPage
 
     public StepParamsPage()
     {
-        _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230)); _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, NativeSkin.S(230))); _grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         _head.Dock = DockStyle.Top; _scroll.Controls.Add(_grid); _scroll.Controls.Add(_head);
         Bottom.FlowDirection = FlowDirection.RightToLeft;
         Bottom.Controls.Add(NK.Button("Bắt đầu debug", Ok, primary: true)); Bottom.Controls.Add(NK.Button("Huỷ", () => Post(new { action = "cancel" })));

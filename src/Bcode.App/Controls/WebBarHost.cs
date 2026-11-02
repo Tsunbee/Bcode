@@ -67,6 +67,16 @@ public sealed class WebBarHost : Panel, IWebPage
         _ = InitAsync();
     }
 
+    // DpiForm co lần đầu (px thiết kế × DPI × UiScale): thanh đã tự đặt cao theo DPI lúc tạo handle → chỉ nhận phần UiScale; trang native bên trong
+    // dựng bằng NativeSkin.S (đã gồm DPI × UiScale) → không co thêm. Các lần co sau (đổi UiScale, kéo sang màn khác DPI) vẫn co bình thường.
+    protected override void ScaleControl(SizeF factor, BoundsSpecified specified)
+    {
+        var d = Bcode.App.UI.DpiForm.FirstPassDpi;
+        base.ScaleControl(IsHandleCreated && d != 1f ? new SizeF(factor.Width / d, factor.Height / d) : factor, specified);
+    }
+
+    protected override bool ScaleChildren => !Bcode.App.UI.DpiForm.InFirstPass;
+
     /// <summary>Chế độ App, thanh nằm Dock Top/Bottom: cao đúng bằng nội dung trang native (xem <see cref="NativePage.ContentHeight"/>) — hàng nút xuống dòng khi
     /// cửa sổ hẹp thì thanh cao thêm thay vì bị control bên dưới che (lỗi File Lookup: chủ đặt 230 nhưng OnHandleCreated đặt lại 150).</summary>
     private void FitNative()

@@ -12,13 +12,17 @@ public static class NativeSkin
     private static UiTemplate T => UiTemplate.Current;
     // DPI màn hình × hệ số co giãn theo cỡ màn hình (UiScale.Factor, cùng hệ số đã áp vào cỡ chữ BaseFont): trước đây chỉ nhân DPI nên trên màn 1920×1080
     // (Factor ≈ 1,15) chữ to thêm 15% mà hàng / nút / ô giữ nguyên → chật, chữ bị cắt, nút xuống dòng. Nay chữ và khung co giãn cùng một tỉ lệ.
-    private static int Px(Control? c, int v) => (int)Math.Round(Math.Max(0, v) * (c?.DeviceDpi ?? SystemDpi) / 96.0 * UiScale.Factor);
+    /// <summary>Như <see cref="S"/> nhưng theo DPI của màn mà <paramref name="c"/> đang nằm — dùng khi đặt kích thước lúc control đã hiện (áp theme, vẽ tay).</summary>
+    public static int Px(Control? c, int v) => (int)Math.Round(Math.Max(0, v) * DpiOf(c) / 96.0 * UiScale.Factor);
 
-    private static readonly int SystemDpi = GetSystemDpi();
-    private static int GetSystemDpi() { try { using var g = Graphics.FromHwnd(IntPtr.Zero); return (int)g.DpiX; } catch { return 96; } }
+    /// <summary><see cref="Px"/> của 1 khoảng theo Mật độ Template (<see cref="UiTemplate.Dens"/>): lề / khoảng cách / chiều cao hàng.</summary>
+    public static int Dens(Control? c, int designPx) => Px(c, UiTemplate.Dens(designPx));
 
-    /// <summary>Đổi 1 kích thước thiết kế (px ở 100% DPI, màn 1600×900) sang px thật: × DPI × hệ số màn hình. Dùng cho mọi bề rộng / chiều cao cố định của control native.</summary>
-    public static int S(int designPx) => (int)Math.Round(designPx * SystemDpi / 96.0 * UiScale.Factor);
+    // Control đã có handle: DPI thật của màn nó nằm. Chưa có (đang dựng): DeviceDpi vẫn là DPI hệ thống → lấy DPI màn của cửa sổ chính.
+    private static int DpiOf(Control? c) => c is { IsHandleCreated: true } ? c.DeviceDpi : UiScale.Dpi;
+
+    /// <summary>Đổi 1 kích thước thiết kế (px ở 100% DPI, màn 1600×900) sang px thật: × DPI màn cửa sổ chính × hệ số màn hình. Dùng cho mọi bề rộng / chiều cao cố định của control native.</summary>
+    public static int S(int designPx) => (int)Math.Round(designPx * UiScale.Dpi / 96.0 * UiScale.Factor);
 
     public static int ButtonRadius(Control c) => Px(c, T.CornerRadius + 2);
     public static int InputRadius(Control c) => Px(c, T.CornerRadius + 4);

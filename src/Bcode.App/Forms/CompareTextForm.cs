@@ -20,6 +20,9 @@ public class CompareTextControl : UserControl
 {
     private readonly WebBarHost _topBarWeb = new("comparebar.html", 85);
 
+    // Bên trong dựng bằng NativeSkin.S (đã gồm DPI × UiScale) — nằm trong DpiForm (Compare Text nổi) thì lượt co đầu không co thêm.
+    protected override bool ScaleChildren => !DpiForm.InFirstPass;
+
     private readonly Scintilla _content1Box;
     private readonly Scintilla _content2Box;
     private readonly Label _lbl1, _lbl2, _diffLbl1, _diffLbl2;
@@ -169,7 +172,7 @@ public class CompareTextControl : UserControl
     private static Panel MakeLabeledPanel(Scintilla box, out Label lbl)
     {
         var panel = new Panel { Dock = DockStyle.Fill };
-        lbl = new Label { Dock = DockStyle.Top, Height = 22, BackColor = AppColors.PanelAlt, ForeColor = AppColors.Text, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(4, 0, 0, 0), AutoEllipsis = true };
+        lbl = new Label { Dock = DockStyle.Top, Height = NativeSkin.S(22), BackColor = AppColors.PanelAlt, ForeColor = AppColors.Text, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(4, 0, 0, 0), AutoEllipsis = true };
         panel.Controls.Add(box); panel.Controls.Add(lbl); return panel;
     }
 

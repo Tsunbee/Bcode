@@ -102,7 +102,7 @@ internal sealed class SuggestPopup : Form
 
         var visibleRows = Math.Min(items.Count, MaxVisibleItems);
         var scrollbar = items.Count > MaxVisibleItems ? SystemInformation.VerticalScrollBarWidth : 0;
-        var width = Math.Max(minWidth, widest + 20 + scrollbar);
+        var width = Math.Max(minWidth, widest + NativeSkin.Px(_list, 20) + scrollbar);
         var height = visibleRows * _list.ItemHeight + Padding.Vertical;
         Bounds = new Rectangle(screenLocation, new Size(width, height));
 
@@ -130,7 +130,7 @@ internal sealed class SuggestPopup : Form
 
         var textColor = selected && AppColors.IsDark ? Color.White : AppColors.Text;
         if (selected && !AppColors.IsDark) textColor = Color.Black;
-        var textRect = new Rectangle(e.Bounds.X + 6, e.Bounds.Y, e.Bounds.Width - 8, e.Bounds.Height);
+        var textRect = new Rectangle(e.Bounds.X + NativeSkin.Px(_list, 6), e.Bounds.Y, e.Bounds.Width - NativeSkin.Px(_list, 8), e.Bounds.Height);
         TextRenderer.DrawText(e.Graphics, (string)_list.Items[e.Index], _list.Font, textRect, textColor,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
     }

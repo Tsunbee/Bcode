@@ -9,6 +9,8 @@
     <RootNamespace>BcodeViewer.App</RootNamespace>
     <AssemblyName>BcodeViewer</AssemblyName>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- Mỗi màn 1 DPI (như Bcode): WebView2 nét trên màn phụ khác DPI; form WinForms kế thừa UI/DpiForm. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
 
     <!-- Hiện trong tab Details khi bấm chuột phải vào BcodeViewer.exe, và cũng là nguồn
          cho hộp "Giới thiệu" trong app (xem MainForm.ShowAbout): khai một nơi, đọc hai

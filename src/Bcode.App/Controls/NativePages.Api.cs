@@ -831,6 +831,7 @@ internal sealed class ApiDeclarationPage : DialogPage
     /// <summary>Chọn form từ mẫu chuẩn LT3: tạo dự án mới (kèm tên / mã / địa chỉ gốc) hoặc thêm form vào dự án đang mở.</summary>
     private sealed class TemplatePicker : ThemedForm
     {
+        protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
         private readonly TreeView _tree = new() { CheckBoxes = true, Dock = DockStyle.Fill, HideSelection = false };
         private readonly RoundedInput _name = NK.Input("vd NISSHIN_FBO"), _id = NK.Input("vd NISSHIN"), _base = NK.Input("http://172.168.5.14/NISSHIN_API", mono: true);
         public string ProjectName => _name.Text.Trim(); public string ProjectId => _id.Text.Trim(); public string BaseUrl => _base.Text.Trim();

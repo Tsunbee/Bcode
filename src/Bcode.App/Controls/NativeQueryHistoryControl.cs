@@ -314,15 +314,17 @@ internal sealed class PinDialog : ThemedForm
     public List<string> Tags => _tags.Text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
     public bool ThisWs => _ws.Checked;
 
+    protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;
+
     public PinDialog(string title, string label, IEnumerable<string> tags, IEnumerable<string> suggestions, string? workspace, bool showWs, bool thisWs = false)
     {
-        Text = title; Width = NativeSkin.S(560); Height = showWs ? 330 : 280; StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = MinimizeBox = false; ShowIcon = false;
+        Text = title; Width = NativeSkin.S(560); Height = NativeSkin.S(showWs ? 330 : 280); StartPosition = FormStartPosition.CenterParent; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = MinimizeBox = false; ShowIcon = false;
         _label.Text = label; _tags.Text = string.Join(", ", tags);
         var body = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(14, 10, 14, 10), AutoScroll = true };
         _label.Width = NativeSkin.S(510); _tags.Width = NativeSkin.S(510);
         body.Controls.Add(NK.Muted("Nhãn (tên dễ nhớ)")); body.Controls.Add(_label);
         body.Controls.Add(NK.Muted("Thẻ (cách nhau dấu phẩy — dự án, báo cáo, việc…)")); body.Controls.Add(_tags);
-        var sugg = new FlowLayoutPanel { AutoSize = true, MaximumSize = new Size(510, 0), WrapContents = true };
+        var sugg = new FlowLayoutPanel { AutoSize = true, MaximumSize = new Size(NativeSkin.S(510), 0), WrapContents = true };
         foreach (var s in suggestions.Take(10))
         {
             var t = s;

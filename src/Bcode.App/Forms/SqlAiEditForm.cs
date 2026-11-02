@@ -7,6 +7,7 @@ namespace Bcode.App.Forms;
 /// Giống hộp "AI: Sửa/Sinh SQL" của bản Web (sqleditor.html showAiEdit). Gọi AI qua <see cref="Func{T, TResult}"/> do tab truyền vào.</summary>
 public sealed class SqlAiEditForm : ThemedForm
 {
+    protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
     private readonly Func<string, Task<(string Text, string Error)>> _generate;
     private readonly RoundedInput _instruction = NK.Memo(3, "", mono: true);
     private readonly RoundedInput _output = NK.Memo(10, "", mono: true);
@@ -25,8 +26,8 @@ public sealed class SqlAiEditForm : ThemedForm
         StartPosition = FormStartPosition.CenterParent;
         MinimizeBox = false;
         ShowInTaskbar = false;
-        Width = 780;
-        Height = 620;
+        Width = NativeSkin.S(780);
+        Height = NativeSkin.S(620);
         KeyPreview = true;
 
         _instruction.PlaceholderText = hasSelection

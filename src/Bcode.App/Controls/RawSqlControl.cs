@@ -138,7 +138,7 @@ public class RawSqlControl : UserControl, ISqlTab
         _statusLabel = new TextBox 
         { 
             Dock = DockStyle.Top, 
-            Height = 22, 
+            Height = Bcode.App.UI.NativeSkin.S(22),
             ForeColor = Color.DimGray, 
             ReadOnly = true,               // Cho phép bôi đen copy nhưng không được gõ thêm
             BorderStyle = BorderStyle.None // Ẩn khung viền để trông giống hệt Label

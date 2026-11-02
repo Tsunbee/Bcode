@@ -121,8 +121,8 @@ public class SqlObjectTreeControl : UserControl
     /// <summary>Thanh trên cây bản native: tương đương sqlobjectbar.html (chọn App/Sys Data + lọc theo tên, gõ tới đâu lọc tới đó sau 120ms).</summary>
     private Control BuildNativeBar()
     {
-        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.UiTemplate.Dens(82), Padding = new Padding(6, 6, 6, 6) };
-        var db = new DropDownButton { Dock = DockStyle.Top, Height = Bcode.App.UI.UiTemplate.Dens(28) };
+        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 82), Padding = new Padding(6, 6, 6, 6) };
+        var db = new DropDownButton { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 28) };
         db.SetItems(new[] { "App Data", "Sys Data" }, 0);
         var filter = new RoundedInput { Dock = DockStyle.Top, PlaceholderText = "Lọc theo tên (gõ là lọc luôn)..." };
         var gap = new Panel { Dock = DockStyle.Top, Height = 4 };

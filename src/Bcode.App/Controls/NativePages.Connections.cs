@@ -151,6 +151,7 @@ internal sealed class ConnectionsPage : DialogPage
     /// <summary>Hộp "Synchronize": chọn chế độ đồng bộ dự án từ FSG.</summary>
     private sealed class SyncDialog : ThemedForm
     {
+        protected override DpiLayout DpiLayoutMode => DpiLayout.PreScaled;   // kích thước dựng bằng NK / NativeSkin.S (đã gồm DPI × UiScale)
         private readonly RadioButton _add = new() { Text = "Thêm mới 1 mã dự án (ma_da)", AutoSize = true, Checked = true }, _new = new() { Text = "Chỉ sync dự án mới — chỉ thêm những project chưa có trong danh sách.", AutoSize = true }, _all = new() { Text = "Overwrite tất cả — project đã có thì cập nhật, chưa có thì thêm.", AutoSize = true };
         private readonly RoundedInput _code = NK.Input("Mã dự án");
         public string Mode => _add.Checked ? "AddOne" : _new.Checked ? "NewOnly" : "OverwriteAll";

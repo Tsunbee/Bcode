@@ -80,7 +80,7 @@ public sealed class NativeTopBar : Panel
     public NativeTopBar()
     {
         Dock = DockStyle.Top;
-        Height = UiTemplate.Dens(34);
+        Height = NativeSkin.Dens(this, 34);
         DoubleBuffered = true;
 
         var brand = new AccentLabel { Text = "Bcode", AutoSize = true, Margin = new Padding(0, 8, 8, 0), BackColor = Color.Transparent, Font = ThemeManager.BoldFont };
@@ -107,7 +107,7 @@ public sealed class NativeTopBar : Panel
         Fixed("help", "Trợ giúp", "Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)", () => ToolClicked?.Invoke("help"));
 
         _ws.SelectionChanged += i => WorkspaceSelected?.Invoke(i);
-        _ws.Height = UiTemplate.Dens(26);
+        _ws.Height = NativeSkin.Dens(_ws, 26);
         _ws.Margin = new Padding(0, 0, 3, 0);
         var refresh = Btn("", "Refresh database — nạp lại danh sách object / bảng / cột của project hiện tại", () => Action?.Invoke("refresh-db"), icon: IconGlyph.Refresh, width: 30);
         refresh.Margin = new Padding(0, 0, 6, 0);
@@ -133,8 +133,8 @@ public sealed class NativeTopBar : Panel
         b.Icon = icon;
         b.OnPanelAlt = true;
         b.Margin = new Padding(0, 0, 3, 0);
-        b.Height = UiTemplate.Dens(26);
-        if (width is { } w) { b.AutoWidth = false; b.Width = w; }
+        b.Height = NativeSkin.Dens(b, 26);
+        if (width is { } w) { b.AutoWidth = false; b.Width = NativeSkin.Px(b, w); }
         b.Click += (_, _) => onClick();
         if (tip is not null) NK.Tip(b, tip);
         return b;
@@ -155,7 +155,7 @@ public sealed class NativeTopBar : Panel
         base.OnLayout(levent);
         // Chiều cao theo nội dung nhóm trái khi xuống dòng (giống topbar.html tự cao).
         var avail = Math.Max(100, Width - _right.Width);
-        var want = Math.Max(UiTemplate.Dens(34), Math.Max(_left.GetPreferredSize(new Size(avail, 0)).Height, _right.GetPreferredSize(Size.Empty).Height) + 1);
+        var want = Math.Max(NativeSkin.Dens(this, 34), Math.Max(_left.GetPreferredSize(new Size(avail, 0)).Height, _right.GetPreferredSize(Size.Empty).Height) + 1);
         if (want == Height) return;
         Height = want;
         // Đổi Height ngay trong OnLayout: lượt layout do resize bị WinForms bỏ qua (đang trong layout) → _left (Dock Fill) giữ chiều cao cũ,
@@ -187,7 +187,7 @@ public sealed class NativeTopBar : Panel
         _bell.IsPrimary = n > 0;
         _bell.AutoWidth = n > 0;      // trước khi đổi Text: PillButton tự đo lại bề rộng khi Text đổi
         _bell.Text = text;
-        if (n == 0) _bell.Width = 30; // như các nút icon khác của thanh (Btn width: 30)
+        if (n == 0) _bell.Width = NativeSkin.Px(_bell, 30); // như các nút icon khác của thanh (Btn width: 30)
         NK.Tip(_bell, (n > 0 ? n + " thông báo chưa xem — " : "") + BellTip);
         _bell.Invalidate();
         _right.PerformLayout();
@@ -257,10 +257,10 @@ public sealed class NativeStatusBar : Panel
     public NativeStatusBar()
     {
         Dock = DockStyle.Bottom;
-        Height = UiTemplate.Dens(26);
+        Height = NativeSkin.Dens(this, 26);
         DoubleBuffered = true;
         Padding = new Padding(10, 0, 8, 0);
-        _menu.Height = UiTemplate.Dens(20);
+        _menu.Height = NativeSkin.Dens(_menu, 20);
         _menu.OnPanelAlt = true;
         _menu.Margin = new Padding(0, 2, 0, 0);
         _menu.Click += (_, _) => ProjectMenuRequested?.Invoke(_menu.PointToScreen(new Point(0, 0)));

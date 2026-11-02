@@ -269,7 +269,12 @@ public sealed class WebMenu
         private readonly string _label;
         private readonly List<(Color? Color, string Tip, Action OnClick)> _sw;
         private int _hover = -1;
-        private const int Dot = 16, Gap = 8, PadRight = 12;
+        // px thiết kế → × DPI × UiScale (cùng tỉ lệ với chữ của menu)
+        private int P(int designPx) => NativeSkin.Px(Owner, designPx);
+        private int Dot => P(16);
+        private int Gap => P(8);
+        private int PadRight => P(12);
+        private int LabelLeft => P(26);
 
         public SwatchItem(string label, List<(Color? Color, string Tip, Action OnClick)> sw)
         {
@@ -278,16 +283,16 @@ public sealed class WebMenu
 
         private int LabelWidth => TextRenderer.MeasureText(_label, Font).Width;
         public override Size GetPreferredSize(Size constrainingSize) =>
-            new(26 + LabelWidth + 18 + _sw.Count * (Dot + Gap) + PadRight, Math.Max(26, Font.Height + 10));
+            new(LabelLeft + LabelWidth + P(18) + _sw.Count * (Dot + Gap) + PadRight, Math.Max(P(26), Font.Height + P(10)));
 
-        private Rectangle DotRect(int i) => new(26 + LabelWidth + 18 + i * (Dot + Gap), (Height - Dot) / 2, Dot, Dot);
+        private Rectangle DotRect(int i) => new(LabelLeft + LabelWidth + P(18) + i * (Dot + Gap), (Height - Dot) / 2, Dot, Dot);
 
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using (var bg = new SolidBrush(AppColors.PanelAlt)) g.FillRectangle(bg, new Rectangle(Point.Empty, Size));
-            TextRenderer.DrawText(g, _label, Font, new Rectangle(26, 0, LabelWidth + 4, Height), AppColors.Text, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(g, _label, Font, new Rectangle(LabelLeft, 0, LabelWidth + 4, Height), AppColors.Text, TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
             for (var i = 0; i < _sw.Count; i++)
             {
                 var r = DotRect(i);

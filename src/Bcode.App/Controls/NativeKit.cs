@@ -337,7 +337,7 @@ internal static class NK
         tv.ShowLines = false;
         tv.FullRowSelect = true;
         tv.HideSelection = false;
-        tv.ItemHeight = Math.Max(20, tv.Font.Height + UiTemplate.Dens(8));
+        tv.ItemHeight = Math.Max(20, tv.Font.Height + NativeSkin.Dens(tv, 8));
         var images = new ImageList { ColorDepth = ColorDepth.Depth32Bit };
         void Draw()
         {

@@ -48,7 +48,7 @@ public partial class ApiSchemaBuilderForm
         // ---- trái ----
         _apiList = new ListBox { Dock = DockStyle.Fill, IntegralHeight = false, BorderStyle = BorderStyle.None };
         _apiList.SelectedIndexChanged += (_, _) => { if (_fillN || _apiList.SelectedIndex < 0) return; SyncCur(); _active = _apiList.SelectedIndex; RenderDetail(); };
-        var left = new Panel { Dock = DockStyle.Left, Width = 230, Padding = new Padding(8) };
+        var left = new Panel { Dock = DockStyle.Left, Width = NativeSkin.S(230), Padding = new Padding(8) };
         var lhead = NK.Muted("Danh sách API"); lhead.Dock = DockStyle.Top;
         var lbtn = NK.Row(NK.Button("+ Thêm", AddApi, primary: true), NK.Button("Xóa", DelApi)); lbtn.Dock = DockStyle.Bottom;
         left.Controls.Add(_apiList); left.Controls.Add(lbtn); left.Controls.Add(lhead);
@@ -61,7 +61,7 @@ public partial class ApiSchemaBuilderForm
         _nName.TextChanged += (_, _) => { var a = Cur; if (a is null || _fillN) return; a.Name = _nName.Text; _fillN = true; if (_apiList.SelectedIndex >= 0) _apiList.Items[_apiList.SelectedIndex] = a.Name.Length == 0 ? "(Chưa đặt tên)" : a.Name; _fillN = false; };
 
         // ---- gợi ý bảng ----
-        _sug = new NoFocusListBox { Visible = false, IntegralHeight = false, Height = 240, BorderStyle = BorderStyle.FixedSingle };
+        _sug = new NoFocusListBox { Visible = false, IntegralHeight = false, Height = NativeSkin.S(240), BorderStyle = BorderStyle.FixedSingle };
         _sug.MouseDown += (_, e) => { var i = _sug.IndexFromPoint(e.Location); if (i >= 0) AddTable(_sugItems[i]); };
         _nTable.TextChanged += (_, _) => ShowSuggest();
         _nTable.Inner.GotFocus += (_, _) => ShowSuggest();
@@ -84,9 +84,9 @@ public partial class ApiSchemaBuilderForm
 
         _grid = NK.Grid(("src", "Bảng nguồn", 130), ("col", "Cột DB", 150), ("type", "Kiểu dữ liệu", 110), ("field", "Tên trường API", 190), ("logic", "Quy tắc / Logic", 0));
         _grid.ReadOnly = false;
-        _grid.Columns.Insert(0, new DataGridViewCheckBoxColumn { Name = "sel", HeaderText = "✓", Width = 34 });
-        _grid.Columns.Insert(4, new DataGridViewCheckBoxColumn { Name = "pk", HeaderText = "🔑 PK", Width = 56 });
-        _grid.Columns.Insert(5, new DataGridViewCheckBoxColumn { Name = "req", HeaderText = "Bắt buộc", Width = 70 });
+        _grid.Columns.Insert(0, new DataGridViewCheckBoxColumn { Name = "sel", HeaderText = "✓", Width = NativeSkin.S(34) });
+        _grid.Columns.Insert(4, new DataGridViewCheckBoxColumn { Name = "pk", HeaderText = "🔑 PK", Width = NativeSkin.S(56) });
+        _grid.Columns.Insert(5, new DataGridViewCheckBoxColumn { Name = "req", HeaderText = "Bắt buộc", Width = NativeSkin.S(70) });
         foreach (var n in new[] { "src", "col", "type" }) _grid.Columns[n]!.ReadOnly = true;
         _grid.CurrentCellDirtyStateChanged += (_, _) => { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
         _grid.CellValueChanged += (_, e) => { if (_fillN || e.RowIndex < 0) return; SyncCur(); if (_grid.Columns[e.ColumnIndex].Name is "sel" or "field") RenderDetail(true); else UpdateInfo(); };
@@ -180,7 +180,7 @@ public partial class ApiSchemaBuilderForm
             var key = TKey(t.Db, t.Table); var n = a.Columns.Count(c => c.TKey == key);
             var chip = NK.Button($"{t.Table} · {(t.Db == "1" ? "Sys" : "App")} · {n} cột", () => Pick(key), primary: a.View == key || a.Tables.Count == 1, tip: "Bấm để chỉ hiện cột của bảng này");
             var x = NK.Button("✕", () => { SyncCur(); a.Tables.Remove(t); a.Columns.RemoveAll(c => c.TKey == key); if (a.View == key) a.View = ""; RenderDetail(); }, tip: "Bỏ bảng này (và các cột lấy từ nó)");
-            x.AutoWidth = false; x.Width = 30;
+            x.AutoWidth = false; x.Width = NativeSkin.S(30);
             _chips.Controls.Add(chip); _chips.Controls.Add(x);
         }
     }

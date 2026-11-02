@@ -285,11 +285,28 @@ public class WCommandService
         return result;
     }
 
-    private static bool Matches(WCommandItem item, string filter) =>
-        item.Bar.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-        item.Bar2.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-        item.Link.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-        item.WMenuId.Contains(filter, StringComparison.OrdinalIgnoreCase);
+    /// <summary>So theo chữ đã chuẩn hoá (<see cref="SearchText"/>): gõ "ngân hàng" bằng bộ gõ Unicode tổ hợp (NFD) hay thừa dấu cách vẫn khớp
+    /// tên lưu dựng sẵn (NFC) — trước đây so thẳng Ordinal nên không ra. Ô lọc không có dấu ("ngan hang") thì so cả tên menu đã bỏ dấu.</summary>
+    private static bool Matches(WCommandItem item, string filter)
+    {
+        var f = SearchText(filter, fold: false);
+        if (f.Length == 0) return true;
+        var fold = f.All(c => c < 128);
+        bool Hit(string? s) => SearchText(s, fold).Contains(f, StringComparison.Ordinal);
+        return Hit(item.Bar) || Hit(item.Bar2) || Hit(item.Link) || Hit(item.WMenuId);
+    }
+
+    /// <summary>NFC, chữ thường, gộp khoảng trắng; <paramref name="fold"/> = bỏ dấu tiếng Việt (đ → d).</summary>
+    private static string SearchText(string? s, bool fold)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        s = string.Join(' ', s.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (!fold) return s.Normalize(NormalizationForm.FormC).ToLowerInvariant();
+        var sb = new StringBuilder(s.Length);
+        foreach (var ch in s.Normalize(NormalizationForm.FormD))
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark) sb.Append(ch is 'đ' or 'Đ' ? 'd' : ch);
+        return sb.ToString().ToLowerInvariant();
+    }
 
     /// <summary>
     /// Gợi ý <c>wmenu_id</c> chưa có trong wcommand. Có <paramref name="seedWMenuId"/> dạng <c>GG.SS.LL</c> (menu đang đứng / id đang gõ,

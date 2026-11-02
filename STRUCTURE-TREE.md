@@ -267,8 +267,8 @@ Bcode.App/
 │   ├── FastTokenModel.cs  371
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FileLookupService.cs  1520
-│   ├── FileParseCache.cs  405
+│   ├── FileLookupService.cs  1521
+│   ├── FileParseCache.cs  406
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  550
 │   ├── FsgProjectLookupService.cs  578
@@ -323,7 +323,7 @@ Bcode.App/
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
-│   ├── WCommandService.cs  894
+│   ├── WCommandService.cs  911
 │   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77

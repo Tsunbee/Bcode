@@ -236,7 +236,7 @@ class BcodeProblems {
     // Phương án dự phòng: cùng 1 đoạn kiểm tra, chạy tại chỗ.
     await this.runChecks(
       path, text,
-      (items) => this.setItems(items),
+      (items) => this.setItems(items, path),
       // The document may have been edited or closed while those probes ran (or a newer run
       // started); publishing now would resurrect problems for text that no longer exists.
       () => runId !== this._runId || bcode.activePath !== path || bcode.currentModel !== model);
@@ -286,7 +286,7 @@ class BcodeProblems {
       memo('files', () => this.checkMissingEntityFiles(text, path)),
       memo('params', () => this.checkUndeclaredParamEntities(text, path)),
       () => this.checkItemVariableCount(text),
-      () => this.checkRequestsAndFields(text),
+      () => this.checkRequestsAndFields(text, path),
       () => this.checkUndeclaredEntities(text, declared, path),
     ];
     for (const step of steps) {
@@ -326,7 +326,7 @@ class BcodeProblems {
       const cur = this._workerRun;
       if (!cur || msg.run !== this._runId) return; // đã có lượt mới hơn
       if (this.bcode.activePath !== cur.path || this.bcode.currentModel !== cur.model) return;
-      this.setItems(msg.items);
+      this.setItems(msg.items, cur.path);
       return;
     }
     if (msg.t === 'rpc') {
@@ -785,18 +785,20 @@ class BcodeProblems {
   /// Nội dung của MỌI &Entity; mà file dùng (kể cả entity SYSTEM = file include, và entity lồng entity), đã khai triển.
   /// Field / action / command / view nằm trong đó là có thật dù không viết trực tiếp trong file — nếu chỉ quét phần
   /// nằm trong <fields>/<response>/<commands> của file thì entity đặt ngoài các khối đó (hay cả khối nằm trong entity) bị coi là thiếu.
+  /// Trả { text, unresolved }: unresolved = tên entity không khai triển được (thiếu khai báo / share rớt) — field nằm trong đó coi như chưa biết.
   async expandEntityContents(text) {
-    if (!window.bcodeEntity) return '';
+    const none = { text: '', unresolved: [] };
+    if (!window.bcodeEntity) return none;
     const body = text.replace(/<!DOCTYPE[\s\S]*?\]>/i, '');
     const names = [...new Set([...body.matchAll(/&([A-Za-z_][\w.:$-]*);/g)].map((m) => m[1]))]
       .filter((n) => !/^(amp|lt|gt|quot|apos)$/.test(n))
       .slice(0, 300);
-    if (!names.length) return '';
+    if (!names.length) return none;
     const key = names.join(',');
     this._entityContentCache = this._entityContentCache || new Map();
     if (this._entityContentCache.has(key)) return this._entityContentCache.get(key);
-    let out = '';
-    try { out = (await window.bcodeEntity.expandFull(names.map((n) => '&' + n + ';').join('\n'))).text; }
+    let out = { text: '', unresolved: names };
+    try { out = await window.bcodeEntity.expandFull(names.map((n) => '&' + n + ';').join('\n')); }
     catch { /* share unreachable — thà bỏ sót còn hơn báo sai */ }
     this._entityContentCache.set(key, out);
     if (this._entityContentCache.size > 6) this._entityContentCache.delete(this._entityContentCache.keys().next().value);
@@ -819,10 +821,13 @@ class BcodeProblems {
   ///     with Array.add in the same function);
   ///   • a plain name in the request ('ma_kh') that is not a field of the form;
   ///   • `case 'X':` in a ...ResponseComplete handler that no request / action / command produces;
-  ///   • [name] in a <view> <item>, or f.getItem/getItemValue/setItemValue('name'...), naming a
-  ///     field <fields> doesn't declare.
+  ///   • <field name="x"/> (Grid) or [x] in a <view> <item> (Dir / Filter) inside <views> naming a field
+  ///     <fields> doesn't declare — ERROR (source Fast: 8.400 tham chiếu view của Grid, 6.700 [x] của Dir/Filter,
+  ///     không cái nào trỏ ra ngoài <fields>); chỉ còn là cảnh báo khi có ENTITY trong <fields> chưa đọc được;
+  ///   • code="…" of a Dir (Controllers\Dir), code / name / order of a <lookup> naming an undeclared field;
+  ///   • f.getItem/getItemValue/setItemValue('name'...) naming a field <fields> doesn't declare.
   /// Only positions in THIS file are reported; what comes from entities is used to know what exists.
-  async checkRequestsAndFields(text) {
+  async checkRequestsAndFields(text, path) {
     const items = [];
     const at = (offset, length) => { const p = offsetToPosition(text, offset); return { line: p.line, column: p.col, length }; };
     const warn = (offset, length, msg) => items.push({ severity: 'warning', text: msg, ...at(offset, length) });
@@ -831,10 +836,14 @@ class BcodeProblems {
     const hasFields = /<fields\b/i.test(text);
     if (!requests.length && !hasFields) return items;
 
-    const entityText = await this.expandEntityContents(text);
+    const entity = await this.expandEntityContents(text);
+    const entityText = entity.text;
     const actions = fcActions((await this.expandBlocks(text, 'response')) + '\n' + entityText);
     const commandsText = (await this.expandBlocks(text, 'commands')) + '\n' + entityText;
-    const fieldsText = hasFields ? (await this.expandBlocks(text, 'fields')) + '\n' + entityText : '';
+    // Field đã rào trong <!-- --> không còn là khai báo (Fast không thấy nó) — trước đây vẫn được tính, rào field lại thì view vẫn "đúng".
+    const fieldsText = hasFields ? ((await this.expandBlocks(text, 'fields')) + '\n' + entityText).replace(/<!--[\s\S]*?-->/g, '') : '';
+    const fieldsRaw = (text.match(/<fields\b[^>]*>[\s\S]*?<\/fields>/gi) || []).join('\n');
+    const fieldsIncomplete = /&(?!(?:amp|lt|gt|quot|apos);)[A-Za-z_][\w.:$-]*;/.test(fieldsRaw) && (!window.bcodeEntity || entity.unresolved.length > 0);
     const fields = new Set();
     for (const m of fieldsText.matchAll(/<field\s+name\s*=\s*"([^"]+)"/gi)) fields.add(m[1].toLowerCase());
     // Only the top-level form's <fields>; a file without one (a Grid/Filter fragment) skips field checks.
@@ -887,15 +896,50 @@ class BcodeProblems {
 
     if (!checkFields) return items;
 
-    // ---- [name] in <view> items ----
+    // Chú thích → khoảng trắng (giữ offset): view / item đã rào lại không phải tham chiếu.
+    const masked = text.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, ' '));
+    const viewNote = fieldsIncomplete ? ' (có ENTITY trong <fields> chưa đọc được — field có thể nằm trong đó)' : '';
+    const flag = (offset, length, msg) => items.push({ severity: fieldsIncomplete ? 'warning' : 'error', text: msg + viewNote, ...at(offset, length) });
+
+    // ---- <field name="x"/> in <views> (Grid) ----
     const reported = new Set();
-    for (const m of text.matchAll(/<item\s+value\s*=\s*"[01-]+\s*:\s*([^"]*)"/gi)) {
+    for (const vb of masked.matchAll(/<views\b[^>]*>[\s\S]*?<\/views>/gi)) {
+      for (const m of vb[0].matchAll(/<field\s+(?:[^>]*?\s)?name\s*=\s*"([^"]*)"/gi)) {
+        const name = m[1].trim();
+        if (!name || /[&%{$[\]]/.test(name) || isField(name) || reported.has('v:' + name.toLowerCase())) continue;
+        reported.add('v:' + name.toLowerCase());
+        flag(vb.index + m.index + m[0].lastIndexOf(m[1]), m[1].length, `View dùng <field name="${name}"/> nhưng <fields> không khai báo field "${name}".`);
+      }
+    }
+
+    // ---- [name] in <view> items (Dir / Filter) ----
+    for (const m of masked.matchAll(/<item\s+value\s*=\s*"[01-]+\s*:\s*([^"]*)"/gi)) {
       const listAt = m.index + m[0].indexOf(m[1]);
       for (const ref of m[1].matchAll(/\[([^\]]+)\]/g)) {
         for (const name of await this.expandNameList(ref[1].trim())) {
           if (isField(name) || reported.has('v:' + name.toLowerCase())) continue;
           reported.add('v:' + name.toLowerCase());
-          warn(listAt + ref.index, ref[0].length, `View dùng [${name}] nhưng <fields> không khai báo field "${name}".`);
+          flag(listAt + ref.index, ref[0].length, `View dùng [${name}] nhưng <fields> không khai báo field "${name}".`);
+        }
+      }
+    }
+
+    // ---- khoá / sắp xếp trên thẻ gốc: <dir code> (chỉ Controllers\Dir — Filter cũng là <dir> nhưng code/order là cột SQL),
+    // <lookup code name order>. Grid code/order và Filter thì không: source Fast có hàng chục chỗ trỏ cột không khai báo trong <fields>.
+    const rootChecks = [];
+    if (/[\\/]Controllers[\\/]Dir[\\/]/i.test(path || '')) rootChecks.push(['dir', ['code']]);
+    rootChecks.push(['lookup', ['code', 'name', 'order']]);
+    for (const [tag, attrs] of rootChecks) {
+      const t = new RegExp(`<${tag}\\b[^>]*>`, 'i').exec(masked);
+      if (!t) continue;
+      for (const an of attrs) {
+        const a = new RegExp(`\\s${an}\\s*=\\s*"([^"]*)"`, 'i').exec(t[0]);
+        if (!a || /[&(@'%{]/.test(a[1].replace(/%l\b/g, ''))) continue; // entity / biểu thức SQL: không đoán
+        const valueAt = t.index + a.index + a[0].indexOf('"') + 1;
+        for (const tok of a[1].matchAll(/[^,]+/g)) {
+          const name = tok[0].trim().replace(/\s+(?:asc|desc)$/i, '').replace(/^\w+\./, '');
+          if (!/^[\w%]+$/.test(name) || isField(name)) continue;
+          warn(valueAt + tok.index + tok[0].indexOf(tok[0].trim()), tok[0].trim().length, `<${tag} ${an}="…"> dùng "${name}" nhưng <fields> không khai báo field "${name}".`);
         }
       }
     }
@@ -920,7 +964,9 @@ class BcodeProblems {
 
   // ---- Presentation --------------------------------------------------------------------
 
-  setItems(items) {
+  /// path = file mà danh sách này thuộc về (lúc lưu, editor.saveActive dùng để biết lỗi còn trong Problems có đúng của file vừa lưu không).
+  setItems(items, path) {
+    this.itemsPath = path || null;
     // Sorted by position so reading the list top to bottom is reading the file top to
     // bottom; errors before warnings on the same line.
     this.items = (items || []).slice().sort((a, b) =>

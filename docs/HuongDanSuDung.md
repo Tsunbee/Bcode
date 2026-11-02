@@ -1318,11 +1318,15 @@ Kiểm tra chạy nền khoảng 0,7 giây sau khi ngừng gõ; lỗi / cảnh b
 
 - Thẻ XML sai / chưa đóng, thuộc tính trùng, `id` trùng.
 - Thiếu entity `&X;` / `%X;`, không mở được file ENTITY.
-- Field khai báo trùng trong `<fields>`; view dùng `[x]` mà `<fields>` không có.
+- Field khai báo trùng trong `<fields>`.
+- **Field chưa khai báo** (báo **lỗi**, có số dòng): `<views>` của Grid còn `<field name="x"/>`, hay view của Dir / Filter còn `[x]`, mà `<fields>` (kể cả các file ENTITY được include) không còn field `x` — vd xoá field `systotal` khỏi `<fields>` nhưng quên xoá `<field name="systotal"/>` trong `<view id="Grid">`. Field đã rào trong `<!-- -->` coi như đã xoá; dòng view đã rào thì bỏ qua. Nếu `<fields>` có ENTITY chưa đọc được (thiếu file / mất mạng) thì chỉ báo cảnh báo.
+- Cảnh báo: `code="…"` của Dir, `code` / `name` / `order` của Lookup, `f.getItem('x')`… trỏ tới field không khai báo.
 - `<item>` khai báo số biến không khớp; không tìm thấy hàm được gọi.
 - `f.request` ↔ `<action>` không khớp (thiếu action, tham số gửi mà không dùng…).
 
 Bấm một dòng để nhảy tới chỗ lỗi; `Ctrl`+bấm dòng thiếu entity để mở file liên quan.
+
+Lưu (`Ctrl+S`) **không bị chặn** khi còn lỗi, nhưng thông báo lưu sẽ ghi thêm "— nhưng còn N lỗi trong Problems (Ctrl+Shift+M)" để khỏi tưởng file đã sạch.
 
 ### Tìm / thay trong project (`Ctrl+Shift+F`)
 

@@ -989,8 +989,12 @@ class BcodeEditor {
       // chỉ mục include là đọc từng file include qua mạng).
       const savedPath = this.activePath;
       const savedText = this.currentModel.getValue();
-      this.showToast(`Đã lưu file thành công: ${fileNameOf(savedPath)}`, 2500);
-      this.reportSharedHistory(saveRes);
+      // Lưu KHÔNG bị chặn khi còn lỗi (như trước) — chỉ nhắc trong thông báo để khỏi tưởng file đã sạch (vd view còn <field name> đã xoá khỏi <fields>).
+      const probs = window.bcodeProblems;
+      const errCount = probs && probs.itemsPath === savedPath ? (probs.items || []).filter((i) => i.severity === 'error').length : 0;
+      const errNote = errCount ? ` — nhưng còn ${errCount} lỗi trong Problems (Ctrl+Shift+M)` : '';
+      this.showToast(`Đã lưu file thành công: ${fileNameOf(savedPath)}${errNote}`, errNote ? 6000 : 2500);
+      this.reportSharedHistory(saveRes, errNote);
       this.dismissedWriteTimeUtc = null;
       this.hideExternalChangeBanner();
 
@@ -1116,12 +1120,13 @@ class BcodeEditor {
 
   /// Kết quả ghi lịch sử chung (xem SharedHistoryStore) — chỉ báo khi có chuyện: ghi thất bại (thường do thư mục History của dự án
   /// không cho ghi) thì nói rõ, để người dùng biết file ĐÃ lưu nhưng KHÔNG có lịch sử chung. Thành công cũng báo ngắn để dễ kiểm tra quyền ghi.
-  reportSharedHistory(raw) {
+  /// errNote: phần nhắc "còn N lỗi trong Problems" của saveActive — thông báo này thay thông báo lưu nên phải mang theo.
+  reportSharedHistory(raw, errNote = '') {
     let status = '';
     try { status = (JSON.parse(raw || '{}').shared) || ''; } catch { return; }
     this.lastSharedHistoryStatus = status;
-    if (status.startsWith('fail:')) this.showToast('Đã lưu file, nhưng KHÔNG ghi được lịch sử chung: ' + status.slice(5), 9000);
-    else if (status === 'ok') this.showToast('Đã lưu file thành công · đã ghi lịch sử chung của dự án', 3000);
+    if (status.startsWith('fail:')) this.showToast('Đã lưu file, nhưng KHÔNG ghi được lịch sử chung: ' + status.slice(5) + errNote, 9000);
+    else if (status === 'ok') this.showToast('Đã lưu file thành công · đã ghi lịch sử chung của dự án' + errNote, errNote ? 6000 : 3000);
   }
 
   /// "Save As": the file picker itself has to be native (WinForms SaveFileDialog, shown by

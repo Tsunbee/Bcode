@@ -103,7 +103,7 @@ Bcode.App/
 │   ├── SetupEInvoiceControl.cs  121
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
-│   ├── SqlObjectTreeControl.cs  499
+│   ├── SqlObjectTreeControl.cs  558
 │   ├── SqlPeekPanel.cs  128
 │   ├── SqlProfilerControl.cs  1938
 │   ├── SqlQueryControl.cs  355
@@ -315,7 +315,7 @@ Bcode.App/
 │   ├── SqlHintService.cs  222
 │   ├── SqlHistoryService.cs  310
 │   ├── SqlLineAnalyzer.cs  160
-│   ├── SqlObjectBrowserService.cs  656
+│   ├── SqlObjectBrowserService.cs  676
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  406
 │   ├── TableDataService.cs  632
@@ -425,7 +425,7 @@ Bcode.App/
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  317
 │       ├── sqlmessages.html  93
-│       ├── sqlobjectbar.html  50
+│       ├── sqlobjectbar.html  58
 │       ├── sqlpivot.html  117
 │       ├── sqlprofilerbar.html  170
 │       ├── sqlquerybar.html  409
@@ -516,7 +516,7 @@ BcodeViewer.App/
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
 │   ├── dock.js  162
-│   ├── editor.js  1719
+│   ├── editor.js  1724
 │   ├── entity.js  1344
 │   ├── fastask.js  356
 │   ├── fcode-language.js  451
@@ -530,7 +530,7 @@ BcodeViewer.App/
 │   ├── outline.js  239
 │   ├── perfwatch.js  110
 │   ├── problems-worker.js  101
-│   ├── problems.js  1013
+│   ├── problems.js  1059
 │   ├── quickopen.js  184
 │   ├── search.js  335
 │   ├── settings.js  733

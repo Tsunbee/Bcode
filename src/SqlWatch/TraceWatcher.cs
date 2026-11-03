@@ -23,6 +23,7 @@ public sealed record CapturedEvent(
 /// </summary>
 public sealed class TraceWatcher : IAsyncDisposable
 {
+    // Câu của chính SqlWatch và của công cụ Bcode / FCode (program_name "Bcode…", "FCode…") không đưa lên lưới — chỉ xem câu của ứng dụng.
     public const string ApplicationName = "SqlWatch";
     private const int MaxTextLength = 16000;
 
@@ -147,6 +148,8 @@ public sealed class TraceWatcher : IAsyncDisposable
             WHERE s.is_user_process = 1
               AND s.session_id <> @@SPID
               AND ISNULL(s.program_name, N'') <> @appName
+              AND ISNULL(s.program_name, N'') NOT LIKE N'Bcode%'
+              AND ISNULL(s.program_name, N'') NOT LIKE N'FCode%'
               AND s.last_request_start_time >= @started
               AND p.dbid IN ({DatabaseIdList()})
             """;
@@ -320,6 +323,8 @@ public sealed class TraceWatcher : IAsyncDisposable
             CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS t
             WHERE r.session_id <> @@SPID
               AND ISNULL(s.program_name, N'') <> @appName
+              AND ISNULL(s.program_name, N'') NOT LIKE N'Bcode%'
+              AND ISNULL(s.program_name, N'') NOT LIKE N'FCode%'
               AND r.start_time >= @started
               AND p.dbid IN ({DatabaseIdList()})
               AND t.objectid IS NOT NULL

@@ -111,7 +111,7 @@ Bcode.App/
 │   ├── SqlScintilla.cs  162
 │   ├── SqlSyntaxHighlighter.cs  484
 │   ├── SqlTabSnapshot.cs  19
-│   ├── SqlWatchControl.cs  124
+│   ├── SqlWatchControl.cs  154
 │   ├── SqlWatchControl.Form.cs  36
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
@@ -201,7 +201,7 @@ Bcode.App/
 │   ├── WCommandItem.cs  45
 │   ├── WeeklyMailSent.cs  68
 │   ├── WeeklyMailTemplate.cs  20
-│   └── Workspace.cs  130
+│   └── Workspace.cs  141
 ├── Secrets/
 │   ├── LocalSecrets.cs  30
 │   ├── LocalSecrets.Empty.cs  38

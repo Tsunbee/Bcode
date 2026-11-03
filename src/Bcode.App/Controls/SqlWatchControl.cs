@@ -38,6 +38,16 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
             w.SqlWatchPassword = password;
             try { _settings.Save(); } catch { /* chỉ nhớ trong phiên */ }
         };
+        // Bộ lọc (Login chứa, USER ID, Nội dung chứa, Sự kiện) nhớ theo workspace; chưa lưu lần nào thì USER ID tự điền u_id của user
+        // đang theo dõi ở SQL Profiler (ô "User cần theo dõi"), không có thì user đăng nhập web của workspace.
+        _form.FiltersLookup = name => FindWorkspace(name)?.SqlWatchFilters is { } f ? new SqlWatch.WatchFilters(f.Login, f.UserId, f.Text, f.Events) : null;
+        _form.FiltersSaved = (name, f) =>
+        {
+            if (FindWorkspace(name) is not { } w) return;
+            w.SqlWatchFilters = new SqlWatchFilterState { Login = f.Login, UserId = f.UserId, Text = f.Text, Events = f.Events.ToList() };
+            try { _settings.Save(); } catch { /* chỉ nhớ trong phiên */ }
+        };
+        _form.UserIdLookup = LookupUserIdAsync;
         // Load của form (nạp project từ settings) chạy trước handler này → chọn workspace hiện tại rồi mới tự bắt nếu đang chờ.
         _form.Load += (_, _) =>
         {
@@ -58,6 +68,7 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
         {
             ThemeManager.ThemeChanged -= ApplyTheme;
             _connections.WorkspaceChanged -= SyncProject;
+            _form.FlushFilters();   // đóng tab ngay sau khi gõ lọc: lưu nốt (đóng tab không qua FormClosing của SqlWatch)
             _form.StopCapture();
             _form.Dispose();
         };
@@ -68,6 +79,25 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
 
     /// <summary>"🐞 Debug store": cùng câu SQL đó — MainForm tìm store được gọi, mở định nghĩa + GO + câu gọi rồi bật Debug từng bước.</summary>
     public event Action<string>? DebugRequested;
+
+    private Workspace? FindWorkspace(string name) =>
+        _settings.Workspaces.FirstOrDefault(w => w.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>u_id (vsysuser ở App Data) của user đang theo dõi: ô "User cần theo dõi" của SQL Profiler, không có thì user đăng nhập web.
+    /// Dùng kết nối của chính workspace (login dự án có quyền vào App Data, khác login profile của SqlWatch).</summary>
+    private static async Task<string?> LookupUserIdAsync(Workspace? ws)
+    {
+        if (ws is null) return null;
+        var user = !string.IsNullOrWhiteSpace(ws.ProfilerTargetUser) ? ws.ProfilerTargetUser.Trim() : ws.WebLoginUser.Trim();
+        if (user.Length == 0) return null;
+        await using var conn = new Microsoft.Data.SqlClient.SqlConnection(ws.BuildConnectionString(useSysDatabase: false));
+        await conn.OpenAsync();
+        await using var cmd = new Microsoft.Data.SqlClient.SqlCommand("SELECT u_id FROM vsysuser WHERE u_name = @name", conn) { CommandTimeout = 10 };
+        cmd.Parameters.AddWithValue("@name", user);
+        return (await cmd.ExecuteScalarAsync()) is { } v and not DBNull ? v.ToString() : null;
+    }
+
+    private Task<string?> LookupUserIdAsync(string name) => LookupUserIdAsync(FindWorkspace(name));
 
     /// <summary>Cho MainForm báo kết quả Debug store lên thanh trạng thái của SqlWatch.</summary>
     public void ReportStatus(string text) => _form.ReportStatus(text);

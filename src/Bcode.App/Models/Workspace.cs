@@ -68,6 +68,8 @@ public class Workspace
     [JsonIgnore] public string SqlWatchPassword { get => _sqlWatchPassword.Plain; set => _sqlWatchPassword.Plain = value; }
     [JsonPropertyName(nameof(SqlWatchPassword)), EditorBrowsable(EditorBrowsableState.Never)]
     public string SqlWatchPasswordStored { get => _sqlWatchPassword.Stored; set => _sqlWatchPassword.Stored = value; }
+    /// <summary>Bộ lọc tab SqlWatch của dự án (Login chứa, USER ID, Nội dung chứa, Sự kiện); null = chưa lưu — USER ID tự điền theo user đang theo dõi.</summary>
+    public SqlWatchFilterState? SqlWatchFilters { get; set; }
     public string WebLoginUser { get; set; } = "";
     private readonly ProtectedText _webLoginPassword = new();
     [JsonIgnore] public string WebLoginPassword { get => _webLoginPassword.Plain; set => _webLoginPassword.Plain = value; }
@@ -127,4 +129,13 @@ public class Workspace
 
         return b.ConnectionString;
     }
+}
+
+/// <summary>Bộ lọc tab SqlWatch lưu theo workspace (xem Workspace.SqlWatchFilters).</summary>
+public class SqlWatchFilterState
+{
+    public string Login { get; set; } = "";
+    public string UserId { get; set; } = "";
+    public string Text { get; set; } = "";
+    public List<string> Events { get; set; } = new();
 }

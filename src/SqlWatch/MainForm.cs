@@ -14,6 +14,13 @@ public sealed partial class MainForm : Form
     private readonly Button _loginDefault = new() { Text = "Mặc định" };
     private readonly Dictionary<string, (string User, string Password)> _loginMemory = new(StringComparer.OrdinalIgnoreCase);
     private string _note = "";
+    // Bộ lọc nhớ theo dự án: _filtersProject = dự án đang nạp bộ lọc vào các ô; đổi ô thì 0,8 giây sau mới lưu (khỏi ghi file mỗi phím).
+    private readonly Dictionary<string, WatchFilters> _filterMemory = new(StringComparer.OrdinalIgnoreCase);
+    private readonly System.Windows.Forms.Timer _filterSave = new() { Interval = 800 };
+    private readonly ToolTip _tips = new();
+    private string _filtersProject = "";
+    private string _loadedProject = "";
+    private bool _applyingFilters;
     // Nút xử lý dòng đang chọn (như thanh SQL Profiler của Bcode): Copy SQL Command / Debug store.
     private readonly Button _copySql = new() { Text = "📋 Copy SQL Command" };
     private readonly Button _debugSql = new() { Text = "🐞 Debug store", Visible = false };
@@ -71,6 +78,18 @@ public sealed partial class MainForm : Form
         get => _debugStore;
         set { _debugStore = value; _debugSql.Visible = value is not null; }
     }
+
+    /// <summary>Nơi chứa (Bcode) đọc bộ lọc đã lưu của dự án; null = chưa lưu lần nào (USER ID tự điền theo user đang theo dõi).</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Func<string, WatchFilters?>? FiltersLookup { get; set; }
+
+    /// <summary>Báo nơi chứa lưu bộ lọc của dự án.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Action<string, WatchFilters>? FiltersSaved { get; set; }
+
+    /// <summary>Nơi chứa (Bcode) tra u_id của user đang theo dõi ở SQL Profiler (vsysuser) cho dự án — điền sẵn ô USER ID.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Func<string, Task<string?>>? UserIdLookup { get; set; }
 
     private TraceWatcher? _watcher;
     private CancellationTokenSource? _lifetime;
@@ -141,9 +160,11 @@ public sealed partial class MainForm : Form
         _debugSql.Click += (_, _) => DebugSelected();
         _loginDefault.Click += (_, _) => { _login.Text = SqlLogin.User; _password.Text = SqlLogin.Password; };
         _events.Click += (_, _) => _eventMenu.Show(_events, new Point(0, _events.Height));
-        _loginFilter.TextChanged += (_, _) => RebuildGrid();
-        _appFilter.TextChanged += (_, _) => RebuildGrid();
-        _textFilter.TextChanged += (_, _) => RebuildGrid();
+        _loginFilter.TextChanged += (_, _) => { RebuildGrid(); OnFiltersChanged(); };
+        _appFilter.TextChanged += (_, _) => { RebuildGrid(); OnFiltersChanged(); };
+        _textFilter.TextChanged += (_, _) => { RebuildGrid(); OnFiltersChanged(); };
+        _filterSave.Tick += (_, _) => FlushFilters();
+        _tips.SetToolTip(_appFilter, "u_id của người dùng Fast (ApplicationName). Tự điền theo user đang theo dõi ở SQL Profiler; lọc ngay khi đọc trên server. Để trống = mọi user.");
         _interval.ValueChanged += (_, _) =>
         {
             if (_timer.Enabled)
@@ -152,7 +173,7 @@ public sealed partial class MainForm : Form
         };
         _timer.Tick += async (_, _) => await PollAsync();
         AcceptButton = _start;
-        FormClosing += (_, _) => CloseWatcher();
+        FormClosing += (_, _) => { FlushFilters(); CloseWatcher(); };
         Load += (_, _) => LoadProjects();
     }
 
@@ -559,7 +580,12 @@ public sealed partial class MainForm : Form
 
         _server.Text = workspace.Server;
         _databases.Text = string.Join(", ", workspace.Databases);
-        LoadLogin(workspace.Name);
+        if (!workspace.Name.Equals(_loadedProject, StringComparison.OrdinalIgnoreCase))
+        {
+            _loadedProject = workspace.Name;
+            LoadLogin(workspace.Name);
+            LoadFilters(workspace.Name);
+        }
         if (!showError)
             return workspace.Server.Length > 0 && workspace.Databases.Count > 0;
 
@@ -610,7 +636,7 @@ public sealed partial class MainForm : Form
         var password = _password.Text.Length > 0 ? _password.Text : SqlLogin.Password;
         SaveLogin(_project.Text.Trim(), user, password);
         var builder = TraceWatcher.CreateBuilder(_server.Text, user, password, "master", TraceWatcher.ApplicationName);
-        var watcher = new TraceWatcher(builder.ConnectionString, databases);
+        var watcher = new TraceWatcher(builder.ConnectionString, databases) { UserIdFilter = _appFilter.Text.Trim() };
         try
         {
             UseWaitCursor = true;
@@ -725,6 +751,7 @@ public sealed partial class MainForm : Form
                 item.Text = Label(name, item.Checked);
                 UpdateEventButton();
                 RebuildGrid();
+                OnFiltersChanged();
             };
             _eventItems[name] = item;
             _eventMenu.Items.Add(item);
@@ -1035,5 +1062,70 @@ public sealed partial class MainForm : Form
         }
         ReportStatus($"Đã lấy câu SQL ({sql.Length} ký tự) — đang tìm store được gọi để mở debug...");
         _debugStore?.Invoke(sql);
+    }
+
+    /// <summary>Nạp bộ lọc đã nhớ của dự án vào các ô. Chưa nhớ lần nào: để trống, bật đủ Sự kiện và tra u_id của user đang theo dõi.</summary>
+    private void LoadFilters(string project)
+    {
+        FlushFilters();
+        _filtersProject = project;
+        var saved = _filterMemory.TryGetValue(project, out var memory) ? memory : FiltersLookup?.Invoke(project);
+        _applyingFilters = true;
+        try
+        {
+            _loginFilter.Text = saved?.Login ?? "";
+            _appFilter.Text = saved?.UserId ?? "";
+            _textFilter.Text = saved?.Text ?? "";
+            foreach (var (name, item) in _eventItems)
+                item.Checked = saved is null || saved.Events.Contains(name, StringComparer.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            _applyingFilters = false;
+        }
+        if (_watcher is not null)
+            _watcher.UserIdFilter = _appFilter.Text.Trim();
+        if (saved is null && UserIdLookup is not null)
+            _ = AutoUserIdAsync(project);
+    }
+
+    private async Task AutoUserIdAsync(string project)
+    {
+        try
+        {
+            var uid = (await UserIdLookup!(project))?.Trim();
+            if (string.IsNullOrEmpty(uid) || IsDisposed || _filtersProject != project || _appFilter.Text.Length > 0)
+                return;
+            _appFilter.Text = uid;
+            ReportStatus($"USER ID = {uid} (u_id của user đang theo dõi ở SQL Profiler) — xoá ô để xem mọi user.");
+        }
+        catch
+        {
+            // không tra được (không kết nối được App Data...) thì để trống như cũ
+        }
+    }
+
+    private void OnFiltersChanged()
+    {
+        if (_watcher is not null)
+            _watcher.UserIdFilter = _appFilter.Text.Trim();
+        if (_applyingFilters || _filtersProject.Length == 0)
+            return;
+        _filterSave.Stop();
+        _filterSave.Start();
+    }
+
+    /// <summary>Lưu ngay bộ lọc đang chờ (đổi dự án, đóng tab / form).</summary>
+    public void FlushFilters()
+    {
+        if (!_filterSave.Enabled)
+            return;
+        _filterSave.Stop();
+        if (_filtersProject.Length == 0)
+            return;
+        var filters = new WatchFilters(_loginFilter.Text.Trim(), _appFilter.Text.Trim(), _textFilter.Text.Trim(),
+            _eventItems.Where(item => item.Value.Checked).Select(item => item.Key).ToList());
+        _filterMemory[_filtersProject] = filters;
+        FiltersSaved?.Invoke(_filtersProject, filters);
     }
 }

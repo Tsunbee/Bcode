@@ -35,6 +35,10 @@ public sealed class TraceWatcher : IAsyncDisposable
     private bool _hasInputBuffer;
     private bool _dbccInputBuffer = true;
 
+    /// <summary>USER ID (program_name = u_id mà Fast gắn) — lọc ngay khi đọc trên server: server đông người thì bớt tải, bớt đọc
+    /// DBCC INPUTBUFFER cho phiên của người khác. "" = mọi user. Đổi lúc đang bắt thì áp từ nhịp đọc kế tiếp.</summary>
+    public string UserIdFilter { get; set; } = "";
+
     public TraceWatcher(string connectionString, IReadOnlyList<string> databases)
     {
         if (databases.Count is 0 or > 8)
@@ -150,6 +154,7 @@ public sealed class TraceWatcher : IAsyncDisposable
               AND ISNULL(s.program_name, N'') <> @appName
               AND ISNULL(s.program_name, N'') NOT LIKE N'Bcode%'
               AND ISNULL(s.program_name, N'') NOT LIKE N'FCode%'
+              AND (@uid = N'' OR ISNULL(s.program_name, N'') = @uid)
               AND s.last_request_start_time >= @started
               AND p.dbid IN ({DatabaseIdList()})
             """;
@@ -158,6 +163,7 @@ public sealed class TraceWatcher : IAsyncDisposable
         await using (var command = new SqlCommand(sql, _connection) { CommandTimeout = 20 })
         {
             command.Parameters.Add("@appName", SqlDbType.NVarChar, 128).Value = ApplicationName;
+            command.Parameters.Add("@uid", SqlDbType.NVarChar, 128).Value = UserIdFilter.Trim();
             command.Parameters.Add("@started", SqlDbType.DateTime2).Value = _started;
             AddDatabaseParameters(command);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -325,6 +331,7 @@ public sealed class TraceWatcher : IAsyncDisposable
               AND ISNULL(s.program_name, N'') <> @appName
               AND ISNULL(s.program_name, N'') NOT LIKE N'Bcode%'
               AND ISNULL(s.program_name, N'') NOT LIKE N'FCode%'
+              AND (@uid = N'' OR ISNULL(s.program_name, N'') = @uid)
               AND r.start_time >= @started
               AND p.dbid IN ({DatabaseIdList()})
               AND t.objectid IS NOT NULL
@@ -333,6 +340,7 @@ public sealed class TraceWatcher : IAsyncDisposable
 
         await using var command = new SqlCommand(sql, _connection) { CommandTimeout = 20 };
         command.Parameters.Add("@appName", SqlDbType.NVarChar, 128).Value = ApplicationName;
+        command.Parameters.Add("@uid", SqlDbType.NVarChar, 128).Value = UserIdFilter.Trim();
         command.Parameters.Add("@started", SqlDbType.DateTime2).Value = _started;
         AddDatabaseParameters(command);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);

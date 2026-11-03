@@ -18,8 +18,9 @@ namespace BcodeViewer.App.Host.FastSource;
 /// <item>"word" — đang gõ dở 1 tên (<c>f.setIt</c>): hoàn tất bằng tên trong chính file, gần + cùng ngữ cảnh thì nặng hơn (<see cref="AddWord"/>).</item>
 /// </list>
 /// <item>"close" — gõ <c>&lt;/</c>: tên thẻ mở gần nhất chưa đóng (theo cấu trúc, không thống kê; đo 99,9% đúng) — thắng mọi nguồn khác.</item>
-/// Mỗi loại có ngưỡng riêng hiệu chỉnh trên nửa file mẫu không dùng để rút (ngắn ≥ 90%, dài ≥ 60%); gộp = <see cref="Choose"/>: nguồn qua ngưỡng có độ tin
-/// cao nhất thắng (cùng độ tin thì dài hơn). Trước đây "dài nhất thắng" — đo: 657 / 2.231 chỗ sai là vì 1 gợi ý dài hơn mà sai đè lên nguồn chắc hơn đã đúng.
+/// Mỗi loại có ngưỡng riêng hiệu chỉnh trên nửa file mẫu không dùng để rút (ngắn ≥ 90%, dài ≥ 60%); gộp = <see cref="Choose"/>: nguồn qua ngưỡng có độ ĐÚNG
+/// đo được cao nhất thắng (<see cref="Ranks"/>: vùng × loại × khoảng độ tin; cùng mức thì dài hơn). Trước đây "dài nhất thắng" — đo: 657 / 2.231 chỗ sai là vì
+/// 1 gợi ý dài hơn mà sai đè lên nguồn chắc hơn đã đúng; rồi "độ tin thô cao nhất" — độ tin các nguồn không cùng thang ("agree" luôn cao hơn 2 nguồn con).
 /// </summary>
 public sealed class SourceGhost
 {
@@ -62,6 +63,33 @@ public sealed class SourceGhost
     public Dictionary<string, Dictionary<string, int>> Nexts { get; } = new(StringComparer.Ordinal);
     /// <summary>Ngưỡng từng loại: field, same, tok (ngắn) và field:long, same:long, tok:long (dài).</summary>
     public Dictionary<string, Quality> Thresholds { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Độ đúng đo được của 1 nguồn theo độ tin của nó: "loại@vùng#khoảng" (+":long"), khoảng = độ tin × <see cref="RankBins"/> → (đúng + 0,5) / (số lần + 1)
+    /// trên nửa file mẫu không dùng để rút (<see cref="SourceGhostMiner.RankTable"/>); "loại@vùng" (+":long") = độ đúng chung của loại ở vùng đó (đánh dấu vùng đã đo).
+    /// Rỗng (kiến thức cũ) = xếp theo độ tin thô.</summary>
+    public Dictionary<string, double> Ranks { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public const int RankBins = 10;
+
+    public static string RankKey(string kind, string area, double share, bool longMode) =>
+        kind + "@" + area + "#" + Math.Clamp((int)(share * RankBins), 0, RankBins - 1) + (longMode ? ":long" : "");
+
+    /// <summary>Độ đúng chênh nhau dưới mức này coi như ngang → gợi ý dài hơn thắng. Đo (33.470 chỗ): bậc 0 → ngắn đúng 95,3% gõ hộ 29,1%;
+    /// 0,02 → 95,1% / 33,3%; 0,05 → 94,4% / 34,4% (dài: 89,3% / 34,1% → 89,2% / 35,1% → 88,7% / 36,7%).</summary>
+    public const double RankStep = 0.02;
+
+    /// <summary>Mức xếp hạng của 1 nguồn khi gộp (<see cref="ChooseAt"/>): độ đúng đo được ở khoảng độ tin đó, làm tròn xuống theo <see cref="RankStep"/>;
+    /// vùng chưa có bảng lùi như <see cref="MinShareOf(string, string, bool)"/>, khoảng chưa gặp lúc đo = 0,5.</summary>
+    public double RankOf(string kind, double share, string area, bool longMode)
+    {
+        if (Ranks.Count == 0) return share;
+        foreach (var a in AreaFallback(area))
+            if (Ranks.ContainsKey(kind + "@" + a + (longMode ? ":long" : "")))
+                return Math.Floor((Ranks.TryGetValue(RankKey(kind, a, share, longMode), out var p) ? p : 0.5) / RankStep + 1e-9) * RankStep;
+        return share;
+    }
+
+    private static IEnumerable<string> AreaFallback(string area) =>
+        new[] { area, area.Replace("import", "xml"), area.Split('/')[0], area.Split('/')[0].Replace("import", "xml") }.Distinct();
 
     public const double ShortTarget = 0.9, LongTarget = 0.6;
 
@@ -347,17 +375,19 @@ public sealed class SourceGhost
         var cells = new Dictionary<int, Cell>();
         var cands = Candidates(before, after, kind, region, useLocal, root, cells, siblings);
         var area = AreaFor(kind, region, root, before[(before.LastIndexOf('\n') + 1)..]);
-        var (g, at) = ChooseAt(cands, k => MinShareOf(k, area, longMode));
+        var (g, at) = ChooseAt(cands, k => MinShareOf(k, area, longMode), (k, s) => RankOf(k, s, area, longMode));
         return g is not null && cells.TryGetValue(at, out var c) ? g with { Cell = c } : g;
     }
 
     /// <summary>Gộp các nguồn (dùng chung lúc gõ và lúc đo / hiệu chỉnh — <see cref="SourceGhostMiner"/>): "close" thắng tuyệt đối; còn lại nguồn qua ngưỡng
-    /// có độ tin cao nhất, cùng độ tin thì gợi ý dài hơn. null = không nguồn nào qua ngưỡng.</summary>
-    public static Ghost? Choose(IEnumerable<(string Kind, string Text, double Share, Func<double, string> Cut)> cands, Func<string, double> threshold) =>
-        ChooseAt(cands, threshold).Ghost;
+    /// có mức <paramref name="rank"/> cao nhất (độ đúng đo được — <see cref="RankOf"/>; null = độ tin thô), cùng mức thì gợi ý dài hơn. null = không nguồn nào qua ngưỡng.</summary>
+    public static Ghost? Choose(IEnumerable<(string Kind, string Text, double Share, Func<double, string> Cut)> cands, Func<string, double> threshold,
+        Func<string, double, double>? rank = null) =>
+        ChooseAt(cands, threshold, rank).Ghost;
 
     /// <summary><see cref="Choose"/> kèm vị trí nguồn được chọn trong danh sách (-1 = không có).</summary>
-    public static (Ghost? Ghost, int At) ChooseAt(IEnumerable<(string Kind, string Text, double Share, Func<double, string> Cut)> cands, Func<string, double> threshold)
+    public static (Ghost? Ghost, int At) ChooseAt(IEnumerable<(string Kind, string Text, double Share, Func<double, string> Cut)> cands, Func<string, double> threshold,
+        Func<string, double, double>? rank = null)
     {
         Ghost? best = null;
         var bestRank = double.NegativeInfinity;
@@ -367,11 +397,11 @@ public sealed class SourceGhost
             i++;
             var t = cut(k == "close" ? 0 : threshold(k));
             if (Norm(t).Length == 0) continue;
-            var rank = k == "close" ? double.PositiveInfinity : share;
-            if (best is null || rank > bestRank + 1e-9 || (Math.Abs(rank - bestRank) <= 1e-9 && Norm(t).Length > Norm(best.Text).Length))
+            var r = k == "close" ? double.PositiveInfinity : rank?.Invoke(k, share) ?? share;
+            if (best is null || r > bestRank + 1e-9 || (Math.Abs(r - bestRank) <= 1e-9 && Norm(t).Length > Norm(best.Text).Length))
             {
                 best = new Ghost(t, k, share);
-                bestRank = rank;
+                bestRank = r;
                 at = i;
             }
         }
@@ -882,6 +912,7 @@ public sealed class SourceGhost
         lines = Lines,
         nexts = Nexts,
         thresholds = Thresholds,
+        ranks = Ranks,
     };
 
     public static SourceGhost FromJson(JsonElement e)
@@ -899,10 +930,11 @@ public sealed class SourceGhost
             foreach (var p in ts.EnumerateObject())
                 g.Thresholds[p.Name] = new Quality(p.Value.GetProperty("MinShare").GetDouble(), p.Value.GetProperty("Precision").GetDouble(),
                     p.Value.GetProperty("Coverage").GetDouble(), p.Value.GetProperty("Tested").GetInt32());
+        if (e.TryGetProperty("ranks", out var rs)) foreach (var p in rs.EnumerateObject()) g.Ranks[p.Name] = p.Value.GetDouble();
         return g;
     }
 
-    /// <summary>Gộp mẫu đi kèm với kiến thức học từ source dự án (ngưỡng giữ của mẫu đi kèm).</summary>
+    /// <summary>Gộp mẫu đi kèm với kiến thức học từ source dự án (ngưỡng + bảng độ đúng giữ của mẫu đi kèm).</summary>
     public static SourceGhost Merge(SourceGhost shipped, SourceGhost project)
     {
         var g = new SourceGhost();
@@ -919,6 +951,7 @@ public sealed class SourceGhost
                     foreach (var (r, n) in d) t[r] = t.GetValueOrDefault(r) + n;
                 }
         foreach (var (k, q) in shipped.Thresholds) g.Thresholds[k] = q;
+        foreach (var (k, r) in shipped.Ranks) g.Ranks[k] = r;
         return g;
     }
 }

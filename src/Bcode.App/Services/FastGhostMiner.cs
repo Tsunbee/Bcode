@@ -22,14 +22,16 @@ public static class FastGhostMiner
     /// <summary>1 chỗ đã thử gợi ý khi đo: loại chỗ (lọc / EXEC / hàm / song ngữ / REPLACE), gợi ý đến từ đâu, độ tin, đúng hay sai (null = không gợi ý).</summary>
     public sealed record Sample(string Site, string? Kind, double Share, bool? Hit, string Typed = "", string Got = "", string Expected = "", int Id = 0);
 
-    public sealed record LearnResult(KnowledgeBase Knowledge, int Modules, int Train, int Test, IReadOnlyList<(string Site, int Sites, int Suggested, double Precision)> Report, double Precision, double Coverage)
+    /// <summary>Kết quả học. <c>Typed</c> = "gõ hộ": tổng độ dài các gợi ý đúng / tổng độ dài phần code thật viết tiếp ở mọi chỗ đo (gộp khoảng trắng; -1 = không tính) —
+    /// "đúng" tính gợi ý 1 token như gợi ý cả dòng, chỉ số này cho biết gợi ý giúp được bao nhiêu (đo trên KOG: giữa dòng ~6%).</summary>
+    public sealed record LearnResult(KnowledgeBase Knowledge, int Modules, int Train, int Test, IReadOnlyList<(string Site, int Sites, int Suggested, double Precision, double Typed)> Report, double Precision, double Coverage, double Typed = -1)
     {
         public string Summary()
         {
             var sb = new StringBuilder($"Đã học từ {Modules} procedure/function (rút từ {Train}, đo trên {Test} store chưa dùng để rút).\n\n");
             foreach (var r in Report)
-                sb.AppendLine($"• {r.Site}: {r.Sites} chỗ · có gợi ý {(r.Sites == 0 ? 0 : 100.0 * r.Suggested / r.Sites):0}% · đúng {100 * r.Precision:0.0}%");
-            sb.AppendLine($"\nTỔNG: có gợi ý {100 * Coverage:0}% số chỗ · ĐÚNG {100 * Precision:0.0}% khi có gợi ý.");
+                sb.AppendLine($"• {r.Site}: {r.Sites} chỗ · có gợi ý {(r.Sites == 0 ? 0 : 100.0 * r.Suggested / r.Sites):0}% · đúng {100 * r.Precision:0.0}%" + (r.Typed >= 0 ? $" · gõ hộ {100 * r.Typed:0.0}% ký tự" : ""));
+            sb.AppendLine($"\nTỔNG: có gợi ý {100 * Coverage:0}% số chỗ · ĐÚNG {100 * Precision:0.0}% khi có gợi ý" + (Typed >= 0 ? $" · gõ hộ {100 * Typed:0.0}% ký tự." : "."));
             foreach (var (k, q) in Knowledge.Quality)
                 sb.AppendLine($"  ngưỡng {k}: {(q.MinShare > 1 ? "tắt (không đạt mục tiêu)" : q.MinShare.ToString("0.00"))}");
             return sb.ToString();
@@ -167,7 +169,7 @@ public static class FastGhostMiner
                     try { g = Explain(def[..offset] + prefix, offset + prefix.Length, null, kb, ignoreThresholds: !applyThresholds); } catch { }
                     // kiểu dữ liệu so không tính khoảng trắng ("NVARCHAR (4000)" = "nvarchar(4000)")
                     string Cmp(string s) => kind == "decl" ? Regex.Replace(s, @"\s+", "").ToLowerInvariant() : Norm(s);
-                    samples.Add(g is null ? new Sample(site, null, 0, null) : new Sample(site, g.Kind, g.Share, Cmp(m.Groups["r"].Value).StartsWith(Cmp(g.Text)), prefix.Trim(), g.Text, m.Groups["r"].Value.Trim()));
+                    samples.Add(g is null ? new Sample(site, null, 0, null, Expected: m.Groups["r"].Value.Trim()) : new Sample(site, g.Kind, g.Share, Cmp(m.Groups["r"].Value).StartsWith(Cmp(g.Text)), prefix.Trim(), g.Text, m.Groups["r"].Value.Trim()));
                     break;
                 }
                 offset += raw.Length + 1;
@@ -251,7 +253,7 @@ public static class FastGhostMiner
                 var expected = StripComment(lines[li]).Trim();
                 Ghost? g = null;
                 try { g = parts ? NextLine(doc, doc.Length, kb, 0, false) : Explain(doc, doc.Length, null, kb); } catch { }
-                samples.Add(g is null ? new Sample(NextSite, "next", 0, null)
+                samples.Add(g is null ? new Sample(NextSite, "next", 0, null, Expected: expected)
                     : new Sample(NextSite, g.Kind, g.Share, Norm(g.Text).Length > 0 && Norm(expected).StartsWith(Norm(g.Text)), ind, g.Text, expected));
             }
         }
@@ -324,7 +326,7 @@ public static class FastGhostMiner
                 var doc = def[..offsets[li]] + typed + "\n" + rest;
                 if (GenericSplit(doc, offsets[li] + typed.Length) is not var (before, after)) continue;
                 var id = samples.Count + 1;
-                Sample S(Ghost? g, string kind) => g is null ? new Sample(AnyLineSite, kind, 0, null, Id: id)
+                Sample S(Ghost? g, string kind) => g is null ? new Sample(AnyLineSite, kind, 0, null, Expected: expected, Id: id)
                     : new Sample(AnyLineSite, g.Kind, g.Share, Norm(expected).StartsWith(Norm(g.Text)) && Norm(g.Text).Length > 0, typed.Trim(), g.Text, expected, id);
                 try
                 {
@@ -431,25 +433,25 @@ public static class FastGhostMiner
         var finalKb = WithThresholds(trainKb, k => quality[k].MinShare, trainTok);
         var samples = Evaluate(test, finalKb, true, ct).Concat(EvaluateAnyLine(test, finalKb, false, ct)).Concat(EvaluateNext(test, finalKb, false, ct)).ToList();
 
-        var report = new List<(string Site, int Sites, int Suggested, double Precision)>();
+        var report = new List<(string Site, int Sites, int Suggested, double Precision, double Typed)>();
         var rules = new Dictionary<string, KindQuality>(StringComparer.OrdinalIgnoreCase);
         foreach (var (site, kind, _) in Sites.Append((AnyLineSite, "any", null!)).Append((NextSite, "nextsite", null!)))
         {
             var all = samples.Where(s => s.Site == site).ToList();
             var shown = all.Where(s => s.Hit is not null).ToList();
             var p = shown.Count == 0 ? 0 : shown.Count(s => s.Hit == true) / (double)shown.Count;
-            report.Add((site, all.Count, shown.Count, p));
+            report.Add((site, all.Count, shown.Count, p, TypedShare(all, all)));
             if (!KnowledgeKinds.Contains(kind)) rules[kind] = new KindQuality(0, Math.Round(p, 3), Math.Round(shown.Count / (double)Math.Max(1, all.Count), 3), all.Count);
         }
         var totalShown = samples.Where(s => s.Hit is not null).ToList();
         // chỉ chế độ dài (không tính vào tổng của ghost tự động): câu tiếp theo theo ngưỡng dài + ghép dòng lọc
-        foreach (var (site, list) in new[] { (NextSite + " — Fast dài", nextParts.Where(s => s.Kind == "next" && s.Hit is not null && s.Share >= quality["next:long"].MinShare - 1e-9).ToList()), (ComposeSite, EvaluateCompose(test, trainKb, false, ct)) })
-        {
-            var shown = list.Where(s => s.Hit is not null).ToList();
-            report.Add((site, site == ComposeSite ? list.Count : nextParts.Count, shown.Count, shown.Count == 0 ? 0 : shown.Count(s => s.Hit == true) / (double)shown.Count));
-        }
+        var nextLong = nextParts.Where(s => s.Kind == "next" && s.Hit is not null && s.Share >= quality["next:long"].MinShare - 1e-9).ToList();
+        report.Add((NextSite + " — Fast dài", nextParts.Count, nextLong.Count, nextLong.Count == 0 ? 0 : nextLong.Count(s => s.Hit == true) / (double)nextLong.Count, TypedShare(nextLong, nextParts)));
+        var composeAll = EvaluateCompose(test, trainKb, false, ct);
+        var compose = composeAll.Where(s => s.Hit is not null).ToList();
+        report.Add((ComposeSite, composeAll.Count, compose.Count, compose.Count == 0 ? 0 : compose.Count(s => s.Hit == true) / (double)compose.Count, -1));
         var tl = quality["tok:long"];
-        report.Add((AnyLineSite + " — Fast dài (ma trận token)", tokParts.Count, (int)Math.Round(tl.Coverage * tokParts.Count), tl.Precision));
+        report.Add((AnyLineSite + " — Fast dài (ma trận token)", tokParts.Count, (int)Math.Round(tl.Coverage * tokParts.Count), tl.Precision, -1));
 
         var full = Mine(mods, source);
         var kb = new KnowledgeBase
@@ -462,7 +464,14 @@ public static class FastGhostMiner
             Quality = quality, Rules = rules, Source = source,
         };
         return new LearnResult(kb, mods.Count, train.Count, test.Count, report,
-            totalShown.Count == 0 ? 0 : totalShown.Count(s => s.Hit == true) / (double)totalShown.Count, totalShown.Count / (double)Math.Max(1, samples.Count));
+            totalShown.Count == 0 ? 0 : totalShown.Count(s => s.Hit == true) / (double)totalShown.Count, totalShown.Count / (double)Math.Max(1, samples.Count), TypedShare(samples, samples));
+    }
+
+    /// <summary>"Gõ hộ": tổng độ dài gợi ý đúng trong <paramref name="shown"/> / tổng độ dài code thật viết tiếp ở mọi chỗ <paramref name="all"/> (gộp khoảng trắng).</summary>
+    private static double TypedShare(IEnumerable<Sample> shown, IEnumerable<Sample> all)
+    {
+        double total = all.Sum(s => Norm(s.Expected).Length);
+        return total == 0 ? 0 : shown.Where(s => s.Hit == true).Sum(s => Norm(s.Got).Length) / total;
     }
 
     /// <summary>Ghi ma trận ra JSON: mỗi loại 1 khối {ngưỡng, độ chính xác, entries: {khoá: [tổng số lần, [cách viết, số lần] …]}}.</summary>

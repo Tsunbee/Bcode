@@ -4,7 +4,8 @@ namespace BcodeViewer.App.Host.FastSource;
 /// Đo và hiệu chỉnh ghost text Fast của BcodeViewer — cùng cách đo với <c>Bcode.App/Services/FastGhostMiner.cs</c>: rút từ một nửa file, giả lập
 /// gõ trên nửa còn lại (cứ 3 dòng lấy 1, tối đa 40 chỗ / file, cắt sau 1 token bất kỳ của dòng; thấy cả phía trên lẫn phía dưới dòng đang gõ),
 /// giữa 1 tên đang gõ dở (<c>f.setIt|</c>) và dòng trống (vừa Enter, chỉ thấy phía trên). Gợi ý đúng = phần thật của dòng bắt đầu đúng bằng gợi ý (gộp khoảng trắng, phân biệt hoa thường).
-/// Chấm / hiệu chỉnh chọn gợi ý đúng như lúc gõ (<see cref="SourceGhost.Choose"/>: "close" thắng, rồi độ tin cao nhất).
+/// Chấm / hiệu chỉnh chọn gợi ý đúng như lúc gõ (<see cref="SourceGhost.Choose"/>: "close" thắng, rồi mức xếp hạng cao nhất). Thứ tự: hiệu chỉnh ngưỡng
+/// (<see cref="Calibrate"/>, xếp theo độ tin thô) → dựng bảng độ đúng (<see cref="RankTable"/>) → chấm với <see cref="RankBy"/>.
 /// </summary>
 public static class SourceGhostMiner
 {
@@ -13,11 +14,15 @@ public static class SourceGhostMiner
     public sealed record Site(string File, string Region, string Where, string Typed, string Expected,
         List<(string Kind, string Text, double Share, Func<double, string> Cut)> Cands, string Area = "");
 
-    public sealed record Score(int Sites, int Shown, int Hit)
+    /// <summary>Kết quả chấm. <see cref="Typed"/> = "ký tự gõ hộ": tổng độ dài các gợi ý đúng / tổng độ dài phần thật còn lại của dòng ở mọi chỗ (gộp khoảng trắng) —
+    /// "đúng" tính gợi ý 1 token như gợi ý cả dòng, chỉ số này cho biết gợi ý giúp được bao nhiêu.</summary>
+    public sealed record Score(int Sites, int Shown, int Hit, long CharsHit = 0, long CharsAll = 0)
     {
         public double Coverage => Sites == 0 ? 0 : Shown / (double)Sites;
         public double Precision => Shown == 0 ? 0 : Hit / (double)Shown;
-        public override string ToString() => $"{Sites} chỗ, có gợi ý {Coverage:P1}, đúng {Precision:P1} ({Hit}/{Shown})";
+        public double Typed => CharsAll == 0 ? 0 : CharsHit / (double)CharsAll;
+        public override string ToString() => $"{Sites} chỗ, có gợi ý {Coverage:P1}, đúng {Precision:P1} ({Hit}/{Shown}), gõ hộ {Typed:P1} ký tự";
+        public static Score operator +(Score a, Score b) => new(a.Sites + b.Sites, a.Shown + b.Shown, a.Hit + b.Hit, a.CharsHit + b.CharsHit, a.CharsAll + b.CharsAll);
     }
 
     public static bool IsHit(string expected, string ghost) =>
@@ -115,24 +120,50 @@ public static class SourceGhostMiner
         return res;
     }
 
-    /// <summary>Chấm như khi gõ: mỗi chỗ lấy gợi ý dài nhất qua ngưỡng của loại đó.</summary>
-    public static Score Grade(IEnumerable<Site> sites, Func<string, double> threshold, Func<string, bool>? kindOn = null)
+    /// <summary>Chấm như khi gõ: mỗi chỗ lấy gợi ý được chọn (<see cref="Pick"/>). <paramref name="rank"/> = (chỗ, loại, độ tin) → mức xếp hạng (null = độ tin thô).</summary>
+    public static Score Grade(IEnumerable<Site> sites, Func<string, double> threshold, Func<string, bool>? kindOn = null, Func<Site, string, double, double>? rank = null)
     {
         int n = 0, shown = 0, hit = 0;
+        long chHit = 0, chAll = 0;
         foreach (var s in sites)
         {
             n++;
-            var best = Pick(s, threshold, kindOn);
+            chAll += SourceGhost.Norm(s.Expected).Length;
+            var best = Pick(s, threshold, kindOn, rank);
             if (best.Length == 0) continue;
             shown++;
-            if (IsHit(s.Expected, best)) hit++;
+            if (IsHit(s.Expected, best)) { hit++; chHit += SourceGhost.Norm(best).Length; }
         }
-        return new Score(n, shown, hit);
+        return new Score(n, shown, hit, chHit, chAll);
     }
 
     /// <summary>Gợi ý được chọn ở 1 chỗ — đúng cách chọn lúc gõ (<see cref="SourceGhost.Choose"/>).</summary>
-    public static string Pick(Site s, Func<string, double> threshold, Func<string, bool>? kindOn = null) =>
-        SourceGhost.Choose(kindOn is null ? s.Cands : s.Cands.Where(c => kindOn(c.Kind)), threshold)?.Text ?? "";
+    public static string Pick(Site s, Func<string, double> threshold, Func<string, bool>? kindOn = null, Func<Site, string, double, double>? rank = null) =>
+        SourceGhost.Choose(kindOn is null ? s.Cands : s.Cands.Where(c => kindOn(c.Kind)), threshold, rank is null ? null : (k, sh) => rank(s, k, sh))?.Text ?? "";
+
+    /// <summary>Mức xếp hạng lúc gõ của <paramref name="g"/> (<see cref="SourceGhost.RankOf"/>) — để chấm đúng như <see cref="SourceGhost.Explain"/>.</summary>
+    public static Func<Site, string, double, double> RankBy(SourceGhost g, bool longMode) => (s, k, sh) => g.RankOf(k, sh, s.Area, longMode);
+
+    /// <summary>Bảng độ đúng cho <see cref="SourceGhost.Ranks"/>: ở mỗi chỗ, mỗi nguồn qua ngưỡng (gợi ý đã cắt theo ngưỡng của vùng đó) chấm đúng / sai, gom theo
+    /// loại × vùng × khoảng độ tin → (đúng + 0,5) / (số lần + 1); thêm "loại@vùng" = độ đúng chung (đánh dấu vùng đã đo). Dựng SAU khi đã hiệu chỉnh ngưỡng.
+    /// Đo (ngưỡng của ghost.json, bảng dựng trên ½ chỗ đo, chấm trên ½ còn lại, 33.470 chỗ; mức làm tròn <see cref="SourceGhost.RankStep"/>):
+    /// ngắn đúng 93,9% → 95,1%, gõ hộ 28,1% → 33,3%; dài đúng 89,4% → 89,2%, gõ hộ 29,5% → 35,1%; độ phủ không đổi (92,1% / 98,1%).</summary>
+    public static Dictionary<string, double> RankTable(IEnumerable<Site> sites, Func<string, string, double> threshold, bool longMode)
+    {
+        var cnt = new Dictionary<string, (int N, int H)>(StringComparer.OrdinalIgnoreCase);
+        void Add(string key, bool hit) { var o = cnt.GetValueOrDefault(key); cnt[key] = (o.N + 1, o.H + (hit ? 1 : 0)); }
+        foreach (var s in sites)
+            foreach (var (k, _, share, cut) in s.Cands)
+            {
+                if (k == "close") continue;
+                var t = cut(threshold(k, s.Area));
+                if (SourceGhost.Norm(t).Length == 0) continue;
+                var hit = IsHit(s.Expected, t);
+                Add(SourceGhost.RankKey(k, s.Area, share, longMode), hit);
+                Add(k + "@" + s.Area + (longMode ? ":long" : ""), hit);
+            }
+        return cnt.ToDictionary(x => x.Key, x => Math.Round((x.Value.H + 0.5) / (x.Value.N + 1.0), 4), StringComparer.OrdinalIgnoreCase);
+    }
 
     /// <summary>Ngưỡng thấp nhất của từng loại để riêng loại đó đúng ≥ <paramref name="target"/> (cần ≥ 30 gợi ý), rồi nâng dần loại kém nhất tới khi
     /// gộp các loại (gợi ý dài nhất) cũng ≥ mục tiêu.</summary>

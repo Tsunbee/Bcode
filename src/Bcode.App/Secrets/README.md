@@ -2,11 +2,12 @@
 
 - `LocalSecrets.cs` — **file bí mật thật**: tài khoản DAC mặc định của Decrypt SQL Object, thông tin kết nối FSG_A (đồng bộ project / yêu cầu FSG / chuông thông báo), mật khẩu mặc định của server nội bộ và login Profiler, khoá RSA mẫu của Setup eInvoice. File nằm trong `.gitignore` — **không commit, không gửi qua chat / mail thường**.
 - `LocalSecrets.Empty.cs` — bản rỗng cùng tên hằng, được commit. `Bcode.App.csproj` chỉ build bản này khi thư mục không có `LocalSecrets.cs`.
+- `SetupHddtSecrets.vb` + `SetupHddt.connections.config` — bí mật của **tool Setup HDDT** (`src\Setup HDDT`, VB .NET Framework): cặp khoá RSA Proxy / App (trùng `LocalSecrets.EInv*`), hash password, tài khoản portal điền sẵn để thử, và chuỗi kết nối SQL (`App.config` đọc qua `configSource`). Gitignore, không commit. `SetupHDDT.vbproj` link 2 file này vào (config được chép ra cạnh exe thành `SetupHDDT.connections.config`); không có thì link bản rỗng `SetupHddtSecrets.Empty.vb` / `SetupHddt.connections.Empty.config` (được commit) — tool vẫn build / mở được, bấm tạo script thì báo thiếu khoá. Bcode.App (C#) không biên dịch các file `.vb` / `.config` này.
 
 ## Máy mới / máy khác pull về
 
-1. Lấy `LocalSecrets.cs` từ nơi lưu an toàn (người giữ bí mật), chép vào `src\Bcode.App\Secrets\`.
-2. Build lại Bcode.App.
+1. Lấy `LocalSecrets.cs` (và nếu cần build tool Setup HDDT: `SetupHddtSecrets.vb`, `SetupHddt.connections.config`) từ nơi lưu an toàn (người giữ bí mật), chép vào `src\Bcode.App\Secrets\`.
+2. Build lại Bcode.App (/ SetupHDDT.vbproj).
 
 Không có file thì vẫn build và chạy được bình thường. Chỉ các tính năng trên báo "build thiếu file bí mật Secrets\LocalSecrets.cs", và bản phát hành build từ máy đó cũng sẽ thiếu các tính năng này.
 

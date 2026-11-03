@@ -23,6 +23,9 @@ settings.json
 # Bí mật của Bcode (tài khoản DAC, FSG_A, khoá eInvoice...) — mỗi máy build tự chép file này vào, KHÔNG commit.
 # Thiếu file thì build dùng bản rỗng Secrets/LocalSecrets.Empty.cs (các tính năng cần bí mật báo thiếu). Xem Secrets/README.md.
 src/Bcode.App/Secrets/LocalSecrets.cs
+# Bí mật của tool Setup HDDT (src/Setup HDDT, VB): khoá RSA, hash password, tài khoản thử, chuỗi kết nối SQL. Bản rỗng *.Empty.* được commit.
+src/Bcode.App/Secrets/SetupHddtSecrets.vb
+src/Bcode.App/Secrets/SetupHddt.connections.config
 
 # Công cụ cấp key bản quyền — chỉ người phát hành giữ, không đẩy lên git
 src/Bcode.KeyGen/

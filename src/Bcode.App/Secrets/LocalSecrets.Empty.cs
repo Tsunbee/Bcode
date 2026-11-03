@@ -25,13 +25,9 @@ internal static class LocalSecrets
     // Mật khẩu mặc định của login SQL Profiler (AppSettings.ProfilerLoginPassword khi settings.json chưa có).
     public const string ProfilerDefaultPassword = "";
 
-    // Setup eInvoice (EInvoiceSetupService): khoá RSA / hash cố định của script mẫu.
-    public const string EInvPassHddt = "";
-    public const string EInvMkTkHddt = "";
+    // Setup eInvoice (EInvoiceSetupService): cặp khoá RSA Proxy / App cố định + hash password của tool Setup HDDT (VB). pass_hddt / mk_tk_hddt tính lúc chạy, không lưu ở đây.
     public const string EInvProxyPrivateKey = "";
     public const string EInvProxyPublicKey = "";
-    public const string EInvClientPublicKey = "";
-    public const string EInvClientPassword = "";
     public const string EInvAppPk = "";
     public const string EInvAppRk = "";
     public const string EInvAppPassword = "";

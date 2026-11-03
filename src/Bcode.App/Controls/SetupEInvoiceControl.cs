@@ -4,7 +4,7 @@ using Bcode.App.Services;
 namespace Bcode.App.Controls;
 
 /// <summary>
-/// Tab "Setup eInvoice (FE)": khai báo thông tin hoá đơn điện tử rồi xem script (Step 1), chạy script vào Proxy / App database (Step 2) hoặc gọi API UpdateKey.
+/// Tab "Setup eInvoice (FE)": khai báo thông tin hoá đơn điện tử rồi xem script (Step 1), chạy script vào App / Proxy database (Step 2) hoặc gọi API UpdateProxy.
 /// Giao diện là trang WebView2 (Web/Shell/setupeinvoice.html — ăn theo Template giao diện, tự co giãn theo màn hình); logic nằm ở <see cref="EInvoiceSetupService"/>
 /// (dùng chung với form cũ). Nhớ lại các ô nhập lần trước ở %AppData%\Bcode\einvoice.json (KHÔNG lưu mật khẩu).
 /// </summary>
@@ -19,9 +19,9 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
     private readonly EInvoiceSetupService _service;
     private bool _busy;
 
-    // Giá trị mặc định giống form cũ.
-    private static EInvoiceInputs Defaults => new("KOG", "FBO", "05", "007986", "006129", "", "https://tportal.fast.com.vn/AppService/FastEInvoice.PortalService.asmx",
-        "hddt@namkimcorp.vn", "", "http://dev.fast.com.vn/Fast-EInvoice-Crypto/Fast-Api.asmx/UpdateKey", "", true);
+    // Giá trị mặc định giống form cũ; nhóm dịch vụ / Portal Key / link API theo tool Setup HDDT (VB).
+    private static EInvoiceInputs Defaults => new("KOG", "FBO", "05", "007986", EInvoiceSetupService.FastProxyCode, EInvoiceSetupService.FastPortalPublicKey,
+        EInvoiceSetupService.DefaultPortalLink, "hddt@namkimcorp.vn", "", EInvoiceSetupService.DefaultMiddleLink, "", true, false);
 
     private static string ConfigPath => Path.Combine(BcodePaths.AppData, "Bcode", "einvoice.json");
 
@@ -48,7 +48,10 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
         EInvoiceInputs inputs;
         try { inputs = File.Exists(ConfigPath) ? JsonSerializer.Deserialize<EInvoiceInputs>(File.ReadAllText(ConfigPath), JsonOpts) ?? Defaults : Defaults; }
         catch { inputs = Defaults; }
-        Js($"setupEInvoice.init({J(inputs with { Password = "" })})");
+        // einvoice.json cũ: link .../UpdateKey → .../UpdateProxy; chưa có Portal Key thì điền khoá Portal Fast.
+        inputs = inputs with { Password = "", MiddleLink = EInvoiceSetupService.NormalizeMiddleLink(inputs.MiddleLink ?? ""),
+            PortalKey = string.IsNullOrWhiteSpace(inputs.PortalKey) ? EInvoiceSetupService.FastPortalPublicKey : inputs.PortalKey };
+        Js($"setupEInvoice.init({J(inputs)})");
     }
 
     private static void Save(EInvoiceInputs i)

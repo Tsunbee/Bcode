@@ -529,6 +529,18 @@ public sealed partial class MainForm : Form
         // Bấm lại dòng đang chọn (lựa chọn không đổi → không có SelectionChanged) cũng hiện nội dung.
         _grid.CellClick += (_, _) => ShowSelected();
         _grid.CellDoubleClick += (_, _) => CopyDetail();
+        // Ctrl+C trên lưới: cả câu của dòng đang chọn (mặc định lưới chỉ chép chữ trong ô — cột Nội dung đã rút còn 1 dòng).
+        _grid.KeyDown += (_, e) =>
+        {
+            if (e.Control && e.KeyCode == Keys.C) { CopyDetail(); e.Handled = e.SuppressKeyPress = true; }
+        };
+        // Ctrl+C trong khung Chi tiết khi chưa bôi đen gì hoặc đã Ctrl+A: cả câu, kể cả phần không hiện ra.
+        _detail.KeyDown += (_, e) =>
+        {
+            if (!e.Control || e.KeyCode != Keys.C || (_detail.SelectionLength > 0 && _detail.SelectionLength < _detail.TextLength)) return;
+            CopyDetail();
+            e.Handled = e.SuppressKeyPress = true;
+        };
     }
 
     private Color EventColor(string? eventName) => eventName switch
@@ -898,14 +910,33 @@ public sealed partial class MainForm : Form
     private void ShowSelected()
     {
         // Khung Chi tiết hiện đúng câu mà Copy SQL Command / Debug store sẽ dùng.
-        if (_grid.CurrentRow?.Tag is CapturedEvent)
-            _detail.Text = SelectedCommand().Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+        // Câu rất dài chỉ hiện phần đầu (khung khỏi nặng); Copy / double-click / Ctrl+C / Copy SQL Command / Debug store luôn lấy cả câu.
+        if (_grid.CurrentRow?.Tag is not CapturedEvent)
+            return;
+        var sql = SelectedCommand();
+        var shown = sql.Length <= DetailMaxLength
+            ? sql
+            : sql[..DetailMaxLength] + "\n\n-- ... còn " + (sql.Length - DetailMaxLength).ToString("N0") + " ký tự nữa (cả câu "
+              + sql.Length.ToString("N0") + " ký tự) — double-click dòng / Ctrl+C / Copy SQL Command lấy đủ cả câu";
+        _detail.Text = shown.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
     }
+
+    private const int DetailMaxLength = 20000;
 
     private void CopyDetail()
     {
-        if (!string.IsNullOrEmpty(_detail.Text))
-            Clipboard.SetText(_detail.Text);
+        var sql = SelectedCommand();
+        if (sql.Length == 0)
+            return;
+        try
+        {
+            Clipboard.SetText(sql.Replace("\r\n", "\n").Replace("\n", Environment.NewLine));
+            ReportStatus($"Đã copy cả câu ({sql.Length:N0} ký tự).");
+        }
+        catch (Exception ex)
+        {
+            ReportStatus("Không ghi được clipboard: " + ex.Message);
+        }
     }
 
     private void ClearGrid()

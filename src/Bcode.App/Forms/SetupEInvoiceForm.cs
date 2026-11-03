@@ -1,10 +1,7 @@
 using Bcode.App.Controls;
-using System.Net.Http;
-using System.Text.Json;
 using System.Text;
 using Bcode.App.Services;
 using Bcode.App.UI;
-using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Forms;
 
@@ -12,15 +9,16 @@ public class SetupEInvoiceForm : ThemedForm
 {
     private readonly DbConnectionService _connections;
 
-    private readonly TextBox _middleLinkBox = new() { Text = "http://dev.fast.com.vn/Fast-EInvoice-Crypto/Fast-Api.asmx/UpdateKey" };
+    private readonly TextBox _middleLinkBox = new() { Text = EInvoiceSetupService.DefaultMiddleLink };
     private readonly TextBox _dbProxyBox = new();
     private readonly TextBox _projectBox = new() { Text = "KOG" };
     private readonly TextBox _productBox = new() { Text = "FBO" };
     private readonly TextBox _unitBox = new() { Text = "05" };
     private readonly TextBox _clientCodeBox = new() { Text = "007986" };
-    private readonly TextBox _proxyCodeBox = new() { Text = "006129" };
-    private readonly TextBox _portalKeyBox = new() { Multiline = true, Height = 80, ScrollBars = ScrollBars.Vertical };
-    private readonly TextBox _linkPortalBox = new() { Text = "https://tportal.fast.com.vn/AppService/FastEInvoice.PortalService.asmx" };
+    private readonly TextBox _proxyCodeBox = new() { Text = EInvoiceSetupService.FastProxyCode, Enabled = false };
+    private readonly CheckBox _ownProxyCheck = new() { Text = "Nhóm dịch vụ riêng", AutoSize = true };
+    private readonly TextBox _portalKeyBox = new() { Multiline = true, Height = 80, ScrollBars = ScrollBars.Vertical, Text = EInvoiceSetupService.FastPortalPublicKey };
+    private readonly TextBox _linkPortalBox = new() { Text = EInvoiceSetupService.DefaultPortalLink };
     private readonly TextBox _usernameBox = new() { Text = "hddt@namkimcorp.vn" };
     private readonly TextBox _passwordBox = new() { UseSystemPasswordChar = true };
     private readonly CheckBox _hsmCheck = new() { Text = "Ký HSM", AutoSize = true, Checked = true };
@@ -54,9 +52,15 @@ public class SetupEInvoiceForm : ThemedForm
         inputLayout.Controls.Add(hr1, 0, row); inputLayout.SetColumnSpan(hr1, 4); row++;
 
         AddTwoCols(inputLayout, "Mã dự án / Project", _projectBox, "Sản phẩm / Product", _productBox, row++);
-        AddRow(inputLayout, "Đơn vị", _unitBox, 2, row++);
+        AddRow(inputLayout, "Đơn vị (nhiều mã cách dấu phẩy)", _unitBox, 2, row++);
         AddRow(inputLayout, "Mã doanh nghiệp / ClientCode", _clientCodeBox, 2, row++);
-        AddRow(inputLayout, "Nhóm dịch vụ / ProxyCode", _proxyCodeBox, 2, row++);
+        AddRow(inputLayout, "Nhóm dịch vụ / ProxyCode", _proxyCodeBox, 2, row);
+        inputLayout.Controls.Add(_ownProxyCheck, 2, row++);
+        _ownProxyCheck.CheckedChanged += (_, _) =>   // như tool VB: không tick = nhóm dịch vụ chung của Fast
+        {
+            _proxyCodeBox.Enabled = _ownProxyCheck.Checked;
+            _proxyCodeBox.Text = _ownProxyCheck.Checked ? "" : EInvoiceSetupService.FastProxyCode;
+        };
         AddRow(inputLayout, "Portal Key nhận từ mail\nPortal Public Key", _portalKeyBox, 4, row++);
         AddRow(inputLayout, "Link Portal", _linkPortalBox, 4, row++);
         AddRow(inputLayout, "Tài khoản portal / Username", _usernameBox, 2, row++);
@@ -69,9 +73,9 @@ public class SetupEInvoiceForm : ThemedForm
         // secondary actions; the old row put all three side by side with a bare "or" label
         // between them, which read as three equally likely things to click.
         //
-        // Step 2 chạy thẳng câu insert xuống 2 database riêng (Proxy / App — xem
-        // ExecuteScriptsAsync), khác với nút "Cập nhật / Update Key" vốn không đụng SQL
-        // trực tiếp mà gọi API UpdateKey của FastBusiness.
+        // Step 2 chạy thẳng câu insert xuống App Data (+ database Proxy khi nhóm dịch vụ
+        // riêng — xem ExecuteScriptsAsync), khác với nút "Cập nhật / Update Key" vốn không
+        // đụng SQL trực tiếp mà gọi API UpdateProxy của Fast.
         var btnPanel = new WebActionBar { DefaultActionId = "update", Dock = DockStyle.Fill };
         btnPanel.Add("step1", "Step 1: View UpdateKey Script", WebActionKind.Normal, left: true)
                 .Add("step2", "Step 2: Exec Insert in Server (SQL)", WebActionKind.Normal, left: true)
@@ -120,249 +124,42 @@ public class SetupEInvoiceForm : ThemedForm
         panel.Controls.Add(inp2, 3, row);
     }
 
+    /// <summary>Đọc các ô nhập thành <see cref="EInvoiceInputs"/> — form cũ dùng chung logic với tab Setup eInvoice (<see cref="EInvoiceSetupService"/>).</summary>
+    private EInvoiceInputs ReadInputs() => new(_projectBox.Text, _productBox.Text, _unitBox.Text, _clientCodeBox.Text, _proxyCodeBox.Text, _portalKeyBox.Text,
+        _linkPortalBox.Text, _usernameBox.Text, _passwordBox.Text, _middleLinkBox.Text, _dbProxyBox.Text, _hsmCheck.Checked, _ownProxyCheck.Checked);
+
+    private void ShowError(string text) { _resultBox.ForeColor = Color.FromArgb(244, 135, 113); _resultBox.Text = text; }
+
     private void GenerateScript()
     {
-        var prj = _projectBox.Text.Trim();
-        var prod = _productBox.Text.Trim();
-        var unit = _unitBox.Text.Trim();
-        var client = _clientCodeBox.Text.Trim();
-        var proxy = _proxyCodeBox.Text.Trim();
-        var portalLink = _linkPortalBox.Text.Trim();
-        var user = _usernameBox.Text.Trim();
-        var portalKey = _portalKeyBox.Text.Trim();
-        var isHsm = _hsmCheck.Checked;
-        if (EInvoiceSetupService.MissingKeysError is { } missingKeys)
+        var i = ReadInputs();
+        if (EInvoiceSetupService.ValidateRequired(i) is { } missing) { ShowError(missing); return; }
+        try
         {
-            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-            _resultBox.Text = missingKeys;
-            return;
+            var script = EInvoiceSetupService.BuildScript(i);
+            _resultBox.ForeColor = AppColors.Text; // Trả về màu text bình thường cho SQL Script
+            _resultBox.Text = script;
         }
-
-        // Nội dung script được thay thế biến động từ UI, giữ nguyên các RSA key tĩnh từ template mẫu của bạn
-        var script = BuildProxyScript(prj, unit, client, portalLink, user, prod, proxy, portalKey)
-            + "\n\n" + BuildAppScript(prj, unit, client, portalLink, user, portalKey, isHsm);
-
-        _resultBox.ForeColor = AppColors.Text; // Trả về màu text bình thường cho SQL Script
-        _resultBox.Text = script;
+        catch (Exception ex) { ShowError("Error: " + ex.Message); }
     }
 
-    /// <summary>Reads every input field once, shared by GenerateScript (Step 1: just
-    /// displays the combined text) and ExecuteScriptsAsync (Step 2: actually runs each
-    /// half against its own database).</summary>
-    private (string prj, string unit, string client, string proxy, string portalLink, string user, string portalKey, string prod, bool isHsm) ReadInputs() => (
-        _projectBox.Text.Trim(),
-        _unitBox.Text.Trim(),
-        _clientCodeBox.Text.Trim(),
-        _proxyCodeBox.Text.Trim(),
-        _linkPortalBox.Text.Trim(),
-        _usernameBox.Text.Trim(),
-        _portalKeyBox.Text.Trim(),
-        _productBox.Text.Trim(),
-        _hsmCheck.Checked
-    );
-
-    /// <summary>Script Proxy setting — xem <see cref="EInvoiceSetupService.BuildProxyScript"/> (một bản dùng chung với tab Setup eInvoice).</summary>
-    private string BuildProxyScript(string prj, string unit, string client, string portalLink, string user, string prod, string proxy, string portalKey) =>
-        EInvoiceSetupService.BuildProxyScript(prj, unit, client, portalLink, user, prod, proxy, portalKey);
-
-    /// <summary>Script App setting — xem <see cref="EInvoiceSetupService.BuildAppScript"/> (một bản dùng chung với tab Setup eInvoice).</summary>
-    private string BuildAppScript(string prj, string unit, string client, string portalLink, string user, string portalKey, bool isHsm) =>
-        EInvoiceSetupService.BuildAppScript(prj, unit, client, portalLink, user, portalKey, isHsm);
-
-    /// <summary>
-    /// "Step 2: Exec Insert in Server (SQL)" — actually runs the generated SQL, unlike
-    /// the main "Cập nhật / Update Key" button (which never touches SQL directly, it
-    /// calls FastBusiness's own UpdateKey HTTP API instead). The two script blocks MUST
-    /// run against two different databases — per Bee: "khi chạy proxy setting thì phải
-    /// chạy ở database Einvoice đã khai, đoạn appsetting là chạy ở database app" —
-    /// because "tkhddt" (among others) exists in BOTH databases with DIFFERENT columns,
-    /// so running the whole combined script against a single connection always failed on
-    /// one half's INSERT with an "Invalid column name"-style error.
-    /// </summary>
+    /// <summary>"Step 2: Exec Insert in Server (SQL)" — xem <see cref="EInvoiceSetupService.ExecuteScriptsAsync"/> (App setting vào App Data, Proxy setting vào
+    /// database Proxy khi nhóm dịch vụ riêng).</summary>
     private async Task ExecuteScriptsAsync()
     {
-        if (string.IsNullOrWhiteSpace(_projectBox.Text) || string.IsNullOrWhiteSpace(_clientCodeBox.Text))
-        {
-            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-            _resultBox.Text = "Error: please input fields";
-            return;
-        }
-        if (EInvoiceSetupService.MissingKeysError is { } missingKeys)
-        {
-            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-            _resultBox.Text = missingKeys;
-            return;
-        }
-
-        var dbProxy = _dbProxyBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(dbProxy))
-        {
-            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-            _resultBox.Text = "Error: chưa khai \"CSDL / Database Proxy\" — cần biết chạy phần Proxy setting vào database nào.";
-            return;
-        }
-
-        var (prj, unit, client, proxy, portalLink, user, portalKey, prod, isHsm) = ReadInputs();
-        var proxyScript = BuildProxyScript(prj, unit, client, portalLink, user, prod, proxy, portalKey);
-        var appScript = BuildAppScript(prj, unit, client, portalLink, user, portalKey, isHsm);
-
         var log = new StringBuilder();
-        var ok = true;
-
-        try
-        {
-            log.AppendLine($"Đang chạy Proxy setting vào database \"{dbProxy}\"...");
-            _resultBox.ForeColor = AppColors.TextMuted;
-            _resultBox.Text = log.ToString();
-
-            await using var proxyConn = _connections.CreateConnectionToDatabase(dbProxy);
-            await proxyConn.OpenAsync();
-            await using var proxyCmd = new SqlCommand(proxyScript, proxyConn) { CommandTimeout = 60 };
-            await proxyCmd.ExecuteNonQueryAsync();
-            log.AppendLine($"✓ Proxy setting: OK (database \"{dbProxy}\").");
-        }
-        catch (Exception ex)
-        {
-            ok = false;
-            log.AppendLine($"✗ Proxy setting LỖI (database \"{dbProxy}\"): {ex.Message}");
-        }
-
-        try
-        {
-            log.AppendLine();
-            log.AppendLine("Đang chạy App setting vào App Data (database app hiện tại)...");
-            _resultBox.Text = log.ToString();
-
-            await using var appConn = _connections.CreateConnection(useSysDatabase: false);
-            await appConn.OpenAsync();
-            await using var appCmd = new SqlCommand(appScript, appConn) { CommandTimeout = 60 };
-            await appCmd.ExecuteNonQueryAsync();
-            log.AppendLine("✓ App setting: OK.");
-        }
-        catch (Exception ex)
-        {
-            ok = false;
-            log.AppendLine($"✗ App setting LỖI: {ex.Message}");
-        }
-
+        _resultBox.ForeColor = AppColors.TextMuted;
+        _resultBox.Text = "";
+        var ok = await new EInvoiceSetupService(_connections).ExecuteScriptsAsync(ReadInputs(), (line, _) => { log.AppendLine(line); _resultBox.Text = log.ToString(); });
         _resultBox.ForeColor = ok ? AppColors.Text : Color.FromArgb(244, 135, 113);
-        _resultBox.Text = log.ToString();
     }
 
+    /// <summary>"Cập nhật / Update Key" — xem <see cref="EInvoiceSetupService.UpdateKeyAsync"/> (tính pass_hddt rồi gọi API UpdateProxy).</summary>
     private async Task ExecUpdateKeyAsync()
     {
-        if (string.IsNullOrWhiteSpace(_projectBox.Text) || string.IsNullOrWhiteSpace(_clientCodeBox.Text))
-        {
-            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-            _resultBox.Text = "Error: please input fields";
-            return;
-        }
-
         _resultBox.ForeColor = AppColors.TextMuted;
-        _resultBox.Text = "Đang lấy pass_hddt từ Portal...";
-
-        try
-        {
-            string portalUrl = _linkPortalBox.Text.Trim();
-            string proxyCode = _proxyCodeBox.Text.Trim();
-            string clientCode = _clientCodeBox.Text.Trim();
-            string username = _usernameBox.Text.Trim();
-
-            // 1. Lấy pass_hddt động từ Portal Service
-            string? passHddt = await GetPassHddtFromPortalAsync("https://tportal.fast.com.vn/AppService/FastEInvoice.PortalService.asmx", proxyCode, clientCode, username);
-
-            if (string.IsNullOrEmpty(passHddt))
-            {
-                _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-                _resultBox.Text = "Error: Không thể lấy được pass_hddt từ Link Portal (Kiểm tra lại tài khoản/mật khẩu portal).";
-                return;
-            }
-
-            _resultBox.Text = "Đang gọi API UpdateKey tới Server...";
-
-            // 2. Chuẩn bị payload đầy đủ tham số
-            using var client = new HttpClient();
-            var payload = new
-            {
-                ProjectCode = _projectBox.Text.Trim(),
-                ClientCode = clientCode,
-                ProxyCode = proxyCode,
-                UnitCode = _unitBox.Text.Trim(),
-                LinkPotal = portalUrl,
-                LinkServiceMTT = string.Empty,
-                UserName = username,
-                Pass = _passwordBox.Text.Trim(),
-                PortalPublicKey = _portalKeyBox.Text.Trim(),
-                ProxyPublicKey = string.Empty,
-                ProxyPrivateKey = string.Empty,
-                pass_hddt = passHddt,
-                isProxyFast = 1
-            };
-
-            var jsonContent = JsonSerializer.Serialize(payload);
-            var httpContent = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            // Đảm bảo request gửi đi đúng chuẩn định dạng JSON
-            httpContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-
-            var response = await client.PostAsync(_middleLinkBox.Text.Trim(), httpContent);
-            var responseStr = await response.Content.ReadAsStringAsync();
-
-            if (response.IsSuccessStatusCode)
-            {
-                _resultBox.ForeColor = AppColors.Text;
-                _resultBox.Text = "Thành công!\n" + responseStr;
-            }
-            else
-            {
-                _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-                _resultBox.Text = $"HTTP Error {(int)response.StatusCode}: {responseStr}";
-            }
-        }
-        catch (Exception ex)
-        {
-            _resultBox.ForeColor = Color.FromArgb(244, 135, 113);
-            _resultBox.Text = $"Exception: {ex.Message}";
-        }
-    }
-    private async Task<string?> GetPassHddtFromPortalAsync(string portalUrl, string proxyCode, string clientCode, string username)
-    {
-        try
-        {
-            using var client = new HttpClient();
-            
-            string soapXml = $@"<?xml version=""1.0"" encoding=""utf-8""?>
-                <soap:Envelope xmlns:xsi=""http://www.w3.org/2001/XMLSchema-instance"" xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:soap=""http://schemas.xmlsoap.org/soap/envelope/"">
-                <soap:Body>
-                    <CheckKey xmlns=""http://tempuri.org/"">
-                    <proxyCode>{proxyCode}</proxyCode>
-                    <clientCode>{clientCode}</clientCode>
-                    <user>{username}</user>
-                    <data></data>
-                    </CheckKey>
-                </soap:Body>
-                </soap:Envelope>";
-
-            var content = new StringContent(soapXml, Encoding.UTF8, "text/xml");
-            
-            // Thêm SOAPAction header đặc trưng của ASMX service
-            client.DefaultRequestHeaders.Add("SOAPAction", "http://tempuri.org/CheckKey");
-
-            var response = await client.PostAsync(portalUrl, content);
-            if (!response.IsSuccessStatusCode) return null;
-
-            var xmlResponse = await response.Content.ReadAsStringAsync();
-
-            // Parse kết quả thẻ <CheckKeyResult> trả về từ SOAP Response
-            var xDoc = System.Xml.Linq.XDocument.Parse(xmlResponse);
-            System.Xml.Linq.XName checkKeyResultName = "{http://tempuri.org/}CheckKeyResult";
-            
-            var resultNode = xDoc.Descendants(checkKeyResultName).FirstOrDefault();
-            return resultNode?.Value;
-        }
-        catch
-        {
-            return null;
-        }
+        var (ok, text) = await new EInvoiceSetupService(_connections).UpdateKeyAsync(ReadInputs(), line => _resultBox.Text = line);
+        if (ok) { _resultBox.ForeColor = AppColors.Text; _resultBox.Text = text; }
+        else ShowError(text);
     }
 }

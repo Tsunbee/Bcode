@@ -66,7 +66,7 @@ Bcode.App/
 │   ├── NativePages.Dialogs2.cs  180
 │   ├── NativePages.Dialogs3.cs  199
 │   ├── NativePages.Dialogs4.cs  393
-│   ├── NativePages.EInvoice.cs  136
+│   ├── NativePages.EInvoice.cs  153
 │   ├── NativePages.FileLookup.cs  177
 │   ├── NativePages.FileTools.cs  76
 │   ├── NativePages.GenUpdate.cs  386
@@ -100,7 +100,7 @@ Bcode.App/
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
 │   ├── ScriptEditorControl.EntityIndex.cs  178
-│   ├── SetupEInvoiceControl.cs  121
+│   ├── SetupEInvoiceControl.cs  124
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  558
@@ -171,7 +171,7 @@ Bcode.App/
 │   ├── RowDetailForm.cs  41
 │   ├── RptSchemaForm.cs  250
 │   ├── ScriptPopupForm.cs  155
-│   ├── SetupEInvoiceForm.cs  368
+│   ├── SetupEInvoiceForm.cs  165
 │   ├── SimplePromptForm.cs  78
 │   ├── SourceViewForm.cs  125
 │   ├── SqlAiEditForm.cs  108
@@ -203,9 +203,9 @@ Bcode.App/
 │   ├── WeeklyMailTemplate.cs  20
 │   └── Workspace.cs  141
 ├── Secrets/
-│   ├── LocalSecrets.cs  30
-│   ├── LocalSecrets.Empty.cs  38
-│   └── README.md  19
+│   ├── LocalSecrets.cs  26
+│   ├── LocalSecrets.Empty.cs  34
+│   ├── README.md  20
 ├── Services/
 │   ├── Api/
 │   │   ├── ApiClient.cs  359
@@ -255,7 +255,7 @@ Bcode.App/
 │   ├── DiffService.cs  295
 │   ├── DtdIncludeResolver.cs  196
 │   ├── DynamicSqlInspector.cs  120
-│   ├── EInvoiceSetupService.cs  185
+│   ├── EInvoiceSetupService.cs  231
 │   ├── EntityCheckService.cs  263
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
@@ -421,7 +421,7 @@ Bcode.App/
 │       ├── scriptpopup.html  88
 │       ├── scriptviewbar.html  65
 │       ├── searchbox.html  187
-│       ├── setupeinvoice.html  146
+│       ├── setupeinvoice.html  161
 │       ├── shell.css  255
 │       ├── sqleditor.html  1645
 │       ├── sqlhints-help.html  109

@@ -526,6 +526,8 @@ public sealed partial class MainForm : Form
         AddColumn("USER ID", 140);
         AddColumn("Đối tượng", 150);
         _grid.SelectionChanged += (_, _) => ShowSelected();
+        // Bấm lại dòng đang chọn (lựa chọn không đổi → không có SelectionChanged) cũng hiện nội dung.
+        _grid.CellClick += (_, _) => ShowSelected();
         _grid.CellDoubleClick += (_, _) => CopyDetail();
     }
 
@@ -863,8 +865,12 @@ public sealed partial class MainForm : Form
             row.HostName,
             row.ApplicationName,
             row.ObjectName);
-        _grid.Rows[index].Tag = row;
-        _grid.Rows[index].DefaultCellStyle.ForeColor = EventColor(row.EventName);
+        var gridRow = _grid.Rows[index];
+        gridRow.Tag = row;
+        gridRow.DefaultCellStyle.ForeColor = EventColor(row.EventName);
+        // Dòng đầu tiên lưới tự chọn ngay trong Rows.Add — lúc đó chưa có Tag nên SelectionChanged bỏ qua; hiện lại khi đã gắn nội dung.
+        if (ReferenceEquals(_grid.CurrentRow, gridRow))
+            ShowSelected();
         _shown++;
     }
 

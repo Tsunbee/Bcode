@@ -35,6 +35,9 @@
     <Compile Include="..\Shared\LicenseCodec.cs" Link="Shared\LicenseCodec.cs" />
     <!-- Mã hoá DPAPI mật khẩu / API key khi ghi settings.json — dùng chung với BcodeViewer.App (Viewer đọc chung settings.json). -->
     <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
+    <!-- SqlWatch (src/SqlWatch, app riêng theo dõi câu SQL qua DMV) — link mã để Ctrl+3 mở được trong tab Bcode (Controls/SqlWatchControl.cs);
+         bỏ Program/SelfTest (điểm vào riêng của exe). Project SqlWatch vẫn build độc lập như cũ. -->
+    <Compile Include="..\SqlWatch\*.cs" Exclude="..\SqlWatch\Program.cs;..\SqlWatch\SelfTest.cs" LinkBase="SqlWatch" />
     <PackageReference Include="Scintilla.NET" Version="5.3.2.9" />
   </ItemGroup>
   <ItemGroup>

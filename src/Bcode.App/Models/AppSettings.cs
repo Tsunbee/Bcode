@@ -109,6 +109,9 @@ public class AppSettings
     /// <summary>Chế độ mở SQL Profiler (Template → Cửa sổ): true = Tự động — Ctrl+3 bung Profiler luôn theo cấu hình đã lưu và ẩn thanh cấu hình;
     /// false = Thủ công (mặc định) — người dùng tự bấm "Bung &amp; Đăng nhập".</summary>
     public bool ProfilerAutoStart { get; set; }
+    /// <summary>Công cụ Ctrl+3 mở (Template → Cửa sổ → SQL Profiler): "profiler" (mặc định) = SQL Profiler thật (Profiler.exe nhúng);
+    /// "sqlwatch" = tab SqlWatch (src/SqlWatch, đọc DMV theo nhịp, không cần quyền tạo trace). Chế độ mở Tự động / Thủ công áp cho cả hai.</summary>
+    public string ProfilerEngine { get; set; } = "profiler";
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
     public int FileLookupSplitterDistance { get; set; } = 0;

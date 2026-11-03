@@ -62,6 +62,12 @@ public class Workspace
     public string ProfilerTemplateName { get; set; } = "";
     /// <summary>Lọc DatabaseName (Like) của SQL Profiler do người dùng tự sửa trên thanh Profiler; "" = dùng gợi ý %ProjectId% (hoặc %tên WS%).</summary>
     public string ProfilerDatabaseLike { get; set; } = "";
+    /// <summary>Login SQL của tab SqlWatch khi khác mặc định (dùng bên khách hàng); "" = user / pass cứng của SqlWatch.</summary>
+    public string SqlWatchUser { get; set; } = "";
+    private readonly ProtectedText _sqlWatchPassword = new();
+    [JsonIgnore] public string SqlWatchPassword { get => _sqlWatchPassword.Plain; set => _sqlWatchPassword.Plain = value; }
+    [JsonPropertyName(nameof(SqlWatchPassword)), EditorBrowsable(EditorBrowsableState.Never)]
+    public string SqlWatchPasswordStored { get => _sqlWatchPassword.Stored; set => _sqlWatchPassword.Stored = value; }
     public string WebLoginUser { get; set; } = "";
     private readonly ProtectedText _webLoginPassword = new();
     [JsonIgnore] public string WebLoginPassword { get => _webLoginPassword.Plain; set => _webLoginPassword.Plain = value; }

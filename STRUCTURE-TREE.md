@@ -84,7 +84,7 @@ Bcode.App/
 │   ├── NativeQueryHistoryControl.cs  346
 │   ├── NativeResultPane.cs  303
 │   ├── NativeShellBars.cs  314
-│   ├── NativeSqlControl.cs  2162
+│   ├── NativeSqlControl.cs  2182
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -94,7 +94,7 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  491
-│   ├── RawSqlControl.cs  2803
+│   ├── RawSqlControl.cs  2807
 │   ├── ResultExport.cs  146
 │   ├── ResultGridMenu.cs  615
 │   ├── SafeTreeView.cs  40
@@ -111,6 +111,8 @@ Bcode.App/
 │   ├── SqlScintilla.cs  162
 │   ├── SqlSyntaxHighlighter.cs  484
 │   ├── SqlTabSnapshot.cs  19
+│   ├── SqlWatchControl.cs  124
+│   ├── SqlWatchControl.Form.cs  36
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
 │   ├── TableEditControl.cs  2146
@@ -153,7 +155,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3975
+│   ├── MainForm.cs  3999
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -180,7 +182,7 @@ Bcode.App/
 │   ├── TabSwitcherForm.cs  178
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
-│   ├── UiTemplateForm.cs  723
+│   ├── UiTemplateForm.cs  724
 │   ├── WCommandDuplicateForm.cs  29
 │   ├── WCommandEditForm.cs  375
 │   ├── WCommandScriptForm.cs  133
@@ -188,7 +190,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  354
+│   ├── AppSettings.cs  357
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -199,7 +201,7 @@ Bcode.App/
 │   ├── WCommandItem.cs  45
 │   ├── WeeklyMailSent.cs  68
 │   ├── WeeklyMailTemplate.cs  20
-│   └── Workspace.cs  124
+│   └── Workspace.cs  130
 ├── Secrets/
 │   ├── LocalSecrets.cs  30
 │   ├── LocalSecrets.Empty.cs  38
@@ -262,9 +264,10 @@ Bcode.App/
 │   ├── FastCatalogCheck.cs  200
 │   ├── FastCatalogRules.cs  974
 │   ├── FastGhostMiner.cs  592
-│   ├── FastGhostRules.cs  1057
+│   ├── FastGhostRules.cs  1211
+│   ├── FastGhostSiblings.cs  147
 │   ├── FastSourceKnowledge.cs  129
-│   ├── FastTokenModel.cs  371
+│   ├── FastTokenModel.cs  374
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
 │   ├── FileLookupService.cs  1521
@@ -347,7 +350,7 @@ Bcode.App/
 │   ├── PerformanceProfile.cs  75
 │   ├── ShortcutRegistry.cs  346
 │   ├── ThemedForm.cs  11
-│   ├── ThemeManager.cs  723
+│   ├── ThemeManager.cs  727
 │   ├── TreeColorOptions.cs  50
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
@@ -420,7 +423,7 @@ Bcode.App/
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  146
 │       ├── shell.css  255
-│       ├── sqleditor.html  1636
+│       ├── sqleditor.html  1645
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  317
@@ -438,13 +441,13 @@ Bcode.App/
 │       ├── topbar.html  203
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
-│       ├── uitemplate.html  1135
+│       ├── uitemplate.html  1137
 │       ├── usages.html  133
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  152
+├── Bcode.App.csproj  155
 ├── BcodePaths.cs  48
 └── Program.cs  37
 ```

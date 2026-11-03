@@ -355,8 +355,9 @@
       </div>
       <div class="panel">
         <h3>SQL Profiler</h3>
+        <div class="row"><label>Công cụ (Ctrl+3)</label><div class="ctl"><select id="profEngine"><option value="profiler">SQL Profiler — nhúng Profiler.exe thật (trace)</option><option value="sqlwatch">SqlWatch — đọc DMV theo nhịp, không cần quyền tạo trace</option></select></div></div>
         <div class="row"><label>Chế độ mở</label><div class="ctl"><select id="profMode"><option value="manual">Thủ công — tự bấm "▶ Bung &amp; Đăng nhập"</option><option value="auto">Tự động — Ctrl+3 bung Profiler luôn, ẩn thanh cấu hình</option></select></div></div>
-        <div class="muted" style="font-size:11.5px">Tự động: mở tab SQL Profiler (Ctrl+3) là bung Profiler ngay theo cấu hình đã lưu (Profiler.exe, đăng nhập, Trace Template, user theo dõi, lọc DatabaseName của workspace) và thu thanh cấu hình thành dải mỏng — bấm "▾ Hiện thanh Profiler" để mở lại. Khôi phục phiên lúc mở Bcode không tự bung. Lưu ngay, không cần bấm "Áp dụng".</div>
+        <div class="muted" style="font-size:11.5px">SqlWatch mở trong tab "SqlWatch", project = workspace đang chọn (bắt theo database Sys / App / DB Access của workspace). Tự động với SqlWatch = bấm "Bắt đầu" luôn (thanh lọc vẫn hiện). Tự động với SQL Profiler: mở tab SQL Profiler (Ctrl+3) là bung Profiler ngay theo cấu hình đã lưu (Profiler.exe, đăng nhập, Trace Template, user theo dõi, lọc DatabaseName của workspace) và thu thanh cấu hình thành dải mỏng — bấm "▾ Hiện thanh Profiler" để mở lại. Khôi phục phiên lúc mở Bcode không tự bung. Lưu ngay, không cần bấm "Áp dụng".</div>
       </div>
       <div class="panel">
         <h3>Hiệu năng (máy cấu hình thấp)</h3>
@@ -743,8 +744,9 @@
   $('perfMode').onchange = sendPerf; $('perfLimit').onchange = sendPerf; $('perfPrewarm').onchange = sendPerf; $('perfMerge').onchange = sendPerf; $('perfMergeEd').onchange = sendPerf; $('perfHibernate').onchange = sendPerf;
   $('sesOn').onchange = sendSession; $('sesAsk').onchange = sendSession; $('sesMode').onchange = sendSession;
   // ---- chế độ mở SQL Profiler (lưu ngay vào AppSettings.ProfilerAutoStart) ----
-  window.setProfilerMode = auto => { $('profMode').value = auto ? 'auto' : 'manual'; };
-  $('profMode').onchange = () => post('profiler-mode-set', { auto: $('profMode').value === 'auto' });
+  window.setProfilerMode = (auto, engine) => { $('profMode').value = auto ? 'auto' : 'manual'; $('profEngine').value = engine === 'sqlwatch' ? 'sqlwatch' : 'profiler'; };
+  const sendProfilerMode = () => post('profiler-mode-set', { auto: $('profMode').value === 'auto', engine: $('profEngine').value });
+  $('profMode').onchange = sendProfilerMode; $('profEngine').onchange = sendProfilerMode;
 
   // ---- tab Đường dẫn ----
   window.setPaths = (p) => {

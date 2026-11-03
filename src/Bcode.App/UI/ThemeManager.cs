@@ -6,6 +6,9 @@ namespace Bcode.App.UI;
 /// exist (ThemedForm does this automatically on Load), and call Apply again
 /// on any control tree added dynamically afterwards (e.g. a new document tab).
 /// </summary>
+/// <summary>Đánh dấu control (và cả cây con) không để ThemeManager.Apply tô màu theme — tự giữ màu riêng.</summary>
+public interface IThemeOptOut { }
+
 public static class ThemeManager
 {
     private static Font _baseFont = UiTemplate.BuildBaseFont();
@@ -254,6 +257,7 @@ public static class ThemeManager
 
     public static void Apply(Control root)
     {
+        if (root is IThemeOptOut) return;   // control tự giữ màu riêng (vd tab SqlWatch nhúng form của app khác)
         if (Bcode.App.UI.UiMode.IsNative) { EnableDoubleBuffer(root); NativePolish(root); }
         StyleControl(root);
         foreach (Control child in root.Controls)

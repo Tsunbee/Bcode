@@ -312,7 +312,7 @@ public partial class MainForm
         ReferenceEquals(p, _genUpdatePackageTabPage) ? "gen_update_package" :
         ReferenceEquals(p, _fileReferenceTabPage) ? "file_reference" :
         ReferenceEquals(p, _compareTextTab) ? "compare_text" :
-        ReferenceEquals(p, _sqlProfilerTab) ? "sql_profiler" :
+        ReferenceEquals(p, _sqlProfilerTab) || ReferenceEquals(p, _sqlWatchTab) ? "sql_profiler" :
         ReferenceEquals(p, _setupEInvoiceTab) ? "setup_einvoice" :
         ReferenceEquals(p, _stringBeautyTab) ? "string_beauty" :
         ReferenceEquals(p, _queryHistoryTab) ? "query_history" :

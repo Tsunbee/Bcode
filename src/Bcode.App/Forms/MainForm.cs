@@ -116,6 +116,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // 1. ĐÃ BỔ SUNG BIẾN NÀY ĐỂ TRÁNH LỖI Ở HÀM OpenCompareTextTab
     private TabPage? _compareTextTab;
     private TabPage? _sqlProfilerTab;
+    private TabPage? _sqlWatchTab;
     private readonly ViewerControlServer _viewerControl = new();
     // Các tab FSG FBO đang mở (nhiều tab / workspace được: Ctrl+4 ở menu khác mở thêm tab, chung phiên đăng nhập). Tab mở sau cùng ở cuối.
     private readonly List<QuickLaunchLoginForm> _quickLaunchForms = new();
@@ -1449,7 +1450,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ["QueryHistoryControl"] = "lich-su-sql", ["NativeQueryHistoryControl"] = "lich-su-sql",
         ["CreateRptControl"] = "create-rpt", ["QuickReportControl"] = "tool-mo-rong",
         ["CompareObjectsControl"] = "sql-object", ["NativeCompareObjectsControl"] = "sql-object", ["UsagesControl"] = "sql-object",
-        ["DecryptSqlObjectControl"] = "sql-object", ["SqlProfilerControl"] = "sql-object",
+        ["DecryptSqlObjectControl"] = "sql-object", ["SqlProfilerControl"] = "sql-object", ["SqlWatchControl"] = "sql-object",
         ["FileReferenceControl"] = "cap-source", ["IncludeCheckControl"] = "tool-mo-rong",
         ["CashFlowCheckControl"] = "trien-khai", ["BbxnControl"] = "trien-khai", ["FsgRequirementReportControl"] = "trien-khai",
         ["NativeWeeklyMailControl"] = "trien-khai",
@@ -2263,7 +2264,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// mở tab gồm định nghĩa store + GO + nguyên câu gọi đó rồi bật Debug từng bước — giá trị tham số, biến @0…, bảng tạm (#$query) lấy từ
     /// câu gọi (StepParamsForm.InitialValues / SqlStepPlanner tail prelude). Định nghĩa giữ nguyên CREATE nên lỡ bấm Execute cũng không đè store.
     /// </summary>
-    private async Task OpenProfilerDebugAsync(SqlProfilerControl profiler, string sql)
+    /// <param name="report">Báo trạng thái lên tab đã bắt câu SQL (SQL Profiler hoặc SqlWatch).</param>
+    private async Task OpenProfilerDebugAsync(Action<string> report, string sql)
     {
         List<DebugCandidate> candidates = new();
         try
@@ -2275,8 +2277,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 if (candidates.Count > 0) break;
             }
         }
-        catch (Exception ex) { profiler.ReportStatus("Không tìm được store trong câu SQL: " + ex.Message); return; }
-        if (candidates.Count == 0) { profiler.ReportStatus("Câu SQL đang chọn không gọi store nào có trong App / Sys Data (cần dòng có \"exec <store> …\")."); return; }
+        catch (Exception ex) { report("Không tìm được store trong câu SQL: " + ex.Message); return; }
+        if (candidates.Count == 0) { report("Câu SQL đang chọn không gọi store nào có trong App / Sys Data (cần dòng có \"exec <store> …\")."); return; }
 
         var chosen = candidates.Count == 1 ? candidates[0] : null;
         if (chosen is null)
@@ -2286,7 +2288,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             if (form.ShowDialog(this) != DialogResult.OK || form.Selected is not { } picked) return;
             chosen = picked;
         }
-        profiler.ReportStatus($"Mở debug {chosen.Target.QualifiedName} với câu gọi vừa bắt...");
+        report($"Mở debug {chosen.Target.QualifiedName} với câu gọi vừa bắt...");
         await OpenDebugTargetAsync(chosen.Target, null, definition => definition.TrimEnd() + Environment.NewLine + "GO" + Environment.NewLine + sql.Trim() + Environment.NewLine);
     }
 
@@ -3724,6 +3726,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
     private void OpenSqlProfilerTab()
     {
+        // Template → Cửa sổ → SQL Profiler → Công cụ: "SqlWatch" thì Ctrl+3 mở tab SqlWatch thay cho Profiler.exe.
+        if (string.Equals(_settings.ProfilerEngine, "sqlwatch", StringComparison.OrdinalIgnoreCase)) { OpenSqlWatchTab(); return; }
+
         // Chế độ Tự động (Template → Cửa sổ → SQL Profiler): Ctrl+3 bung Profiler luôn — trừ lúc khôi phục phiên, để mở Bcode không tự chạy Profiler.
         if (_sqlProfilerTab != null && _documentTabs.TabPages.Contains(_sqlProfilerTab))
         {
@@ -3740,9 +3745,28 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             sqlTab.SetScriptText(sql);
         };
         // "🐞 Debug store" ở Profiler → định nghĩa store được gọi + GO + câu gọi đó, bật Debug từng bước.
-        control.DebugRequested += sql => _ = OpenProfilerDebugAsync(control, sql);
+        control.DebugRequested += sql => _ = OpenProfilerDebugAsync(control.ReportStatus, sql);
         _sqlProfilerTab = AddDocumentTab("SQL Profiler", control);
         _sqlProfilerTab.Disposed += (_, _) => _sqlProfilerTab = null;
+        if (!_sessionRestoring) control.AutoStartIfEnabled();
+    }
+
+    /// <summary>Tab SqlWatch (Controls/SqlWatchControl.cs) — chế độ Tự động thì bắt đầu bắt câu SQL luôn, trừ lúc khôi phục phiên.</summary>
+    private void OpenSqlWatchTab()
+    {
+        if (_sqlWatchTab != null && _documentTabs.TabPages.Contains(_sqlWatchTab))
+        {
+            _documentTabs.SelectedTab = _sqlWatchTab;
+            if (!_sessionRestoring) _sqlWatchTab.Controls.OfType<SqlWatchControl>().FirstOrDefault()?.AutoStartIfEnabled();
+            return;
+        }
+
+        var control = new SqlWatchControl(_settings, _connections);
+        // Như SQL Profiler: "Copy SQL Command" → tab SQL Query mới dán sẵn câu; "Debug store" → định nghĩa store + GO + câu gọi, bật Debug.
+        control.OpenInSqlQueryRequested += sql => OpenFreeScriptTab().SetScriptText(sql);
+        control.DebugRequested += sql => _ = OpenProfilerDebugAsync(control.ReportStatus, sql);
+        _sqlWatchTab = AddDocumentTab("SqlWatch", control);
+        _sqlWatchTab.Disposed += (_, _) => _sqlWatchTab = null;
         if (!_sessionRestoring) control.AutoStartIfEnabled();
     }
 

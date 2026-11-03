@@ -261,7 +261,7 @@ Bcode.App/
 │   ├── FastAskService.cs  1609
 │   ├── FastCatalogCheck.cs  200
 │   ├── FastCatalogRules.cs  974
-│   ├── FastGhostMiner.cs  583
+│   ├── FastGhostMiner.cs  592
 │   ├── FastGhostRules.cs  1057
 │   ├── FastSourceKnowledge.cs  129
 │   ├── FastTokenModel.cs  371
@@ -289,7 +289,7 @@ Bcode.App/
 │   ├── MobilePathService.cs  53
 │   ├── NoteService.cs  66
 │   ├── ObjectCompareService.cs  209
-│   ├── PeriodTableQueryService.cs  101
+│   ├── PeriodTableQueryService.cs  167
 │   ├── ProfilerTemplateService.cs  222
 │   ├── QueryHistoryService.cs  322
 │   ├── QuickListConfigStore.cs  52
@@ -318,7 +318,7 @@ Bcode.App/
 │   ├── SqlObjectBrowserService.cs  676
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  406
-│   ├── TableDataService.cs  632
+│   ├── TableDataService.cs  633
 │   ├── TableMenuService.cs  194
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
@@ -468,8 +468,8 @@ BcodeViewer.App/
 │   │   ├── FastSourceService.Shared.cs  226
 │   │   ├── FastSourceService.Siblings.cs  96
 │   │   ├── SourceAsk.cs  568
-│   │   ├── SourceGhost.cs  924
-│   │   ├── SourceGhostMiner.cs  183
+│   │   ├── SourceGhost.cs  957
+│   │   ├── SourceGhostMiner.cs  214
 │   │   ├── SourceTokenModel.cs  389
 │   │   ├── SourceVersions.cs  244
 │   │   └── ViewerKnowledge.cs  86

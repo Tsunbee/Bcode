@@ -42,7 +42,8 @@ public class TableDataService
 
         var (resolvedSchema, baseName) = _periods.ParsePlaceholder($"{schema}.{table}");
         var periodTables = await _periods.DiscoverPeriodTablesAsync(conn, resolvedSchema, baseName);
-        return _periods.BuildUnionSubquery(periodTables, $"{baseName}$000000");
+        // Cột theo bảng mẫu $000000 (đủ cột, đúng thứ tự CREATE TABLE như SELECT * bên SQL Query), không ghép theo vị trí cột.
+        return await _periods.BuildAlignedUnionSubqueryAsync(conn, resolvedSchema, baseName, periodTables, $"{baseName}$000000");
     }
 
     /// <summary>Có bảng kỳ thật <c>{prefix}$yyyymm</c> (khác <c>$000000</c>) không. Bảng không phân kỳ (chỉ có <c>{prefix}$000000</c>)

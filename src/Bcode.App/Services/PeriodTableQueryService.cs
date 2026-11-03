@@ -98,4 +98,70 @@ ORDER BY t.name;";
         var union = string.Join("\n    UNION ALL\n    ", parts);
         return $"(\n    {union}\n) AS [{alias}]";
     }
+
+    /// <summary>
+    /// Như <see cref="BuildUnionSubquery"/> nhưng cột theo đúng bảng mẫu <c>{baseName}$000000</c> (thứ tự CREATE TABLE, như
+    /// <c>SELECT * FROM {baseName}$000000</c> bên SQL Query): mỗi bảng kỳ SELECT theo TÊN cột của bảng mẫu, cột bảng kỳ thiếu
+    /// = <c>CAST(NULL AS kiểu)</c>, cột bảng kỳ thừa bỏ đi. <c>SELECT *</c> ghép UNION ALL theo VỊ TRÍ cột nên bảng kỳ lệch thứ tự
+    /// thì tên cột lấy theo bảng kỳ đầu, dữ liệu lệch cột; bảng mẫu có cột mà các bảng kỳ chưa có thì lưới thiếu cột đó.
+    /// Mọi bảng kỳ đã giống hệt bảng mẫu (hoặc không có bảng mẫu) → câu <c>SELECT *</c> cũ.
+    /// </summary>
+    public async Task<string> BuildAlignedUnionSubqueryAsync(SqlConnection conn, string schema, string baseName,
+        IEnumerable<PeriodTableInfo> periodTables, string alias)
+    {
+        var tables = periodTables.ToList();
+        if (tables.Count == 0) return BuildUnionSubquery(tables, alias);
+
+        const string sql = @"
+SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = @schema AND TABLE_NAME LIKE @pattern ESCAPE '\'
+ORDER BY TABLE_NAME, ORDINAL_POSITION;";
+        await using var cmd = new SqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@schema", schema);
+        var escapedBase = baseName.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_").Replace("[", "\\[");
+        cmd.Parameters.AddWithValue("@pattern", $"{escapedBase}$[0-9][0-9][0-9][0-9][0-9][0-9]");
+
+        var columns = new Dictionary<string, List<(string Name, string Type)>>(StringComparer.OrdinalIgnoreCase);
+        await using (var r = await cmd.ExecuteReaderAsync())
+            while (await r.ReadAsync())
+            {
+                var t = r.GetString(0);
+                if (!columns.TryGetValue(t, out var cols)) columns[t] = cols = new();
+                int? maxLen = r.IsDBNull(3) ? null : r.GetInt32(3);
+                int? precision = r.IsDBNull(4) ? null : Convert.ToInt32(r.GetValue(4));
+                int? scale = r.IsDBNull(5) ? null : Convert.ToInt32(r.GetValue(5));
+                cols.Add((r.GetString(1), CastType(r.GetString(2), maxLen, precision, scale)));
+            }
+
+        if (!columns.TryGetValue($"{baseName}$000000", out var template) || template.Count == 0)
+            return BuildUnionSubquery(tables, alias);
+
+        bool SameAsTemplate(PeriodTableInfo t) =>
+            columns.TryGetValue(t.TableName, out var cols)
+            && cols.Select(c => c.Name).SequenceEqual(template.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        if (tables.All(SameAsTemplate)) return BuildUnionSubquery(tables, alias);
+
+        static string Q(string name) => "[" + name.Replace("]", "]]") + "]";
+        var parts = tables.Select(t =>
+        {
+            var have = columns.TryGetValue(t.TableName, out var cols)
+                ? new HashSet<string>(cols.Select(c => c.Name), StringComparer.OrdinalIgnoreCase)
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var list = template.Select(c => have.Contains(c.Name) ? Q(c.Name) : $"CAST(NULL AS {c.Type}) AS {Q(c.Name)}");
+            return $"SELECT {string.Join(", ", list)} FROM {t.QualifiedName}";
+        });
+        var union = string.Join("\n    UNION ALL\n    ", parts);
+        return $"(\n    {union}\n) AS [{alias}]";
+    }
+
+    /// <summary>Kiểu cho <c>CAST(NULL AS ...)</c> từ INFORMATION_SCHEMA.COLUMNS (cột bảng kỳ còn thiếu so với bảng mẫu).</summary>
+    private static string CastType(string dataType, int? maxLen, int? precision, int? scale) => dataType.ToLowerInvariant() switch
+    {
+        "char" or "varchar" or "nchar" or "nvarchar" or "binary" or "varbinary" =>
+            maxLen is -1 ? $"{dataType}(max)" : $"{dataType}({maxLen})",
+        "decimal" or "numeric" => $"{dataType}({precision},{scale})",
+        "timestamp" or "rowversion" => "binary(8)",
+        _ => dataType
+    };
 }

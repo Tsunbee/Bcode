@@ -103,7 +103,7 @@ internal sealed class SetupEInvoicePage : NativePage
         var kn = Services.EInvoiceSetupService.Units(_f["unit"].Text).FirstOrDefault() ?? "?";
         _bGo.Text = action == "update" ? "Cập nhật + chạy script" : "Chạy Step 2";
         _confirmText.Text = (action == "update" ? "Cập nhật / Update Key sẽ gọi API UpdateProxy rồi GHI vào database: " : "Chạy Step 2 sẽ GHI vào database: ")
-            + $"tài khoản HĐĐT của đơn vị {kn} (tkhddt, tkhddtdv — đơn vị khác giữ nguyên), dmstthddt (khoá dùng chung), options m_sd_hddt = 1, m_ky_hddt = "
+            + $"tài khoản HĐĐT của đơn vị {kn} (tkhddt, tkhddtdv, dmkysohddt kieu_ky_so = {(_hsm.Checked ? "0" : "1 (token)")}, dmkieuphhddt kieu_ph = 0 — đơn vị khác giữ nguyên), dmstthddt (khoá dùng chung), options m_sd_hddt = 1, m_ky_hddt = "
             + (_hsm.Checked ? "0 (Ký HSM)" : "1") + " trong App Data của workspace đang chọn"
             + (own ? $", và tkhddt của đơn vị {kn}, edmsp, ekey, edmkh trong database Proxy \"{db}\"." : ". Nhóm dịch vụ chung của Fast: không chạy Proxy setting.");
         _confirmText.MaximumSize = new Size(Math.Max(300, Width - 60), 0);
@@ -139,6 +139,7 @@ internal sealed class SetupEInvoicePage : NativePage
                 break;
             }
             case "setupEInvoice.setDbProxy": _f["dbProxy"].Text = Str(a, 0); break;
+            case "setupEInvoice.setProject": _f["project"].Text = Str(a, 0); break;
             case "setupEInvoice.setUnits":
             {
                 // Gợi ý ô Đơn vị = dmdvcs của App Data (mã + tên); chọn xong chỉ giữ mã.

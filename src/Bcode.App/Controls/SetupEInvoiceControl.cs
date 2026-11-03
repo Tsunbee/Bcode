@@ -43,9 +43,13 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
         base.Dispose(disposing);
     }
 
-    /// <summary>Đổi project ở ô WS → ô CSDL Proxy lấy database eInv của project mới (nếu project có khai trong DB Access).</summary>
+    /// <summary>ID (ProjectId) của project đang vào; null khi chưa chọn / chưa khai ID.</summary>
+    private string? ProjectIdOf() => _connections.Current?.ProjectId is { Length: > 0 } id ? id.Trim() : null;
+
+    /// <summary>Đổi project ở ô WS → Mã dự án = ID project mới, ô CSDL Proxy lấy database eInv của project mới (nếu project có khai trong DB Access).</summary>
     private void OnWorkspaceChanged()
     {
+        if (ProjectIdOf() is { } id) Js($"setupEInvoice.setProject({J(id)})");
         if (EInvoiceSetupService.ProxyDatabaseOf(_connections.Current) is { } db) Js($"setupEInvoice.setDbProxy({J(db)})");
         _ = SendUnitsAsync();
     }
@@ -75,7 +79,8 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
         // CSDL Proxy: project đang chọn có khai database eInv trong DB Access thì lấy luôn (einvoice.json dùng chung mọi project nên giá trị cũ dễ là của project khác).
         inputs = inputs with { Password = "", MiddleLink = EInvoiceSetupService.NormalizeMiddleLink(inputs.MiddleLink ?? ""),
             PortalKey = string.IsNullOrWhiteSpace(inputs.PortalKey) ? EInvoiceSetupService.FastPortalPublicKey : inputs.PortalKey,
-            DbProxy = EInvoiceSetupService.ProxyDatabaseOf(_connections.Current) ?? inputs.DbProxy ?? "" };
+            DbProxy = EInvoiceSetupService.ProxyDatabaseOf(_connections.Current) ?? inputs.DbProxy ?? "",
+            Project = ProjectIdOf() ?? inputs.Project ?? "" };   // Mã dự án = ID project đang vào (Edit Project); project chưa khai ID thì giữ giá trị lần trước
         Js($"setupEInvoice.init({J(inputs)})");
         _ = SendUnitsAsync();
     }

@@ -137,7 +137,7 @@
     $('cHead').textContent = action === 'update' ? 'Cập nhật / Update Key sẽ gọi API UpdateProxy rồi GHI vào database:' : 'Chạy Step 2 sẽ GHI vào database:';
     $('bGo').textContent = action === 'update' ? 'Cập nhật + chạy script' : 'Chạy Step 2';
     const kn = ($('unit').value.split(/[\s,;]+/).filter(Boolean)[0] || '?');
-    $('cText').textContent = 'tài khoản HĐĐT của đơn vị ' + kn + ' (tkhddt, tkhddtdv — đơn vị khác giữ nguyên), dmstthddt (khoá dùng chung), options m_sd_hddt = 1, m_ky_hddt = ' + ($('hsm').checked ? '0 (Ký HSM)' : '1') + ' trong App Data của workspace đang chọn'
+    $('cText').textContent = 'tài khoản HĐĐT của đơn vị ' + kn + ' (tkhddt, tkhddtdv, dmkysohddt kieu_ky_so = ' + ($('hsm').checked ? '0' : '1 (token)') + ', dmkieuphhddt kieu_ph = 0 — đơn vị khác giữ nguyên), dmstthddt (khoá dùng chung), options m_sd_hddt = 1, m_ky_hddt = ' + ($('hsm').checked ? '0 (Ký HSM)' : '1') + ' trong App Data của workspace đang chọn'
       + (own ? ', và tkhddt của đơn vị ' + kn + ', edmsp, ekey, edmkh trong database Proxy "' + db + '".' : '. Nhóm dịch vụ chung của Fast: không chạy Proxy setting.');
     $('confirm').classList.add('on'); $('confirm').scrollIntoView({ block: 'nearest' });
   }
@@ -157,7 +157,8 @@
       (list || []).forEach((u) => { const o = document.createElement('option'); o.value = u.code; if (u.name) o.label = u.name; dl.appendChild(o); });
       $('unit').title = $('unit').title.replace(/ \(\d+ đơn vị có sẵn\)$/, '') + (list && list.length ? ' (' + list.length + ' đơn vị có sẵn)' : '');
     },
-    setDbProxy(db) { $('dbProxy').value = db || ''; },   // đổi project ở ô WS: database eInv khai trong DB Access của project
+    setDbProxy(db) { $('dbProxy').value = db || ''; },
+    setProject(id) { $('project').value = id || ''; },   // đổi project ở ô WS: Mã dự án = ID project   // đổi project ở ô WS: database eInv khai trong DB Access của project
     onBusy(b) { setBusy(b); },
     onClear: clear,
     onLog(text, kind) { line(text, kind); if (kind === 'err') { $('state').textContent = 'Có lỗi'; $('state').className = 'err'; } },

@@ -150,7 +150,8 @@ delete edmkh; insert into edmkh (ma_kh, ten_kh, ma_sp, client_code, public_key, 
 
     /// <summary>"App setting" — chạy vào App Data của workspace. dmstthddt: 1 dòng chung cho project (pk_service = khoá công khai của Proxy). tkhddt: chỉ xoá / ghi
     /// tài khoản của đơn vị đang khai (giữ serial_cert đã có), đơn vị khác giữ nguyên. tkhddtdv: đơn vị → chính nó (mã thêm sau dấu phẩy, nếu có, = đơn vị dùng chung
-    /// tài khoản này).</summary>
+    /// tài khoản này). dmkysohddt (hình thức ký số theo kết nối): kieu_ky_so = 1 khi ký bằng token (không tick Ký HSM), 0 khi HSM; dmkieuphhddt (kiểu phát hành theo
+    /// kết nối): kieu_ph = 0 — cả hai chỉ đơn vị đang khai, bỏ qua nếu DB chưa có bảng (bản FBO cũ).</summary>
     public static string BuildAppScript(EInvoiceInputs i, Keys keys)
     {
         if (MissingKeysError is { } missing) throw new InvalidOperationException(missing);
@@ -168,6 +169,14 @@ select {Q(kn)} , {Q(prj)}, {Q(i.PortalLink.Trim())}, '.', '.', {Q(i.Username.Tri
 delete tkhddtdv where rtrim(ma_kn) = {Q(kn)} or rtrim(ma_dvcs) in ({string.Join(", ", units.Select(Q))});
 insert into tkhddtdv(ma_dvcs, ma_kn, datetime0, datetime2, user_id0, user_id2, ngay_hl, status)
 {dv}
+if object_id('dmkysohddt') is not null begin
+  delete dmkysohddt where rtrim(ma_kn) = {Q(kn)};
+  insert into dmkysohddt(ma_kn, kieu_ky_so, datetime0, datetime2, user_id0, user_id2) select {Q(kn)}, {(i.Hsm ? 0 : 1)}, getdate(), getdate(), 1, 1
+end
+if object_id('dmkieuphhddt') is not null begin
+  delete dmkieuphhddt where rtrim(ma_kn) = {Q(kn)};
+  insert into dmkieuphhddt(ma_kn, kieu_ph, datetime0, datetime2, user_id0, user_id2) select {Q(kn)}, 0, getdate(), getdate(), 1, 1
+end
 update options set val = 1 where rtrim(name) = 'm_sd_hddt'
 update options set val = {(i.Hsm ? 0 : 1)} where rtrim(name) = 'm_ky_hddt'";   // Ký HSM = 0, không ký HSM = 1 (theo khai báo của Bee — bản VB chỉ ghi khi tick HSM)
     }

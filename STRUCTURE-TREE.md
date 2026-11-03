@@ -66,7 +66,7 @@ Bcode.App/
 │   ├── NativePages.Dialogs2.cs  180
 │   ├── NativePages.Dialogs3.cs  199
 │   ├── NativePages.Dialogs4.cs  393
-│   ├── NativePages.EInvoice.cs  172
+│   ├── NativePages.EInvoice.cs  173
 │   ├── NativePages.FileLookup.cs  177
 │   ├── NativePages.FileTools.cs  76
 │   ├── NativePages.GenUpdate.cs  386
@@ -100,7 +100,7 @@ Bcode.App/
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
 │   ├── ScriptEditorControl.EntityIndex.cs  178
-│   ├── SetupEInvoiceControl.cs  150
+│   ├── SetupEInvoiceControl.cs  155
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  558
@@ -255,7 +255,7 @@ Bcode.App/
 │   ├── DiffService.cs  295
 │   ├── DtdIncludeResolver.cs  196
 │   ├── DynamicSqlInspector.cs  120
-│   ├── EInvoiceSetupService.cs  312
+│   ├── EInvoiceSetupService.cs  321
 │   ├── EntityCheckService.cs  263
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
@@ -421,7 +421,7 @@ Bcode.App/
 │       ├── scriptpopup.html  88
 │       ├── scriptviewbar.html  65
 │       ├── searchbox.html  187
-│       ├── setupeinvoice.html  175
+│       ├── setupeinvoice.html  176
 │       ├── shell.css  255
 │       ├── sqleditor.html  1645
 │       ├── sqlhints-help.html  109

@@ -25,7 +25,6 @@ public sealed class TraceWatcher : IAsyncDisposable
 {
     // Câu của chính SqlWatch và của công cụ Bcode / FCode (program_name "Bcode…", "FCode…") không đưa lên lưới — chỉ xem câu của ứng dụng.
     public const string ApplicationName = "SqlWatch";
-    private const int MaxTextLength = 16000;
 
     private readonly SqlConnection _connection;
     private string[] _databases;
@@ -232,9 +231,9 @@ public sealed class TraceWatcher : IAsyncDisposable
         // "insert into #tct70tmpx…" thay vì câu gọi báo cáo). Lời gọi RPC thì DBCC chỉ có "tên;1" → đọc tiếp như cũ để lấy tên + định nghĩa.
         if (!_hasInputBuffer && _dbccInputBuffer)
         {
-            var (bufferType, bufferText) = await ReadInputBufferAsync(spid, cancellationToken).ConfigureAwait(false);
+            var (bufferType, bufferText, truncated) = await ReadInputBufferAsync(spid, cancellationToken).ConfigureAwait(false);
             if (bufferType.Equals("Language Event", StringComparison.OrdinalIgnoreCase) && bufferText.Length > 0)
-                return (bufferType, bufferText, "");
+                return (bufferType, truncated ? await FullBatchAsync(spid, bufferText, cancellationToken).ConfigureAwait(false) : bufferText, "");
         }
 
         var sql = _hasInputBuffer
@@ -268,23 +267,60 @@ public sealed class TraceWatcher : IAsyncDisposable
             module.Length > 8000 ? module[..8000] : module);
     }
 
-    /// <summary>DBCC INPUTBUFFER(spid): (EventType, EventInfo). Không chạy được (thiếu quyền...) thì tắt hẳn cách này cho phiên bắt.</summary>
-    private async Task<(string EventType, string Text)> ReadInputBufferAsync(int spid, CancellationToken cancellationToken)
+    /// <summary>DBCC INPUTBUFFER(spid): (EventType, EventInfo, bị cắt). EventInfo chỉ là nvarchar(4000) — câu dài hơn bị cắt ở ký tự 4000
+    /// (Truncated = true). Không chạy được (thiếu quyền...) thì tắt hẳn cách này cho phiên bắt.</summary>
+    private async Task<(string EventType, string Text, bool Truncated)> ReadInputBufferAsync(int spid, CancellationToken cancellationToken)
     {
         try
         {
             await using var command = new SqlCommand($"DBCC INPUTBUFFER({spid}) WITH NO_INFOMSGS;", _connection) { CommandTimeout = 20 };
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                return ("", "");
-            return (GetString(reader, 0), GetString(reader, 2).Trim());
+                return ("", "", false);
+            var info = GetString(reader, 2);
+            return (GetString(reader, 0), info.Trim(), info.Length >= InputBufferLimit);
         }
         catch (SqlException)
         {
             _dbccInputBuffer = false;
-            return ("", "");
+            return ("", "", false);
         }
     }
+
+    private const int InputBufferLimit = 4000;
+
+    /// <summary>Batch dài hơn 4000 ký tự mà DBCC INPUTBUFFER cắt mất đuôi: tìm bản đầy đủ trong dm_exec_sql_text (nvarchar(max)) của câu
+    /// đang chạy / câu gần nhất trên kết nối — chỉ nhận bản có cùng phần đầu với buffer (SQL động trong procedure có thể đã ghi đè
+    /// most_recent_sql_handle). Không thấy thì giữ 4000 ký tự đầu, ghi chú rõ là bị cắt.</summary>
+    private async Task<string> FullBatchAsync(int spid, string buffer, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT t.text FROM sys.dm_exec_requests AS r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS t WHERE r.session_id = @spid
+            UNION ALL
+            SELECT t.text FROM sys.dm_exec_connections AS c CROSS APPLY sys.dm_exec_sql_text(c.most_recent_sql_handle) AS t WHERE c.session_id = @spid;
+            """;
+        var head = Squash(buffer);
+        head = head[..Math.Min(head.Length, 300)];
+        try
+        {
+            await using var command = new SqlCommand(sql, _connection) { CommandTimeout = 20 };
+            command.Parameters.Add("@spid", SqlDbType.Int).Value = spid;
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var text = GetString(reader, 0).Trim();
+                if (text.Length > buffer.Length && Squash(text).StartsWith(head, StringComparison.Ordinal))
+                    return text;
+            }
+        }
+        catch (SqlException)
+        {
+            // không đọc được bản đầy đủ — dùng phần đầu bên dưới
+        }
+        return buffer + Environment.NewLine + "-- ... cắt bớt: máy chủ (SQL 2008 / 2012) chỉ cho đọc 4000 ký tự đầu của câu này";
+    }
+
+    private static string Squash(string text) => Regex.Replace(text, @"\s+", " ").Trim();
 
     /// <summary>Tên procedure: OBJECT_NAME nếu đọc được; login chỉ có VIEW SERVER STATE (không vào được database của dự án, vd
     /// profile trên server khách) thì OBJECT_NAME trả NULL — lấy tên từ dòng CREATE PROCEDURE trong chính nội dung module
@@ -421,13 +457,9 @@ public sealed class TraceWatcher : IAsyncDisposable
     private static string GetString(SqlDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? "" : Convert.ToString(reader.GetValue(ordinal)) ?? "";
 
-    private static string TrimText(string text)
-    {
-        var normalized = text.Replace("\0", "");
-        return normalized.Length <= MaxTextLength
-            ? normalized
-            : normalized[..MaxTextLength] + Environment.NewLine + "-- ... cắt bớt";
-    }
+    // Không giới hạn độ dài: batch của Fast có thể rất dài (khai báo hàng trăm biến / cột) mà Copy SQL Command / Debug store cần nguyên câu.
+    // RAM vẫn chặn được vì lưới chỉ giữ MaxRows dòng gần nhất (MainForm).
+    private static string TrimText(string text) => text.Replace("\0", "");
 
     private sealed record SessionHead(
         int Spid,

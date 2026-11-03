@@ -757,13 +757,22 @@
                 provideInlineCompletions: function (model, position, context, token) {
                     // gọi tay sau khi đổi chế độ Fast dài ⇄ ngắn: chỉ hỏi Fast, không rơi xuống AI
                     var long = !!window._fastLong; window._fastLong = false;
+                    var fastOnly = !!window._fastOnly; window._fastOnly = false;
                     return askFastGhost(model, position, long).then(function (t) {
                         if (t) return { items: [{ insertText: t, range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column) }] };
-                        if (long) return { items: [] };
+                        if (long || fastOnly) return { items: [] };
                         return copilotProvide(model, position, context, token);
                     });
                 },
                 freeInlineCompletions: function (completions) {}
+            });
+            // Lùi lề trên dòng trống (Backspace / Shift+Tab) → hỏi lại: lùi về đúng cột BEGIN thì Fast gợi ý END (FastGhostRules.BlockLine).
+            // Chỉ hỏi Fast (không rơi xuống AI) và không bắt Enter (đã có luồng gõ thường).
+            editor.onDidChangeModelContent(function (e) {
+                if (!e.changes.length || e.changes.some(function (c) { return c.text.trim().length > 0 || c.text.indexOf('\n') >= 0; })) return;
+                var pos = editor.getPosition(), m = editor.getModel();
+                if (!pos || !m || m.getLineContent(pos.lineNumber).trim().length > 0) return;
+                setTimeout(function () { window._fastOnly = true; editor.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); }, 0);
             });
 
             // ---- Phím tắt của editor: theo bảng phím trong Template giao diện (Bcode.App.UI.ShortcutRegistry) ----

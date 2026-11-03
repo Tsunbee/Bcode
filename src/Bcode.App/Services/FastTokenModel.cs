@@ -269,16 +269,19 @@ public sealed class TokenModel
         return pieces.Count == 0 ? null : new Decoded(pieces, cum);
     }
 
-    /// <summary>N-gram của chính file đang sửa (phía trên + phía dưới dòng đang gõ) cho G3; nhớ theo nội dung để mỗi phím không đếm lại.</summary>
+    /// <summary>N-gram của chính file đang sửa (phía trên + phía dưới dòng đang gõ) cho G3; nhớ theo nội dung để mỗi phím không đếm lại.
+    /// Khoá theo phần trên đã bỏ dòng đang gõ: gõ tiếp trong cùng dòng dùng lại mô hình (trước đây khoá theo cả dòng đang gõ → mỗi phím đếm lại cả file:
+    /// store 20–60k ký tự ~19 ms / phím).</summary>
     public static TokenModel LocalOf(string before, string after)
     {
-        var key = before.Length + ":" + after.Length + ":" + (before.Length > 0 ? before.GetHashCode() : 0) + ":" + after.GetHashCode();
+        // bỏ dòng đang gõ ra khỏi phần phía trên (nó chưa xong)
+        var cut = before.LastIndexOf('\n');
+        var head = cut < 0 ? "" : before[..cut];
+        var key = head.Length + ":" + after.Length + ":" + head.GetHashCode() + ":" + after.GetHashCode();
         lock (LocalLock)
         {
             if (_local is { } l && l.Key == key) return l.M;
-            // bỏ dòng đang gõ ra khỏi phần phía trên (nó chưa xong)
-            var cut = before.LastIndexOf('\n');
-            var m = Train(new[] { (cut < 0 ? "" : before[..cut]) + "\n" + after }, minTotal: 1, keep: 6, keepSingles: true);
+            var m = Train(new[] { head + "\n" + after }, minTotal: 1, keep: 6, keepSingles: true);
             _local = (key, m);
             return m;
         }

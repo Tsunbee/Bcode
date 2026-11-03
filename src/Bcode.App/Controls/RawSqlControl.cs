@@ -542,9 +542,13 @@ public class RawSqlControl : UserControl, ISqlTab
                 string? ghost = null;
                 if (_settings.EnableFastGhost || manual)
                 {
-                    var types = FastGhostRules.LoadColumnTypes(GhostDbKey, () => _service.CreateConnection(UseSysDatabase));
+                    var useSys = UseSysDatabase;
+                    Func<Microsoft.Data.SqlClient.SqlConnection> connect = () => _service.CreateConnection(useSys);
+                    var types = FastGhostRules.LoadColumnTypes(GhostDbKey, connect);
                     var (ft, fo) = (root.GetProperty("text").GetString() ?? "", root.GetProperty("offset").GetInt32());
-                    try { ghost = FastGhostRules.SuggestByMode(_settings.FastGhostLong, ft, fo, types, FastGhostRules.KnowledgeFor(GhostDbKey)); }
+                    var (longMode, key) = (_settings.FastGhostLong, GhostDbKey);
+                    // tính ở luồng nền: store dài mất tới ~180 ms, chạy trên luồng UI thì chặn phím gõ tiếp (trang tự bỏ kết quả của lượt cũ theo requestId)
+                    try { ghost = await Task.Run(() => FastGhostRules.SuggestByMode(longMode, ft, fo, types, FastGhostRules.KnowledgeFor(key), FastGhostSiblings.For(key, connect, ft))); }
                     catch { /* luật lỗi thì coi như không gợi ý */ }
                 }
                 _ = EdExec($"window.fastGhostDone && window.fastGhostDone({fid}, {System.Text.Json.JsonSerializer.Serialize(ghost ?? "")})");

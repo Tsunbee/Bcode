@@ -61,17 +61,30 @@ public static class FastGhostRules
         => Explain(text, caret, columnTypes, knowledge)?.Text;
 
     /// <summary>Theo chế độ trong Tùy chọn: dài (mặc định) = <see cref="SuggestLong"/>, không có thì gợi ý ngắn; ngắn = chỉ gợi ý chắc ≥ 90%.</summary>
-    public static string? SuggestByMode(bool longMode, string text, int caret, IReadOnlyDictionary<string, string>? columnTypes = null, KnowledgeBase? knowledge = null)
-        => longMode ? SuggestLong(text, caret, columnTypes, knowledge) ?? Suggest(text, caret, columnTypes, knowledge) : Suggest(text, caret, columnTypes, knowledge);
+    /// <param name="siblings">Store anh em trong database (<see cref="FastGhostSiblings.For"/>) — nguồn "sib" khi các nguồn khác im lặng; null = không dùng.</param>
+    public static string? SuggestByMode(bool longMode, string text, int caret, IReadOnlyDictionary<string, string>? columnTypes = null, KnowledgeBase? knowledge = null,
+        FastGhostSiblings.Set? siblings = null)
+        => ExplainByMode(longMode, text, caret, columnTypes, knowledge, siblings)?.Text;
+
+    /// <summary>Như <see cref="SuggestByMode"/> nhưng cho biết gợi ý đến từ đâu.</summary>
+    public static Ghost? ExplainByMode(bool longMode, string text, int caret, IReadOnlyDictionary<string, string>? columnTypes = null, KnowledgeBase? knowledge = null,
+        FastGhostSiblings.Set? siblings = null)
+        => longMode ? ExplainLong(text, caret, columnTypes, knowledge, siblings) ?? Explain(text, caret, columnTypes, knowledge, siblings: siblings)
+            : Explain(text, caret, columnTypes, knowledge, siblings: siblings);
 
     /// <summary>Như <see cref="Suggest"/> nhưng cho biết gợi ý đến từ đâu. <paramref name="ignoreThresholds"/> = bỏ ngưỡng từng loại (để hiệu chỉnh ngưỡng).
-    /// Thứ tự: luật cố định + ô ma trận theo routine / biến lọc → chép theo đoạn đã viết trong chính file ("same") → ma trận đầu dòng ("line").</summary>
-    public static Ghost? Explain(string text, int caret, IReadOnlyDictionary<string, string>? columnTypes = null, KnowledgeBase? knowledge = null, bool ignoreThresholds = false)
+    /// Thứ tự: luật cố định + ô ma trận theo routine / biến lọc → chép theo đoạn đã viết trong chính file ("same") → ma trận đầu dòng ("line")
+    /// → (im lặng) store anh em ("sib").</summary>
+    public static Ghost? Explain(string text, int caret, IReadOnlyDictionary<string, string>? columnTypes = null, KnowledgeBase? knowledge = null, bool ignoreThresholds = false,
+        FastGhostSiblings.Set? siblings = null)
     {
         var kb = knowledge ?? Knowledge;
         if (ExplainRules(text, caret, columnTypes, kb, ignoreThresholds) is { } g) return ReferenceEquals(g, Declined) ? null : g;
         // dòng trống → câu hay viết tiếp sau dòng code phía trên
         if (NextLine(text, caret, kb, ignoreThresholds ? 0 : kb.MinShareOf("next"), false) is { } nx) return nx;
+        // ma trận im lặng → câu theo cấu trúc khối (END khi lùi lề về BEGIN, DEALLOCATE sau CLOSE)
+        if (BlockLine(text, caret, false) is { } bl) return bl;
+        if (siblings is not null && SibNext(text, caret, siblings, SibNextShare) is { } sn) return sn;
         if (GenericSplit(text, caret) is not var (before, after)) return null;
         var m = SameCandidates(before, after);
         if (ignoreThresholds) return SameFile(m, 1) ?? LineStart(before, kb, 0);
@@ -81,7 +94,61 @@ public static class FastGhostRules
             if ((k == 1 || kb.QualityOf(SameKind(k)) is not null) && SameFile(m, k) is { } s && s.Share >= kb.MinShareOf(SameKind(k))) { cands.Add(s); break; }
         if (LineStart(before, kb, kb.MinShareOf("line")) is { } l && l.Share >= kb.MinShareOf("line")) cands.Add(l);
         if (TokGhost(before, after, kb, "tok") is { } t) cands.Add(t);
+        if (cands.Count == 0 && siblings is not null) return SibLine(before, siblings, SibLineShare);
         return cands.OrderByDescending(c => FastGhostMiner.Norm(c.Text).Length).FirstOrDefault();
+    }
+
+    // ---------------------------------------------------------------- store anh em ("sib", FastGhostSiblings) — chỉ bù chỗ các nguồn khác im lặng
+
+    /// <summary>Ngưỡng độ tin của "sib" — hiệu chỉnh trên store KOG chưa dùng để học, chỉ ở chỗ các nguồn khác im lặng: giữa dòng đúng ≥ 90% từ 0,9
+    /// (dài ≥ 60% từ 0,175), dòng trống ≥ 90% từ 0,525 (dài: mọi độ tin, đúng 71%).</summary>
+    public const double SibLineShare = 0.9, SibLineShareLong = 0.175, SibNextShare = 0.525, SibNextShareLong = 0;
+
+    /// <summary>Giữa dòng: "theo chính file" (<see cref="SameCandidates"/>, bậc độ dài <see cref="SameLadder"/>) trên các store anh em.</summary>
+    private static Ghost? SibLine(string before, FastGhostSiblings.Set sib, double minShare)
+    {
+        var line = before[(before.LastIndexOf('\n') + 1)..];
+        var m = SameCandidates(sib.Text + "\n" + line, "");
+        foreach (var k in SameLadder)
+            if (SameFile(m, k) is { } g) return g.Share >= minShare - 1e-9 ? new Ghost(g.Text, "sib", g.Share) : null;
+        return null;
+    }
+
+    /// <summary>Dòng trống: dòng hay viết ngay sau dòng code phía trên (khớp cả 2 dòng trên nếu có) trong các store anh em; độ tin = số lần / (tổng + 1).
+    /// Dòng code ngay bên dưới đã là câu đó thì không gợi ý lại.</summary>
+    private static Ghost? SibNext(string text, int caret, FastGhostSiblings.Set sib, double minShare)
+    {
+        caret = Math.Clamp(caret, 0, text.Length);
+        caret -= Regex.Matches(text[..caret], "\r\n").Count;
+        text = text.Replace("\r\n", "\n");
+        var lineStart = caret == 0 ? 0 : text.LastIndexOf('\n', caret - 1) + 1;
+        var lineEnd = text.IndexOf('\n', caret);
+        if (lineEnd < 0) lineEnd = text.Length;
+        var line = text[lineStart..caret];
+        if (line.Trim().Length > 0 || text[caret..lineEnd].Trim().Length > 0 || lineStart == 0) return null;
+        var prev = CodeLines(text[..(lineStart - 1)].Split('\n').Reverse()).Take(2).ToList();
+        if (prev.Count == 0) return null;
+        var p = prev.Select(l => FastGhostMiner.Norm(StripLineComment(l))).ToList();
+        var code = sib.Code;
+        var votes = new Dictionary<string, (int N, string Raw)>(StringComparer.Ordinal);
+        void Vote(bool two)
+        {
+            for (var i = 0; i + 1 < code.Count; i++)
+                if (code[i].Norm == p[0] && (!two || (i > 0 && code[i - 1].Norm == p[1])))
+                {
+                    var n = code[i + 1];
+                    votes[n.Norm] = (votes.GetValueOrDefault(n.Norm).N + 1, votes.TryGetValue(n.Norm, out var o) ? o.Raw : n.Raw);
+                }
+        }
+        if (p.Count > 1) Vote(true);
+        if (votes.Count == 0) Vote(false);
+        if (votes.Count == 0) return null;
+        var top = votes.OrderByDescending(x => x.Value.N).First();
+        var share = top.Value.N / (votes.Values.Sum(v => v.N) + 1.0);
+        if (share < minShare - 1e-9) return null;
+        var below = CodeLines(text[lineEnd..].Split('\n')).FirstOrDefault() is { } b ? FastGhostMiner.Norm(StripLineComment(b)) : "";
+        if (top.Key == below) return null;
+        return new Ghost((line.Length == 0 ? Indent(prev[0]) : "") + top.Value.Raw, "sib", Math.Round(share, 3));
     }
 
     /// <summary>Gợi ý của "ma trận token" (<see cref="TokenModel"/>): phần dài nhất mà độ chắc dồn còn ≥ ngưỡng của <paramref name="kind"/> ("tok" / "tok:long").</summary>
@@ -101,21 +168,29 @@ public static class FastGhostRules
     /// phần viết tiếp DÀI NHẤT mà đa số (≥ 60%) chỗ khớp cùng viết — cả dòng nếu chỉ có 1 chỗ khớp (vd "select top 0 5 as sysorder" → cả phần còn lại của
     /// dòng SELECT phía trên), "set @q =" giữa các dòng "SET @q = @q + …" → "@q +"; cuối cùng ma trận đầu dòng cho cả gợi ý từng phần.</summary>
     public static string? SuggestLong(string text, int caret, IReadOnlyDictionary<string, string>? columnTypes = null, KnowledgeBase? knowledge = null)
+        => ExplainLong(text, caret, columnTypes, knowledge)?.Text;
+
+    /// <summary><see cref="SuggestLong"/> kèm loại gợi ý; <paramref name="siblings"/> như <see cref="Explain"/> nhưng theo ngưỡng chế độ dài.</summary>
+    public static Ghost? ExplainLong(string text, int caret, IReadOnlyDictionary<string, string>? columnTypes = null, KnowledgeBase? knowledge = null,
+        FastGhostSiblings.Set? siblings = null)
     {
         var kb = knowledge ?? Knowledge;
         // gọi tay: luật / ô ma trận riêng lấy cách viết hay gặp nhất, không qua ngưỡng (vd DECLARE @Key → kiểu hay dùng nhất của @Key)
-        if (ExplainRules(text, caret, columnTypes, kb, true) is { } g && !ReferenceEquals(g, Declined)) return g.Text;
+        if (ExplainRules(text, caret, columnTypes, kb, true) is { } g && !ReferenceEquals(g, Declined)) return g;
         // dòng trống: câu tiếp theo theo ngưỡng riêng của chế độ dài (hiệu chỉnh để đúng ≥ 60%), cho gợi ý phần đầu chắc chắn
-        if (NextLine(text, caret, kb, kb.MinShareOf("next:long"), true) is { } nx) return nx.Text;
+        if (NextLine(text, caret, kb, kb.MinShareOf("next:long"), true) is { } nx) return nx;
+        if (BlockLine(text, caret, true) is { } bl) return bl;
+        if (siblings is not null && SibNext(text, caret, siblings, SibNextShareLong) is { } sn) return sn;
         if (GenericSplit(text, caret) is not var (before, after)) return null;
         // gộp nguồn như ghost tự động nhưng theo ngưỡng của chế độ dài → lấy gợi ý dài nhất
-        var cands = new List<string>();
+        var cands = new List<Ghost>();
         if (SameCandidates(before, after) is { } m)
             foreach (var k in new[] { 0, 8, 3, 2, 1 })
-                if (SameFile(m, k) is { } s && s.Share / (1 - 1.0 / (m.LineTokens + 1)) >= LongAgreement - 1e-9) { cands.Add(s.Text); break; }
-        if (LineStart(before, kb, 0.6, partial: true) is { } l && l.Share >= 0.5) cands.Add(l.Text);
-        if (TokGhost(before, after, kb, "tok:long") is { } t) cands.Add(t.Text);
-        return cands.OrderByDescending(c => FastGhostMiner.Norm(c).Length).FirstOrDefault();
+                if (SameFile(m, k) is { } s && s.Share / (1 - 1.0 / (m.LineTokens + 1)) >= LongAgreement - 1e-9) { cands.Add(s); break; }
+        if (LineStart(before, kb, 0.6, partial: true) is { } l && l.Share >= 0.5) cands.Add(l);
+        if (TokGhost(before, after, kb, "tok:long") is { } t) cands.Add(t);
+        if (cands.Count == 0 && siblings is not null) return SibLine(before, siblings, SibLineShareLong);
+        return cands.OrderByDescending(c => FastGhostMiner.Norm(c.Text).Length).FirstOrDefault();
     }
 
     /// <summary>Phần văn bản trước con trỏ và sau dòng đang gõ khi được gợi ý chung: con trỏ cuối dòng, dòng có chữ, không nằm trong chuỗi / comment;
@@ -678,6 +753,85 @@ public static class FastGhostRules
 
     /// <summary>Các dòng có code (bỏ dòng trống, dòng chỉ có comment "--"), giữ nguyên chữ.</summary>
     public static IEnumerable<string> CodeLines(IEnumerable<string> lines) => lines.Where(l => StripLineComment(l).Trim().Length > 0 && !l.TrimStart().StartsWith("/*") && !l.TrimStart().StartsWith("*"));
+
+    private static readonly Regex CloseCursorRx = new(@"^\s*CLOSE\s+(\w+)\s*;?\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex OpenCursorRx = new(@"^\s*OPEN\s+(\w+)\s*;?\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex FetchIntoRx = new(@"^\s*FETCH\s+NEXT\s+FROM\s+(\w+)\s+INTO\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex WhileNoBeginRx = new(@"^\s*WHILE\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static int IndentWidth(string line)
+    {
+        var w = 0;
+        foreach (var c in line) { if (c == ' ') w++; else if (c == '\t') w += 4; else break; }
+        return w;
+    }
+
+    /// <summary>Dòng trống → câu theo CẤU TRÚC khối (không thống kê), chạy khi ma trận câu tiếp theo im lặng. Đo trên store KOG (dòng trống, chỉ thấy phía trên):
+    /// <list type="bullet">
+    /// <item>thụt lề lùi về đúng cột của BEGIN gần nhất chưa đóng → "END" (BEGIN TRY / CATCH → END TRY / CATCH): 1.418 chỗ đúng 93,5%, ở chỗ ma trận im lặng 91,6%
+    /// (gặp BEGIN chưa đóng mà không lùi lề: đúng 7% — nên chỉ khi lùi lề);</item>
+    /// <item>CLOSE c → "DEALLOCATE c": 100%;</item>
+    /// <item>chỉ chế độ dài (đúng ≥ 60%): OPEN c → "FETCH NEXT FROM c INTO …" (chép lệnh FETCH của c đã có phía trên, không thì phần đầu; 74%),
+    /// WHILE … (chưa có BEGIN) → "BEGIN" (81%).</item>
+    /// </list>
+    /// Dòng code ngay bên dưới đã là câu đó thì không gợi ý lại. BEGIN / CASE / END đếm theo token nên chữ trong chuỗi (SQL động) và comment không tính.</summary>
+    public static Ghost? BlockLine(string text, int caret, bool longMode)
+    {
+        caret = Math.Clamp(caret, 0, text.Length);
+        caret -= Regex.Matches(text[..caret], "\r\n").Count;
+        text = text.Replace("\r\n", "\n");
+        var lineStart = caret == 0 ? 0 : text.LastIndexOf('\n', caret - 1) + 1;
+        var lineEnd = text.IndexOf('\n', caret);
+        if (lineEnd < 0) lineEnd = text.Length;
+        var line = text[lineStart..caret];
+        if (line.Trim().Length > 0 || text[caret..lineEnd].Trim().Length > 0 || lineStart == 0) return null;
+        var above = text[..(lineStart - 1)].Split('\n');
+        var prev = CodeLines(above.Reverse()).FirstOrDefault();
+        if (prev is null) return null;
+        var below = CodeLines(text[lineEnd..].Split('\n')).FirstOrDefault() is { } b ? FastGhostMiner.Norm(StripLineComment(b)) : "";
+        Ghost? G(string s, double share) => FastGhostMiner.Norm(s) == below ? null : new Ghost(s, "block", share);
+        var p = StripLineComment(prev);
+
+        if (CloseCursorRx.Match(p) is { Success: true } cm) return G("DEALLOCATE " + cm.Groups[1].Value, 1);
+
+        // khối chưa đóng: BEGIN [TRY|CATCH] / CASE mở, END đóng
+        var stack = new Stack<(int Indent, string Tail, bool Lower)>();
+        foreach (var l in above)
+        {
+            var toks = Tokens(StripLineComment(l));
+            for (var i = 0; i < toks.Count; i++)
+            {
+                var t = toks[i].Text;
+                if (t.Equals("BEGIN", StringComparison.OrdinalIgnoreCase))
+                {
+                    var next = i + 1 < toks.Count ? toks[i + 1].Text : "";
+                    var tail = next.Equals("TRY", StringComparison.OrdinalIgnoreCase) || next.Equals("CATCH", StringComparison.OrdinalIgnoreCase) ? " " + next.ToUpperInvariant() : "";
+                    // "BEGIN TRAN" không mở khối
+                    if (next.StartsWith("TRAN", StringComparison.OrdinalIgnoreCase)) continue;
+                    stack.Push((IndentWidth(l), tail, t == "begin"));
+                }
+                else if (t.Equals("CASE", StringComparison.OrdinalIgnoreCase)) stack.Push((-1, "", false));
+                else if (t.Equals("END", StringComparison.OrdinalIgnoreCase) && stack.Count > 0) stack.Pop();
+            }
+        }
+        var ind = IndentWidth(line);
+        if (stack.Count > 0 && stack.Peek() is { Indent: >= 0 } top && top.Indent == ind && ind < IndentWidth(prev))
+        {
+            // chữ hoa / thường theo BEGIN của khối
+            var end = "END" + top.Tail;
+            return G(top.Lower ? end.ToLowerInvariant() : end, 0.93);
+        }
+
+        if (!longMode) return null;
+        if (OpenCursorRx.Match(p) is { Success: true } om)
+        {
+            var c = om.Groups[1].Value;
+            var fetch = above.Reverse().Select(StripLineComment).FirstOrDefault(l => FetchIntoRx.Match(l) is { Success: true } fm && fm.Groups[1].Value.Equals(c, StringComparison.OrdinalIgnoreCase));
+            return G(fetch?.Trim() ?? "FETCH NEXT FROM " + c + " INTO ", 0.74);
+        }
+        if (WhileNoBeginRx.IsMatch(p) && !Regex.IsMatch(p, @"\bBEGIN\b", RegexOptions.IgnoreCase)) return G("BEGIN", 0.81);
+        return null;
+    }
 
     /// <summary>"Câu tiếp theo": con trỏ trên dòng trống → dòng hay viết ngay sau dòng code phía trên trong store thật (ô theo 2 dòng code trước rồi
     /// theo 1 dòng), vd sau "IF @filterKey &lt;&gt; '' SET @Key = @Key + CASE …" → "SET @Key = dbo.FastBusiness$Function$System$GetCheckKey(@Key)".

@@ -723,6 +723,13 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (_settings.EnableFastGhost) { _fastGhostTimer.Stop(); _fastGhostTimer.Start(); }
             if (_settings.EnableCopilotSuggest) { _ghostTimer.Stop(); _ghostTimer.Start(); }
         };
+        // Lùi lề trên dòng trống (Backspace / Shift+Tab — không có CharAdded) cũng xét lại: lùi về đúng cột BEGIN → gợi ý END (FastGhostRules.BlockLine).
+        _ed.KeyUp += (_, e) =>
+        {
+            if (!_settings.EnableFastGhost || !(e.KeyCode == Keys.Back || (e.KeyCode == Keys.Tab && e.Shift))) return;
+            var cur = _ed.Lines[_ed.CurrentLine];
+            if (cur.Text.Trim().Length == 0) { _fastGhostTimer.Stop(); _fastGhostTimer.Start(); }
+        };
         // Ghost text theo cấu trúc Fast (không AI): ngừng gõ ~0,15s là xét luật, khớp thì hiện ngay (AI 0,6s sau thấy đang có gợi ý thì thôi).
         _fastGhostTimer.Tick += (_, _) => { _fastGhostTimer.Stop(); ShowFastGhost(); };
         Disposed += (_, _) => { _fastGhostTimer.Stop(); _fastGhostTimer.Dispose(); };
@@ -734,18 +741,31 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
     private readonly System.Windows.Forms.Timer _fastGhostTimer = new() { Interval = 150 };
 
+    /// <summary>Lượt ghost Fast đang tính ở nền — lượt mới (gõ tiếp) bỏ lượt cũ.</summary>
+    private int _fastGhostSeq;
+
     /// <param name="manual">Gọi tay (sau khi đổi dài ⇄ ngắn): chạy cả khi tắt ghost Fast tự động, thay ghost đang hiện. Chế độ lấy theo Tùy chọn.</param>
-    private void ShowFastGhost(bool manual = false)
+    /// <remarks>Tính ở luồng nền (store 20–60k ký tự mất ~40–70 ms, store dài hơn tới ~180 ms — trước đây chặn phím gõ tiếp); xong mới hiện nếu văn bản
+    /// và con trỏ chưa đổi.</remarks>
+    private async void ShowFastGhost(bool manual = false)
     {
         if (manual) ClearGhost();
         if (IsDisposed || (!_settings.EnableFastGhost && !manual) || _ghostText is not null || _ed.SelectionStart != _ed.SelectionEnd) return;
         var pos = _ed.CurrentPosition;
+        var version = _version;
+        var seq = ++_fastGhostSeq;
         var caret = _ed.GetTextRange(0, pos).Length;   // vị trí Scintilla là byte UTF-8 → đổi sang vị trí ký tự
-        var types = FastGhostRules.LoadColumnTypes(GhostDbKey, () => _service.CreateConnection(_useSys));
+        var all = _ed.Text;
+        var key = GhostDbKey;
+        var longMode = _settings.FastGhostLong;
+        var useSys = _useSys;
+        Func<Microsoft.Data.SqlClient.SqlConnection> connect = () => _service.CreateConnection(useSys);
+        var types = FastGhostRules.LoadColumnTypes(key, connect);
         string? text = null;
-        try { text = FastGhostRules.SuggestByMode(_settings.FastGhostLong, _ed.Text, caret, types, FastGhostRules.KnowledgeFor(GhostDbKey)); }
+        try { text = await Task.Run(() => FastGhostRules.SuggestByMode(longMode, all, caret, types, FastGhostRules.KnowledgeFor(key), FastGhostSiblings.For(key, connect, all))); }
         catch { /* luật lỗi thì coi như không gợi ý */ }
-        if (!string.IsNullOrEmpty(text) && _ed.CurrentPosition == pos) ShowGhost(text);
+        if (IsDisposed || seq != _fastGhostSeq || _version != version || _ed.CurrentPosition != pos || _ghostText is not null) return;
+        if (!string.IsNullOrEmpty(text)) ShowGhost(text);
     }
 
     /// <summary>Đổi ghost Fast dài ⇄ ngắn (lưu Tùy chọn cho mọi tab), báo ở dòng trạng thái rồi gợi ý lại ngay theo chế độ mới.</summary>

@@ -111,8 +111,8 @@ Bcode.App/
 │   ├── SqlScintilla.cs  162
 │   ├── SqlSyntaxHighlighter.cs  484
 │   ├── SqlTabSnapshot.cs  19
-│   ├── SqlWatchControl.cs  154
-│   ├── SqlWatchControl.Form.cs  36
+│   ├── SqlWatchControl.cs  161
+│   ├── SqlWatchControl.Form.cs  39
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
 │   ├── TableEditControl.cs  2146
@@ -155,7 +155,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  3999
+│   ├── MainForm.cs  4002
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -342,7 +342,7 @@ Bcode.App/
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
 │   ├── GridDragScroll.cs  67
-│   ├── IconGlyphs.cs  208
+│   ├── IconGlyphs.cs  223
 │   ├── LineNumberGutter.cs  116
 │   ├── MousePointer.cs  55
 │   ├── NativeAppLauncher.cs  42
@@ -350,7 +350,7 @@ Bcode.App/
 │   ├── PerformanceProfile.cs  75
 │   ├── ShortcutRegistry.cs  346
 │   ├── ThemedForm.cs  11
-│   ├── ThemeManager.cs  727
+│   ├── ThemeManager.cs  813
 │   ├── TreeColorOptions.cs  50
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410

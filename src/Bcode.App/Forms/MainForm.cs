@@ -3766,6 +3766,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.OpenInSqlQueryRequested += sql => OpenFreeScriptTab().SetScriptText(sql);
         control.DebugRequested += sql => _ = OpenProfilerDebugAsync(control.ReportStatus, sql);
         _sqlWatchTab = AddDocumentTab("SqlWatch", control);
+        // Ô xanh ngọc có con mắt trắng + chữ tab xanh ngọc (kiểu tab Profiler đỏ của Fcode, khác màu để phân biệt); chấm đỏ khi đang bắt (SqlWatchControl).
+        Bcode.App.UI.ThemeManager.SetTabIcon(_sqlWatchTab, Bcode.App.UI.IconGlyph.Eye, Color.FromArgb(0, 150, 136));
+        UpdateQuickAccessOverlayBounds();   // tab rộng thêm phần icon — dải "Mở nhanh" dời theo, không che nút ×
         _sqlWatchTab.Disposed += (_, _) => _sqlWatchTab = null;
         if (!_sessionRestoring) control.AutoStartIfEnabled();
     }

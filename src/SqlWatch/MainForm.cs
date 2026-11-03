@@ -701,6 +701,7 @@ public sealed partial class MainForm : Form
         _paused = !_paused;
         _pause.Text = _paused ? "Tiếp tục" : "Tạm dừng";
         UpdateStatus();
+        CaptureStateChanged?.Invoke();
     }
 
     private async Task PollAsync()
@@ -929,7 +930,11 @@ public sealed partial class MainForm : Form
         AcceptButton = running ? _stop : _start;
         if (!running)
             SetIdleStatus();
+        CaptureStateChanged?.Invoke();
     }
+
+    /// <summary>Bắt đầu / Dừng / Tạm dừng / Tiếp tục — nơi nhúng (Bcode) đổi dấu hiệu trên tab.</summary>
+    public event Action? CaptureStateChanged;
 
     private void SetIdleStatus()
     {

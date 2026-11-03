@@ -9,6 +9,9 @@ public sealed partial class MainForm
     /// <summary>Đang bắt (đã bấm Bắt đầu, chưa Dừng).</summary>
     public bool IsCapturing => _watcher is not null;
 
+    /// <summary>Đang bắt nhưng bấm "Tạm dừng".</summary>
+    public bool IsPaused => _watcher is not null && _paused;
+
     /// <summary>Chọn project theo tên workspace Bcode — chỉ khi chưa bắt (đang bắt thì ô Project bị khoá như bấm tay).</summary>
     public void SelectProject(string name)
     {

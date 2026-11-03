@@ -14,6 +14,7 @@ public enum IconGlyph
     Plus,       // generic "add"
     Refresh,    // Refresh database — vòng cung có mũi tên
     Bell,       // Thông báo y/c FSG
+    Eye,        // SqlWatch (đầu tab) — con mắt theo dõi câu SQL
 }
 
 /// <summary>
@@ -56,6 +57,7 @@ public static class IconGlyphs
             case IconGlyph.Plus: DrawPlus(g, pen, box); break;
             case IconGlyph.Refresh: DrawRefresh(g, pen, brush, box); break;
             case IconGlyph.Bell: DrawBell(g, pen, brush, box); break;
+            case IconGlyph.Eye: DrawEye(g, pen, brush, box); break;
         }
 
         g.SmoothingMode = oldSmoothing;
@@ -159,6 +161,19 @@ public static class IconGlyphs
         g.DrawPath(pen, path);
         var cr = Math.Max(1.5f, w * 0.11f);
         g.FillEllipse(brush, cx - cr, t + h * 0.84f - cr * 0.6f, cr * 2, cr * 2);
+    }
+
+    private static void DrawEye(Graphics g, Pen pen, Brush brush, Rectangle box)
+    {
+        // Mí mắt: hai đường cong nối hai khoé (trái / phải); con ngươi tròn đặc ở giữa.
+        float l = box.X, w = box.Width, cy = box.Y + box.Height / 2f, lid = box.Height * 0.48f;
+        using var path = new GraphicsPath();
+        path.AddBezier(l, cy, l + w * 0.25f, cy - lid, l + w * 0.75f, cy - lid, l + w, cy);
+        path.AddBezier(l + w, cy, l + w * 0.75f, cy + lid, l + w * 0.25f, cy + lid, l, cy);
+        path.CloseFigure();
+        g.DrawPath(pen, path);
+        var r = w * 0.16f;
+        g.FillEllipse(brush, l + w / 2f - r, cy - r, r * 2, r * 2);
     }
 
     private static void DrawStar(Graphics g, Brush brush, Rectangle box)

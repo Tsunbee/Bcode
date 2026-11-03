@@ -48,6 +48,13 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
             try { _settings.Save(); } catch { /* chỉ nhớ trong phiên */ }
         };
         _form.UserIdLookup = LookupUserIdAsync;
+        // Chấm trên icon tab: đỏ = đang bắt, xám = tạm dừng, không chấm = đã dừng (nhìn thanh tab là biết SqlWatch còn chạy không).
+        _form.CaptureStateChanged += () =>
+        {
+            if (Parent is TabPage page)
+                ThemeManager.SetTabLive(page, !_form.IsCapturing ? ThemeManager.TabLive.None
+                    : _form.IsPaused ? ThemeManager.TabLive.Paused : ThemeManager.TabLive.Running);
+        };
         // Load của form (nạp project từ settings) chạy trước handler này → chọn workspace hiện tại rồi mới tự bắt nếu đang chờ.
         _form.Load += (_, _) =>
         {

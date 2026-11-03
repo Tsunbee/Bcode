@@ -103,6 +103,48 @@ public static class ThemeManager
     // Tab đang được rê chuột lên (để tô nền hover như thanh tab của BcodeViewer).
     private static readonly Dictionary<TabControl, int> _hoveredTabs = new();
 
+    /// <summary>Trạng thái chạy vẽ thành chấm nhỏ ở góc icon đầu tab.</summary>
+    public enum TabLive { None, Running, Paused }
+
+    // Icon đầu tab (SqlWatch...) — vẽ bằng IconGlyphs; có Badge thì là ô vuông bo góc tô màu đó + hình trắng, chữ tab cùng tông màu
+    // (kiểu tab Profiler đỏ của Fcode). Chấm đỏ = đang chạy, xám = tạm dừng.
+    private sealed class TabMark { public IconGlyph Glyph; public Color? Badge; public TabLive Live; }
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<TabPage, TabMark> _tabMarks = new();
+
+    /// <summary>Gắn icon đầu tab cho <paramref name="page"/> (gọi sau khi tab đã nằm trong TabControl). <paramref name="badge"/> = màu riêng
+    /// của tab: icon thành ô màu nổi, chữ tab cũng đổi sang màu đó (sáng hơn khi theme tối) — nhìn thanh tab là thấy ngay.
+    /// Chỗ cho icon do Windows chừa sẵn qua ImageList của TabControl (ảnh rộng bằng icon, cao 1px — không làm thanh tab cao lên),
+    /// nên tab tự rộng ra đúng bằng icon.</summary>
+    public static void SetTabIcon(TabPage page, IconGlyph glyph, Color? badge = null)
+    {
+        _tabMarks.AddOrUpdate(page, new TabMark { Glyph = glyph, Badge = badge });
+        if (page.Parent is TabControl tab) EnsureTabIconSpace(tab);
+        page.ImageIndex = 0;
+        page.Parent?.Invalidate();
+    }
+
+    /// <summary>Đổi chấm trạng thái ở góc icon đầu tab (tab chưa gắn icon thì bỏ qua).</summary>
+    public static void SetTabLive(TabPage page, TabLive live)
+    {
+        if (!_tabMarks.TryGetValue(page, out var mark) || mark.Live == live) return;
+        mark.Live = live;
+        if (page.Parent is TabControl tab && tab.TabPages.IndexOf(page) is var i and >= 0) tab.Invalidate(tab.GetTabRect(i));
+    }
+
+    // Bề rộng icon đầu tab (gồm khoảng cách tới chữ) — theo Mật độ × DPI × UiScale như Padding của tab.
+    private static int TabIconWidth(TabControl tab) => NativeSkin.Dens(tab, 23);
+
+    private static void EnsureTabIconSpace(TabControl tab)
+    {
+        var size = new Size(TabIconWidth(tab), 1);
+        if (tab.ImageList is { } current && current.ImageSize == size && current.Images.Count > 0) return;
+        var list = new ImageList { ImageSize = size, ColorDepth = ColorDepth.Depth32Bit };
+        list.Images.Add(new Bitmap(size.Width, size.Height));   // ảnh trong suốt — chỉ để giữ chỗ, icon thật vẽ ở PaintTab
+        var old = tab.ImageList;
+        tab.ImageList = list;
+        old?.Dispose();
+    }
+
     /// <summary>Draws a ✕ on every tab of <paramref name="tab"/> and calls
     /// <paramref name="onCloseRequested"/>(index) when it's clicked — used for
     /// MainForm's document tabs, which previously had no way to close a tab at all
@@ -566,6 +608,7 @@ public static class ThemeManager
             }
         }
         tab.Padding = new Point(NativeSkin.Dens(tab, 18), NativeSkin.Dens(tab, 7)); // theo Mật độ × DPI × UiScale — đặt lại mỗi lần Apply
+        if (tab.ImageList is not null) EnsureTabIconSpace(tab);                    // chỗ cho icon đầu tab cũng theo tỉ lệ mới
         tab.Invalidate();
     }
 
@@ -606,6 +649,8 @@ public static class ThemeManager
         }
 
         var fore = areaFore ?? (selected ? AppColors.Text : AppColors.TextMuted);
+        if (_tabMarks.TryGetValue(page, out var badgeMark) && badgeMark.Badge is { } badgeColor)
+            fore = AppColors.IsDark ? Mix(badgeColor, Color.White, 0.35f) : Mix(badgeColor, Color.Black, 0.15f);   // chữ tab cùng màu icon
         if (!closable)
         {
             TextRenderer.DrawText(g, page.Text, tabFont, bounds, fore,
@@ -627,6 +672,44 @@ public static class ThemeManager
             g.SmoothingMode = oldMode;
             textLeft += 12;
         }
+        if (_tabMarks.TryGetValue(page, out var mark))
+        {
+            var back = selected || hovered ? AppColors.Panel : (areaBack ?? AppColors.PanelAlt);
+            Rectangle icon;
+            if (mark.Badge is { } badge)
+            {
+                // Ô vuông bo góc tô màu riêng của tab, hình trắng bên trong.
+                var side = NativeSkin.Dens(tab, 17);
+                icon = new Rectangle(textLeft - NativeSkin.Dens(tab, 1), bounds.Y + (bounds.Height - side) / 2, side, side);
+                var oldMode = g.SmoothingMode;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = RoundedRect(icon, NativeSkin.Dens(tab, 4)))
+                using (var fill = new SolidBrush(badge))
+                    g.FillPath(fill, path);
+                g.SmoothingMode = oldMode;
+                IconGlyphs.Draw(g, mark.Glyph, Rectangle.Inflate(icon, NativeSkin.Dens(tab, 2), NativeSkin.Dens(tab, 2)), Color.White, badge);
+            }
+            else
+            {
+                var iconSize = NativeSkin.Dens(tab, 21);
+                icon = new Rectangle(textLeft - NativeSkin.Dens(tab, 2), bounds.Y + (bounds.Height - iconSize) / 2, iconSize, iconSize);
+                IconGlyphs.Draw(g, mark.Glyph, icon, AppColors.Accent, back);
+            }
+            if (mark.Live != TabLive.None)
+            {
+                // Chấm trạng thái ở góc trên phải icon, viền màu nền tab cho tách khỏi icon.
+                var d = NativeSkin.Dens(tab, 7);
+                var dot = mark.Badge is null
+                    ? new Rectangle(icon.Right - d - NativeSkin.Dens(tab, 1), icon.Y + NativeSkin.Dens(tab, 3), d, d)
+                    : new Rectangle(icon.Right - d + NativeSkin.Dens(tab, 3), icon.Y - NativeSkin.Dens(tab, 3), d, d);
+                var oldMode = g.SmoothingMode;
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var ring = new SolidBrush(back)) g.FillEllipse(ring, Rectangle.Inflate(dot, NativeSkin.Dens(tab, 1), NativeSkin.Dens(tab, 1)));
+                using (var fill = new SolidBrush(mark.Live == TabLive.Running ? AppColors.Danger : AppColors.TextMuted)) g.FillEllipse(fill, dot);
+                g.SmoothingMode = oldMode;
+            }
+            textLeft += TabIconWidth(tab);
+        }
         var textRect = new Rectangle(textLeft, bounds.Y, Math.Max(0, closeRect.Left - textLeft - 4), bounds.Height);
         TextRenderer.DrawText(g, page.Text, tabFont, textRect, fore,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
@@ -644,6 +727,9 @@ public static class ThemeManager
         TextRenderer.DrawText(g, "×", BaseFont, closeRect, hot || selected ? AppColors.Text : AppColors.TextMuted,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
     }
+
+    private static Color Mix(Color a, Color b, float t) =>
+        Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
 
     private static System.Drawing.Drawing2D.GraphicsPath RoundedRect(Rectangle r, int radius)
     {

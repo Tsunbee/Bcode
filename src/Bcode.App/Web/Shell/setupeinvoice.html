@@ -62,12 +62,12 @@
     <div style="display:flex;flex-direction:column;gap:.9rem">
       <div class="card"><div class="ct">Kết nối</div><div class="cb">
         <div class="f"><label>Link trung gian<small>API UpdateProxy</small></label><input type="text" id="middleLink" spellcheck="false"></div>
-        <div class="f"><label>CSDL<small>Database Proxy</small></label><input type="text" id="dbProxy" spellcheck="false" placeholder="Tên database Proxy (chỉ cần khi nhóm dịch vụ riêng)"></div>
+        <div class="f"><label>CSDL<small>Database Proxy</small></label><input type="text" id="dbProxy" spellcheck="false" placeholder="Tên database Proxy (chỉ cần khi nhóm dịch vụ riêng)" title="Tự lấy database …_eInv khai trong DB Access của project đang chọn; sửa tay được"></div>
       </div></div>
       <div class="card"><div class="ct">Dự án / Doanh nghiệp</div><div class="cb">
         <div class="f"><label>Mã dự án<small>Project</small></label><input type="text" id="project" spellcheck="false"></div>
         <div class="f"><label>Sản phẩm<small>Product</small></label><input type="text" id="product" spellcheck="false"></div>
-        <div class="f"><label>Đơn vị<small>ma_dvcs — nhiều mã cách nhau dấu phẩy</small></label><input type="text" id="unit" spellcheck="false" placeholder="vd 05 hoặc 05, 06, 07"></div>
+        <div class="f"><label>Đơn vị<small>ma_kn — nhiều đơn vị: khai lần lượt từng đơn vị</small></label><datalist id="unitList"></datalist><input type="text" id="unit" list="unitList" autocomplete="off" spellcheck="false" placeholder="vd 05 — bấm / gõ để chọn đơn vị có sẵn" title="Mỗi đơn vị có mã DN / tài khoản portal riêng: nhập 1 đơn vị, chạy, rồi đổi sang đơn vị kế tiếp. Chỉ dòng của đơn vị này bị xoá / ghi lại, đơn vị đã khai giữ nguyên."></div>
         <div class="f"><label>Mã doanh nghiệp<small>ClientCode</small></label><input type="text" id="clientCode" spellcheck="false"></div>
         <div class="f"><label>Nhóm dịch vụ<small>ProxyCode</small></label><div class="pw"><input type="text" id="proxyCode" spellcheck="false"><label class="chk" style="color:var(--text);white-space:nowrap" title="Tắt = nhóm dịch vụ chung của Fast (005500), không cần Proxy setting"><input type="checkbox" id="ownProxy"> Nhóm dịch vụ riêng</label></div></div>
       </div></div>
@@ -81,14 +81,14 @@
     </div></div>
   </div>
 
-  <div id="confirm"><b>Chạy Step 2 sẽ GHI vào database:</b> <span id="cText"></span>
+  <div id="confirm"><b id="cHead">Chạy Step 2 sẽ GHI vào database:</b> <span id="cText"></span>
     <div class="row"><button class="danger" id="bGo">Chạy Step 2</button><button id="bNo">Huỷ</button></div></div>
 
   <div id="acts">
     <button id="bStep1" title="Dựng script để xem / copy (App setting; thêm Proxy setting khi nhóm dịch vụ riêng), chưa chạy gì">Step 1: View UpdateKey Script</button>
     <button id="bStep2" title="Chạy script: App setting vào App Data; Proxy setting vào database Proxy (khi nhóm dịch vụ riêng)">Step 2: Exec Insert in Server (SQL)</button>
     <span class="sp"></span>
-    <button class="primary" id="bUpdate" title="Tính pass_hddt từ mật khẩu portal rồi gọi API UpdateProxy ở Link trung gian (không chạy SQL trực tiếp)">Cập nhật / Update Key</button>
+    <button class="primary" id="bUpdate" title="Tính pass_hddt từ mật khẩu portal, gọi API UpdateProxy ở Link trung gian, thành công thì chạy luôn script App (+ Proxy khi nhóm dịch vụ riêng) vào database">Cập nhật / Update Key</button>
   </div>
 
   <div id="res">
@@ -128,22 +128,36 @@
   $('bClear').onclick = clear;
   $('bCopy').onclick = () => post('copy', { text: plain });
   $('bStep1').onclick = () => { $('confirm').classList.remove('on'); post('step1', { inputs: inputs() }); };
-  $('bUpdate').onclick = () => { $('confirm').classList.remove('on'); post('update', { inputs: inputs() }); };
-  $('bStep2').onclick = () => {   // Step 2 ghi xuống database: xác nhận ngay trong trang (không hộp thoại)
+  /* Step 2 và Cập nhật / Update Key đều GHI xuống database: xác nhận ngay trong trang (không hộp thoại). pending = action sẽ gửi khi bấm nút đỏ. */
+  let pending = '';
+  function askConfirm(action) {
     const own = $('ownProxy').checked, db = $('dbProxy').value.trim();
     if (own && !db) { clear(); line('Error: chưa khai "CSDL / Database Proxy" — nhóm dịch vụ riêng cần biết chạy phần Proxy setting vào database nào.', 'err'); $('state').textContent = 'Thiếu thông tin'; $('state').className = 'err'; $('dbProxy').focus(); return; }
-    $('cText').textContent = 'XOÁ rồi INSERT lại các bảng cấu hình hoá đơn điện tử (dmstthddt, tkhddt, tkhddtdv) và bật options m_sd_hddt' + ($('hsm').checked ? ' / m_ky_hddt' : '') + ' trong App Data của workspace đang chọn'
-      + (own ? ', và (tkhddt, edmsp, ekey, edmkh) trong database Proxy "' + db + '".' : '. Nhóm dịch vụ chung của Fast: không chạy Proxy setting.');
+    pending = action;
+    $('cHead').textContent = action === 'update' ? 'Cập nhật / Update Key sẽ gọi API UpdateProxy rồi GHI vào database:' : 'Chạy Step 2 sẽ GHI vào database:';
+    $('bGo').textContent = action === 'update' ? 'Cập nhật + chạy script' : 'Chạy Step 2';
+    const kn = ($('unit').value.split(/[\s,;]+/).filter(Boolean)[0] || '?');
+    $('cText').textContent = 'tài khoản HĐĐT của đơn vị ' + kn + ' (tkhddt, tkhddtdv — đơn vị khác giữ nguyên), dmstthddt (khoá dùng chung), options m_sd_hddt = 1, m_ky_hddt = ' + ($('hsm').checked ? '0 (Ký HSM)' : '1') + ' trong App Data của workspace đang chọn'
+      + (own ? ', và tkhddt của đơn vị ' + kn + ', edmsp, ekey, edmkh trong database Proxy "' + db + '".' : '. Nhóm dịch vụ chung của Fast: không chạy Proxy setting.');
     $('confirm').classList.add('on'); $('confirm').scrollIntoView({ block: 'nearest' });
-  };
+  }
+  $('bUpdate').onclick = () => askConfirm('update');
+  $('bStep2').onclick = () => askConfirm('step2');
   $('bNo').onclick = () => $('confirm').classList.remove('on');
-  $('bGo').onclick = () => { $('confirm').classList.remove('on'); post('step2', { inputs: inputs() }); };
+  $('bGo').onclick = () => { $('confirm').classList.remove('on'); if (pending) post(pending, { inputs: inputs() }); };
 
   window.setupEInvoice = {
     init(o) {
       TEXT.forEach((k) => { $(k).value = o[k] == null ? '' : o[k]; }); $('hsm').checked = !!o.hsm; $('ownProxy').checked = !!o.ownProxy;
       ownCode = ''; $('proxyCode').disabled = false; syncProxy();
     },
+    /* Gợi ý ô Đơn vị = dmdvcs của App Data đang chọn ([{code, name}]); vẫn gõ tay được mã không có trong danh sách. */
+    setUnits(list) {
+      const dl = $('unitList'); dl.innerHTML = '';
+      (list || []).forEach((u) => { const o = document.createElement('option'); o.value = u.code; if (u.name) o.label = u.name; dl.appendChild(o); });
+      $('unit').title = $('unit').title.replace(/ \(\d+ đơn vị có sẵn\)$/, '') + (list && list.length ? ' (' + list.length + ' đơn vị có sẵn)' : '');
+    },
+    setDbProxy(db) { $('dbProxy').value = db || ''; },   // đổi project ở ô WS: database eInv khai trong DB Access của project
     onBusy(b) { setBusy(b); },
     onClear: clear,
     onLog(text, kind) { line(text, kind); if (kind === 'err') { $('state').textContent = 'Có lỗi'; $('state').className = 'err'; } },

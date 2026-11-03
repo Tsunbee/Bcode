@@ -84,7 +84,7 @@ public class SetupEInvoiceForm : ThemedForm
         {
             switch (id)
             {
-                case "step1": GenerateScript(); break;
+                case "step1": await GenerateScriptAsync(); break;
                 case "step2": await ExecuteScriptsAsync(); break;
                 case "update": await ExecUpdateKeyAsync(); break;
             }
@@ -130,13 +130,13 @@ public class SetupEInvoiceForm : ThemedForm
 
     private void ShowError(string text) { _resultBox.ForeColor = Color.FromArgb(244, 135, 113); _resultBox.Text = text; }
 
-    private void GenerateScript()
+    private async Task GenerateScriptAsync()
     {
         var i = ReadInputs();
         if (EInvoiceSetupService.ValidateRequired(i) is { } missing) { ShowError(missing); return; }
         try
         {
-            var script = EInvoiceSetupService.BuildScript(i);
+            var script = await new EInvoiceSetupService(_connections).BuildScriptAsync(i);
             _resultBox.ForeColor = AppColors.Text; // Trả về màu text bình thường cho SQL Script
             _resultBox.Text = script;
         }
@@ -154,12 +154,13 @@ public class SetupEInvoiceForm : ThemedForm
         _resultBox.ForeColor = ok ? AppColors.Text : Color.FromArgb(244, 135, 113);
     }
 
-    /// <summary>"Cập nhật / Update Key" — xem <see cref="EInvoiceSetupService.UpdateKeyAsync"/> (tính pass_hddt rồi gọi API UpdateProxy).</summary>
+    /// <summary>"Cập nhật / Update Key" — xem <see cref="EInvoiceSetupService.UpdateKeyAndRunAsync"/> (gọi API UpdateProxy rồi chạy script vào database).</summary>
     private async Task ExecUpdateKeyAsync()
     {
+        var log = new StringBuilder();
         _resultBox.ForeColor = AppColors.TextMuted;
-        var (ok, text) = await new EInvoiceSetupService(_connections).UpdateKeyAsync(ReadInputs(), line => _resultBox.Text = line);
-        if (ok) { _resultBox.ForeColor = AppColors.Text; _resultBox.Text = text; }
-        else ShowError(text);
+        _resultBox.Text = "";
+        var ok = await new EInvoiceSetupService(_connections).UpdateKeyAndRunAsync(ReadInputs(), (line, _) => { log.AppendLine(line); _resultBox.Text = log.ToString(); });
+        _resultBox.ForeColor = ok ? AppColors.Text : Color.FromArgb(244, 135, 113);
     }
 }

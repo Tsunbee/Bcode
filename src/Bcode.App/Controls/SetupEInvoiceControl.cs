@@ -17,6 +17,7 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
 
     private readonly WebBarHost _web = new("setupeinvoice.html") { Dock = DockStyle.Fill, Sleepable = true };
     private readonly EInvoiceSetupService _service;
+    private readonly DbConnectionService _connections;
     private bool _busy;
 
     // Giá trị mặc định giống form cũ; nhóm dịch vụ / Portal Key / link API theo tool Setup HDDT (VB).
@@ -28,10 +29,32 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
     public SetupEInvoiceControl(DbConnectionService connections)
     {
         _service = new EInvoiceSetupService(connections);
+        _connections = connections;
         Dock = DockStyle.Fill;
         Controls.Add(_web);
         _web.Message += root => _ = HandleAsync(root.GetRawText());
         _web.Ready += SendInit;
+        connections.WorkspaceChanged += OnWorkspaceChanged;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _connections.WorkspaceChanged -= OnWorkspaceChanged;   // DbConnectionService sống suốt phiên — không gỡ thì tab đã đóng sống mãi
+        base.Dispose(disposing);
+    }
+
+    /// <summary>Đổi project ở ô WS → ô CSDL Proxy lấy database eInv của project mới (nếu project có khai trong DB Access).</summary>
+    private void OnWorkspaceChanged()
+    {
+        if (EInvoiceSetupService.ProxyDatabaseOf(_connections.Current) is { } db) Js($"setupEInvoice.setDbProxy({J(db)})");
+        _ = SendUnitsAsync();
+    }
+
+    /// <summary>Gợi ý ô Đơn vị: danh mục đơn vị cơ sở (dmdvcs) của App Data đang chọn — gửi sau init, đọc DB chạy nền nên không chặn lúc mở tab.</summary>
+    private async Task SendUnitsAsync()
+    {
+        var units = await _service.LoadUnitsAsync();
+        Js($"setupEInvoice.setUnits({J(units.Select(u => new { code = u.Code, name = u.Name }))})");
     }
 
     private static string J(object? o) => JsonSerializer.Serialize(o, JsonOpts);
@@ -49,9 +72,12 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
         try { inputs = File.Exists(ConfigPath) ? JsonSerializer.Deserialize<EInvoiceInputs>(File.ReadAllText(ConfigPath), JsonOpts) ?? Defaults : Defaults; }
         catch { inputs = Defaults; }
         // einvoice.json cũ: link .../UpdateKey → .../UpdateProxy; chưa có Portal Key thì điền khoá Portal Fast.
+        // CSDL Proxy: project đang chọn có khai database eInv trong DB Access thì lấy luôn (einvoice.json dùng chung mọi project nên giá trị cũ dễ là của project khác).
         inputs = inputs with { Password = "", MiddleLink = EInvoiceSetupService.NormalizeMiddleLink(inputs.MiddleLink ?? ""),
-            PortalKey = string.IsNullOrWhiteSpace(inputs.PortalKey) ? EInvoiceSetupService.FastPortalPublicKey : inputs.PortalKey };
+            PortalKey = string.IsNullOrWhiteSpace(inputs.PortalKey) ? EInvoiceSetupService.FastPortalPublicKey : inputs.PortalKey,
+            DbProxy = EInvoiceSetupService.ProxyDatabaseOf(_connections.Current) ?? inputs.DbProxy ?? "" };
         Js($"setupEInvoice.init({J(inputs)})");
+        _ = SendUnitsAsync();
     }
 
     private static void Save(EInvoiceInputs i)
@@ -101,7 +127,7 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
         {
             case "step1":
                 if (EInvoiceSetupService.ValidateRequired(i) is { } missing) { Js($"setupEInvoice.onLog({J(missing)}, 'err')"); return; }
-                Js($"setupEInvoice.onScript({J(EInvoiceSetupService.BuildScript(i))})");
+                Js($"setupEInvoice.onScript({J(await _service.BuildScriptAsync(i))})");
                 break;
 
             case "step2":
@@ -115,8 +141,8 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
             case "update":
             {
                 Js("setupEInvoice.onClear()");
-                var (ok, text) = await _service.UpdateKeyAsync(i, line => Js($"setupEInvoice.onLog({J(line)}, 'info')"));
-                Js($"setupEInvoice.onLog({J(text)}, {(ok ? "'ok'" : "'err'")}); setupEInvoice.onDone({(ok ? "true" : "false")})");
+                var ok = await _service.UpdateKeyAndRunAsync(i, (line, kind) => Js($"setupEInvoice.onLog({J(line)}, {J(kind)})"));
+                Js($"setupEInvoice.onDone({(ok ? "true" : "false")})");
                 break;
             }
         }

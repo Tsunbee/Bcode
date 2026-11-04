@@ -3,9 +3,10 @@ using Bcode.App.UI;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// Hộp chọn nhanh tab: hiện NGAY khi bấm phím tắt tab.next / tab.prev có Ctrl (mặc định Ctrl+Tab / Ctrl+Shift+Tab) — xem MainForm.OpenTabSwitcher.
-/// Liệt kê mọi tab đang mở; giữ Ctrl bấm Tab (Shift+Tab) / ↑ ↓ để chọn, THẢ Ctrl là đi (như Alt+Tab của Windows); Enter hoặc bấm chuột cũng đi;
-/// Esc hoặc bấm ra ngoài thì thôi. Chỉ trả về vị trí tab được chọn, việc chuyển tab do MainForm làm.
+/// Hộp chọn nhanh tab: bấm phím tắt tab.next / tab.prev có Ctrl (mặc định Ctrl+Tab / Ctrl+Shift+Tab) rồi GIỮ Ctrl quá <see cref="ShowDelayMs"/>
+/// (hoặc bấm Tab thêm lần nữa) thì hộp hiện; thả Ctrl sớm hơn thì chuyển thẳng, không hiện hộp — xem MainForm.OpenTabSwitcher.
+/// Liệt kê mọi tab đang mở; giữ Ctrl bấm Tab (Shift+Tab) / ↑ ↓ để chọn, THẢ Ctrl là đi (như Alt+Tab của Windows); Enter hoặc bấm chuột vào mục cũng đi
+/// (rê chuột không đổi mục đang sáng); Esc hoặc bấm ra ngoài thì thôi. Chỉ trả về vị trí tab được chọn, việc chuyển tab do MainForm làm.
 /// </summary>
 public class TabSwitcherForm : DpiForm
 {
@@ -28,6 +29,12 @@ public class TabSwitcherForm : DpiForm
 
     /// <summary>Vị trí tab được chọn; -1 nếu huỷ.</summary>
     public int SelectedIndex { get; private set; } = -1;
+
+    /// <summary>Đã bấm Tab / Shift+Tab (phím tắt tab.next / tab.prev) thêm ít nhất 1 lần sau khi tạo hộp — MainForm hiện hộp ngay, không chờ hết <see cref="ShowDelayMs"/>.</summary>
+    public bool Stepped { get; private set; }
+
+    /// <summary>Giữ Ctrl quá chừng này (ms) sau Ctrl+Tab mới hiện hộp; thả Ctrl sớm hơn thì chuyển thẳng sang tab kế, không hiện hộp.</summary>
+    public const int ShowDelayMs = 200;
 
     /// <summary>Phím Ctrl (trái hoặc phải) đang được giữ — theo trạng thái phím thật, không theo hàng đợi message.</summary>
     public static bool CtrlHeld => (GetAsyncKeyState(0x11) & 0x8000) != 0;
@@ -60,14 +67,19 @@ public class TabSwitcherForm : DpiForm
         if (_list.Items.Count > 0) _list.SelectedIndex = Math.Clamp(initialIndex, 0, _list.Items.Count - 1);
 
         _list.DrawItem += DrawRow;
-        _list.MouseMove += (_, e) =>
-        {
-            var i = _list.IndexFromPoint(e.Location);
-            if (i >= 0 && i != _list.SelectedIndex) _list.SelectedIndex = i; // rê chuột tới đâu sáng tới đó
-        };
+        // Chuột chỉ chọn khi BẤM vào một mục (nhấn rồi nhả trên cùng mục đó) — rê chuột / chuột nằm sẵn chỗ hộp hiện ra không đổi mục đang sáng
+        // (trước đây rê chuột tới đâu sáng tới đó, chuột tình cờ nằm trên hộp là thả Ctrl nhảy sang tab dưới con trỏ thay vì tab kế).
+        var pressedIndex = -1;
+        _list.MouseDown += (_, e) => pressedIndex = e.Button == MouseButtons.Left ? _list.IndexFromPoint(e.Location) : -1;
         _list.MouseUp += (_, e) =>
         {
-            if (e.Button == MouseButtons.Left && _list.IndexFromPoint(e.Location) >= 0) Accept();
+            if (e.Button != MouseButtons.Left) return;
+            var i = _list.IndexFromPoint(e.Location);
+            var pressed = pressedIndex;
+            pressedIndex = -1;
+            if (i < 0 || i != pressed) return;
+            _list.SelectedIndex = i;
+            Accept();
         };
 
         Controls.Add(_list);
@@ -143,6 +155,7 @@ public class TabSwitcherForm : DpiForm
     public void Step(int step)
     {
         if (_done || _list.Items.Count == 0) return;
+        Stepped = true;
         _list.SelectedIndex = (_list.SelectedIndex + step + _list.Items.Count) % _list.Items.Count;
     }
 

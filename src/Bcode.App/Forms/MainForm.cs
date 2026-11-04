@@ -2917,8 +2917,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         return (Math.Max(0, _documentTabs.SelectedIndex) + step + count) % count;
     }
 
-    /// <summary>Phím tắt tab.next / tab.prev bấm khi đang giữ Ctrl (Ctrl+Tab...): hiện NGAY hộp liệt kê mọi tab (xem <see cref="TabSwitcherForm"/>),
-    /// sáng sẵn ở <paramref name="target"/>; giữ Ctrl bấm tiếp để đi, thả Ctrl là chuyển. Bấm nhanh rồi thả thì tới đúng <paramref name="target"/> như trước.
+    /// <summary>Phím tắt tab.next / tab.prev bấm khi đang giữ Ctrl (Ctrl+Tab...): giữ Ctrl quá <see cref="TabSwitcherForm.ShowDelayMs"/> (hoặc bấm Tab tiếp)
+    /// thì hiện hộp liệt kê mọi tab (xem <see cref="TabSwitcherForm"/>), sáng sẵn ở <paramref name="target"/>; giữ Ctrl bấm tiếp để đi, thả Ctrl là chuyển.
+    /// Bấm nhanh rồi thả thì tới đúng <paramref name="target"/> như trước, không hiện hộp.
     /// Hộp được tạo ngay (bấm Tab tiếp trước khi hộp kịp hiện vẫn đếm bước — <see cref="TabSwitcherForm.Step"/>), còn ShowDialog chạy sau khi
     /// handler phím (ProcessCmdKey / callback WebView2) đã trả về.</summary>
     private void OpenTabSwitcher(int target)
@@ -2926,10 +2927,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var names = _documentTabs.TabPages.Cast<TabPage>().Select(p => p.Text).ToList();
         var switcher = new TabSwitcherForm(names, Math.Max(0, _documentTabs.SelectedIndex), target, commitOnCtrlUp: true);
         _switcher = switcher;
-        BeginInvoke(new Action(() =>
+        BeginInvoke(new Action(async () =>
         {
             try
             {
+                if (IsDisposed) return;
+                // Chờ chút rồi mới hiện hộp: Ctrl+Tab bấm rồi thả ngay thì chuyển thẳng, khung không chớp lên. Bấm Tab thêm lần nữa
+                // trong lúc chờ (Stepped) là muốn chọn → hiện ngay. Trong lúc chờ không chặn luồng UI (phím Tab tiếp vẫn tới switcher.Step).
+                var until = Environment.TickCount64 + TabSwitcherForm.ShowDelayMs;
+                while (TabSwitcherForm.CtrlHeld && !switcher.Stepped && Environment.TickCount64 < until)
+                    await Task.Delay(15);
                 if (IsDisposed) return;
                 if (!TabSwitcherForm.CtrlHeld) switcher.Accept();   // đã thả Ctrl trước khi hộp kịp hiện: chuyển luôn, không hiện hộp
                 else switcher.ShowDialog(this);

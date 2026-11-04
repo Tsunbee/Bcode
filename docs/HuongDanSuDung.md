@@ -191,7 +191,7 @@ Hàng nút dưới thanh trên, chia vùng bằng dấu "|": SQL (SQL Query, Loo
 
 ### Tab
 
-- `Ctrl+Tab` (`Ctrl+Shift+Tab` đi ngược) → hộp "Chuyển tab" hiện **ngay**, sáng sẵn ở tab sẽ tới. Giữ Ctrl rồi bấm tiếp `Tab` / `↑ ↓` để chọn tab khác, **thả Ctrl là chuyển** (như Alt+Tab của Windows); `Enter` hoặc bấm chuột cũng chuyển; `Esc` / bấm ra ngoài để thôi. Bấm `Ctrl+Tab` nhanh rồi thả thì chuyển luôn (hộp chỉ chớp qua) — tới đâu tuỳ kiểu "Ctrl+Tab bấm nhanh" chọn ở Template → Cửa sổ: **Tab tới** (A → B → C) hoặc **Tab song song** (A ⇄ B, về tab vừa rời). Đổi phím `tab.next` / `tab.prev` sang tổ hợp không có Ctrl thì phím đó chuyển tab thẳng, không hiện hộp.
+- `Ctrl+Tab` (`Ctrl+Shift+Tab` đi ngược) → **giữ Ctrl** thêm một chút (hoặc bấm `Tab` thêm lần nữa) thì hộp "Chuyển tab" hiện, sáng sẵn ở tab sẽ tới. Giữ Ctrl rồi bấm tiếp `Tab` / `↑ ↓` để chọn tab khác, **thả Ctrl là chuyển** (như Alt+Tab của Windows); `Enter` hoặc **bấm chuột** vào một tab trong hộp cũng chuyển (chỉ bấm mới chọn — rê chuột hay chuột nằm sẵn chỗ hộp hiện ra không đổi tab đang sáng); `Esc` / bấm ra ngoài để thôi. Bấm `Ctrl+Tab` nhanh rồi thả thì chuyển luôn, hộp không hiện — tới đâu tuỳ kiểu "Ctrl+Tab bấm nhanh" chọn ở Template → Cửa sổ: **Tab tới** (A → B → C) hoặc **Tab song song** (A ⇄ B, về tab vừa rời). Đổi phím `tab.next` / `tab.prev` sang tổ hợp không có Ctrl thì phím đó chuyển tab thẳng, không hiện hộp.
 - `Ctrl+W` đóng tab (hỏi nếu chưa lưu) · `Ctrl+Shift+B` mở lại tab vừa đóng.
 - Chuột phải tab: Pin Tab / Unpin Tab · Reopen Closed Tab · Close Tab · Close Other Tabs · Close Tabs to the Right · Close All Tabs (tab ghim không bị đóng hàng loạt).
 - Chuột phải vùng trống thanh tab: **Tab đã đóng gần đây** và danh sách **Mở nhanh** các công cụ.
@@ -1074,7 +1074,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+4` | Mở FSG FBO (web đăng nhập của dự án, trong tab) — trong cây WCommand: mở FSG FBO, đăng nhập rồi vào menu đang chọn (menu khác cùng dự án = thêm tab, chung phiên đăng nhập) |
 | `Ctrl+5` | Mở thư mục Program Path |
 | `Ctrl+Alt+U` | Ai đang dùng object (tab SQL mở từ cây SQL Object) |
-| `Ctrl+Tab` · `Ctrl+Shift+Tab` | Hộp chọn tab (tab kế / tab trước) — giữ Ctrl bấm Tab để chọn, thả Ctrl để chuyển |
+| `Ctrl+Tab` · `Ctrl+Shift+Tab` | Chuyển tab kế / tab trước (bấm nhanh rồi thả: chuyển luôn) — giữ Ctrl thì hiện hộp chọn tab, bấm Tab để chọn, thả Ctrl để chuyển |
 | `Ctrl+W` · `Ctrl+Shift+B` | Đóng tab · mở lại tab vừa đóng |
 | `Alt+1` … `Alt+5` | Thả menu nhóm công cụ 1…5 |
 | `Ctrl+Alt+Shift+A` · `Ctrl+Alt+Shift+V` | Add Script · View Script Cart |

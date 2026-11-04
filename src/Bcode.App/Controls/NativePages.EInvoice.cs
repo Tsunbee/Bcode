@@ -17,7 +17,7 @@ internal sealed class SetupEInvoicePage : NativePage
     private readonly Label _state = NK.Muted("");
     private readonly Panel _confirm = new() { Dock = DockStyle.Top, AutoSize = true, Visible = false, Padding = new Padding(12, 8, 12, 8) };
     private readonly Label _confirmText = new() { AutoSize = true, BackColor = Color.Transparent, ForeColor = AppColors.Warning, Dock = DockStyle.Top };
-    private readonly PillButton _bStep1, _bStep2, _bUpdate, _bGo, _bCopy;
+    private readonly PillButton _bStep1, _bStep2, _bWipe, _bUpdate, _bGo, _bCopy;
     private string _plain = "";
     private bool _busy;
 
@@ -55,7 +55,8 @@ internal sealed class SetupEInvoicePage : NativePage
         _bStep2 = NK.Button("Step 2: Exec Insert in Server (SQL)", () => AskConfirm("step2"), tip: "Chạy script: App setting vào App Data; Proxy setting vào database Proxy (khi nhóm dịch vụ riêng)");
         _bUpdate = NK.Button("Cập nhật / Update Key", () => AskConfirm("update"), primary: true, tip: "Tính pass_hddt từ mật khẩu portal, gọi API UpdateProxy ở Link trung gian, thành công thì chạy luôn script App (+ Proxy khi nhóm dịch vụ riêng) vào database");
         var acts = new BarFlow { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 6, 10, 4) };
-        acts.Controls.AddRange(new Control[] { _bStep1, _bStep2, _bUpdate });
+        _bWipe = NK.Button("Clear cấu hình HĐĐT", () => AskConfirm("clear"), tip: "Xoá HẾT dữ liệu các bảng cấu hình HĐĐT (App Data; + database Proxy khi nhóm dịch vụ riêng) để cài lại từ đầu — không gọi API");
+        acts.Controls.AddRange(new Control[] { _bStep1, _bStep2, _bWipe, _bUpdate });
 
         _bCopy = NK.Button("Copy", () => Post(new { action = "copy", text = _plain })); _bCopy.Enabled = false;
         var resHead = new BarFlow { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 2) };
@@ -105,14 +106,20 @@ internal sealed class SetupEInvoicePage : NativePage
         _confirmText.Text = (action == "update" ? "Cập nhật / Update Key sẽ gọi API UpdateProxy rồi GHI vào database: " : "Chạy Step 2 sẽ GHI vào database: ")
             + $"tài khoản HĐĐT của đơn vị {kn} (tkhddt, tkhddtdv, dmkysohddt kieu_ky_so = {(_hsm.Checked ? "0" : "1 (token)")}, dmkieuphhddt kieu_ph = 0 — đơn vị khác giữ nguyên), dmstthddt (khoá dùng chung), options m_sd_hddt = 1, m_ky_hddt = "
             + (_hsm.Checked ? "0 (Ký HSM)" : "1") + " trong App Data của workspace đang chọn"
-            + (own ? $", và tkhddt của đơn vị {kn}, edmsp, ekey, edmkh trong database Proxy \"{db}\"." : ". Nhóm dịch vụ chung của Fast: không chạy Proxy setting.");
+            + (own ? $", và tkhddt của đơn vị {kn}, edmsp, ekey, edmkh (chưa có mới thêm) trong database Proxy \"{db}\"." : ". Nhóm dịch vụ chung của Fast: không chạy Proxy setting.");
+        if (action == "clear")
+        {
+            _bGo.Text = "Xoá hết để cài lại";
+            _confirmText.Text = "Clear sẽ XOÁ HẾT dữ liệu (mọi đơn vị) các bảng cấu hình HĐĐT: dmstthddt, tkhddt, tkhddtdv, dmkysohddt, dmkieuphhddt trong App Data của workspace đang chọn"
+                + (own ? $", và tkhddt, edmsp, ekey, edmkh trong database Proxy \"{db}\"." : ". Nhóm dịch vụ chung của Fast: không đụng database Proxy.") + " Không gọi API, không đổi options.";
+        }
         _confirmText.MaximumSize = new Size(Math.Max(300, Width - 60), 0);
         _confirm.Visible = true;
     }
 
     private void SetBusy(bool b)
     {
-        _busy = b; _bStep1.Enabled = _bStep2.Enabled = _bUpdate.Enabled = _bGo.Enabled = !b;
+        _busy = b; _bStep1.Enabled = _bStep2.Enabled = _bWipe.Enabled = _bUpdate.Enabled = _bGo.Enabled = !b;
         if (b) { _state.Text = "Đang chạy..."; _state.ForeColor = AppColors.Accent; }
     }
 

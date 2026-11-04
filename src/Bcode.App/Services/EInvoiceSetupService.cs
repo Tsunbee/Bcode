@@ -133,7 +133,8 @@ public class EInvoiceSetupService
 
     /// <summary>"Proxy setting" — chạy vào database Proxy riêng ("CSDL / Database Proxy"), KHÔNG phải App Data: "tkhddt" của database này có bộ cột khác "tkhddt"
     /// của database app (xem <see cref="BuildAppScript"/>). Khai nhiều đơn vị như dự án đang chạy (vd KOG_PRO): mỗi đơn vị 1 dòng tkhddt (mã DN / tài khoản portal /
-    /// pass_hddt riêng) — chỉ xoá dòng của đơn vị đang khai, đơn vị khác giữ nguyên; edmsp / ekey / edmkh là 1 dòng chung cho cả project (edmkh.client_code = '*').</summary>
+    /// pass_hddt riêng) — chỉ xoá dòng của đơn vị đang khai, đơn vị khác giữ nguyên; edmsp / ekey / edmkh là 1 dòng chung cho cả project (edmkh.client_code = '*'). edmkh KHÔNG xoá / sửa: đã
+    /// có dòng của dự án thì bỏ qua (giữ nguyên network_key / last_access proxy đang dùng), chưa có mới insert. Cài lại từ đầu: nút Clear (<see cref="ClearAsync"/>).</summary>
     public static string BuildProxyScript(EInvoiceInputs i, Keys keys, string passHddt, string mkTkHddt)
     {
         if (MissingKeysError is { } missing) throw new InvalidOperationException(missing);
@@ -144,7 +145,8 @@ insert into tkhddt(ma_kh, ma_kn, ten_kn, ten_kn2, url_hddt1, url_hddt2, url_hddt
 select {Q(prj)}, {Q(unit)} , {Q(prj)}, '.', {Q(i.PortalLink.Trim())}, '.', '.', {Q(i.Username.Trim())}, {Q(passHddt)}, {Q(client)}, {Q(mkTkHddt)}, 8, '1', getdate(), getdate()
 delete edmsp; insert into edmsp (ma_sp, ten_sp) select {Q(prod)}, {Q(prod)}
 delete ekey; insert into ekey (proxy_code, private_key, public_key, pk_portal) select {Q(EffectiveProxyCode(i))}, {Q(keys.ProxyRk)}, {Q(keys.ProxyPk)}, {Q(i.PortalKey.Trim())}
-delete edmkh; insert into edmkh (ma_kh, ten_kh, ma_sp, client_code, public_key, password, status) select {Q(prj)}, {Q(prj)}, {Q(prod)}, '*', {Q(keys.AppPk)}, '{LocalSecrets.EInvAppPassword}', '1'
+if not exists (select 1 from edmkh where rtrim(ma_kh) = {Q(prj)})
+  insert into edmkh (ma_kh, ten_kh, ma_sp, client_code, public_key, password, status) select {Q(prj)}, {Q(prj)}, {Q(prod)}, '*', {Q(keys.AppPk)}, '{LocalSecrets.EInvAppPassword}', '1'
 ";
     }
 
@@ -241,6 +243,54 @@ update options set val = {(i.Hsm ? 0 : 1)} where rtrim(name) = 'm_ky_hddt'";   /
         }
         catch (Exception ex) { ok = false; log($"✗ App setting LỖI: {ex.Message}", "err"); }
 
+        return ok;
+    }
+
+    /// <summary>Bảng cấu hình HĐĐT mà nút Clear xoá sạch — App Data / database Proxy (cùng các bảng script setup ghi vào).</summary>
+    public static readonly string[] ClearAppTables = { "dmstthddt", "tkhddt", "tkhddtdv", "dmkysohddt", "dmkieuphhddt" };
+    public static readonly string[] ClearProxyTables = { "tkhddt", "edmsp", "ekey", "edmkh" };
+
+    private static string BuildClearScript(IEnumerable<string> tables) =>
+        string.Join("\n", tables.Select(t => $"if object_id('{t}') is not null delete {t}"));
+
+    /// <summary>
+    /// Nút "Clear": xoá HẾT dữ liệu các bảng cấu hình HĐĐT để cài lại từ đầu — App Data đang chọn (<see cref="ClearAppTables"/>) và database Proxy khi tick nhóm dịch vụ
+    /// riêng (<see cref="ClearProxyTables"/>). Không gọi API, không đụng options. Mỗi database 1 transaction; bảng không có thì bỏ qua.
+    /// </summary>
+    public async Task<bool> ClearAsync(EInvoiceInputs i, Action<string, string> log)
+    {
+        if (_connections.Current is null) { log("Error: chưa chọn Workspace (WS).", "err"); return false; }
+        var dbProxy = i.DbProxy.Trim();
+        var appDb = _connections.Current.EffectiveAppDatabase;
+        if (appDb.Equals(dbProxy, StringComparison.OrdinalIgnoreCase) || appDb.Equals(ProxyDatabaseOf(_connections.Current), StringComparison.OrdinalIgnoreCase))
+        {
+            log($"Error: database App đang chọn ở thanh trên là \"{appDb}\" (database Proxy) — chọn lại database App của project (… (App)) rồi chạy lại.", "err");
+            return false;
+        }
+        if (i.OwnProxy && dbProxy.Length == 0) { log("Error: chưa khai \"CSDL / Database Proxy\" — không biết xoá cấu hình Proxy ở database nào.", "err"); return false; }
+
+        var ok = true;
+        try
+        {
+            log($"Đang xoá {string.Join(", ", ClearAppTables)} trong App Data \"{appDb}\"...", "info");
+            await using var appConn = _connections.CreateConnection(useSysDatabase: false);
+            await RunInTransactionAsync(appConn, BuildClearScript(ClearAppTables));
+            log($"✓ Đã xoá cấu hình HĐĐT trong App Data \"{appDb}\".", "ok");
+        }
+        catch (Exception ex) { ok = false; log($"✗ Xoá App Data LỖI: {ex.Message}", "err"); }
+
+        if (i.OwnProxy)
+        {
+            try
+            {
+                log($"Đang xoá {string.Join(", ", ClearProxyTables)} trong database Proxy \"{dbProxy}\"...", "info");
+                await using var proxyConn = _connections.CreateConnectionToDatabase(dbProxy);
+                await RunInTransactionAsync(proxyConn, BuildClearScript(ClearProxyTables));
+                log($"✓ Đã xoá cấu hình HĐĐT trong database Proxy \"{dbProxy}\".", "ok");
+            }
+            catch (Exception ex) { ok = false; log($"✗ Xoá database Proxy \"{dbProxy}\" LỖI: {ex.Message}", "err"); }
+        }
+        else log($"Database Proxy: bỏ qua — nhóm dịch vụ chung của Fast ({FastProxyCode}).", "info");
         return ok;
     }
 

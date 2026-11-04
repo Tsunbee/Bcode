@@ -109,6 +109,7 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
                 case "step1":
                 case "step2":
                 case "update":
+                case "clear":
                 {
                     if (_busy) return;
                     var inputs = root.GetProperty("inputs").Deserialize<EInvoiceInputs>(JsonOpts) ?? Defaults;
@@ -147,6 +148,14 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
             {
                 Js("setupEInvoice.onClear()");
                 var ok = await _service.UpdateKeyAndRunAsync(i, (line, kind) => Js($"setupEInvoice.onLog({J(line)}, {J(kind)})"));
+                Js($"setupEInvoice.onDone({(ok ? "true" : "false")})");
+                break;
+            }
+
+            case "clear":   // xoá hết cấu hình HĐĐT để cài lại (đã xác nhận trong trang)
+            {
+                Js("setupEInvoice.onClear()");
+                var ok = await _service.ClearAsync(i, (line, kind) => Js($"setupEInvoice.onLog({J(line)}, {J(kind)})"));
                 Js($"setupEInvoice.onDone({(ok ? "true" : "false")})");
                 break;
             }

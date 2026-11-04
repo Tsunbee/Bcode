@@ -87,6 +87,7 @@
   <div id="acts">
     <button id="bStep1" title="Dựng script để xem / copy (App setting; thêm Proxy setting khi nhóm dịch vụ riêng), chưa chạy gì">Step 1: View UpdateKey Script</button>
     <button id="bStep2" title="Chạy script: App setting vào App Data; Proxy setting vào database Proxy (khi nhóm dịch vụ riêng)">Step 2: Exec Insert in Server (SQL)</button>
+    <button id="bWipe" title="Xoá HẾT dữ liệu các bảng cấu hình HĐĐT (App Data; + database Proxy khi nhóm dịch vụ riêng) để cài lại từ đầu — không gọi API">Clear cấu hình HĐĐT</button>
     <span class="sp"></span>
     <button class="primary" id="bUpdate" title="Tính pass_hddt từ mật khẩu portal, gọi API UpdateProxy ở Link trung gian, thành công thì chạy luôn script App (+ Proxy khi nhóm dịch vụ riêng) vào database">Cập nhật / Update Key</button>
   </div>
@@ -114,7 +115,7 @@
     else { if (!p.disabled && p.value !== FAST_PROXY) ownCode = p.value; p.disabled = true; p.value = FAST_PROXY; }
   }
   $('ownProxy').onchange = syncProxy;
-  function setBusy(b) { busy = b; ['bStep1', 'bStep2', 'bUpdate', 'bGo'].forEach((id) => { $(id).disabled = b; }); $('state').textContent = b ? 'Đang chạy...' : $('state').textContent; $('state').className = b ? 'run' : $('state').className; }
+  function setBusy(b) { busy = b; ['bStep1', 'bStep2', 'bWipe', 'bUpdate', 'bGo'].forEach((id) => { $(id).disabled = b; }); $('state').textContent = b ? 'Đang chạy...' : $('state').textContent; $('state').className = b ? 'run' : $('state').className; }
   function line(text, kind) { const d = document.createElement('div'); d.className = kind || 'info'; d.textContent = text; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; plain += (plain ? '\n' : '') + text; $('bCopy').disabled = false; }
   function clear() { $('log').innerHTML = ''; plain = ''; $('bCopy').disabled = true; $('state').textContent = ''; $('state').className = ''; }
 
@@ -138,9 +139,16 @@
     $('bGo').textContent = action === 'update' ? 'Cập nhật + chạy script' : 'Chạy Step 2';
     const kn = ($('unit').value.split(/[\s,;]+/).filter(Boolean)[0] || '?');
     $('cText').textContent = 'tài khoản HĐĐT của đơn vị ' + kn + ' (tkhddt, tkhddtdv, dmkysohddt kieu_ky_so = ' + ($('hsm').checked ? '0' : '1 (token)') + ', dmkieuphhddt kieu_ph = 0 — đơn vị khác giữ nguyên), dmstthddt (khoá dùng chung), options m_sd_hddt = 1, m_ky_hddt = ' + ($('hsm').checked ? '0 (Ký HSM)' : '1') + ' trong App Data của workspace đang chọn'
-      + (own ? ', và tkhddt của đơn vị ' + kn + ', edmsp, ekey, edmkh trong database Proxy "' + db + '".' : '. Nhóm dịch vụ chung của Fast: không chạy Proxy setting.');
+      + (own ? ', và tkhddt của đơn vị ' + kn + ', edmsp, ekey, edmkh (chưa có mới thêm) trong database Proxy "' + db + '".' : '. Nhóm dịch vụ chung của Fast: không chạy Proxy setting.');
+    if (action === 'clear') {
+      $('cHead').textContent = 'Clear sẽ XOÁ HẾT dữ liệu (mọi đơn vị) các bảng cấu hình HĐĐT:';
+      $('bGo').textContent = 'Xoá hết để cài lại';
+      $('cText').textContent = 'dmstthddt, tkhddt, tkhddtdv, dmkysohddt, dmkieuphhddt trong App Data của workspace đang chọn'
+        + (own ? ', và tkhddt, edmsp, ekey, edmkh trong database Proxy "' + db + '".' : '. Nhóm dịch vụ chung của Fast: không đụng database Proxy.') + ' Không gọi API, không đổi options.';
+    }
     $('confirm').classList.add('on'); $('confirm').scrollIntoView({ block: 'nearest' });
   }
+  $('bWipe').onclick = () => askConfirm('clear');
   $('bUpdate').onclick = () => askConfirm('update');
   $('bStep2').onclick = () => askConfirm('step2');
   $('bNo').onclick = () => $('confirm').classList.remove('on');

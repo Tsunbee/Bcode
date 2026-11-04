@@ -35,6 +35,8 @@
     <Compile Include="..\Shared\LicenseCodec.cs" Link="Shared\LicenseCodec.cs" />
     <!-- Mã hoá DPAPI mật khẩu / API key khi ghi settings.json — dùng chung với BcodeViewer.App (Viewer đọc chung settings.json). -->
     <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
+    <!-- Alt+Tab quay lại thì trả focus / con trỏ về chỗ cũ (WebView2 không tự làm) — dùng chung với BcodeViewer.App. -->
+    <Compile Include="..\Shared\AppSwitchFocus.cs" Link="Shared\AppSwitchFocus.cs" />
     <!-- SqlWatch (src/SqlWatch, app riêng theo dõi câu SQL qua DMV) — link mã để Ctrl+3 mở được trong tab Bcode (Controls/SqlWatchControl.cs);
          bỏ Program/SelfTest (điểm vào riêng của exe). Project SqlWatch vẫn build độc lập như cũ. -->
     <Compile Include="..\SqlWatch\*.cs" Exclude="..\SqlWatch\Program.cs;..\SqlWatch\SelfTest.cs" LinkBase="SqlWatch" />
@@ -88,7 +90,7 @@
          lookup in AppIcons.cs just returns null when the resource isn't found instead of
          throwing, so the app kept running with no icon instead of erroring). -->
     <EmbeddedResource Include="Assets\bee.ico" />
-    <EmbeddedResource Include="Assets\app.png" />
+    <EmbeddedResource Include="Assets\app.ico" />
     <!-- 2 logo Fast dùng ở góc trái biên bản xác nhận (Services/BbxnService). -->
     <EmbeddedResource Include="Assets\bbxn\logo1.png" LogicalName="bbxn.logo1.png" />
     <EmbeddedResource Include="Assets\bbxn\logo2.png" LogicalName="bbxn.logo2.png" />

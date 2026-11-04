@@ -42,6 +42,9 @@ const SHELL_TOOLBAR = [
   { text: 'Open WebConfig', icon: '🌐', cmd: 'tool.openWebConfig', host: 'openWebConfig', title: 'Mở web.config của site (thư mục chứa App_Data của file đang mở) thành 1 tab' },
 ];
 
+// Thư mục con Fast sinh trong App_Data\Controllers\Structure — thứ tự trong menu Actions → Clear Structure ▸ (như Bcode).
+const BCODE_STRUCTURE_FOLDERS = ['App', 'Sys', 'Ext', 'Dir', 'Filter', 'Grid', 'Lookup'];
+
 class BcodeShell {
   constructor(bcode) {
     this.bcode = bcode;
@@ -149,6 +152,7 @@ class BcodeShell {
       ] },
       { title: 'Actions', items: [
         { label: 'Clear Structure App', shortcut: this.k('tool.clearStructure'), run: () => this.cmd('clearStructure') },
+        { label: 'Clear Structure', submenu: this.structureMenu() },
         { label: 'Open Web.config', shortcut: this.k('tool.openWebConfig'), run: () => this.cmd('openWebConfig') },
         { label: 'Refresh Web.config', shortcut: this.k('tool.refreshWebConfig'), run: () => this.cmd('refreshWebConfig') },
         { sep: true },
@@ -162,6 +166,38 @@ class BcodeShell {
       { title: 'Theme', items: theme, refresh: true },
       { title: '⚙ Toolbar', items: toolbarItems, refresh: true },
     ];
+  }
+
+  /// Menu con Actions → Clear Structure ▸ (như Bcode): Clear từng thư mục con của App_Data\Controllers\Structure, All, Open Structure Folder.
+  /// Mục dựng sẵn theo BCODE_STRUCTURE_FOLDERS; khi mở menu Actions host đọc thư mục thật ở nền (setStructureFolders) → mục không có thư mục
+  /// thì mờ, thư mục lạ (Fast đời sau sinh thêm) tự thêm vào sau.
+  structureMenu() {
+    const found = this.structFolders;   // null = chưa biết (chưa đọc xong / không đọc được) → để mọi mục bấm được, host tự báo nếu thiếu
+    const has = (n) => !found || found.some((f) => f.toLowerCase() === n.toLowerCase());
+    const extras = found ? found.filter((f) => !BCODE_STRUCTURE_FOLDERS.some((k) => k.toLowerCase() === f.toLowerCase()))
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })) : [];
+    const items = [...BCODE_STRUCTURE_FOLDERS, ...extras].map((n) => ({
+      label: 'Clear ' + n,
+      shortcut: this.k(n === 'App' ? 'tool.clearStructure' : 'tool.clearStructure.' + n),
+      disabled: !has(n),
+      title: has(n) ? '' : 'Không có thư mục Structure\\' + n,
+      run: () => this.cmd('clearStructure', n),
+    }));
+    return [...items,
+      { sep: true },
+      { label: 'All', shortcut: this.k('tool.clearStructureAll'), run: () => this.cmd('clearStructure', '*') },
+      { sep: true },
+      { label: 'Open Structure Folder', shortcut: this.k('tool.openStructureFolder'), run: () => this.cmd('openStructureFolder') },
+    ];
+  }
+
+  /// MainForm.PushStructureFolders: {names: [tên thư mục con] | null}. Menu Actions đang mở mà danh sách đổi thì vẽ lại tại chỗ.
+  setStructureFolders(data) {
+    const names = data && Array.isArray(data.names) ? data.names : null;
+    if (JSON.stringify(names) === JSON.stringify(this.structFolders || null)) return;
+    this.structFolders = names;
+    const om = this.openMenu;
+    if (om && om.index === 2) this.showMenu(om.titleEl, 2, undefined, undefined, true);
   }
 
   buildTop() {
@@ -222,10 +258,11 @@ class BcodeShell {
     return menu;
   }
 
-  async showMenu(titleEl, index, x, y) {
+  async showMenu(titleEl, index, x, y, noProbe) {
     this.closeMenu();
     const def0 = this.menus()[index];
     if (def0.refresh) await this.refreshState(); // theme / toolbar state may have changed
+    if (def0.title === 'Actions' && !noProbe) this.cmd('structureFolders'); // thư mục con thật của Structure → setStructureFolders
     const def = this.menus()[index];
     const menu = this.renderMenu(def.items);
     document.body.appendChild(menu);
@@ -263,7 +300,13 @@ class BcodeShell {
       sc.className = 'shShortcut';
       sc.textContent = it.submenu ? '▸' : (it.shortcut || '');
       row.append(check, label, sc);
-      if (it.submenu) {
+      if (it.title) row.title = it.title;
+      if (it.disabled) {
+        // Mục mờ (vd Clear Structure của thư mục không có): không bấm được, bấm không đóng menu.
+        row.style.opacity = '0.45';
+        row.style.cursor = 'default';
+        row.addEventListener('click', (e) => e.stopPropagation());
+      } else if (it.submenu) {
         const sub = this.renderMenu(it.submenu);
         sub.classList.add('shSubmenu');
         row.appendChild(sub);

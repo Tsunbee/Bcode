@@ -187,8 +187,14 @@ public partial class FileLookupControl : UserControl
                 ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("fileLookup.rename"),
                 Enabled = _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false },
             });
-            var deleteItem = _fileContextMenu.Items.Add("Delete file", null, (_, _) => DeleteFile());
+            // Có tick thì xoá các file đã tick (hỏi 1 lần), chưa tick thì xoá file đang chọn.
+            var deleteItem = _fileContextMenu.Items.Add(ticked > 0 ? $"Delete file ({ticked} file đã tick)" : "Delete file", null, (_, _) => DeleteFile());
             deleteItem.Enabled = copyItem.Enabled;
+            // Khôi phục lần xoá gần nhất từ bản sao (DeletedFileBackup); không còn bản sao thì mờ.
+            var lastDeleted = DeletedFileBackup.Latest();
+            _fileContextMenu.Items.Add(new ToolStripMenuItem(
+                lastDeleted is null ? "Khôi phục file vừa xoá" : $"Khôi phục file vừa xoá ({lastDeleted.Files.Count} file, {lastDeleted.Time:HH:mm dd/MM})...",
+                null, (_, _) => BeginInvoke(new Action(RestoreLastDeleted))) { Enabled = lastDeleted is not null });
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };
@@ -1215,24 +1221,130 @@ public partial class FileLookupControl : UserControl
         form.ShowDialog(this);
     }
 
-    /// <summary>"Delete file": xoá hẳn file đang chọn (sau khi xác nhận) — file nằm trên UNC nên không qua Thùng rác được.</summary>
+    /// <summary>"Delete file": có file đã tick thì xoá hết các file đã tick, không thì file đang chọn. Hỏi 1 lần, xoá lần lượt — file lỗi
+    /// (đang mở, không có quyền...) ghi lại rồi xoá tiếp, báo cuối cùng; xong thì quét lại cây. File trên UNC không qua Thùng rác nên trước khi
+    /// xoá chép 1 bản vào %AppData%\Bcode\deleted-files (DeletedFileBackup, giữ AppSettings.FileLookupDeleteBackupDays ngày; 0 = không giữ)
+    /// để "Khôi phục file vừa xoá" — không chép được bản sao thì KHÔNG xoá file đó.</summary>
     private void DeleteFile()
     {
-        if (_tree.SelectedNode?.Tag is not FileLookupNode { IsDirectory: false } node) return;
-        var ok = MessageBox.Show(this, $"Xoá file này?\n\n{node.FullPath}\n\nKhông thể khôi phục.",
-            "Bcode — Delete file", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
-        if (ok != DialogResult.Yes) return;
+        var files = CheckedFiles().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var ticked = files.Count > 0;
+        if (!ticked)
+        {
+            if (_tree.SelectedNode?.Tag is not FileLookupNode { IsDirectory: false } node) return;
+            files.Add(node.FullPath);
+        }
+
+        const int maxListed = 20;
+        var keepDays = Math.Max(_settings.FileLookupDeleteBackupDays, 0);
+        var tail = keepDays > 0
+            ? $"Bcode giữ bản sao {keepDays} ngày — lỡ tay thì chuột phải → Khôi phục file vừa xoá."
+            : "Không thể khôi phục (Template → Tìm file: đang tắt sao lưu file đã xoá).";
+        string question;
+        if (!ticked) question = $"Xoá file này?\n\n{files[0]}\n\n{tail}";
+        else
+        {
+            var listed = string.Join("\n", files.Take(maxListed));
+            if (files.Count > maxListed) listed += $"\n... và {files.Count - maxListed} file khác";
+            question = $"Xoá {files.Count} file đã tick?\n\n{listed}\n\n{tail}";
+        }
+        if (MessageBox.Show(this, question, "Bcode — Delete file", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+            return;
+
+        var failed = new List<string>();
+        var deleted = 0;
+        DeletedFileBackup.Batch? batch = null;
+        Cursor = Cursors.WaitCursor;
         try
         {
-            File.SetAttributes(node.FullPath, FileAttributes.Normal); // file read-only thì File.Delete báo lỗi
-            File.Delete(node.FullPath);
-            _statusLabel.Text = "Đã xoá: " + node.FullPath;
-            RefreshNewFiles();   // quét lại danh sách file (không dùng chỉ mục cũ còn file vừa xoá)
+            if (keepDays > 0)
+            {
+                try { batch = DeletedFileBackup.Begin(keepDays); }
+                catch (Exception ex)
+                {
+                    Cursor = Cursors.Default;
+                    MessageBox.Show(this, $"Không tạo được thư mục sao lưu ({DeletedFileBackup.Root}) nên chưa xoá file nào:\n{ex.Message}",
+                        "Bcode — Delete file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+            foreach (var path in files)
+            {
+                DeletedFileBackup.Entry? saved = null;
+                try
+                {
+                    if (!File.Exists(path)) { deleted++; continue; } // đã bị xoá ở chỗ khác — coi như xong
+                    if (batch is not null)
+                    {
+                        try { saved = DeletedFileBackup.Add(batch, path); }
+                        catch (Exception ex) { failed.Add($"{path}\n    → không chép được bản sao, chưa xoá: {ex.Message}"); continue; }
+                    }
+                    File.SetAttributes(path, FileAttributes.Normal); // file read-only thì File.Delete báo lỗi
+                    File.Delete(path);
+                    deleted++;
+                }
+                catch (Exception ex)
+                {
+                    if (batch is not null && saved is not null) DeletedFileBackup.Drop(batch, saved);
+                    failed.Add($"{path}\n    → {ex.Message}");
+                }
+            }
+            if (batch is not null)
+            {
+                try { DeletedFileBackup.Commit(batch); }
+                catch (Exception ex) { failed.Add($"(không ghi được danh sách sao lưu {batch.Dir}: {ex.Message})"); }
+            }
         }
-        catch (Exception ex)
+        finally { Cursor = Cursors.Default; }
+
+        if (deleted > 0) RefreshNewFiles();   // quét lại danh sách file (không dùng chỉ mục cũ còn file vừa xoá)
+        _statusLabel.Text = !ticked
+            ? (deleted > 0 ? "Đã xoá: " + files[0] : _statusLabel.Text)
+            : failed.Count == 0 ? $"Đã xoá {deleted} file." : $"Đã xoá {deleted}/{files.Count} file, {failed.Count} file lỗi.";
+        if (failed.Count == 0) return;
+        if (!ticked)
         {
-            MessageBox.Show(this, $"Không xoá được file:\n{ex.Message}", "Bcode — Delete file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, $"Không xoá được file:\n{failed[0]}", "Bcode — Delete file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
         }
+        var msg = string.Join("\n", failed.Take(maxListed));
+        if (failed.Count > maxListed) msg += $"\n... và {failed.Count - maxListed} file khác";
+        MessageBox.Show(this, $"Đã xoá {deleted}/{files.Count} file. Không xoá được {failed.Count} file:\n\n{msg}",
+            "Bcode — Delete file", MessageBoxButtons.OK, MessageBoxIcon.Error);
+    }
+
+    /// <summary>"Khôi phục file vừa xoá": lấy lần xoá mới nhất còn bản sao (DeletedFileBackup.Latest), hỏi rồi chép trả về đúng chỗ cũ —
+    /// file đích đã có thì bỏ qua (không ghi đè). Bấm lần nữa = lùi về lần xoá trước đó.</summary>
+    private void RestoreLastDeleted()
+    {
+        var batch = DeletedFileBackup.Latest();
+        if (batch is null)
+        {
+            MessageBox.Show(this, "Không còn bản sao file đã xoá nào để khôi phục.", "Bcode — Khôi phục file", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        const int maxListed = 20;
+        var listed = string.Join("\n", batch.Files.Take(maxListed).Select(f => f.Original));
+        if (batch.Files.Count > maxListed) listed += $"\n... và {batch.Files.Count - maxListed} file khác";
+        if (MessageBox.Show(this, $"Khôi phục {batch.Files.Count} file xoá lúc {batch.Time:HH:mm:ss dd/MM/yyyy}?\n\n{listed}\n\nFile đã có lại ở chỗ cũ thì giữ nguyên, không ghi đè.",
+                "Bcode — Khôi phục file", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return;
+
+        DeletedFileBackup.RestoreResult result;
+        Cursor = Cursors.WaitCursor;
+        try { result = DeletedFileBackup.Restore(batch); }
+        finally { Cursor = Cursors.Default; }
+
+        if (result.Restored.Count > 0) RefreshNewFiles();
+        _statusLabel.Text = $"Đã khôi phục {result.Restored.Count}/{batch.Files.Count} file.";
+        if (result.AlreadyExists.Count == 0 && result.Failed.Count == 0) return;
+        var parts = new List<string> { $"Đã khôi phục {result.Restored.Count}/{batch.Files.Count} file." };
+        if (result.AlreadyExists.Count > 0)
+            parts.Add($"Đã có sẵn ở chỗ cũ, giữ nguyên ({result.AlreadyExists.Count}):\n" + string.Join("\n", result.AlreadyExists.Take(maxListed)));
+        if (result.Failed.Count > 0)
+            parts.Add($"Không khôi phục được ({result.Failed.Count}) — bản sao còn giữ, bấm Khôi phục lần nữa để thử lại:\n" + string.Join("\n", result.Failed.Take(maxListed)));
+        MessageBox.Show(this, string.Join("\n\n", parts), "Bcode — Khôi phục file", MessageBoxButtons.OK,
+            result.Failed.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
     }
 
     /// <summary>"Clone files": nhân bản file đang chọn ngay trong thư mục của nó với tên mới (vd SVTran.xml → SVTran2.xml). Nếu

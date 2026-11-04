@@ -277,6 +277,7 @@ public class EditorBridge
         fcodeSqlPassword = _settings.FcodeSqlPassword,
         sqlRegionTags = _settings.SqlRegionTags,
         editorFontFamily = _settings.EditorFontFamily,
+        matchHighlightColor = _settings.MatchHighlightColor,
         fcodeThemeStyle = _settings.FcodeThemeStyle,
         showMinimap = _settings.ShowMinimap,
         autoFitFont = _settings.AutoFitFont,
@@ -318,6 +319,8 @@ public class EditorBridge
             _settings.FcodeSqlPassword = S("fcodeSqlPassword");
             _settings.SqlRegionTags = S("sqlRegionTags").Trim();
             _settings.EditorFontFamily = S("editorFontFamily").Trim();
+            var matchColor = S("matchHighlightColor").Trim();
+            _settings.MatchHighlightColor = matchColor == "theme" || System.Text.RegularExpressions.Regex.IsMatch(matchColor, "^#[0-9a-fA-F]{6}$") ? matchColor.ToLowerInvariant() : "";
             _settings.ShowMinimap = B("showMinimap");
             var aiPos = S("aiSidebarPosition") is "bottom" or "top" ? S("aiSidebarPosition") : "right";
             var aiPosChanged = !string.Equals(aiPos, _settings.AiSidebarPosition, StringComparison.OrdinalIgnoreCase);
@@ -1309,6 +1312,8 @@ public class EditorBridge
             // Font named by the theme (Fcode .xml in "fcode" style) wins over the one in Settings.
             editorFont = t.EditorFont ?? (string.IsNullOrWhiteSpace(_settings.EditorFontFamily) ? null : _settings.EditorFontFamily),
             indentGuides = !t.HideIndentGuides,
+            // Màu đánh dấu chỗ trùng tên (Settings → Giao diện): "" = đậm mặc định, "theme" = để theme tự tô, "#rrggbb" = tự chọn.
+            matchHighlight = _settings.MatchHighlightColor ?? "",
         });
     }
 

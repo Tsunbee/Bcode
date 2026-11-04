@@ -27,6 +27,7 @@
   </div>
   <div class="pane">
     <div class="muted">File sẽ clone (sửa New Name rồi bấm Clone):</div>
+    <div class="row" title="Điền sẵn tiêu đề hiện tại (v/e của trang Main, không có thì &lt;title&gt; của Grid). Sửa thì mọi v=/e= bằng tiêu đề cũ trong file clone (Main, title của Grid/Dir, dòng tiêu đề của mẫu in Report) đổi sang tiêu đề mới."><span class="muted">Tiêu đề mới V:</span><input type="text" id="titleV" class="grow" spellcheck="false"><span class="muted">E:</span><input type="text" id="titleE" class="grow" spellcheck="false"></div>
     <div class="row"><span class="muted">Đổi tên hàng loạt:</span><input type="text" id="batch" class="grow" placeholder="vd SVTranCustom — giữ đuôi file gốc" spellcheck="false"><button id="bBatch">Áp dụng cho tất cả</button></div>
     <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Thư mục</th><th style="width:30%">File gốc</th><th style="width:30%">New Name</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
   </div>
@@ -75,11 +76,11 @@
     rows.forEach((r) => { const o = files[r.id].orig, dot = o.lastIndexOf('.'); r.newName = b + (dot > 0 ? o.slice(dot) : ''); });
     renderRows();
   };
-  $('bClone').onclick = () => post('clone', { rows });
+  $('bClone').onclick = () => post('clone', { rows, title: { v: $('titleV').value, e: $('titleE').value } });
   $('bClose').onclick = () => post('close');
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target.tagName !== 'INPUT') post('close'); });
   window.copyStd = {
-    init(d) { files = d.files; $('tree').innerHTML = nodeHtml(d.tree); say(files.length + ' file.'); },
+    init(d) { files = d.files; $('tree').innerHTML = nodeHtml(d.tree); const t = d.title || {}; $('titleV').value = t.v || ''; $('titleE').value = t.e || ''; say(files.length + ' file.'); },
     onStatus: say,
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');

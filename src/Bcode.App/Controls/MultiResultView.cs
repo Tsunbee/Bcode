@@ -56,6 +56,7 @@ public class MultiResultView : UserControl
                 try { Clipboard.SetText(t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }
             }
             else if (a.GetString() == "save") Save(root);
+            else if (a.GetString() == "designFields") DesignFields(root);
             else if (a.GetString() == "keys")   // lưới focus / blur: phím copy tên cột (result.copyColumnName) thắng phím toàn cục trùng tổ hợp
             {
                 var combo = Bcode.App.UI.ShortcutRegistry.Get("result.copyColumnName");
@@ -114,6 +115,23 @@ public class MultiResultView : UserControl
         Action run = () => _ = ResultExport.SaveAsync(anchor, table, xlsx, rows, tables.Count > 1 ? $"Bảng {index + 1}" : null, quick);
         if (anchor.IsHandleCreated) anchor.BeginInvoke(run);
         else SynchronizationContext.Current?.Post(_ => run(), null);
+    }
+
+    /// <summary>Menu chuột phải "Generate Design Fields": {cols: [{n, t}]} (tên + khoá kiểu của trang — dùng được cả sau Restore) →
+    /// sinh khối &lt;fields&gt;/&lt;views&gt; như FCode (<see cref="Services.DesignFieldsGenerator"/>) và gửi lại trang {type: "designFields", text}.</summary>
+    private void DesignFields(JsonElement root)
+    {
+        if (!root.TryGetProperty("cols", out var cs) || cs.ValueKind != JsonValueKind.Array) return;
+        var cols = new List<(string, Services.DesignFieldsGenerator.Kind)>();
+        foreach (var c in cs.EnumerateArray())
+        {
+            var name = c.TryGetProperty("n", out var n) ? n.GetString() ?? "" : "";
+            var key = c.TryGetProperty("t", out var t) ? t.GetString() ?? "" : "";
+            cols.Add((name, Services.DesignFieldsGenerator.KindOf(key)));
+        }
+        if (cols.Count == 0) return;
+        var text = Services.DesignFieldsGenerator.Generate(cols);
+        _web.PostJson(JsonSerializer.Serialize(new { type = "designFields", text }));
     }
 
     /// <summary>JSON lần gửi gần nhất (bảng đang hiện) — để tab SQL "ngủ đông" rồi dựng lại y như cũ (<see cref="Restore"/>).</summary>

@@ -59,6 +59,10 @@ const BCODE_COMMANDS = [
 
   ['Công cụ', 'tool.runSql', 'Chạy SQL tại con trỏ', 'Ctrl+Enter', () => window.bcodeSqlRun.run()],
   ['Công cụ', 'tool.clearStructure', 'Clear Structure App', '', () => window.bcodeShell && window.bcodeShell.cmd('clearStructure')],
+  ...['Sys', 'Ext', 'Dir', 'Filter', 'Grid', 'Lookup'].map((n) => ['Công cụ', 'tool.clearStructure.' + n, 'Clear Structure ' + n + ' (xoá file trong Structure\\' + n + ')', '',
+    () => window.bcodeShell && window.bcodeShell.cmd('clearStructure', n)]),
+  ['Công cụ', 'tool.clearStructureAll', 'Clear Structure All (xoá file trong mọi thư mục con của Structure)', '', () => window.bcodeShell && window.bcodeShell.cmd('clearStructure', '*')],
+  ['Công cụ', 'tool.openStructureFolder', 'Open Structure Folder (mở App_Data\\Controllers\\Structure)', '', () => window.bcodeShell && window.bcodeShell.cmd('openStructureFolder')],
   ['Công cụ', 'tool.openWebConfig', 'Open Web.config (mở web.config của site)', '', () => window.bcodeShell && window.bcodeShell.cmd('openWebConfig')],
   ['Công cụ', 'tool.refreshWebConfig', 'Reset WebConfig', '', () => window.bcodeShell && window.bcodeShell.cmd('refreshWebConfig')],
   ['Công cụ', 'tool.translateDict', 'Từ điển dịch (Việt → Anh)', '', () => window.bcodeDialogs.showTranslateDictionary()],

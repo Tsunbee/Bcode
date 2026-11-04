@@ -162,6 +162,21 @@ class BcodeSettingsDialog {
     const fcodeStyle = select([['bcode', 'Bcode — chỉ đổi màu editor'], ['fcode', 'Fcode — giống FcodeViewer']], s.fcodeThemeStyle === 'fcode' ? 'fcode' : 'bcode');
     row('Kiểu theme Fcode (.xml):', fcodeStyle);
     note('Áp dụng cho theme nhập từ file .xml của FcodeViewer; khung app (menu, toolbar, cây thư mục) luôn giữ màu Dark+/Light+. Bcode: chỉ editor đổi màu. Fcode: editor còn dùng font ghi trong theme (<Font name>, vượt mục Phông chữ ở trên) và bỏ các đường kẻ dọc thụt lề như Fcode.');
+    // Đánh dấu chỗ trùng tên: "" = vàng cam đậm (mặc định), "theme" = theme tự tô (nhạt như cũ), "#rrggbb" = màu tự chọn (theme.js applyMatchHighlight).
+    const mhPref = String(s.matchHighlightColor || '').toLowerCase();
+    const mhMode = select([['auto', 'Đậm — vàng cam, có viền (mặc định)'], ['custom', 'Đậm — màu tự chọn bên phải'], ['theme', 'Nhạt — theo màu của theme']],
+      mhPref === 'theme' ? 'theme' : (/^#[0-9a-f]{6}$/.test(mhPref) ? 'custom' : 'auto'));
+    const mhColor = document.createElement('input');
+    mhColor.type = 'color';
+    mhColor.className = 'setInput setColor';
+    mhColor.value = /^#[0-9a-f]{6}$/.test(mhPref) ? mhPref : '#ffb000';
+    mhColor.title = 'Màu đánh dấu chỗ trùng tên';
+    const mhSync = () => { mhColor.disabled = mhMode.value !== 'custom'; };
+    mhMode.onchange = mhSync;
+    mhColor.oninput = () => { mhMode.value = 'custom'; };
+    mhSync();
+    row('Đánh dấu từ trùng:', mhMode, mhColor);
+    note('Double-click (hoặc đứng con trỏ trên) một tên thì mọi chỗ cùng tên trong file được tô nền + viền và có vạch trên thanh cuộn bên phải. Nền chỉ phủ mờ nên chữ vẫn đọc được.');
     section('Hiển thị editor');
     const showMinimap = row('', check('Hiện thanh minimap (bản thu nhỏ của code) bên phải editor', s.showMinimap !== false));
     const autoFit = row('', check('Tự thu nhỏ cỡ chữ khi khung editor bị hẹp (vd kéo rộng khung Claude / Gemini) để thấy đủ code', s.autoFitFont !== false));
@@ -684,6 +699,7 @@ class BcodeSettingsDialog {
         enableFastGhost: fastGhost.box.checked, fastGhostLong: fastLong.box.checked, fastSourceVersionsPath: versionsPath.value, knowledgeDir: knowledgeDir.value,
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
+        matchHighlightColor: mhMode.value === 'theme' ? 'theme' : (mhMode.value === 'custom' ? mhColor.value : ''),
         showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,
       };
       try {

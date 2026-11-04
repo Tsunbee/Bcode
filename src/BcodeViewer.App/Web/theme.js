@@ -179,6 +179,9 @@ class BcodeTheme {
     // above, which is what makes it look like the same theme as in VSCode.
     for (const [key, value] of Object.entries(theme.monacoColors || {})) set(key, value);
 
+    // Đánh dấu chỗ trùng tên (double-click / đứng trên một tên → mọi chỗ cùng tên): đè lên cả theme nhập từ VS Code.
+    this.applyMatchHighlight(theme, set);
+
     // Dấu mở/đóng CDATA (<![CDATA[ và ]]>): theme Fcode tô cùng màu với chuỗi; các theme khác không có luật riêng nên để trắng như chữ thường.
     // Gán theo màu "string" của chính theme (hoặc màu chuỗi mặc định của Dark+/Light+) trừ khi theme tự khai báo delimiter.cdata.
     const rules = (theme.rules || []).map((r) => {
@@ -201,6 +204,23 @@ class BcodeTheme {
       rules,
       colors: editorColors,
     };
+  }
+
+  /// Màu nền + viền của các chỗ trùng tên với từ đang chọn (selectionHighlight, khi double-click) hoặc từ con trỏ đang đứng
+  /// (wordHighlight), kèm vạch trên thanh cuộn để biết các chỗ trùng nằm đâu trong file. Màu gốc của Monaco (#add6ff26…) quá nhạt.
+  /// Nền chỉ phủ ~30% (Monaco vẽ dưới chữ) nên chữ vẫn đọc được; viền đậm làm chỗ trùng nổi rõ ở mọi theme.
+  /// Settings "Đánh dấu từ trùng": "" = vàng cam (mặc định), "theme" = để theme tự tô như cũ, "#rrggbb" = màu tự chọn.
+  applyMatchHighlight(theme, set) {
+    const pref = String(theme.matchHighlight || '').trim().toLowerCase();
+    if (pref === 'theme') return;
+    const base = /^#[0-9a-f]{6}$/.test(pref) ? pref : (theme.isDark ? '#ffb000' : '#e08e00');
+    const fill = base + (theme.isDark ? '4d' : '5c'); // ~30% tối / ~36% sáng
+    const line = base + 'e6';
+    for (const k of ['selectionHighlight', 'wordHighlight', 'wordHighlightStrong', 'wordHighlightText']) {
+      set(`editor.${k}Background`, fill);
+      set(`editor.${k}Border`, line);
+      set(`editorOverviewRuler.${k}Foreground`, line);
+    }
   }
 }
 

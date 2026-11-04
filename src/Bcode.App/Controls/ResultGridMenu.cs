@@ -426,34 +426,33 @@ public static class ResultGridMenu
             return;
         }
 
-        var lines = table.Columns.Cast<DataColumn>().Select(c => $"[{c.ColumnName}] {GuessSqlType(c)} {(c.AllowDBNull ? "NULL" : "NOT NULL")}");
-        var script = string.Join(",\n", lines);
-        Clipboard.SetText(script);
-        MessageBox.Show(Owner(grid), "Đã sinh danh sách thiết kế trường (kiểu dữ liệu suy đoán từ dữ liệu trả về) và copy vào clipboard:\n\n" + script,
-            "Bcode — Generate Design Fields", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        // Như FCode: khối <fields> + <views><view id="Grid"> cho file Grid (Services.DesignFieldsGenerator), hiện trong hộp xem chữ; copy sẵn vào clipboard.
+        var script = Services.DesignFieldsGenerator.Generate(table);
+        try { Clipboard.SetText(script); } catch { /* clipboard đang bị chương trình khác giữ */ }
+        ShowDesignFieldsText(Owner(grid), script);
     }
 
-    private static string GuessSqlType(DataColumn c)
+    /// <summary>Hộp "Generate Design Fields In Grid" (như FCode): ô chữ đơn cách, chọn/copy được, Tab rộng 4.</summary>
+    private static void ShowDesignFieldsText(IWin32Window? owner, string text)
     {
-        if (c.DataType == typeof(int)) return "INT";
-        if (c.DataType == typeof(long)) return "BIGINT";
-        if (c.DataType == typeof(short)) return "SMALLINT";
-        if (c.DataType == typeof(byte)) return "TINYINT";
-        if (c.DataType == typeof(decimal)) return "DECIMAL(18,2)";
-        if (c.DataType == typeof(double) || c.DataType == typeof(float)) return "FLOAT";
-        if (c.DataType == typeof(bool)) return "BIT";
-        if (c.DataType == typeof(DateTime)) return "DATETIME";
-        if (c.DataType == typeof(Guid)) return "UNIQUEIDENTIFIER";
-        if (c.DataType == typeof(byte[])) return "VARBINARY(MAX)";
-        if (c.DataType == typeof(string))
+        using var form = new Form
         {
-            var maxLen = 0;
-            foreach (DataRow row in c.Table!.Rows)
-                if (row[c] is string s) maxLen = Math.Max(maxLen, s.Length);
-            var size = maxLen <= 0 ? 50 : Math.Min(4000, maxLen + Math.Max(10, maxLen / 5));
-            return $"NVARCHAR({size})";
-        }
-        return "NVARCHAR(255)";
+            Text = "Generate Design Fields In Grid",
+            StartPosition = FormStartPosition.CenterParent,
+            Size = new Size(1000, 800),
+            ShowInTaskbar = false,
+            MinimizeBox = false,
+        };
+        var box = new TextBox
+        {
+            Multiline = true, ReadOnly = true, WordWrap = false, ScrollBars = ScrollBars.Both, Dock = DockStyle.Fill,
+            Font = new Font("Consolas", 10f), Text = text, BackColor = SystemColors.Window,
+        };
+        form.Controls.Add(box);
+        form.KeyPreview = true;
+        form.KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) form.Close(); };
+        form.Shown += (_, _) => { box.SelectionStart = 0; box.SelectionLength = 0; };
+        form.ShowDialog(owner);
     }
 
     private static void ShowMaxlength(DataGridView grid)

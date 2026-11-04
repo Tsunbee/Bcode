@@ -27,15 +27,19 @@ public static class AppIcons
         }
     }
 
-    /// <summary>16x16 bee bitmap used as the icon in front of every File Lookup tree node.</summary>
+    /// <summary>Icon BcodeViewer (chữ B trên nền xanh, đồng bộ với icon Bcode) đặt trước mỗi file trong cây File Lookup.
+    /// Lấy từ Assets/app.ico (bản sao icon của BcodeViewer, có sẵn khung 16/20/24/32/40/48…) đúng khung theo DPI
+    /// (16 * Dpi / 96) để ImageList không phải co giãn ảnh.</summary>
     public static Bitmap? FileTreeBitmap
     {
         get
         {
             if (_fileTreeBitmap is not null) return _fileTreeBitmap;
-            using var stream = OpenResource("app.png");
+            using var stream = OpenResource("app.ico");
             if (stream is null) return null;
-            return _fileTreeBitmap = new Bitmap(stream);
+            var px = 16 * UiScale.Dpi / 96;
+            using var icon = new Icon(stream, new Size(px, px));
+            return _fileTreeBitmap = icon.ToBitmap();
         }
     }
 

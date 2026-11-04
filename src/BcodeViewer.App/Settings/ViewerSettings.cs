@@ -120,6 +120,11 @@ public class ViewerSettings
     /// 'Roboto', Consolas, monospace.</summary>
     public string EditorFontFamily { get; set; } = "";
 
+    /// <summary>Màu đánh dấu các chỗ trùng tên với từ đang chọn / đang đứng (double-click một hàm → mọi chỗ cùng tên):
+    /// "" = đậm, vàng cam (mặc định, có viền + vạch trên thanh cuộn); "theme" = để theme tự tô (nhạt như Monaco gốc);
+    /// "#rrggbb" = màu tự chọn, tô đậm như mặc định. Xem Web/theme.js applyMatchHighlight.</summary>
+    public string MatchHighlightColor { get; set; } = "";
+
     /// <summary>Kiểu hiển thị theme nhập từ file .xml của FcodeViewer (khung app luôn giữ Dark+/Light+): "bcode" =
     /// chỉ đổi màu editor; "fcode" = editor còn dùng font ghi trong theme (&lt;Font name&gt;) và bỏ đường kẻ thụt lề.</summary>
     public string FcodeThemeStyle { get; set; } = "bcode";

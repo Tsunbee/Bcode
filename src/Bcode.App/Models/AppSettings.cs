@@ -128,6 +128,10 @@ public class AppSettings
     /// Sửa ở Template → "Tìm file"; tab đang mở nhận ngay qua <see cref="Services.FileLookupService.SearchModeChanged"/>.</summary>
     public bool FileLookupSearchOnEnter { get; set; }
 
+    /// <summary>File Lookup → Delete file: giữ bản sao file đã xoá bao nhiêu ngày để "Khôi phục file vừa xoá" (Services/DeletedFileBackup.cs,
+    /// %AppData%\Bcode\deleted-files). 0 = không sao lưu (xoá hẳn như trước). Sửa ở Template → "Tìm file".</summary>
+    public int FileLookupDeleteBackupDays { get; set; } = 7;
+
     // ---- File Lookup → Search Box (String search): các file/thư mục bị LOẠI khi tìm nội dung. Mặc định = đúng như trước đây; sửa ở Template → "Tìm file".
     /// <summary>Đuôi file ĐƯỢC tìm khi File Type là *.* (chỉ quét các đuôi này; để trống = mọi đuôi trừ 2 danh sách loại trừ). Gõ rõ đuôi ở File Type thì không áp.</summary>
     public string SearchIncludeExtensions { get; set; } = ".xml, .f, .txt, .js, .sql, .ent, .xsd, .css, .config, .json, .html";

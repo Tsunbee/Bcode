@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace SqlWatch;
 
 // partial: Bcode nhúng form này vào tab Ctrl+3 (phần nối nằm ở Bcode.App/Controls/SqlWatchControl.Form.cs).
@@ -41,6 +43,8 @@ public sealed partial class MainForm : Form
     private readonly List<CapturedEvent> _captured = [];
     private readonly CheckBox _autoScroll = new() { Text = "Tự cuộn", Checked = true, AutoSize = true };
     private readonly DataGridView _grid = new();
+    // Tiêu đề khung Chi tiết — đổi chữ khi dòng SP:Starting đang hiện cả batch gọi nó (ShowSelected).
+    private readonly Label _detailCaption = new() { Text = DetailCaption };
     private readonly TextBox _detail = new()
     {
         Multiline = true,
@@ -321,13 +325,10 @@ public sealed partial class MainForm : Form
 
         var detailFrame = Frame();
         detailFrame.Dock = DockStyle.Fill;
-        var detailCaption = new Label
-        {
-            Text = "Chi tiết  ·  double-click một dòng để copy",
-            Dock = DockStyle.Top,
-            Height = S(26),
-            Padding = new Padding(S(10), S(6), 0, 0)
-        };
+        var detailCaption = _detailCaption;
+        detailCaption.Dock = DockStyle.Top;
+        detailCaption.Height = S(26);
+        detailCaption.Padding = new Padding(S(10), S(6), 0, 0);
         Themed(detailCaption, label => { label.ForeColor = _pal.Muted; label.BackColor = _pal.Surface; });
         var detailBody = new Panel { Dock = DockStyle.Fill, Padding = new Padding(S(10), S(2), S(4), S(4)) };
         Themed(detailBody, panel => panel.BackColor = _pal.Surface);
@@ -849,6 +850,7 @@ public sealed partial class MainForm : Form
         {
             _grid.Rows.Clear();
             _detail.Clear();
+            _detailCaption.Text = DetailCaption;
             _shown = 0;
             foreach (var row in _captured)
             {
@@ -911,17 +913,50 @@ public sealed partial class MainForm : Form
     {
         // Khung Chi tiết hiện đúng câu mà Copy SQL Command / Debug store sẽ dùng.
         // Câu rất dài chỉ hiện phần đầu (khung khỏi nặng); Copy / double-click / Ctrl+C / Copy SQL Command / Debug store luôn lấy cả câu.
-        if (_grid.CurrentRow?.Tag is not CapturedEvent)
+        if (SelectedEvent() is not { } row)
             return;
         var sql = SelectedCommand();
         var shown = sql.Length <= DetailMaxLength
             ? sql
             : sql[..DetailMaxLength] + "\n\n-- ... còn " + (sql.Length - DetailMaxLength).ToString("N0") + " ký tự nữa (cả câu "
               + sql.Length.ToString("N0") + " ký tự) — double-click dòng / Ctrl+C / Copy SQL Command lấy đủ cả câu";
-        _detail.Text = shown.Replace("\r\n", "\n").Replace("\n", Environment.NewLine);
+        // Chỉ để hiện: mọi kiểu xuống dòng (CR lẻ, LF lẻ, U+2028…) thành xuống dòng thật, dồn chuỗi dòng trống còn 1 dòng —
+        // batch của Fast có thể chèn nhiều dòng trống trước "exec …" làm câu gọi rơi xuống dưới khung. Copy vẫn lấy nguyên văn.
+        var text = LineBreak.Replace(shown, Environment.NewLine);
+        text = BlankRun.Replace(text, Environment.NewLine + Environment.NewLine);
+        _detail.Text = text;
+
+        // Dòng SP:Starting hiện cả batch đã gọi nó (có declare / gán biến thì mới chạy lại / debug được) — cuộn tới câu exec của
+        // dòng này cho thấy ngay, tiêu đề khung ghi rõ đang xem batch.
+        var batchOfCall = row.EventName == "SP:Starting" && !sql.Equals(row.Text.Trim(), StringComparison.Ordinal);
+        _detailCaption.Text = batchOfCall
+            ? $"Chi tiết  ·  cả batch gọi {row.ObjectName} (cả declare + exec — chạy lại / debug được)  ·  double-click một dòng để copy"
+            : DetailCaption;
+        if (!batchOfCall)
+            return;
+        var call = LineBreak.Replace(row.Text.Trim(), "\n").Split('\n')[0].Trim();
+        var at = call.Length == 0 ? -1 : text.IndexOf(call[..Math.Min(call.Length, 80)], StringComparison.OrdinalIgnoreCase);
+        // Câu exec đã nằm trong khung (batch ngắn) thì giữ nguyên — thấy cả declare lẫn exec. Không thì cuộn hết xuống cuối rồi cuộn
+        // ngược lên dòng trên exec 2 dòng: dòng exec chắc chắn hiện trong khung (đo trên batch 33 dòng: trước đây nằm ngoài khung).
+        var lineHeight = TextRenderer.MeasureText("X", _detail.Font).Height;
+        if (at < 0 || _detail.GetPositionFromCharIndex(at).Y + lineHeight * 2 <= _detail.ClientSize.Height)
+            return;
+        var top = _detail.GetFirstCharIndexFromLine(Math.Max(0, _detail.GetLineFromCharIndex(at) - 2));
+        _detail.Select(_detail.TextLength, 0);
+        _detail.ScrollToCaret();
+        _detail.Select(Math.Max(0, top), 0);
+        _detail.ScrollToCaret();
     }
 
+    /// <summary>Dòng đang chọn trên lưới. Lấy SelectedRows trước CurrentRow: đổi dòng bằng phím / code (Tự cuộn chọn dòng mới)
+    /// thì SelectionChanged chạy khi CurrentRow vẫn là dòng CŨ → Chi tiết từng hiện nội dung dòng trước.</summary>
+    private CapturedEvent? SelectedEvent() =>
+        (_grid.SelectedRows.Count > 0 ? _grid.SelectedRows[0] : _grid.CurrentRow)?.Tag as CapturedEvent;
+
     private const int DetailMaxLength = 20000;
+    private const string DetailCaption = "Chi tiết  ·  double-click một dòng để copy";
+    private static readonly Regex LineBreak = new(@"\r\n|\r|\n| | |\u0085", RegexOptions.Compiled);
+    private static readonly Regex BlankRun = new(@"\r\n(?:[ \t]*\r\n){2,}", RegexOptions.Compiled);
 
     private void CopyDetail()
     {
@@ -944,6 +979,7 @@ public sealed partial class MainForm : Form
         _captured.Clear();
         _grid.Rows.Clear();
         _detail.Clear();
+        _detailCaption.Text = DetailCaption;
         _shown = 0;
         UpdateStatus();
     }
@@ -1036,7 +1072,7 @@ public sealed partial class MainForm : Form
     /// - Chỉ có "EXEC tên" (RPC trên SQL 2008, không đọc được giá trị tham số): dựng khung declare + exec từ tham số trong định nghĩa.</summary>
     private string SelectedCommand()
     {
-        if (_grid.CurrentRow?.Tag is not CapturedEvent row)
+        if (SelectedEvent() is not { } row)
             return "";
         var name = row.ObjectName;
         if (row.EventName == "SP:Starting" && name.Length > 0)
@@ -1095,7 +1131,7 @@ public sealed partial class MainForm : Form
             return;
         }
         ReportStatus($"Đã copy SQL Command ({sql.Length} ký tự){cut} — đã mở SQL Query và dán vào.");
-        OpenInSqlQuery(sql, (_grid.CurrentRow?.Tag as CapturedEvent)?.DatabaseName ?? "");
+        OpenInSqlQuery(sql, SelectedEvent()?.DatabaseName ?? "");
     }
 
     private void DebugSelected()

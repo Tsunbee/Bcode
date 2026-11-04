@@ -10,5 +10,8 @@ square, exported at multiple sizes), not hand-drawn or taken from anywhere else.
   taskbar icon) — see `UI/AppIcons.cs`.
 - `bee_16.png` — the same bee at a fixed 16x16, used as the icon in front of every node
   (file and folder) in the File Lookup tree.
+- `app.ico` — bản sao icon BcodeViewer (`src/BcodeViewer.App/Assets/app.ico`), nhúng làm resource;
+  là icon đặt trước mỗi file trong cây File Lookup (`AppIcons.FileTreeBitmap`, lấy khung đúng DPI).
+  Đổi icon BcodeViewer thì chép lại file này.
 - `bee_master.png` — the source square crop everything else was resized from, kept in case
   the icon needs to be re-exported at a different size later.

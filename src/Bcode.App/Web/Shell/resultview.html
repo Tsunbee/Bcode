@@ -88,7 +88,7 @@
   #gsug div { padding: .15rem .55rem; cursor: pointer; color: var(--text); white-space: nowrap; display: flex; justify-content: space-between; gap: 1rem; }
   #gsug div small { color: var(--text-muted); }
   #gsug div.on, #gsug div:hover { background: var(--selection); }
-  #dlg pre { margin: 0; font-family: Consolas, monospace; font-size: .92rem; white-space: pre; user-select: text; -webkit-user-select: text; }
+  #dlg pre { margin: 0; font-family: Consolas, monospace; font-size: .92rem; white-space: pre; tab-size: 4; user-select: text; -webkit-user-select: text; }
   #dlg .btns { display: flex; gap: .5rem; justify-content: flex-end; }
   #sumbar { flex: none; display: none; padding: .25rem .8rem; background: var(--panel-alt); border-top: 1px solid var(--border); color: var(--text-muted); font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #sumbar b { color: var(--text); font-weight: 600; margin-right: .9rem; }
@@ -579,19 +579,11 @@
     dialog('Maxlength Column Content', '<pre>' + esc(text) + '</pre><div style="color:var(--text-muted)">Độ dài nội dung lớn nhất từng cột (đã copy vào clipboard).</div>', [{ label: 'Đóng', primary: true }]);
   }
 
-  function sqlType(t, i) {
-    const c = t.cols[i];
-    switch (c.t) {
-      case 'int': return 'INT'; case 'long': return 'BIGINT'; case 'short': return 'SMALLINT'; case 'byte': return 'TINYINT';
-      case 'decimal': return 'DECIMAL(18,2)'; case 'double': return 'FLOAT'; case 'bool': return 'BIT'; case 'datetime': return 'DATETIME';
-      case 'guid': return 'UNIQUEIDENTIFIER'; case 'bytes': return 'VARBINARY(MAX)';
-      default: { let m = 0; for (const r of t.rows) { const v = r[i]; if (v != null && v.length > m) m = v.length; } return 'NVARCHAR(' + (m <= 0 ? 50 : Math.min(4000, m + Math.max(10, Math.floor(m / 5)))) + ')'; }
-    }
-  }
-  function designFields(t) {
-    const text = t.cols.map((c, i) => '[' + c.n + '] ' + sqlType(t, i) + ' ' + (t.rows.some((r) => r[i] == null) ? 'NULL' : 'NOT NULL')).join(',\n');
+  // Như FCode: C# (DesignFieldsGenerator) sinh <fields> + <views> cho file Grid từ tên + kiểu cột (header v/e tra header.xml), gửi lại {type:'designFields'}.
+  function designFields(t) { post('designFields', { cols: t.cols.map((c) => ({ n: c.n, t: c.t })) }); }
+  function showDesignFields(text) {
     copyText(text, 'Đã copy Design Fields.');
-    dialog('Generate Design Fields', '<pre>' + esc(text) + '</pre><div style="color:var(--text-muted)">Kiểu dữ liệu suy đoán từ dữ liệu trả về (đã copy vào clipboard).</div>', [{ label: 'Đóng', primary: true }]);
+    dialog('Generate Design Fields In Grid', '<pre>' + esc(text) + '</pre><div style="color:var(--text-muted)">Đã copy vào clipboard.</div>', [{ label: 'Đóng', primary: true }]);
   }
 
   function compareDialog(t) {
@@ -618,6 +610,7 @@
     const d = e.data;
     if (d && d.type === 'tables') load(d);
     else if (d && d.type === 'clear') { S.tables = []; render(); }
+    else if (d && d.type === 'designFields') showDesignFields(d.text || '');
   });
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   // Template giao diện đổi mật độ → biến --d trên <html> đổi: đọc lại và dựng lại lưới.

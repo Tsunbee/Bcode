@@ -12,6 +12,8 @@ internal sealed class CopySourceStandardPage : DialogPage
     private readonly DataGridView _grid;
     private readonly RoundedInput _batch = NK.Input("vd SVTranCustom — giữ đuôi file gốc");
     private readonly CheckBox _all = NK.Check("Check All");
+    private readonly RoundedInput _titleV = NK.Input("Tiêu đề tiếng Việt");
+    private readonly RoundedInput _titleE = NK.Input("Tiêu đề tiếng Anh");
     private readonly List<Row> _rows = new();
     private List<(string Dir, string Orig)> _files = new();
     private bool _busy;
@@ -26,6 +28,8 @@ internal sealed class CopySourceStandardPage : DialogPage
         var batchBtn = NK.Button("Áp dụng cho tất cả", ApplyBatch);
         _batch.Width = NativeSkin.S(280);
         var batchRow = NK.Row(NK.Muted("Đổi tên hàng loạt:"), _batch, batchBtn); batchRow.Dock = DockStyle.Top;
+        _titleV.Width = NativeSkin.S(260); _titleE.Width = NativeSkin.S(200);
+        var titleRow = NK.Row(NK.Muted("Tiêu đề mới V:"), _titleV, NK.Muted("E:"), _titleE); titleRow.Dock = DockStyle.Top;
         _grid = NK.Grid(("dir", "Thư mục", 0), ("orig", "File gốc", 200), ("nn", "New Name", 220), ("x", "", 36));
         _grid.Columns["dir"]!.ReadOnly = true; _grid.Columns["orig"]!.ReadOnly = true; _grid.Columns["x"]!.ReadOnly = true;
         _grid.ReadOnly = false;
@@ -34,7 +38,7 @@ internal sealed class CopySourceStandardPage : DialogPage
         _grid.CellClick += (_, e) => { if (e.RowIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "x") { _rows.RemoveAt(e.RowIndex); Render(); } };
         var right = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8) };
         var cap = NK.Muted("File sẽ clone (sửa New Name rồi bấm Clone):"); cap.Dock = DockStyle.Top;
-        right.Controls.Add(_grid); right.Controls.Add(batchRow); right.Controls.Add(cap);
+        right.Controls.Add(_grid); right.Controls.Add(batchRow); right.Controls.Add(titleRow); right.Controls.Add(cap);
 
         var main = new Panel();
         main.Controls.Add(right); main.Controls.Add(left);
@@ -48,7 +52,7 @@ internal sealed class CopySourceStandardPage : DialogPage
 
         Bottom.FlowDirection = FlowDirection.RightToLeft;
         Bottom.Controls.Add(NK.Button("Đóng", () => Post(new { action = "close" })));
-        Bottom.Controls.Add(NK.Button("Clone", () => { _grid.EndEdit(); Post(new { action = "clone", rows = _rows.Select(r => new { id = r.Id, newName = r.NewName }).ToList() }); }, primary: true));
+        Bottom.Controls.Add(NK.Button("Clone", () => { _grid.EndEdit(); Post(new { action = "clone", rows = _rows.Select(r => new { id = r.Id, newName = r.NewName }).ToList(), title = new { v = _titleV.Text, e = _titleE.Text } }); }, primary: true));
         Layout(null, main);
     }
 
@@ -109,6 +113,7 @@ internal sealed class CopySourceStandardPage : DialogPage
                 var root = Build(PO(d, "tree"));
                 _tree.Nodes.Add(root); root.Expand();
                 _tree.EndUpdate();
+                if (d.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.Object) { _titleV.Text = P(t, "v"); _titleE.Text = P(t, "e"); }
                 Say(_files.Count + " file.");
                 break;
             }

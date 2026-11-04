@@ -159,6 +159,7 @@ public class MainForm : DpiForm
         ThemeManager.SetTheme(_settings.ThemeId, _settings.FollowSystemTheme);
 
         Text = "BcodeViewer";
+        Bcode.Shared.AppSwitchFocus.Attach(this);   // Alt+Tab sang app khác rồi quay lại: focus / con trỏ về đúng chỗ đang đứng trong editor
         Width = 1400;
         Height = 900;
         StartPosition = FormStartPosition.CenterScreen;
@@ -1424,42 +1425,131 @@ public class MainForm : DpiForm
 
     /// <summary>Actions &gt; Clear Structure App — same as Bcode.App: deletes the files directly
     /// inside {SourcePath}\App_Data\Controllers\Structure\App (not subfolders).</summary>
-    private async void ClearStructureApp()
+    private void ClearStructureApp() => ClearStructure("App");
+
+    /// <summary>{Source}\App_Data\Controllers\Structure của site đang mở (thư mục chứa App_Data của file đang mở, không thì Source Path của
+    /// workspace); null (đã báo) nếu chưa khai Source Path.</summary>
+    private async Task<(string? wsName, string? root)> StructureRootAsync()
     {
         var (wsName, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot(_activePath);
         if (sourcePath is null)
         {
             await Msg("Workspace chưa khai báo Source Path (khai ở Bcode).", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            return (wsName, null);
         }
+        return (wsName, Path.Combine(sourcePath, "App_Data", "Controllers", "Structure"));
+    }
 
-        var targetPath = Path.Combine(sourcePath, "App_Data", "Controllers", "Structure", "App");
-        if (!Directory.Exists(targetPath))
+    /// <summary>Actions &gt; Clear Structure ▸ (như Bcode): xoá mọi file nằm thẳng trong Structure\<paramref name="folder"/> (không đệ quy);
+    /// <paramref name="folder"/> null = All: mọi thư mục con đang có trong Structure. Hỏi xác nhận trước khi xoá.</summary>
+    private async void ClearStructure(string? folder)
+    {
+        var (wsName, root) = await StructureRootAsync();
+        if (root is null) return;
+
+        string[] targets;
+        try
         {
-            await Msg($"Thư mục không tồn tại:\n{targetPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (folder is null)
+            {
+                // UNC share can be slow — keep the UI thread free.
+                targets = await Task.Run(() => Directory.Exists(root)
+                    ? Directory.GetDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase).ToArray()
+                    : null!);
+                if (targets is null)
+                {
+                    await Msg($"Thư mục không tồn tại:\n{root}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                if (targets.Length == 0)
+                {
+                    await Msg($"Không có thư mục con nào trong:\n{root}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+            }
+            else
+            {
+                var targetPath = Path.Combine(root, folder);
+                if (!await Task.Run(() => Directory.Exists(targetPath)))
+                {
+                    await Msg($"Thư mục không tồn tại:\n{targetPath}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                targets = new[] { targetPath };
+            }
+        }
+        catch (Exception ex)
+        {
+            await Msg($"Không đọc được thư mục:\n{root}\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
 
         var confirm = await Msg(
-            $"Workspace: {wsName}\nBạn có chắc chắn muốn xóa toàn bộ file trong thư mục này không?\n{targetPath}",
+            targets.Length == 1
+                ? $"Workspace: {wsName}\nBạn có chắc chắn muốn xóa toàn bộ file trong thư mục này không?\n{targets[0]}"
+                : $"Workspace: {wsName}\nBạn có chắc chắn muốn xóa toàn bộ file trong {targets.Length} thư mục này không?\n{root}\n  "
+                  + string.Join("\n  ", targets.Select(Path.GetFileName)),
             "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (confirm != DialogResult.Yes) return;
 
+        var count = 0;
+        var perFolder = new List<string>();
         try
         {
             // UNC share can be slow — keep the UI thread free.
-            var count = await Task.Run(() =>
+            await Task.Run(() =>
             {
-                var n = 0;
-                foreach (var file in Directory.GetFiles(targetPath)) { File.Delete(file); n++; }
-                return n;
+                foreach (var targetPath in targets)
+                {
+                    var n = 0;
+                    foreach (var file in Directory.GetFiles(targetPath)) { File.Delete(file); n++; Interlocked.Increment(ref count); }
+                    lock (perFolder) perFolder.Add($"{Path.GetFileName(targetPath)}: {n}");
+                }
             });
-            await Msg($"Đã xóa thành công {count} file.", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            await Msg(targets.Length == 1 ? $"Đã xóa thành công {count} file." : $"Đã xóa thành công {count} file.\n{string.Join(" · ", perFolder)}",
+                "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            await Msg($"Có lỗi xảy ra khi xóa file:\n{ex.Message}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            await Msg($"Có lỗi xảy ra khi xóa file:\n{ex.Message}" + (count > 0 ? $"\n(Đã xóa {count} file trước khi lỗi.)" : ""),
+                "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    /// <summary>Actions &gt; Clear Structure ▸ Open Structure Folder — mở thư mục Structure bằng Explorer.</summary>
+    private async void OpenStructureFolder()
+    {
+        var (_, root) = await StructureRootAsync();
+        if (root is null) return;
+        if (!await Task.Run(() => Directory.Exists(root)))
+        {
+            await Msg($"Thư mục không tồn tại:\n{root}", "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        try { System.Diagnostics.Process.Start("explorer.exe", $"\"{root}\""); }
+        catch (Exception ex) { await Msg("Không mở được thư mục:\n" + ex.Message, "BcodeViewer", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
+
+    /// <summary>Trang mở menu Actions (shell.js): đọc ở nền các thư mục con thật của Structure rồi đẩy sang bcodeShell.setStructureFolders —
+    /// menu con Clear Structure làm mờ mục không có thư mục, thêm thư mục lạ. Không đọc được / chưa khai Source Path thì gửi names = null (giữ nguyên menu).</summary>
+    private async void PushStructureFolders()
+    {
+        var (_, sourcePath) = Host.WorkspaceConnection.ResolveSourceRoot(_activePath);
+        string[]? names = null;
+        if (sourcePath is not null)
+        {
+            var root = Path.Combine(sourcePath, "App_Data", "Controllers", "Structure");
+            try
+            {
+                names = await Task.Run(() => Directory.Exists(root)
+                    ? Directory.GetDirectories(root).Select(d => Path.GetFileName(d)!).ToArray()
+                    : Array.Empty<string>());
+            }
+            catch { names = null; }
+        }
+        if (_webView.CoreWebView2 is null) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(new { names });
+        await _webView.ExecuteScriptAsync($"window.bcodeShell && window.bcodeShell.setStructureFolders({json});");
     }
 
     /// <summary>Actions &gt; Open Web.config — mở web.config ở gốc site (thư mục trên App_Data của file đang mở, không thì Source Path của workspace)
@@ -1662,7 +1752,14 @@ public class MainForm : DpiForm
                 Directory.CreateDirectory(VsCodeThemeImporter.Folder);
                 try { System.Diagnostics.Process.Start("explorer.exe", $"\"{VsCodeThemeImporter.Folder}\""); } catch { }
                 break;
-            case "clearStructure": ClearStructureApp(); break;
+            // arg rỗng = App (như trước), "*" = All, còn lại = tên 1 thư mục con của Structure (chỉ nhận tên trần, không nhận đường dẫn).
+            case "clearStructure":
+                if (string.IsNullOrEmpty(arg)) ClearStructureApp();
+                else if (arg == "*") ClearStructure(null);
+                else if (arg.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 && arg is not ("." or "..")) ClearStructure(arg);
+                break;
+            case "openStructureFolder": OpenStructureFolder(); break;
+            case "structureFolders": PushStructureFolders(); break;
             case "openWebConfig": OpenWebConfig(); break;
             case "refreshWebConfig": RefreshWebConfig(); break;
             case "toggleClaude": _toggleClaude(); break;

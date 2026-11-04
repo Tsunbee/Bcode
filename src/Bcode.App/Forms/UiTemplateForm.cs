@@ -184,6 +184,14 @@ public class UiTemplateForm : ThemedForm
                     try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
                     Bcode.App.Services.FileLookupService.SetSearchOnEnter(_settings.FileLookupSearchOnEnter);
                     break;
+                case "delete-backup-set":
+                    // File Lookup → Delete file: số ngày giữ bản sao để "Khôi phục file vừa xoá" (0 = không giữ).
+                    if (data.TryGetProperty("days", out var bde) && int.TryParse(bde.GetString(), out var bdays))
+                    {
+                        _settings.FileLookupDeleteBackupDays = Math.Clamp(bdays, 0, 365);
+                        try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    }
+                    break;
                 case "search-set":
                 {
                     string S(string k) => data.TryGetProperty(k, out var e) ? (e.GetString() ?? "").Trim() : "";
@@ -417,7 +425,7 @@ public class UiTemplateForm : ThemedForm
         {
             include = _settings.SearchIncludeExtensions, never = _settings.SearchNeverExtensions, binary = _settings.SearchBinaryExtensions, folders = _settings.SearchFolders,
             skipF = _settings.SearchSkipCompiledF, compiled = _settings.SearchCompiledFolders, maxMb = _settings.SearchMaxMegabytes, ignore = _settings.FileLookupIgnoreSuffixes,
-            onEnter = _settings.FileLookupSearchOnEnter,
+            onEnter = _settings.FileLookupSearchOnEnter, backupDays = _settings.FileLookupDeleteBackupDays,
         };
         Js($"window.setSearchRules({JsonSerializer.Serialize(s)})");
     }

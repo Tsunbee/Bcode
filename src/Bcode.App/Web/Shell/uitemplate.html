@@ -299,6 +299,13 @@
     <div class="muted" style="font-size:11.5px">“Ấn Enter mới tìm”: gõ không chạy tìm (đỡ khựng trên máy yếu / dự án nhiều file), chỉ khi bấm <b>Enter</b> mới tìm; xoá trống ô rồi Enter = về lại danh sách / cây menu đầy đủ. Lưu ngay khi chọn, tab File Lookup đang mở đổi theo luôn.</div>
   </div>
   <div class="panel">
+    <h3>File Lookup → Delete file</h3>
+    <div class="row"><label>Giữ bản sao file đã xoá</label>
+      <div class="ctl"><select id="sBackupDays"><option value="0">Không giữ (xoá hẳn)</option><option value="1">1 ngày</option><option value="3">3 ngày</option><option value="7">7 ngày (mặc định)</option><option value="14">14 ngày</option><option value="30">30 ngày</option></select>
+        <span class="muted" id="sBackupNote" style="font-size:12px"></span></div></div>
+    <div class="muted" style="font-size:11.5px">Trước khi xoá, Bcode chép file vào <code>%AppData%\Bcode\deleted-files</code> (file trên ổ mạng không vào Thùng rác). Xoá nhầm thì chuột phải trên cây file → <b>Khôi phục file vừa xoá</b>; bấm lần nữa = lùi về lần xoá trước. Bản sao quá hạn tự dọn ở lần xoá sau.</div>
+  </div>
+  <div class="panel">
     <h3>File Lookup → Search Box: file / thư mục được tìm và bị loại khi tìm nội dung (String search)</h3>
     <div class="muted" style="font-size:12.5px;margin-bottom:10px">Đây là các quy tắc Bcode đang áp dụng khi bấm <b>Search</b> trong Search Box. Sửa tự do — cách nhau bằng dấu phẩy hoặc xuống dòng — rồi bấm <b>Lưu</b>; áp dụng ngay cho lần tìm sau. Gõ rõ đuôi ở ô <b>File Type</b> (vd <code>*.rpt</code>) thì vẫn quét đúng loại đó dù nằm trong danh sách nhị phân.</div>
     <div class="row" style="align-items:flex-start"><label>Đuôi file được tìm<br/><span class="muted" style="font-size:11px">(khi File Type = *.*)</span></label>
@@ -786,7 +793,11 @@
     $('sInclude').value = r.include || ''; $('sNever').value = r.never; $('sBinary').value = r.binary; $('sFolders').value = r.folders;
     $('sSkipF').checked = !!r.skipF; $('sCompiled').value = r.compiled; $('sMax').value = r.maxMb; $('sIgnore').value = r.ignore;
     $('sOnEnter').value = r.onEnter ? 'enter' : 'typing';
+    const bd = String(r.backupDays ?? 7);
+    if (![...$('sBackupDays').options].some(o => o.value === bd)) $('sBackupDays').add(new Option(bd + ' ngày', bd));
+    $('sBackupDays').value = bd;
   };
+  $('sBackupDays').onchange = () => { post('delete-backup-set', { days: $('sBackupDays').value }); $('sBackupNote').textContent = 'Đã lưu.'; setTimeout(() => { $('sBackupNote').textContent = ''; }, 2500); };
   $('sOnEnter').onchange = () => { post('search-mode-set', { onEnter: $('sOnEnter').value === 'enter' }); $('sOnEnterNote').textContent = 'Đã lưu.'; setTimeout(() => { $('sOnEnterNote').textContent = ''; }, 2500); };
   $('sSave').onclick = () => { post('search-set', { include: $('sInclude').value, never: $('sNever').value, binary: $('sBinary').value, folders: $('sFolders').value, skipF: $('sSkipF').checked, compiled: $('sCompiled').value, maxMb: $('sMax').value, ignore: $('sIgnore').value }); $('sNote').textContent = 'Đã lưu — áp dụng cho lần tìm sau.'; setTimeout(() => { $('sNote').textContent = ''; }, 3000); };
   $('sDefault').onclick = () => post('search-default');

@@ -176,6 +176,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ResultExport.Notice += onExport;
         Disposed += (_, _) => ResultExport.Notice -= onExport;
         _settings = AppSettings.Load();
+        Bcode.Shared.AppSwitchFocus.Attach(this);   // Alt+Tab sang app khác rồi quay lại: focus / con trỏ về đúng chỗ đang đứng (editor trong WebView2)
         Bcode.App.UI.UiThemes.ApplyPalettes(); // theme/màu người dùng chọn — trước khi dựng control
         // Giữ con trỏ chuột luôn hiện khi gõ (tắt "Hide pointer while typing" của Windows trong lúc chạy; trả lại khi thoát).
         Bcode.App.UI.MousePointer.Apply(Bcode.App.UI.UiTemplate.Current.KeepMousePointer);
@@ -3106,6 +3107,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.openWebConfig": OpenWebConfig(); return true;
             case "app.refreshWebConfig": RefreshWebConfig(); return true;
             case "app.clearStructure": ClearStructureApp(); return true;
+            case "app.clearStructureAll": ClearStructure(null); return true;
+            case "app.openStructureFolder": OpenStructureFolder(); return true;
+            case var cs when cs.StartsWith("app.clearStructure.", StringComparison.Ordinal): ClearStructure(cs["app.clearStructure.".Length..]); return true;
             case "app.createMenu": _ = CreateMenuAsync(); return true;
             case "note.aiCatalog":
             {
@@ -3831,44 +3835,154 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
 
-    private void ClearStructureApp()
+    /// <summary>Thư mục con Fast sinh trong App_Data\Controllers\Structure, theo thứ tự hiện trên menu "Clear Structure ▸" (App/Sys/Ext trước như
+    /// trước giờ hay xoá nhất). Thư mục khác có thật trong Structure thì menu tự thêm sau các mục này.</summary>
+    private static readonly string[] StructureFolders = { "App", "Sys", "Ext", "Dir", "Filter", "Grid", "Lookup" };
+
+    /// <summary>Id phím tắt (ShortcutRegistry) của mục Clear một thư mục con — App giữ id cũ "app.clearStructure".</summary>
+    private static string StructureShortcutId(string folder) => folder == "App" ? "app.clearStructure" : "app.clearStructure." + folder;
+
+    /// <summary>{Source Path}\App_Data\Controllers\Structure của workspace đang chọn; null (đã báo) nếu chưa khai Source Path.</summary>
+    private string? StructureRoot()
     {
         if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
         {
             MessageBox.Show(this, "Workspace chưa khai báo Source Path.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
+            return null;
         }
+        return Path.Combine(ws.SourcePath, "App_Data", "Controllers", "Structure");
+    }
 
-        var targetPath = Path.Combine(ws.SourcePath, "App_Data", "Controllers", "Structure", "App");
+    private void ClearStructureApp() => ClearStructure("App");
 
-        if (!Directory.Exists(targetPath))
+    /// <summary>Xoá mọi file (không đệ quy) trong Structure\<paramref name="folder"/> để Fast sinh lại cấu trúc; <paramref name="folder"/> null = All:
+    /// mọi thư mục con đang có trong Structure. Hỏi xác nhận trước khi xoá.</summary>
+    private void ClearStructure(string? folder)
+    {
+        if (StructureRoot() is not { } root) return;
+
+        string[] targets;
+        if (folder is null)
         {
-            MessageBox.Show(this, $"Thư mục không tồn tại:\n{targetPath}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
+            if (!Directory.Exists(root))
+            {
+                MessageBox.Show(this, $"Thư mục không tồn tại:\n{root}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            targets = Directory.GetDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase).ToArray();
+            if (targets.Length == 0)
+            {
+                MessageBox.Show(this, $"Không có thư mục con nào trong:\n{root}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+        }
+        else
+        {
+            var targetPath = Path.Combine(root, folder);
+            if (!Directory.Exists(targetPath))
+            {
+                MessageBox.Show(this, $"Thư mục không tồn tại:\n{targetPath}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            targets = new[] { targetPath };
         }
 
         // Hỏi xác nhận trước khi xóa hàng loạt
-        var confirm = MessageBox.Show(this, 
-            $"Bạn có chắc chắn muốn xóa toàn bộ file trong thư mục này không?\n{targetPath}", 
+        var confirm = MessageBox.Show(this,
+            targets.Length == 1
+                ? $"Bạn có chắc chắn muốn xóa toàn bộ file trong thư mục này không?\n{targets[0]}"
+                : $"Bạn có chắc chắn muốn xóa toàn bộ file trong {targets.Length} thư mục này không?\n{root}\n  "
+                  + string.Join("\n  ", targets.Select(Path.GetFileName)),
             "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            
+
         if (confirm != DialogResult.Yes) return;
 
+        int count = 0;
+        var perFolder = new List<string>();
         try
         {
-            var files = Directory.GetFiles(targetPath);
-            int count = 0;
-            foreach (var file in files)
+            foreach (var targetPath in targets)
             {
-                File.Delete(file);
-                count++;
+                int n = 0;
+                foreach (var file in Directory.GetFiles(targetPath))
+                {
+                    File.Delete(file);
+                    count++; n++;
+                }
+                perFolder.Add($"{Path.GetFileName(targetPath)}: {n}");
             }
-            MessageBox.Show(this, $"Đã xóa thành công {count} file.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this,
+                targets.Length == 1 ? $"Đã xóa thành công {count} file." : $"Đã xóa thành công {count} file.\n{string.Join(" · ", perFolder)}",
+                "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Có lỗi xảy ra khi xóa file:\n{ex.Message}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this,
+                $"Có lỗi xảy ra khi xóa file:\n{ex.Message}" + (count > 0 ? $"\n(Đã xóa {count} file trước khi lỗi.)" : ""),
+                "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    /// <summary>Mở thư mục App_Data\Controllers\Structure của Source Path bằng Explorer.</summary>
+    private void OpenStructureFolder()
+    {
+        if (StructureRoot() is not { } root) return;
+        if (!Directory.Exists(root))
+        {
+            MessageBox.Show(this, $"Thư mục không tồn tại:\n{root}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        OpenProjectFolder(root);
+    }
+
+    /// <summary>Menu con "Clear Structure ▸" của Actions: Clear từng thư mục con của Structure, All, Open Structure Folder. Các mục dựng sẵn theo
+    /// <see cref="StructureFolders"/> (không chờ share mạng); lúc mở menu con mới đọc thư mục thật ở nền → làm mờ mục không có thư mục,
+    /// thêm thư mục lạ (Fast đời sau sinh thêm) vào sau.</summary>
+    private ToolStripMenuItem BuildClearStructureMenu()
+    {
+        var sub = new ToolStripMenuItem("Clear Structure");
+        var folderItems = new List<ToolStripMenuItem>();
+        void AddFolder(string name, int index)
+        {
+            var it = new ToolStripMenuItem("Clear " + name, null, (_, _) => ClearStructure(name))
+            {
+                Tag = name,
+                ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display(StructureShortcutId(name)),
+            };
+            sub.DropDownItems.Insert(index, it);
+            folderItems.Add(it);
+        }
+        foreach (var f in StructureFolders) AddFolder(f, sub.DropDownItems.Count);
+        sub.DropDownItems.Add(new ToolStripSeparator());
+        sub.DropDownItems.Add(new ToolStripMenuItem("All", null, (_, _) => ClearStructure(null)) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.clearStructureAll") });
+        sub.DropDownItems.Add(new ToolStripSeparator());
+        sub.DropDownItems.Add(new ToolStripMenuItem("Open Structure Folder", null, (_, _) => OpenStructureFolder()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.openStructureFolder") });
+
+        var sourcePath = _connections.Current?.SourcePath;
+        var checkedOnce = false;
+        sub.DropDownOpening += async (_, _) =>
+        {
+            if (checkedOnce || string.IsNullOrWhiteSpace(sourcePath)) return;
+            checkedOnce = true;
+            var root = Path.Combine(sourcePath, "App_Data", "Controllers", "Structure");
+            string[] found;
+            try
+            {
+                found = await Task.Run(() => Directory.Exists(root)
+                    ? Directory.GetDirectories(root).Select(d => Path.GetFileName(d)!).ToArray()
+                    : Array.Empty<string>());
+            }
+            catch { return; } // share không đọc được: để nguyên các mục, bấm vào sẽ báo như cũ
+            if (sub.IsDisposed) return;
+
+            var exists = new HashSet<string>(found, StringComparer.OrdinalIgnoreCase);
+            foreach (var it in folderItems) it.Enabled = exists.Contains((string)it.Tag!);
+            var idx = folderItems.Count;
+            foreach (var extra in found.Where(n => !StructureFolders.Contains(n, StringComparer.OrdinalIgnoreCase)).OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+                AddFolder(extra, idx++);
+            Bcode.App.UI.ThemeManager.ApplyMenu(sub.DropDown);
+        };
+        return sub;
     }
 
 
@@ -4018,6 +4132,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         // ---------------------------------------------------------
         menu.Items.Add(new ToolStripMenuItem("Get Key Data/Value", null, (_, _) => { }));
         menu.Items.Add(new ToolStripMenuItem("Clear Structure App", null, (_, _) => ClearStructureApp()));
+        menu.Items.Add(BuildClearStructureMenu());
         menu.Items.Add(new ToolStripMenuItem("Open Web.config", null, (_, _) => OpenWebConfig()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.openWebConfig") });
         menu.Items.Add(new ToolStripMenuItem("Refresh Web.config", null, (_, _) => RefreshWebConfig()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.refreshWebConfig") });
         menu.Items.Add(new ToolStripMenuItem("Create Menu", null, async (_, _) => await CreateMenuAsync()));

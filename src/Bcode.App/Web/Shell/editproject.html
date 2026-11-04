@@ -64,6 +64,7 @@
       <div class="full"><label for="sourcePath">Source Path</label><div class="ctl"><input type="text" id="sourcePath" /></div></div>
       <div class="full"><label for="mobilePath">Mobile Path</label><div class="ctl"><input type="text" id="mobilePath" /></div></div>
       <div class="full"><label for="workingPath">Working Path</label><div class="ctl"><input type="text" id="workingPath" /></div></div>
+      <div class="full"><label for="apiPath" title="Thư mục FastAPIService của dự án — Khai báo API đọc Config\ColumnMappings.xml trong đó (form / trường theo dự án); trống = chuẩn tài liệu LT3">API Path</label><div class="ctl"><input type="text" id="apiPath" placeholder="\\server\CustomerPro\FBI\MA_DA\FastAPIService — đọc Config\ColumnMappings.xml" spellcheck="false" /></div></div>
       <div><label for="registry">Registry Name</label><div class="ctl"><input type="text" id="registry" /></div></div>
     </div>
   </section>
@@ -79,7 +80,7 @@
 </footer>
 
 <script>
-  const FIELDS = ['server', 'user', 'pass', 'sysDb', 'appDb', 'id', 'wlink', 'programPath', 'sourcePath', 'mobilePath', 'workingPath', 'registry'];
+  const FIELDS = ['server', 'user', 'pass', 'sysDb', 'appDb', 'id', 'wlink', 'programPath', 'sourcePath', 'mobilePath', 'workingPath', 'registry', 'apiPath'];
   const $ = (id) => document.getElementById(id);
   function post(action, data) { window.chrome.webview.postMessage(JSON.stringify({ action, data })); }
   function collect() { const o = {}; FIELDS.forEach((f) => { o[f] = $(f).value; }); return o; }

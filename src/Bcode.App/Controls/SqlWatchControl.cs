@@ -25,7 +25,7 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
         SqlWatch.BcodeCatalog.SettingsPathOverride = Path.Combine(BcodePaths.AppData, "Bcode", "settings.json");
         _form = new SqlWatch.MainForm { TopLevel = false, FormBorderStyle = FormBorderStyle.None, MinimumSize = Size.Empty, Dock = DockStyle.Fill };
         // Nút "Copy SQL Command" / "Debug store" của SqlWatch → cùng xử lý như thanh SQL Profiler (MainForm.OpenSqlWatchTab nối sự kiện).
-        _form.OpenInSqlQuery = sql => OpenInSqlQueryRequested?.Invoke(sql);
+        _form.OpenInSqlQuery = (sql, database) => OpenInSqlQueryRequested?.Invoke(sql, database);
         _form.DebugStore = sql => DebugRequested?.Invoke(sql);
         // Login SQL sửa trên tab (dùng bên khách hàng) nhớ theo workspace — mật khẩu ghi settings.json dạng DPAPI.
         _form.LoginLookup = name => _settings.Workspaces.FirstOrDefault(w => w.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } w
@@ -81,8 +81,8 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
         };
     }
 
-    /// <summary>"📋 Copy SQL Command": câu SQL của dòng đang chọn (dòng SP:Starting thì cả batch có declare) — mở tab SQL Query mới dán sẵn.</summary>
-    public event Action<string>? OpenInSqlQueryRequested;
+    /// <summary>"📋 Copy SQL Command": câu SQL của dòng đang chọn (dòng SP:Starting thì cả batch có declare) — mở tab SQL Query mới dán sẵn, đúng database của dòng (cột Database).</summary>
+    public event Action<string, string>? OpenInSqlQueryRequested;
 
     /// <summary>"🐞 Debug store": cùng câu SQL đó — MainForm tìm store được gọi, mở định nghĩa + GO + câu gọi rồi bật Debug từng bước.</summary>
     public event Action<string>? DebugRequested;

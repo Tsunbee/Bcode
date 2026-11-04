@@ -88,6 +88,7 @@
         <div class="row"><label for="sourcePath">Source Path</label><input type="text" id="sourcePath" placeholder="UNC, dùng cho File Lookup — \\server\...\FBISP23" /></div>
         <div class="row"><label for="mobilePath">Mobile Path</label><input type="text" id="mobilePath" /></div>
         <div class="row"><label for="workingPath">Working Path</label><input type="text" id="workingPath" /></div>
+        <div class="row"><label for="apiPath" title="Thư mục FastAPIService của dự án — Khai báo API đọc Config\ColumnMappings.xml trong đó (form / trường theo dự án); trống = chuẩn tài liệu LT3">API Path</label><input type="text" id="apiPath" placeholder="\\server\...\FastAPIService" spellcheck="false" /></div>
         <div class="row"><label for="registry">Registry Name</label><input type="text" id="registry" /></div>
       </section>
 
@@ -142,7 +143,7 @@
 <script>
   const $ = id => document.getElementById(id);
   const post = (action, data) => window.chrome.webview.postMessage(JSON.stringify({ action, data }));
-  const TEXT = ['name', 'server', 'user', 'pass', 'sysDb', 'appDb', 'id', 'wlink', 'programPath', 'sourcePath', 'mobilePath', 'workingPath', 'registry', 'versionCode', 'dbAccess'];
+  const TEXT = ['name', 'server', 'user', 'pass', 'sysDb', 'appDb', 'id', 'wlink', 'programPath', 'sourcePath', 'mobilePath', 'workingPath', 'apiPath', 'registry', 'versionCode', 'dbAccess'];
   let names = [], sel = -1, allowSync = false, busy = false;
 
   const collect = () => { const o = {}; TEXT.forEach(f => o[f] = $(f).value); o.integrated = $('integrated').checked; return o; };

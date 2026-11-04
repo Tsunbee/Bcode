@@ -174,7 +174,7 @@ public class ConnectionSettingsForm : ThemedForm
             name = w.Name, server = w.Server, integrated = w.IntegratedSecurity, user = w.User, pass = w.Password,
             sysDb = w.SysDatabase, appDb = w.AppDatabase, id = w.ProjectId, wlink = w.LoginWLink,
             programPath = w.ProgramPath, sourcePath = w.SourcePath, mobilePath = w.MobilePath,
-            workingPath = w.WorkingPath, registry = w.RegistryName, versionCode = w.VersionCode, dbAccess = w.DbAccess,
+            workingPath = w.WorkingPath, registry = w.RegistryName, apiPath = w.ApiPath, versionCode = w.VersionCode, dbAccess = w.DbAccess,
         };
     }
 
@@ -199,6 +199,7 @@ public class ConnectionSettingsForm : ThemedForm
         ws.MobilePath = S("mobilePath");
         ws.WorkingPath = S("workingPath");
         ws.RegistryName = S("registry");
+        ws.ApiPath = S("apiPath");
         ws.VersionCode = S("versionCode");
         ws.DbAccess = S("dbAccess");
     }

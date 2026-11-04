@@ -10,7 +10,8 @@ namespace Bcode.App.Controls;
 /// (status, thời gian, kích thước, Body pretty/raw, Bảng, Headers phản hồi, Request).</summary>
 internal sealed class ApiDeclarationPage : DialogPage
 {
-    private sealed class CatalogItem { public string Form = "", Kind = "", Title = ""; }
+    /// <summary>Form chọn được: Src = "mapping" (ColumnMappings.xml của dự án — API Path của Project) hoặc "lt3" (tài liệu chuẩn).</summary>
+    private sealed class CatalogItem { public string Form = "", Kind = "", Title = "", Src = "lt3"; }
 
     /// <summary>Màu chữ dễ đọc pha từ màu theme (giống --api-* của trang web): sáng hơn ở theme tối, đậm hơn ở theme sáng.</summary>
     private static class Ink
@@ -66,7 +67,11 @@ internal sealed class ApiDeclarationPage : DialogPage
     private readonly RoundedInput _rResp = NK.Memo(12, "", mono: true), _rReq = NK.Memo(12, "", mono: true);
     private readonly DataGridView _rHdrs = NK.Grid(("k", "Header", 220), ("v", "Giá trị", 0));
     private readonly SegmentedBar _fTabs, _rTabs, _rFmt;
-    private readonly PillButton _bToken, _bSend, _bCopyTok, _bOld, _bValidate, _bFormat, _bFormDoc, _aEye;
+    private readonly PillButton _bToken, _bSend, _bCopyTok, _bOld, _bValidate, _bFormat, _bFormDoc, _aEye, _bGen, _bMap;
+    /// <summary>Dòng "nguồn form" dưới danh sách form: ColumnMappings.xml của Project (API Path) hay chuẩn tài liệu LT3.</summary>
+    private readonly Label _mapInfo = new HintLabel { AutoSize = true, BackColor = Color.Transparent, UseMnemonic = false, Margin = new Padding(0, 4, 0, 0) };
+    private string _mapFile = "", _curId = "", _pIdSent = "";
+    private int _mapCount;
     private readonly List<int> _view = new();
     private JsonObject? _p;
     private JsonElement _lastResult;
@@ -131,17 +136,20 @@ internal sealed class ApiDeclarationPage : DialogPage
         void Danger() { bDelete.ForeOverride = bDelForm.ForeOverride = Ink.Danger; bDelete.Invalidate(); bDelForm.Invalidate(); }
         Danger(); ThemeManager.Subscribe(this, Danger);
         var fBtns = NK.Row(
-            NK.Button("＋ Từ mẫu LT3", () => { if (_p is not null) OpenPicker(false); }, tip: "Thêm form từ mẫu chuẩn LT3"), NK.Button("＋ Form trống", AddBlank), NK.Button("Nhân bản", Duplicate),
+            NK.Button("＋ Từ mẫu LT3", () => { if (_p is not null) OpenPicker(false); }, tip: "Thêm form từ ColumnMappings.xml của dự án (nếu Project có API Path) / mẫu chuẩn LT3"), NK.Button("＋ Form trống", AddBlank), NK.Button("Nhân bản", Duplicate),
             NK.Button("▲", () => Move(-1), tip: "Lên"), NK.Button("▼", () => Move(1), tip: "Xuống"), bDelForm);
-        NK.Stack(cForms.Body, _fCount, _filter, _fList, fBtns);
+        _bMap = NK.Button("Mở ColumnMappings.xml", () => Post(new { action = "open-path", path = _mapFile }), tip: "Mở file mapping của dự án (chỉ xem — Bcode không ghi file này)"); _bMap.Visible = false;
+        _mapInfo.MaximumSize = new Size(NativeSkin.S(560), 0);
+        NK.Stack(cForms.Body, _fCount, _filter, _fList, fBtns, _mapInfo, NK.Row(_bMap));
 
         var leftCol = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(10, 6, 6, 6) };
         NK.Stack(leftCol, cConn, cForms);
 
         // ---- cột phải: form đang chọn (kiểu Postman) ----
         var cSel = new CardPanel("Form đang chọn") { Dock = DockStyle.Top };
-        _bFormDoc = NK.Button("Tài liệu form", FormDoc, tip: "Bảng trường theo tài liệu chuẩn LT3"); cSel.RightBar.Controls.Add(_bFormDoc);
-        _bFormat = NK.Button("Định dạng", Format, tip: "Định dạng JSON (Ctrl+Shift+F)"); _bValidate = NK.Button("Kiểm tra (LT3)", Validate, tip: "Kiểm tra theo bảng trường chuẩn LT3 (Ctrl+Shift+K)");
+        _bFormDoc = NK.Button("Tài liệu form", FormDoc, tip: "Bảng trường của form: ColumnMappings.xml của dự án (nếu có), không thì tài liệu chuẩn LT3"); cSel.RightBar.Controls.Add(_bFormDoc);
+        _bFormat = NK.Button("Định dạng", Format, tip: "Định dạng JSON (Ctrl+Shift+F)"); _bValidate = NK.Button("Kiểm tra (LT3)", Validate, tip: "Kiểm tra theo ColumnMappings.xml của dự án (nếu form có trong đó), không thì bảng trường chuẩn LT3 (Ctrl+Shift+K)");
+        _bGen = NK.Button("Sinh JSON", GenBody, tip: "Sinh body JSON mẫu theo cấu hình form: ColumnMappings.xml của dự án (nếu có), không thì request mẫu của tài liệu LT3");
         _bSend = NK.Button("Gửi ▶", () => Send(false), primary: true, tip: "Gửi (Ctrl+Shift+Enter, hoặc Enter ở ô Endpoint)");
         var urlBar = NK.Padded(NK.GridRow(6, (_fMethod, 0), (_fEndpoint, 1), (_bSend, 0)), 0, 4, 0, 2);
         _fTabs = new SegmentedBar(("params", "Params"), ("auth", "Authorization"), ("headers", "Headers"), ("body", "Body"));
@@ -156,7 +164,7 @@ internal sealed class ApiDeclarationPage : DialogPage
         _pnAuth = Pane(Fields(110, ("Kiểu", _aType)), _aUserRow, _aKeyRow, _aValRow, _aHint);
         _pnHeaders = Pane(Caption("Header riêng của form — gộp với Header chung ở Kết nối, trùng tên thì form thắng."), _kvF, Caption("Header tự thêm / kế thừa khi gửi:"), _inh);
         var hint = Hint("Biến: {{today}} (yyyy-MM-dd) · {{now}} · {{key}} (khoá duy nhất mỗi lần gửi — dùng cho VoucherId) · {{year}} · {{month}} · {{monthStart}}");
-        _pnBody = Pane(NK.Row(NK.Muted("Kiểu"), _fMode, _fRaw, _bFormat, _bValidate, _kb), _fBody, _kvB, _noneHint);
+        _pnBody = Pane(NK.Row(NK.Muted("Kiểu"), _fMode, _fRaw, _bFormat, _bGen, _bValidate, _kb), _fBody, _kvB, _noneHint);
         _pnParams.Visible = _pnAuth.Visible = _pnHeaders.Visible = false;
         _fTabs.Select("body", raise: false);
 
@@ -193,6 +201,7 @@ internal sealed class ApiDeclarationPage : DialogPage
         _aIn.SelectionChanged += _ => { UrlPreview(); if (!_loading && _p is not null) SetDirty(true); };
         _aKey.TextChanged += (_, _) => UrlPreview();
         _in["pBase"].TextChanged += (_, _) => UrlPreview();
+        _in["pId"].Inner.Leave += (_, _) => { var id = _in["pId"].Text.Trim(); if (_p is not null && id != _pIdSent) { _pIdSent = id; Post(new { action = "project-id", projectId = id }); } };
         _fEndpoint.TextChanged += (_, _) => UrlPreview();
         _fEndpoint.Inner.Leave += (_, _) => SplitQuery();
         _fEndpoint.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter && !e.Control && !e.Shift) { e.Handled = e.SuppressKeyPress = true; SplitQuery(); Send(false); } };
@@ -349,7 +358,7 @@ internal sealed class ApiDeclarationPage : DialogPage
         _kvF.Set(f?["Headers"]); _kvQ.Set(f?["Params"]);
         FillAuth(f?["Auth"] as JsonObject);
         _loading = false;
-        foreach (var c in new Control[] { _fName, _fKind, _fMethod, _fMode, _fRaw, _fEndpoint, _fDesc, _fBody, _bSend, _bValidate, _bFormat, _bFormDoc, _kvF, _kvQ, _kvB, _aType, _aUser, _aKey, _aIn, _aVal, _aEye }) c.Enabled = f is not null;
+        foreach (var c in new Control[] { _fName, _fKind, _fMethod, _fMode, _fRaw, _fEndpoint, _fDesc, _fBody, _bSend, _bValidate, _bFormat, _bGen, _bFormDoc, _kvF, _kvQ, _kvB, _aType, _aUser, _aKey, _aIn, _aVal, _aEye }) c.Enabled = f is not null;
         _issuesText.Text = "";
         ModeUi(); FormAuthUi();
         RenderForms();
@@ -368,7 +377,7 @@ internal sealed class ApiDeclarationPage : DialogPage
     {
         var m = Mode;
         _fBody.Visible = m == "raw"; _kvB.Visible = KvMode(m); _noneHint.Visible = m == "none";
-        _fRaw.Visible = _bFormat.Visible = _bValidate.Visible = m == "raw";
+        _fRaw.Visible = _bFormat.Visible = _bValidate.Visible = _bGen.Visible = m == "raw";
         Counts();
     }
 
@@ -503,11 +512,25 @@ internal sealed class ApiDeclarationPage : DialogPage
     }
     private void Send(bool confirmWrite) { if (_p is null || _sel < 0) return; SaveForm(); Busy(true); Post(Payload("send", new { index = _sel, confirmWrite })); }
 
-    private void FormDoc()
+    private string FormOfBody()
     {
         var form = _fName.Text;
         try { if (JsonNode.Parse(_fBody.Text) is JsonObject o && o["form"]?.ToString() is { Length: > 0 } fm) form = fm; } catch { /* body chưa hợp lệ */ }
-        Post(new { action = "form-doc", form });
+        return form;
+    }
+
+    private void FormDoc() => Post(new { action = "form-doc", form = FormOfBody() });
+
+    private void GenBody() { if (_p is null || _sel < 0) return; SaveForm(); Post(new { action = "gen-body", form = FormOfBody() }); }
+
+    private void ShowMapping(JsonElement m)
+    {
+        _mapFile = P(m, "file"); _mapCount = PI(m, "count");
+        var err = P(m, "error");
+        _mapInfo.Text = _mapCount > 0
+            ? $"Form theo ColumnMappings.xml của Project {P(m, "project")} ({_mapCount} form, ghi đè form chuẩn cùng tên):\n{_mapFile}"
+            : "Form theo chuẩn tài liệu LT3" + (err.Length > 0 ? " — " + err + " (khai báo \"API Path\" ở Edit Project để lấy form theo ColumnMappings.xml của dự án)." : ".");
+        _bMap.Visible = _mapCount > 0;
     }
 
     private void ExportPostman()
@@ -547,7 +570,7 @@ internal sealed class ApiDeclarationPage : DialogPage
     private void OpenPicker(bool isNew)
     {
         var have = new HashSet<string>(!isNew && _p is not null ? Forms.Select(f => S(f, "Name").ToLowerInvariant()) : Enumerable.Empty<string>());
-        using var dlg = new TemplatePicker(isNew, _catalog, have);
+        using var dlg = new TemplatePicker(isNew, _catalog, have, _curId);
         if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
         if (isNew) Post(new { action = "new-template", name = dlg.ProjectName, projectId = dlg.ProjectId, baseUrl = dlg.BaseUrl, forms = dlg.Forms });
         else if (dlg.Forms.Count > 0) { SaveForm(); Post(new { action = "add-forms", forms = dlg.Forms }); }
@@ -572,13 +595,14 @@ internal sealed class ApiDeclarationPage : DialogPage
             {
                 var st = Arg(a, 0);
                 _projectNames = PA(st, "projects").Select(n => n.GetString() ?? "").ToList();
-                _catalog = PA(st, "catalog").Select(c => new CatalogItem { Form = P(c, "form"), Kind = P(c, "kind"), Title = P(c, "title") }).ToList();
+                _catalog = PA(st, "catalog").Select(c => new CatalogItem { Form = P(c, "form"), Kind = P(c, "kind"), Title = P(c, "title"), Src = P(c, "src") is { Length: > 0 } src ? src : "lt3" }).ToList();
+                _curId = P(st, "currentProjectId"); ShowMapping(PO(st, "mapping"));
                 _docUrl = P(st, "docUrl");
                 _loading = true;
                 _projects.SetItems(new[] { $"— chọn dự án ({_projectNames.Count}) —" }.Concat(_projectNames).ToList(), Math.Max(0, _projectNames.IndexOf(_original) + 1));
                 _loading = false;
                 var old = PI(st, "oldProfiles"); _bOld.Visible = old > 0; _bOld.Text = $"Chuyển {old} hồ sơ cũ";
-                if (_p is null) { FillProject(); Status(_projectNames.Count > 0 ? "Chọn dự án, hoặc \"＋ Mới từ mẫu LT3\" / \"Nhập Postman…\". Hồ sơ lưu riêng trên máy này: " + P(st, "folder") : "Chưa có dự án — bấm \"＋ Mới từ mẫu LT3\" (31 form chuẩn) hoặc \"Nhập Postman…\"."); }
+                if (_p is null) { FillProject(); Status(_projectNames.Count > 0 ? "Chọn dự án, hoặc \"＋ Mới từ mẫu LT3\" / \"Nhập Postman…\". Hồ sơ lưu riêng trên máy này: " + P(st, "folder") : "Chưa có dự án — bấm \"＋ Mới từ mẫu LT3\" (" + (_mapCount > 0 ? $"{_mapCount} form theo ColumnMappings.xml + chuẩn LT3" : "31 form chuẩn") + ") hoặc \"Nhập Postman…\"."); }
                 _kb.Text = "Gửi: Ctrl+Shift+Enter";
                 break;
             }
@@ -591,13 +615,31 @@ internal sealed class ApiDeclarationPage : DialogPage
                 if (!PB(o, "dirty")) { _loading = true; _projects.SetItems(new[] { $"— chọn dự án ({_projectNames.Count}) —" }.Concat(_projectNames).ToList(), Math.Max(0, _projectNames.IndexOf(_original) + 1)); _loading = false; }
                 _issuesText.Text = ""; _notesText.Text = ""; _resCard.Visible = false;
                 _isDirty = PB(o, "dirty");
-                FillProject();
+                FillProject(); _pIdSent = _in["pId"].Text.Trim();
                 break;
             }
             case "api.addForms":
                 if (_p is null || a.Count == 0 || a[0].ValueKind != JsonValueKind.Array) break;
-                { var n = 0; foreach (var f in a[0].EnumerateArray()) { Forms.Add(JsonNode.Parse(f.GetRawText())); n++; } Select(Forms.Count - 1); SetDirty(true); Status($"Đã thêm {n} form từ mẫu LT3.", "ok"); }
+                { var n = 0; foreach (var f in a[0].EnumerateArray()) { Forms.Add(JsonNode.Parse(f.GetRawText())); n++; } Select(Forms.Count - 1); SetDirty(true); Status($"Đã thêm {n} form" + (_mapCount > 0 ? " (ColumnMappings.xml dự án / mẫu LT3)." : " từ mẫu LT3."), "ok"); }
                 break;
+            case "api.catalog":
+            {
+                var o = Arg(a, 0);
+                _catalog = PA(o, "catalog").Select(c => new CatalogItem { Form = P(c, "form"), Kind = P(c, "kind"), Title = P(c, "title"), Src = P(c, "src") is { Length: > 0 } src ? src : "lt3" }).ToList();
+                ShowMapping(PO(o, "mapping"));
+                break;
+            }
+            case "api.genBody":
+            {
+                var body = Str(a, 0); var src = Str(a, 1);
+                var cur = _fBody.Text.Trim();
+                if (cur.Length > 0 && cur.Replace("\r\n", "\n") != body.Trim().Replace("\r\n", "\n") && !NK.Confirm(FindForm()!, $"Thay body hiện tại của form bằng JSON sinh theo {src}?", "Thay body?")) break;
+                _fMode.Select(Array.IndexOf(Modes, "raw"), raise: false); _fRaw.Select(0, raise: false); ModeUi();
+                _fBody.Text = body.Replace("\r\n", "\n").Replace("\n", "\r\n");
+                SaveForm(); SetDirty(true); Counts(); _issuesText.Text = "";
+                Status($"Đã sinh body JSON theo {src} — điền giá trị rồi Kiểm tra (Ctrl+Shift+K).", "ok");
+                break;
+            }
             case "api.cleared": _p = null; _original = ""; _sel = -1; FillProject(); SetDirty(false); break;
             case "api.token":
             {
@@ -617,8 +659,9 @@ internal sealed class ApiDeclarationPage : DialogPage
             case "api.issues":
             {
                 var list = (a.Count > 0 && a[0].ValueKind == JsonValueKind.Array ? a[0].EnumerateArray() : Enumerable.Empty<JsonElement>()).Select(x => x.GetString() ?? "").ToList();
+                var src = Str(a, 1);
                 _issuesText.ForeColor = list.Count > 0 ? Ink.Danger : Ink.Ok;
-                _issuesText.Text = list.Count > 0 ? string.Join("\n", list.Select(x => "• " + x)) : "✓ Body khớp bảng trường chuẩn LT3 (hoặc form riêng của dự án — không có bảng để so).";
+                _issuesText.Text = list.Count > 0 ? string.Join("\n", list.Select(x => "• " + x)) : src.Length > 0 ? $"✓ Body khớp {src}." : "✓ Body khớp bảng trường chuẩn LT3 (hoặc form riêng của dự án — không có bảng để so).";
                 break;
             }
             case "api.notes": _notesText.Text = string.Join("\n", (a.Count > 0 && a[0].ValueKind == JsonValueKind.Array ? a[0].EnumerateArray() : Enumerable.Empty<JsonElement>()).Select(x => "• " + (x.GetString() ?? ""))); break;
@@ -678,13 +721,13 @@ internal sealed class ApiDeclarationPage : DialogPage
 
     private void ShowDoc(JsonElement d)
     {
-        if (d.ValueKind != JsonValueKind.Object) { Status("Form này không có trong tài liệu chuẩn LT3 (form riêng của dự án).", "warn"); return; }
+        if (d.ValueKind != JsonValueKind.Object) { Status("Form này không có trong " + (_mapCount > 0 ? "ColumnMappings.xml của dự án / " : "") + "tài liệu chuẩn LT3 (form riêng của dự án).", "warn"); return; }
         using var dlg = new ThemedForm { Text = "Tài liệu form — " + P(d, "form"), Width = NativeSkin.S(900), Height = NativeSkin.S(640), StartPosition = FormStartPosition.CenterParent, ShowIcon = false };
         var head = NK.Muted($"{P(d, "form")}  [{P(d, "kind")}]  {P(d, "title")}  ·  POST {P(d, "endpoint")}\n{P(d, "description")}", true); head.Dock = DockStyle.Top; head.Padding = new Padding(12, 10, 12, 4);
         var g = NK.Grid(("sec", "Nhóm", 130), ("name", "Trường", 200), ("type", "Kiểu", 100), ("req", "Bắt buộc", 70), ("desc", "Mô tả", 0)); g.Dock = DockStyle.Fill;
         foreach (var s in PA(d, "sections")) foreach (var f in PA(s, "fields")) g.Rows.Add(P(s, "label").Length > 0 ? P(s, "label") : P(s, "name"), P(f, "name"), P(f, "type"), PB(f, "required") ? "✔" : "", P(f, "description"));
         var foot = new BarFlow { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(10, 7, 10, 7) };
-        foot.Controls.Add(NK.Button("Đóng", dlg.Close, primary: true)); foot.Controls.Add(NK.Button("Mở trang tài liệu ↗", () => Post(new { action = "open-path", path = P(d, "doc") })));
+        foot.Controls.Add(NK.Button("Đóng", dlg.Close, primary: true)); foot.Controls.Add(NK.Button(P(d, "source") == "mapping" ? "Mở ColumnMappings.xml ↗" : "Mở trang tài liệu ↗", () => Post(new { action = "open-path", path = P(d, "doc") })));
         dlg.Controls.Add(g); dlg.Controls.Add(head); dlg.Controls.Add(foot);
         dlg.ShowDialog(FindForm());
     }
@@ -837,20 +880,27 @@ internal sealed class ApiDeclarationPage : DialogPage
         public string ProjectName => _name.Text.Trim(); public string ProjectId => _id.Text.Trim(); public string BaseUrl => _base.Text.Trim();
         public List<string> Forms { get; private set; } = new();
 
-        public TemplatePicker(bool isNew, List<CatalogItem> catalog, HashSet<string> have)
+        public TemplatePicker(bool isNew, List<CatalogItem> catalog, HashSet<string> have, string projectId = "")
         {
-            Text = isNew ? "Dự án mới từ mẫu chuẩn LT3" : "Thêm form từ mẫu chuẩn LT3"; Width = NativeSkin.S(720); Height = NativeSkin.S(700); StartPosition = FormStartPosition.CenterParent; ShowIcon = false;
+            var hasMap = catalog.Any(c => c.Src == "mapping");
+            Text = (isNew ? "Dự án mới" : "Thêm form") + (hasMap ? " — form theo ColumnMappings.xml của dự án + chuẩn LT3" : " từ mẫu chuẩn LT3");
+            _id.Text = projectId; Width = NativeSkin.S(720); Height = NativeSkin.S(700); StartPosition = FormStartPosition.CenterParent; ShowIcon = false;
             var top = new Panel { Dock = DockStyle.Top, AutoSize = true, Visible = isNew, Padding = new Padding(12, 8, 12, 0) };
             top.Controls.Add(NK.FormGrid(130, ("Tên dự án", _name), ("Mã dự án", _id), ("Địa chỉ gốc", _base)));
-            var groups = new[] { ("SyncData", "Đồng bộ danh mục (SyncData)"), ("SyncVoucher", "Đồng bộ chứng từ (SyncVoucher)"), ("GetData", "Lấy dữ liệu (GetData)") };
+            var kinds = new[] { ("SyncData", "Đồng bộ danh mục (SyncData)"), ("SyncVoucher", "Đồng bộ chứng từ (SyncVoucher)"), ("GetData", "Lấy dữ liệu (GetData)") };
+            // Có mapping: nhóm form của ColumnMappings.xml trước (dự án mới: tick sẵn), rồi form chuẩn LT3 (chọn thêm). Không có: như cũ.
+            var groups = (hasMap ? kinds.Select(k => ("mapping", k.Item1, "ColumnMappings.xml dự án — " + k.Item2)) : Enumerable.Empty<(string, string, string)>())
+                .Concat(kinds.Select(k => ("lt3", k.Item1, (hasMap ? "Chuẩn LT3 — " : "") + k.Item2)));
             _tree.BeginUpdate();
-            foreach (var (k, label) in groups)
+            foreach (var (src, k, label) in groups)
             {
+                var items = catalog.Where(c => c.Kind == k && c.Src == src).ToList();
+                if (items.Count == 0) continue;
                 var g = new TreeNode(label);
-                foreach (var f in catalog.Where(c => c.Kind == k))
+                foreach (var f in items)
                 {
                     var disabled = have.Contains(f.Form.ToLowerInvariant());
-                    g.Nodes.Add(new TreeNode(f.Form + "  —  " + f.Title) { Tag = disabled ? null : f.Form, Checked = isNew && !disabled, ForeColor = disabled ? AppColors.TextMuted : AppColors.Text });
+                    g.Nodes.Add(new TreeNode(f.Form + "  —  " + f.Title) { Tag = disabled ? null : f.Form, Checked = isNew && !disabled && (!hasMap || src == "mapping"), ForeColor = disabled ? AppColors.TextMuted : AppColors.Text });
                 }
                 _tree.Nodes.Add(g); g.Expand();
             }

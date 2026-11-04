@@ -15,7 +15,11 @@ public static class Lt3Templates
 
     public sealed record FieldDoc(string Name, string Type, bool Required, string Description);
     public sealed record SectionDoc(string Name, string Label, List<FieldDoc> Fields);
-    public sealed record FormDoc(string Form, string Kind, string Endpoint, string Title, string Description, List<SectionDoc> Sections, string? Sample, string Doc);
+    public sealed record FormDoc(string Form, string Kind, string Endpoint, string Title, string Description, List<SectionDoc> Sections, string? Sample, string Doc)
+    {
+        /// <summary>"lt3" = tài liệu chuẩn (lt3-standard.json); "mapping" = ColumnMappings.xml của dự án (<see cref="ApiColumnMappings"/>).</summary>
+        public string Source { get; init; } = "lt3";
+    }
 
     private static readonly JsonSerializerOptions Opts = new() { PropertyNameCaseInsensitive = true };
     private static (List<FormDoc> Forms, Dictionary<string, string> Errors)? _cache;
@@ -44,8 +48,9 @@ public static class Lt3Templates
         return _cache.Value;
     }
 
-    /// <summary>Dự án mới theo chuẩn LT3 với các form được chọn (null = tất cả).</summary>
-    public static ApiProject Create(string name = "", string projectId = "", string baseUrl = "", IEnumerable<string>? forms = null)
+    /// <summary>Dự án mới theo chuẩn LT3 với các form được chọn (null = tất cả). <paramref name="catalog"/> = danh mục form dùng (null = chuẩn LT3;
+    /// Khai báo API truyền danh mục đã gộp ColumnMappings.xml của dự án — <see cref="ApiColumnMappings.Merge"/>).</summary>
+    public static ApiProject Create(string name = "", string projectId = "", string baseUrl = "", IEnumerable<string>? forms = null, IEnumerable<FormDoc>? catalog = null)
     {
         var pick = forms is null ? null : new HashSet<string>(forms, StringComparer.OrdinalIgnoreCase);
         return new ApiProject
@@ -56,7 +61,7 @@ public static class Lt3Templates
             BaseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "http://172.168.5.14/<DU_AN>_API" : baseUrl,
             Note = "Chuẩn LT3: POST api/getToken {username, password} → token.accesstoken (hạn token.expires). Header Authorization: <token> (không \"Bearer\"). "
                  + "SyncData = đồng bộ danh mục, SyncVoucher = đồng bộ chứng từ (VoucherId duy nhất, ngày yyyy-MM-dd), GetData = lấy dữ liệu (Id hoặc dateFrom–dateTo).",
-            Forms = Catalog().Where(f => pick is null || pick.Contains(f.Form)).Select(ToForm).ToList(),
+            Forms = (catalog ?? Catalog()).Where(f => pick is null || pick.Contains(f.Form)).Select(ToForm).ToList(),
         };
     }
 

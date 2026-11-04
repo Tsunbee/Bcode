@@ -174,18 +174,19 @@
       <input type="text" id="fFilter" placeholder="Lọc theo tên form…" />
       <div class="flist" id="fList"></div>
       <div class="btns">
-        <button id="bAddTpl" title="Thêm form từ mẫu chuẩn LT3">＋ Từ mẫu LT3</button>
+        <button id="bAddTpl" title="Thêm form từ ColumnMappings.xml của dự án (nếu Project có API Path) / mẫu chuẩn LT3">＋ Từ mẫu LT3</button>
         <button id="bAddBlank">＋ Form trống</button>
         <button id="bDup">Nhân bản</button>
         <button id="bUp" title="Lên">▲</button><button id="bDown" title="Xuống">▼</button>
         <button class="danger" id="bDelForm">Xoá form</button>
       </div>
+      <div class="hint" id="mapInfo"></div>
     </div>
   </div>
 
   <div class="col">
     <div class="card">
-      <h3>Form đang chọn <span class="sp"></span><button id="bFormDoc" title="Bảng trường theo tài liệu chuẩn LT3">Tài liệu form</button></h3>
+      <h3>Form đang chọn <span class="sp"></span><button id="bFormDoc" title="Bảng trường của form: ColumnMappings.xml của dự án (nếu có), không thì tài liệu chuẩn LT3">Tài liệu form</button></h3>
       <div class="g2">
         <label>Tên</label><input type="text" id="fName" />
         <label>Loại</label><select id="fKind"><option value="SyncData">SyncData — đồng bộ danh mục</option><option value="SyncVoucher">SyncVoucher — đồng bộ chứng từ</option><option value="GetData">GetData — lấy dữ liệu</option><option value="custom">Khác</option></select>
@@ -235,7 +236,7 @@
           </div>
           <span class="grow"></span>
           <button class="lnk" id="bulkB" style="display:none">Sửa dạng chữ</button>
-          <button id="bFormat">Định dạng</button><button id="bValidate">Kiểm tra (LT3)</button>
+          <button id="bFormat">Định dạng</button><button id="bGen" title="Sinh body JSON mẫu theo cấu hình form: ColumnMappings.xml của dự án (nếu có), không thì request mẫu của tài liệu LT3">Sinh JSON</button><button id="bValidate">Kiểm tra (LT3)</button>
         </div>
         <textarea id="fBody" class="code" spellcheck="false"></textarea>
         <div id="kvB"></div>
@@ -302,7 +303,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const S = { projects: [], catalog: [], errors: {}, docUrl: '', p: null, original: '', sel: -1, dirty: false, hasPassword: false, token: '', mode: 'new', lastTab: 'tables', result: null, fmt: 'pretty', ftab: 'body' };
+  const S = { projects: [], catalog: [], mapping: null, curId: '', errors: {}, docUrl: '', p: null, original: '', sel: -1, dirty: false, hasPassword: false, token: '', mode: 'new', lastTab: 'tables', result: null, fmt: 'pretty', ftab: 'body' };
 
   // ---------------------------------------------------------------- giá trị bí mật: giải mã qua C# (nút 👁)
   const MASK = '••••••', SECRET = /auth|token|secret|passw|api[-_]?key|cookie|signature/i, SAVED = '•••••• (đã lưu, mã hoá — để trống là giữ)';
@@ -461,7 +462,7 @@
     $('fRaw').value = f && f.RawType || 'json'; setMode(bm);
     kvF.set(f ? f.Headers : []); kvQ.set(f ? f.Params : []);
     fillAuth(f && f.Auth);
-    ['fName', 'fKind', 'fMethod', 'fEndpoint', 'fDesc', 'fBody', 'fRaw', 'bSend', 'bValidate', 'bFormat', 'bFormDoc', 'aType', 'aUser', 'aKey', 'aIn', 'aVal', 'aEye'].forEach((id) => { $(id).disabled = !f; });
+    ['fName', 'fKind', 'fMethod', 'fEndpoint', 'fDesc', 'fBody', 'fRaw', 'bSend', 'bValidate', 'bFormat', 'bGen', 'bFormDoc', 'aType', 'aUser', 'aKey', 'aIn', 'aVal', 'aEye'].forEach((id) => { $(id).disabled = !f; });
     document.querySelectorAll('input[name=fMode]').forEach((r) => { r.disabled = !f; });
     [kvF, kvQ, kvB].forEach((k) => k.enable(!!f));
     $('issues').textContent = ''; $('issues').className = 'issues';
@@ -477,7 +478,7 @@
   function modeUi() {
     const m = mode(), kv = kvMode(m);
     $('fBody').style.display = m === 'raw' ? '' : 'none'; kvB.show(kv); $('noneHint').style.display = m === 'none' ? '' : 'none';
-    $('fRaw').style.display = m === 'raw' ? '' : 'none'; $('bFormat').style.display = $('bValidate').style.display = m === 'raw' ? '' : 'none';
+    $('fRaw').style.display = m === 'raw' ? '' : 'none'; $('bFormat').style.display = $('bValidate').style.display = $('bGen').style.display = m === 'raw' ? '' : 'none';
     document.querySelectorAll('#fModes label').forEach((l) => l.classList.toggle('on', !!l.querySelector('input:checked')));
     refreshCounts();
   }
@@ -584,6 +585,16 @@
   function validate() { saveForm(); if (mode() !== 'raw') { api.status('Kiểm tra (LT3) chỉ dùng cho body raw (JSON).', 'warn'); return; } post('validate', { name: $('fName').value, body: $('fBody').value }); }
   function send(confirmWrite) { if (!S.p || S.sel < 0) return; saveForm(); api.busy(true); post('send', payload({ index: S.sel, confirmWrite: !!confirmWrite })); }
   $('bFormat').onclick = format; $('bValidate').onclick = validate; $('bSend').onclick = () => send(false);
+  const formOfBody = () => { let form = $('fName').value; try { form = JSON.parse($('fBody').value).form || form; } catch { } return form; };
+  $('bGen').onclick = () => { if (S.sel < 0) return; saveForm(); post('gen-body', { form: formOfBody() }); };
+  $('pId').addEventListener('change', () => post('project-id', { projectId: $('pId').value.trim() }));
+  // Dòng "nguồn form" dưới danh sách form: ColumnMappings.xml của Project (API Path) hay chuẩn tài liệu LT3.
+  function mapInfo() {
+    const m = S.mapping || {}, el = $('mapInfo');
+    if (m.count) el.innerHTML = 'Form theo <b>ColumnMappings.xml</b> của Project <b>' + esc(m.project) + '</b> (' + m.count + ' form, ghi đè form chuẩn cùng tên): <a href="#" id="lnkMap" class="mono">' + esc(m.file) + '</a>';
+    else el.textContent = 'Form theo chuẩn tài liệu LT3' + (m.error ? ' — ' + m.error + ' (khai báo "API Path" ở Edit Project để lấy form theo ColumnMappings.xml của dự án).' : '.');
+    const a = $('lnkMap'); if (a) a.onclick = (e) => { e.preventDefault(); post('open-path', { path: m.file }); };
+  }
   $('bFormDoc').onclick = () => { let form = $('fName').value; try { form = JSON.parse($('fBody').value).form || form; } catch { } post('form-doc', { form }); };
   $('fEndpoint').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); splitQuery(); send(false); } });
 
@@ -611,13 +622,20 @@
   // ---------------------------------------------------------------- chọn form từ mẫu LT3
   function openPicker(mode) {
     S.mode = mode;
-    $('mTplTitle').textContent = mode === 'new' ? 'Dự án mới từ mẫu chuẩn LT3' : 'Thêm form từ mẫu chuẩn LT3';
+    const hasMap = S.catalog.some((f) => f.src === 'mapping');
+    $('mTplTitle').textContent = (mode === 'new' ? 'Dự án mới' : 'Thêm form') + (hasMap ? ' — form theo ColumnMappings.xml của dự án + chuẩn LT3' : ' từ mẫu chuẩn LT3');
+    if (mode === 'new' && !$('tId').value) $('tId').value = S.curId || '';
     $('mTplNew').style.display = mode === 'new' ? '' : 'none'; $('tOk').textContent = mode === 'new' ? 'Tạo' : 'Thêm';
     const have = new Set(mode === 'add' && S.p ? S.p.Forms.map((f) => (f.Name || '').toLowerCase()) : []);
-    const groups = { SyncData: 'Đồng bộ danh mục (SyncData)', SyncVoucher: 'Đồng bộ chứng từ (SyncVoucher)', GetData: 'Lấy dữ liệu (GetData)' };
-    $('tList').innerHTML = Object.entries(groups).map(([k, label]) => '<div class="grp"><div class="tname">' + label + '</div>' +
-      S.catalog.filter((f) => f.kind === k).map((f) => '<label title="' + esc(f.title) + '"><input type="checkbox" value="' + esc(f.form) + '"' + (have.has(f.form.toLowerCase()) ? ' disabled' : mode === 'new' ? ' checked' : '') + '> ' + esc(f.form) + ' <span class="muted">— ' + esc(f.title) + '</span></label>').join('') + '</div>').join('');
-    $('tAll').checked = mode === 'new'; countPick();
+    const kinds = { SyncData: 'Đồng bộ danh mục (SyncData)', SyncVoucher: 'Đồng bộ chứng từ (SyncVoucher)', GetData: 'Lấy dữ liệu (GetData)' };
+    const groups = [];
+    if (hasMap) Object.entries(kinds).forEach(([k, label]) => groups.push({ src: 'mapping', kind: k, label: 'ColumnMappings.xml dự án — ' + label }));
+    Object.entries(kinds).forEach(([k, label]) => groups.push({ src: 'lt3', kind: k, label: (hasMap ? 'Chuẩn LT3 — ' : '') + label }));
+    // Dự án mới: có mapping → tick sẵn form của mapping (form chuẩn để chọn thêm); không có → tick tất cả như cũ.
+    const pre = (f) => mode === 'new' && (!hasMap || f.src === 'mapping');
+    $('tList').innerHTML = groups.map((g) => [g, S.catalog.filter((f) => f.kind === g.kind && (f.src || 'lt3') === g.src)]).filter(([, list]) => list.length).map(([g, list]) => '<div class="grp"><div class="tname">' + g.label + '</div>' +
+      list.map((f) => '<label title="' + esc(f.title) + '"><input type="checkbox" value="' + esc(f.form) + '"' + (have.has(f.form.toLowerCase()) ? ' disabled' : pre(f) ? ' checked' : '') + '> ' + esc(f.form) + ' <span class="muted">— ' + esc(f.title) + '</span></label>').join('') + '</div>').join('');
+    $('tAll').checked = mode === 'new' && !hasMap; countPick();
     $('mTpl').classList.add('on');
     if (mode === 'new') $('tName').focus();
   }
@@ -691,7 +709,7 @@
   }, true);
   function keyHints() {
     $('bSend').title = 'Gửi (' + comboOf('api.send') + ', hoặc Enter ở ô Endpoint)'; $('bSave').title = 'Lưu dự án (' + comboOf('api.save') + ')'; $('bToken').title = 'Lấy token mới (' + comboOf('api.token') + ')';
-    $('bFormat').title = 'Định dạng JSON (' + comboOf('api.format') + ')'; $('bValidate').title = 'Kiểm tra theo bảng trường chuẩn LT3 (' + comboOf('api.validate') + ')';
+    $('bFormat').title = 'Định dạng JSON (' + comboOf('api.format') + ')'; $('bValidate').title = 'Kiểm tra theo ColumnMappings.xml của dự án (nếu form có trong đó), không thì bảng trường chuẩn LT3 (' + comboOf('api.validate') + ')';
     $('kbHint').textContent = comboOf('api.send') ? 'Gửi: ' + comboOf('api.send') : '';
   }
 
@@ -699,10 +717,10 @@
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   window.api = {
     init(st) {
-      S.projects = st.projects || []; S.catalog = st.catalog || []; S.errors = st.errors || {}; S.docUrl = st.docUrl || '';
+      S.projects = st.projects || []; S.catalog = st.catalog || []; S.mapping = st.mapping || null; S.curId = st.currentProjectId || ''; S.errors = st.errors || {}; S.docUrl = st.docUrl || ''; mapInfo();
       $('selProject').innerHTML = '<option value="">— chọn dự án (' + S.projects.length + ') —</option>' + S.projects.map((n) => '<option' + (n === S.original ? ' selected' : '') + '>' + esc(n) + '</option>').join('');
       $('bOld').style.display = st.oldProfiles ? '' : 'none'; $('bOld').textContent = 'Chuyển ' + st.oldProfiles + ' hồ sơ cũ';
-      if (!S.p) { fill(); api.status(S.projects.length ? 'Chọn dự án, hoặc "＋ Mới từ mẫu LT3" / "Nhập Postman…". Hồ sơ lưu riêng trên máy này: ' + st.folder : 'Chưa có dự án — bấm "＋ Mới từ mẫu LT3" (31 form chuẩn) hoặc "Nhập Postman…".', ''); }
+      if (!S.p) { fill(); api.status(S.projects.length ? 'Chọn dự án, hoặc "＋ Mới từ mẫu LT3" / "Nhập Postman…". Hồ sơ lưu riêng trên máy này: ' + st.folder : 'Chưa có dự án — bấm "＋ Mới từ mẫu LT3" (' + (S.mapping && S.mapping.count ? S.mapping.count + ' form theo ColumnMappings.xml của ' + S.mapping.project + ' + chuẩn LT3' : '31 form chuẩn') + ') hoặc "Nhập Postman…".', ''); }
       keyHints();
     },
     project(o) {
@@ -712,7 +730,13 @@
       $('notes').textContent = ''; $('resCard').style.display = 'none';
       fill(); setDirty(!!o.dirty);
     },
-    addForms(forms) { forms.forEach((f) => S.p.Forms.push(f)); select(S.p.Forms.length - 1); setDirty(true); api.status('Đã thêm ' + forms.length + ' form từ mẫu LT3.', 'ok'); },
+    addForms(forms) { forms.forEach((f) => S.p.Forms.push(f)); select(S.p.Forms.length - 1); setDirty(true); api.status('Đã thêm ' + forms.length + ' form' + (S.mapping && S.mapping.count ? ' (ColumnMappings.xml dự án / mẫu LT3).' : ' từ mẫu LT3.'), 'ok'); },
+    catalog(o) { S.catalog = o.catalog || []; S.mapping = o.mapping || null; mapInfo(); },
+    genBody(body, src) {
+      const apply = () => { setMode('raw'); $('fRaw').value = 'json'; $('fBody').value = body; saveForm(); setDirty(true); refreshCounts(); $('issues').textContent = ''; api.status('Đã sinh body JSON theo ' + src + ' — điền giá trị rồi Kiểm tra (' + comboOf('api.validate') + ').', 'ok'); };
+      const cur = $('fBody').value.trim();
+      if (!cur || cur === body.trim()) apply(); else ask('Thay body?', 'Thay body hiện tại của form bằng JSON sinh theo <b>' + esc(src) + '</b>?', 'Thay', apply);
+    },
     cleared() { S.p = null; S.original = ''; S.sel = -1; fill(); setDirty(false); },
     token(t) { S.token = t.full; $('tokVal').textContent = t.masked + ' · hết hạn ' + t.expires; $('tokVal').title = 'Hết hạn ' + t.expires; $('bCopyTok').disabled = false; api.busy(false); },
     revealed(key, list) { const cb = revealCbs[key]; delete revealCbs[key]; if (cb) cb(list || []); },
@@ -738,16 +762,17 @@
       const want = S.userTab || (tables.length ? 'tables' : 'body');
       showTab(want === 'tables' && !tables.length ? 'body' : want);
     },
-    issues(list) {
+    issues(list, src) {
       const ul = $('issues'); ul.className = 'issues' + (list.length ? '' : ' ok');
-      ul.innerHTML = list.length ? list.map((x) => '<li>' + esc(x) + '</li>').join('') : '<li>✓ Body khớp bảng trường chuẩn LT3 (hoặc form riêng của dự án — không có bảng để so).</li>';
+      ul.innerHTML = list.length ? list.map((x) => '<li>' + esc(x) + '</li>').join('') : '<li>' + (src ? '✓ Body khớp ' + esc(src) + '.' : '✓ Body khớp bảng trường chuẩn LT3 (hoặc form riêng của dự án — không có bảng để so).') + '</li>';
     },
     notes(list) { $('notes').innerHTML = (list || []).map((x) => '<li>' + esc(x) + '</li>').join(''); },
     formDoc(d) {
-      if (!d) { api.status('Form này không có trong tài liệu chuẩn LT3 (form riêng của dự án).', 'warn'); return; }
+      if (!d) { api.status('Form này không có trong ' + (S.mapping && S.mapping.count ? 'ColumnMappings.xml của dự án / ' : '') + 'tài liệu chuẩn LT3 (form riêng của dự án).', 'warn'); return; }
       $('docBody').innerHTML = '<h3 style="margin:0">' + esc(d.form) + ' <span class="badge ' + esc(d.kind) + '">' + esc(d.kind) + '</span></h3><div class="muted">' + esc(d.title) + ' · POST ' + esc(d.endpoint) + '</div><div class="hint">' + esc(d.description) + '</div>' +
         d.sections.map((s) => '<div class="tname">' + esc(s.label || s.name) + '</div><table><thead><tr><th>Trường</th><th>Kiểu</th><th>Bắt buộc</th><th>Mô tả</th></tr></thead><tbody>' +
           s.fields.map((f) => '<tr><td class="mono">' + esc(f.name) + '</td><td>' + esc(f.type) + '</td><td class="req">' + (f.required ? '✔' : '') + '</td><td>' + esc(f.description) + '</td></tr>').join('') + '</tbody></table>').join('');
+      $('docOpen').textContent = d.source === 'mapping' ? 'Mở ColumnMappings.xml ↗' : 'Mở trang tài liệu ↗';
       $('docOpen').onclick = () => post('open-path', { path: d.doc });
       $('mDoc').classList.add('on');
     },

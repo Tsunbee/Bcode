@@ -325,7 +325,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => OpenFsgCrawlerTab()));
         _toolSpecs.Add(("quick_launch", "FSG FBO", "Ctrl+4", (_, _) => OpenQuickLaunchLogin()));
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
-        _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm().ShowDialog(this); }));
+        _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm(_settings.Workspaces, _connections.Current).ShowDialog(this); }));
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this); }));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
@@ -962,6 +962,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         var table = _documentTabs.SelectedTab?.Controls.OfType<TableEditControl>().FirstOrDefault();
         ApplyActiveDatabase(!(table?.UseSysDatabase ?? _topDbSys));
+    }
+
+    /// <summary>Ctrl+2: đảo App ↔ Sys của riêng tab SQL Query đang mở (như chọn ở ô database cạnh Execute) — topbar giữ nguyên.
+    /// Tab đang mở không phải SQL Query → false (phím đi tiếp).</summary>
+    private bool ToggleSqlTabDatabase()
+    {
+        if (_documentTabs.SelectedTab?.Controls.OfType<ISqlTab>().FirstOrDefault() is not { } sql) return false;
+        var useSys = !sql.UseSysDatabase;
+        sql.SetDatabase(useSys);
+        if (_connections.Current is { } ws)
+            PushStatus($"SQL Query: {(useSys ? ws.SysDatabase : ws.EffectiveAppDatabase)} ({(useSys ? "Sys" : "App")})");
+        return true;
     }
 
     /// <summary>Cột icon / thanh trạng thái: trang WebView2 phóng theo DPI × UiScale (ZoomFactor) nên khung cũng theo cùng tỉ lệ — px thiết kế 52 / 26 (× Mật độ).</summary>
@@ -2146,6 +2158,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         // Luôn tạo tab SQL Query mới, không dùng lại tab cũ
         var sw = System.Diagnostics.Stopwatch.StartNew();
         _rawSqlControl = TakeSqlControl();
+        // tab mới ăn theo database đang chọn ở ô WS (App / Sys); tab dựng sẵn mặc định App nên chỉ đổi khi khác — khỏi nạp bảng 2 lần
+        if (_rawSqlControl.UseSysDatabase != _topDbSys) _rawSqlControl.SetDatabase(_topDbSys);
         var tTake = sw.ElapsedMilliseconds;
         _rawSqlTabPage = AddDocumentTab(NumberedTabTitle("SQL Query"), _rawSqlControl.AsControl());
         var tSync = sw.ElapsedMilliseconds;
@@ -2816,6 +2830,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             SourcePath = $"\\\\{host}\\CustomerPro\\FBI\\{id}\\{suffix}\\",
             MobilePath = "",
             WorkingPath = $"\\\\{host}\\CustomerUpdate\\{id}\\update\\",
+            ApiPath = $"\\\\{host}\\CustomerPro\\FBI\\{id}\\FastAPIService\\",   // chưa có thì Khai báo API dùng chuẩn LT3
             RegistryName = "Software\\Fast",
         };
     }
@@ -3038,6 +3053,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "debug.decrypt": DebugDecryptConnectStr(); return true;
             case "app.chooseServer": OpenConnectionSettings(); return true;
             case "app.toggleDb": ToggleActiveDatabase(); return true;
+            case "sql.toggleDb": return ToggleSqlTabDatabase();
             case "app.programPath": OpenProgramPath(); return true;
             case "project.openSource": OpenProjectFolder(_connections.Current?.SourcePath ?? ""); return true;
             case "project.openWorking": OpenProjectFolder(_connections.Current?.WorkingPath ?? ""); return true;
@@ -3518,13 +3534,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
     private void ViewScriptCart()
     {
-        if (_scriptFileService.Cart.Count == 0)
-        {
-            MessageBox.Show(this, "Script Cart đang trống. Hãy dùng 'Add Script' ở các bảng dữ liệu hoặc chọn file từ máy.", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-
         // Hiện trong cửa sổ Script riêng (Monaco, không lag với script lớn); Clear ở đây xoá luôn Script Cart.
+        // Giỏ trống vẫn mở cửa sổ (nội dung trống) để người dùng tự dán script vào rồi Save.
         var form = new ScriptPopupForm(_scriptFileService.ViewCartConcatenated(),
             $"Script Cart ({_scriptFileService.Cart.Count} files)", "script_cart.sql");
         form.Cleared += () =>
@@ -3763,7 +3774,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var control = new SqlWatchControl(_settings, _connections);
         // Như SQL Profiler: "Copy SQL Command" → tab SQL Query mới dán sẵn câu; "Debug store" → định nghĩa store + GO + câu gọi, bật Debug.
-        control.OpenInSqlQueryRequested += sql => OpenFreeScriptTab().SetScriptText(sql);
+        control.OpenInSqlQueryRequested += (sql, database) =>
+        {
+            var sqlTab = OpenFreeScriptTab();
+            // Database của dòng (cột Database) là Sys / App của dự án đang mở → tab mới chạy trên đúng database đó; khác (eInv, dự án khác) thì theo ô WS.
+            if (_connections.Current is { } ws && database.Length > 0)
+            {
+                if (database.Equals(ws.SysDatabase, StringComparison.OrdinalIgnoreCase)) sqlTab.SetDatabase(true);
+                else if (database.Equals(ws.EffectiveAppDatabase, StringComparison.OrdinalIgnoreCase)) sqlTab.SetDatabase(false);
+            }
+            sqlTab.SetScriptText(sql);
+        };
         control.DebugRequested += sql => _ = OpenProfilerDebugAsync(control.ReportStatus, sql);
         _sqlWatchTab = AddDocumentTab("SqlWatch", control);
         // Ô xanh ngọc có con mắt trắng + chữ tab xanh ngọc (kiểu tab Profiler đỏ của Fcode, khác màu để phân biệt); chấm đỏ khi đang bắt (SqlWatchControl).

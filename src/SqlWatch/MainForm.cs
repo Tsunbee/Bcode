@@ -67,9 +67,9 @@ public sealed partial class MainForm : Form
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Action<string, string, string>? LoginSaved { get; set; }
 
-    /// <summary>Nơi chứa (Bcode) mở tab SQL Query mới có sẵn câu vừa copy. Chạy riêng (null) thì chỉ copy vào clipboard.</summary>
+    /// <summary>Nơi chứa (Bcode) mở tab SQL Query mới có sẵn câu vừa copy (câu SQL, database của dòng đang chọn). Chạy riêng (null) thì chỉ copy vào clipboard.</summary>
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
-    public Action<string>? OpenInSqlQuery { get; set; }
+    public Action<string, string>? OpenInSqlQuery { get; set; }
 
     /// <summary>Nơi chứa (Bcode) mở debug store được gọi trong câu SQL; có giá trị thì mới hiện nút "Debug store".</summary>
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -1091,7 +1091,7 @@ public sealed partial class MainForm : Form
             return;
         }
         ReportStatus($"Đã copy SQL Command ({sql.Length} ký tự) — đã mở SQL Query và dán vào.");
-        OpenInSqlQuery(sql);
+        OpenInSqlQuery(sql, (_grid.CurrentRow?.Tag as CapturedEvent)?.DatabaseName ?? "");
     }
 
     private void DebugSelected()

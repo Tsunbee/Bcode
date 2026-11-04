@@ -45,7 +45,7 @@ internal static class ProjectActions
         {
             $"ID: {IdOf(w)}", $"Server: {w.Server}", $"Sys Data: {w.SysDatabase}", $"App Data: {w.AppDatabase}",
             $"WLoginLink: {w.LoginWLink}", $"Program Path: {w.ProgramPath}", $"Source Path: {w.SourcePath}",
-            $"Mobile Path: {w.MobilePath}", $"Working Path: {w.WorkingPath}", $"Version: {w.VersionCode}", $"DB Access: {w.DbAccess}",
+            $"Mobile Path: {w.MobilePath}", $"Working Path: {w.WorkingPath}", $"API Path: {w.ApiPath}", $"Version: {w.VersionCode}", $"DB Access: {w.DbAccess}",
         });
         try { Clipboard.SetText(text); } catch { /* clipboard đang bận */ }
     }

@@ -112,6 +112,7 @@ public class EditProjectForm : ThemedForm
                 ["id"] = w.ProjectId, ["wlink"] = w.LoginWLink,
                 ["programPath"] = w.ProgramPath, ["sourcePath"] = w.SourcePath,
                 ["mobilePath"] = w.MobilePath, ["workingPath"] = w.WorkingPath, ["registry"] = w.RegistryName,
+                ["apiPath"] = w.ApiPath,
             },
         };
         await Js($"window.init({JsonSerializer.Serialize(state)})");
@@ -143,6 +144,7 @@ public class EditProjectForm : ThemedForm
         MobilePath = Get(d, "mobilePath").Trim(),
         WorkingPath = Get(d, "workingPath").Trim(),
         RegistryName = Get(d, "registry").Trim(),
+        ApiPath = Get(d, "apiPath").Trim(),
     };
 
     private void Apply(Workspace edited)
@@ -161,6 +163,7 @@ public class EditProjectForm : ThemedForm
         Result.MobilePath = edited.MobilePath;
         Result.WorkingPath = edited.WorkingPath;
         Result.RegistryName = edited.RegistryName;
+        Result.ApiPath = edited.ApiPath;
         DialogResult = DialogResult.OK;
         Close();
     }

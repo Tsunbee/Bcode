@@ -230,31 +230,47 @@ public sealed class ApiClient
     }
 
     /// <summary>Kiểm tra body theo bảng trường chuẩn LT3 của form (nếu có trong mẫu): JSON hợp lệ, thiếu trường bắt buộc, trường lạ.</summary>
-    public static List<string> Validate(ApiForm f, string body)
+    public static List<string> Validate(ApiForm f, string body) => Validate(f, body, Lt3Templates.Find, out _);
+
+    /// <summary>Kiểm tra body theo bảng trường của form tra bằng <paramref name="find"/> (Khai báo API: ColumnMappings.xml của dự án trước, rồi chuẩn LT3).
+    /// Form theo mapping (<see cref="Lt3Templates.FormDoc.Source"/> = "mapping") kiểm thêm như FastAPIService: trường bắt buộc không được trống, tên trường
+    /// đúng hoa / thường. <paramref name="used"/> = bảng trường đã dùng (null = form riêng, không có bảng để so).</summary>
+    public static List<string> Validate(ApiForm f, string body, Func<string, Lt3Templates.FormDoc?> find, out Lt3Templates.FormDoc? used)
     {
+        used = null;
         var issues = new List<string>();
         JsonNode? node;
         try { node = JsonNode.Parse(Expand(body)); }
         catch (Exception ex) { issues.Add("Body không phải JSON hợp lệ: " + ex.Message); return issues; }
         var formName = node?["form"]?.GetValue<string>() ?? f.Name;
-        var doc = Lt3Templates.Find(formName);
+        var doc = find(formName);
         if (doc is null) return issues;   // form riêng của dự án — không có bảng chuẩn để so
+        used = doc;
+        var mapped = doc.Source == ApiColumnMappings.Source;
+        var head = doc.Sections.FirstOrDefault(s => s.Name is "header" or "data");
+        var subs = doc.Sections.Where(s => s != head && (mapped || s.Name is "detail" or "tax")).ToList();
+        var lists = new HashSet<string>(subs.Select(s => s.Name).Append("detail").Append("tax"), StringComparer.OrdinalIgnoreCase);   // mảng con, không phải trường
         void Check(JsonObject obj, Lt3Templates.SectionDoc sec, string where)
         {
-            foreach (var fd in sec.Fields.Where(x => x.Required && x.Name is not ("detail" or "tax")))
-                if (!obj.Any(kv => string.Equals(kv.Key, fd.Name, StringComparison.OrdinalIgnoreCase))) issues.Add($"{where}: thiếu trường bắt buộc \"{fd.Name}\" ({fd.Description})");
+            foreach (var fd in sec.Fields.Where(x => x.Required && !lists.Contains(x.Name)))
+            {
+                var hit = obj.FirstOrDefault(kv => string.Equals(kv.Key, fd.Name, StringComparison.OrdinalIgnoreCase));
+                if (hit.Key is null) issues.Add($"{where}: thiếu trường bắt buộc \"{fd.Name}\" ({fd.Description})");
+                else if (mapped && hit.Key != fd.Name) issues.Add($"{where}: \"{hit.Key}\" phải viết đúng \"{fd.Name}\" như ColumnMappings.xml");
+                else if (mapped && (hit.Value is null || hit.Value is JsonValue v && v.TryGetValue<string>(out var str) && string.IsNullOrWhiteSpace(str)))
+                    issues.Add($"{where}: trường bắt buộc \"{fd.Name}\" đang trống ({fd.Description})");
+            }
             var known = new HashSet<string>(sec.Fields.Select(x => x.Name), StringComparer.OrdinalIgnoreCase);
-            foreach (var kv in obj) if (!known.Contains(kv.Key) && kv.Key is not ("detail" or "tax")) issues.Add($"{where}: trường \"{kv.Key}\" không có trong tài liệu chuẩn");
+            foreach (var kv in obj) if (!known.Contains(kv.Key) && !lists.Contains(kv.Key)) issues.Add($"{where}: trường \"{kv.Key}\" không có trong " + (mapped ? "ColumnMappings.xml của dự án" : "tài liệu chuẩn"));
         }
         if (doc.Kind == "GetData") return issues;
-        var head = doc.Sections.FirstOrDefault(s => s.Name is "header" or "data");
         var data = node?["data"] as JsonArray;
         if (data is null || data.Count == 0) { issues.Add("Thiếu mảng \"data\" (202 — Dữ liệu trống)."); return issues; }
         for (var i = 0; i < data.Count; i++)
         {
             if (data[i] is not JsonObject row) continue;
             if (head is not null) Check(row, head, $"data[{i}]");
-            foreach (var sub in doc.Sections.Where(s => s.Name is "detail" or "tax"))
+            foreach (var sub in subs)
             {
                 var arr = row.FirstOrDefault(kv => string.Equals(kv.Key, sub.Name, StringComparison.OrdinalIgnoreCase)).Value as JsonArray;
                 if (arr is null) { if (head?.Fields.Any(x => x.Name == sub.Name && x.Required) == true) issues.Add($"data[{i}]: thiếu mảng \"{sub.Name}\""); continue; }

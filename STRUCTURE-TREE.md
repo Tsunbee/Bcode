@@ -53,7 +53,7 @@ Bcode.App/
 │   ├── NativeKit.cs  515
 │   ├── NativeLookupControl.cs  295
 │   ├── NativePage.cs  274
-│   ├── NativePages.Api.cs  867
+│   ├── NativePages.Api.cs  917
 │   ├── NativePages.Bars.cs  31
 │   ├── NativePages.Bars2.cs  113
 │   ├── NativePages.Bbxn.cs  440
@@ -127,7 +127,7 @@ Bcode.App/
 ├── Forms/
 │   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
-│   ├── ApiDeclarationForm.cs  186
+│   ├── ApiDeclarationForm.cs  255
 │   ├── ApiSchemaBuilderForm.cs  277
 │   ├── ApiSchemaBuilderForm.Native.cs  322
 │   ├── AppCommandEditForm.cs  255
@@ -139,11 +139,11 @@ Bcode.App/
 │   ├── CommandPaletteForm.cs  113
 │   ├── CompareStructureForm.cs  64
 │   ├── CompareTextForm.cs  647
-│   ├── ConnectionSettingsForm.cs  341
+│   ├── ConnectionSettingsForm.cs  342
 │   ├── CopyMultiFileForm.cs  262
 │   ├── CopySourceStandardForm.cs  99
 │   ├── CreateRptXlsxForm.cs  86
-│   ├── EditProjectForm.cs  183
+│   ├── EditProjectForm.cs  186
 │   ├── EntityMultiPeekForm.cs  167
 │   ├── EntityMultiPeekForm.Native.cs  153
 │   ├── FsgNotifyForm.cs  75
@@ -155,7 +155,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  4002
+│   ├── MainForm.cs  4023
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -201,16 +201,17 @@ Bcode.App/
 │   ├── WCommandItem.cs  45
 │   ├── WeeklyMailSent.cs  68
 │   ├── WeeklyMailTemplate.cs  20
-│   └── Workspace.cs  141
+│   └── Workspace.cs  146
 ├── Secrets/
 │   ├── LocalSecrets.cs  26
 │   ├── LocalSecrets.Empty.cs  34
 │   ├── README.md  20
 ├── Services/
 │   ├── Api/
-│   │   ├── ApiClient.cs  359
+│   │   ├── ApiClient.cs  375
+│   │   ├── ApiColumnMappings.cs  203
 │   │   ├── ApiProjectStore.cs  171
-│   │   ├── Lt3Templates.cs  88
+│   │   ├── Lt3Templates.cs  93
 │   │   └── PostmanConverter.cs  349
 │   ├── Rpt/
 │   │   ├── ExcelTemplateWriter.cs  84
@@ -348,7 +349,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  58
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  346
+│   ├── ShortcutRegistry.cs  347
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  813
 │   ├── TreeColorOptions.cs  50
@@ -364,7 +365,7 @@ Bcode.App/
 │       ├── addsource.html  226
 │       ├── advnote.html  831
 │       ├── aihistory.html  128
-│       ├── apideclaration.html  766
+│       ├── apideclaration.html  791
 │       ├── apischema.html  470
 │       ├── appcommandedit.html  158
 │       ├── autoscale.js  13
@@ -379,14 +380,14 @@ Bcode.App/
 │       ├── comparebar.html  137
 │       ├── compareobjects.html  151
 │       ├── comparestructure.html  49
-│       ├── connections.html  225
+│       ├── connections.html  226
 │       ├── contextmenu.html  145
 │       ├── copymulti.html  185
 │       ├── copysourcestandard.html  89
 │       ├── createrpt.html  1116
 │       ├── decryptsql.html  141
 │       ├── dialog.css  43
-│       ├── editproject.html  121
+│       ├── editproject.html  122
 │       ├── entitypeek.html  182
 │       ├── fastask.html  371
 │       ├── filelookupbar.html  195

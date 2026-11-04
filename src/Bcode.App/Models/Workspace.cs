@@ -58,6 +58,11 @@ public class Workspace
 
     /// <summary>Registry key name equivalent, kept only for reference/notes — "Registry Name".</summary>
     public string RegistryName { get; set; } = "";
+
+    /// <summary>"API Path": thư mục FastAPIService của dự án (vd \\server\CustomerPro\FBI\MA_DA\FastAPIService). Khai báo API đọc
+    /// &lt;API Path&gt;\Config\ColumnMappings.xml (chỉ đọc) để lấy danh sách form / trường theo dự án thay cho chuẩn tài liệu LT3 — xem
+    /// Services/Api/ApiColumnMappings.cs. Trống / không có file = dùng chuẩn LT3 như cũ.</summary>
+    public string ApiPath { get; set; } = "";
     public string ProfilerTargetUser { get; set; } = "";
     public string ProfilerTemplateName { get; set; } = "";
     /// <summary>Lọc DatabaseName (Like) của SQL Profiler do người dùng tự sửa trên thanh Profiler; "" = dùng gợi ý %ProjectId% (hoặc %tên WS%).</summary>

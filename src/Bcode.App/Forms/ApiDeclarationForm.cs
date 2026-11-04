@@ -10,24 +10,76 @@ namespace Bcode.App.Forms;
 /// Dự án = địa chỉ gốc + tài khoản (mật khẩu mã hoá DPAPI) + danh sách form; tạo từ mẫu chuẩn LT3 (Templates/Api/lt3-standard.json — 31 form của tài liệu
 /// http://172.168.5.14/developers/docs/), nhập / xuất Postman, lấy token (nhớ tới khi hết hạn), gửi thử từng form, kiểm tra body theo bảng trường chuẩn,
 /// xem response dạng bảng. Hồ sơ lưu riêng trên máy từng người (<see cref="ApiProjectStore"/>). Mọi thông báo hiện trong trang.
+/// <para>Form theo dự án: Project (Workspace) có "API Path" → đọc &lt;API Path&gt;\Config\ColumnMappings.xml (<see cref="ApiColumnMappings"/>, chỉ đọc), form của
+/// mapping thay / ghi đè form chuẩn cùng tên (chọn form, Tài liệu form, Kiểm tra, Sinh JSON). Project lấy theo Mã dự án của dự án API (khớp ProjectId / tên WS),
+/// Mã dự án trống = Project đang mở trong Bcode. Không có API Path / file → chuẩn LT3 như cũ.</para>
 /// </summary>
 public sealed class ApiDeclarationForm : WebDialogForm
 {
     private static readonly JsonSerializerOptions ReadOpts = new() { PropertyNameCaseInsensitive = true };
 
-    public ApiDeclarationForm() : base("Khai báo & quản lý API (chuẩn LT3)", "apideclaration.html", 1200, 780, 760, 480) { }
+    private readonly List<Workspace> _workspaces;
+    private readonly Workspace? _current;
+    /// <summary>Mapping đang dùng (theo Mã dự án của dự án API đang mở) và danh mục form đã gộp mapping + chuẩn LT3.</summary>
+    private ApiColumnMappings.Info? _map;
+    private List<Lt3Templates.FormDoc> _catalog = Lt3Templates.Catalog();
+    private string? _mapKey;
 
-    protected override void OnReady() => PushInit();
+    public ApiDeclarationForm(IEnumerable<Workspace>? workspaces = null, Workspace? current = null)
+        : base("Khai báo & quản lý API (chuẩn LT3)", "apideclaration.html", 1200, 780, 760, 480)
+    {
+        _workspaces = workspaces?.ToList() ?? new();
+        _current = current;
+    }
+
+    protected override void OnReady() => _ = ReadyAsync();
+
+    private async Task ReadyAsync()
+    {
+        try { await UseMappingAsync("", push: false); } catch { /* mạng lỗi: dùng chuẩn LT3 */ }
+        PushInit();
+    }
 
     private void PushInit() => Js($"window.api && api.init({J(new
     {
         projects = ApiProjectStore.List(),
         folder = ApiProjectStore.Folder,
         oldProfiles = ApiProjectStore.OldProfiles().Count,
-        catalog = Lt3Templates.Catalog().Select(f => new { f.Form, f.Kind, f.Title }),
+        catalog = CatalogView(),
+        mapping = MappingView(),
+        currentProjectId = _current is null ? "" : string.IsNullOrWhiteSpace(_current.ProjectId) ? _current.Name : _current.ProjectId,
         errors = Lt3Templates.ErrorCodes(),
         docUrl = "http://172.168.5.14/developers/docs/intro/",
     })})");
+
+    private object CatalogView() => _catalog.Select(f => new { f.Form, f.Kind, f.Title, src = f.Source });
+    private object MappingView() => new { project = _map?.Project ?? "", file = _map?.File ?? "", count = _map is { Ok: true } m ? m.Forms.Count : 0, error = _map?.Error ?? "" };
+
+    /// <summary>Project của dự án API: khớp ProjectId rồi tên WS; Mã dự án trống = Project đang mở. Không khớp = không có mapping.</summary>
+    private Workspace? WorkspaceFor(string projectId)
+    {
+        projectId = projectId.Trim();
+        if (projectId.Length == 0) return _current;
+        bool Eq(string? a) => string.Equals(a?.Trim(), projectId, StringComparison.OrdinalIgnoreCase);
+        if (_current is not null && (Eq(_current.ProjectId) || Eq(_current.Name))) return _current;
+        return _workspaces.FirstOrDefault(w => Eq(w.ProjectId)) ?? _workspaces.FirstOrDefault(w => Eq(w.Name));
+    }
+
+    /// <summary>Đọc (nền) ColumnMappings.xml của Project ứng với Mã dự án; đổi so với lần trước thì gửi danh mục mới xuống trang (api.catalog).</summary>
+    private async Task UseMappingAsync(string projectId, bool push = true)
+    {
+        var ws = WorkspaceFor(projectId);
+        var map = ws is null
+            ? new ApiColumnMappings.Info(projectId.Trim(), "", "", new(), $"Mã dự án {projectId.Trim()} không khớp Project nào trong Bcode")
+            : await ApiColumnMappings.LoadAsync(ws);
+        var key = map.File + "|" + map.Error + "|" + map.Forms.Count + "|" + System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(map.Forms);
+        _map = map;
+        _catalog = ApiColumnMappings.Merge(map);
+        if (push && key != _mapKey) Js($"api.catalog({J(new { catalog = CatalogView(), mapping = MappingView() })})");
+        _mapKey = key;
+    }
+
+    private Lt3Templates.FormDoc? Find(string form) => _catalog.FirstOrDefault(f => string.Equals(f.Form, form, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnActionAsync(string action, JsonElement msg)
     {
@@ -35,7 +87,14 @@ public sealed class ApiDeclarationForm : WebDialogForm
         {
             switch (action)
             {
-                case "open": PushProject(ApiProjectStore.Load(Str(msg, "name")) ?? throw new InvalidOperationException("Không đọc được dự án.")); break;
+                case "open":
+                {
+                    var p = ApiProjectStore.Load(Str(msg, "name")) ?? throw new InvalidOperationException("Không đọc được dự án.");
+                    await UseMappingAsync(p.ProjectId);
+                    PushProject(p);
+                    break;
+                }
+                case "project-id": await UseMappingAsync(Str(msg, "projectId")); break;   // sửa Mã dự án → đổi Project lấy mapping
                 case "save":
                 {
                     var p = ReadProject(msg);
@@ -50,13 +109,14 @@ public sealed class ApiDeclarationForm : WebDialogForm
                 case "new-template":
                 {
                     var forms = msg.TryGetProperty("forms", out var fa) && fa.ValueKind == JsonValueKind.Array ? fa.EnumerateArray().Select(x => x.GetString() ?? "").ToList() : null;
-                    PushProject(Lt3Templates.Create(Str(msg, "name"), Str(msg, "projectId"), Str(msg, "baseUrl"), forms), dirty: true);
-                    Status("Đã tạo dự án từ mẫu chuẩn LT3 — nhập tài khoản rồi Lưu.", "ok");
+                    await UseMappingAsync(Str(msg, "projectId"));
+                    PushProject(Lt3Templates.Create(Str(msg, "name"), Str(msg, "projectId"), Str(msg, "baseUrl"), forms, _catalog), dirty: true);
+                    Status(_map is { Ok: true } ? $"Đã tạo dự án — form theo ColumnMappings.xml của {_map.Project} + chuẩn LT3. Nhập tài khoản rồi Lưu." : "Đã tạo dự án từ mẫu chuẩn LT3 — nhập tài khoản rồi Lưu.", "ok");
                     break;
                 }
                 case "add-forms":
                 {
-                    var forms = msg.GetProperty("forms").EnumerateArray().Select(x => Lt3Templates.Find(x.GetString() ?? "")).OfType<Lt3Templates.FormDoc>().Select(Lt3Templates.ToForm);
+                    var forms = msg.GetProperty("forms").EnumerateArray().Select(x => Find(x.GetString() ?? "")).OfType<Lt3Templates.FormDoc>().Select(Lt3Templates.ToForm);
                     Js($"api.addForms({P(forms)})");
                     break;
                 }
@@ -94,10 +154,19 @@ public sealed class ApiDeclarationForm : WebDialogForm
                 case "validate":
                 {
                     var f = new ApiForm { Name = Str(msg, "name"), Body = Str(msg, "body") };
-                    Js($"api.issues({J(ApiClient.Validate(f, f.Body))})");
+                    var issues = ApiClient.Validate(f, f.Body, Find, out var used);
+                    Js($"api.issues({J(issues)}, {J(used is null ? "" : used.Source == ApiColumnMappings.Source ? "ColumnMappings.xml của dự án" : "bảng trường chuẩn LT3")})");
                     break;
                 }
-                case "form-doc": Js($"api.formDoc({J(Lt3Templates.Find(Str(msg, "form")))})"); break;
+                case "form-doc": Js($"api.formDoc({J(Find(Str(msg, "form")))})"); break;
+                case "gen-body":
+                {
+                    // Body mẫu sinh theo cấu hình form (mapping của dự án nếu có, không thì request mẫu của tài liệu LT3).
+                    var d = Find(Str(msg, "form"));
+                    if (d is null) { Status("Form \"" + Str(msg, "form") + "\" không có trong " + (_map is { Ok: true } ? "ColumnMappings.xml của dự án / " : "") + "tài liệu chuẩn LT3 — không sinh được JSON.", "warn"); break; }
+                    Js($"api.genBody({J(Lt3Templates.ToForm(d).Body)}, {J(d.Source == ApiColumnMappings.Source ? "ColumnMappings.xml" : "mẫu LT3")})");
+                    break;
+                }
                 case "browse-doc":
                 {
                     using var ofd = new OpenFileDialog { Filter = "Tài liệu (*.docx;*.pdf;*.json;*.xml;*.xlsx)|*.docx;*.pdf;*.json;*.xml;*.xlsx|Tất cả|*.*" };

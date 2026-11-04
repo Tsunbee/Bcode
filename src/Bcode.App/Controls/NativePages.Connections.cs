@@ -6,7 +6,7 @@ namespace Bcode.App.Controls;
 /// <summary>Connection Settings (connections.html): danh sách project bên trái, thẻ Kết nối / Project / Database bên phải, Test / Apply / Save & Close, FSG đồng bộ.</summary>
 internal sealed class ConnectionsPage : DialogPage
 {
-    private static readonly string[] Text = { "name", "server", "user", "pass", "sysDb", "appDb", "id", "wlink", "programPath", "sourcePath", "mobilePath", "workingPath", "registry", "versionCode", "dbAccess" };
+    private static readonly string[] Text = { "name", "server", "user", "pass", "sysDb", "appDb", "id", "wlink", "programPath", "sourcePath", "mobilePath", "workingPath", "apiPath", "registry", "versionCode", "dbAccess" };
 
     private readonly Dictionary<string, RoundedInput> _f = new();
     private readonly CheckBox _integrated = NK.Check("Integrated Security (Windows Auth)");
@@ -23,14 +23,14 @@ internal sealed class ConnectionsPage : DialogPage
 
     public ConnectionsPage()
     {
-        foreach (var k in Text) _f[k] = NK.Input(k == "sourcePath" ? @"UNC, dùng cho File Lookup — \\server\...\FBISP23" : k == "dbAccess" ? "SYS_S, APP_A, MADA_eInv" : k == "versionCode" ? "vd FBOR2SP22.6.4 hoặc 22.6.4" : "");
+        foreach (var k in Text) _f[k] = NK.Input(k == "sourcePath" ? @"UNC, dùng cho File Lookup — \\server\...\FBISP23" : k == "dbAccess" ? "SYS_S, APP_A, MADA_eInv" : k == "versionCode" ? "vd FBOR2SP22.6.4 hoặc 22.6.4" : k == "apiPath" ? @"\\server\...\FastAPIService — đọc Config\ColumnMappings.xml" : "");
         _f["pass"].Inner.UseSystemPasswordChar = true;
         _integrated.CheckedChanged += (_, _) => ToggleAuth();
 
         var c1 = new CardPanel("Kết nối") { Dock = DockStyle.Top };
         c1.Body.Controls.Add(NK.FormGrid(150, ("Tên WS", _f["name"]), ("Server Name", _f["server"]), ("", _integrated), ("Login User", _f["user"]), ("Password", _f["pass"])));
         var c2 = new CardPanel("Project") { Dock = DockStyle.Top };
-        c2.Body.Controls.Add(NK.FormGrid(150, ("ID", _f["id"]), ("Login WLink", _f["wlink"]), ("Program Path", _f["programPath"]), ("Source Path", _f["sourcePath"]), ("Mobile Path", _f["mobilePath"]), ("Working Path", _f["workingPath"]), ("Registry Name", _f["registry"])));
+        c2.Body.Controls.Add(NK.FormGrid(150, ("ID", _f["id"]), ("Login WLink", _f["wlink"]), ("Program Path", _f["programPath"]), ("Source Path", _f["sourcePath"]), ("Mobile Path", _f["mobilePath"]), ("Working Path", _f["workingPath"]), ("API Path", _f["apiPath"]), ("Registry Name", _f["registry"])));
         var c3 = new CardPanel("Database") { Dock = DockStyle.Top };
         c3.Body.Controls.Add(NK.FormGrid(150, ("Sys Data", _f["sysDb"]), ("App Data", _f["appDb"]), ("DB Access", _f["dbAccess"]), ("Mã phiên bản", _f["versionCode"])));
         _syncCard = new CardPanel("FSG — Đồng bộ dự án") { Dock = DockStyle.Top, Visible = false };

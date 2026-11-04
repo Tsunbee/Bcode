@@ -19,7 +19,7 @@ internal static class NativeForm
 /// <summary>Edit Project (editproject.html): kết nối SQL Server, database, dự án, đường dẫn.</summary>
 internal sealed class EditProjectPage : DialogPage
 {
-    private static readonly string[] Fields = { "server", "user", "pass", "sysDb", "appDb", "id", "wlink", "programPath", "sourcePath", "mobilePath", "workingPath", "registry" };
+    private static readonly string[] Fields = { "server", "user", "pass", "sysDb", "appDb", "id", "wlink", "programPath", "sourcePath", "mobilePath", "workingPath", "registry", "apiPath" };
     private readonly Dictionary<string, RoundedInput> _f = new();
     private readonly RoundedInput _dbAccess = NK.Input("");
     private readonly Label _title = new() { AutoSize = true, BackColor = Color.Transparent, Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 3, FontStyle.Bold), Padding = new Padding(0, 0, 0, 4) };
@@ -42,7 +42,7 @@ internal sealed class EditProjectPage : DialogPage
         var c3 = new CardPanel("Dự án") { Dock = DockStyle.Top };
         c3.Body.Controls.Add(NK.FormGrid(150, ("ID", _f["id"]), ("Login WLink", _f["wlink"])));
         var c4 = new CardPanel("Đường dẫn") { Dock = DockStyle.Top };
-        c4.Body.Controls.Add(NK.FormGrid(150, ("Program Path", _f["programPath"]), ("Source Path", _f["sourcePath"]), ("Mobile Path", _f["mobilePath"]), ("Working Path", _f["workingPath"]), ("Registry Name", _f["registry"])));
+        c4.Body.Controls.Add(NK.FormGrid(150, ("Program Path", _f["programPath"]), ("Source Path", _f["sourcePath"]), ("Mobile Path", _f["mobilePath"]), ("Working Path", _f["workingPath"]), ("API Path", _f["apiPath"]), ("Registry Name", _f["registry"])));
 
         void UpdateAccess() => _dbAccess.Text = _f["sysDb"].Text.Trim() + ", " + _f["appDb"].Text.Trim();
         _f["sysDb"].TextChanged += (_, _) => UpdateAccess(); _f["appDb"].TextChanged += (_, _) => UpdateAccess();

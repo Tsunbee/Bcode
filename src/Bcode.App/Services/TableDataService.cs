@@ -42,6 +42,10 @@ public class TableDataService
 
         var (resolvedSchema, baseName) = _periods.ParsePlaceholder($"{schema}.{table}");
         var periodTables = await _periods.DiscoverPeriodTablesAsync(conn, resolvedSchema, baseName);
+        // Bảng không phân kỳ (chỉ có chính base$000000, không có base$yyyymm): đọc thẳng bảng thật như bảng thường —
+        // giữ đủ thông tin cột (identity…) để sửa / Save; dữ liệu y như bản bọc subquery trước đây.
+        if (periodTables.Count == 1 && periodTables[0].Period == "000000")
+            return $"[{schema}].[{table}]";
         // Cột theo bảng mẫu $000000 (đủ cột, đúng thứ tự CREATE TABLE như SELECT * bên SQL Query), không ghép theo vị trí cột.
         return await _periods.BuildAlignedUnionSubqueryAsync(conn, resolvedSchema, baseName, periodTables, $"{baseName}$000000");
     }
@@ -54,6 +58,21 @@ public class TableDataService
         await conn.OpenAsync();
         var tables = await _periods.DiscoverPeriodTablesAsync(conn, schema, prefix);
         return tables.Any(t => t.Period != "000000");
+    }
+
+    /// <summary>Bảng <c>...$000000</c> ở tab Table có phải bảng TỔNG HỢP phân kỳ (chỉ xem) không: true khi có bảng kỳ thật
+    /// <c>{prefix}$yyyymm</c> đi kèm (lưới là UNION ALL các kỳ), hoặc <c>$000000</c> không phải bảng thật (view…). Chỉ có chính
+    /// <c>{prefix}$000000</c> là bảng thật, không có kỳ nào → false: bảng thường, sửa / Save được. Bảng không có đuôi
+    /// <c>$000000</c> → false. Một câu truy vấn sys.tables nhẹ; tab Table gọi 1 lần mỗi lần Load rồi giữ kết quả cho bảng đó.</summary>
+    public async Task<bool> IsPeriodUnionAsync(bool useSysDatabase, string schema, string table)
+    {
+        if (!IsPeriodPlaceholder(schema, table)) return false;
+        var (resolvedSchema, baseName) = _periods.ParsePlaceholder($"{schema}.{table}");
+        await using var conn = _connections.CreateConnection(useSysDatabase);
+        await conn.OpenAsync();
+        var tables = await _periods.DiscoverPeriodTablesAsync(conn, resolvedSchema, baseName, includeBaseTemplate: true);
+        var hasBaseTable = tables.Any(t => t.Period == "000000");
+        return !hasBaseTable || tables.Any(t => t.Period != "000000");
     }
 
     /// <summary>Primary-key column names for a table, in key order (empty if the table has no PK —

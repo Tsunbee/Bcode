@@ -1085,12 +1085,16 @@ public sealed partial class MainForm : Form
             ReportStatus("Không ghi được clipboard: " + ex.Message);
             return;
         }
+        // Batch dài trên SQL 2008 / 2012 mà không tìm được bản đầy đủ: chỉ có 4000 ký tự đầu — báo rõ là câu chưa đủ, chạy sẽ lỗi.
+        var cut = sql.Contains(TraceWatcher.TruncatedNote, StringComparison.Ordinal)
+            ? " — ⚠ CÂU CHƯA ĐỦ: máy chủ chỉ cho đọc 4000 ký tự đầu, không lấy được phần còn lại (chạy nguyên câu sẽ lỗi)"
+            : "";
         if (OpenInSqlQuery is null)
         {
-            ReportStatus($"Đã copy SQL Command ({sql.Length} ký tự).");
+            ReportStatus($"Đã copy SQL Command ({sql.Length} ký tự){cut}.");
             return;
         }
-        ReportStatus($"Đã copy SQL Command ({sql.Length} ký tự) — đã mở SQL Query và dán vào.");
+        ReportStatus($"Đã copy SQL Command ({sql.Length} ký tự){cut} — đã mở SQL Query và dán vào.");
         OpenInSqlQuery(sql, (_grid.CurrentRow?.Tag as CapturedEvent)?.DatabaseName ?? "");
     }
 

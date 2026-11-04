@@ -273,6 +273,8 @@ public class TableEditControl : UserControl
                 .Add("Add New", AddNewRow, shortcut: K("table.addNew"))
                 .Add("Delete", () => _ = DeleteSelectedRowsAsync(), shortcut: K("table.delete"), danger: true)
                 .AddSeparator()
+                .Add("Undo" + (_undoCells.Count > 0 ? $" ({_undoCells[^1].Count} ô)" : ""), () => _ = UndoRedoCellsAsync(redo: false), shortcut: "Ctrl+Z")
+                .Add("Redo" + (_redoCells.Count > 0 ? $" ({_redoCells[^1].Count} ô)" : ""), () => _ = UndoRedoCellsAsync(redo: true), shortcut: "Ctrl+Y")
                 .Add("Copy Row", CopySelectedRows, shortcut: "Ctrl+C")
                 .Add("Paste", () => _ = PasteFromClipboardAsync(), shortcut: "Ctrl+V")
                 .Add("Clone Row", () => _ = CloneRowAsync(), shortcut: K("table.cloneRow"))
@@ -306,6 +308,19 @@ public class TableEditControl : UserControl
             else if (e.Control && e.KeyCode == Keys.V && ClipboardLooksLikeTable())
             {
                 // Dán từ Excel (nhiều ô: cột cách nhau bằng Tab, dòng bằng xuống dòng) — dán theo ô, không dồn hết vào 1 ô.
+                e.Handled = true; e.SuppressKeyPress = true;
+                await PasteFromClipboardAsync();
+            }
+            else if (e.Control && !e.Alt && !_grid.IsCurrentCellInEditMode && _grid.DataSource is DataTable
+                     && ((e.KeyCode == Keys.Z && !e.Shift) || (e.KeyCode == Keys.Y && !e.Shift) || (e.KeyCode == Keys.Z && e.Shift)))
+            {
+                // Ctrl+Z hoàn tác / Ctrl+Y (Ctrl+Shift+Z) làm lại thay đổi ô — đang sửa trong ô thì ô chữ tự xử lý Ctrl+Z như cũ.
+                e.Handled = true; e.SuppressKeyPress = true;
+                await UndoRedoCellsAsync(redo: e.KeyCode == Keys.Y || e.Shift);
+            }
+            else if (e.Control && !e.Shift && !e.Alt && e.KeyCode == Keys.V && !_grid.IsCurrentCellInEditMode && _grid.DataSource is DataTable && ClipboardHasText())
+            {
+                // Dán 1 giá trị khi không đang sửa ô (DataGridView không tự dán): kể cả ô trống vừa copy từ Table → '' (không phải NULL).
                 e.Handled = true; e.SuppressKeyPress = true;
                 await PasteFromClipboardAsync();
             }
@@ -547,7 +562,8 @@ public class TableEditControl : UserControl
         why = "";
         if (_grid.DataSource is not DataTable) why = "Chưa có bảng nào đang mở.";
         else if (_loading) why = "Đang tải dữ liệu.";
-        else if (_grid.ReadOnly || _service.IsPeriodPlaceholder(_schema, _table)) why = "Bảng này chỉ xem (bảng tổng hợp phân kỳ $000000 hoặc đang ở chế độ chỉ đọc).";
+        else if (_isPeriodUnion) why = "Bảng này chỉ xem (bảng tổng hợp phân kỳ $000000 — gộp các bảng kỳ $yyyymm).";
+        else if (_grid.ReadOnly) why = "Bảng này đang ở chế độ chỉ đọc.";
         if (why.Length > 0) _statusLabel.Text = why;
         return why.Length == 0;
     }
@@ -600,10 +616,11 @@ public class TableEditControl : UserControl
     }
 
     // Excel không phân biệt NULL với chuỗi trống, nên ngoài văn bản còn nhớ ô nào là NULL (trong phiên Bcode này) — dán lại vào Table thì NULL vẫn NULL, trống vẫn trống.
-    private string? _clipText; private HashSet<(int, int)> _clipNulls = new();
+    // Clipboard Windows không nhận chuỗi rỗng nên ô trống được đặt thành " " — _clipSource giữ văn bản gốc ("") để dán lại đúng '' thay vì 1 dấu cách.
+    private string? _clipText; private string _clipSource = ""; private HashSet<(int, int)> _clipNulls = new();
     private void SetClip(string text, HashSet<(int, int)> nulls)
     {
-        try { Clipboard.SetText(text.Length > 0 ? text : " "); _clipText = Clipboard.GetText(); _clipNulls = nulls; } catch { /* clipboard bận */ }
+        try { Clipboard.SetText(text.Length > 0 ? text : " "); _clipText = Clipboard.GetText(); _clipSource = text; _clipNulls = nulls; } catch { /* clipboard bận */ }
     }
 
     /// <summary>Giá trị thật của ô (NULL → trống; không lấy chữ "Null" chỉ để hiển thị), bỏ Tab / xuống dòng để dán Excel không lệch ô.</summary>
@@ -645,8 +662,10 @@ public class TableEditControl : UserControl
     private void CopyOneValue()
     {
         if (_grid.CurrentCell is not { RowIndex: >= 0 } c) return;
-        var v = c.Value is null or DBNull ? "" : Convert.ToString(c.Value) ?? "";
-        try { Clipboard.SetText(v.Length > 0 ? v : " "); _statusLabel.Text = "Đã copy giá trị ô."; } catch { /* clipboard bận */ }
+        var isNull = c.Value is null or DBNull;
+        var v = isNull ? "" : Convert.ToString(c.Value) ?? "";
+        SetClip(v, isNull ? new HashSet<(int, int)> { (0, 0) } : new HashSet<(int, int)>());
+        _statusLabel.Text = "Đã copy giá trị ô.";
     }
 
     private static object DefaultFor(DataColumn dc)
@@ -770,7 +789,7 @@ public class TableEditControl : UserControl
     private async Task AlterNullValueAsync()
     {
         if (_table.Length == 0 || _grid.DataSource is not DataTable) { _statusLabel.Text = "Mở một bảng trước."; return; }
-        if (_service.IsPeriodPlaceholder(_schema, _table)) { _statusLabel.Text = "Không sửa được bảng tổng hợp phân kỳ $000000."; return; }
+        if (_isPeriodUnion) { _statusLabel.Text = "Không sửa được bảng tổng hợp phân kỳ $000000."; return; }
         if (!WorkspaceStillMatches(out var mismatch)) { _statusLabel.Text = mismatch; return; }
         if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
         List<(string Name, string Type, bool Nullable, bool IsKey, bool Identity, string Description)> cols;
@@ -926,6 +945,11 @@ public class TableEditControl : UserControl
         catch { return false; }
     }
 
+    private static bool ClipboardHasText()
+    {
+        try { return Clipboard.ContainsText(); } catch { return false; }
+    }
+
     /// <summary>Tách văn bản clipboard của Excel thành lưới ô: Tab giữa các cột, xuống dòng giữa các dòng; ô có xuống dòng / Tab / nháy kép
     /// được Excel bọc trong "..." (nháy kép bên trong gấp đôi).</summary>
     private static List<List<string>> ParseClipboardTable(string text)
@@ -1007,10 +1031,25 @@ public class TableEditControl : UserControl
         if (curRow0 >= 0 && _grid.Rows[curRow0].IsNewRow) _grid.CancelEdit();
 
         List<List<string>> table;
-        try { table = ParseClipboardTable(Clipboard.GetText()); }
+        HashSet<(int, int)>? knownNulls;
+        try
+        {
+            var clip = Clipboard.GetText();
+            var own = _clipText is not null && clip == _clipText;   // clipboard vẫn là bản vừa copy từ Table → biết ô nào NULL, ô nào trống ''
+            knownNulls = own ? _clipNulls : null;
+            table = ParseClipboardTable(own ? _clipSource : clip);
+            if (table.Count == 0 && own) table = new List<List<string>> { new() { "" } };   // copy 1 ô trống / NULL
+        }
         catch (Exception ex) { _statusLabel.Text = "Không đọc được clipboard: " + ex.Message; return; }
         if (table.Count == 0) return;
-        var knownNulls = _clipText is not null && Clipboard.GetText() == _clipText ? _clipNulls : null;   // clipboard vẫn là bản vừa copy từ Table → biết ô nào NULL
+
+        // 1 giá trị + chọn nhiều ô (không chọn cả dòng): dán vào mọi ô đang chọn, như Excel.
+        if (table.Count == 1 && table[0].Count == 1 && _grid.SelectedRows.Count == 0)
+        {
+            var targets = _grid.SelectedCells.Cast<DataGridViewCell>()
+                .Where(c => c.RowIndex >= 0 && c.Visible && !_grid.Rows[c.RowIndex].IsNewRow && c.RowIndex < _grid.Rows.Count).ToList();
+            if (targets.Count > 1) { await PasteOneValueToCellsAsync(data, targets, table[0][0], knownNulls?.Contains((0, 0)) ?? false); return; }
+        }
 
         var visibleCols = _grid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex).ToList();
         var startCol = visibleCols.FindIndex(c => c.Index == curCol0);
@@ -1019,7 +1058,7 @@ public class TableEditControl : UserControl
         var cols = table.Max(r => r.Count);
         if (startCol + cols > visibleCols.Count) cols = visibleCols.Count - startCol; // thừa cột thì bỏ phần dư bên phải
 
-        if (table.Count > 1 && !_service.IsPeriodPlaceholder(_schema, _table))
+        if (table.Count > 1 && !_isPeriodUnion)
         {
             var ask = MessageBox.Show(this,
                 $"Dán {table.Count} dòng × {cols} cột vào [{_schema}].[{_table}] từ ô đang chọn?\n\nThay đổi sẽ được tự động ghi vào database ({DescribeStamp(_loadedStamp)}).",
@@ -1096,6 +1135,112 @@ public class TableEditControl : UserControl
             try { _grid.CurrentCell = _grid.Rows[_grid.NewRowIndex - 1].Cells[cur.ColumnIndex]; } catch { /* ô ẩn */ }
         _statusLabel.Text = $"Đã dán {cells} ô ({table.Count} dòng × {cols} cột" + (added > 0 ? $", thêm {added} dòng mới" : "") + (errors > 0 ? $", {errors} ô không đổi được kiểu dữ liệu nên bỏ qua" : "") + ").";
         await AutoSaveRowAsync();
+    }
+
+    /// <summary>Ctrl+V khi clipboard là 1 giá trị và đang chọn nhiều ô: ghi giá trị đó vào mọi ô đang chọn (bỏ cột identity / chỉ đọc).
+    /// <paramref name="isNull"/> = ô copy từ Table là NULL → dán NULL (cột cho phép); còn lại chữ trống '' vẫn là ''.</summary>
+    private async Task PasteOneValueToCellsAsync(DataTable data, List<DataGridViewCell> targets, string raw, bool isNull)
+    {
+        if (!CanEditRows(out _)) return;
+        var rowCount = targets.Select(c => c.RowIndex).Distinct().Count();
+        if (rowCount > 1)
+        {
+            var shown = isNull ? "NULL" : raw.Length == 0 ? "'' (trống)" : raw.Length > 40 ? raw[..40] + "…" : raw;
+            var ask = MessageBox.Show(this,
+                $"Dán giá trị {shown} vào {targets.Count} ô ({rowCount} dòng) của [{_schema}].[{_table}]?\n\nThay đổi sẽ được tự động ghi vào database ({DescribeStamp(_loadedStamp)}).",
+                "Bcode — Table", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (ask != DialogResult.Yes) return;
+        }
+        int done = 0, skipped = 0;
+        foreach (var cell in targets)
+        {
+            var row = RowAt(cell.RowIndex);
+            var dc = data.Columns[GridColName(_grid.Columns[cell.ColumnIndex])];
+            if (row is null || dc is null || dc.ReadOnly || _writeInfo.IsIdentity(dc.ColumnName)) { skipped++; continue; }
+            object val;
+            if (isNull && dc.AllowDBNull) val = DBNull.Value;
+            else if (!TryConvertCell(raw, dc, out val!)) { skipped++; continue; }
+            try { row[dc] = val; done++; } catch { skipped++; }
+        }
+        _grid.Refresh();
+        _statusLabel.Text = $"Đã dán vào {done} ô" + (skipped > 0 ? $" ({skipped} ô bỏ qua: cột chỉ đọc / identity / sai kiểu dữ liệu)" : "") + ".";
+        if (done > 0) await AutoSaveRowAsync();
+    }
+
+    // ---- Ctrl+Z / Ctrl+Y: hoàn tác / làm lại thay đổi giá trị ô ------------------------------------------------------
+    // Ghi mọi thay đổi giá trị ô của bảng đang mở (sửa tay, dán, Set NULL, F1 / F3…) qua DataTable.ColumnChanging. Các thay đổi trong cùng
+    // một thao tác (cùng một lượt xử lý của giao diện, vd dán nhiều ô) gộp thành 1 bước. Thay đổi đã tự lưu xuống DB thì hoàn tác cũng tự
+    // lưu lại giá trị cũ (UPDATE theo khoá gốc nên đổi cả cột khoá vẫn đúng dòng). Không gồm thêm / xoá dòng; Load lại thì xoá lịch sử.
+    private sealed class CellUndoStep : List<(DataRow Row, DataColumn Col, object Old, object New)> { }
+    private readonly List<CellUndoStep> _undoCells = new(), _redoCells = new();
+    private CellUndoStep? _undoOpen;          // bước đang gom (đóng ở lượt xử lý kế tiếp)
+    private bool _undoApplying;
+    private const int MaxUndoSteps = 200;
+
+    /// <summary>Gắn ghi lịch sử vào bảng vừa tải (bảng cũ bỏ đi cùng lịch sử của nó).</summary>
+    private void AttachUndo(DataTable data)
+    {
+        _undoCells.Clear(); _redoCells.Clear(); _undoOpen = null;
+        data.ColumnChanging += (_, e) =>
+        {
+            // Không bỏ qua lúc đang tự lưu: người dùng vẫn sửa ô khác trong lúc chờ DB; giá trị Bcode tự ghi lại sau khi lưu chỉ ở cột identity / generated (lọc bên dưới).
+            if (_undoApplying || e.Row.RowState is DataRowState.Detached or DataRowState.Deleted) return;
+            // Cột identity / computed / rowversion chỉ đổi khi Bcode đọc lại giá trị sau lúc lưu — không phải thao tác của người dùng.
+            if (e.Column is not { } col || _writeInfo.IsIdentity(col.ColumnName) || _writeInfo.Generated.Contains(col.ColumnName)) return;
+            var old = e.Row[col];
+            var now = e.ProposedValue ?? DBNull.Value;
+            if (Equals(old, now)) return;
+            var step = _undoOpen;
+            if (step is null)
+            {
+                step = new CellUndoStep();
+                _undoCells.Add(step);
+                if (_undoCells.Count > MaxUndoSteps) _undoCells.RemoveAt(0);
+                _redoCells.Clear();
+                if (IsHandleCreated) { _undoOpen = step; BeginInvoke(new Action(() => _undoOpen = null)); }
+            }
+            step.Add((e.Row, col, old, now));
+        };
+    }
+
+    private async Task UndoRedoCellsAsync(bool redo)
+    {
+        if (_grid.DataSource is not DataTable || _loading) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        if (_grid.CurrentRow?.DataBoundItem is DataRowView { IsEdit: true } cur)
+            try { cur.EndEdit(); } catch (Exception ex) { _statusLabel.Text = "Giá trị không hợp lệ: " + ex.Message; return; }
+        _undoOpen = null;
+        var from = redo ? _redoCells : _undoCells;
+        var to = redo ? _undoCells : _redoCells;
+        if (from.Count == 0) { _statusLabel.Text = redo ? "Không có thao tác nào để làm lại." : "Không có thay đổi nào để hoàn tác."; return; }
+        if (!CanEditRows(out _)) return;
+        if (!WorkspaceStillMatches(out var mismatch)) { _statusLabel.Text = mismatch; return; }
+
+        var step = from[^1]; from.RemoveAt(from.Count - 1);
+        int done = 0, skipped = 0; DataRow? first = null; DataColumn? firstCol = null;
+        _undoApplying = true;
+        try
+        {
+            // Hoàn tác đi ngược thứ tự ghi (1 ô đổi nhiều lần trong cùng bước thì về đúng giá trị đầu); làm lại đi xuôi.
+            foreach (var (row, col, oldV, newV) in redo ? step : Enumerable.Reverse(step))
+            {
+                if (row.RowState is DataRowState.Detached or DataRowState.Deleted || row.Table.Columns[col.ColumnName] != col) { skipped++; continue; }
+                try { row[col] = redo ? newV : oldV; done++; first = row; firstCol = col; }
+                catch { skipped++; }
+            }
+        }
+        finally { _undoApplying = false; }
+        to.Add(step);
+        _grid.Refresh();
+        if (first is not null && firstCol is not null)
+        {
+            var gi = _grid.Rows.Cast<DataGridViewRow>().FirstOrDefault(r => r.DataBoundItem is DataRowView v && v.Row == first)?.Index ?? -1;
+            var gc = _grid.Columns.Cast<DataGridViewColumn>().FirstOrDefault(c => c.Visible && GridColName(c).Equals(firstCol.ColumnName, StringComparison.OrdinalIgnoreCase));
+            if (gi >= 0 && gc is not null) try { _grid.CurrentCell = _grid.Rows[gi].Cells[gc.Index]; } catch { /* ô ẩn */ }
+        }
+        _statusLabel.Text = (redo ? "Đã làm lại " : "Đã hoàn tác ") + $"{done} ô" + (skipped > 0 ? $" ({skipped} ô bỏ qua — dòng đã xoá / bảng đã đổi)" : "")
+                            + (from.Count > 0 ? $" · còn {from.Count} bước" : "") + ".";
+        if (done > 0) await AutoSaveRowAsync();
     }
 
     /// <summary>Đưa các cột đã tick (theo thứ tự bảng) lên ô Fields của thanh công cụ; không tick cột nào → "*".</summary>
@@ -1599,6 +1744,11 @@ public class TableEditControl : UserControl
     /// <summary>Bảng chia kỳ đang mở có bảng kỳ thật (xxx$yyyymm) không; false = chỉ có xxx$000000 → không sinh phần Partition$Execute.</summary>
     private bool _hasPeriods = true;
 
+    /// <summary>Bảng đang hiển thị là bảng TỔNG HỢP phân kỳ <c>xxx$000000</c> (gộp UNION ALL các bảng kỳ <c>xxx$yyyymm</c>) → chỉ xem,
+    /// không sửa / Save. <c>xxx$000000</c> không có bảng kỳ nào (bảng không phân kỳ) = bảng thật → false, sửa / Save như bảng thường.
+    /// Tra 1 lần mỗi lần Load (TableDataService.IsPeriodUnionAsync) rồi giữ cho bảng đó.</summary>
+    private bool _isPeriodUnion;
+
     /// <summary>"m81$000000" / "m81$202401" → "m81"; bảng thường → null.</summary>
     private static string? PartitionPrefix(string table)
     {
@@ -1814,7 +1964,14 @@ public class TableEditControl : UserControl
                 _statusLabel.Text = "Workspace đã đổi trong lúc tải — bỏ kết quả, bấm Load lại.";
                 return;
             }
-            var isPeriodPlaceholder = _service.IsPeriodPlaceholder(schema, table);
+            // xxx$000000: chỉ khoá khi thật sự gộp từ các bảng kỳ xxx$yyyymm (hoặc $000000 không phải bảng thật). Không tra được → khoá như cũ.
+            var isPeriodPlaceholder = false;
+            if (_service.IsPeriodPlaceholder(schema, table))
+            {
+                try { isPeriodPlaceholder = await _service.IsPeriodUnionAsync(useSys, schema, table); }
+                catch { isPeriodPlaceholder = true; }
+                if (version != _loadVersion) return;
+            }
 
             List<string> keyColumns;
             string keyText;
@@ -1822,7 +1979,7 @@ public class TableEditControl : UserControl
             if (isPeriodPlaceholder)
             {
                 keyColumns = new List<string>();
-                keyText = "ℹ [Schema].[Table]$000000 = gộp các bảng phân kỳ (UNION ALL; bảng không phân kỳ thì chỉ chính nó) — không Save được ở đây.";
+                keyText = "ℹ [Schema].[Table]$000000 = gộp các bảng phân kỳ $yyyymm (UNION ALL) — chỉ xem, không Save được ở đây (sửa trên từng bảng kỳ).";
             }
             else
             {
@@ -1841,6 +1998,7 @@ public class TableEditControl : UserControl
             { _keepIdentity = false; _identityAskSkip = false; }   // bảng khác: "giữ id khi dán" về mặc định (tự sinh)
             _schema = schema;
             _table = table;
+            _isPeriodUnion = isPeriodPlaceholder;
             _keyColumns = keyColumns;
             _writeInfo = writeInfo;
             PrepareGeneratedColumns(data, writeInfo);
@@ -1874,6 +2032,7 @@ public class TableEditControl : UserControl
             await PopulateStructureAndFieldsListAsync(useSys, data);
             if (version != _loadVersion) return;
             GridDisplayHelper.BindOptimized(_grid, data);
+            AttachUndo(data);
             _grid.ReadOnly = isPeriodPlaceholder;
             var filterInfo = (string.IsNullOrWhiteSpace(_whereInputText) ? "" : $" — Where: {_whereInputText.Trim()}")
                            + (string.IsNullOrWhiteSpace(_orderInputText) ? "" : $" — Order: {_orderInputText.Trim()}");
@@ -1908,7 +2067,7 @@ public class TableEditControl : UserControl
         // lặp như trước (thay đổi của dòng thứ hai khi đó không được lưu mà không ai biết).
         if (_autoSaving) { _autoSavePending = true; return; }
         if (_grid.DataSource is not DataTable data) return;
-        if (_service.IsPeriodPlaceholder(_schema, _table)) return;
+        if (_isPeriodUnion) return;
         if (_keyColumns.Count == 0) return;
         if (data.GetChanges() is null) return;
 
@@ -1964,9 +2123,9 @@ public class TableEditControl : UserControl
         if (_grid.DataSource is not DataTable data) return;
         if (_loading) { MessageBox.Show(this, "Đang tải dữ liệu — chờ tải xong rồi Save.", "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
 
-        if (_service.IsPeriodPlaceholder(_schema, _table))
+        if (_isPeriodUnion)
         {
-            MessageBox.Show(this, "Không thể Save trên bảng tổng hợp phân kỳ $000000.", "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, "Không thể Save trên bảng tổng hợp phân kỳ $000000 (gộp các bảng kỳ $yyyymm) — sửa trên từng bảng kỳ.", "Bcode — Table", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 

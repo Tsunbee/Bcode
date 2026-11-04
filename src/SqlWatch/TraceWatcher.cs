@@ -185,7 +185,7 @@ public sealed class TraceWatcher : IAsyncDisposable
 
         foreach (var head in changed)
         {
-            var (eventType, text, module) = await ReadClientTextAsync(head.Spid, cancellationToken).ConfigureAwait(false);
+            var (eventType, text, module) = await ReadClientTextAsync(head.Spid, head.Start, cancellationToken).ConfigureAwait(false);
 
             _batchSeen[head.Spid] = head.Start;
             if (string.IsNullOrWhiteSpace(text))
@@ -224,7 +224,7 @@ public sealed class TraceWatcher : IAsyncDisposable
         }
     }
 
-    private async Task<(string EventType, string Text, string Module)> ReadClientTextAsync(int spid, CancellationToken cancellationToken)
+    private async Task<(string EventType, string Text, string Module)> ReadClientTextAsync(int spid, DateTime start, CancellationToken cancellationToken)
     {
         // SQL 2008 (không có dm_exec_input_buffer): DBCC INPUTBUFFER — chỉ đọc, cần VIEW SERVER STATE — trả đúng batch client gửi
         // ("declare @0…; select @0=…; exec zrpt_67 @0…"). most_recent_sql_handle bị SQL động bên trong procedure ghi đè (đọc ra
@@ -233,7 +233,7 @@ public sealed class TraceWatcher : IAsyncDisposable
         {
             var (bufferType, bufferText, truncated) = await ReadInputBufferAsync(spid, cancellationToken).ConfigureAwait(false);
             if (bufferType.Equals("Language Event", StringComparison.OrdinalIgnoreCase) && bufferText.Length > 0)
-                return (bufferType, truncated ? await FullBatchAsync(spid, bufferText, cancellationToken).ConfigureAwait(false) : bufferText, "");
+                return (bufferType, truncated ? await FullBatchAsync(spid, start, bufferText, cancellationToken).ConfigureAwait(false) : bufferText, "");
         }
 
         var sql = _hasInputBuffer
@@ -289,35 +289,75 @@ public sealed class TraceWatcher : IAsyncDisposable
 
     private const int InputBufferLimit = 4000;
 
-    /// <summary>Batch dài hơn 4000 ký tự mà DBCC INPUTBUFFER cắt mất đuôi: tìm bản đầy đủ trong dm_exec_sql_text (nvarchar(max)) của câu
-    /// đang chạy / câu gần nhất trên kết nối — chỉ nhận bản có cùng phần đầu với buffer (SQL động trong procedure có thể đã ghi đè
-    /// most_recent_sql_handle). Không thấy thì giữ 4000 ký tự đầu, ghi chú rõ là bị cắt.</summary>
-    private async Task<string> FullBatchAsync(int spid, string buffer, CancellationToken cancellationToken)
+    /// <summary>Dòng chú thích nối sau câu bị cắt (không tìm được bản đầy đủ) — MainForm dò chuỗi này để cảnh báo khi Copy SQL Command.</summary>
+    public const string TruncatedNote = "-- ... cắt bớt: máy chủ (SQL 2008 / 2012) chỉ cho đọc 4000 ký tự đầu của câu này";
+
+    /// <summary>Batch dài hơn 4000 ký tự mà DBCC INPUTBUFFER cắt mất đuôi: tìm bản đầy đủ (dm_exec_sql_text, nvarchar(max)) — chỉ nhận bản
+    /// có cùng 4000 ký tự đầu với buffer. Thứ tự: câu đang chạy / câu gần nhất trên kết nối (rẻ nhất, nhưng batch gọi procedure thì
+    /// sql_handle / most_recent_sql_handle trỏ vào procedure hoặc SQL động bên trong) → dm_exec_query_stats chạy từ lúc batch bắt đầu
+    /// (câu đầu batch chạy xong là có, sắp mới nhất trước) → plan cache (Adhoc / Prepared, kể cả stub khi bật optimize for ad hoc workloads).
+    /// Cả ba chỉ cần VIEW SERVER STATE. Không thấy thì giữ 4000 ký tự đầu + dòng <see cref="TruncatedNote"/>.</summary>
+    private async Task<string> FullBatchAsync(int spid, DateTime start, string buffer, CancellationToken cancellationToken)
     {
-        const string sql = """
+        const string sessionSql = """
             SELECT t.text FROM sys.dm_exec_requests AS r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS t WHERE r.session_id = @spid
             UNION ALL
             SELECT t.text FROM sys.dm_exec_connections AS c CROSS APPLY sys.dm_exec_sql_text(c.most_recent_sql_handle) AS t WHERE c.session_id = @spid;
             """;
+        // Lọc thô trên server (dài ≥ 4000 ký tự + dòng đầu khớp) để không kéo text của mọi câu về; so khớp đủ 4000 ký tự làm ở dưới.
+        const string statsSql = """
+            SELECT TOP (20) t.text
+            FROM (SELECT sql_handle, MAX(last_execution_time) AS last_time
+                  FROM sys.dm_exec_query_stats WHERE last_execution_time >= @since GROUP BY sql_handle) AS q
+            CROSS APPLY sys.dm_exec_sql_text(q.sql_handle) AS t
+            WHERE DATALENGTH(t.text) >= 8000 AND CHARINDEX(@needle, LEFT(t.text, 1000)) > 0
+            ORDER BY q.last_time DESC;
+            """;
+        const string cacheSql = """
+            SELECT TOP (20) t.text
+            FROM sys.dm_exec_cached_plans AS p
+            CROSS APPLY sys.dm_exec_sql_text(p.plan_handle) AS t
+            WHERE p.objtype IN (N'Adhoc', N'Prepared') AND DATALENGTH(t.text) >= 8000 AND CHARINDEX(@needle, LEFT(t.text, 1000)) > 0;
+            """;
         var head = Squash(buffer);
-        head = head[..Math.Min(head.Length, 300)];
-        try
+        var needle = buffer.TrimStart();
+        var lineEnd = needle.IndexOfAny(['\r', '\n']);
+        needle = (lineEnd > 0 ? needle[..lineEnd] : needle).Trim();
+        needle = needle[..Math.Min(needle.Length, 200)];
+
+        foreach (var (sql, distinctOnly) in new[] { (sessionSql, false), (statsSql, false), (cacheSql, true) })
         {
-            await using var command = new SqlCommand(sql, _connection) { CommandTimeout = 20 };
-            command.Parameters.Add("@spid", SqlDbType.Int).Value = spid;
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            try
             {
-                var text = GetString(reader, 0).Trim();
-                if (text.Length > buffer.Length && Squash(text).StartsWith(head, StringComparison.Ordinal))
-                    return text;
+                await using var command = new SqlCommand(sql, _connection) { CommandTimeout = 20 };
+                command.Parameters.Add("@spid", SqlDbType.Int).Value = spid;
+                command.Parameters.Add("@since", SqlDbType.DateTime).Value = start.AddSeconds(-2);
+                command.Parameters.Add("@needle", SqlDbType.NVarChar, 200).Value = needle;
+                // Plan cache không có thời điểm chạy: nhiều bản khác nhau cùng 4000 ký tự đầu thì không biết bản nào là của phiên này → bỏ.
+                string? match = null;
+                var ambiguous = false;
+                await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    var text = GetString(reader, 0).Trim();
+                    if (text.Length < buffer.Length || !Squash(text).StartsWith(head, StringComparison.Ordinal))
+                        continue;
+                    if (!distinctOnly)
+                        return text;
+                    if (match is null)
+                        match = text;
+                    else if (!match.Equals(text, StringComparison.Ordinal))
+                        ambiguous = true;
+                }
+                if (match is not null && !ambiguous)
+                    return match;
+            }
+            catch (SqlException)
+            {
+                // nguồn này không đọc được (quyền / hết giờ) — thử nguồn kế tiếp
             }
         }
-        catch (SqlException)
-        {
-            // không đọc được bản đầy đủ — dùng phần đầu bên dưới
-        }
-        return buffer + Environment.NewLine + "-- ... cắt bớt: máy chủ (SQL 2008 / 2012) chỉ cho đọc 4000 ký tự đầu của câu này";
+        return buffer + Environment.NewLine + TruncatedNote;
     }
 
     private static string Squash(string text) => Regex.Replace(text, @"\s+", " ").Trim();

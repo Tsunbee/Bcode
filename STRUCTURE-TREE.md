@@ -115,7 +115,7 @@ Bcode.App/
 │   ├── SqlWatchControl.Form.cs  39
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  2146
+│   ├── TableEditControl.cs  2305
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
 │   ├── WCommandTreeControl.cs  902
@@ -322,7 +322,7 @@ Bcode.App/
 │   ├── SqlObjectBrowserService.cs  676
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  406
-│   ├── TableDataService.cs  633
+│   ├── TableDataService.cs  652
 │   ├── TableMenuService.cs  194
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116

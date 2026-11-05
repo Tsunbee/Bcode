@@ -25,7 +25,7 @@ public class VoucherSqlScriptService
     private readonly DbConnectionService _connections;
     public VoucherSqlScriptService(DbConnectionService connections) => _connections = connections;
 
-    /// <summary>(bảng, cột khoá, loại khoá): "code" = mã ct, "sys" = SysID, "ctrl" = danh sách controller của chứng từ, "approve" = loại duyệt.</summary>
+    /// <summary>(bảng, cột khoá, loại khoá): "code" = mã ct, "sys" = SysID, "ctrl" = danh sách controller của chứng từ, "approve" = loại duyệt, "codeapprove" = mã ct nhưng chỉ chép khi có khai loại duyệt.</summary>
     private static readonly (string Table, string Key, string Kind)[] ConfigTables =
     {
         ("voucherinfo", "ma_ct", "code"), ("sysvouchertype", "ma_ct", "code"), ("freefunctions", "ma_ct", "code"),
@@ -36,8 +36,8 @@ public class VoucherSqlScriptService
         ("dmctkks", "ma_ct", "code"), ("dmcttransfer", "ma_ct", "code"), ("dmloaict", "ma_ct", "code"), ("dmmagd", "ma_ct", "code"),
         ("dmmd", "ma_ct", "code"), ("dmttct", "ma_ct", "code"), ("dmttct2", "ma_ct", "code"), ("dmxlct", "ma_ct", "code"),
         ("dmxlct2", "ma_ct", "code"), ("gndmttcttg", "loai_duyet", "approve"), ("sodmttcttg", "loai_duyet", "approve"),
-        ("gndmloaiduyet", "ma_ct", "code"), ("syscredit", "ma_ct", "code"), ("sysflowinfo", "ma_ct", "code"), ("voucher", "ma_ct", "code"),
-        ("sysspdetailinfo", "xid", "code"), ("dmctduyet", "ma_ct", "code"),
+        ("gndmloaiduyet", "ma_ct", "codeapprove"), ("syscredit", "ma_ct", "code"), ("sysflowinfo", "ma_ct", "code"), ("voucher", "ma_ct", "code"),
+        ("sysspdetailinfo", "xid", "code"), ("dmctduyet", "ma_ct", "codeapprove"),
     };
 
     /// <summary>Đổi 1 giá trị chuỗi của dòng cấu hình sang chứng từ mới (như nội dung file + số bảng trong tên CT48 / PH48 / d48log, id 08048...).</summary>
@@ -58,8 +58,8 @@ public class VoucherSqlScriptService
             v = Regex.Replace(v, @"\b(CT|PH)" + no + @"\b", "${1}" + s.DstTableNo, RegexOptions.IgnoreCase);       // m_ctdbf / m_phdbf
             v = Regex.Replace(v, @"\b([a-z]{1,3})" + no + @"log\b", "${1}" + s.DstTableNo + "log", RegexOptions.IgnoreCase); // dmct5.xtable
             if (table.Equals("freefunctions", StringComparison.OrdinalIgnoreCase) && col.Equals("id", StringComparison.OrdinalIgnoreCase)
-                && Regex.IsMatch(v, @"^\d+$") && v.EndsWith(s.SrcTableNo, StringComparison.Ordinal))
-                v = v[..^s.SrcTableNo.Length] + s.DstTableNo;                                                              // 08048 → 08070
+                && Regex.IsMatch(v, @"^\d{5}$") && v.EndsWith(s.SrcTableNo.PadLeft(3, '0'), StringComparison.Ordinal))
+                v = v[..^3] + s.DstTableNo.PadLeft(3, '0');                                                                // 08048 → 08164 (2 số nhóm + 3 số bảng)
         }
         return v;
     }
@@ -80,6 +80,8 @@ public class VoucherSqlScriptService
     public async Task<List<VoucherSqlBlock>> ConfigBlocksAsync(VoucherCloneSpec s, IReadOnlyCollection<string> controllers, string? srcApprove, string? dstApprove)
     {
         var blocks = new List<VoucherSqlBlock>();
+        // Loại duyệt đích trùng nguồn: script sẽ xoá rồi ghi lại khai báo duyệt của chính chứng từ nguồn → coi như không chép.
+        if (string.Equals(srcApprove?.Trim(), dstApprove?.Trim(), StringComparison.OrdinalIgnoreCase)) srcApprove = dstApprove = null;
         async Task<HashSet<string>> TablesOf(bool sys)
         {
             var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -116,9 +118,14 @@ public class VoucherSqlScriptService
                     case "approve":
                         if (srcApprove is not { Length: > 0 } || dstApprove is not { Length: > 0 }) continue;
                         srcKeys = new[] { srcApprove }; dstKeys = new[] { dstApprove }; break;
+                    case "codeapprove":
+                        if (srcApprove is not { Length: > 0 } || dstApprove is not { Length: > 0 }) continue;
+                        srcKeys = new[] { s.SrcCode }; dstKeys = new[] { s.DstCode }; break;
                     default: srcKeys = new[] { s.SrcCode }; dstKeys = new[] { s.DstCode }; break;
                 }
                 if (srcKeys.Length == 0) continue;
+                var (columns, generated) = await ColumnsAsync(conn, table);
+                if (!columns.Contains(key)) continue;   // phiên bản này không có cột khoá: bỏ bảng này, không làm hỏng cả bước
 
                 var where = srcKeys.Length == 1 ? $"{key} = '{dstKeys[0].Replace("'", "''")}'"
                     : $"{key} in ({string.Join(", ", dstKeys.Select(k => "'" + k.Replace("'", "''") + "'"))})";
@@ -128,12 +135,13 @@ public class VoucherSqlScriptService
                 {
                     for (var i = 0; i < srcKeys.Length; i++) cmd.Parameters.AddWithValue("@k" + i, srcKeys[i]);
                     await using var r = await cmd.ExecuteReaderAsync();
-                    var cols = Enumerable.Range(0, r.FieldCount).Select(i => (Name: r.GetName(i), Type: r.GetDataTypeName(i))).ToList();
+                    var cols = Enumerable.Range(0, r.FieldCount).Where(i => !generated.Contains(r.GetName(i)))
+                        .Select(i => (Index: i, Name: r.GetName(i), Type: r.GetDataTypeName(i))).ToList();
                     while (await r.ReadAsync())
                     {
-                        var vals = cols.Select((c, i) =>
+                        var vals = cols.Select(c =>
                         {
-                            var v = r.IsDBNull(i) ? null : r.GetValue(i);
+                            var v = r.IsDBNull(c.Index) ? null : r.GetValue(c.Index);
                             if (v is string str) v = MapValue(table, c.Name, str, s, srcApprove, dstApprove);
                             return Lit(v, c.Type);
                         });
@@ -145,6 +153,25 @@ public class VoucherSqlScriptService
             }
         }
         return blocks;
+    }
+
+    /// <summary>Cột của bảng + các cột không INSERT được: identity, computed, timestamp (SQL Server tự sinh).</summary>
+    private static async Task<(HashSet<string> All, HashSet<string> Generated)> ColumnsAsync(SqlConnection conn, string table)
+    {
+        var all = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var generated = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using var cmd = new SqlCommand(@"
+SELECT c.name, CAST(CASE WHEN c.is_identity = 1 OR c.is_computed = 1 OR t.name = 'timestamp' THEN 1 ELSE 0 END AS bit)
+FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
+WHERE c.object_id = OBJECT_ID(@t)", conn);
+        cmd.Parameters.AddWithValue("@t", "dbo." + table);
+        await using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+        {
+            all.Add(r.GetString(0));
+            if (r.GetBoolean(1)) generated.Add(r.GetString(0));
+        }
+        return (all, generated);
     }
 
     // ---- Bảng mới ---------------------------------------------------------------------------------------
@@ -179,15 +206,17 @@ public class VoucherSqlScriptService
             var dst = NewName(src, s.SrcTableNo, s.DstTableNo);
             var cols = new List<string>();
             await using (var cmd = new SqlCommand(@"
-SELECT c.name, t.name, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity, dc.definition
+SELECT c.name, t.name, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity, dc.definition, cc.definition
 FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
 LEFT JOIN sys.default_constraints dc ON dc.object_id = c.default_object_id
+LEFT JOIN sys.computed_columns cc ON cc.object_id = c.object_id AND cc.column_id = c.column_id
 WHERE c.object_id = OBJECT_ID(@t) ORDER BY c.column_id", conn))
             {
                 cmd.Parameters.AddWithValue("@t", "dbo." + src);
                 await using var r = await cmd.ExecuteReaderAsync();
                 while (await r.ReadAsync())
                 {
+                    if (!r.IsDBNull(8)) { cols.Add($"[{r.GetString(0)}] AS {r.GetString(8)}"); continue; }   // cột computed
                     var type = r.GetString(1).ToUpperInvariant();
                     var len = r.GetInt16(2);
                     type = type switch
@@ -246,8 +275,9 @@ WHERE i.object_id = OBJECT_ID(@t) AND i.type IN (1, 2) ORDER BY i.index_id, ic.i
         var bases = sourceTables.Where(t => t.EndsWith("$000000", StringComparison.OrdinalIgnoreCase)).Select(t => NewName(t, s.SrcTableNo, s.DstTableNo)).ToList();
         if (bases.Count > 0)
         {
-            var no = s.DstTableNo;
-            sb.AppendLine($"DELETE sysgendata WHERE  basetable LIKE N'%{no}%' AND primefilegroup = 'Voucher'");
+            // Lọc đúng danh sách bảng mới: LIKE '%70%' sẽ khớp cả m170$000000 của chứng từ khác.
+            var names = string.Join(", ", bases.OrderBy(x => x).Select(b => $"N'{b}'"));
+            sb.AppendLine($"DELETE sysgendata WHERE  basetable IN ({names}) AND primefilegroup = 'Voucher'");
             foreach (var b in bases.OrderBy(x => x))
                 sb.AppendLine($"INSERT INTO sysgendata([basetable], [primetable], [refprimetable], [primefilegroup], [status], [type]) VALUES(N'{b}', N'{b.Replace("$000000", "$")}', N'', N'Voucher', N'1', 1)");
             sb.AppendLine("GO");
@@ -256,7 +286,7 @@ WHERE i.object_id = OBJECT_ID(@t) AND i.type IN (1, 2) ORDER BY i.index_id, ic.i
             sb.AppendLine("declare @dFrom smalldatetime, @dTo smalldatetime, @q nvarchar(4000) = '', @dyn char(6)");
             sb.AppendLine("select top 1 @dFrom = ngay_gh1, @dTo = ngay_gh2 FROM dmstt");
             sb.AppendLine("declare @tblName varchar(33), @tblSrc varchar(33)");
-            sb.AppendLine($"declare {cursor} cursor for select basetable from sysgendata where basetable LIKE N'%{no}%' AND primefilegroup = 'Voucher' and basetable like '%$000000'");
+            sb.AppendLine($"declare {cursor} cursor for select basetable from sysgendata where basetable IN ({names}) AND primefilegroup = 'Voucher'");
             sb.AppendLine($"open {cursor}");
             sb.AppendLine($"fetch next from {cursor} into @tblSrc");
             sb.AppendLine("while @@fetch_status = 0 begin ");

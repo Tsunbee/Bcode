@@ -46,8 +46,19 @@ class BcodeCheckField {
 #cfBody th.act { background: #b86d1a; color: #fff; }
 #cfBody td.hl { background: #c47f17 !important; }
 #cfBody tr.bad td.f { color: #ff6b6b; font-weight: 600; } #cfBody tr.dup td.f { color: #e0a800; font-weight: 600; }
-#cfBody input[type=checkbox] { accent-color: var(--bc-accent-hover); }
-#cfBody input[disabled] { opacity: .85; }
+/* Ô tick tự vẽ theo màu theme: ô native khi disabled bị Chromium tô xám cả lúc tick lẫn không tick → nhìn như nhau.
+   Tick = nền màu nhấn (--bc-accent) + dấu ✓ màu chữ nhấn; không tick = ô rỗng chỉ có viền. Kích thước px → WebView2 tự co giãn theo DPI. */
+#cfBody input[type=checkbox] { -webkit-appearance: none; appearance: none; box-sizing: border-box; width: 15px; height: 15px; margin: 2px 3px; vertical-align: middle;
+  display: inline-grid; place-content: center; border: 1.5px solid color-mix(in srgb, var(--bc-text-muted) 75%, transparent); border-radius: 3px; background: transparent; cursor: pointer; }
+#cfBody input[type=checkbox]::after { content: ''; width: 4px; height: 8px; margin-top: -2px; border: solid var(--bc-accent-text); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); visibility: hidden; }
+#cfBody input[type=checkbox]:checked { background: var(--bc-accent); border-color: var(--bc-accent); }
+#cfBody input[type=checkbox]:checked::after { visibility: visible; }
+#cfBody input[type=checkbox]:enabled:hover { border-color: var(--bc-accent-hover); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bc-accent-hover) 35%, transparent); }
+#cfBody input[type=checkbox]:checked:enabled:hover { background: var(--bc-accent-hover); }
+#cfBody input[type=checkbox]:focus-visible { outline: 1px solid var(--bc-accent-hover); outline-offset: 1px; }
+#cfBody input[type=checkbox]:disabled { cursor: default; }           /* chỉ đọc: giữ nguyên màu để vẫn rõ tick / không tick */
+#cfBody input[type=checkbox]:disabled:not(:checked) { border-color: color-mix(in srgb, var(--bc-text-muted) 50%, transparent); }
+#cfBody tr.sel td.act input[type=checkbox]:not(:checked), #cfBody td.hl input[type=checkbox]:not(:checked) { border-color: rgba(0,0,0,.55); }   /* trên nền cam */
 #cfBar { display: none; gap: 8px; padding: 6px 10px; background: var(--bc-panel); border-top: 1px solid var(--bc-border); align-items: center; }
 #cfBar.show { display: flex; } #cfBar input { flex: 1; background: var(--bc-input); color: var(--bc-text); border: 1px solid var(--bc-border); padding: 4px 8px; border-radius: 3px; font: 12px Consolas, monospace; }
 #cfBar button { background: var(--bc-accent); color: var(--bc-accent-text); border: 0; padding: 4px 12px; border-radius: 3px; cursor: pointer; }

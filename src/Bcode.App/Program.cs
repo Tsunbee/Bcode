@@ -11,6 +11,8 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         // Chế độ giao diện (App/WinForms hay Web/WebView2): tham số --native / --web, nếu không thì hỏi (trừ khi đã tắt "hỏi mỗi lần"). Đóng hộp hỏi = thoát.
         UiThemes.ApplyPalettes();
+        // Sáng/tối lần trước (nút mặt trời/mặt trăng ghi theme_light.txt) — đặt trước khi có form nào, kể cả hộp hỏi App/Web. Chưa chọn bao giờ = tối.
+        if (Bcode.App.Models.AppSettings.LightTheme) AppColors.Current = AppColors.Light;
         if (UiMode.Resolve(args) is not { } mode) return;
         UiMode.Set(mode);
         StartupArgs.Parse(args);

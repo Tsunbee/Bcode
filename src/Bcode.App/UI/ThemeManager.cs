@@ -251,6 +251,7 @@ public static class ThemeManager
     public static void Toggle(Control root)
     {
         AppColors.Current = AppColors.IsDark ? AppColors.Light : AppColors.Dark;
+        Bcode.App.Models.AppSettings.LightTheme = !AppColors.IsDark;   // nhớ cho lần mở sau (Program.Main đọc lại)
         Apply(root);
         root.Invalidate(true);
         ThemeChanged?.Invoke();

@@ -163,7 +163,7 @@ Trên ảnh: **①** ⚙ Settings · **②** Actions · **③** giỏ script: Ad
 | **Claude**, **Gemini** | Mở claude.ai / gemini trong một tab (đăng nhập bằng tài khoản web, không cần API key) |
 | **Trợ giúp** | Tab hướng dẫn này — mở đúng mục của tab đang dùng (`Ctrl+F1`) |
 | **WS:** · ⟳ · **Sys / App** | Chọn database, Refresh database (xem [Chọn dự án](#du-an)) |
-| ☀/☾ | Đổi giao diện sáng / tối |
+| ☀/☾ | Đổi giao diện sáng / tối — Bcode nhớ lựa chọn, lần mở sau (cả chế độ App lẫn Web) vẫn đúng sáng / tối đã chọn; chưa chọn bao giờ thì mặc định tối |
 | 🔔 (chuông) | **Thông báo y/c FSG**: số đỏ = số thông báo chưa xem; bấm để mở khung Thông báo (xem [Thông báo y/c FSG](#fsg-thong-bao)) |
 | ★ **Quick Access** | Chọn nút nào hiện trên thanh công cụ |
 

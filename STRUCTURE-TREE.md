@@ -190,7 +190,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  364
+│   ├── AppSettings.cs  368
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -355,7 +355,7 @@ Bcode.App/
 │   ├── PerformanceProfile.cs  75
 │   ├── ShortcutRegistry.cs  355
 │   ├── ThemedForm.cs  11
-│   ├── ThemeManager.cs  836
+│   ├── ThemeManager.cs  837
 │   ├── TreeColorOptions.cs  98
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
@@ -454,7 +454,7 @@ Bcode.App/
 │       └── weeklymail.html  556
 ├── Bcode.App.csproj  157
 ├── BcodePaths.cs  48
-└── Program.cs  37
+└── Program.cs  39
 ```
 ```
 BcodeViewer.App/

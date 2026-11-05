@@ -284,6 +284,10 @@ public class AppSettings
         set { try { if (value is null) return; Directory.CreateDirectory(SettingsDir); File.WriteAllText(Path.Combine(SettingsDir, "ui_mode.txt"), value == UI.UiModeKind.Native ? "native" : "web"); } catch { } }
     }
 
+    /// <summary>Giao diện sáng (ban ngày) — nút mặt trời/mặt trăng ghi lại, lần mở sau Program.Main đọc để mở đúng sáng/tối. Mặc định false = tối (như trước).
+    /// Lưu file riêng (cùng lý do với <see cref="AiEmbedded"/>): để trong settings.json thì bản AppSettings cũ trong bộ nhớ Save lúc thoát sẽ đè mất.</summary>
+    public static bool LightTheme { get => FlagFile("theme_light.txt", false); set => SetFlagFile("theme_light.txt", value); }
+
     /// <summary>true (mặc định) = mỗi lần mở Bcode hỏi chọn App/Web; false = vào thẳng chế độ đã lưu.</summary>
     public static bool AskUiMode { get => FlagFile("ask_ui_mode.txt", true); set => SetFlagFile("ask_ui_mode.txt", value); }
 

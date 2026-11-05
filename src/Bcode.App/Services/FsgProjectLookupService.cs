@@ -259,36 +259,58 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         if (maDa.Length == 0) return (new(), "Chưa chọn project.");
         if (programmer.Length == 0) return (new(), "Chưa khai tên lập trình.");
 
+        // Bấm Sync liên tục (hoặc Note + Gen gói cùng lúc): trong 60 giây dùng lại kết quả vừa kéo, không gọi FSG thêm.
+        var syncKey = (maDa + "|" + programmer).ToUpperInvariant();
+        lock (SyncRecent)
+            if (SyncRecent.TryGetValue(syncKey, out var recent) && DateTime.UtcNow - recent.At < SyncReuse) return (recent.Rows, null);
+
         try
         {
             await using var conn = new SqlConnection(BuildConnectionString());
             await conn.OpenAsync();
-            await using var cmd = new SqlCommand(
-                "SELECT stt_rec, ma_da, bp_lt, ma_nv1, ma_lt1, fcode1, noi_dung FROM nvphyc " +
-                "WHERE ma_da = @ma_da AND ma_lt1 = @lt AND ISNULL(fcode1, '') <> '' ORDER BY xorder, stt_rec", conn)
-            { CommandTimeout = 60 };
+            // "Dấu" của y/c = datetime2 (ngày sửa y/c) + số dòng ghi chú + ngày sửa ghi chú mới nhất (nbctyc.datetime2): dấu không đổi thì nội dung
+            // ns_getContentInfo cũng không đổi → dùng lại bản đã lưu. Ngày sửa ghi chú bắt cả ghi chú bị SỬA (đếm dòng chỉ bắt thêm / xoá).
+            string BaseQuery(bool noteStamp) =>
+                "SELECT a.stt_rec, a.ma_da, a.bp_lt, a.ma_nv1, a.ma_lt1, a.fcode1, a.noi_dung, a.datetime2, ct.n_ct, ct.m_ct FROM nvphyc a WITH (NOLOCK) " +
+                "OUTER APPLY (SELECT COUNT(*) AS n_ct, " + (noteStamp ? "MAX(c.datetime2)" : "CAST(NULL AS datetime)") + " AS m_ct FROM nbctyc c WITH (NOLOCK) WHERE c.stt_rec = a.stt_rec) ct " +
+                "WHERE a.ma_da = @ma_da AND a.ma_lt1 = @lt AND ISNULL(a.fcode1, '') <> '' ORDER BY a.xorder, a.stt_rec";
+            await using var cmd = new SqlCommand(BaseQuery(_noteHasStamp != false), conn) { CommandTimeout = 60 };
             cmd.Parameters.Add("@ma_da", System.Data.SqlDbType.NVarChar, 100).Value = maDa;
             cmd.Parameters.Add("@lt", System.Data.SqlDbType.NVarChar, 100).Value = programmer;
 
-            var basics = new List<(string Stt, RequestRow Row)>();
-            await using (var r = await cmd.ExecuteReaderAsync())
+            var basics = new List<(string Stt, string Stamp, RequestRow Row)>();
+            SqlDataReader reader0;
+            try { reader0 = await cmd.ExecuteReaderAsync(); }
+            catch (SqlException ex) when (_noteHasStamp != false && ex.Number == 207)   // nbctyc không có cột datetime2 → chỉ đếm dòng
+            {
+                _noteHasStamp = false;
+                cmd.CommandText = BaseQuery(false);
+                reader0 = await cmd.ExecuteReaderAsync();
+            }
+            await using (var r = reader0)
                 while (await r.ReadAsync())
                 {
                     string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
-                    basics.Add((S("stt_rec"), new RequestRow(S("ma_da"), S("bp_lt"), S("ma_nv1"), S("ma_lt1"), S("fcode1"), S("noi_dung"))));
+                    string D(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToDateTime(r.GetValue(r.GetOrdinal(c))).ToString("yyyyMMddHHmmssfff");
+                    var stamp = D("datetime2") + "#" + S("n_ct") + "#" + D("m_ct");
+                    basics.Add((S("stt_rec"), stamp, new RequestRow(S("ma_da"), S("bp_lt"), S("ma_nv1"), S("ma_lt1"), S("fcode1"), S("noi_dung"))));
                 }
 
-            // Tên menu + ghi chú (tester / lỗi) lấy từ thủ tục ns_getContentInfo(@cID = stt_rec) — cùng nguồn với màn hình xem yêu cầu. Thủ tục lỗi / không có
-            // thì bỏ trống 2 phần này chứ không làm hỏng cả lần Sync. Gọi song song tối đa 4 kết nối.
+            // Tên menu + ghi chú (tester / lỗi) lấy từ thủ tục ns_getContentInfo(@cID = stt_rec) — cùng nguồn với màn hình xem yêu cầu. Chỉ gọi cho y/c ĐÃ ĐỔI
+            // (dấu khác bản lưu ở fsg-content-cache.json); thủ tục lỗi / không có thì bỏ trống 2 phần này chứ không làm hỏng cả lần Sync. Tối đa 2 kết nối song song.
+            var cache = LoadContentCache();
             var extra = new (string Menu, string Note, string Content, string Status)[basics.Count];
             Array.Fill(extra, ("", "", "", ""));
-            using var gate = new SemaphoreSlim(4);
+            int called = 0;
+            using var gate = new SemaphoreSlim(2);
             await Task.WhenAll(basics.Select(async (b0, i) =>
             {
                 if (b0.Stt.Length == 0) return;
+                if (cache.TryGetValue(b0.Stt, out var hit) && hit.Stamp == b0.Stamp) { extra[i] = (hit.Menu, hit.Note, hit.Content, hit.Status); return; }
                 await gate.WaitAsync();
                 try
                 {
+                    Interlocked.Increment(ref called);
                     await using var c2 = new SqlConnection(BuildConnectionString());
                     await c2.OpenAsync();
                     await using var pc = new SqlCommand("ns_getContentInfo", c2) { CommandType = System.Data.CommandType.StoredProcedure, CommandTimeout = 30 };
@@ -298,11 +320,13 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
                     {
                         string G(string col) { try { var o = pr.GetOrdinal(col); return pr.IsDBNull(o) ? "" : Convert.ToString(pr.GetValue(o)) ?? ""; } catch { return ""; } }
                         extra[i] = (HtmlToText(G("ten_menu")), HtmlToText(G("ghi_chu")), HtmlToText(G("noi_dung")), HtmlToText(G("ma_xlyc")).Replace("\r\n", " "));
+                        lock (cache) cache[b0.Stt] = new ContentCacheItem(b0.Stamp, extra[i].Menu, extra[i].Note, extra[i].Content, extra[i].Status);
                     }
                 }
                 catch { /* thủ tục không chạy được cho y/c này — bỏ trống tên menu / ghi chú */ }
                 finally { gate.Release(); }
             }));
+            if (called > 0) SaveContentCache(cache);
 
             var rows = new List<RequestRow>();
             for (var i = 0; i < basics.Count; i++)
@@ -310,12 +334,49 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
                 var row = basics[i].Row;
                 rows.Add(row with { NoiDung = string.IsNullOrWhiteSpace(row.NoiDung) ? extra[i].Content : row.NoiDung, GhiChu = extra[i].Note, TenMenu = extra[i].Menu, MaXlyc = extra[i].Status });
             }
+            lock (SyncRecent) SyncRecent[syncKey] = (DateTime.UtcNow, rows);
             return (rows, null);
         }
         catch
         {
             return (new(), Available ? "Không đồng bộ được yêu cầu — kiểm tra kết nối mạng hoặc quyền rồi thử lại." : MissingSecretMessage);
         }
+    }
+
+    // ---- Giảm tải cho server FSG khi nhiều máy cùng dùng Bcode ----
+
+    private static readonly TimeSpan SyncReuse = TimeSpan.FromSeconds(60);
+    private static readonly Dictionary<string, (DateTime At, List<RequestRow> Rows)> SyncRecent = new();
+
+    /// <summary>Kết quả ns_getContentInfo đã lấy của 1 y/c, kèm "dấu" (datetime2 + số dòng ghi chú) lúc lấy.</summary>
+    private sealed record ContentCacheItem(string Stamp, string Menu, string Note, string Content, string Status);
+
+    private static string ContentCachePath => Path.Combine(BcodePaths.AppData, "Bcode", "fsg-content-cache.json");
+    private static readonly object ContentCacheLock = new();
+
+    private static Dictionary<string, ContentCacheItem> LoadContentCache()
+    {
+        lock (ContentCacheLock)
+            try
+            {
+                return File.Exists(ContentCachePath)
+                    ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, ContentCacheItem>>(File.ReadAllText(ContentCachePath)) ?? new()
+                    : new();
+            }
+            catch { return new(); /* file hỏng: gọi lại thủ tục như lần đầu */ }
+    }
+
+    private static void SaveContentCache(Dictionary<string, ContentCacheItem> cache)
+    {
+        lock (ContentCacheLock)
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(ContentCachePath)!);
+                // giữ tối đa 5000 y/c gần nhất — đủ cho vài dự án, file không phình mãi
+                var keep = cache.Count > 5000 ? cache.OrderByDescending(kv => kv.Value.Stamp, StringComparer.Ordinal).Take(5000).ToDictionary(kv => kv.Key, kv => kv.Value) : cache;
+                File.WriteAllText(ContentCachePath, System.Text.Json.JsonSerializer.Serialize(keep));
+            }
+            catch { /* không lưu được thì lần sau gọi lại thủ tục */ }
     }
 
     /// <summary>1 dòng của "Báo cáo yêu cầu FSG" (bảng nvphyc + hạn hoàn thành từ vnbcnhanhtda).</summary>
@@ -329,10 +390,26 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
     /// </summary>
     public async Task<(List<RequirementRow> Rows, string? Error)> FetchRequirementReportAsync(string maDa, string bpLt, string programmer, string deployer, string person, string fcode = "", string content = "")
     {
+        var (rows, _, error) = await FetchRequirementReportExAsync(maDa, bpLt, programmer, deployer, person, fcode, content);
+        return (rows, error);
+    }
+
+    /// <summary>nbctyc có cột datetime2 không (ghi chú mới / sửa) — null = chưa biết, false = không có: chỉ xét datetime2 của nvphyc.</summary>
+    private static bool? _noteHasStamp;
+
+    /// <summary>
+    /// Như <see cref="FetchRequirementReportAsync"/>, thêm <paramref name="changedSince"/>: chỉ lấy y/c SỬA sau mốc (nvphyc.datetime2, hoặc có ghi chú nbctyc
+    /// mới/sửa sau mốc) — kéo ngầm của chuông thông báo chỉ lấy vài dòng đổi thay vì cả dự án. Trả kèm giờ của server lúc bắt đầu đọc (mốc cho lần sau —
+    /// dùng giờ server, không dùng giờ máy, để máy lệch giờ không bỏ sót).
+    /// </summary>
+    public async Task<(List<RequirementRow> Rows, DateTime? ServerNow, string? Error)> FetchRequirementReportExAsync(string maDa, string bpLt, string programmer, string deployer, string person,
+        string fcode = "", string content = "", DateTime? changedSince = null)
+    {
         try
         {
             await using var conn = new SqlConnection(BuildConnectionString());
             await conn.OpenAsync();
+            DateTime? serverNow = null;
             await using var cmd = new SqlCommand { Connection = conn, CommandTimeout = 90 };
             // Mỗi ô lọc nhận NHIỀU giá trị (cách nhau dấu phẩy / chấm phẩy / khoảng trắng) → a.cột IN (@p0, @p1…). Ô trống = không lọc.
             var where = new List<string> { "ISNULL(a.fcode1, '') <> ''" };
@@ -357,17 +434,37 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             var ct = Like("a.noi_dung", content, " AND "); if (ct.Length > 0) where.Add(ct);
             // "Người" = lập trình HOẶC triển khai (một ô để kéo theo người, không cần biết họ đứng ở cột nào)
             var pv = In("a.ma_lt1", person); if (pv.Length > 0) { var pn = In("a.ma_nv1", person); where.Add("(" + pv + " OR " + pn + ")"); }
-            cmd.CommandText = $@"
+            if (changedSince is DateTime since)
+                cmd.Parameters.Add("@since", System.Data.SqlDbType.DateTime2).Value = since;
+            // WITH (NOLOCK): chỉ đọc để xem — không giữ khoá trong lúc người khác đang sửa y/c trên web FSG.
+            // Giờ server (mốc cho lần kéo theo mốc sau) đọc chung 1 lượt với câu chính — không tốn thêm 1 vòng gọi.
+            string Query(bool noteStamp) => $@"SELECT SYSDATETIME();
 SELECT a.stt_rec, a.ma_da, a.menu_id, a.ten_menu_ngan, a.trang_tlks, a.tlks_yn, a.bp_lt, a.fcode1, a.noi_dung, a.ma_lt1, a.ma_nv1, b.ngay_ht, a.trang_thai
-FROM nvphyc a
+FROM nvphyc a WITH (NOLOCK)
 	-- vnbcnhanhtda có thể có NHIỀU dòng cho cùng (ma_da, giai_doan_da) → JOIN thường làm 1 yêu cầu hiện lặp nhiều lần; chỉ lấy 1 dòng (hạn muộn nhất).
-	OUTER APPLY (SELECT TOP 1 x.ngay_ht FROM vnbcnhanhtda x WHERE x.ma_da = a.ma_da AND x.giai_doan_da = a.giai_doan_da ORDER BY x.ngay_ht DESC) b
-WHERE {string.Join(" AND ", where)}
+	OUTER APPLY (SELECT TOP 1 x.ngay_ht FROM vnbcnhanhtda x WITH (NOLOCK) WHERE x.ma_da = a.ma_da AND x.giai_doan_da = a.giai_doan_da ORDER BY x.ngay_ht DESC) b
+WHERE {string.Join(" AND ", where)}"
+                + (changedSince is null ? "" : noteStamp
+                    ? " AND (a.datetime2 >= @since OR EXISTS (SELECT 1 FROM nbctyc c WITH (NOLOCK) WHERE c.stt_rec = a.stt_rec AND c.datetime2 >= @since))"
+                    : " AND a.datetime2 >= @since")
+                + @"
 ORDER BY a.ma_da, a.xorder, a.stt_rec";
+            cmd.CommandText = Query(changedSince is not null && _noteHasStamp != false);
 
             var rows = new List<RequirementRow>();
             var stts = new List<string>();
-            await using (var r = await cmd.ExecuteReaderAsync())
+            SqlDataReader reader;
+            try { reader = await cmd.ExecuteReaderAsync(); if (changedSince is not null) _noteHasStamp ??= true; }
+            catch (SqlException ex) when (changedSince is not null && _noteHasStamp != false && ex.Number == 207)   // nbctyc không có cột datetime2
+            {
+                _noteHasStamp = false;
+                cmd.CommandText = Query(false);
+                reader = await cmd.ExecuteReaderAsync();
+            }
+            await using (var r = reader)
+            {
+                if (await r.ReadAsync() && !r.IsDBNull(0)) serverNow = r.GetDateTime(0);
+                await r.NextResultAsync();
                 while (await r.ReadAsync())
                 {
                     string S(string c) => r.IsDBNull(r.GetOrdinal(c)) ? "" : Convert.ToString(r.GetValue(r.GetOrdinal(c)))?.Trim() ?? "";
@@ -376,6 +473,7 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
                     rows.Add(new RequirementRow(S("ma_da"), S("menu_id"), S("ten_menu_ngan"), S("trang_tlks"), S("tlks_yn"), S("bp_lt"), S("fcode1"),
                         S("noi_dung"), S("ma_lt1"), S("ma_nv1"), d, S("trang_thai")));
                 }
+            }
 
             // Ghi chú của y/c: dựng giống ns_getContentInfo (bảng nbctyc: xtype 1 = ghi chú tester, xtype 2 = lỗi tester ghi nhận). Đọc theo lô cho cả báo cáo (không gọi thủ tục từng dòng).
             // Lỗi / thiếu bảng thì bỏ trống cột ghi chú, không làm hỏng báo cáo.
@@ -389,7 +487,7 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
                     await using var nc = new SqlCommand { Connection = conn, CommandTimeout = 60 };
                     var names = batch.Select((k, i) => { nc.Parameters.Add("@s" + i, System.Data.SqlDbType.Char, 13).Value = k; return "@s" + i; });
                     nc.CommandText = "SELECT stt_rec, xtype, RTRIM(ISNULL(ma_tester, '')) AS ma_tester, RTRIM(ISNULL(noi_dung, '')) AS noi_dung, RTRIM(ISNULL(ghi_chu_lt, '')) AS ghi_chu_lt, RTRIM(ISNULL(trang_thai, '')) AS trang_thai " +
-                                     "FROM nbctyc WHERE noi_dung <> '' AND stt_rec IN (" + string.Join(", ", names) + ") ORDER BY stt_rec";
+                                     "FROM nbctyc WITH (NOLOCK) WHERE noi_dung <> '' AND stt_rec IN (" + string.Join(", ", names) + ") ORDER BY stt_rec";
                     await using var nr = await nc.ExecuteReaderAsync();
                     while (await nr.ReadAsync())
                     {
@@ -407,12 +505,12 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
                     if (stts[i].Length > 0 && notes.TryGetValue(stts[i], out var l)) rows[i] = rows[i] with { GhiChu = string.Join("\r\n", l) };
             }
             catch { /* không đọc được ghi chú — báo cáo vẫn đủ các cột còn lại */ }
-            return (rows, null);
+            return (rows, serverNow, null);
         }
         catch (Exception ex)
         {
             var msg = ex.Message.Split((char)10)[0].Trim();
-            return (new(), "Không kéo được yêu cầu từ FSG: " + (msg.Length > 300 ? msg[..300] : msg));
+            return (new(), null, "Không kéo được yêu cầu từ FSG: " + (msg.Length > 300 ? msg[..300] : msg));
         }
     }
 
@@ -455,7 +553,10 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
             UserID = Decrypt(EncUser),
             Password = Decrypt(EncPassword),
             TrustServerCertificate = true,
-            ConnectTimeout = 10,
+            // Quản trị FSG thấy ngay truy vấn nào của Bcode (sp_who2 / sys.dm_exec_sessions.program_name) — kèm host_name là máy nào.
+            ApplicationName = "Bcode",
+            // 5 giây: VPN / mạng rớt thì báo nhanh, lần thử sau (giãn dần) không chồng lên lần đang treo
+            ConnectTimeout = 5,
         }.ConnectionString;
     }
 

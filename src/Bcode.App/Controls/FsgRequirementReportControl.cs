@@ -106,6 +106,10 @@ public class FsgRequirementReportControl : UserControl
     internal sealed class ProjectData
     {
         public string FetchedAt { get; set; } = "";
+        /// <summary>Giờ SERVER FSG lúc bắt đầu lần kéo gần nhất — "Kéo về" lần sau chỉ lấy y/c sửa sau mốc này (nvphyc.datetime2).</summary>
+        public string ServerAt { get; set; } = "";
+        /// <summary>Lần kéo ĐỦ gần nhất (máy) — quá <see cref="FullEvery"/> thì kéo đủ lại để bắt y/c bị xoá / chuyển đi.</summary>
+        public string FullAt { get; set; } = "";
         public List<Req> Rows { get; set; } = new();
     }
 
@@ -113,7 +117,68 @@ public class FsgRequirementReportControl : UserControl
     {
         public Dictionary<string, string> Filters { get; set; } = new();
         public Dictionary<string, ProjectData> Projects { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        /// <summary>Dòng số liệu của lần kéo gần nhất (tay hoặc "Tự làm mới"): "3 dòng · 0,4 giây · theo mốc · 17:40".</summary>
+        public string LastPull { get; set; } = "";
     }
+
+    // ---- Kéo theo mốc (giảm tải server FSG khi nhiều máy cùng dùng Bcode) ----
+
+    /// <summary>Kéo đủ lại sau chừng này dù điều kiện không đổi — bắt y/c bị xoá / chuyển dự án / không còn khớp điều kiện.</summary>
+    internal static readonly TimeSpan FullEvery = TimeSpan.FromHours(4);
+    /// <summary>Lùi mốc một chút: bù độ trễ ghi của web FSG; lấy trùng vài dòng thì ghép lại theo khoá, không sao.</summary>
+    private static readonly TimeSpan SinceOverlap = TimeSpan.FromMinutes(2);
+
+    private static string[] Codes(string maDa) => maDa.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    internal static Dictionary<string, string> FilterMap(string maDa, string bpLt, string programmer, string deployer, string person, string fcode, string content) =>
+        new() { ["maDa"] = maDa, ["bpLt"] = bpLt, ["person"] = person, ["programmer"] = programmer, ["deployer"] = deployer, ["fcode"] = fcode, ["content"] = content };
+
+    private static bool SameFilters(Dictionary<string, string> a, Dictionary<string, string> b) =>
+        b.All(kv => string.Equals((a.TryGetValue(kv.Key, out var v) ? v ?? "" : "").Trim(), (kv.Value ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Kéo theo mốc được không: cùng điều kiện với lần trước, mọi dự án trong ô Mã dự án đã có mốc và kéo đủ chưa quá <see cref="FullEvery"/>.
+    /// Trả mốc (null = kéo đủ) và lý do (cho dòng số liệu).</summary>
+    internal static (DateTime? Since, string Why) PlanPull(Store st, Dictionary<string, string> f, bool forceFull)
+    {
+        if (forceFull) return (null, "kéo đủ (Shift)");
+        if (!SameFilters(st.Filters, f)) return (null, "kéo đủ — điều kiện mới");
+        var codes = Codes(f.TryGetValue("maDa", out var m) ? m ?? "" : "");
+        if (codes.Length == 0) return (null, "kéo đủ — chưa nhập mã dự án");
+        DateTime? since = null;
+        foreach (var c in codes)
+        {
+            if (!st.Projects.TryGetValue(c, out var pd) || !DateTime.TryParse(pd.ServerAt, out var sa)) return (null, "kéo đủ — lần đầu");
+            if (!DateTime.TryParse(pd.FullAt, out var fa) || DateTime.Now - fa > FullEvery) return (null, $"kéo đủ định kỳ ({FullEvery.TotalHours:0} giờ)");
+            if (since is null || sa < since) since = sa;
+        }
+        return (since - SinceOverlap, "theo mốc");
+    }
+
+    /// <summary>Ghép lần kéo vào bản lưu: kéo đủ = thay dữ liệu dự án (<see cref="ApplyFetched"/>); theo mốc = chỉ thay / thêm các y/c vừa đổi (khớp khoá ma_da + fcode1).</summary>
+    internal static void ApplyPulled(Store st, string maDa, List<Req> data, DateTime? serverNow, bool incremental)
+    {
+        var now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
+        var sv = serverNow?.ToString("yyyy-MM-ddTHH:mm:ss.fff") ?? "";
+        if (!incremental)
+        {
+            ApplyFetched(st, maDa, data, now);
+            foreach (var pd in Codes(maDa).Concat(data.Select(r => r.MaDa)).Distinct(StringComparer.OrdinalIgnoreCase)
+                         .Select(c => st.Projects.TryGetValue(c, out var p) ? p : null).Where(p => p is not null))
+            { pd!.ServerAt = sv; pd.FullAt = now; }
+            return;
+        }
+        foreach (var c in Codes(maDa))
+        {
+            if (!st.Projects.TryGetValue(c, out var pd)) continue;
+            var fresh = data.Where(r => string.Equals((r.MaDa ?? "").Trim(), c, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (fresh.Count > 0) pd.Rows = FsgNotifyService.Upsert(pd.Rows, fresh, _ => false);
+            pd.FetchedAt = now;
+            if (sv.Length > 0) pd.ServerAt = sv;
+        }
+    }
+
+    internal static string PullText(int rows, long ms, string why) =>
+        $"{rows} dòng · {ms / 1000.0:0.0} giây · {why} · {DateTime.Now:HH:mm}";
 
     private static string CachePath => Path.Combine(BcodePaths.AppData, "Bcode", "fsg-requirements.json");
 
@@ -127,6 +192,7 @@ public class FsgRequirementReportControl : UserControl
             var st = new Store();
             if (root.TryGetProperty("filters", out var f) && f.ValueKind == JsonValueKind.Object)
                 st.Filters = f.Deserialize<Dictionary<string, string>>(JsonOpts) ?? new();
+            if (root.TryGetProperty("lastPull", out var lp) && lp.ValueKind == JsonValueKind.String) st.LastPull = lp.GetString() ?? "";
             if (root.TryGetProperty("projects", out var p) && p.ValueKind == JsonValueKind.Object)
                 foreach (var kv in p.EnumerateObject()) st.Projects[kv.Name] = kv.Value.Deserialize<ProjectData>(JsonOpts) ?? new();
             else if (root.TryGetProperty("rows", out var rows))      // bản lưu cũ (một lần kéo duy nhất) → tách theo dự án
@@ -156,7 +222,7 @@ public class FsgRequirementReportControl : UserControl
         var rows = st.Projects.Values.SelectMany(p => p.Rows).ToList();
         var projects = st.Projects.Select(kv => new { ma = kv.Key, at = kv.Value.FetchedAt, n = kv.Value.Rows.Count }).OrderBy(x => x.ma, StringComparer.OrdinalIgnoreCase).ToList();
         var latest = st.Projects.Values.Select(p => p.FetchedAt).Where(a => a.Length > 0).DefaultIfEmpty("").Max() ?? "";
-        Js($"fsgReq.onData({J(new { rows, projects, error, cached, today = DateTime.Today.ToString("yyyy-MM-dd"), fetchedAt = latest })})");
+        Js($"fsgReq.onData({J(new { rows, projects, error, cached, today = DateTime.Today.ToString("yyyy-MM-dd"), fetchedAt = latest, lastPull = st.LastPull })})");
     }
 
     private void SendInit()
@@ -187,7 +253,10 @@ public class FsgRequirementReportControl : UserControl
                 case "autoPull":    // ô "Tự làm mới": kéo ngầm tự động cả khi đóng tab (FsgNotifyService), 0 = tắt
                     FsgNotifyService.Instance?.SetAutoPull(root.TryGetProperty("minutes", out var mv) && mv.TryGetInt32(out var mi) ? mi : 0);
                     break;
-                case "fetch": await FetchAsync(Str("maDa"), Str("bpLt"), Str("programmer"), Str("deployer"), Str("person"), Str("fcode"), Str("content")); break;
+                case "fetch":   // Shift + Kéo về = kéo đủ (bỏ qua mốc)
+                    await FetchAsync(Str("maDa"), Str("bpLt"), Str("programmer"), Str("deployer"), Str("person"), Str("fcode"), Str("content"),
+                        forceFull: root.TryGetProperty("full", out var fv) && fv.ValueKind == JsonValueKind.True);
+                    break;
                 case "drop":    // bỏ dữ liệu đã lưu của một dự án
                 {
                     var st = LoadStore(); st.Projects.Remove(Str("ma")); SaveStore(st); SendAll(st, null, cached: true);
@@ -227,27 +296,51 @@ public class FsgRequirementReportControl : UserControl
             st.Projects[g.Key] = new ProjectData { FetchedAt = now, Rows = g.ToList() };
     }
 
+    /// <summary>Bấm "Kéo về" lại với đúng điều kiện cũ trong chừng này thì dùng dữ liệu vừa kéo — nhiều máy / bấm liên tục không dồn truy vấn lên FSG.</summary>
+    private static readonly TimeSpan FetchReuse = TimeSpan.FromSeconds(60);
+
     /// <param name="keepFilters">true = kéo ngầm cho "Yêu cầu liên quan" — không ghi đè các ô lọc đã lưu của tab.</param>
-    private async Task FetchAsync(string maDa, string bpLt, string programmer, string deployer, string person, string fcode, string content, bool keepFilters = false)
+    private async Task FetchAsync(string maDa, string bpLt, string programmer, string deployer, string person, string fcode, string content, bool keepFilters = false, bool forceFull = false)
     {
         if (_busy) return;
+        var filters = FilterMap(maDa, bpLt, programmer, deployer, person, fcode, content);
+        if (!keepFilters && !forceFull)
+        {
+            var cur = LoadStore();
+            var codes = Codes(maDa);
+            var at = codes.Select(c => cur.Projects.TryGetValue(c, out var pd) && DateTime.TryParse(pd.FetchedAt, out var t) ? t : DateTime.MinValue).DefaultIfEmpty(DateTime.MinValue).Min();
+            if (codes.Length > 0 && SameFilters(cur.Filters, filters) && DateTime.Now - at < FetchReuse)
+            {
+                SendAll(cur, $"Vừa kéo lúc {at:HH:mm:ss} — đang dùng lại dữ liệu đó để đỡ tải cho FSG; sau {FetchReuse.TotalSeconds:0} giây có thể kéo lại (Shift + Kéo về = kéo đủ).", cached: true);
+                return;
+            }
+        }
         _busy = true;
         Js("fsgReq.setBusy(true)");
         try
         {
-            var (rows, error) = await new FsgProjectLookupService().FetchRequirementReportAsync(maDa, bpLt, programmer, deployer, person, fcode, content);
-            var st = LoadStore();
-            if (error is null)
+            // Cùng điều kiện, đã có mốc: chỉ lấy y/c sửa sau lần kéo trước (vài dòng thay vì cả dự án). Kéo ngầm "Yêu cầu liên quan" luôn kéo đủ (dự án chưa lưu).
+            var (since, why) = keepFilters ? ((DateTime?)null, "kéo đủ") : PlanPull(LoadStore(), filters, forceFull);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var (rows, serverNow, error) = await new FsgProjectLookupService().FetchRequirementReportExAsync(maDa, bpLt, programmer, deployer, person, fcode, content, since);
+            sw.Stop();
+            Store st;
+            lock (FsgNotifyService.StoreLock)   // kéo ngầm (thông báo / tự làm mới) cũng đọc-sửa-ghi file này
             {
-                var now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
-                var data = rows.Select(ToReq).ToList();
-                // Thông báo y/c (chuông 🔔): so lần kéo tay này với dữ liệu đã lưu trước đó — thay đổi trên y/c của mình không bị "nuốt" mất vì mốc so đã dời.
-                FsgNotifyService.Instance?.RecordFetch(st, data);
-                ApplyFetched(st, maDa, data, now);
-                // Kéo ngầm cho "Yêu cầu liên quan" mà FSG không có y/c nào: lưu mục rỗng — trang báo "không có" thay vì kéo lại mỗi lần chuột phải.
-                if (keepFilters && data.Count == 0 && maDa.Trim().Length > 0) st.Projects[maDa.Trim()] = new ProjectData { FetchedAt = now };
-                if (!keepFilters) st.Filters = new Dictionary<string, string> { ["maDa"] = maDa, ["bpLt"] = bpLt, ["person"] = person, ["programmer"] = programmer, ["deployer"] = deployer, ["fcode"] = fcode, ["content"] = content };
-                SaveStore(st);
+                st = LoadStore();
+                if (error is null)
+                {
+                    var data = rows.Select(ToReq).ToList();
+                    // Thông báo y/c (chuông 🔔): so lần kéo tay này với dữ liệu đã lưu trước đó — thay đổi trên y/c của mình không bị "nuốt" mất vì mốc so đã dời.
+                    FsgNotifyService.Instance?.RecordFetch(st, data);
+                    ApplyPulled(st, maDa, data, serverNow, since is not null);
+                    // Kéo ngầm cho "Yêu cầu liên quan" mà FSG không có y/c nào: lưu mục rỗng — trang báo "không có" thay vì kéo lại mỗi lần chuột phải.
+                    if (keepFilters && data.Count == 0 && maDa.Trim().Length > 0)
+                        st.Projects[maDa.Trim()] = new ProjectData { FetchedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), ServerAt = serverNow?.ToString("yyyy-MM-ddTHH:mm:ss.fff") ?? "", FullAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss") };
+                    if (!keepFilters) st.Filters = filters;
+                    st.LastPull = PullText(data.Count, sw.ElapsedMilliseconds, why);
+                    SaveStore(st);
+                }
             }
             SendAll(st, error, cached: false);
         }

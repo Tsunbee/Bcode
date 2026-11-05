@@ -26,6 +26,23 @@ public sealed class FsgNotifyService : IDisposable
         public bool Due { get; set; } = true;        // đổi hạn hoàn thành
         public bool Deployer { get; set; }           // báo cả y/c mình là triển khai (ma_nv1)
         public bool Toast { get; set; } = true;      // toast Windows khi Bcode không ở trước
+        /// <summary>Chỉ kéo NGẦM trong giờ làm (kéo tay / "Kiểm tra ngay" vẫn chạy bất kỳ lúc nào) — tối, cuối tuần máy để mở Bcode không gọi FSG.</summary>
+        public bool WorkHoursOnly { get; set; } = true;
+        public string WorkFrom { get; set; } = "07:30";
+        public string WorkTo { get; set; } = "19:00";
+        public bool WorkSat { get; set; } = true;
+        public bool WorkSun { get; set; }
+    }
+
+    /// <summary>Bây giờ có nằm trong giờ làm đã cài không (giờ sai định dạng thì coi như cả ngày).</summary>
+    internal static bool InWorkHours(Settings s, DateTime now)
+    {
+        if (!s.WorkHoursOnly) return true;
+        if (now.DayOfWeek == DayOfWeek.Saturday && !s.WorkSat || now.DayOfWeek == DayOfWeek.Sunday && !s.WorkSun) return false;
+        var from = TimeSpan.TryParse(s.WorkFrom, out var f) ? f : TimeSpan.Zero;
+        var to = TimeSpan.TryParse(s.WorkTo, out var t) ? t : TimeSpan.FromHours(24);
+        var tod = now.TimeOfDay;
+        return from <= to ? tod >= from && tod < to : tod >= from || tod < to;   // giờ qua đêm (vd 20:00 → 06:00)
     }
 
     /// <summary>1 thông báo. Kind: note | status | new | due. Role: lt (mình là lập trình) | nv (mình là triển khai).</summary>
@@ -60,6 +77,60 @@ public sealed class FsgNotifyService : IDisposable
         public List<string> SeenMine { get; set; } = new();
         /// <summary>Người (tên lập trình) mà SeenMine đang theo — đổi tên thì làm lại mốc.</summary>
         public string SeenFor { get; set; } = "";
+        /// <summary>Giờ SERVER FSG lúc bắt đầu lần kéo thành công gần nhất — lần sau chỉ kéo y/c sửa sau mốc này (nvphyc.datetime2).</summary>
+        public string PollSince { get; set; } = "";
+        /// <summary>Danh sách dự án + người + "cả triển khai" mà PollSince đang áp — đổi thì kéo đủ lại một lần.</summary>
+        public string PollKey { get; set; } = "";
+        /// <summary>Lần kéo ĐỦ gần nhất (không theo mốc) — định kỳ kéo đủ để bắt y/c bị xoá / chuyển đi.</summary>
+        public string LastFullPoll { get; set; } = "";
+        /// <summary>Số lần kéo lỗi liên tiếp — chu kỳ giãn dần (10 → 20 → 40 → 60 phút), không thử lại dồn dập khi FSG / VPN có vấn đề.</summary>
+        public int FailCount { get; set; }
+        /// <summary>Số liệu lần kiểm tra gần nhất cho khung Thông báo: "0 dòng · 0,4 giây · theo mốc · 17:40".</summary>
+        public string LastPollInfo { get; set; } = "";
+    }
+
+    // ---- Giảm tải cho server FSG khi nhiều máy cùng dùng Bcode ----
+
+    /// <summary>Kéo đủ (không theo mốc datetime2) mỗi chừng này — bắt y/c bị xoá hoặc chuyển dự án.</summary>
+    private static readonly TimeSpan FullPollEvery = TimeSpan.FromHours(6);
+    /// <summary>Lùi mốc một chút khi kéo theo mốc: bù độ trễ ghi giữa web FSG và lúc đọc (lấy trùng vài dòng thì Upsert ghép lại, không sao).</summary>
+    private static readonly TimeSpan SinceOverlap = TimeSpan.FromMinutes(2);
+    /// <summary>Không thao tác chuột / phím quá lâu thì tạm ngừng kéo ngầm.</summary>
+    private static readonly TimeSpan IdleStop = TimeSpan.FromMinutes(30);
+
+    /// <summary>Độ lệch riêng của máy này: 0–50% chu kỳ, cố định theo tên máy + người dùng — các máy mở Bcode cùng lúc đầu giờ không kéo dồn một phút.</summary>
+    private static readonly double Jitter = StableHash(Environment.MachineName + "|" + Environment.UserName) % 1000 / 2000.0;
+
+    private static uint StableHash(string s)
+    {
+        uint h = 2166136261;
+        foreach (var ch in s.ToUpperInvariant()) { h ^= ch; h *= 16777619; }
+        return h;
+    }
+
+    /// <summary>Chu kỳ thật của máy này: chu kỳ cài đặt + độ lệch, giãn đôi sau mỗi lần lỗi liên tiếp (tối đa 60 phút).</summary>
+    private static TimeSpan Every(int minutes, int failCount)
+    {
+        var m = Math.Max(1, minutes) * (1 + Jitter);
+        if (failCount > 0) m = Math.Min(60, m * (1 << Math.Min(failCount, 3)));
+        return TimeSpan.FromMinutes(m);
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct LastInputInfo { public uint cbSize; public uint dwTime; }
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool GetLastInputInfo(ref LastInputInfo plii);
+
+    /// <summary>Người dùng không đụng chuột / phím quá <see cref="IdleStop"/> (máy bỏ đó, khoá màn hình...).</summary>
+    private static bool UserIdle()
+    {
+        try
+        {
+            var li = new LastInputInfo { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<LastInputInfo>() };
+            if (!GetLastInputInfo(ref li)) return false;
+            return TimeSpan.FromMilliseconds(unchecked((uint)Environment.TickCount - li.dwTime)) > IdleStop;
+        }
+        catch { return false; }
     }
 
     private const int MaxItems = 500;
@@ -178,6 +249,8 @@ public sealed class FsgNotifyService : IDisposable
                 lastPoll = _data.LastPoll,
                 lastOk = _data.LastOk,
                 lastError = _data.LastError,
+                lastPollInfo = _data.LastPollInfo,
+                inWorkHours = InWorkHours(_data.Settings, DateTime.Now),
                 programmer = _programmer() ?? "",
                 licensed = _licensed(),
                 projects,
@@ -229,11 +302,13 @@ public sealed class FsgNotifyService : IDisposable
             if (File.Exists(FilePath) && File.GetLastWriteTimeUtc(FilePath) != _fileStamp) { Reload(); Changed?.Invoke(); }
         }
         catch { }
-        Settings s; string last; int auto; string lastAuto;
-        lock (FileLock) { s = _data.Settings; last = _data.LastPoll; auto = _data.AutoPullMinutes; lastAuto = _data.LastAutoPull; }
-        if (auto > 0 && !(DateTime.TryParse(lastAuto, out var la) && DateTime.Now - la < TimeSpan.FromMinutes(auto))) await AutoPullAsync();
+        Settings s; string last; int auto; string lastAuto; int fails;
+        lock (FileLock) { s = _data.Settings; last = _data.LastPoll; auto = _data.AutoPullMinutes; lastAuto = _data.LastAutoPull; fails = _data.FailCount; }
+        if (UserIdle()) return;   // máy bỏ đó: không kéo ngầm, có thao tác lại thì lượt kế (≤ 30 giây) kéo tiếp
+        if (!InWorkHours(s, DateTime.Now)) return;   // ngoài giờ làm: không kéo ngầm (kéo tay vẫn được)
+        if (auto > 0 && !(DateTime.TryParse(lastAuto, out var la) && DateTime.Now - la < Every(auto, 0))) await AutoPullAsync();
         if (!s.Enabled) return;
-        if (DateTime.TryParse(last, out var lp) && DateTime.Now - lp < TimeSpan.FromMinutes(Math.Max(1, s.Minutes))) return;
+        if (DateTime.TryParse(last, out var lp) && DateTime.Now - lp < Every(s.Minutes, fails)) return;
         await PollAsync(force: false);
     }
 
@@ -256,24 +331,33 @@ public sealed class FsgNotifyService : IDisposable
 
             // Nhiều cửa sổ Bcode: chỉ 1 tiến trình kéo; tiến trình khác thấy LastPoll mới trong file thì bỏ lượt này.
             if ((gate = TryLock()) is null) return "Cửa sổ Bcode khác đang kiểm tra.";
-            if (!force)
-            {
-                Reload();
-                if (DateTime.TryParse(_data.LastPoll, out var lp) && DateTime.Now - lp < TimeSpan.FromMinutes(Math.Max(1, s.Minutes))) return null;
-            }
+            Reload();
+            if (!force && DateTime.TryParse(_data.LastPoll, out var lp) && DateTime.Now - lp < Every(s.Minutes, _data.FailCount)) return null;
             var startedAt = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
             Mutate(d => d.LastPoll = startedAt);
 
-            // Chỉ y/c của mình: ma_lt1 = mình (hoặc ma_lt1 / ma_nv1 khi bật "cả triển khai") — nhẹ hơn kéo cả dự án. Mỗi lần ≤ 150 mã dự án.
+            // Kéo theo mốc: chỉ y/c SỬA sau lần kéo trước (nvphyc.datetime2) — thường vài dòng thay vì cả dự án. Không lọc theo người ở server để bắt cả
+            // y/c vừa chuyển sang / chuyển khỏi mình (Diff tự lọc y/c của mình). Lần đầu, đổi danh sách dự án / người, hoặc quá FullPollEvery thì kéo đủ
+            // như trước: chỉ y/c của mình (ma_lt1 = mình, hoặc ma_nv1 khi bật "cả triển khai"). Mỗi lần ≤ 150 mã dự án.
+            var key = string.Join(",", projects.Select(p => p.Trim().ToUpperInvariant()).OrderBy(p => p, StringComparer.Ordinal)) + "|" + me.ToUpperInvariant() + "|" + s.Deployer;
+            DateTime? since = null;
+            if (!force && _data.PollKey == key && DateTime.TryParse(_data.PollSince, out var ps)
+                && DateTime.TryParse(_data.LastFullPoll, out var lf) && DateTime.Now - lf < FullPollEvery)
+                since = ps - SinceOverlap;
             var fetched = new List<Req>();
             string? error = null;
+            DateTime? serverNow = null;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             foreach (var chunk in projects.Chunk(150))
             {
-                var (rows, err) = await new FsgProjectLookupService().FetchRequirementReportAsync(string.Join(",", chunk), "", s.Deployer ? "" : me, "", s.Deployer ? me : "");
+                var (rows, sn, err) = since is null
+                    ? await new FsgProjectLookupService().FetchRequirementReportExAsync(string.Join(",", chunk), "", s.Deployer ? "" : me, "", s.Deployer ? me : "")
+                    : await new FsgProjectLookupService().FetchRequirementReportExAsync(string.Join(",", chunk), "", "", "", "", changedSince: since);
                 if (err is not null) { error = err; break; }
+                serverNow ??= sn;
                 fetched.AddRange(rows.Select(r => new Req(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu)));
             }
-            if (error is not null) { Mutate(d => d.LastError = error); return error; }   // mạng / VPN: im lặng, lần sau thử lại
+            if (error is not null) { Mutate(d => { d.LastError = error; d.FailCount++; }); return error; }   // mạng / VPN: im lặng, lần sau (giãn dần) thử lại
 
             List<Item> found;
             var storeChanged = false;
@@ -290,7 +374,14 @@ public sealed class FsgNotifyService : IDisposable
                 if (storeChanged) FsgRequirementReportControl.SaveStore(st);
             }
             var now = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
-            Mutate(d => { d.LastOk = now; d.LastError = ""; d.Items.AddRange(found); });
+            var full = since is null;
+            Mutate(d =>
+            {
+                d.LastOk = now; d.LastError = ""; d.FailCount = 0; d.Items.AddRange(found);
+                d.LastPollInfo = FsgRequirementReportControl.PullText(fetched.Count, sw.ElapsedMilliseconds, full ? "kéo đủ y/c của mình" : "theo mốc");
+                if (serverNow is DateTime sv) { d.PollSince = sv.ToString("yyyy-MM-ddTHH:mm:ss.fff"); d.PollKey = key; }
+                if (full) d.LastFullPoll = now;
+            });
             if (storeChanged) StoreUpdated?.Invoke();
             if (found.Count > 0) NewItems?.Invoke(found);
             return null;
@@ -298,7 +389,7 @@ public sealed class FsgNotifyService : IDisposable
         catch (Exception ex)
         {
             var msg = ex.Message;
-            Mutate(d => d.LastError = msg);
+            Mutate(d => { d.LastError = msg; d.FailCount++; });
             return msg;
         }
         finally
@@ -332,14 +423,20 @@ public sealed class FsgNotifyService : IDisposable
 
             string F(string k) => f.TryGetValue(k, out var v) ? v ?? "" : "";
             var maDa = F("maDa");
-            var (rows, error) = await new FsgProjectLookupService().FetchRequirementReportAsync(maDa, F("bpLt"), F("programmer"), F("deployer"), F("person"), F("fcode"), F("content"));
+            // Như "Kéo về": đã có mốc thì chỉ lấy y/c sửa sau lần kéo trước; định kỳ (FullEvery) kéo đủ.
+            DateTime? since; string why;
+            lock (StoreLock) (since, why) = FsgRequirementReportControl.PlanPull(FsgRequirementReportControl.LoadStore(), f, forceFull: false);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var (rows, serverNow, error) = await new FsgProjectLookupService().FetchRequirementReportExAsync(maDa, F("bpLt"), F("programmer"), F("deployer"), F("person"), F("fcode"), F("content"), since);
+            sw.Stop();
             if (error is not null) { Mutate(d => d.AutoPullError = error); return; }
             var data = rows.Select(FsgRequirementReportControl.ToReq).ToList();
             lock (StoreLock)
             {
                 var st = FsgRequirementReportControl.LoadStore();
                 RecordFetch(st, data);
-                FsgRequirementReportControl.ApplyFetched(st, maDa, data, DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"));
+                FsgRequirementReportControl.ApplyPulled(st, maDa, data, serverNow, since is not null);
+                st.LastPull = FsgRequirementReportControl.PullText(data.Count, sw.ElapsedMilliseconds, "tự làm mới · " + why);
                 FsgRequirementReportControl.SaveStore(st);
             }
             Mutate(d => d.AutoPullError = "");
@@ -527,7 +624,7 @@ public sealed class FsgNotifyService : IDisposable
     }
 
     /// <summary>Thay các dòng đã lưu bằng dòng vừa kéo cùng khoá (giữ vị trí, ghép như <see cref="Pair"/>), dòng mới thêm cuối. Dòng không có trong lần kéo giữ nguyên.</summary>
-    private static List<Req> Upsert(List<Req> stored, List<Req> fresh, Func<Req, bool> mine)
+    internal static List<Req> Upsert(List<Req> stored, List<Req> fresh, Func<Req, bool> mine)
     {
         var result = new List<Req>(stored);
         var posByKey = new Dictionary<string, List<int>>();

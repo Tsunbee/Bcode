@@ -63,6 +63,13 @@
   <span class="sep"></span>
   <label class="chk" title="Ngoài y/c mình lập trình (ma_lt1), báo cả y/c mình là triển khai (ma_nv1)"><input type="checkbox" id="dep"> Báo cả y/c mình là triển khai</label>
   <label class="chk"><input type="checkbox" id="toast"> Hiện thông báo Windows khi Bcode không ở trước</label>
+  <span class="sep"></span>
+  <span class="grp" title="Ngoài giờ này Bcode không tự kiểm tra (đỡ tải cho server FSG khi máy để mở qua đêm / cuối tuần); “Kiểm tra ngay” vẫn chạy">
+    <label class="chk"><input type="checkbox" id="wh"> Chỉ tự kiểm tra trong giờ làm</label>
+    <input type="time" id="whFrom"> – <input type="time" id="whTo">
+    <label class="chk"><input type="checkbox" id="whSat"> T7</label>
+    <label class="chk"><input type="checkbox" id="whSun"> CN</label>
+  </span>
   <button id="btnClear" title="Xoá khỏi lịch sử các thông báo đã xem">Xoá thông báo đã xem</button>
 </div>
 <div id="state"></div>
@@ -87,13 +94,18 @@
     if (document.activeElement !== $('mins')) $('mins').value = s.minutes || 10;
     $('en').checked = !!s.enabled; $('kNote').checked = !!s.note; $('kStatus').checked = !!s.status; $('kNew').checked = !!s.new; $('kDue').checked = !!s.due;
     $('dep').checked = !!s.deployer; $('toast').checked = !!s.toast;
+    $('wh').checked = !!s.workHoursOnly; $('whSat').checked = !!s.workSat; $('whSun').checked = !!s.workSun;
+    if (document.activeElement !== $('whFrom')) $('whFrom').value = s.workFrom || '07:30';
+    if (document.activeElement !== $('whTo')) $('whTo').value = s.workTo || '19:00';
     $('btnPoll').disabled = !!d.polling; $('btnPoll').textContent = d.polling ? 'Đang kiểm tra…' : '⟳ Kiểm tra ngay';
     const pj = d.projects || [];
     const st = !d.licensed ? 'Cần key bản quyền (Báo cáo yêu cầu FSG) để kiểm tra.'
       : !(d.programmer || '').trim() ? 'Chưa khai tên lập trình — mở ⚙ Cài đặt, nhập ô Lập trình.'
       : !pj.length ? 'Chưa có dự án nào đã lưu — mở Yêu cầu FSG, nhập Mã dự án rồi “Kéo về” một lần; Bcode sẽ theo dõi các dự án đã lưu.'
       : (s.enabled ? `Theo dõi y/c của ${esc(d.programmer)} ở ${pj.length} dự án đã lưu (${esc(pj.slice(0, 6).join(', '))}${pj.length > 6 ? '…' : ''}) · mỗi ${s.minutes || 10} phút` : 'Đang TẮT tự kiểm tra (vẫn bấm “Kiểm tra ngay” được)')
+        + (s.enabled && d.inWorkHours === false ? ' · <b>ngoài giờ làm — tạm nghỉ tự kiểm tra</b>' : '')
         + (d.lastOk ? ' · kiểm tra xong lúc ' + fmt(d.lastOk) : '')
+        + (d.lastPollInfo ? ' · lần kiểm tra: ' + esc(d.lastPollInfo) : '')
         + (d.lastError ? ' · lần gần nhất lỗi: ' + esc(d.lastError) : '');
     $('state').innerHTML = st; $('state').title = $('state').textContent;
     $('state').classList.toggle('err', !!d.lastError);
@@ -110,8 +122,9 @@
   const saveCfg = () => post('settings', { settings: {
     enabled: $('en').checked, minutes: Math.max(1, Math.min(1440, parseInt($('mins').value, 10) || 10)),
     note: $('kNote').checked, status: $('kStatus').checked, new: $('kNew').checked, due: $('kDue').checked, deployer: $('dep').checked, toast: $('toast').checked,
+    workHoursOnly: $('wh').checked, workFrom: $('whFrom').value || '07:30', workTo: $('whTo').value || '19:00', workSat: $('whSat').checked, workSun: $('whSun').checked,
   }, programmer: $('prog').value.trim() });
-  ['en', 'kNote', 'kStatus', 'kNew', 'kDue', 'dep', 'toast'].forEach((id) => $(id).addEventListener('change', saveCfg));
+  ['en', 'kNote', 'kStatus', 'kNew', 'kDue', 'dep', 'toast', 'wh', 'whFrom', 'whTo', 'whSat', 'whSun'].forEach((id) => $(id).addEventListener('change', saveCfg));
   $('mins').addEventListener('change', saveCfg);
   $('prog').addEventListener('change', saveCfg);
   $('prog').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('prog').blur(); } });

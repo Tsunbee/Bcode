@@ -137,7 +137,7 @@
 <div id="bar">
   <div class="r1">
     <label class="f fma">Mã dự án <input id="maDa" type="text" list="dlMa" placeholder="nhiều mã: A, B — trống = mọi dự án" title="Kéo yêu cầu của các dự án này từ FSG. Nhiều giá trị cách nhau dấu phẩy / khoảng trắng; trống = mọi dự án. Enter = Kéo về" /></label>
-    <button id="btnFetch" class="primary" title="Kéo yêu cầu từ database FSG theo điều kiện kéo (chỉ đọc) — Enter trong ô điều kiện">⟳ Kéo về</button>
+    <button id="btnFetch" class="primary" title="Kéo yêu cầu từ database FSG theo điều kiện kéo (chỉ đọc) — Enter trong ô điều kiện. Cùng điều kiện thì chỉ lấy y/c sửa sau lần kéo trước; Shift + bấm = kéo đủ">⟳ Kéo về</button>
     <button id="btnMore" title="Điều kiện kéo khác: bộ phận LT, người, mã YC, nội dung, lập trình, triển khai">Điều kiện kéo khác <span id="moreCnt" class="badge"></span> ▾</button>
     <span id="moreSum"></span>
     <span class="sp"></span>
@@ -191,7 +191,7 @@
   const COLS = [['maDa', 'Mã DA'], ['menuId', 'Menu ID'], ['tenMenuNgan', 'Tên menu'], ['trangTlks', 'Trang TLKS'], ['tlksYn', 'Có trong TLKS'], ['bpLt', 'BP lập trình'], ['fcode1', 'Mã yêu cầu'], ['noiDung', 'Nội dung yêu cầu'],
     ['maLt1', 'Lập trình'], ['maNv1', 'Triển khai'], ['ngayHt', 'Hạn hoàn thành'], ['trangThai', 'Trạng thái']];
 
-  let prioShown = [], cached = false;
+  let prioShown = [], cached = false, lastPull = '';   // lastPull: số liệu lần kéo gần nhất ("3 dòng · 0,4 giây · theo mốc · 17:40")
   let vfil = { maDa: '', maLt1: '', maNv1: '', trangThai: '' }, fetchedAt = '', dimF = [], tlksF = '', view = 'list', timer = 0, rows = [], today = '', on = new Set(GROUPS.map((g) => g[0]).concat(['other'])), onlyLate = false, sortKey = '', sortDir = 1;
   const stOf = (r) => { const k = String(r.trangThai || '').trim().toUpperCase(); return STATUS[k] ? { code: k, label: STATUS[k][0], group: STATUS[k][1] } : { code: k, label: k || '(trống)', group: 'other' }; };
   // Tới hạn mà chưa hoàn thành = nhóm “Chưa làm” (DD, TH) có hạn <= hôm nay: quá hạn (đỏ) hoặc đến hạn hôm nay (vàng).
@@ -362,8 +362,9 @@
   const render = () => {
     renderVf(); renderChips(); renderDash(); renderPrio(); saveLocal();
     const v = visible(); shown = v;
-    $('info').textContent = rows.length ? `${v.length}/${rows.length} yêu cầu` + (fetchedAt ? (cached ? ' · dữ liệu lưu lúc ' : ' · kéo lúc ') + fmtAt(fetchedAt) : '') : '';
-    $('info').title = cached ? 'Đang xem dữ liệu đã lưu từ lần kéo trước — bấm “Kéo về” để cập nhật từ FSG' : '';
+    $('info').textContent = rows.length ? `${v.length}/${rows.length} yêu cầu` + (fetchedAt ? (cached ? ' · dữ liệu lưu lúc ' : ' · kéo lúc ') + fmtAt(fetchedAt) : '') + (lastPull ? ' · lần kéo: ' + lastPull : '') : '';
+    $('info').title = (cached ? 'Đang xem dữ liệu đã lưu từ lần kéo trước — bấm “Kéo về” để cập nhật từ FSG\n' : '')
+      + (lastPull ? 'Lần kéo gần nhất từ FSG: ' + lastPull + '\n“theo mốc” = chỉ lấy y/c sửa sau lần kéo trước (nhẹ cho server FSG); Shift + Kéo về = kéo đủ.' : '');
     if (!rows.length) { $('tbl').hidden = true; $('empty').hidden = false; return; }
     $('empty').hidden = v.length > 0; $('tbl').hidden = !v.length;
     $('empty').textContent = mf && !rows.some(mfOk) ? (mf.maDa && !rows.some((r) => idKey(r.maDa) === idKey(mf.maDa)) ? (savedSet.has(idKey(mf.maDa)) ? `FSG không có yêu cầu nào của dự án ${mf.maDa} — Mã dự án (Project ID) của project phải trùng ma_da trên FSG.` : `Chưa có dữ liệu yêu cầu đã lưu của dự án ${mf.maDa} — Bcode tự kéo (chỉ đọc); lỗi kết nối (VPN / mạng) thì xem dòng báo phía trên rồi bấm “Kéo về”.`) : `Không có yêu cầu nào của dự án ${mf.maDa} liên quan menu ${mf.bar} (${mf.id}) — đã so menu_id, tên menu và nội dung.`) : 'Không có yêu cầu nào khớp bộ lọc.';
@@ -700,7 +701,8 @@
     if (e.key === 'Escape' && $('q').value) { e.preventDefault(); $('q').value = ''; render(); }
   });
   document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); $('q').focus(); $('q').select(); } });
-  const fetchNow = () => { hideSug(); closePop(); return post('fetch', { maDa: $('maDa').value, bpLt: $('bpLt').value, person: $('person').value, fcode: $('fcode').value, content: $('content').value, programmer: $('lt').value, deployer: $('nv').value }); };
+  // Shift + bấm = kéo đủ (bỏ qua mốc) — bình thường Bcode chỉ lấy y/c sửa sau lần kéo trước
+  const fetchNow = (e) => { hideSug(); closePop(); return post('fetch', { maDa: $('maDa').value, bpLt: $('bpLt').value, person: $('person').value, fcode: $('fcode').value, content: $('content').value, programmer: $('lt').value, deployer: $('nv').value, full: !!(e && e.shiftKey) }); };
   $('btnFetch').addEventListener('click', fetchNow);
   ['maDa', 'bpLt', 'person', 'fcode', 'content', 'lt', 'nv'].forEach((id) => $(id).addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchNow(); }));
   $('btnCopy').addEventListener('click', () => {
@@ -745,7 +747,7 @@
     setBusy(b) { $('btnFetch').disabled = b; $('btnFetch').textContent = b ? 'Đang kéo…' : '⟳ Kéo về'; },
     onData(r) {
       $('msg').className = r.error ? 'on' : ''; $('msg').textContent = r.error || '';
-      if (r.rows) rows = r.rows; today = r.today || today; fetchedAt = r.fetchedAt || fetchedAt; cached = !!r.cached;
+      if (r.rows) rows = r.rows; today = r.today || today; fetchedAt = r.fetchedAt || fetchedAt; cached = !!r.cached; if (r.lastPull != null) lastPull = r.lastPull;
       const pj = r.projects || [];
       if (r.projects) savedSet = new Set(pj.map((x) => idKey(x.ma)));
       if (r.projects) savedProjects = pj;

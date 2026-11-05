@@ -510,6 +510,13 @@ public partial class FileLookupControl : UserControl
 
     public void Reload() => _ = ReloadAsync();
 
+    /// <summary>Màu riêng của tab File Lookup (xanh dương như tab File Lookup của FCode).</summary>
+    public static readonly Color TabColor = Color.FromArgb(0, 120, 212);
+
+    /// <summary>Icon đầu tab File Lookup (thư mục + kính lúp trên ô xanh dương, chữ tab cùng màu) — cùng cơ chế icon tab SqlWatch
+    /// (ThemeManager.SetTabIcon, co giãn theo Mật độ × DPI × UiScale). Gọi sau khi tab đã nằm trong thanh tab.</summary>
+    public static void MarkTab(TabPage page) => ThemeManager.SetTabIcon(page, IconGlyph.FolderSearch, TabColor);
+
     /// <summary>Refresh (chuột phải / F5): quét lại danh sách file để thấy file MỚI, nhưng KHÔNG xoá cache phân tích — file cũ vẫn dùng
     /// kết quả đã cache (cache tự kiểm lại mtime/size), chỉ file mới/đổi mới phải đọc nên vẫn nhanh. Khác nút Load (xoá hết cache, chậm).</summary>
     private void RefreshNewFiles()

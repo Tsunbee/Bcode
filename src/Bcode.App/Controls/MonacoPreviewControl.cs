@@ -11,7 +11,8 @@ namespace Bcode.App.Controls;
 ///   2. the page uses BcodeViewer's own Monaco build, fcode-xml language, theme.js and font
 ///      (linked in by Bcode.App.csproj) plus the theme BcodeViewer last used
 ///      (%AppData%\Bcode\viewer-theme.json), so the preview looks exactly like opening the
-///      file in BcodeViewer.
+///      file in BcodeViewer — khi theme đó cùng sáng / tối với Bcode; khác thì theo màu của Bcode
+///      (xem PushThemeIfChanged).
 /// Read-only. Exposes the subset of ScriptEditorControl's API that FileLookupControl uses,
 /// and F12 resolves through the very same code (<see cref="ScriptEditorControl.ResolveF12"/>).
 /// </summary>
@@ -22,7 +23,7 @@ public partial class MonacoPreviewControl : UserControl
     private string? _pendingLoad;     // last load/message JSON, sent once the page says "ready"
     private string _text = "";        // what the page shows, '\n' line endings — F12 offsets index into this
     private string? _entityResolveBasePath;
-    private DateTime _themeStamp;     // write time of viewer-theme.json last pushed
+    private string? _themeKey;        // sáng/tối của Bcode + màu nền/chữ + giờ ghi viewer-theme.json của lần đẩy theme gần nhất
 
     public string? CurrentPath { get; private set; }
 
@@ -41,9 +42,17 @@ public partial class MonacoPreviewControl : UserControl
     {
         Dock = DockStyle.Fill;
         if (UiMode.IsNative) { BuildNative(); return; }
+        // Nền lúc trang chưa tải xong = nền theme Bcode (mặc định WebView2 là trắng / trang cũ là đen #1e1e1e).
+        _web.DefaultBackgroundColor = AppColors.Background;
         Controls.Add(_web);
         _ = InitAsync();
         WatchThemeFile();
+        // Bcode đổi theme sáng ↔ tối (hoặc đổi màu) → đổi theme khung xem trước ngay, không cần mở lại tab.
+        ThemeManager.Subscribe(this, () =>
+        {
+            _web.DefaultBackgroundColor = AppColors.Background;
+            if (_ready) PushThemeIfChanged();
+        });
     }
 
     /// <summary>BcodeViewer rewrites viewer-theme.json when its theme changes (or on first start);
@@ -80,7 +89,9 @@ public partial class MonacoPreviewControl : UserControl
         {
             await WebViewEnvironment.InitAsync(_web);
             _web.CoreWebView2.WebMessageReceived += (_, e) => OnPageMessage(e.TryGetWebMessageAsString());
-            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filepreview.html"));
+            // bg / dark: để trang vẽ ngay đúng nền + theme sáng/tối của Bcode trước khi theme thật được đẩy sang (tránh chớp đen ở theme sáng).
+            _web.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("filepreview.html")
+                + $"?bg={Hex(AppColors.Background).TrimStart('#')}&dark={(AppColors.IsDark ? 1 : 0)}");
         }
         catch (Exception ex)
         {
@@ -111,7 +122,7 @@ public partial class MonacoPreviewControl : UserControl
         {
             case "ready":
                 _ready = true;
-                _themeStamp = default;
+                _themeKey = null;
                 PushThemeIfChanged();
                 if (_pendingLoad is not null) Post(_pendingLoad);
                 break;
@@ -191,20 +202,55 @@ public partial class MonacoPreviewControl : UserControl
         catch { /* torn down */ }
     }
 
-    /// <summary>Re-reads viewer-theme.json only when BcodeViewer has rewritten it. Missing
-    /// file (BcodeViewer never run) leaves theme.js's built-in Dark+ default.</summary>
+    /// <summary>Theme của khung xem trước theo sáng / tối của Bcode: theme BcodeViewer đang dùng (viewer-theme.json) nếu cùng sáng / tối
+    /// với Bcode — tô màu giống hệt khi mở bằng BcodeViewer; khác (vd Bcode sáng, Viewer Dark+) hoặc chưa có file thì dùng theme dựng từ
+    /// màu của Bcode (<see cref="BuiltInTheme"/>). Chỉ đẩy lại khi sáng / tối, màu Bcode hoặc file viewer-theme.json đổi.</summary>
     private void PushThemeIfChanged()
     {
         try
         {
+            var dark = AppColors.IsDark;
             var path = ThemeFilePath;
-            if (!File.Exists(path)) return;
-            var stamp = File.GetLastWriteTimeUtc(path);
-            if (stamp == _themeStamp) return;
-            using var theme = JsonDocument.Parse(File.ReadAllText(path));
-            _themeStamp = stamp;
-            Post(JsonSerializer.Serialize(new { type = "theme", theme = theme.RootElement }));
+            var stamp = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : default;
+            var key = $"{dark}|{Hex(AppColors.Background)}|{Hex(AppColors.Text)}|{stamp.Ticks}";
+            if (key == _themeKey) return;
+            if (stamp != default)
+            {
+                using var theme = JsonDocument.Parse(File.ReadAllText(path));
+                var viewerDark = !theme.RootElement.TryGetProperty("isDark", out var d) || d.ValueKind != JsonValueKind.False;
+                if (viewerDark == dark)
+                {
+                    _themeKey = key;
+                    Post(JsonSerializer.Serialize(new { type = "theme", theme = theme.RootElement }));
+                    return;
+                }
+            }
+            _themeKey = key;
+            Post(JsonSerializer.Serialize(new { type = "theme", theme = BuiltInTheme(dark) }));
         }
         catch { /* half-written or unreadable — keep the current theme */ }
     }
+
+    /// <summary>Theme dạng viewer-theme.json dựng từ bảng màu Bcode: nền Monaco vs / vs-dark (tô màu XML / JS như Light+ / Dark+ của
+    /// BcodeViewer), luật SQL giống VsCodeSqlRules của BcodeViewer (ThemeCatalog.cs).</summary>
+    private static object BuiltInTheme(bool dark) => new
+    {
+        id = dark ? "bcode-dark" : "bcode-light",
+        name = dark ? "Bcode Dark" : "Bcode Light",
+        isDark = dark,
+        monacoBase = dark ? "vs-dark" : "vs",
+        colors = new
+        {
+            background = Hex(AppColors.Background), panel = Hex(AppColors.Panel), panelAlt = Hex(AppColors.PanelAlt),
+            border = Hex(AppColors.Border), text = Hex(AppColors.Text), textMuted = Hex(AppColors.TextMuted),
+            accent = Hex(AppColors.Accent), accentHover = Hex(AppColors.AccentHover), accentText = Hex(AppColors.OnAccent),
+            selection = Hex(AppColors.Selection), input = Hex(AppColors.Input), buttonBack = Hex(AppColors.ButtonBack),
+        },
+        editor = new { lineHighlight = dark ? "#282828" : "#f5f5f5", selection = dark ? "#264f78" : "#add6ff" },
+        rules = dark
+            ? new object[] { new { token = "string.sql", foreground = "CE9178" }, new { token = "predefined.sql", foreground = "DCDCAA" }, new { token = "operator.sql", foreground = "D4D4D4" } }
+            : new object[] { new { token = "string.sql", foreground = "A31515" }, new { token = "predefined.sql", foreground = "795E26" }, new { token = "operator.sql", foreground = "000000" } },
+    };
+
+    private static string Hex(Color c) => $"#{c.R:x2}{c.G:x2}{c.B:x2}";
 }

@@ -349,6 +349,7 @@
       <div class="panel">
         <h3>Cây menu bên trái</h3>
         <div class="row"><label>Vị trí</label><div class="ctl"><select id="wSide"><option value="left">Bên trái</option><option value="right">Bên phải</option></select></div></div>
+        <div class="row"><label>Cột biểu tượng</label><div class="ctl"><select id="wRail"><option value="vertical">Dọc — sát cạnh cây (mặc định)</option><option value="horizontal">Ngang — nằm trên cây</option></select></div></div>
         <div class="row"><label>Độ rộng (px)</label><div class="ctl"><span class="rng"><input type="range" id="wWidth" min="160" max="700" step="4" /><span class="val" id="wWidthVal"></span></span></div></div>
         <div class="row"><label>Khi mở</label><div class="ctl"><label class="chk"><input type="checkbox" id="wHidden" /> Ẩn cây menu khi mở chương trình</label></div></div>
         <div class="muted" style="font-size:11.5px">Ctrl+Shift+H luôn ẩn / hiện cây menu. Độ rộng chỉ đặt lại khi bạn đổi số này (kéo thanh chia bằng chuột vẫn được).</div>
@@ -364,6 +365,7 @@
         <h3>SQL Profiler</h3>
         <div class="row"><label>Công cụ (Ctrl+3)</label><div class="ctl"><select id="profEngine"><option value="profiler">SQL Profiler — nhúng Profiler.exe thật (trace)</option><option value="sqlwatch">SqlWatch — đọc DMV theo nhịp, không cần quyền tạo trace</option></select></div></div>
         <div class="row"><label>Chế độ mở</label><div class="ctl"><select id="profMode"><option value="manual">Thủ công — tự bấm "▶ Bung &amp; Đăng nhập"</option><option value="auto">Tự động — Ctrl+3 bung Profiler luôn, ẩn thanh cấu hình</option></select></div></div>
+        <div class="row"><label>Nút Copy SQL Command</label><div class="ctl"><input type="color" id="swCopyC" /><button class="btn btn-border" id="swCopyD">Mặc định</button><button class="btn btn-border" id="swCopyX">Bỏ</button><span class="muted" id="swCopyT" style="font-size:11.5px"></span></div></div>
         <div class="muted" style="font-size:11.5px">SqlWatch mở trong tab "SqlWatch", project = workspace đang chọn (bắt theo database Sys / App / DB Access của workspace). Tự động với SqlWatch = bấm "Bắt đầu" luôn (thanh lọc vẫn hiện). Tự động với SQL Profiler: mở tab SQL Profiler (Ctrl+3) là bung Profiler ngay theo cấu hình đã lưu (Profiler.exe, đăng nhập, Trace Template, user theo dõi, lọc DatabaseName của workspace) và thu thanh cấu hình thành dải mỏng — bấm "▾ Hiện thanh Profiler" để mở lại. Khôi phục phiên lúc mở Bcode không tự bung. Lưu ngay, không cần bấm "Áp dụng".</div>
       </div>
       <div class="panel">
@@ -751,7 +753,14 @@
   $('perfMode').onchange = sendPerf; $('perfLimit').onchange = sendPerf; $('perfPrewarm').onchange = sendPerf; $('perfMerge').onchange = sendPerf; $('perfMergeEd').onchange = sendPerf; $('perfHibernate').onchange = sendPerf;
   $('sesOn').onchange = sendSession; $('sesAsk').onchange = sendSession; $('sesMode').onchange = sendSession;
   // ---- chế độ mở SQL Profiler (lưu ngay vào AppSettings.ProfilerAutoStart) ----
-  window.setProfilerMode = (auto, engine) => { $('profMode').value = auto ? 'auto' : 'manual'; $('profEngine').value = engine === 'sqlwatch' ? 'sqlwatch' : 'profiler'; };
+  window.setProfilerMode = (auto, engine, copyColor) => { $('profMode').value = auto ? 'auto' : 'manual'; $('profEngine').value = engine === 'sqlwatch' ? 'sqlwatch' : 'profiler'; showSwCopy(copyColor || ''); };
+// ---- nền nổi nút "Copy SQL Command" của SqlWatch (AppSettings.SqlWatchCopyColor; "" = nút thường), lưu + tô lại tab SqlWatch ngay ----
+const SW_COPY_DEFAULT = '#80d3a1';
+const showSwCopy = c => { $('swCopyC').value = c || SW_COPY_DEFAULT; $('swCopyT').textContent = c ? c + (c.toLowerCase() === SW_COPY_DEFAULT ? ' (mặc định)' : '') : '(nút thường, không tô)'; };
+const sendSwCopy = c => { showSwCopy(c); post('sqlwatch-copy-color-set', { color: c }); };
+$('swCopyC').onchange = () => sendSwCopy($('swCopyC').value);   // onchange (đóng bảng màu) — kéo trong bảng màu không ghi settings liên tục
+$('swCopyD').onclick = () => sendSwCopy(SW_COPY_DEFAULT);
+$('swCopyX').onclick = () => sendSwCopy('');
   const sendProfilerMode = () => post('profiler-mode-set', { auto: $('profMode').value === 'auto', engine: $('profEngine').value });
   $('profMode').onchange = sendProfilerMode; $('profEngine').onchange = sendProfilerMode;
 
@@ -976,7 +985,20 @@
     let svg = `<rect x="0" y="0" width="${W}" height="${H}" rx="6" fill="${c('panel-alt')}" stroke="${c('border')}"/>`;
     svg += `<rect x="6" y="6" width="${W - 12}" height="${x.toolbarWrap ? 26 : 16}" rx="4" fill="${c('button-back')}"/><text x="14" y="${x.toolbarWrap ? 24 : 18}" fill="${c('text-muted')}" font-size="10">Thanh trên + thanh công cụ ${x.toolbarWrap ? '(xuống dòng)' : '(một dòng »)'}</text>`;
     const by = (x.toolbarWrap ? 38 : 28), bh = H - by - 6;
-    if (!hid) svg += `<rect x="${6 + treeX}" y="${by}" width="${treeW - 8}" height="${bh}" rx="4" fill="${c('panel')}" stroke="${c('border')}"/><text x="${12 + treeX}" y="${by + 16}" fill="${c('text-muted')}" font-size="10">Cây menu</text>`;
+    if (!hid) {
+      // Cột biểu tượng: dọc = dải hẹp bên trái khung cây; ngang = một hàng 3 ô ngay trên cây.
+      const tx = 6 + treeX, tw = treeW - 8, horiz = x.iconRailLayout === 'horizontal';
+      svg += `<rect x="${tx}" y="${by}" width="${tw}" height="${bh}" rx="4" fill="${c('panel')}" stroke="${c('border')}"/>`;
+      if (horiz) {
+        svg += `<line x1="${tx}" y1="${by + 14}" x2="${tx + tw}" y2="${by + 14}" stroke="${c('border')}"/>`;
+        for (let i = 0; i < 3; i++) svg += `<rect x="${tx + 3 + i * 12}" y="${by + 3}" width="9" height="9" rx="2" fill="${i ? c('text-muted') : c('accent')}" opacity="${i ? 0.5 : 1}"/>`;
+        svg += `<text x="${tx + 6}" y="${by + 30}" fill="${c('text-muted')}" font-size="10">Cây menu</text>`;
+      } else {
+        svg += `<line x1="${tx + 14}" y1="${by}" x2="${tx + 14}" y2="${by + bh}" stroke="${c('border')}"/>`;
+        for (let i = 0; i < 3; i++) svg += `<rect x="${tx + 3}" y="${by + 3 + i * 12}" width="9" height="9" rx="2" fill="${i ? c('text-muted') : c('accent')}" opacity="${i ? 0.5 : 1}"/>`;
+        svg += `<text x="${tx + 18}" y="${by + 16}" fill="${c('text-muted')}" font-size="10">Cây menu</text>`;
+      }
+    }
     const dx = 6 + (hid ? 0 : (right ? 0 : treeW - 2)), dw = (hid ? W - 12 : W - treeW - 4);
     svg += `<rect x="${dx}" y="${by}" width="${dw}" height="${bh}" rx="4" fill="${c('panel')}" stroke="${c('border')}"/>`;
     const tabY = bottom ? by + bh - 18 : by;
@@ -992,7 +1014,7 @@
     $('rvStripeC').value = x.resultStripeColor || '#888888'; $('rvStripeT').textContent = x.resultStripeColor || '(theo theme)';
     $('rvSelC').value = x.resultSelColor || '#888888'; $('rvSelT').textContent = x.resultSelColor || '(theo theme)';
     $('rvNull').value = x.resultNullStyle || 'italic'; $('rvLines').value = x.resultGridLines || 'both';
-    $('wSide').value = x.treeSide || 'left'; $('wWidth').value = x.treeWidth; $('wWidthVal').textContent = x.treeWidth + 'px' + (x.treeWidth === x.defaultTreeWidth ? ' (mặc định)' : '');
+    $('wSide').value = x.treeSide || 'left'; $('wRail').value = x.iconRailLayout === 'horizontal' ? 'horizontal' : 'vertical'; $('wWidth').value = x.treeWidth; $('wWidthVal').textContent = x.treeWidth + 'px' + (x.treeWidth === x.defaultTreeWidth ? ' (mặc định)' : '');
     $('wHidden').checked = !!x.treeStartHidden; $('wTabs').value = x.tabsAtBottom ? 'bottom' : 'top'; $('wWrap').value = x.toolbarWrap === false ? 'single' : 'wrap'; $('wPtr').checked = x.keepMousePointer !== false; $('wTabMode').value = x.tabSwitchMode === 'toggle' ? 'toggle' : 'sequential';
     renderRvPreview(); renderDiagram();
   }
@@ -1009,6 +1031,7 @@
   bindX('rvNull', 'onchange', x => { x.resultNullStyle = $('rvNull').value; });
   bindX('rvLines', 'onchange', x => { x.resultGridLines = $('rvLines').value; });
   bindX('wSide', 'onchange', x => { x.treeSide = $('wSide').value; });
+  bindX('wRail', 'onchange', x => { x.iconRailLayout = $('wRail').value; });
   bindX('wWidth', 'oninput', x => { x.treeWidth = +$('wWidth').value; });
   bindX('wHidden', 'onchange', x => { x.treeStartHidden = $('wHidden').checked; });
   bindX('wTabs', 'onchange', x => { x.tabsAtBottom = $('wTabs').value === 'bottom'; });

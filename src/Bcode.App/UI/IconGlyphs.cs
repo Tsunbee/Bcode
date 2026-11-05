@@ -15,6 +15,7 @@ public enum IconGlyph
     Refresh,    // Refresh database — vòng cung có mũi tên
     Bell,       // Thông báo y/c FSG
     Eye,        // SqlWatch (đầu tab) — con mắt theo dõi câu SQL
+    FolderSearch, // File Lookup (đầu tab) — thư mục + kính lúp
 }
 
 /// <summary>
@@ -58,6 +59,7 @@ public static class IconGlyphs
             case IconGlyph.Refresh: DrawRefresh(g, pen, brush, box); break;
             case IconGlyph.Bell: DrawBell(g, pen, brush, box); break;
             case IconGlyph.Eye: DrawEye(g, pen, brush, box); break;
+            case IconGlyph.FolderSearch: DrawFolderSearch(g, pen, backColor, box); break;
         }
 
         g.SmoothingMode = oldSmoothing;
@@ -174,6 +176,30 @@ public static class IconGlyphs
         g.DrawPath(pen, path);
         var r = w * 0.16f;
         g.FillEllipse(brush, l + w / 2f - r, cy - r, r * 2, r * 2);
+    }
+
+    private static void DrawFolderSearch(Graphics g, Pen pen, Color backColor, Rectangle box)
+    {
+        // Thư mục (thân + gờ nhãn bên trái) và kính lúp đè góc dưới phải; mặt kính tô màu nền để cắt nét thư mục phía sau.
+        float l = box.X, t = box.Y, w = box.Width, h = box.Height;
+        float fr = l + w * 0.86f, fb = t + h * 0.80f, ft = t + h * 0.30f, tabTop = t + h * 0.12f;
+        using (var folder = new GraphicsPath())
+        {
+            folder.AddLine(l, fb, l, tabTop);
+            folder.AddLine(l, tabTop, l + w * 0.34f, tabTop);
+            folder.AddLine(l + w * 0.34f, tabTop, l + w * 0.46f, ft);
+            folder.AddLine(l + w * 0.46f, ft, fr, ft);
+            folder.AddLine(fr, ft, fr, fb);
+            folder.CloseFigure();
+            g.DrawPath(pen, folder);
+        }
+        var r = w * 0.24f;
+        float cx = l + w * 0.70f, cy = t + h * 0.70f;
+        var lens = new RectangleF(cx - r, cy - r, r * 2, r * 2);
+        using (var cut = new SolidBrush(backColor)) g.FillEllipse(cut, RectangleF.Inflate(lens, pen.Width, pen.Width));
+        g.DrawEllipse(pen, lens);
+        var k = r * 0.7071f;
+        g.DrawLine(pen, cx + k, cy + k, l + w * 1.04f, t + h * 1.04f);
     }
 
     private static void DrawStar(Graphics g, Brush brush, Rectangle box)

@@ -85,6 +85,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private bool _layoutApplied;
     private string _layoutSide = "left";
     private int _layoutTreeWidth;
+    private bool _railHorizontal; // cột icon (SQL Object / WCommand / Mobile) nằm ngang trên cây — UiTemplate.IconRailLayout
     /// <summary>Đã đổi "thanh tab ở dưới/trên" nhưng đang còn tab mở — đổi hướng TabControl làm tạo lại cửa sổ của mọi tab (WebView2 sẽ trắng/tải lại),
     /// nên chỉ áp khi không còn tab nào (hoặc ở lần mở sau).</summary>
     public bool TabsPositionPending { get; private set; }
@@ -537,7 +538,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     PushThemeToShell();
                     PushNotifyCount();
                 };
-                _iconRailWeb.CoreWebView2.NavigationCompleted += (_, _) => PushThemeToShell();
+                _iconRailWeb.CoreWebView2.NavigationCompleted += (_, _) => { PushThemeToShell(); PushIconRailLayout(); };
                 _statusBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
                 {
                     using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
@@ -982,7 +983,26 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         if (IsDisposed) return;
         StatusBarControl.Height = Bcode.App.UI.NativeSkin.Dens(StatusBarControl, 26);
-        if (_railNative is null) _iconRailWeb.Width = Bcode.App.UI.NativeSkin.Px(_iconRailWeb, 52);
+        if (_railNative is null)
+        {
+            if (_railHorizontal) _iconRailWeb.Height = Bcode.App.UI.NativeSkin.Px(_iconRailWeb, 40);
+            else _iconRailWeb.Width = Bcode.App.UI.NativeSkin.Px(_iconRailWeb, 52);
+        }
+    }
+
+    /// <summary>Đặt cột icon theo <see cref="_railHorizontal"/>: App = IconRailControl.Horizontal; Web = Dock + kích thước khung WebView2 + window.setLayout của iconrail.html.</summary>
+    private void ApplyIconRailOrientation()
+    {
+        if (_railNative is not null) { _railNative.Horizontal = _railHorizontal; return; }
+        _iconRailWeb.Dock = _railHorizontal ? DockStyle.Top : DockStyle.Left;
+        FitShellBars();
+        PushIconRailLayout();
+    }
+
+    private void PushIconRailLayout()
+    {
+        if (_iconRailWeb.CoreWebView2 is null) return;
+        _ = _iconRailWeb.CoreWebView2.ExecuteScriptAsync($"window.setLayout && window.setLayout({(_railHorizontal ? "true" : "false")})");
     }
 
     private void PushThemeToShell()
@@ -1822,6 +1842,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             if (first && t.TreeStartHidden) split.Panel1Collapsed = true;
         }
 
+        // Cột biểu tượng: dọc sát cạnh cây (Dock Left) hay một hàng ngang trên cây (Dock Top). Chỉ đổi Dock/kích thước, không tạo lại control.
+        var railHorizontal = t.IconRailLayout == "horizontal";
+        if (first || railHorizontal != _railHorizontal)
+        {
+            _railHorizontal = railHorizontal;
+            ApplyIconRailOrientation();
+        }
+
         // Thanh công cụ: xuống dòng khi hẹp (mặc định) hoặc 1 dòng + mũi tên "»" cho phần thừa.
         if (t.ToolbarWrap)
         {
@@ -1933,6 +1961,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         control.MenuForPage = MenuForLookupPage;
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
+        FileLookupControl.MarkTab(_fileLookupTabPage);
         _fileLookupControl = control;
         control.SetRootPath(Path.Combine(ws.SourcePath, "App_Data"), load: autoLoad);
         return control;
@@ -3291,7 +3320,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
-        AddDocumentTab(title, control);
+        FileLookupControl.MarkTab(AddDocumentTab(title, control));
         return control;
     }
 

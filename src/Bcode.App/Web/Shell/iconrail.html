@@ -39,6 +39,22 @@
     border-radius: 2px;
   }
   .rail-item .icon { width: 18px; height: 18px; }
+  /* Ngang (Template → Cửa sổ → Cột biểu tượng = Ngang): một hàng nằm trên cây, khung cao 40px (MainForm.FitShellBars). */
+  body.horizontal {
+    flex-direction: row;
+    padding: 0 6px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  body.horizontal .rail-item { width: 32px; height: 32px; border-radius: 8px; }
+  body.horizontal .rail-item.selected::before {
+    left: 7px;
+    right: 7px;
+    top: auto;
+    bottom: -4px;
+    width: auto;
+    height: 3px;
+  }
 </style>
 </head>
 <body data-area="tree">
@@ -60,6 +76,10 @@
   // ---- Called from C# (MainForm) ----
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  };
+
+  window.setLayout = function (horizontal) {
+    document.body.classList.toggle('horizontal', !!horizontal);
   };
 
   window.setSelected = function (key) {

@@ -12,9 +12,18 @@ namespace Bcode.App.Controls;
 public sealed class FlatTabControl : TabControl
 {
     private const int TCM_ADJUSTRECT = 0x1328;
+    private const int TCM_SETITEMW = 0x133D;
+    private const int TCM_INSERTITEMW = 0x133E;
+    private const uint TCIF_TEXT = 0x1;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct NativeRect { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct TcItem { public uint Mask, State, StateMask; public IntPtr Text; public int TextMax, Image; public IntPtr Param; }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref TcItem lParam);
 
     public FlatTabControl()
     {
@@ -52,7 +61,88 @@ public sealed class FlatTabControl : TabControl
         if (pinned == Pinned.Contains(page)) return;
         if (pinned) { var target = Pinned.Count; Pinned.Add(page); MovePage(page, target); }
         else { Pinned.Remove(page); MovePage(page, Pinned.Count); }
+        FitTab(TabPages.IndexOf(page)); // chấm ghim chiếm thêm chỗ đầu tab
         Invalidate();
+    }
+
+    // ---- Bề rộng tab theo chữ vẽ thật ----
+    // Control UserPaint thì WinForms KHÔNG gửi WM_SETFONT cho cửa sổ native (Control.OnHandleCreated / OnFontChanged chỉ gửi khi không UserPaint),
+    // nên Windows luôn đo bề rộng tab bằng font hệ thống "System", bất kể font / cỡ chữ / UiScale của Template — còn PaintTab vẽ bằng font Template.
+    // Font hẹp hơn "System" (Segoe UI cỡ thường) thì dư chỗ; font rộng hơn (Consolas, chữ to, UiScale > 1) thì chữ bị cắt "File L...".
+    // Không đổi font native (tab Segoe UI đang vừa sẽ bị đổi bề rộng): chỉ tab nào hẹp hơn ThemeManager.TabMinWidth mới được nới, bằng cách đưa
+    // cho Windows chữ có thêm khoảng trắng ở cuối (chỉ ở phía native — TabPage.Text giữ nguyên; chữ trên tab do PaintTab tự vẽ).
+    private const char FitPadChar = (char)0xA0; // khoảng trắng không ngắt: Windows không bỏ qua khi đo như dấu cách thường ở cuối chuỗi
+    private bool _settingNativeText;
+
+    /// <summary>Đo lại mọi tab (font / mật độ / DPI / UiScale vừa đổi, hoặc vừa bật nút ✕).</summary>
+    public void FitAllTabs()
+    {
+        if (!IsHandleCreated) return;
+        for (var i = 0; i < TabPages.Count; i++)
+        {
+            SetNativeText(i, NativeText(TabPages[i]));
+            FitTab(i);
+        }
+        Invalidate();
+    }
+
+    // Chữ WinForms gửi cho Windows: '&' nhân đôi (TabControl.PrefixAmpersands) — giữ y như vậy để bề rộng gốc không đổi.
+    private static string NativeText(TabPage page) => (page.Text ?? "").Replace("&", "&&");
+
+    private void SetNativeText(int index, string text)
+    {
+        var ptr = Marshal.StringToHGlobalUni(text);
+        try
+        {
+            var item = new TcItem { Mask = TCIF_TEXT, Text = ptr, TextMax = text.Length };
+            _settingNativeText = true;
+            SendMessage(Handle, TCM_SETITEMW, (IntPtr)index, ref item);
+        }
+        finally { _settingNativeText = false; Marshal.FreeHGlobal(ptr); }
+    }
+
+    /// <summary>Tab <paramref name="index"/> đang mang chữ gốc ở phía native: nếu Windows đo hẹp hơn chữ PaintTab sẽ vẽ thì thêm khoảng trắng cho đủ.</summary>
+    private void FitTab(int index)
+    {
+        if (!IsHandleCreated || index < 0 || index >= TabPages.Count) return;
+        var page = TabPages[index];
+        var need = ThemeManager.TabMinWidth(this, page);
+        var baseWidth = GetTabRect(index).Width;
+        if (baseWidth >= need) return;
+        var text = NativeText(page);
+        // Bề rộng 1 khoảng trắng theo font native: đo bằng 1 ký tự thử, rồi thêm đúng số cần (thừa không quá 1 khoảng trắng).
+        SetNativeText(index, text + FitPadChar);
+        var perPad = GetTabRect(index).Width - baseWidth;
+        if (perPad <= 0) { SetNativeText(index, text); return; } // Windows không tính khoảng trắng → thôi, giữ như cũ
+        var pad = (need - baseWidth + perPad - 1) / perPad;
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            if (pad > 1) SetNativeText(index, text + new string(FitPadChar, pad));
+            if (GetTabRect(index).Width >= need) return;
+            pad++;
+        }
+    }
+
+    // Windows vừa nhận thêm 1 tab (chữ gốc). Tab thêm thường được đo ngay ở OnControlAdded; nhưng khi tạo lại handle (đổi Padding / Alignment...)
+    // WinForms chèn lại mọi tab mà không phát ControlAdded → hẹn đo lại cả thanh (BeginInvoke chạy trước lần vẽ kế tiếp, gộp nhiều lần chèn làm một).
+    private bool _fitAllQueued;
+    private void QueueFitAllTabs()
+    {
+        if (_fitAllQueued || !IsHandleCreated) return;
+        _fitAllQueued = true;
+        BeginInvoke(() => { _fitAllQueued = false; if (!IsDisposed) FitAllTabs(); });
+    }
+
+    protected override void OnControlAdded(ControlEventArgs e)
+    {
+        base.OnControlAdded(e); // tab mới (hoặc MovePage chèn lại) đã vào TabPages với chữ gốc
+        if (e.Control is TabPage page) FitTab(TabPages.IndexOf(page));
+    }
+
+    protected override void OnDpiChangedAfterParent(EventArgs e)
+    {
+        base.OnDpiChangedAfterParent(e);
+        QueueFitAllTabs(); // hẹn sau, để Template / UiScale kịp đổi font theo DPI mới
     }
 
     // ---- Kéo thả đổi vị trí tab ----
@@ -163,6 +253,20 @@ public sealed class FlatTabControl : TabControl
             else rc.Top -= h;                              // vùng nội dung -> vùng control
             Marshal.StructureToPtr(rc, m.LParam, false);
             m.Result = IntPtr.Zero;
+            return;
+        }
+        // WinForms gửi lại chữ gốc của tab (đổi TabPage.Text / ImageIndex) → bề rộng về mức Windows tự đo; nới lại nếu thiếu.
+        if (m.Msg == TCM_SETITEMW && !_settingNativeText && IsHandleCreated && m.LParam != IntPtr.Zero
+            && (Marshal.PtrToStructure<TcItem>(m.LParam).Mask & TCIF_TEXT) != 0)
+        {
+            base.WndProc(ref m);
+            FitTab((int)m.WParam);
+            return;
+        }
+        if (m.Msg == TCM_INSERTITEMW && !_settingNativeText)
+        {
+            base.WndProc(ref m);
+            QueueFitAllTabs();
             return;
         }
         base.WndProc(ref m);

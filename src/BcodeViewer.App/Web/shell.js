@@ -27,7 +27,7 @@ const SHELL_TOOLBAR = [
   { sep: true },
   { text: 'Tìm project', icon: '🔍', cmd: 'panel.search', run: (b) => b.openSearch(), title: 'Tìm trong toàn bộ project (Ctrl+Shift+F)' },
   { text: 'Problems', icon: '⛔', cmd: 'panel.problems', run: (b) => b.toggleProblemsPanel(), title: 'Bảng lỗi/cảnh báo (Ctrl+Shift+M)' },
-  { text: 'Outline', icon: '☰', cmd: 'panel.outline', run: (b) => b.toggleOutlinePanel(), title: 'Cấu trúc file (Ctrl+Shift+U)' },
+  { text: 'Outline', icon: '☰', cmd: 'panel.outline', run: (b) => b.toggleOutlinePanel(), title: 'Cấu trúc file (Alt+O)' },
   { text: 'Hỏi Fast', icon: '💬', cmd: 'panel.fastAsk', run: () => window.bcodeFastAsk && window.bcodeFastAsk.toggle(), title: 'Hỏi Fast — tra controller / field / lookup / include / JS / phiên bản trong source Fast, không AI (Ctrl+Shift+J)' },
   { text: 'Xem Dir', icon: '🖼', cmd: 'panel.dirPreview', run: (b) => b.toggleDirPreview(), title: 'Xem trước màn hình Dir (Alt+P)' },
   { text: 'Chạy SQL', icon: '▶', cmd: 'tool.runSql', run: (b) => b.runSql(), title: 'Chạy câu SQL tại con trỏ trên WS Bcode đang chọn (Ctrl+Enter)' },

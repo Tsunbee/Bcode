@@ -8,6 +8,11 @@
 //   • tổ hợp là phím MẶC ĐỊNH của 1 chức năng đã bị đổi/bỏ phím → chỉ chặn, để phím cũ không còn tác dụng.
 // Khi đang mở hộp thoại (Settings, Quick Open...) thì không can thiệp — hộp thoại tự xử lý phím của nó.
 
+/// Khung soạn thảo đang gõ: khung tách đôi bên phải nếu nó đang có focus, còn lại là khung chính.
+function bcodeFocusedEditor(b) {
+  return b.editorSecondary && b.editorSecondary.hasTextFocus() ? b.editorSecondary : b.editor;
+}
+
 const BCODE_COMMANDS = [
   // group, id, label, default combo, run(bcode)
   ['Tệp', 'file.save', 'Lưu', 'Ctrl+S', (b) => b.saveActive()],
@@ -30,6 +35,8 @@ const BCODE_COMMANDS = [
   ['Soạn thảo', 'edit.comment', 'Comment / bỏ comment dòng', 'Ctrl+/', (b) => b.toggleComment()],
   ['Soạn thảo', 'edit.duplicate', 'Nhân đôi dòng / đoạn đang chọn', 'Ctrl+D', (b) => b.editor.getAction('bcode.duplicateLine')?.run()],
   ['Soạn thảo', 'edit.nextMatch', 'Thêm con trỏ ở kết quả giống tiếp theo', 'Ctrl+Shift+D', (b) => b.editor.getAction('bcode.addSelectionToNextMatch')?.run()],
+  ['Soạn thảo', 'edit.upperCase', 'Viết HOA phần đang chọn (không chọn = từ ở con trỏ)', 'Ctrl+Shift+U', (b) => bcodeFocusedEditor(b).getAction('editor.action.transformToUppercase')?.run()],
+  ['Soạn thảo', 'edit.lowerCase', 'Viết thường phần đang chọn (không chọn = từ ở con trỏ)', '', (b) => bcodeFocusedEditor(b).getAction('editor.action.transformToLowercase')?.run()],
   ['Soạn thảo', 'edit.bookmark', 'Đặt / bỏ bookmark', '', (b) => b.toggleBookmark()],
   ['Soạn thảo', 'view.wrap', 'Bật/tắt tự ngắt dòng dài (Wrap)', 'Alt+Z', (b) => b.toggleWordWrap()],
   ['Soạn thảo', 'view.autoFit', 'Bật/tắt tự thu nhỏ cỡ chữ (auto fit)', '', (b) => b.toggleAutoFitFont()],
@@ -48,7 +55,7 @@ const BCODE_COMMANDS = [
 
   ['Bảng & khung', 'panel.search', 'Tìm trong toàn bộ project', 'Ctrl+Shift+F', (b) => window.bcodeSearch.open(b.editor.getModel()?.getValueInRange(b.editor.getSelection()) || '')],
   ['Bảng & khung', 'panel.problems', 'Hiện/ẩn bảng Problems', 'Ctrl+Shift+M', () => window.bcodeProblems.toggle()],
-  ['Bảng & khung', 'panel.outline', 'Hiện/ẩn Outline', 'Ctrl+Shift+U', () => window.bcodeOutline.toggle()],
+  ['Bảng & khung', 'panel.outline', 'Hiện/ẩn Outline', 'Alt+O', () => window.bcodeOutline.toggle()],
   ['Bảng & khung', 'panel.fastAsk', 'Hỏi Fast (tra kiến thức source Fast, không AI)', 'Ctrl+Shift+J', () => window.bcodeFastAsk && window.bcodeFastAsk.toggle()],
   ['Bảng & khung', 'panel.dirPreview', 'Xem trước màn hình Dir / mail mẫu', 'Alt+P', (b) => b.toggleDirPreview()],
   ['Bảng & khung', 'panel.sidebar', 'Hiện/ẩn cây file bên trái', 'Ctrl+B', () => window.bcodeShell && window.bcodeShell.toggleSidebar()],

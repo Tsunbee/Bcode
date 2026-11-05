@@ -432,6 +432,16 @@ public sealed partial class MainForm : Form
         });
     }
 
+    /// <summary>Nền nổi của nút "Copy SQL Command" (mặc định #80d3a1); null = nút thường như các nút khác.
+    /// Bcode đặt theo AppSettings.SqlWatchCopyColor (Template → Cửa sổ → SQL Profiler).</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Color? CopyHighlight
+    {
+        get => _copyHighlight;
+        set { _copyHighlight = value; ApplyPalette(_pal); }
+    }
+    private Color? _copyHighlight = ColorTranslator.FromHtml("#80d3a1");
+
     private void StyleButton(Button button, bool primary)
     {
         button.AutoSize = true;
@@ -455,6 +465,17 @@ public sealed partial class MainForm : Form
             b.FlatAppearance.BorderSize = primary && on ? 0 : 1;
             b.BackColor = !on || !primary ? _pal.Button : _pal.Accent;
             b.ForeColor = !on ? _pal.Muted : primary ? _pal.OnAccent : _pal.Ink;
+            // Nút có màu nổi riêng (Copy SQL Command): nền màu đó, chữ đen / trắng theo độ sáng nền, rê chuột thì sẫm hơn chút.
+            if (on && ReferenceEquals(b, _copySql) && _copyHighlight is { } hl)
+            {
+                var light = hl.R * 299 + hl.G * 587 + hl.B * 114 > 140_000;
+                var hover = Color.FromArgb(hl.R * 85 / 100, hl.G * 85 / 100, hl.B * 85 / 100);
+                b.BackColor = hl;
+                b.ForeColor = light ? Color.FromArgb(24, 24, 24) : Color.White;
+                b.FlatAppearance.BorderColor = hover;
+                b.FlatAppearance.MouseOverBackColor = hover;
+                b.FlatAppearance.MouseDownBackColor = hover;
+            }
         }
         Themed(button, Apply);
         button.EnabledChanged += (_, _) => Apply(button);

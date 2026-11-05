@@ -160,13 +160,32 @@ public static class ThemeManager
             tab.MouseMove += ClosableTabMouseMove; 
             tab.MouseLeave += ClosableTabMouseLeave;
         }
+        if (tab is Bcode.App.Controls.FlatTabControl flat) flat.FitAllTabs(); // có nút ✕ → cần thêm chỗ
         tab.Invalidate();
     }
 
-    private static Rectangle GetCloseGlyphRect(Rectangle tabRect)
+    // Bố cục trong tab có nút đóng (PaintTab): chữ cách mép trái TabTextLeft (+ TabPinWidth nếu ghim, + TabIconWidth nếu có icon),
+    // nút ✕ CloseGlyphSize cách mép phải CloseGlyphMargin, chữ dừng trước nút ✕ TabTextCloseGap. TabMinWidth dùng lại đúng các số này.
+    private const int CloseGlyphSize = 14, CloseGlyphMargin = 8, TabTextLeft = 10, TabPinWidth = 12, TabTextCloseGap = 4;
+
+    private static Rectangle GetCloseGlyphRect(Rectangle tabRect) =>
+        new(tabRect.Right - CloseGlyphSize - CloseGlyphMargin, tabRect.Top + (tabRect.Height - CloseGlyphSize) / 2, CloseGlyphSize, CloseGlyphSize);
+
+    /// <summary>Font PaintTab vẽ chữ tab: font khu vực "Thanh tab" của Template, không có thì <see cref="BaseFont"/>.</summary>
+    private static Font TabFont() =>
+        UiTemplate.AreaStyle("tabs") is { } area && UiTemplate.FontOf(area) is { } af ? af : BaseFont;
+
+    /// <summary>Bề rộng tối thiểu (px) để <see cref="PaintTab"/> vẽ đủ chữ của <paramref name="page"/> — đo bằng đúng font và bố cục lúc vẽ
+    /// (lề trái, chấm ghim, icon, nút ✕). <see cref="Bcode.App.Controls.FlatTabControl"/> dùng để nới tab mà Windows đo hẹp hơn chữ thật.</summary>
+    public static int TabMinWidth(TabControl tab, TabPage page)
     {
-        const int size = 14;
-        return new Rectangle(tabRect.Right - size - 8, tabRect.Top + (tabRect.Height - size) / 2, size, size);
+        var textW = TextRenderer.MeasureText(page.Text, TabFont(), new Size(int.MaxValue, int.MaxValue),
+            TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
+        if (!_closableTabs.ContainsKey(tab)) return textW + NativeSkin.Dens(tab, 12); // chữ căn giữa, chừa chút lề hai bên
+        var left = TabTextLeft;
+        if (tab is Bcode.App.Controls.FlatTabControl flat && flat.IsPinned(page)) left += TabPinWidth;
+        if (_tabMarks.TryGetValue(page, out _)) left += TabIconWidth(tab);
+        return left + textW + TabTextCloseGap + CloseGlyphSize + CloseGlyphMargin;
     }
 
     private static void ClosableTabMouseDown(object? sender, MouseEventArgs e)
@@ -609,6 +628,7 @@ public static class ThemeManager
         }
         tab.Padding = new Point(NativeSkin.Dens(tab, 18), NativeSkin.Dens(tab, 7)); // theo Mật độ × DPI × UiScale — đặt lại mỗi lần Apply
         if (tab.ImageList is not null) EnsureTabIconSpace(tab);                    // chỗ cho icon đầu tab cũng theo tỉ lệ mới
+        if (tab is Bcode.App.Controls.FlatTabControl flat) flat.FitAllTabs();       // font / mật độ / tỉ lệ vừa đổi → đo lại bề rộng tab theo chữ vẽ
         tab.Invalidate();
     }
 
@@ -631,7 +651,7 @@ public static class ThemeManager
 
         // Khu vực "Thanh tab" của Template giao diện: font / màu chữ / màu nền thanh tab (tab đang chọn vẫn liền màu với nội dung).
         var area = UiTemplate.AreaStyle("tabs");
-        var tabFont = area is not null && UiTemplate.FontOf(area) is { } af ? af : BaseFont;
+        var tabFont = TabFont();
         var areaFore = UiTemplate.ParseColor(area?.ForeColor);
         var areaBack = UiTemplate.ParseColor(area?.BackColor);
 
@@ -660,7 +680,7 @@ public static class ThemeManager
 
         var closeRect = GetCloseGlyphRect(bounds);
         var pinned = tab is Bcode.App.Controls.FlatTabControl flat && flat.IsPinned(page);
-        var textLeft = bounds.X + 10;
+        var textLeft = bounds.X + TabTextLeft;
         if (pinned)
         {
             // Chấm màu nhấn đầu tab = tab đã ghim.
@@ -670,7 +690,7 @@ public static class ThemeManager
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.FillEllipse(pin, dot);
             g.SmoothingMode = oldMode;
-            textLeft += 12;
+            textLeft += TabPinWidth;
         }
         if (_tabMarks.TryGetValue(page, out var mark))
         {
@@ -710,7 +730,7 @@ public static class ThemeManager
             }
             textLeft += TabIconWidth(tab);
         }
-        var textRect = new Rectangle(textLeft, bounds.Y, Math.Max(0, closeRect.Left - textLeft - 4), bounds.Height);
+        var textRect = new Rectangle(textLeft, bounds.Y, Math.Max(0, closeRect.Left - textLeft - TabTextCloseGap), bounds.Height);
         TextRenderer.DrawText(g, page.Text, tabFont, textRect, fore,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
 

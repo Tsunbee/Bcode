@@ -265,6 +265,20 @@ class BcodeEditor {
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD],
       run: (ed) => ed.getAction('editor.action.addSelectionToNextFindMatch')?.run(),
     });
+    // Ctrl+Shift+U — viết hoa phần đang bôi đen (mọi vùng chọn, cả nhiều con trỏ); không bôi đen thì
+    // viết hoa từ ở con trỏ. Dùng lệnh sẵn của Monaco (1 bước undo, Ctrl+Z hoàn tác). Viết thường
+    // không có phím mặc định: Ctrl+Shift+L của Monaco là "chọn mọi chỗ giống" — gán ở Settings → Phím tắt.
+    this.editor.addAction({
+      id: 'bcode.upperCase',
+      label: 'Viết HOA phần đang chọn',
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyU],
+      run: (ed) => ed.getAction('editor.action.transformToUppercase')?.run(),
+    });
+    this.editor.addAction({
+      id: 'bcode.lowerCase',
+      label: 'Viết thường phần đang chọn',
+      run: (ed) => ed.getAction('editor.action.transformToLowercase')?.run(),
+    });
 
     // ---- Panels and tabs ----------------------------------------------------------
     // All registered as actions so they are reachable from the command palette (F1) by
@@ -284,7 +298,8 @@ class BcodeEditor {
     this.editor.addAction({
       id: 'bcode.toggleOutline',
       label: 'Hiện/ẩn Outline',
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyU],
+      // Alt+O (trước là Ctrl+Shift+U — phím đó nay là viết hoa, bcode.upperCase).
+      keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyO],
       run: () => window.bcodeOutline.toggle(),
     });
     this.editor.addAction({
@@ -1501,13 +1516,35 @@ class BcodeEditor {
     ed.focus();
   }
 
-  /// "Open File Config" — the fixed shared config files FCode's own menu links to,
-  /// resolved from the paths its own internal gen_update search config actually uses
-  /// (App_Data\Controllers\Options\Message.xml etc.) rather than guessed.
-  openConfigFile(relativePath) {
-    const root = this.appDataRoot();
-    if (!root) return;
-    this.openFile(root + '\\' + relativePath);
+  /// "Open File Config": mở <site>\<relativePath> — đường dẫn lấy đúng từ Tag "OPEN#..." trong menu
+  /// của FCode (fcontrol.dll, EditorViewer), tính từ GỐC SITE (vd App_Data\Controllers\Grid\Config\Aggregation.d,
+  /// Main\MasterPage.master). Site do host tính: trên App_Data của file đang mở, không có thì Source Path của
+  /// workspace. File không có thì báo rõ đường dẫn, như FCode ("Not exist path ...").
+  async openConfigFile(relativePath) {
+    let r;
+    try { r = JSON.parse(await window.bcodeHost.call('BeginResolveSiteFile', this.activePath || '', relativePath)); }
+    catch (e) { alert('Không mở được file:\n' + e); return; }
+    if (r.error) { alert(r.path ? `${r.error}\n${r.path}` : r.error); return; }
+    this.openFile(r.path);
+  }
+
+  /// "Extender <tên>" / "Notify <tên>.xml" trong Open File Config (như FCode): file đang mở là Controllers\...\X.*
+  /// mà có App_Data\Controllers\Include\Extender.X hoặc App_Data\Controllers\Notify\X.xml thì hiện mục mở thẳng file đó.
+  /// Trả [{ label, path }] các file có thật.
+  async siblingConfigFiles() {
+    const root = this.appDataRoot(true);
+    if (!root || !this.activePath || this.activePath.toLowerCase().indexOf('\\app_data\\controllers\\') < 0) return [];
+    const name = this.activePath.substring(this.activePath.lastIndexOf('\\') + 1);
+    const base = name.lastIndexOf('.') > 0 ? name.substring(0, name.lastIndexOf('.')) : name;
+    if (!base) return [];
+    const cands = [
+      { label: 'Extender ' + base, path: root + '\\Controllers\\Include\\Extender.' + base },
+      { label: 'Notify ' + base + '.xml', path: root + '\\Controllers\\Notify\\' + base + '.xml' }
+    ].filter((c) => c.path.toLowerCase() !== this.activePath.toLowerCase());
+    try {
+      const exists = JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify(cands.map((c) => c.path))));
+      return cands.filter((_, i) => exists[i]);
+    } catch { return []; }
   }
 
   /// "Goto File" của <items style="..." controller="X">: file của controller X nằm ở

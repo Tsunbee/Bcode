@@ -63,6 +63,8 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
             if (_pendingAuto) { _pendingAuto = false; _ = _form.StartCaptureAsync(); }
         };
         Controls.Add(_form);
+        ApplyCopyColor();
+        CopyColorChanged += ApplyCopyColor;
         ApplyTheme();
         // Thanh cuộn lưới / khung Chi tiết theo sáng / tối (NK.DarkScroll tự theo dõi ThemeChanged).
         foreach (var c in Descendants(_form))
@@ -74,6 +76,7 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
         Disposed += (_, _) =>
         {
             ThemeManager.ThemeChanged -= ApplyTheme;
+            CopyColorChanged -= ApplyCopyColor;
             _connections.WorkspaceChanged -= SyncProject;
             _form.FlushFilters();   // đóng tab ngay sau khi gõ lọc: lưu nốt (đóng tab không qua FormClosing của SqlWatch)
             _form.StopCapture();
@@ -86,6 +89,17 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
 
     /// <summary>"🐞 Debug store": cùng câu SQL đó — MainForm tìm store được gọi, mở định nghĩa + GO + câu gọi rồi bật Debug từng bước.</summary>
     public event Action<string>? DebugRequested;
+
+    /// <summary>Template → Cửa sổ đổi màu nút Copy SQL Command (AppSettings.SqlWatchCopyColor) — tab SqlWatch đang mở tô lại ngay.</summary>
+    public static event Action? CopyColorChanged;
+    public static void RaiseCopyColorChanged() => CopyColorChanged?.Invoke();
+
+    /// <summary>"" = nút thường; mã màu sai thì về mặc định #80d3a1.</summary>
+    private void ApplyCopyColor()
+    {
+        var hex = _settings.SqlWatchCopyColor?.Trim() ?? "";
+        _form.CopyHighlight = hex.Length == 0 ? null : UiTemplate.ParseColor(hex) ?? ColorTranslator.FromHtml("#80d3a1");
+    }
 
     private Workspace? FindWorkspace(string name) =>
         _settings.Workspaces.FirstOrDefault(w => w.Name.Equals(name, StringComparison.OrdinalIgnoreCase));

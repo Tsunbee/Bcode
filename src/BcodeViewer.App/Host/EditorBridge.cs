@@ -979,6 +979,24 @@ public class EditorBridge
             return JsonSerializer.Serialize(new { path });
         });
 
+    /// <summary>Menu chuột phải "Open File Config ▸": đường dẫn đầy đủ của &lt;site&gt;\<paramref name="relative"/> (vd
+    /// App_Data\Controllers\Grid\Config\Aggregation.d, Main\MasterPage.master — đúng các Tag "OPEN#..." của FCode, tính từ gốc
+    /// site). Site như <see cref="BeginOpenSiteFolder"/>: trên App_Data của file đang mở, không có thì Source Path của workspace.
+    /// Trả JSON {path} hoặc {path?, error} để trang báo rõ file nào không có.</summary>
+    public void BeginResolveSiteFile(string requestId, string activePath, string relative) =>
+        _async.Begin(requestId, () =>
+        {
+            var (_, root) = WorkspaceConnection.ResolveSourceRoot(string.IsNullOrWhiteSpace(activePath) ? null : activePath);
+            if (root is null)
+                return JsonSerializer.Serialize(new { error = "Không xác định được thư mục site: file đang mở không nằm dưới App_Data và workspace chưa khai Source Path (khai ở Bcode)." });
+            var path = Path.Combine(root, relative ?? "");
+            bool exists;
+            try { exists = File.Exists(path); } catch { exists = false; }
+            return exists
+                ? JsonSerializer.Serialize(new { path })
+                : JsonSerializer.Serialize(new { path, error = "File không tồn tại." });
+        });
+
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".png", ".gif", ".jpg", ".jpeg", ".bmp", ".ico", ".svg" };
     private static readonly object SiteImagesLock = new();

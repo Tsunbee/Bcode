@@ -27,8 +27,25 @@ public class IconRailControl : Panel
     private const int Gap = 3;
     private int S(int v) => (int)Math.Round(v * DeviceDpi / 96.0);   // tự scale theo DPI màn hình
 
+    /// <summary>Kích thước ô khi nằm ngang (một hàng trên cây) — nhỏ hơn dọc để hàng không chiếm nhiều chỗ của cây.</summary>
+    public const int HorizontalItemSize = 32;
+    private const int HorizontalBarHeight = 40;
+
     public string? SelectedKey { get; private set; }
     public event Action<string>? SelectedKeyChanged;
+
+    private bool _horizontal;
+    /// <summary>true = một hàng ngang nằm trên cây (Dock Top), false = cột dọc sát cạnh cây (Dock Left, mặc định) — Template → Cửa sổ → Cột biểu tượng.</summary>
+    public bool Horizontal
+    {
+        get => _horizontal;
+        set
+        {
+            if (_horizontal == value) return;
+            _horizontal = value;
+            ApplyOrientation();
+        }
+    }
 
     public IconRailControl()
     {
@@ -41,7 +58,20 @@ public class IconRailControl : Panel
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        Width = S(46);
+        ApplyOrientation();
+    }
+
+    protected override void OnDpiChangedAfterParent(EventArgs e)
+    {
+        base.OnDpiChangedAfterParent(e);
+        ApplyOrientation();
+    }
+
+    private void ApplyOrientation()
+    {
+        Dock = _horizontal ? DockStyle.Top : DockStyle.Left;
+        if (_horizontal) Height = S(HorizontalBarHeight); else Width = S(46);
+        Invalidate();
     }
 
     public void AddItem(string key, Bcode.App.UI.IconGlyph glyph, string tooltip) => _items.Add(new Item(key, glyph, tooltip));
@@ -58,6 +88,30 @@ public class IconRailControl : Panel
 
     private IEnumerable<(Item item, Rectangle bounds, bool pinnedBottom)> EnumerateSlots()
     {
+        if (_horizontal)
+        {
+            // Một hàng: mục chính từ trái sang, mục "ghim cuối" dồn về mép phải.
+            var size = S(HorizontalItemSize);
+            var top = Math.Max(0, (Height - size) / 2);
+            var x = S(6);
+            foreach (var item in _items)
+            {
+                yield return (item, new Rectangle(x, top, size, size), false);
+                x += size + S(Gap + 1);
+            }
+            var right = Width - S(6);
+            var rightSlots = new List<(Item, Rectangle, bool)>();
+            foreach (var item in _bottomItems)
+            {
+                right -= size;
+                rightSlots.Add((item, new Rectangle(right, top, size, size), true));
+                right -= S(Gap + 1);
+            }
+            rightSlots.Reverse();
+            foreach (var slot in rightSlots) yield return slot;
+            yield break;
+        }
+
         var y = S(Gap + 2);
         foreach (var item in _items)
         {
@@ -124,9 +178,12 @@ public class IconRailControl : Panel
         using var back = new SolidBrush(Bcode.App.UI.AppColors.Background);
         g.FillRectangle(back, ClientRectangle);
 
-        // subtle divider between the rail and whatever sits to its right
+        // subtle divider between the rail and whatever sits to its right (dọc) / below it (ngang)
         using (var borderPen = new Pen(Bcode.App.UI.AppColors.Border))
-            g.DrawLine(borderPen, Width - 1, 0, Width - 1, Height);
+        {
+            if (_horizontal) g.DrawLine(borderPen, 0, Height - 1, Width, Height - 1);
+            else g.DrawLine(borderPen, Width - 1, 0, Width - 1, Height);
+        }
 
         foreach (var (item, bounds, _) in EnumerateSlots())
         {
@@ -139,7 +196,10 @@ public class IconRailControl : Panel
                 using var path = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(bounds, Bcode.App.UI.NativeSkin.CardRadius(this));
                 g.FillPath(accentBrush, path);
                 using var barBrush = new SolidBrush(Bcode.App.UI.AppColors.Accent);
-                using var barPath = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(new Rectangle(0, bounds.Y + S(9), S(3), bounds.Height - S(18)), S(1));
+                var bar = _horizontal
+                    ? new Rectangle(bounds.X + S(7), Height - S(3), bounds.Width - S(14), S(3))   // ngang: vạch dưới ô, sát mép dưới hàng
+                    : new Rectangle(0, bounds.Y + S(9), S(3), bounds.Height - S(18));
+                using var barPath = Bcode.App.UI.FlatToolStripRenderer.RoundedRect(bar, S(1));
                 g.FillPath(barBrush, barPath);
             }
             else if (hovered)

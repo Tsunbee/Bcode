@@ -215,7 +215,7 @@ public class MainForm : DpiForm
         });
         viewMenu.DropDownItems.Add(new ToolStripMenuItem("Outline", null, (_, _) => _ = ExecJsAsync("toggleOutlinePanel()"))
         {
-            ShortcutKeyDisplayString = "Ctrl+Shift+U",
+            ShortcutKeyDisplayString = "Alt+O",
         });
         viewMenu.DropDownItems.Add(new ToolStripMenuItem("Chạy SQL tại con trỏ", null, (_, _) => _ = ExecJsAsync("runSql()"))
         {
@@ -274,7 +274,7 @@ public class MainForm : DpiForm
         toolStrip.Items.Add(new ToolStripSeparator());
         toolStrip.Items.Add(new ToolStripButton("Tìm project", null, (_, _) => _ = ExecJsAsync("openSearch()")) { ToolTipText = "Tìm trong toàn bộ project (Ctrl+Shift+F)" });
         toolStrip.Items.Add(new ToolStripButton("Problems", null, (_, _) => _ = ExecJsAsync("toggleProblemsPanel()")) { ToolTipText = "Bảng lỗi/cảnh báo (Ctrl+Shift+M)" });
-        toolStrip.Items.Add(new ToolStripButton("Outline", null, (_, _) => _ = ExecJsAsync("toggleOutlinePanel()")) { ToolTipText = "Cấu trúc file (Ctrl+Shift+U)" });
+        toolStrip.Items.Add(new ToolStripButton("Outline", null, (_, _) => _ = ExecJsAsync("toggleOutlinePanel()")) { ToolTipText = "Cấu trúc file (Alt+O)" });
         toolStrip.Items.Add(new ToolStripButton("Xem Dir", null, (_, _) => _ = ExecJsAsync("toggleDirPreview()")) { ToolTipText = "Xem trước màn hình Dir (Alt+P)" });
         // No leading ▶ glyph: Segoe UI has no arrow there, so WinForms falls back to a font
         // for the whole caption that drops the Vietnamese diacritics — "Chạy" rendered as

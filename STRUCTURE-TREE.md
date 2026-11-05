@@ -14,7 +14,7 @@ Bcode.App/
 │   │   └── SP24.txt  70
 │   ├── logo/
 │   ├── rpt/
-│   └── README.md  14
+│   └── README.md  17
 ├── Controls/
 │   ├── AdvanceNoteControl.cs  579
 │   ├── AiWebPanel.cs  96
@@ -26,7 +26,7 @@ Bcode.App/
 │   ├── DecryptSqlObjectControl.cs  233
 │   ├── FastAskControl.cs  162
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1557
+│   ├── FileLookupControl.cs  1564
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
@@ -36,14 +36,14 @@ Bcode.App/
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  155
-│   ├── IconRailControl.cs  158
+│   ├── IconRailControl.cs  218
 │   ├── IncludeCheckControl.cs  200
 │   ├── ISqlTab.cs  61
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
-│   ├── MonacoPreviewControl.cs  210
+│   ├── MonacoPreviewControl.cs  256
 │   ├── MonacoPreviewControl.Native.cs  134
-│   ├── MultiResultView.cs  211
+│   ├── MultiResultView.cs  229
 │   ├── NativeAdvanceNoteControl.cs  1222
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
@@ -96,7 +96,7 @@ Bcode.App/
 │   ├── QuickReportControl.cs  491
 │   ├── RawSqlControl.cs  2807
 │   ├── ResultExport.cs  146
-│   ├── ResultGridMenu.cs  615
+│   ├── ResultGridMenu.cs  614
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
 │   ├── ScriptEditorControl.EntityIndex.cs  178
@@ -111,7 +111,7 @@ Bcode.App/
 │   ├── SqlScintilla.cs  162
 │   ├── SqlSyntaxHighlighter.cs  484
 │   ├── SqlTabSnapshot.cs  19
-│   ├── SqlWatchControl.cs  161
+│   ├── SqlWatchControl.cs  175
 │   ├── SqlWatchControl.Form.cs  39
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
@@ -155,7 +155,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  4144
+│   ├── MainForm.cs  4174
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -182,7 +182,7 @@ Bcode.App/
 │   ├── TabSwitcherForm.cs  191
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
-│   ├── UiTemplateForm.cs  732
+│   ├── UiTemplateForm.cs  743
 │   ├── WCommandDuplicateForm.cs  29
 │   ├── WCommandEditForm.cs  375
 │   ├── WCommandScriptForm.cs  133
@@ -190,7 +190,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  361
+│   ├── AppSettings.cs  364
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -254,6 +254,7 @@ Bcode.App/
 │   ├── DecryptSqlObjectConfigService.cs  73
 │   ├── DecryptSqlSecret.cs  16
 │   ├── DeletedFileBackup.cs  138
+│   ├── DesignFieldsGenerator.cs  125
 │   ├── DiffService.cs  295
 │   ├── DtdIncludeResolver.cs  196
 │   ├── DynamicSqlInspector.cs  120
@@ -336,7 +337,7 @@ Bcode.App/
 │   └── XlsxExportService.cs  22
 ├── Templates/  (3319 file — không liệt kê)
 ├── UI/
-│   ├── AppIcons.cs  142
+│   ├── AppIcons.cs  146
 │   ├── ColorPalette.cs  140
 │   ├── ControlPerf.cs  18
 │   ├── DevToolsDock.cs  190
@@ -345,7 +346,7 @@ Bcode.App/
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
 │   ├── GridDragScroll.cs  67
-│   ├── IconGlyphs.cs  223
+│   ├── IconGlyphs.cs  249
 │   ├── LineNumberGutter.cs  116
 │   ├── MousePointer.cs  55
 │   ├── NativeAppLauncher.cs  42
@@ -358,7 +359,7 @@ Bcode.App/
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
 │   ├── UiScale.cs  69
-│   ├── UiTemplate.cs  509
+│   ├── UiTemplate.cs  512
 │   ├── UiThemes.cs  341
 │   └── WebViewEnvironment.cs  384
 ├── Web/
@@ -394,7 +395,7 @@ Bcode.App/
 │       ├── fastask.html  371
 │       ├── filelookupbar.html  195
 │       ├── filelookuppreview.html  98
-│       ├── filepreview.html  194
+│       ├── filepreview.html  222
 │       ├── filereference.html  108
 │       ├── findbar.html  60
 │       ├── framehost.html  55
@@ -403,7 +404,7 @@ Bcode.App/
 │       ├── genupdate.html  616
 │       ├── grantsource.html  132
 │       ├── help.html  425
-│       ├── iconrail.html  72
+│       ├── iconrail.html  92
 │       ├── includecheck.html  328
 │       ├── library.html  168
 │       ├── licensekey.html  94
@@ -417,7 +418,7 @@ Bcode.App/
 │       ├── quicklist.html  1666
 │       ├── quickreport.html  1027
 │       ├── reportmodes.html  64
-│       ├── resultview.html  635
+│       ├── resultview.html  628
 │       ├── richreq.js  77
 │       ├── rowdetail.html  83
 │       ├── rptschema.html  112
@@ -444,13 +445,13 @@ Bcode.App/
 │       ├── topbar.html  203
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
-│       ├── uitemplate.html  1148
+│       ├── uitemplate.html  1171
 │       ├── usages.html  133
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  155
+├── Bcode.App.csproj  157
 ├── BcodePaths.cs  48
 └── Program.cs  37
 ```
@@ -483,7 +484,7 @@ BcodeViewer.App/
 │   ├── AsyncHostCall.cs  155
 │   ├── CaptionTranslator.cs  225
 │   ├── ClaudeChatService.cs  693
-│   ├── EditorBridge.cs  1528
+│   ├── EditorBridge.cs  1546
 │   ├── IncludeTree.cs  190
 │   ├── MenuLauncher.cs  70
 │   ├── SearchFileCache.cs  139
@@ -519,11 +520,11 @@ BcodeViewer.App/
 │   ├── chat.js  83
 │   ├── checkfield.js  457
 │   ├── completion.js  2693
-│   ├── contextmenu.js  1105
+│   ├── contextmenu.js  1132
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
 │   ├── dock.js  162
-│   ├── editor.js  1724
+│   ├── editor.js  1761
 │   ├── entity.js  1344
 │   ├── fastask.js  356
 │   ├── fcode-language.js  451
@@ -532,7 +533,7 @@ BcodeViewer.App/
 │   ├── history.js  484
 │   ├── hostcall.js  106
 │   ├── index.html  236
-│   ├── keys.js  216
+│   ├── keys.js  223
 │   ├── mailpreview.js  718
 │   ├── outline.js  239
 │   ├── perfwatch.js  110
@@ -552,9 +553,9 @@ BcodeViewer.App/
 │   ├── ui.js  134
 │   └── zoombar.js  99
 ├── BcodePaths.cs  45
-├── BcodeViewer.App.csproj  56
+├── BcodeViewer.App.csproj  58
 ├── HintCodeForm.cs  520
-├── MainForm.cs  2816
+├── MainForm.cs  2817
 └── Program.cs  212
 ```
 ```
@@ -610,6 +611,7 @@ Bcode.KeyGen/
 ```
 Shared/
 ├── AiWebHelper.cs  373
+├── AppSwitchFocus.cs  86
 ├── DpapiText.cs  134
 └── LicenseCodec.cs  93
 ```

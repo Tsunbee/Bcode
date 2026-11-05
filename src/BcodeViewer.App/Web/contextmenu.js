@@ -4,10 +4,10 @@
 // items whose exact behavior is actually known — "Goto Completed" is still left out;
 // "Goto File" only appears on an <items controller="X"> line; "Open Folder" opens site
 // folders (Images, App_Data\Controllers\Options|Lookup|Templates) plus "Image File >";
-// "Open File Config" is populated from paths confirmed straight
-// out of FCode's own internal gen_update search config (App_Data\Controllers\Options\
-// Message.xml, \Grid\Config\Aggregation.xml/.v, \Include\Extender.ent, etc.) — see
-// editor.js's openConfigFile/listIncludeConfigFiles.
+// "Open File Config" mirrors FCode's own editor menu item for item (labels + "OPEN#..." tags
+// read out of fcontrol.dll's EditorViewer: Aggregation.l/.d/.xml/.q/.v, List\List.xml,
+// Post\Post.xml, Options\*.xml, Lookup\Config\Config.xml, Main\MasterPage.master...) — see
+// editor.js's openConfigFile/listIncludeConfigFiles/siblingConfigFiles.
 
 class BcodeContextMenu {
   constructor() {
@@ -32,22 +32,36 @@ class BcodeContextMenu {
     // ghi đè this.root và bỏ lại một menu mồ côi trong DOM.
     const token = (this._showToken = (this._showToken || 0) + 1);
 
+    // Đúng thứ tự và đường dẫn trong menu của FCode (fcontrol.dll, EditorViewer — Tag "OPEN#<đường dẫn từ gốc site>").
+    // Lưu ý: Aggregation List là Aggregation.l; Aggregation.xml là Aggregation REPORT.
+    const cfg = (label, rel, extra) => ({ label, run: () => editorInstance.openConfigFile(rel), ...(extra || {}) });
+    const G = 'App_Data\\Controllers\\Grid\\Config\\';
     const openFileConfigItems = [
       { label: 'Aggregation', submenu: [
-        { label: 'Aggregation List', run: () => editorInstance.openConfigFile('Controllers\\Grid\\Config\\Aggregation.xml') },
-        { label: 'Aggregation Voucher', run: () => editorInstance.openConfigFile('Controllers\\Grid\\Config\\Aggregation.v') }
-      ] }
+        cfg('Aggregation List', G + 'Aggregation.l'),
+        cfg('Aggregation Dir', G + 'Aggregation.d'),
+        cfg('Aggregation Report', G + 'Aggregation.xml'),
+        cfg('Aggregation SubReport', G + 'Aggregation.q'),
+        cfg('Aggregation Voucher', G + 'Aggregation.v')
+      ] },
+      // "List Extend ▸" / "Voucher Extend ▸" chèn vào đây sau khi đọc xong thư mục Include (xem cuối hàm).
+      { sep: true },
+      cfg('List', 'App_Data\\Controllers\\List\\List.xml'),
+      cfg('Post', 'App_Data\\Controllers\\Post\\Post.xml'),
+      cfg('Extender.ent', 'App_Data\\Controllers\\Include\\Extender.ent', { id: 'cfgExtender' }),
+      // "Extender <tên file>" chèn sau đây nếu có Include\Extender.<tên file đang mở>.
+      cfg('Notify', 'App_Data\\Controllers\\Notify\\Notify.xml', { id: 'cfgNotify' }),
+      // "Notify <tên file>.xml" chèn sau đây nếu có Notify\<tên file đang mở>.xml.
+      { sep: true },
+      cfg('Message.xml', 'App_Data\\Controllers\\Options\\Message.xml'),
+      cfg('Comment.xml', 'App_Data\\Controllers\\Options\\Comment.xml'),
+      cfg('Options.xml', 'App_Data\\Controllers\\Options\\Options.xml'),
+      cfg('TemplateMail.xml', 'App_Data\\Controllers\\Options\\TemplateMail.xml'),
+      { sep: true },
+      cfg('Lookup Config', 'App_Data\\Controllers\\Lookup\\Config\\Config.xml'),
+      cfg('Filter Config', 'App_Data\\Controllers\\Filter\\Config\\Initialize.xml'),
+      cfg('MasterPage.master', 'Main\\MasterPage.master')
     ];
-    openFileConfigItems.push(
-      { sep: true },
-      { label: 'Extender.ent', run: () => editorInstance.openConfigFile('Controllers\\Include\\Extender.ent') },
-      { label: 'Notify', run: () => editorInstance.openConfigFile('Controllers\\Notify\\Notify.xml') },
-      { sep: true },
-      { label: 'Message.xml', run: () => editorInstance.openConfigFile('Controllers\\Options\\Message.xml') },
-      { label: 'Comment.xml', run: () => editorInstance.openConfigFile('Controllers\\Options\\Comment.xml') },
-      { sep: true },
-      { label: 'Filter Config', run: () => editorInstance.openConfigFile('Controllers\\Filter\\Config\\Initialize.xml') }
-    );
 
     // Đọc tài liệu MỘT lần cho mọi điều kiện bên dưới: getValue() trả về cả file dưới dạng
     // chuỗi, gọi lại năm lần cho năm mục là năm lần serialise lại toàn bộ.
@@ -184,29 +198,42 @@ class BcodeContextMenu {
     // kết quả — chờ cả hai lần đọc xong mới vẽ menu là một khoảng chết không rõ lý do.
     let listExtend = [];
     let voucherExtend = [];
+    let siblings = [];
     try {
-      [listExtend, voucherExtend] = await Promise.all([
+      [listExtend, voucherExtend, siblings] = await Promise.all([
         editorInstance.listIncludeConfigFiles('List'),
-        editorInstance.listIncludeConfigFiles('Voucher')
+        editorInstance.listIncludeConfigFiles('Voucher'),
+        editorInstance.siblingConfigFiles()
       ]);
     } catch {
-      return; // không liệt kê được thì menu vẫn dùng bình thường, chỉ thiếu hai mục này
+      return; // không liệt kê được thì menu vẫn dùng bình thường, chỉ thiếu mấy mục này
     }
     if (token !== this._showToken || !this.root) return; // menu đã đóng hoặc bị thay
 
     const submenu = this.root.querySelector('[data-ctx-submenu-of="openFileConfig"]');
     if (!submenu) return;
 
+    // FCode cố định List 101..109 / Voucher 001..006; ở đây liệt kê file có thật trong Grid\Config\Include,
+    // rồi thêm Field.ent (App_Data\Controllers\Include\Field.ent) cuối mỗi submenu như FCode.
     const toFileItems = (entries) => entries.map((f) => ({ label: f.name, run: () => editorInstance.openFile(f.path) }));
-    const extra = [];
-    if (listExtend.length > 0) extra.push({ label: 'List Extend', submenu: toFileItems(listExtend) });
-    if (voucherExtend.length > 0) extra.push({ label: 'Voucher Extend', submenu: toFileItems(voucherExtend) });
-    if (extra.length === 0) return;
+    const fieldEnt = { label: 'Field.ent', run: () => editorInstance.openConfigFile('App_Data\\Controllers\\Include\\Field.ent') };
+    const withFieldEnt = (entries) => (entries.length ? [...toFileItems(entries), { sep: true }, fieldEnt] : [fieldEnt]);
+    const extra = [
+      { label: 'List Extend', submenu: withFieldEnt(listExtend) },
+      { label: 'Voucher Extend', submenu: withFieldEnt(voucherExtend) }
+    ];
 
-    // Chèn ngay sau "Aggregation", đúng chỗ chúng vẫn đứng trước đây.
+    // Chèn ngay sau "Aggregation", đúng chỗ FCode đặt chúng.
     const built = this.buildMenu(extra);
     const anchor = submenu.children[1] || null;
     while (built.firstChild) submenu.insertBefore(built.firstChild, anchor);
+
+    // "Extender X" sau Extender.ent, "Notify X.xml" sau Notify — chỉ khi file đó có thật.
+    for (const s of siblings) {
+      const after = submenu.querySelector(`:scope > [data-ctx-item="${s.label.startsWith('Notify') ? 'cfgNotify' : 'cfgExtender'}"]`);
+      const row = this.buildMenu([{ label: s.label, title: s.path, run: () => editorInstance.openFile(s.path) }]).firstChild;
+      if (after) after.after(row); else submenu.appendChild(row);
+    }
 
     // Menu vừa dài thêm nên có thể tràn xuống dưới màn hình; đặt lại nếu nó đang mở.
     if (submenu.style.display === 'block') {

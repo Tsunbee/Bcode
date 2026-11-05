@@ -57,6 +57,7 @@ public class UiTemplateForm : ThemedForm
         public string TreeSide { get; set; } = "left";
         public bool TreeStartHidden { get; set; }
         public int TreeWidth { get; set; } = UiTemplate.DefaultTreeWidth;
+        public string IconRailLayout { get; set; } = "vertical";
         public bool TabsAtBottom { get; set; }
         public bool ToolbarWrap { get; set; } = true;
         public string TabSwitchMode { get; set; } = "sequential";
@@ -157,7 +158,17 @@ public class UiTemplateForm : ThemedForm
                     if (data.TryGetProperty("mode", out var smode) && smode.GetString() is "query" or "query_table" or "all") _settings.SessionMode = smode.GetString()!;
                     try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
                     break;
-                case "profiler-mode-get": Js($"window.setProfilerMode({(_settings.ProfilerAutoStart ? "true" : "false")}, {JsonSerializer.Serialize(_settings.ProfilerEngine)})"); break;
+                case "profiler-mode-get": Js($"window.setProfilerMode({(_settings.ProfilerAutoStart ? "true" : "false")}, {JsonSerializer.Serialize(_settings.ProfilerEngine)}, {JsonSerializer.Serialize(_settings.SqlWatchCopyColor ?? "")})"); break;
+                case "sqlwatch-copy-color-set":
+                {
+                    // "#rrggbb" hoặc "" (= nút thường); giá trị lạ bỏ qua.
+                    var hex = data.TryGetProperty("color", out var swc) ? (swc.GetString() ?? "").Trim() : "";
+                    if (hex.Length > 0 && UiTemplate.ParseColor(hex) is null) break;
+                    _settings.SqlWatchCopyColor = hex;
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    Bcode.App.Controls.SqlWatchControl.RaiseCopyColorChanged();
+                    break;
+                }
                 case "profiler-mode-set":
                     _settings.ProfilerAutoStart = data.TryGetProperty("auto", out var pauto) && pauto.ValueKind == JsonValueKind.True;
                     _settings.ProfilerEngine = data.TryGetProperty("engine", out var peng) && peng.GetString() == "sqlwatch" ? "sqlwatch" : "profiler";
@@ -297,7 +308,7 @@ public class UiTemplateForm : ThemedForm
         t.Normalize(new UiTemplate
         {
             Shortcuts = t.Shortcuts, CustomUiEnabled = d.CustomUiEnabled, CustomUiDesignMode = d.CustomUiDesignMode,
-            TreeSide = d.TreeSide, TreeStartHidden = d.TreeStartHidden, TreeWidth = d.TreeWidth, TabsAtBottom = d.TabsAtBottom, ToolbarWrap = d.ToolbarWrap, TabSwitchMode = d.TabSwitchMode, KeepMousePointer = d.KeepMousePointer,
+            TreeSide = d.TreeSide, TreeStartHidden = d.TreeStartHidden, TreeWidth = d.TreeWidth, IconRailLayout = d.IconRailLayout, TabsAtBottom = d.TabsAtBottom, ToolbarWrap = d.ToolbarWrap, TabSwitchMode = d.TabSwitchMode, KeepMousePointer = d.KeepMousePointer,
             EditorLineSpacing = d.EditorLineSpacing, EditorMinimap = d.EditorMinimap, EditorLineNumbers = d.EditorLineNumbers, EditorWhitespace = d.EditorWhitespace,
             ResultStripe = d.ResultStripe, ResultStripeColor = d.ResultStripeColor, ResultSelColor = d.ResultSelColor,
             ResultNullStyle = d.ResultNullStyle, ResultGridLines = d.ResultGridLines,
@@ -620,7 +631,7 @@ public class UiTemplateForm : ThemedForm
             customUi = new { enabled = t.CustomUiEnabled, design = t.CustomUiDesignMode, sessionSafe = UiOverrides.SessionSafe },
             extra = new
             {
-                treeSide = t.TreeSide, treeStartHidden = t.TreeStartHidden, treeWidth = t.TreeWidth, defaultTreeWidth = UiTemplate.DefaultTreeWidth,
+                treeSide = t.TreeSide, treeStartHidden = t.TreeStartHidden, treeWidth = t.TreeWidth, defaultTreeWidth = UiTemplate.DefaultTreeWidth, iconRailLayout = t.IconRailLayout,
                 tabsAtBottom = t.TabsAtBottom, toolbarWrap = t.ToolbarWrap, tabSwitchMode = t.TabSwitchMode, keepMousePointer = t.KeepMousePointer,
                 editorLineSpacing = t.EditorLineSpacing, editorMinimap = t.EditorMinimap, editorLineNumbers = t.EditorLineNumbers, editorWhitespace = t.EditorWhitespace,
                 resultStripe = t.ResultStripe, resultStripeColor = t.ResultStripeColor, resultSelColor = t.ResultSelColor,

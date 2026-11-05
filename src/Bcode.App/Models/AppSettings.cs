@@ -112,6 +112,9 @@ public class AppSettings
     /// <summary>Công cụ Ctrl+3 mở (Template → Cửa sổ → SQL Profiler): "profiler" (mặc định) = SQL Profiler thật (Profiler.exe nhúng);
     /// "sqlwatch" = tab SqlWatch (src/SqlWatch, đọc DMV theo nhịp, không cần quyền tạo trace). Chế độ mở Tự động / Thủ công áp cho cả hai.</summary>
     public string ProfilerEngine { get; set; } = "profiler";
+    /// <summary>Nền nổi của nút "📋 Copy SQL Command" trên tab SqlWatch (Template → Cửa sổ → SQL Profiler): "#rrggbb", mặc định #80d3a1;
+    /// "" = nút thường như các nút khác.</summary>
+    public string SqlWatchCopyColor { get; set; } = "#80d3a1";
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
     public int FileLookupSplitterDistance { get; set; } = 0;

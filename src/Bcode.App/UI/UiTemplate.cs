@@ -89,6 +89,8 @@ public sealed class UiTemplate
     public bool TreeStartHidden { get; set; }
     /// <summary>Độ rộng cây menu (px); 312 = mặc định.</summary>
     public int TreeWidth { get; set; } = DefaultTreeWidth;
+    /// <summary>Cột biểu tượng (SQL Object / WCommand / Mobile) của cây menu: "vertical" = dọc sát cạnh cây (mặc định); "horizontal" = một hàng ngang nằm trên cây.</summary>
+    public string IconRailLayout { get; set; } = "vertical";
     /// <summary>Thanh tab tài liệu nằm ở dưới thay vì trên đầu.</summary>
     public bool TabsAtBottom { get; set; }
     /// <summary>Thanh công cụ: true = tự xuống dòng khi hẹp (mặc định); false = 1 dòng, thừa thì gom vào mũi tên "»".</summary>
@@ -215,7 +217,7 @@ public sealed class UiTemplate
         foreach (var (k, v) in Areas) t.Areas[k] = v.Clone();
         t.Shortcuts = new Dictionary<string, string>(Shortcuts);
         t.CustomUiEnabled = CustomUiEnabled; t.CustomUiDesignMode = CustomUiDesignMode;
-        t.TreeSide = TreeSide; t.TreeStartHidden = TreeStartHidden; t.TreeWidth = TreeWidth; t.TabsAtBottom = TabsAtBottom; t.ToolbarWrap = ToolbarWrap; t.TabSwitchMode = TabSwitchMode; t.KeepMousePointer = KeepMousePointer;
+        t.TreeSide = TreeSide; t.TreeStartHidden = TreeStartHidden; t.TreeWidth = TreeWidth; t.IconRailLayout = IconRailLayout; t.TabsAtBottom = TabsAtBottom; t.ToolbarWrap = ToolbarWrap; t.TabSwitchMode = TabSwitchMode; t.KeepMousePointer = KeepMousePointer;
         t.EditorLineSpacing = EditorLineSpacing; t.EditorMinimap = EditorMinimap; t.EditorLineNumbers = EditorLineNumbers; t.EditorWhitespace = EditorWhitespace;
         t.ResultStripe = ResultStripe; t.ResultStripeColor = ResultStripeColor; t.ResultSelColor = ResultSelColor;
         t.ResultNullStyle = ResultNullStyle; t.ResultGridLines = ResultGridLines;
@@ -295,6 +297,7 @@ public sealed class UiTemplate
         TreeSide = src.TreeSide == "right" ? "right" : "left";
         TreeStartHidden = src.TreeStartHidden;
         TreeWidth = Math.Clamp(src.TreeWidth, 160, 800);
+        IconRailLayout = src.IconRailLayout == "horizontal" ? "horizontal" : "vertical";
         TabsAtBottom = src.TabsAtBottom;
         ToolbarWrap = src.ToolbarWrap;
         TabSwitchMode = src.TabSwitchMode == "toggle" ? "toggle" : "sequential";

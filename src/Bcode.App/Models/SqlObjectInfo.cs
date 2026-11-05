@@ -12,6 +12,9 @@ public class SqlObjectInfo
     /// <summary>Which of the workspace's two databases this came from (Sys Data vs App Data).</summary>
     public bool FromSysDatabase { get; set; }
 
+    /// <summary>sys.objects.modify_date (giờ server) — cây SQL Object sắp xếp / lọc "mới sửa". null = chưa biết (cache cũ).</summary>
+    public DateTime? Modified { get; set; }
+
     public string QualifiedName => $"{Schema}.{Name}";
     public override string ToString() => QualifiedName;
 }

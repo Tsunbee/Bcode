@@ -28,7 +28,7 @@ public class SqlObjectBrowserService
     public async Task<List<SqlObjectInfo>> ListObjectsAsync(bool useSysDatabase, string? nameFilter = null, bool hidePeriodTables = false)
     {
         const string sql = @"
-SELECT s.name AS SchemaName, o.name AS ObjectName, o.type AS ObjectType
+SELECT s.name AS SchemaName, o.name AS ObjectName, o.type AS ObjectType, o.modify_date
 FROM sys.objects o
 JOIN sys.schemas s ON s.schema_id = o.schema_id
 
@@ -63,7 +63,8 @@ ORDER BY o.type, s.name, o.name;";
                 "TR" => SqlObjectKind.Trigger,
                 _ => SqlObjectKind.Function
             };
-            results.Add(new SqlObjectInfo { Schema = reader.GetString(0), Name = reader.GetString(1), Kind = kind, FromSysDatabase = useSysDatabase });
+            results.Add(new SqlObjectInfo { Schema = reader.GetString(0), Name = reader.GetString(1), Kind = kind, FromSysDatabase = useSysDatabase,
+                Modified = reader.IsDBNull(3) ? null : reader.GetDateTime(3) });
         }
         return results;
     }
@@ -126,7 +127,8 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
 
     public sealed record ObjectCache(string Signature, List<SqlObjectInfo> Items);
 
-    private sealed record CacheRow(string S, string N, int K);
+    /// <summary>M = modify_date (ticks, 0 = không có) — cache cũ chưa có M thì nạp lại 1 lần để cây sắp xếp được theo "mới sửa".</summary>
+    private sealed record CacheRow(string S, string N, int K, long M = 0);
     private sealed record CacheFile(string Signature, List<CacheRow> Rows);
 
     /// <summary>Định danh (server + database) của danh sách object — khoá để giữ cây đã dựng trong bộ nhớ theo project.</summary>
@@ -148,9 +150,10 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
             if (!File.Exists(path)) return null;
             var file = System.Text.Json.JsonSerializer.Deserialize<CacheFile>(File.ReadAllText(path));
             if (file is null) return null;
+            if (file.Rows.Count > 0 && file.Rows.All(r => r.M == 0)) return null;   // cache bản cũ (chưa lưu ngày sửa) → hỏi lại database 1 lần
             return new ObjectCache(file.Signature, file.Rows.Select(r => new SqlObjectInfo
             {
-                Schema = r.S, Name = r.N, Kind = (SqlObjectKind)r.K, FromSysDatabase = useSys,
+                Schema = r.S, Name = r.N, Kind = (SqlObjectKind)r.K, FromSysDatabase = useSys, Modified = r.M > 0 ? new DateTime(r.M) : null,
             }).ToList());
         }
         catch (InvalidOperationException) { throw; } // chưa chọn workspace
@@ -163,7 +166,7 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
         {
             var path = CachePath(useSys);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var file = new CacheFile(signature, items.Select(o => new CacheRow(o.Schema, o.Name, (int)o.Kind)).ToList());
+            var file = new CacheFile(signature, items.Select(o => new CacheRow(o.Schema, o.Name, (int)o.Kind, o.Modified?.Ticks ?? 0)).ToList());
             File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(file));
         }
         catch { /* không lưu được cache thì lần sau nạp lại */ }

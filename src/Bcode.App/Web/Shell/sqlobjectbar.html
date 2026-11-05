@@ -23,17 +23,34 @@
     <option value="1">Sys Data</option>
   </select>
   <input type="text" id="filterInput" placeholder="Lọc theo tên (gõ là lọc luôn)..." />
-  <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none"><input type="checkbox" id="textCheck" style="margin:0" />Tìm trong nội dung (text)</label>
+  <div style="display:flex;align-items:center;gap:8px;min-width:0">
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;white-space:nowrap"><input type="checkbox" id="textCheck" style="margin:0" />Tìm trong nội dung (text)</label>
+    <select id="sortSelect" style="width:auto;flex:1;min-width:0" title="Sắp xếp / lọc theo ngày sửa (modify_date) — tìm nhanh object mình vừa sửa">
+      <option value="0">Tên A → Z</option>
+      <option value="1">Mới sửa trước</option>
+      <option value="2">Sửa hôm nay</option>
+      <option value="3">Sửa 7 ngày qua</option>
+    </select>
+  </div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
-  var filterInput = document.getElementById('filterInput'), textCheck = document.getElementById('textCheck');
+  var filterInput = document.getElementById('filterInput'), textCheck = document.getElementById('textCheck'), sortSelect = document.getElementById('sortSelect');
+  function sortMode() { return parseInt(sortSelect.value, 10) || 0; }
+  // Nhớ kiểu sắp xếp cho lần mở sau; báo C# ngay (chỉ đổi chế độ, cây đã nạp thì vẽ lại — không hỏi database)
+  try { var sv = localStorage.getItem('sqlobj.sort'); if (sv) sortSelect.value = sv; } catch (e) { }
+  if (sortMode() !== 0) post({ action: 'sort', sort: sortMode() });
+  sortSelect.addEventListener('change', function () {
+    try { localStorage.setItem('sqlobj.sort', sortSelect.value); } catch (e) { }
+    clearTimeout(filterTimer);
+    post({ action: 'reload', filter: filterInput.value, text: textCheck.checked, sort: sortMode() });
+  });
 
   document.getElementById('dbSelect').addEventListener('change', function (e) {
-    post({ action: 'db', value: parseInt(e.target.value, 10), filter: filterInput.value, text: textCheck.checked });
+    post({ action: 'db', value: parseInt(e.target.value, 10), filter: filterInput.value, text: textCheck.checked, sort: sortMode() });
   });
   filterInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { clearTimeout(filterTimer); post({ action: 'reload', filter: e.target.value, text: textCheck.checked }); }
+    if (e.key === 'Enter') { clearTimeout(filterTimer); post({ action: 'reload', filter: e.target.value, text: textCheck.checked, sort: sortMode() }); }
   });
   // Gõ tới đâu lọc tới đó (không cần Enter): lọc ngay ở máy trên danh sách đã nạp sẵn nên không hỏi database; chờ 120ms sau phím cuối cho đỡ giật.
   // Tìm trong nội dung thì phải hỏi database → chờ 500ms.
@@ -41,12 +58,12 @@
   filterInput.addEventListener('input', function (e) {
     clearTimeout(filterTimer);
     var v = e.target.value;
-    filterTimer = setTimeout(function () { post({ action: 'reload', filter: v, text: textCheck.checked }); }, textCheck.checked ? 500 : 120);
+    filterTimer = setTimeout(function () { post({ action: 'reload', filter: v, text: textCheck.checked, sort: sortMode() }); }, textCheck.checked ? 500 : 120);
   });
   textCheck.addEventListener('change', function () {
     clearTimeout(filterTimer);
     filterInput.placeholder = textCheck.checked ? 'Tìm chữ trong nội dung proc / func / view...' : 'Lọc theo tên (gõ là lọc luôn)...';
-    post({ action: 'reload', filter: filterInput.value, text: textCheck.checked });
+    post({ action: 'reload', filter: filterInput.value, text: textCheck.checked, sort: sortMode() });
   });
 
   // ---- Called from C# (SqlObjectTreeControl) ----

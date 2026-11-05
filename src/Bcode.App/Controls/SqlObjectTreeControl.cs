@@ -20,6 +20,8 @@ public class SqlObjectTreeControl : UserControl
     private string _filterText = "";
     /// <summary>Ô tick "Tìm trong nội dung": ô lọc tìm chữ trong định nghĩa procedure / function / view / trigger (hỏi database) thay vì lọc theo tên.</summary>
     private bool _searchText;
+    /// <summary>Sắp xếp / lọc theo ngày sửa (sys.objects.modify_date): 0 = tên A→Z, 1 = mới sửa trước, 2 = chỉ object sửa hôm nay, 3 = sửa trong 7 ngày qua.</summary>
+    private int _dateMode;
     private readonly SqlObjectBrowserService _service;
 
     /// <summary>Mở object: tham số 2 = true khi double-click (procedure / function / view / trigger mở dạng IF EXISTS → DROP → CREATE), false = dạng ALTER
@@ -87,12 +89,18 @@ public class SqlObjectTreeControl : UserControl
                             _useSysDatabase = root.GetProperty("value").GetInt32() == 1;
                             _filterText = root.GetProperty("filter").GetString() ?? "";
                             _searchText = root.TryGetProperty("text", out var t1) && t1.GetBoolean();
+                            if (root.TryGetProperty("sort", out var s1) && s1.TryGetInt32(out var sm1)) _dateMode = sm1;
                             _loadedOnce = false; _currentSignature = null; // mỗi database có cache riêng
                             await ReloadAsync();
+                            break;
+                        case "sort":   // kiểu sắp xếp đã nhớ, báo lúc thanh vừa nạp: chỉ đặt chế độ; cây đã có thì vẽ lại (không hỏi database)
+                            _dateMode = root.TryGetProperty("sort", out var s0) && s0.TryGetInt32(out var sm0) ? sm0 : 0;
+                            if (_loadedOnce) await RenderAsync();
                             break;
                         case "reload":
                             _filterText = root.GetProperty("filter").GetString() ?? "";
                             _searchText = root.TryGetProperty("text", out var t2) && t2.GetBoolean();
+                            if (root.TryGetProperty("sort", out var s2) && s2.TryGetInt32(out var sm2)) _dateMode = sm2;
                             if (_loadedOnce) await RenderAsync(); else await ReloadAsync(); // lọc ngay ở máy, không hỏi lại database
                             break;
                     }
@@ -119,13 +127,34 @@ public class SqlObjectTreeControl : UserControl
 
     private bool UseSysDatabase => _useSysDatabase;
 
+    private static readonly string[] DateModeLabels = { "Sắp xếp: tên A → Z", "Sắp xếp: mới sửa trước", "Chỉ object sửa hôm nay", "Chỉ object sửa 7 ngày qua" };
+
+    /// <summary>Chữ của node object: xem theo ngày sửa thì kèm giờ sửa (sys.objects.modify_date) cho dễ nhận ra cái mình vừa sửa.</summary>
+    private static string NodeText(SqlObjectInfo o, int dateMode) =>
+        dateMode == 0 || o.Modified is null ? o.QualifiedName
+        : o.QualifiedName + "   · " + (o.Modified.Value.Date == DateTime.Today ? "hôm nay " + o.Modified.Value.ToString("HH:mm") : o.Modified.Value.ToString("dd/MM/yyyy HH:mm"));
+
+    /// <summary>Áp chế độ ngày sửa lên các nhóm đã sắp theo tên: sắp mới sửa trước, và (mode 2 / 3) bỏ object sửa trước mốc; bỏ nhóm rỗng.</summary>
+    private static GroupItems[] ApplyDateMode(GroupItems[] groups, int mode)
+    {
+        if (mode == 0) return groups;
+        DateTime? from = mode == 2 ? DateTime.Today : mode == 3 ? DateTime.Today.AddDays(-6) : null;
+        var result = new List<GroupItems>(groups.Length);
+        foreach (var g in groups)
+        {
+            var items = g.Items.Where(o => from is null || o.Modified >= from).OrderByDescending(o => o.Modified ?? DateTime.MinValue).ToArray();
+            if (items.Length > 0) result.Add(new GroupItems(g.Label, items));
+        }
+        return result.ToArray();
+    }
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
     /// <summary>Thanh trên cây bản native: tương đương sqlobjectbar.html (chọn App/Sys Data + lọc theo tên, gõ tới đâu lọc tới đó sau 120ms).</summary>
     private Control BuildNativeBar()
     {
-        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 108), Padding = new Padding(6, 6, 6, 6) };
+        var panel = new Panel { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 138), Padding = new Padding(6, 6, 6, 6) };
         var db = new DropDownButton { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 28) };
         db.SetItems(new[] { "App Data", "Sys Data" }, 0);
         var filter = new RoundedInput { Dock = DockStyle.Top, PlaceholderText = "Lọc theo tên (gõ là lọc luôn)..." };
@@ -155,8 +184,11 @@ public class SqlObjectTreeControl : UserControl
             _loadedOnce = false; _currentSignature = null; // mỗi database có cache riêng
             await ReloadAsync();
         };
+        var sort = new DropDownButton { Dock = DockStyle.Top, Height = Bcode.App.UI.NativeSkin.Dens(null, 26) };
+        sort.SetItems(DateModeLabels, 0);
+        sort.SelectionChanged += async i => { _dateMode = i; _filterText = filter.Text; if (_loadedOnce) await RenderAsync(); else await ReloadAsync(); };
         Disposed += (_, _) => timer.Dispose();
-        panel.Controls.Add(text); panel.Controls.Add(filter); panel.Controls.Add(gap); panel.Controls.Add(db);
+        panel.Controls.Add(sort); panel.Controls.Add(text); panel.Controls.Add(filter); panel.Controls.Add(gap); panel.Controls.Add(db);
         return panel;
     }
 
@@ -347,7 +379,8 @@ public class SqlObjectTreeControl : UserControl
         try { key = _service.CacheId(UseSysDatabase); } catch { /* chưa chọn workspace */ }
         var sig = _currentSignature;
         // Cùng từ khoá + cùng danh sách với cây đang hiện (vd. Enter sau khi đã lọc) → giữ nguyên, không dựng lại (và không cắt ngang phần đang nối).
-        var renderKey = $"{key}|{sig}|{UseSysDatabase}|{_searchText}|{filter}";
+        var dateMode = _dateMode;
+        var renderKey = $"{key}|{sig}|{UseSysDatabase}|{_searchText}|{filter}|{dateMode}";
         if (renderKey == _renderedKey && _renderedSeq == _renderSeq && _tree.Nodes.Count > 0 && ReferenceEquals(_tree.Nodes[0], _renderedFirst)) return;   // _renderedSeq == _renderSeq: không có lần dựng nào mới hơn đang chạy
         var seq = ++_renderSeq;
         GroupItems[]? groups = null;
@@ -377,6 +410,13 @@ public class SqlObjectTreeControl : UserControl
             if (seq != _renderSeq) return;   // đã gõ thêm chữ — bỏ kết quả cũ
         }
 
+        if (dateMode != 0)
+        {
+            var named = groups;
+            groups = await Task.Run(() => ApplyDateMode(named, dateMode));
+            if (seq != _renderSeq) return;
+        }
+
         if (!_beforeExpandHooked)
         {
             _beforeExpandHooked = true;
@@ -389,7 +429,7 @@ public class SqlObjectTreeControl : UserControl
         // BeginUpdate/EndUpdate → chỉ vẽ lại một lần: không còn cảnh cây trắng xoá → hiện vài dòng → đầy đủ (chớp nháy) mỗi phím gõ.
         // Có lọc: mở hết các nhóm như trước; không lọc: mở nhóm đầu. Mỗi nhóm mở dựng trước tối đa InitialFill node (đủ phủ khung nhìn),
         // phần còn lại nối vào cuối theo đợt (nằm dưới khung nhìn nên không thấy nháy).
-        var expandAll = filter.Length > 0;
+        var expandAll = filter.Length > 0 || dateMode >= 2;   // lọc theo tên / chỉ object mới sửa: mở hết các nhóm
         var built = await Task.Run(() =>
         {
             var list = new List<(TreeNode Node, GroupState St, int Prefilled, bool Expand)>(groups.Length);
@@ -405,7 +445,7 @@ public class SqlObjectTreeControl : UserControl
                 if (n > 0)
                 {
                     var arr = new TreeNode[n];
-                    for (var j = 0; j < n; j++) arr[j] = new TreeNode(g.Items[j].QualifiedName) { Tag = g.Items[j] };
+                    for (var j = 0; j < n; j++) arr[j] = new TreeNode(NodeText(g.Items[j], dateMode)) { Tag = g.Items[j] };
                     node.Nodes.AddRange(arr);
                 }
                 else node.Nodes.Add(new TreeNode("...") { ForeColor = Color.Gray });   // chỗ giữ để có dấu [+]; thay bằng node thật khi mở
@@ -421,7 +461,8 @@ public class SqlObjectTreeControl : UserControl
         {
             _tree.Nodes.Clear();
             if (built.Count == 0)
-                _tree.Nodes.Add(new TreeNode(filter.Length > 0 ? "Không tìm thấy đối tượng nào khớp." : "Database chưa có đối tượng nào.") { ForeColor = Color.Gray });
+                _tree.Nodes.Add(new TreeNode(filter.Length > 0 ? "Không tìm thấy đối tượng nào khớp."
+                    : dateMode == 2 ? "Hôm nay chưa có object nào được sửa." : dateMode == 3 ? "7 ngày qua chưa có object nào được sửa." : "Database chưa có đối tượng nào.") { ForeColor = Color.Gray });
             else
             {
                 _tree.Nodes.AddRange(built.Select(b => b.Node).ToArray());
@@ -516,7 +557,7 @@ public class SqlObjectTreeControl : UserControl
                 if (seq != _renderSeq || node.TreeView is null) return false;   // cây đã được dựng lại / node bị gỡ
                 var n = Math.Min(FillChunk, items.Length - i);
                 var arr = new TreeNode[n];
-                for (var j = 0; j < n; j++) arr[j] = new TreeNode(items[i + j].QualifiedName) { Tag = items[i + j] };
+                for (var j = 0; j < n; j++) arr[j] = new TreeNode(NodeText(items[i + j], _dateMode)) { Tag = items[i + j] };
                 _tree.BeginUpdate();
                 try
                 {

@@ -302,6 +302,8 @@ internal sealed class ApiDeclarationPage : DialogPage
         ex.ToolTipText = _mapCount > 0 ? "Theo " + _mapFile : "Project chưa có ColumnMappings.xml (dùng \"Xuất Word từ file XML khác…\")";
         menu.Items.Add("Xuất Word từ file XML khác…", null, (_, _) => WordExport("file"));
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Tạo file Word mẫu để điền…", null, (_, _) => Post(new { action = "word-template", projectId = _in["pId"].Text.Trim() })).ToolTipText =
+            "File Word trống theo đúng bố cục (hướng dẫn + form ví dụ, bảng chừa dòng trống) để người dùng / đối tác điền rồi Nhập từ Word";
         menu.Items.Add("Nhập từ Word → ColumnMappings.xml…", null, (_, _) => Post(new { action = "word-import" })).ToolTipText = "Đọc tài liệu API Word theo mẫu → so với ColumnMappings.xml → xem khác biệt rồi mới ghi (không xoá form / cột cũ)";
         ThemeManager.ApplyMenu(menu);
         menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
@@ -813,8 +815,8 @@ internal sealed class ApiDeclarationPage : DialogPage
             case "api.wordDone": _wiDlg?.Close(); break;
             case "api.wordExported":
             {
-                var docx = Str(a, 0); var n = Int(a, 1);
-                BeginInvoke(() => { if (NK.Confirm(FindForm()!, $"Đã xuất tài liệu API {n} form:\n{docx}\n\nMở file?", "Đã xuất Word")) Post(new { action = "open-path", path = docx }); });
+                var docx = Str(a, 0); var n = Int(a, 1); var label = Str(a, 2);
+                BeginInvoke(() => { if (NK.Confirm(FindForm()!, (label.Length > 0 ? label + ":" : $"Đã xuất tài liệu API {n} form:") + $"\n{docx}\n\nMở file?", "Đã xuất Word")) Post(new { action = "open-path", path = docx }); });
                 break;
             }
             case "api.busy": Busy(Bool(a, 0)); break;

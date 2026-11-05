@@ -146,6 +146,16 @@ public sealed class ApiDeclarationForm : WebDialogForm
                 case "export-postman": ExportPostman(ReadProject(msg), msg.TryGetProperty("withSecrets", out var ws) && ws.ValueKind == JsonValueKind.True); break;
                 case "word-export": await WordExportAsync(msg); break;
                 case "word-import": await WordImportAsync(); break;
+                case "word-template":
+                {
+                    var project = Str(msg, "projectId") is { Length: > 0 } pid ? pid : _map?.Project ?? "";
+                    using var sfd = new SaveFileDialog { Title = "Lưu file Word mẫu để điền tài liệu API", Filter = "Word (*.docx)|*.docx", FileName = (project.Length > 0 ? project + "_" : "") + "MauTaiLieuAPI.docx" };
+                    if (sfd.ShowDialog(DialogOwner()) != DialogResult.OK) break;
+                    ApiMappingWord.WriteTemplate(sfd.FileName, new ApiMappingWord.DocInfo(project, "", "", ""));
+                    Status("Đã tạo file Word mẫu: " + sfd.FileName + " — điền xong dùng Word ▾ → Nhập từ Word.", "ok");
+                    Js($"api.wordExported({J(sfd.FileName)}, 0, {J("Đã tạo file Word mẫu để điền (hướng dẫn + 2 form ví dụ: danh mục, chứng từ có chi tiết)")})");
+                    break;
+                }
                 case "word-apply": await WordApplyAsync(msg); break;
                 case "token":
                 {

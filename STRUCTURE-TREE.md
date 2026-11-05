@@ -53,7 +53,7 @@ Bcode.App/
 │   ├── NativeKit.cs  515
 │   ├── NativeLookupControl.cs  295
 │   ├── NativePage.cs  274
-│   ├── NativePages.Api.cs  1064
+│   ├── NativePages.Api.cs  1066
 │   ├── NativePages.Bars.cs  31
 │   ├── NativePages.Bars2.cs  113
 │   ├── NativePages.Bbxn.cs  440
@@ -127,7 +127,7 @@ Bcode.App/
 ├── Forms/
 │   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
-│   ├── ApiDeclarationForm.cs  404
+│   ├── ApiDeclarationForm.cs  416
 │   ├── ApiSchemaBuilderForm.cs  277
 │   ├── ApiSchemaBuilderForm.Native.cs  322
 │   ├── AppCommandEditForm.cs  255
@@ -209,8 +209,8 @@ Bcode.App/
 ├── Services/
 │   ├── Api/
 │   │   ├── ApiClient.cs  375
-│   │   ├── ApiColumnMappings.cs  203
-│   │   ├── ApiMappingWord.cs  885
+│   │   ├── ApiColumnMappings.cs  204
+│   │   ├── ApiMappingWord.cs  961
 │   │   ├── ApiProjectStore.cs  171
 │   │   ├── Lt3Templates.cs  93
 │   │   └── PostmanConverter.cs  349
@@ -369,7 +369,7 @@ Bcode.App/
 │       ├── addsource.html  226
 │       ├── advnote.html  831
 │       ├── aihistory.html  128
-│       ├── apideclaration.html  904
+│       ├── apideclaration.html  906
 │       ├── apischema.html  470
 │       ├── appcommandedit.html  158
 │       ├── autoscale.js  13

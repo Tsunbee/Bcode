@@ -150,6 +150,7 @@
       <div class="menu" id="mnWord">
         <button data-w="export" title="Mỗi form 1 mục: endpoint, bảng / store, bảng trường (Parameter · Field · Data Type · Length · Description · Require · Default · Note), JSON mẫu">Xuất Word từ ColumnMappings.xml của dự án…</button>
         <button data-w="export-file">Xuất Word từ file XML khác…</button>
+        <button data-w="template" title="File Word trống theo đúng bố cục (hướng dẫn + form ví dụ, bảng chừa dòng trống) để người dùng / đối tác điền rồi Nhập từ Word">Tạo file Word mẫu để điền…</button>
         <button data-w="import" title="Đọc tài liệu API Word theo mẫu → so với ColumnMappings.xml → xem khác biệt rồi mới ghi (không xoá form / cột cũ)">Nhập từ Word → ColumnMappings.xml…</button>
       </div></span>
     <button class="danger" id="bDelete">Xoá</button>
@@ -666,6 +667,7 @@
     $('mnWord').classList.remove('on');
     if (b.dataset.w === 'import') { post('word-import'); return; }
     const p = S.p || {};
+    if (b.dataset.w === 'template') { post('word-template', { projectId: p.ProjectId || '' }); return; }
     post('word-export', { source: b.dataset.w === 'export-file' ? 'file' : 'project', projectId: p.ProjectId || '', baseUrl: $('pBase').value || p.BaseUrl || '', tokenPath: ($('pTokPath') && $('pTokPath').value) || p.TokenPath || '' });
   });
 
@@ -881,7 +883,7 @@
       ask('Gửi form ghi dữ liệu?', 'Form <b>' + esc(name) + '</b> là <b>' + esc($('fKind').value) + '</b> — sẽ <b>GHI dữ liệu</b> vào hệ thống Fast của dự án (' + esc($('pBase').value) + '). Chỉ gửi lên môi trường test / khi chắc chắn.', 'Gửi', () => send(true));
     },
     docPath(p) { $('pDoc').value = p; setDirty(true); },
-    wordExported(path, n) { ask('Đã xuất Word', 'Đã xuất tài liệu API <b>' + n + '</b> form:<br><span class="mono">' + esc(path) + '</span>', 'Mở file', () => post('open-path', { path })); },
+    wordExported(path, n, label) { ask('Đã xuất Word', (label ? esc(label) + ':' : 'Đã xuất tài liệu API <b>' + n + '</b> form:') + '<br><span class="mono">' + esc(path) + '</span>', 'Mở file', () => post('open-path', { path })); },
     wordImport(o) {
       WI = o; WI.forms.forEach((f) => { f.on = f.status !== 'same' && !wiErr(f); });
       $('wiHead').innerHTML = 'Word: <span class="mono">' + esc(o.doc) + '</span><br>' + (o.target ? (o.exists ? 'So với: ' : 'Chưa có file — sẽ tạo mới: ') + '<a href="#" id="wiTarget" class="mono">' + esc(o.target) + '</a>' + (o.project ? ' (Project ' + esc(o.project) + ')' : '')

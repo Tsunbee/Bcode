@@ -151,7 +151,82 @@ public static class ApiMappingWord
         WriteZip(path, b.ToString());
     }
 
-    private static string ColTable(List<MapCol> cols)
+    /// <summary>File Word MẪU để người dùng / đối tác điền rồi "Nhập từ Word": phần hướng dẫn + 2 form ví dụ (danh mục, chứng từ có chi tiết) đúng bố cục mà
+    /// <see cref="ReadDocx"/> đọc được, mỗi bảng chừa sẵn dòng trống. Tiêu đề "Hướng dẫn…" không phải tên form nên nhập không lấy phần đó.</summary>
+    public static void WriteTemplate(string path, DocInfo info)
+    {
+        var b = new StringBuilder();
+        b.Append(Para("TÀI LIỆU API" + (info.Project.Length > 0 ? " — " + info.Project : "") + " (mẫu để điền)", "Title"));
+        b.Append(Para($"Chuẩn LT3 (FastAPIService) · mẫu tạo ngày {DateTime.Now:dd/MM/yyyy} bằng Bcode — điền xong dùng Khai báo API → Word ▾ → Nhập từ Word → ColumnMappings.xml.", italic: true));
+
+        b.Append(Para("Hướng dẫn điền", "Heading1"));
+        foreach (var line in new[]
+        {
+            "1. Mỗi form (hàm API) là 1 mục: dòng tiêu đề kiểu Heading 1 = đúng tên form, vd setCustomers (thêm form: chép nguyên 1 mục ví dụ bên dưới rồi sửa).",
+            "2. Ngay dưới tiêu đề: \"Mô tả: …\" (tiêu đề form), \"Bảng: <bảng đích trong Fast>\", \"Store: <store đồng bộ, thường fs_sync_<bảng>>\". Thiếu Bảng / Store thì điền lúc nhập.",
+            "3. Bảng trường — mỗi dòng 1 trường JSON: Parameter = tên trường JSON (phân biệt hoa / thường); Field = cột lưu trong Fast; Data Type = kiểu SQL (VARCHAR, NVARCHAR, CHAR, NUMERIC, DECIMAL, INT, TINYINT, DATE, DATETIME…); Length = độ dài (vd 64, hoặc 19,4 cho số); Description = mô tả; Require = Y (bắt buộc) / N; Default = giá trị khi không gửi; Note = ghi chú.",
+            "4. Chứng từ có chi tiết: thêm tiêu đề Heading 2 \"Chi tiết: <tên mảng JSON>\" (vd Chi tiết: detail), các dòng \"Bảng: <bảng chi tiết>\", \"ParentField: <trường khoá ở phần đầu>\", \"ChildField: <cột khoá ở bảng chi tiết>\", rồi bảng trường như trên. Cột lấy từ phần đầu (không gửi trong JSON): để trống Parameter, Note ghi \"Parent: <trường phần đầu>\".",
+            "5. Thêm dòng: đặt con trỏ ở ô cuối bảng rồi bấm Tab. Dòng trống được bỏ qua. Không cần sửa dòng tiêu đề bảng; các mục ví dụ không dùng thì xoá.",
+            "6. Khi nhập, Bcode so với ColumnMappings.xml hiện có và cho xem trước: form / cột không có trong Word được giữ nguyên, ô để trống không xoá giá trị cũ.",
+        }) b.Append(Para(line));
+
+        var head = new MapForm
+        {
+            Name = "setDanhMucMau", Title = "Danh mục ví dụ — đổi tên form, bảng, store và các trường", Table = "dmxxx", Store = "fs_sync_dmxxx",
+            Columns =
+            {
+                new MapCol { Param = "YourID", Field = "id_doi_tac", SqlType = "VARCHAR(64)", Required = true, Description = "Khoá chính bên đối tác" },
+                new MapCol { Param = "Code", Field = "ma_xxx", SqlType = "VARCHAR(32)", Required = true, Description = "Mã" },
+                new MapCol { Param = "Name", Field = "ten_xxx", SqlType = "NVARCHAR(256)", Required = true, Description = "Tên" },
+                new MapCol { Param = "Status", Field = "status", SqlType = "CHAR(1)", Required = true, Default = "1", Description = "Trạng thái (1 = dùng)" },
+            },
+        };
+        var voucher = new MapForm
+        {
+            Name = "setChungTuMau", Title = "Chứng từ ví dụ — phần đầu + chi tiết", Table = "m81", Store = "fs_sync_m81",
+            Columns =
+            {
+                new MapCol { Param = "VoucherID", Field = "id_doi_tac", SqlType = "VARCHAR(64)", Required = true, Description = "Khoá chứng từ bên đối tác" },
+                new MapCol { Param = "VoucherDate", Field = "ngay_ct", SqlType = "DATE", Required = true, Description = "Ngày chứng từ" },
+                new MapCol { Param = "CustomerCode", Field = "ma_kh", SqlType = "VARCHAR(32)", Required = true, Description = "Mã khách hàng" },
+                new MapCol { Param = "TotalAmount", Field = "t_tt_nt", SqlType = "NUMERIC(19,4)", Description = "Tổng tiền" },
+            },
+            Children =
+            {
+                new MapChild
+                {
+                    Name = "detail", Table = "d81", ParentField = "VoucherID", ChildField = "voucher_id",
+                    Columns =
+                    {
+                        new MapCol { Field = "voucher_id", Parent = "VoucherID", SqlType = "VARCHAR(64)", Description = "Khoá chứng từ (tự lấy từ phần đầu)" },
+                        new MapCol { Param = "ItemCode", Field = "ma_vt", SqlType = "VARCHAR(32)", Required = true, Description = "Mã vật tư" },
+                        new MapCol { Param = "Quantity", Field = "so_luong", SqlType = "NUMERIC(19,4)", Required = true, Description = "Số lượng" },
+                        new MapCol { Param = "Price", Field = "gia_nt2", SqlType = "NUMERIC(19,4)", Description = "Đơn giá" },
+                    },
+                },
+            },
+        };
+        foreach (var f in new[] { head, voucher })
+        {
+            b.Append(Para(f.Name, "Heading1"));
+            b.Append(Para("Mô tả: " + f.Title, keepNext: true));
+            b.Append(Para("Endpoint: POST api/" + (f.Voucher ? "SyncVoucher" : "SyncData"), keepNext: true));
+            b.Append(Para("Bảng: " + f.Table, keepNext: true));
+            b.Append(Para("Store: " + f.Store, keepNext: true));
+            b.Append(ColTable(f.Columns, blankRows: 6));
+            foreach (var ct in f.Children)
+            {
+                b.Append(Para("Chi tiết: " + ct.Name, "Heading2"));
+                b.Append(Para("Bảng: " + ct.Table, keepNext: true));
+                b.Append(Para("ParentField: " + ct.ParentField, keepNext: true));
+                b.Append(Para("ChildField: " + ct.ChildField, keepNext: true));
+                b.Append(ColTable(ct.Columns, blankRows: 6));
+            }
+        }
+        WriteZip(path, b.ToString());
+    }
+
+    private static string ColTable(List<MapCol> cols, int blankRows = 0)
     {
         var rows = new List<string> { Row(Heads, header: true) };
         foreach (var c in cols)
@@ -162,6 +237,7 @@ public static class ApiMappingWord
             if (c.DataType.Length > 0) note.Add("DataType: " + c.DataType);
             rows.Add(Row(new[] { c.Param, c.Field, type, len, c.Description, c.Parent.Length > 0 ? "" : c.Required ? "Y" : "N", c.Default ?? "", string.Join("; ", note) }));
         }
+        for (var i = 0; i < blankRows; i++) rows.Add(Row(Enumerable.Repeat("", Heads.Length).ToList()));   // dòng trống để điền (nhập bỏ qua dòng trống)
         return Table(Widths, rows);
     }
 

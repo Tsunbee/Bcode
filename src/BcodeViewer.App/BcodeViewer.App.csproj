@@ -5,6 +5,16 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Chỉ để có System.Windows.Automation (UIAutomationClient — Host/BrowserTabLauncher.Uia.cs: F5 tìm lại tab trong Chrome / Edge
+         đang mở của người dùng). Không dùng XAML / cửa sổ WPF. -->
+    <UseWPF>true</UseWPF>
+    <!-- UseWPF bỏ 2 using ngầm định này (tránh trùng tên với WPF) — code WinForms sẵn có vẫn dựa vào chúng. -->
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Using Include="System.Net.Http" />
+  </ItemGroup>
+  <PropertyGroup>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>BcodeViewer.App</RootNamespace>
     <AssemblyName>BcodeViewer</AssemblyName>

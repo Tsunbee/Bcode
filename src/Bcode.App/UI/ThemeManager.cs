@@ -500,8 +500,11 @@ public static class ThemeManager
         // Style khai báo theo loại control (UiTemplate) — ghi đè lên mặc định của theme ở trên.
         if (UiTemplate.StyleFor(c) is { } custom) ApplyTemplateStyle(c, custom);
 
-        // Style theo KHU VỰC (cây menu, thanh tab, thanh trên...) — cụ thể hơn "theo loại control" nên áp sau cùng.
-        if (AreaOf(c) is { } area && UiTemplate.AreaStyle(area) is { } areaStyle) ApplyTemplateStyle(c, areaStyle);
+        // Style theo KHU VỰC (cây menu, thanh trên...) — cụ thể hơn "theo loại control" nên áp sau cùng.
+        // Trừ "Thanh tab": chữ / màu tab do PaintTab (TabFont) và FlatTabControl tự vẽ. Áp vào control thì nó lan xuống NỘI DUNG mọi tab
+        // (cây File Lookup, lưới, ô nhập... cùng đậm + đổi màu theo thanh tab, không chỉnh lại được) — cả trực tiếp (AreaOf của control con
+        // là "tabs") lẫn gián tiếp (Font đậm của TabControl là font "ambient" của TabPage → quy tắc c.Font.Bold ? BoldFont ở trên giữ đậm luôn).
+        if (AreaOf(c) is { } area && area != "tabs" && UiTemplate.AreaStyle(area) is { } areaStyle) ApplyTemplateStyle(c, areaStyle);
 
         if (c is TreeView treeView) treeView.ItemHeight = Math.Max(10, treeView.Font.Height + NativeSkin.Dens(treeView, 6)); // font có thể vừa đổi ở trên
     }
@@ -573,7 +576,7 @@ public static class ThemeManager
         using var back = new SolidBrush(AppColors.Accent);
         e.Graphics.FillRectangle(back, e.Bounds);
         TextRenderer.DrawText(
-            e.Graphics, e.Node.Text, e.Node.TreeView?.Font ?? BaseFont, e.Bounds,
+            e.Graphics, e.Node.Text, e.Node.NodeFont ?? e.Node.TreeView?.Font ?? BaseFont, e.Bounds,   // node có font riêng (đậm/thường theo loại file) giữ nguyên khi chọn
             AppColors.OnAccent, // contrasts with the amber fill in either theme
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPrefix);
     }

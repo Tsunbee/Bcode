@@ -94,6 +94,10 @@ public class ViewerSettings
     /// </summary>
     public bool EnableSqlWrites { get; set; } = false;
 
+    /// <summary>F5 (lưu rồi mở menu của file trên web): true (mặc định) = lần sau chuyển tới + nạp lại đúng tab đã mở cho trang đó
+    /// trong Chrome / Edge đang mở của người dùng (Host/BrowserTabLauncher.cs, qua UI Automation); false = mỗi lần F5 bung 1 tab mới như cũ.</summary>
+    public bool F5ReuseTab { get; set; } = true;
+
     /// <summary>Đường dẫn Config.xml của FCode (vd D:\Tool\FCode\Config\Config.xml). Chỉ dùng khi
     /// Bcode CHƯA có workspace nào (chưa có settings.json) — "Chạy SQL" và gợi ý SQL khi đó tự kết
     /// nối theo project trong file này (xem WorkspaceConnection.LoadFromFcodeConfig).</summary>

@@ -127,7 +127,7 @@ public sealed class UiTemplate
     {
         ("top", "Thanh trên", "Brand, Script, Workspace, chọn project, thanh công cụ"),
         ("tree", "Cây menu bên trái", "Cây WCommand / SQL Object, thanh lọc, cột biểu tượng"),
-        ("tabs", "Thanh tab", "Các tab tài liệu (SQL Query, Table, Gen Update...)"),
+        ("tabs", "Thanh tab", "Chữ và nền của dải tab tài liệu (SQL Query, Table, Gen Update...) — không đổi nội dung bên trong tab"),
         ("editor", "Vùng soạn thảo SQL", "Editor SQL và thanh Execute / Debug"),
         ("result", "Vùng kết quả", "Lưới kết quả SQL (Result with N table(s))"),
         ("status", "Thanh trạng thái", "Dòng trạng thái dưới cùng"),

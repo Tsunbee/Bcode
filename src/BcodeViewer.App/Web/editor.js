@@ -203,7 +203,7 @@ class BcodeEditor {
     // BcodeDialogs.showInlineGenerate in contextmenu.js): asks Claude for code based on
     // a short instruction, shown for review before an explicit "Insert" applies it.
     this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI, () => window.bcodeDialogs.showInlineGenerate(this));
-    // F5 — lưu file rồi mở menu của file này bằng trình duyệt mặc định (xem saveAndRunMenu).
+    // F5 — lưu file rồi mở menu của file này trên trình duyệt (xem saveAndRunMenu).
     // Bắt ở cấp document (pha capture) chứ không chỉ khi con trỏ đang trong editor: nếu F5 xuất hiện lúc focus ở chỗ
     // khác trong trang (panel, ô chat...) thì trình duyệt sẽ tải lại cả trang.
     document.addEventListener('keydown', (e) => {
@@ -802,7 +802,8 @@ class BcodeEditor {
     }
   }
 
-  /// F5: Save (như Ctrl+S) rồi mở đúng menu của file đang mở bằng trình duyệt mặc định (không qua Bcode.App).
+  /// F5: Save (như Ctrl+S) rồi mở đúng menu của file đang mở trên trình duyệt (không qua Bcode.App) — lần sau dùng lại đúng
+  /// tab đã mở trong Chrome/Edge đang mở (Host/BrowserTabLauncher.cs); Settings → "Mở web (F5)" tắt được.
   async saveAndRunMenu() {
     if (!this.activePath) return;
     await this.saveActive();

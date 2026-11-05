@@ -285,6 +285,7 @@ public class EditorBridge
         lightMode = _settings.LightMode,
         wordWrap = _settings.WordWrap,
         aiSidebarPosition = _settings.AiSidebarPosition,
+        f5ReuseTab = _settings.F5ReuseTab,
     });
 
     /// <summary>Saves what the page's Settings dialog sends back, then reloads what depends on
@@ -328,6 +329,7 @@ public class EditorBridge
             _settings.AutoFitFont = B("autoFitFont");
             _settings.LightMode = S("lightMode") is "on" or "off" ? S("lightMode") : "auto";
             _settings.WordWrap = B("wordWrap");
+            if (r.TryGetProperty("f5ReuseTab", out _)) _settings.F5ReuseTab = B("f5ReuseTab");
             if (r.TryGetProperty("autoFitMinFont", out var minFont) && minFont.TryGetInt32(out var mf)) _settings.AutoFitMinFont = Math.Clamp(mf, 6, 14);
             var fcodeStyle = S("fcodeThemeStyle") == "fcode" ? "fcode" : "bcode";
             var styleChanged = fcodeStyle != _settings.FcodeThemeStyle;
@@ -1218,7 +1220,7 @@ public class EditorBridge
         _async.Begin(requestId, null, async token =>
         {
             var project = WorkspaceConnection.ResolveProjectName(path) ?? "";
-            try { return await MenuLauncher.OpenInBrowserAsync(path, project, token); }
+            try { return await MenuLauncher.OpenInBrowserAsync(path, project, _settings.F5ReuseTab, token); }
             catch (Exception ex) { return "Đã lưu. Không mở được trình duyệt: " + ex.Message; }
         });
 

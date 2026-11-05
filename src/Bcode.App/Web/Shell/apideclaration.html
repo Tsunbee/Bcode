@@ -117,6 +117,23 @@
   .pick label { display: flex; gap: .4rem; align-items: center; padding: .1rem 0; cursor: pointer; }
   .dirty { color: var(--api-warn); font-size: .85rem; font-weight: 600; }
   .notes { margin: 0; padding-left: 1.1rem; color: var(--api-label); font-size: .9rem; }
+  .wmenu { position: relative; display: inline-flex; }
+  .menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; display: none; flex-direction: column; min-width: 21rem; padding: .25rem; background: var(--panel); border: var(--bw) solid var(--border); border-radius: var(--r); box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+  .menu.on { display: flex; }
+  .menu button { text-align: left; border-color: transparent; background: transparent; }
+  .menu button:hover:not(:disabled) { background: var(--panel-alt); }
+  #mWordImp .box { width: min(70rem, 96vw); height: 88vh; }
+  #mWordImp .bd { flex: 1; min-height: 0; }
+  .wi { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .wi th, .wi td { border-bottom: 1px solid var(--border); padding: .2rem .4rem; text-align: left; vertical-align: top; }
+  .wi th { position: sticky; top: 0; background: var(--panel-alt); z-index: 1; }
+  .wi input[type=text] { width: 9rem; box-sizing: border-box; }
+  .wi tr.sel td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .wi .st { font-weight: 600; white-space: nowrap; }
+  .wi .st.new { color: var(--api-ok); } .wi .st.changed { color: var(--api-warn); } .wi .st.same { color: var(--api-hint); } .wi .st.error { color: var(--api-danger); }
+  .wi ul { margin: .1rem 0 .1rem 1rem; padding: 0; } .wi li { margin: 0; }
+  .wi .kept { color: var(--api-hint); } .wi .err { color: var(--api-danger); }
+  .wiScroll { flex: 1; min-height: 0; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); }
   @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; overflow: auto; } .col { overflow: visible; } }
 </style>
 </head>
@@ -129,6 +146,12 @@
     <button id="bOld" style="display:none" title="Chuyển hồ sơ kiểu cũ (mật khẩu chữ thường) sang dạng mới, mật khẩu mã hoá">Chuyển hồ sơ cũ</button>
     <button id="bSave" title="Lưu dự án">Lưu</button>
     <button id="bExport" title="Xuất Postman theo chuẩn LT3 (getToken tự lưu {{token}}, không kèm mật khẩu)">Xuất Postman…</button>
+    <span class="wmenu"><button id="bWord" title="Tài liệu Word ↔ ColumnMappings.xml (mapping LT3 của dự án)">Word ▾</button>
+      <div class="menu" id="mnWord">
+        <button data-w="export" title="Mỗi form 1 mục: endpoint, bảng / store, bảng trường (Parameter · Field · Data Type · Length · Description · Require · Default · Note), JSON mẫu">Xuất Word từ ColumnMappings.xml của dự án…</button>
+        <button data-w="export-file">Xuất Word từ file XML khác…</button>
+        <button data-w="import" title="Đọc tài liệu API Word theo mẫu → so với ColumnMappings.xml → xem khác biệt rồi mới ghi (không xoá form / cột cũ)">Nhập từ Word → ColumnMappings.xml…</button>
+      </div></span>
     <button class="danger" id="bDelete">Xoá</button>
   </div>
   <span class="dirty" id="dirty"></span>
@@ -290,6 +313,18 @@
 <div class="modal" id="mDoc"><div class="box">
   <div class="bd doc" id="docBody"></div>
   <div class="ft"><button id="docOpen">Mở trang tài liệu ↗</button><button class="primary" id="docClose">Đóng</button></div>
+</div></div>
+
+<!-- Nhập từ Word → ColumnMappings.xml: xem khác biệt trước khi ghi -->
+<div class="modal" id="mWordImp"><div class="box">
+  <div class="bd">
+    <h3 style="margin:0">Nhập từ Word → ColumnMappings.xml</h3>
+    <div class="hint" id="wiHead"></div>
+    <div class="row"><label class="chk"><input type="checkbox" id="wiAll" /> Chọn tất cả form mới / có thay đổi</label><span class="muted" id="wiCount"></span></div>
+    <div class="wiScroll"><table class="wi"><thead><tr><th></th><th>Form</th><th>Trạng thái</th><th>table</th><th>store</th><th>Thay đổi sẽ ghi (không xoá gì: cột chỉ có trong XML được giữ nguyên)</th></tr></thead><tbody id="wiBody"></tbody></table></div>
+    <ul class="notes" id="wiNotes"></ul>
+  </div>
+  <div class="ft"><button id="wiCancel">Đóng</button><button id="wiCopy" title="Chép XML các form đã chọn (đã ghép với mapping hiện có) để dán tay">Chép XML</button><button id="wiSave" title="Lưu mapping đã ghép thành file khác (không đụng file của dự án)">Lưu file XML…</button><button class="primary" id="wiWrite">Ghi vào ColumnMappings.xml</button></div>
 </div></div>
 
 <!-- xác nhận gửi form ghi dữ liệu -->
@@ -619,6 +654,72 @@
   $('lnkDoc').onclick = (e) => { e.preventDefault(); post('open-path', { path: S.docUrl }); };
   $('bClose').onclick = () => post('close');
 
+  // ---------------------------------------------------------------- Word ↔ ColumnMappings.xml (C#: ApiMappingWord)
+  $('bWord').onclick = (e) => {
+    e.stopPropagation();
+    const m = S.mapping || {}, b = document.querySelector('#mnWord [data-w="export"]');
+    b.disabled = !m.count; b.title = m.count ? 'Theo ' + m.file : 'Project chưa có ColumnMappings.xml' + (m.error ? ' — ' + m.error : '') + ' (dùng "Xuất Word từ file XML khác…")';
+    $('mnWord').classList.toggle('on');
+  };
+  document.addEventListener('click', () => $('mnWord').classList.remove('on'));
+  document.querySelectorAll('#mnWord button').forEach((b) => b.onclick = () => {
+    $('mnWord').classList.remove('on');
+    if (b.dataset.w === 'import') { post('word-import'); return; }
+    const p = S.p || {};
+    post('word-export', { source: b.dataset.w === 'export-file' ? 'file' : 'project', projectId: p.ProjectId || '', baseUrl: $('pBase').value || p.BaseUrl || '', tokenPath: ($('pTokPath') && $('pTokPath').value) || p.TokenPath || '' });
+  });
+
+  let WI = null;
+  const WST = { new: 'Mới', changed: 'Sửa', same: 'Giống' };
+  const wiErr = (f) => !f.table.trim() ? 'Thiếu table (bảng đích) — service bỏ qua form không có table.' : !f.store.trim() ? 'Thiếu store (fs_sync_…) — service bỏ qua form không có store.' : '';
+  function wiRow(f, i) {
+    const err = wiErr(f);
+    return '<tr data-i="' + i + '"' + (f.on ? ' class="sel"' : '') + '><td><input type="checkbox" class="wiOn"' + (f.on ? ' checked' : '') + ' /></td>' +
+      '<td><span class="mono">' + esc(f.name) + '</span>' + (f.voucher ? ' <span class="badge SyncVoucher">SyncVoucher</span>' : '') + (f.title ? '<div class="muted">' + esc(f.title) + '</div>' : '') + '</td>' +
+      '<td class="st ' + (err ? 'error' : f.status) + '">' + (WST[f.status] || f.status) + '<div class="muted">' + f.columns + ' cột</div></td>' +
+      '<td><input type="text" class="wiT mono" value="' + esc(f.table) + '" placeholder="bảng đích" /></td>' +
+      '<td><input type="text" class="wiS mono" value="' + esc(f.store) + '" placeholder="fs_sync_…" /></td>' +
+      '<td><div class="err">' + esc(err) + '</div>' + (f.changes.length ? '<ul>' + f.changes.map((c) => '<li>' + esc(c) + '</li>').join('') + '</ul>' : f.status === 'same' ? '<span class="muted">Giống ColumnMappings.xml.</span>' : '') +
+      (f.kept.length ? '<div class="kept">Giữ nguyên (chỉ có trong XML): ' + esc(f.kept.join(' · ')) + '</div>' : '') +
+      (f.warnings.length ? '<div class="kept">' + esc(f.warnings.join(' · ')) + '</div>' : '') + '</td></tr>';
+  }
+  function wiCount() {
+    const on = WI.forms.filter((f) => f.on).length, n = (s) => WI.forms.filter((f) => f.status === s).length;
+    $('wiCount').textContent = on + ' / ' + WI.forms.length + ' form được chọn · ' + n('new') + ' mới · ' + n('changed') + ' sửa · ' + n('same') + ' giống';
+    const cand = WI.forms.filter((f) => f.status !== 'same');
+    $('wiAll').checked = cand.length > 0 && cand.every((f) => f.on);
+  }
+  $('wiBody').addEventListener('change', (e) => {
+    const tr = e.target.closest('tr'); if (!tr || !e.target.classList.contains('wiOn')) return;
+    const f = WI.forms[+tr.dataset.i]; f.on = e.target.checked; tr.classList.toggle('sel', f.on); wiCount();
+  });
+  $('wiBody').addEventListener('input', (e) => {
+    const tr = e.target.closest('tr'); if (!tr) return;
+    const f = WI.forms[+tr.dataset.i];
+    if (e.target.classList.contains('wiT')) {
+      const auto = !f.store.trim() || f.store === 'fs_sync_' + f.table;   // store đang để trống / theo tên bảng → tự đổi theo bảng
+      f.table = e.target.value.trim();
+      if (auto) { f.store = f.table ? 'fs_sync_' + f.table : ''; tr.querySelector('.wiS').value = f.store; }
+    } else if (e.target.classList.contains('wiS')) f.store = e.target.value.trim();
+    else return;
+    const err = wiErr(f); tr.querySelector('.err').textContent = err; tr.querySelector('.st').className = 'st ' + (err ? 'error' : f.status);
+  });
+  $('wiAll').onchange = () => { WI.forms.forEach((f) => { if (f.status !== 'same') f.on = $('wiAll').checked; }); $('wiBody').innerHTML = WI.forms.map(wiRow).join(''); wiCount(); };
+  function wiGo(mode) {
+    const picked = WI.forms.filter((f) => f.on);
+    if (!picked.length) { api.status('Chưa chọn form nào.', 'warn'); return; }
+    const bad = picked.filter(wiErr);
+    if (bad.length) { api.status('Điền table / store cho: ' + bad.map((f) => f.name).join(', '), 'err'); return; }
+    const forms = picked.map((f) => ({ name: f.name, table: f.table.trim(), store: f.store.trim() }));
+    if (mode !== 'write') { post('word-apply', { mode, forms }); return; }
+    ask('Ghi vào ColumnMappings.xml?', 'Ghi <b>' + forms.length + '</b> form vào <span class="mono">' + esc(WI.target) + '</span>.<br>' + (WI.exists ? 'File cũ được sao lưu thành <span class="mono">ColumnMappings.xml.bak_&lt;ngày_giờ&gt;</span> cùng thư mục; form / cột không có trong Word giữ nguyên. ' : 'Chưa có file — sẽ tạo mới. ') +
+      'Service API đọc mapping mới khi cache hết hạn / restart app pool — nên ghi ở môi trường test trước.', 'Ghi', () => post('word-apply', { mode, forms }));
+  }
+  $('wiWrite').onclick = () => wiGo('write');
+  $('wiSave').onclick = () => wiGo('save');
+  $('wiCopy').onclick = () => wiGo('copy');
+  $('wiCancel').onclick = () => $('mWordImp').classList.remove('on');
+
   // ---------------------------------------------------------------- chọn form từ mẫu LT3
   function openPicker(mode) {
     S.mode = mode;
@@ -780,6 +881,18 @@
       ask('Gửi form ghi dữ liệu?', 'Form <b>' + esc(name) + '</b> là <b>' + esc($('fKind').value) + '</b> — sẽ <b>GHI dữ liệu</b> vào hệ thống Fast của dự án (' + esc($('pBase').value) + '). Chỉ gửi lên môi trường test / khi chắc chắn.', 'Gửi', () => send(true));
     },
     docPath(p) { $('pDoc').value = p; setDirty(true); },
+    wordExported(path, n) { ask('Đã xuất Word', 'Đã xuất tài liệu API <b>' + n + '</b> form:<br><span class="mono">' + esc(path) + '</span>', 'Mở file', () => post('open-path', { path })); },
+    wordImport(o) {
+      WI = o; WI.forms.forEach((f) => { f.on = f.status !== 'same' && !wiErr(f); });
+      $('wiHead').innerHTML = 'Word: <span class="mono">' + esc(o.doc) + '</span><br>' + (o.target ? (o.exists ? 'So với: ' : 'Chưa có file — sẽ tạo mới: ') + '<a href="#" id="wiTarget" class="mono">' + esc(o.target) + '</a>' + (o.project ? ' (Project ' + esc(o.project) + ')' : '')
+        : 'Project chưa khai báo API Path (Edit Project) — chỉ "Lưu file XML…" / "Chép XML" được.') + '<br>Form mới cần <b>table</b> + <b>store</b> (tài liệu không ghi thì điền ở bảng dưới, store tự gợi ý fs_sync_&lt;bảng&gt;).';
+      const a = $('wiTarget'); if (a) a.onclick = (e) => { e.preventDefault(); post('open-path', { path: o.target }); };
+      $('wiWrite').disabled = !o.canWrite;
+      $('wiNotes').innerHTML = (o.notes || []).map((x) => '<li>' + esc(x) + '</li>').join('');
+      $('wiBody').innerHTML = WI.forms.map(wiRow).join(''); wiCount();
+      $('mWordImp').classList.add('on');
+    },
+    wordDone() { $('mWordImp').classList.remove('on'); },
     busy(on) { ['bSend', 'bToken'].forEach((id) => { $(id).disabled = !!on || (id === 'bSend' && S.sel < 0); }); },
     status(text, kind) { const s = $('status'); s.textContent = text; s.title = text; s.className = 'status' + (kind ? ' ' + kind : ''); },
   };

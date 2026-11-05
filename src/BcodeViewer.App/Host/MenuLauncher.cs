@@ -4,16 +4,20 @@ namespace BcodeViewer.App.Host;
 
 /// <summary>
 /// F5 của BcodeViewer: tự tra menu wcommand của file rồi bung
-/// trình duyệt mặc định tới URL đó để người dùng đăng nhập và kiểm tra. Khác bản trong Bcode.App ở chỗ không tự điền
+/// trình duyệt tới URL đó để người dùng đăng nhập và kiểm tra. Khác bản trong Bcode.App ở chỗ không tự điền
 /// User/Pass được — trình duyệt chuẩn không cho nhúng script đăng nhập — nên chỉ mở trang.
+/// Mở bằng trình duyệt mặc định; F5 lần sau dùng lại đúng tab đã mở cho trang đó trong Chrome / Edge đang mở (BrowserTabLauncher).
+/// Settings → "Mở web (F5)" tắt được (mỗi lần 1 tab mới như cũ).
 ///
 /// Workspace lấy từ Bcode (settings.json) hoặc, nếu chưa có, từ Config.xml của FCode (xem Settings) — cùng nguồn với
 /// "Chạy SQL". Tra menu cần mật khẩu SQL; thiếu/lỗi thì vẫn mở trang đăng nhập của project.
 /// </summary>
 internal static class MenuLauncher
 {
+    /// <param name="reuseTab">true (mặc định) = dùng lại đúng tab đã mở cho trang này trong Chrome / Edge đang mở (BrowserTabLauncher);
+    /// false = mỗi lần F5 bung 1 tab mới (cách cũ).</param>
     /// <returns>Câu thông báo cho người dùng.</returns>
-    public static async Task<string> OpenInBrowserAsync(string filePath, string project, CancellationToken token)
+    public static async Task<string> OpenInBrowserAsync(string filePath, string project, bool reuseTab, CancellationToken token)
     {
         var ws = WorkspaceConnection.LoadWorkspaceForProject(project);
         if (ws is null || string.IsNullOrWhiteSpace(ws.LoginWLink))
@@ -45,8 +49,20 @@ internal static class MenuLauncher
             note = " Không tra được menu (" + ex.Message + ") — mở trang đăng nhập.";
         }
 
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url ?? ws.LoginWLink) { UseShellExecute = true });
-        return (url is null ? "Đã lưu — đã mở trình duyệt." + note : "Đã lưu — đã mở menu trong trình duyệt: " + url);
+        var target = url ?? ws.LoginWLink.Trim();
+        if (reuseTab)
+        {
+            try
+            {
+                var done = await BrowserTabLauncher.OpenAsync(target, token);
+                return "Đã lưu — " + done + (url is null ? "." + note : ": " + url);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { /* lỗi UI Automation xảy ra trước khi mở gì — mở như cũ bên dưới */ }
+        }
+
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(target) { UseShellExecute = true });
+        return (url is null ? "Đã lưu — đã mở trình duyệt." + note : "Đã lưu — đã mở menu trong trình duyệt: " + url + note);
     }
 
     /// <summary>Cùng cách ghép với Bcode.App (MainForm.BuildMenuUrl): gốc = thư mục Main của site.</summary>

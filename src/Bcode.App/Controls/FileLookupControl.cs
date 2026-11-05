@@ -297,6 +297,9 @@ public partial class FileLookupControl : UserControl
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToBars;
         Bcode.App.UI.ThemeManager.ThemeChanged += RecolorTreeOnTheme;
+        // ThemeManager đặt lại font cây mỗi lần áp Template / đổi DPI → tính lại font nền + font từng node (đậm / thường theo loại file).
+        _tree.FontChanged += (_, _) => { if (!_settingTreeFont) ReformatTree(); };
+        EnsureTreeFont();
         // Ô Search: gõ là tìm / ấn Enter mới tìm (Template → Tìm file) — đẩy lúc thanh nạp xong và mỗi lần đổi trong Template.
         _barWeb.Ready += PushSearchMode;
         FileLookupService.SearchModeChanged += OnSearchModeChanged;
@@ -428,7 +431,7 @@ public partial class FileLookupControl : UserControl
         var path = _pathText.Trim();
         _loadVersion++;                               // huỷ lần dựng cây đang chạy cho project cũ
         _tree.Nodes.Clear();
-        _tree.Nodes.Add(new TreeNode("(Chưa quét thư mục này — chọn menu ở cây bên trái, hoặc bấm Load để quét toàn bộ)") { ForeColor = Color.Gray });
+        _tree.Nodes.Add(new TreeNode("(Chưa quét thư mục này — chọn menu ở cây bên trái, hoặc bấm Load để quét toàn bộ)") { ForeColor = Color.Gray, NodeFont = _regularNodeFont });
         ShowNoSelection();
         PushCheckedCount();
         SetStatus("Đã đổi project — chưa quét " + path + ". Bấm Load để quét, hoặc chọn menu để xem file của menu đó.", false);
@@ -589,6 +592,7 @@ public partial class FileLookupControl : UserControl
         try
         {
             _tree.Nodes.Clear();
+            FormatNodes(new[] { rootNode });   // đậm / thường theo loại file — trước khi gắn vào cây (không phải cập nhật node đã có handle)
             _tree.Nodes.Add(rootNode);
             if (menuMode || search is not null)
                 _tree.ExpandAll();
@@ -774,6 +778,8 @@ public partial class FileLookupControl : UserControl
             ImageKey = "folder", SelectedImageKey = "folder",
             Tag = new FileLookupNode { Name = "Search results", FullPath = searchIn, IsDirectory = true },
         };
+        liveRoot.ForeColor = FolderColor();
+        FormatNodes(new[] { liveRoot });
         _tree.Nodes.Add(liveRoot);
 
         void Flush()
@@ -785,7 +791,9 @@ public partial class FileLookupControl : UserControl
             {
                 while (pending.TryDequeue(out var path))
                 {
-                    liveRoot.Nodes.Add(ToTreeNode(new FileLookupNode { Name = Path.GetFileName(path), FullPath = path }));
+                    var match = ToTreeNode(new FileLookupNode { Name = Path.GetFileName(path), FullPath = path });
+                    FormatNodes(new[] { match });
+                    liveRoot.Nodes.Add(match);
                     foundSoFar++;
                 }
                 liveRoot.Expand();
@@ -848,6 +856,7 @@ public partial class FileLookupControl : UserControl
         try
         {
             _tree.Nodes.Clear(); // bỏ cây tạm đang hiện dần, thay bằng kết quả cuối đã sắp xếp
+            FormatNodes(new[] { rootNode });
             _tree.Nodes.Add(rootNode);
             _tree.ExpandAll();
         }
@@ -1501,7 +1510,8 @@ public partial class FileLookupControl : UserControl
         if (opt.FileMode == Bcode.App.UI.TreeColorOptions.None) return Color.Empty;
         if (opt.FileMode == Bcode.App.UI.TreeColorOptions.Custom)
         {
-            var picked = Path.GetExtension(fileName).ToLowerInvariant() switch { ".f" => opt.FileF, ".xml" => opt.FileXml, _ => opt.FileOther };
+            var key = Bcode.App.UI.TreeColorOptions.KeyOf(fileName, false);
+            var picked = key switch { ".f" => opt.FileF, ".xml" => opt.FileXml, _ => opt.ExtColor(key) ?? opt.FileOther };
             return Bcode.App.UI.UiTemplate.ParseColor(picked) ?? Color.Empty;
         }
         var dark = AppColors.IsDark;
@@ -1520,8 +1530,59 @@ public partial class FileLookupControl : UserControl
         return opt.FileMode == Bcode.App.UI.TreeColorOptions.Custom ? Bcode.App.UI.UiTemplate.ParseColor(opt.FileFolder) ?? Color.Empty : Color.Empty;
     }
 
-    /// <summary>Đổi theme sáng/tối thì tô lại màu theo đuôi (file đang báo lỗi giữ màu đỏ).</summary>
-    private void RecolorTreeOnTheme() => RecolorTreeByExtension(_tree.Nodes.Cast<TreeNode>());
+    /// <summary>Đổi theme sáng/tối / áp Template thì tô lại màu theo đuôi (file đang báo lỗi giữ màu đỏ) và tính lại đậm / thường.</summary>
+    private void RecolorTreeOnTheme()
+    {
+        _tree.BeginUpdate();
+        try
+        {
+            RecolorTreeByExtension(_tree.Nodes.Cast<TreeNode>());
+            ReformatTree();
+        }
+        finally { _tree.EndUpdate(); }
+    }
+
+    // ---- Đậm / thường theo loại file (Template → "Màu cây" → Cây File Lookup) ----
+    private bool _settingTreeFont;
+    /// <summary>Khác null khi cây đang dùng font ĐẬM làm nền (có loại file chọn đậm): node không đậm gắn NodeFont = font thường này.</summary>
+    private Font? _regularNodeFont;
+
+    /// <summary>Font nền của cây. TreeView đo bề rộng chữ từng node bằng font của CÂY, nên NodeFont đậm trên cây font thường bị cắt mất chữ
+    /// cuối. Vì vậy khi có loại file chọn đậm: font cây = bản đậm, node thường gắn NodeFont = bản thường (chữ hẹp hơn chỗ đo — không cắt).
+    /// Độ đậm nền chỉ lấy từ style "Tree" của Template — không theo font đang có (đậm có thể do chính hàm này đặt, hoặc do thanh tab lan xuống ở bản cũ).</summary>
+    private void EnsureTreeFont()
+    {
+        var opt = Bcode.App.UI.TreeColorOptions.Current;
+        var f = _tree.Font;
+        var kindBold = Bcode.App.UI.UiTemplate.StyleFor(_tree)?.Bold == true;
+        var regular = Bcode.App.UI.UiTemplate.GetFont(f.FontFamily.Name, f.SizeInPoints, kindBold);
+        var boldBase = opt.AnyFileBold && !kindBold;
+        var want = boldBase ? Bcode.App.UI.UiTemplate.GetFont(f.FontFamily.Name, f.SizeInPoints, true) : regular;
+        _regularNodeFont = boldBase ? regular : null;
+        if (Equals(_tree.Font, want)) return;
+        _settingTreeFont = true;
+        try { _tree.Font = want; }
+        finally { _settingTreeFont = false; }
+    }
+
+    private void ReformatTree()
+    {
+        EnsureTreeFont();
+        FormatNodes(_tree.Nodes.Cast<TreeNode>());
+    }
+
+    /// <summary>Gắn NodeFont theo loại: node đậm = null (font đậm của cây), node thường = <see cref="_regularNodeFont"/>.</summary>
+    private void FormatNodes(IEnumerable<TreeNode> nodes)
+    {
+        var opt = Bcode.App.UI.TreeColorOptions.Current;
+        foreach (var n in nodes)
+        {
+            var bold = n.Tag is FileLookupNode f && opt.IsBold(Bcode.App.UI.TreeColorOptions.KeyOf(f.Name, f.IsDirectory));
+            var font = _regularNodeFont is null || bold ? null : _regularNodeFont;
+            if (!ReferenceEquals(n.NodeFont, font)) n.NodeFont = font;
+            if (n.Nodes.Count > 0) FormatNodes(n.Nodes.Cast<TreeNode>());
+        }
+    }
 
     private void RecolorTreeByExtension(IEnumerable<TreeNode> nodes)
     {

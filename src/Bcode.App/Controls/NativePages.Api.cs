@@ -97,13 +97,15 @@ internal sealed class ApiDeclarationPage : DialogPage
         // ---- thanh trên ----
         _bOld = NK.Button("Chuyển hồ sơ cũ", () => Post(new { action = "import-old" }), tip: "Chuyển hồ sơ kiểu cũ (mật khẩu chữ thường) sang dạng mới, mật khẩu mã hoá"); _bOld.Visible = false;
         var bDelete = NK.Button("Xoá", DeleteProject, tip: "Xoá dự án khỏi máy này");
+        PillButton bWord = null!;
+        bWord = NK.Button("Word ▾", () => WordMenu(bWord), tip: "Tài liệu Word ↔ ColumnMappings.xml: xuất Word mô tả API từ mapping, nhập Word API mẫu vào mapping");
         var top = TopBar();
         top.Controls.AddRange(new Control[]
         {
             NK.Text("Dự án"), _projects,
             NK.Button("＋ Mới từ mẫu LT3", () => OpenPicker(true), primary: true, tip: "Tạo dự án mới từ mẫu chuẩn phòng LT3 (31 form của tài liệu API)"),
             NK.Button("Nhập Postman…", () => Post(new { action = "import-postman" })), _bOld,
-            NK.Button("Lưu", SaveProject, tip: "Lưu dự án (Ctrl+S)"), NK.Button("Xuất Postman…", ExportPostman),
+            NK.Button("Lưu", SaveProject, tip: "Lưu dự án (Ctrl+S)"), NK.Button("Xuất Postman…", ExportPostman), bWord,
             bDelete, _dirty, NK.Button("Tài liệu API LT3 ↗", () => Post(new { action = "open-path", path = _docUrl })),
         });
         _projects.SelectionChanged += i => { if (!_loading && i > 0 && i - 1 < _projectNames.Count) Post(new { action = "open", name = _projectNames[i - 1] }); };
@@ -138,7 +140,7 @@ internal sealed class ApiDeclarationPage : DialogPage
         var fBtns = NK.Row(
             NK.Button("＋ Từ mẫu LT3", () => { if (_p is not null) OpenPicker(false); }, tip: "Thêm form từ ColumnMappings.xml của dự án (nếu Project có API Path) / mẫu chuẩn LT3"), NK.Button("＋ Form trống", AddBlank), NK.Button("Nhân bản", Duplicate),
             NK.Button("▲", () => Move(-1), tip: "Lên"), NK.Button("▼", () => Move(1), tip: "Xuống"), bDelForm);
-        _bMap = NK.Button("Mở ColumnMappings.xml", () => Post(new { action = "open-path", path = _mapFile }), tip: "Mở file mapping của dự án (chỉ xem — Bcode không ghi file này)"); _bMap.Visible = false;
+        _bMap = NK.Button("Mở ColumnMappings.xml", () => Post(new { action = "open-path", path = _mapFile }), tip: "Mở file mapping của dự án (Bcode chỉ ghi file này khi Word ▾ → Nhập từ Word → Ghi, có sao lưu .bak)"); _bMap.Visible = false;
         _mapInfo.MaximumSize = new Size(NativeSkin.S(560), 0);
         NK.Stack(cForms.Body, _fCount, _filter, _fList, fBtns, _mapInfo, NK.Row(_bMap));
 
@@ -285,6 +287,143 @@ internal sealed class ApiDeclarationPage : DialogPage
     {
         Say(text, kind);
         StatusLabel.ForeColor = kind switch { "err" => Ink.Danger, "ok" => Ink.Ok, "warn" => Ink.Warn, _ => Ink.Label };
+        if (_wiStatus is { IsDisposed: false } ws) { ws.Text = text; ws.ForeColor = StatusLabel.ForeColor; }   // hộp Nhập từ Word đang mở che thanh trạng thái
+    }
+
+    // ---- Word ↔ ColumnMappings.xml (C#: ApiDeclarationForm.Word*, Services/Api/ApiMappingWord) ----
+    private ThemedForm? _wiDlg;
+    private Label? _wiStatus;
+
+    private void WordMenu(Control anchor)
+    {
+        var menu = new ContextMenuStrip { Renderer = FlatToolStripRenderer.Shared };
+        var ex = menu.Items.Add("Xuất Word từ ColumnMappings.xml của dự án…", null, (_, _) => WordExport("project"));
+        ex.Enabled = _mapCount > 0;
+        ex.ToolTipText = _mapCount > 0 ? "Theo " + _mapFile : "Project chưa có ColumnMappings.xml (dùng \"Xuất Word từ file XML khác…\")";
+        menu.Items.Add("Xuất Word từ file XML khác…", null, (_, _) => WordExport("file"));
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Nhập từ Word → ColumnMappings.xml…", null, (_, _) => Post(new { action = "word-import" })).ToolTipText = "Đọc tài liệu API Word theo mẫu → so với ColumnMappings.xml → xem khác biệt rồi mới ghi (không xoá form / cột cũ)";
+        ThemeManager.ApplyMenu(menu);
+        menu.Closed += (_, _) => BeginInvoke(menu.Dispose);
+        menu.Show(anchor, new Point(0, anchor.Height));
+    }
+
+    private void WordExport(string source) =>
+        Post(new { action = "word-export", source, projectId = _in["pId"].Text.Trim(), baseUrl = _in["pBase"].Text.Trim(), tokenPath = _in["pTokPath"].Text.Trim() });
+
+    private sealed class WiRow
+    {
+        public string Name = "", Status = "", Table = "", Store = "", Title = "";
+        public bool Voucher, On;
+        public int Columns;
+        public List<string> Changes = new(), Kept = new(), Warnings = new();
+        public string Error => Table.Length == 0 ? "Thiếu table (bảng đích) — service bỏ qua form không có table." : Store.Length == 0 ? "Thiếu store (fs_sync_…) — service bỏ qua form không có store." : "";
+    }
+
+    /// <summary>Xem trước Nhập từ Word: mỗi form 1 dòng (✓ · Form · Mới / Sửa / Giống · table · store sửa được · tóm tắt), khung dưới hiện đủ thay đổi của dòng đang chọn.</summary>
+    private void ShowWordImport(JsonElement o)
+    {
+        static List<string> L(JsonElement e, string n) => PA(e, n).Select(x => x.GetString() ?? "").ToList();
+        var rows = PA(o, "forms").Select(f => new WiRow
+        {
+            Name = P(f, "name"), Status = P(f, "status"), Table = P(f, "table"), Store = P(f, "store"), Title = P(f, "title"), Voucher = PB(f, "voucher"), Columns = PI(f, "columns"),
+            Changes = L(f, "changes"), Kept = L(f, "kept"), Warnings = L(f, "warnings"),
+        }).ToList();
+        foreach (var r in rows) r.On = r.Status != "same" && r.Error.Length == 0;
+        var target = P(o, "target"); var exists = PB(o, "exists");
+        string StLabel(WiRow r) => r.Error.Length > 0 ? "⚠ thiếu" : r.Status switch { "new" => "Mới", "changed" => "Sửa", _ => "Giống" };
+        Color StColor(WiRow r) => r.Error.Length > 0 ? Ink.Danger : r.Status switch { "new" => Ink.Ok, "changed" => Ink.Warn, _ => Ink.Hint };
+        string Summary(WiRow r) => r.Error.Length > 0 ? r.Error : r.Changes.Count == 0 ? (r.Status == "same" ? "Giống ColumnMappings.xml." : "") : r.Changes[0] + (r.Changes.Count > 1 ? $"  (+{r.Changes.Count - 1} thay đổi)" : "");
+
+        using var dlg = new ThemedForm { Text = "Nhập từ Word → ColumnMappings.xml", Width = NativeSkin.S(1100), Height = NativeSkin.S(720), StartPosition = FormStartPosition.CenterParent, ShowIcon = false };
+        var head = NK.Muted("Word: " + P(o, "doc") + "\n" + (target.Length > 0 ? (exists ? "So với: " : "Chưa có file — sẽ tạo mới: ") + target + (P(o, "project").Length > 0 ? "  (Project " + P(o, "project") + ")" : "")
+            : "Project chưa khai báo API Path (Edit Project) — chỉ \"Lưu file XML…\" / \"Chép XML\" được.")
+            + "\nForm mới cần table + store (tài liệu không ghi thì điền ở bảng, store tự gợi ý fs_sync_<bảng>). Không xoá gì: form / cột chỉ có trong XML giữ nguyên.", true);
+        head.Dock = DockStyle.Top; head.Padding = new Padding(12, 10, 12, 4);
+        var count = NK.Muted(""); count.Dock = DockStyle.Top; count.Padding = new Padding(12, 2, 12, 4);
+        var g = NK.Grid(("form", "Form", 230), ("st", "Trạng thái", 90), ("table", "table", 130), ("store", "store", 160), ("chg", "Thay đổi sẽ ghi", 0));
+        g.Columns.Insert(0, new DataGridViewCheckBoxColumn { Name = "on", HeaderText = "✓", Width = NativeSkin.S(34), SortMode = DataGridViewColumnSortMode.NotSortable });
+        g.ReadOnly = false; g.EditMode = DataGridViewEditMode.EditOnKeystrokeOrF2;
+        foreach (DataGridViewColumn c in g.Columns) c.ReadOnly = c.Name is not ("on" or "table" or "store");
+        g.CurrentCellDirtyStateChanged += (_, _) => { if (g.IsCurrentCellDirty && g.CurrentCell is DataGridViewCheckBoxCell) g.CommitEdit(DataGridViewDataErrorContexts.Commit); };
+        var detail = NK.Memo(7, "", mono: false); detail.Dock = DockStyle.Bottom; detail.Height = NativeSkin.S(170); detail.Inner.ReadOnly = true;
+        var notes = L(o, "notes");
+        var notesLbl = NK.Muted(string.Join("\n", notes.Select(x => "• " + x)), true); notesLbl.Dock = DockStyle.Bottom; notesLbl.Padding = new Padding(12, 4, 12, 4); notesLbl.Visible = notes.Count > 0;
+        _wiStatus = new Label { AutoSize = false, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.Transparent, UseMnemonic = false, AutoEllipsis = true };
+
+        void Paint(int i)
+        {
+            var r = rows[i]; var row = g.Rows[i];
+            row.Cells["st"].Value = StLabel(r); row.Cells["st"].Style.ForeColor = StColor(r); row.Cells["chg"].Value = Summary(r);
+        }
+        void Count()
+        {
+            int N(string s) => rows.Count(r => r.Status == s);
+            count.Text = $"{rows.Count(r => r.On)} / {rows.Count} form được chọn · {N("new")} mới · {N("changed")} sửa · {N("same")} giống";
+        }
+        void Detail()
+        {
+            var i = g.CurrentRow?.Index ?? -1;
+            if (i < 0 || i >= rows.Count) { detail.Text = ""; return; }
+            var r = rows[i]; var sb = new System.Text.StringBuilder();
+            sb.Append(r.Name).Append(r.Voucher ? "  [SyncVoucher]" : "  [SyncData]").Append(r.Title.Length > 0 ? "  —  " + r.Title : "").Append("  ·  ").Append(r.Columns).Append(" cột\r\n");
+            if (r.Error.Length > 0) sb.Append("⚠ ").Append(r.Error).Append("\r\n");
+            foreach (var c in r.Changes) sb.Append("• ").Append(c).Append("\r\n");
+            if (r.Changes.Count == 0 && r.Status == "same") sb.Append("Giống ColumnMappings.xml — không có gì để ghi.\r\n");
+            if (r.Kept.Count > 0) sb.Append("Giữ nguyên (chỉ có trong XML): ").Append(string.Join(" · ", r.Kept)).Append("\r\n");
+            foreach (var w in r.Warnings) sb.Append("Lưu ý: ").Append(w).Append("\r\n");
+            detail.Text = sb.ToString();
+        }
+        foreach (var r in rows) g.Rows.Add(r.On, r.Name + (r.Voucher ? "  [SyncVoucher]" : ""), "", r.Table, r.Store, "");
+        for (var i = 0; i < rows.Count; i++) Paint(i);
+        g.CellValueChanged += (_, e) =>
+        {
+            if (e.RowIndex < 0 || e.RowIndex >= rows.Count) return;
+            var r = rows[e.RowIndex]; var row = g.Rows[e.RowIndex]; var col = g.Columns[e.ColumnIndex].Name;
+            if (col == "on") r.On = row.Cells["on"].Value is true;
+            else if (col == "table")
+            {
+                var auto = r.Store.Length == 0 || r.Store == "fs_sync_" + r.Table;   // store đang trống / theo tên bảng → tự đổi theo bảng
+                r.Table = (row.Cells["table"].Value as string ?? "").Trim();
+                if (auto) { r.Store = r.Table.Length > 0 ? "fs_sync_" + r.Table : ""; row.Cells["store"].Value = r.Store; }
+            }
+            else if (col == "store") r.Store = (row.Cells["store"].Value as string ?? "").Trim();
+            else return;
+            Paint(e.RowIndex); Count(); Detail();
+        };
+        g.SelectionChanged += (_, _) => Detail();
+
+        void Go(string mode)
+        {
+            g.EndEdit();
+            var picked = rows.Where(r => r.On).ToList();
+            if (picked.Count == 0) { Status("Chưa chọn form nào.", "warn"); return; }
+            var bad = picked.Where(r => r.Error.Length > 0).ToList();
+            if (bad.Count > 0) { Status("Điền table / store cho: " + string.Join(", ", bad.Select(r => r.Name)), "err"); return; }
+            if (mode == "write" && !NK.Confirm(dlg, $"Ghi {picked.Count} form vào\n{target}?\n\n" + (exists ? "File cũ được sao lưu thành ColumnMappings.xml.bak_<ngày_giờ> cùng thư mục; form / cột không có trong Word giữ nguyên.\n" : "Chưa có file — sẽ tạo mới.\n")
+                + "Service API đọc mapping mới khi cache hết hạn / restart app pool — nên ghi ở môi trường test trước.", "Ghi vào ColumnMappings.xml?")) return;
+            Post(new { action = "word-apply", mode, forms = picked.Select(r => new { name = r.Name, table = r.Table, store = r.Store }).ToList() });
+        }
+        var foot = new BarFlow { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(10, 7, 10, 7) };
+        var bWrite = NK.Button("Ghi vào ColumnMappings.xml", () => Go("write"), primary: true, tip: "Ghi thẳng file mapping của dự án (sao lưu .bak trước, chặn nếu file vừa bị sửa)");
+        bWrite.Enabled = PB(o, "canWrite");
+        foot.Controls.Add(bWrite);
+        foot.Controls.Add(NK.Button("Lưu file XML…", () => Go("save"), tip: "Lưu mapping đã ghép thành file khác (không đụng file của dự án)"));
+        foot.Controls.Add(NK.Button("Chép XML", () => Go("copy"), tip: "Chép XML các form đã chọn (đã ghép với mapping hiện có) để dán tay"));
+        foot.Controls.Add(NK.Button("Chọn tất cả thay đổi", () =>
+        {
+            var all = rows.Where(r => r.Status != "same").All(r => r.On);
+            for (var i = 0; i < rows.Count; i++) if (rows[i].Status != "same") { rows[i].On = !all; g.Rows[i].Cells["on"].Value = !all; }
+            Count();
+        }, tip: "Tick / bỏ tick mọi form mới / có thay đổi"));
+        foot.Controls.Add(NK.Button("Đóng", dlg.Close));
+        var statusBar = new Panel { Dock = DockStyle.Bottom, Height = NativeSkin.S(26), Padding = new Padding(12, 0, 12, 0), BackColor = Color.Transparent };
+        statusBar.Controls.Add(_wiStatus);
+        dlg.Controls.Add(g); dlg.Controls.Add(detail); dlg.Controls.Add(notesLbl); dlg.Controls.Add(count); dlg.Controls.Add(head); dlg.Controls.Add(statusBar); dlg.Controls.Add(foot);
+        Count(); Detail();
+        _wiDlg = dlg;
+        try { dlg.ShowDialog(FindForm()); }
+        finally { _wiDlg = null; _wiStatus = null; }
     }
 
     private void FillProject()
@@ -670,6 +809,14 @@ internal sealed class ApiDeclarationPage : DialogPage
                 if (NK.Confirm(FindForm()!, $"Form \"{Str(a, 0)}\" là {Kinds[Math.Max(0, _fKind.SelectedIndex)]} — sẽ GHI dữ liệu vào hệ thống Fast của dự án ({_in["pBase"].Text}). Chỉ gửi lên môi trường test / khi chắc chắn.", "Gửi form ghi dữ liệu?")) Send(true); else Busy(false);
                 break;
             case "api.docPath": _in["pDoc"].Text = Str(a, 0); SetDirty(true); break;
+            case "api.wordImport": BeginInvoke(() => ShowWordImport(Arg(a, 0).Clone())); break;   // hộp modal — mở sau khi lời gọi này trả về
+            case "api.wordDone": _wiDlg?.Close(); break;
+            case "api.wordExported":
+            {
+                var docx = Str(a, 0); var n = Int(a, 1);
+                BeginInvoke(() => { if (NK.Confirm(FindForm()!, $"Đã xuất tài liệu API {n} form:\n{docx}\n\nMở file?", "Đã xuất Word")) Post(new { action = "open-path", path = docx }); });
+                break;
+            }
             case "api.busy": Busy(Bool(a, 0)); break;
             case "api.status": Status(Str(a, 0), Str(a, 1)); break;
         }

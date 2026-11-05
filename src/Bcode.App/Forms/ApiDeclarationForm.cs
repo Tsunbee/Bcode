@@ -13,6 +13,8 @@ namespace Bcode.App.Forms;
 /// <para>Form theo dự án: Project (Workspace) có "API Path" → đọc &lt;API Path&gt;\Config\ColumnMappings.xml (<see cref="ApiColumnMappings"/>, chỉ đọc), form của
 /// mapping thay / ghi đè form chuẩn cùng tên (chọn form, Tài liệu form, Kiểm tra, Sinh JSON). Project lấy theo Mã dự án của dự án API (khớp ProjectId / tên WS),
 /// Mã dự án trống = Project đang mở trong Bcode. Không có API Path / file → chuẩn LT3 như cũ.</para>
+/// <para>Nút "Word ▾" (<see cref="ApiMappingWord"/>): word-export = xuất tài liệu Word mô tả API từ mapping; word-import = đọc Word API mẫu → so với mapping
+/// (api.wordImport hiện bảng xem trước); word-apply = ghép form đã chọn → ghi ColumnMappings.xml (sao lưu .bak, chặn nếu file đổi sau lúc nhập) / lưu file khác / chép XML.</para>
 /// </summary>
 public sealed class ApiDeclarationForm : WebDialogForm
 {
@@ -24,6 +26,18 @@ public sealed class ApiDeclarationForm : WebDialogForm
     private ApiColumnMappings.Info? _map;
     private List<Lt3Templates.FormDoc> _catalog = Lt3Templates.Catalog();
     private string? _mapKey;
+    private string _mapProjectId = "";
+
+    /// <summary>Lần "Nhập từ Word" đang xem trước: các form đọc từ Word + nội dung mapping lúc so (để ghép đúng bản đã so, và chặn ghi nếu file vừa bị người khác sửa).</summary>
+    private sealed class WordImport
+    {
+        public string DocPath = "", Target = "", BaseXml = "";
+        public bool Exists, Bom = true;
+        public DateTime Stamp;
+        public long Size;
+        public List<ApiMappingWord.MapForm> Forms = new();
+    }
+    private WordImport? _wi;
 
     public ApiDeclarationForm(IEnumerable<Workspace>? workspaces = null, Workspace? current = null)
         : base("Khai báo & quản lý API (chuẩn LT3)", "apideclaration.html", 1200, 780, 760, 480)
@@ -68,6 +82,7 @@ public sealed class ApiDeclarationForm : WebDialogForm
     /// <summary>Đọc (nền) ColumnMappings.xml của Project ứng với Mã dự án; đổi so với lần trước thì gửi danh mục mới xuống trang (api.catalog).</summary>
     private async Task UseMappingAsync(string projectId, bool push = true)
     {
+        _mapProjectId = projectId;
         var ws = WorkspaceFor(projectId);
         var map = ws is null
             ? new ApiColumnMappings.Info(projectId.Trim(), "", "", new(), $"Mã dự án {projectId.Trim()} không khớp Project nào trong Bcode")
@@ -129,6 +144,9 @@ public sealed class ApiDeclarationForm : WebDialogForm
                     break;
                 }
                 case "export-postman": ExportPostman(ReadProject(msg), msg.TryGetProperty("withSecrets", out var ws) && ws.ValueKind == JsonValueKind.True); break;
+                case "word-export": await WordExportAsync(msg); break;
+                case "word-import": await WordImportAsync(); break;
+                case "word-apply": await WordApplyAsync(msg); break;
                 case "token":
                 {
                     var p = ReadProject(msg);
@@ -242,6 +260,139 @@ public sealed class ApiDeclarationForm : WebDialogForm
         var hasSecret = HasSecret(p);
         Status("Đã xuất Postman: " + sfd.FileName + (ApiClient.UsesToken(p) ? " (không kèm mật khẩu — nhập ở biến password của collection)" : "")
             + (!hasSecret ? "." : withSecrets ? " — CÓ kèm giá trị header bí mật dạng chữ, đừng chia sẻ / commit file này." : " — header bí mật thay bằng biến collection để trống, nhập trong Postman."), hasSecret && withSecrets ? "warn" : "ok");
+    }
+
+    // ---------------------------------------------------------------- Word ↔ ColumnMappings.xml (ApiMappingWord)
+
+    /// <summary>Chủ cho hộp chọn file: hộp đang nổi trên cùng (chế độ App: hộp xem trước Nhập Word) hoặc form này.</summary>
+    private IWin32Window DialogOwner() => Form.ActiveForm is { IsDisposed: false } f ? f : this;
+
+    /// <summary>Đọc file văn bản không khoá file (service có thể đang đọc), nhớ BOM để ghi lại đúng kiểu.</summary>
+    private static (string Text, bool Bom) ReadText(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        var bom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        using var sr = new StreamReader(new MemoryStream(bytes), detectEncodingFromByteOrderMarks: true);
+        return (sr.ReadToEnd(), bom);
+    }
+
+    private static void WriteText(string path, string text, bool bom) => File.WriteAllText(path, text, new System.Text.UTF8Encoding(bom));
+
+    /// <summary>Xuất tài liệu Word mô tả API từ ColumnMappings.xml của dự án (source = "file": chọn file XML khác).</summary>
+    private async Task WordExportAsync(JsonElement msg)
+    {
+        string file, src;
+        if (Str(msg, "source") != "file" && _map is { Ok: true } m) { file = m.File; src = "ColumnMappings.xml của " + m.Project; }
+        else
+        {
+            if (Str(msg, "source") != "file") Status((_map?.Error is { Length: > 0 } e ? e + " — " : "") + "chọn file mapping XML để xuất Word.", "warn");
+            using var ofd = new OpenFileDialog { Title = "Chọn file mapping (ColumnMappings.xml)", Filter = "Mapping XML (*.xml)|*.xml|Tất cả|*.*" };
+            if (ofd.ShowDialog(DialogOwner()) != DialogResult.OK) return;
+            file = ofd.FileName; src = Path.GetFileName(file);
+        }
+        Status("Đang đọc " + file + "…", "");
+        var forms = await Task.Run(() => ApiMappingWord.ReadXml(ReadText(file).Text));
+        if (forms.Count == 0) { Status("Không có <Form> nào trong " + file + ".", "warn"); return; }
+        var project = Str(msg, "projectId") is { Length: > 0 } pid ? pid : _map?.Project ?? "";
+        using var sfd = new SaveFileDialog { Title = "Lưu tài liệu API (Word)", Filter = "Word (*.docx)|*.docx", FileName = (project.Length > 0 ? project + "_" : "") + $"TaiLieuAPI_{DateTime.Now:yyyyMMdd}.docx" };
+        if (sfd.ShowDialog(DialogOwner()) != DialogResult.OK) { Status("Đã huỷ xuất Word.", ""); return; }
+        ApiMappingWord.WriteDocx(sfd.FileName, forms, new ApiMappingWord.DocInfo(project, src, Str(msg, "baseUrl"), Str(msg, "tokenPath")));
+        Status($"Đã xuất tài liệu Word ({forms.Count} form): {sfd.FileName}", "ok");
+        Js($"api.wordExported({J(sfd.FileName)}, {forms.Count})");
+    }
+
+    /// <summary>Đọc tài liệu Word API → so với ColumnMappings.xml của dự án → trang hiện bảng xem trước (form mới / sửa / giống, từng thay đổi) trước khi ghi.</summary>
+    private async Task WordImportAsync()
+    {
+        using var ofd = new OpenFileDialog { Title = "Chọn tài liệu API (Word) để nhập vào ColumnMappings.xml", Filter = "Word (*.docx)|*.docx|Tất cả|*.*" };
+        if (ofd.ShowDialog(DialogOwner()) != DialogResult.OK) return;
+        Status("Đang đọc " + ofd.FileName + "…", "");
+        var target = _map?.File ?? "";
+        var wi = await Task.Run(() =>
+        {
+            var notes = new List<string>();
+            var w = new WordImport { DocPath = ofd.FileName, Target = target, Forms = ApiMappingWord.ReadDocx(ofd.FileName, notes) };
+            if (target.Length > 0 && File.Exists(target))
+            {
+                var fi = new FileInfo(target);
+                w.Stamp = fi.LastWriteTimeUtc; w.Size = fi.Length; w.Exists = true;
+                (w.BaseXml, w.Bom) = ReadText(target);
+            }
+            return (w, notes, diff: ApiMappingWord.Diff(w.Exists ? w.BaseXml : null, w.Forms));
+        });
+        if (wi.w.Forms.Count == 0)
+        {
+            Js($"api.notes({J(wi.notes)})");
+            Status("Không thấy form nào trong file Word — cần tiêu đề tên form (vd setItems) và bảng có cột Parameter + Field / CRM Value (+ Data Type, Length, Description, Require…).", "warn");
+            return;
+        }
+        _wi = wi.w;
+        var dir = target.Length > 0 ? Path.GetDirectoryName(target) : null;
+        Js($"api.wordImport({J(new { doc = ofd.FileName, target, exists = wi.w.Exists, canWrite = dir is { Length: > 0 } && Directory.Exists(dir), project = _map?.Project ?? "", forms = wi.diff, notes = wi.notes })})");
+        Status($"Đọc được {wi.w.Forms.Count} form từ Word — xem khác biệt rồi chọn form để ghi.", "ok");
+    }
+
+    /// <summary>Ghép các form đã chọn (kèm table / store sửa ở bảng xem trước) — mode: write = ghi thẳng ColumnMappings.xml của dự án (sao lưu .bak trước),
+    /// save = lưu thành file XML khác, copy = chép XML các form.</summary>
+    private async Task WordApplyAsync(JsonElement msg)
+    {
+        var wi = _wi;
+        if (wi is null) { Status("Chưa nhập Word.", "warn"); return; }
+        var mode = Str(msg, "mode");
+        var sel = new List<ApiMappingWord.MapForm>();
+        if (msg.TryGetProperty("forms", out var fa) && fa.ValueKind == JsonValueKind.Array)
+            foreach (var x in fa.EnumerateArray())
+            {
+                var f = wi.Forms.FirstOrDefault(f => string.Equals(f.Name, Str(x, "name"), StringComparison.OrdinalIgnoreCase));
+                if (f is null) continue;
+                f.Table = Str(x, "table").Trim(); f.Store = Str(x, "store").Trim();
+                sel.Add(f);
+            }
+        if (sel.Count == 0) { Status("Chưa chọn form nào.", "warn"); return; }
+        var baseXml = wi.Exists ? wi.BaseXml : null;
+        var bad = ApiMappingWord.Diff(baseXml, sel).Where(d => d.Errors.Count > 0).ToList();
+        if (bad.Count > 0) { Status("Chưa ghi — " + string.Join("; ", bad.Select(d => d.Name + ": " + string.Join(", ", d.Errors))) + ".", "err"); return; }
+        var merged = ApiMappingWord.Merge(baseXml, sel, out var changes);
+        switch (mode)
+        {
+            case "copy":
+                Clipboard.SetText(ApiMappingWord.Fragment(merged, sel.Select(f => f.Name)));
+                Status($"Đã chép XML {sel.Count} form (đã ghép với mapping hiện có) — dán vào <Mappings> của ColumnMappings.xml.", "ok");
+                break;
+            case "save":
+            {
+                using var sfd = new SaveFileDialog { Title = "Lưu ColumnMappings.xml (đã ghép form từ Word)", Filter = "Mapping XML (*.xml)|*.xml", FileName = "ColumnMappings.xml" };
+                if (sfd.ShowDialog(DialogOwner()) != DialogResult.OK) return;
+                if (wi.Exists && string.Equals(Path.GetFullPath(sfd.FileName), Path.GetFullPath(wi.Target), StringComparison.OrdinalIgnoreCase))
+                { Status("Muốn ghi đè ColumnMappings.xml của dự án thì dùng nút \"Ghi vào ColumnMappings.xml\" (có sao lưu + kiểm tra file vừa đổi).", "warn"); return; }
+                WriteText(sfd.FileName, merged, wi.Bom);
+                Status($"Đã lưu {sfd.FileName} — {(wi.Exists ? "mapping hiện có + " : "")}{sel.Count} form từ Word ({changes.Count} thay đổi).", "ok");
+                break;
+            }
+            case "write":
+            {
+                if (wi.Target.Length == 0) { Status("Project chưa khai báo API Path — không biết ghi ColumnMappings.xml ở đâu (dùng \"Lưu file XML…\").", "err"); return; }
+                if (changes.Count == 0) { Status("Các form đã chọn giống hệt ColumnMappings.xml — không có gì để ghi.", "warn"); return; }
+                var target = wi.Target;
+                var outcome = await Task.Run(() =>
+                {
+                    var fi = new FileInfo(target);
+                    if (wi.Exists ? !fi.Exists || fi.LastWriteTimeUtc != wi.Stamp || fi.Length != wi.Size : fi.Exists)
+                        return (ok: false, backup: "");
+                    var backup = "";
+                    if (fi.Exists) { backup = target + ".bak_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"); File.Copy(target, backup); }
+                    WriteText(target, merged, wi.Bom);
+                    return (ok: true, backup);
+                });
+                if (!outcome.ok) { Status("ColumnMappings.xml vừa bị sửa sau lúc nhập Word — chưa ghi. Bấm \"Nhập từ Word…\" lại để so với bản mới.", "err"); return; }
+                var nfi = new FileInfo(target);
+                wi.BaseXml = merged; wi.Exists = true; wi.Stamp = nfi.LastWriteTimeUtc; wi.Size = nfi.Length;
+                await UseMappingAsync(_mapProjectId);
+                Status($"Đã ghi {sel.Count} form ({changes.Count} thay đổi) vào {target}" + (outcome.backup.Length > 0 ? " — bản cũ: " + Path.GetFileName(outcome.backup) : "") + ". Service đọc lại file khi cache hết hạn / restart app pool.", "ok");
+                Js("api.wordDone()");
+                break;
+            }
+        }
     }
 
     /// <summary>Dự án có giá trị bí mật (header / tham số đánh dấu bí mật, hoặc xác thực riêng của form có token / mật khẩu / key).</summary>

@@ -596,6 +596,12 @@ class BcodeSettingsDialog {
     note('Thường để trống. BcodeViewer đã tự nhận cấu trúc controller: command và action là SQL, script và clientScript là JavaScript, css là CSS, CDATA có /* <flatten type="Javascript"> */ là JavaScript, và giá trị <!ENTITY> được phân loại theo nội dung. Chỉ khai thêm ở đây nếu dự án bạn còn thẻ riêng nào khác chứa SQL (cách nhau bằng dấu phẩy).');
     note('Dùng lại đúng workspace (WS) mà Bcode đang chọn — không cần khai báo kết nối riêng. Chỉ kết nối khi mở file .sql, và schema lấy về được nhớ sẵn cho tới khi đóng app.');
 
+    // ===== Mở web (F5) =====
+    addPage('web', 'Mở web (F5)');
+    section('F5 — lưu rồi mở menu của file trên trình duyệt');
+    const f5Reuse = row('', check('Dùng lại tab đã mở cho trang đó (Chrome / Edge đang mở)', s.f5ReuseTab !== false));
+    note('Bật (mặc định): F5 lần đầu mở trang bằng trình duyệt mặc định như cũ — Chrome / Edge đang mở thì thành 1 tab trong đó. F5 lần sau cho cùng file: chuyển tới đúng tab ấy, đưa cửa sổ lên trước và nạp lại trang (gõ lại địa chỉ + Enter), không mở thêm tab. Tab đã đóng thì mở tab mới. Áp dụng cho trình duyệt họ Chromium (Chrome, Edge, Cốc Cốc, Brave…); trình duyệt khác (Firefox) vẫn mở tab mới mỗi lần. Tắt = mỗi lần F5 mở 1 tab mới.');
+
     // ===== Sao lưu =====
     customPage('backup', 'Sao lưu / chuyển máy', (h) => {
       h.appendChild(Object.assign(document.createElement('div'), {
@@ -701,6 +707,7 @@ class BcodeSettingsDialog {
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
         matchHighlightColor: mhMode.value === 'theme' ? 'theme' : (mhMode.value === 'custom' ? mhColor.value : ''),
         showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,
+        f5ReuseTab: f5Reuse.box.checked,
       };
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));

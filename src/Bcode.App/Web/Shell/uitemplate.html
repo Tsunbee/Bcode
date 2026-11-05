@@ -237,16 +237,15 @@
       <div class="panel">
         <h3>Cây File Lookup</h3>
         <div class="row"><label>Màu chữ</label><div class="ctl"><select id="flMode">
-          <option value="auto">Mặc định của Bcode (.f cam, .xml xanh dương)</option>
+          <option value="auto">Mặc định của Bcode (.f cam, .xml xanh dương, còn lại theo theme)</option>
           <option value="none">Giữ màu gốc (không tô — theo màu chữ của theme)</option>
           <option value="custom">Tự tô màu</option></select></div></div>
-        <div class="tcolors" id="flCustom">
-          <div class="row"><label>File .f</label><div class="ctl"><input type="color" id="flF" /><button class="btn btn-border" data-clear="flF">Bỏ</button><span class="muted" data-tag="flF"></span></div></div>
-          <div class="row"><label>File .xml</label><div class="ctl"><input type="color" id="flXml" /><button class="btn btn-border" data-clear="flXml">Bỏ</button><span class="muted" data-tag="flXml"></span></div></div>
-          <div class="row"><label>File khác</label><div class="ctl"><input type="color" id="flOther" /><button class="btn btn-border" data-clear="flOther">Bỏ</button><span class="muted" data-tag="flOther"></span></div></div>
-          <div class="row"><label>Thư mục</label><div class="ctl"><input type="color" id="flFolder" /><button class="btn btn-border" data-clear="flFolder">Bỏ</button><span class="muted" data-tag="flFolder"></span></div></div>
-        </div>
-        <div class="muted" style="font-size:11.5px;margin-top:6px">File bị lỗi entity/include vẫn tô đỏ ở mọi chế độ. Ô "Bỏ" = dùng màu chữ của theme.</div>
+        <div class="muted" style="font-size:12px;margin:8px 0 4px">Định dạng theo loại (ô màu chỉ dùng khi chọn "Tự tô màu"; "Đậm" dùng ở mọi chế độ):</div>
+        <div id="flRows"></div>
+        <div class="ctl" style="margin-top:6px"><input type="text" id="flExtNew" list="flExtList" placeholder="Đuôi file, vd .aspx" style="width:150px" spellcheck="false" /><button class="btn btn-border" id="flExtAdd">Thêm loại</button>
+          <datalist id="flExtList"><option value=".aspx"><option value=".xlsx"><option value=".xls"><option value=".js"><option value=".sql"><option value=".rpt"><option value=".css"><option value=".cs"><option value=".json"><option value=".txt"></datalist>
+          <button class="btn btn-border" id="flReset" title="Màu: Mặc định của Bcode; bỏ mọi màu tự chọn, bỏ in đậm và các loại đã thêm">Trả về mặc định</button></div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px">File bị lỗi entity/include vẫn tô đỏ ở mọi chế độ. Ô "Bỏ" = dùng màu chữ của theme (loại tự thêm: theo dòng "File khác"). Đuôi chưa khai báo theo dòng "File khác".</div>
       </div>
     </div>
   </div>
@@ -684,20 +683,76 @@
 
   // ---------------------------------------------------------------- tab Màu cây
   // id ô màu -> khoá trong S.treeColors
-  const TREE_FIELDS = { wcParent: 'wCommandParent', wcLeaf: 'wCommandLeaf', flF: 'fileF', flXml: 'fileXml', flOther: 'fileOther', flFolder: 'fileFolder' };
+  const TREE_FIELDS = { wcParent: 'wCommandParent', wcLeaf: 'wCommandLeaf' };
   function renderTree() {
     const t = S.treeColors;
     $('wcMode').value = t.wCommandMode || 'auto'; $('flMode').value = t.fileMode || 'auto';
-    $('wcCustom').style.opacity = t.wCommandMode === 'custom' ? 1 : .4; $('flCustom').style.opacity = t.fileMode === 'custom' ? 1 : .4;
+    $('wcCustom').style.opacity = t.wCommandMode === 'custom' ? 1 : .4;
     Object.keys(TREE_FIELDS).forEach(id => {
       const v = t[TREE_FIELDS[id]];
       $(id).value = v || '#888888';
-      $(id).disabled = (id.startsWith('wc') ? t.wCommandMode : t.fileMode) !== 'custom';
+      $(id).disabled = t.wCommandMode !== 'custom';
       document.querySelector('[data-tag="' + id + '"]').textContent = v || '(theo theme)';
     });
-    document.querySelectorAll('[data-clear]').forEach(b => b.disabled = (b.dataset.clear.startsWith('wc') ? t.wCommandMode : t.fileMode) !== 'custom');
-    renderGroups();
+    document.querySelectorAll('[data-clear]').forEach(b => b.disabled = t.wCommandMode !== 'custom');
+    renderGroups(); renderFileRows();
   }
+
+  // Cây File Lookup — mỗi dòng 1 loại: màu (chế độ "Tự tô màu") + Đậm. Thư mục / .f / .xml / File khác có sẵn, màu nằm ở fileFolder /
+  // fileF / fileXml / fileOther như trước; loại tự thêm (".aspx"...) lưu cả màu lẫn đậm trong fileStyles[đuôi]. Đậm của mọi loại ở fileStyles.
+  const FL_FIXED = [
+    { key: 'folder', label: 'Thư mục', colorField: 'fileFolder' },
+    { key: '.f', label: 'File .f', colorField: 'fileF' },
+    { key: '.xml', label: 'File .xml', colorField: 'fileXml' },
+    { key: 'other', label: 'File khác', colorField: 'fileOther' },
+  ];
+  function renderFileRows() {
+    const t = S.treeColors; t.fileStyles = t.fileStyles || {};
+    const on = t.fileMode === 'custom';
+    const host = $('flRows'); host.innerHTML = '';
+    const fixedKeys = FL_FIXED.map(r => r.key);
+    const extra = Object.keys(t.fileStyles).filter(k => !fixedKeys.includes(k.toLowerCase())).sort();
+    const rows = [...FL_FIXED.slice(0, 3), ...extra.map(k => ({ key: k, label: 'File ' + k })), FL_FIXED[3]];
+    rows.forEach(r => {
+      const st = t.fileStyles[r.key] || {};
+      const get = () => r.colorField ? t[r.colorField] : (t.fileStyles[r.key] || {}).color;
+      const set = v => { if (r.colorField) t[r.colorField] = v; else (t.fileStyles[r.key] = t.fileStyles[r.key] || { bold: false }).color = v; };
+      const row = document.createElement('div'); row.className = 'row';
+      const lab = document.createElement('label'); lab.textContent = r.label; lab.title = r.label;
+      const c = document.createElement('input'); c.type = 'color'; c.value = get() || '#888888'; c.disabled = !on;
+      const clr = document.createElement('button'); clr.className = 'btn btn-border'; clr.textContent = 'Bỏ'; clr.disabled = !on;
+      const tag = document.createElement('span'); tag.className = 'muted';
+      tag.textContent = get() || (r.colorField ? '(theo theme)' : '(như File khác)');
+      c.oninput = () => { set(c.value); tag.textContent = c.value; };
+      clr.onclick = () => { set(null); renderFileRows(); };
+      const bl = document.createElement('label'); bl.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-left:6px;color:var(--text);cursor:pointer';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!st.bold;
+      cb.onchange = () => { (t.fileStyles[r.key] = t.fileStyles[r.key] || { bold: false }).bold = cb.checked; };
+      bl.append(cb, document.createTextNode('Đậm'));
+      const ctl = document.createElement('div'); ctl.className = 'ctl'; ctl.append(c, clr, bl);
+      if (!r.colorField && r.key !== 'other') {
+        const del = document.createElement('button'); del.className = 'btn btn-border'; del.textContent = 'Xoá'; del.title = 'Bỏ loại ' + r.key + ' (về như File khác)';
+        del.onclick = () => { delete t.fileStyles[r.key]; renderFileRows(); };
+        ctl.append(del);
+      }
+      ctl.append(tag);
+      row.append(lab, ctl); host.appendChild(row);
+    });
+  }
+  $('flExtAdd').onclick = () => {
+    let k = $('flExtNew').value.trim().toLowerCase(); if (!k) return;
+    if (!k.startsWith('.')) k = '.' + k;
+    if (!/^\.[^\\/:*?"<>|\s]+$/.test(k)) return;
+    const t = S.treeColors; t.fileStyles = t.fileStyles || {};
+    if (k === '.f' || k === '.xml') { $('flExtNew').value = ''; return; }   // đã có dòng riêng
+    if (!t.fileStyles[k]) t.fileStyles[k] = { bold: false, color: null };
+    $('flExtNew').value = ''; renderFileRows();
+  };
+  $('flExtNew').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('flExtAdd').click(); } };
+  $('flReset').onclick = () => {
+    Object.assign(S.treeColors, { fileMode: 'auto', fileF: null, fileXml: null, fileOther: null, fileFolder: null, fileStyles: {} });
+    renderTree();
+  };
 
   // Màu theo phân hệ: gồm các phân hệ của cây hiện tại (S.wcGroups) + mọi mã đã khai báo/thêm tay.
   function renderGroups() {

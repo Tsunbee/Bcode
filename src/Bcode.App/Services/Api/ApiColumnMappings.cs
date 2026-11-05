@@ -7,7 +7,8 @@ namespace Bcode.App.Services.Api;
 
 /// <summary>
 /// Form / trường API theo dự án — đọc file ánh xạ cột của FastAPIService (mẫu LT3): <c>&lt;API Path&gt;\Config\ColumnMappings.xml</c>
-/// (hoặc đường dẫn khoá appSettings <c>ColumnMappingXmlPath</c> trong Web.config của service, như service tự đọc). CHỈ ĐỌC — không ghi gì lên server.
+/// (hoặc đường dẫn khoá appSettings <c>ColumnMappingXmlPath</c> trong Web.config của service, như service tự đọc). Lớp này CHỈ ĐỌC — ghi file chỉ qua
+/// "Word ▾ → Nhập từ Word" (<see cref="ApiMappingWord"/>, người dùng xác nhận, có sao lưu).
 /// <para>Cấu trúc (giống FastAPIs.Config.XmlMapping.XmlFormConfig của service):</para>
 /// <code>
 /// &lt;Mappings&gt;

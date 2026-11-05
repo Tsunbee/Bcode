@@ -10,5 +10,7 @@ namespace Bcode.App.Services;
 /// </summary>
 internal static class LicenseSecret
 {
-    public const string Key = "BCODE-PhongchodienBeechodien";
+    public static string Key => Bcode.App.Secrets.LocalSecrets.LicenseKey;
+    /// <summary>Cách ghép key Decrypt SQL Object (Secrets/LocalSecrets.cs, gitignore) — xem <c>LicenseCodec.Kind.Decrypt</c>.</summary>
+    public static string DecryptTemplate => Bcode.App.Secrets.LocalSecrets.DecryptKeyTemplate;   // key gốc nằm ở Secrets/LocalSecrets.cs (gitignore) — không để trong source
 }

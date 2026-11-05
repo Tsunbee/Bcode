@@ -29,6 +29,8 @@ public class SqlObjectTreeControl : UserControl
     public event Action<SqlObjectInfo, bool>? ObjectActivated;
     /// <summary>Chuột phải → "Ai đang dùng object này…".</summary>
     public event Action<SqlObjectInfo>? UsagesRequested;
+    /// <summary>Chuột phải → "Sơ đồ phụ thuộc…".</summary>
+    public event Action<SqlObjectInfo>? DependencyRequested;
 
     public SqlObjectTreeControl(SqlObjectBrowserService service)
     {
@@ -58,6 +60,7 @@ public class SqlObjectTreeControl : UserControl
             return new WebMenu()
                 .Add(picked.Kind == SqlObjectKind.Table ? "Mở định nghĩa" : "Mở dạng ALTER", () => ObjectActivated?.Invoke(picked, false))
                 .Add("Ai đang dùng object này…", () => UsagesRequested?.Invoke(picked))
+                .Add("Sơ đồ phụ thuộc…", () => DependencyRequested?.Invoke(picked))
                 .Add("Chép tên", () => { try { Clipboard.SetText(picked.QualifiedName); } catch { /* clipboard bận */ } });
         });
 

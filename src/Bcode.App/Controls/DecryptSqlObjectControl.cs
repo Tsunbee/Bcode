@@ -85,9 +85,9 @@ public class DecryptSqlObjectControl : UserControl
             var root = doc.RootElement;
             var action = root.GetProperty("action").GetString();
             // Chỉ máy có key bản quyền hợp lệ mới dùng được (kiểm lại ở đây, không chỉ lúc mở tab).
-            if (action != "ready" && !LicenseService.IsUnlocked)
+            if (action != "ready" && !LicenseService.IsDecryptUnlocked)   // key riêng của Decrypt SQL Object, key chung không mở được
             {
-                Js($"decryptSql.onStatus({J("Cần key bản quyền (Settings → Key bản quyền) để dùng Decrypt SQL Object.")}, 'err')");
+                Js($"decryptSql.onStatus({J("Cần key Decrypt SQL Object (Settings → Key Decrypt SQL Object) — key riêng, khác key bản quyền chung.")}, 'err')");
                 return;
             }
             // Lấy hết giá trị ra khỏi JsonElement trước khi await (doc bị Dispose khi rời using).

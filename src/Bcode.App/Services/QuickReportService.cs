@@ -89,7 +89,12 @@ public class QuickReportService
     public static string? SystemArg(string param) => param.ToLowerInvariant() switch
     {
         "unit" => "@@unit",
-        "sysdatabasename" => "'@@sysDatabaseName'",
+        // @SysDatabase (procedure kiểu fs_TransList của Fast) cũng là tên database Sys — để làm ô lọc thì chạy thử truyền '' → procedure ghép "[]..bảng" → lỗi 1038.
+        "sysdatabasename" or "sysdatabase" or "sysdb" or "sys_database" => "'@@sysDatabaseName'",
+        "appdatabasename" or "appdatabase" or "appdb" or "app_database" => "'@@appDatabaseName'",
+        // @Controller / @TableName của bộ trường động (FastBusiness$Report$GetDynamicFields / GetDynamicKey): controller của báo cáo; bảng lọc động để trống như mặc định của procedure.
+        "controller" => "'@@controller'",
+        "tablename" or "table_name" => "''",
         "language" or "lang" => "@@language",
         "userid" or "user_id" => "@@userID",
         "admin" => "@@admin",
@@ -185,7 +190,7 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
         try
         {
             await using var cmd = new SqlCommand(spec.ProcName, conn, tx) { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
-            foreach (var p in spec.Params) cmd.Parameters.AddWithValue("@" + p.Name, TestValue(p, sysDatabase));
+            foreach (var p in spec.Params) cmd.Parameters.AddWithValue("@" + p.Name, TestValue(p, sysDatabase, conn.Database, spec.Controller));
             await using var rd = await cmd.ExecuteReaderAsync(ct);
             do
             {
@@ -210,7 +215,7 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
         return sets;
     }
 
-    private static object TestValue(QuickReportParam p, string sysDatabase)
+    private static object TestValue(QuickReportParam p, string sysDatabase, string appDatabase, string controller)
     {
         string raw;
         if (p.IsFilter) raw = p.Test;
@@ -221,6 +226,8 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
             {
                 "@@unit" => p.Test,
                 "'@@sysdatabasename'" or "@@sysdatabasename" => sysDatabase,
+                "'@@appdatabasename'" or "@@appdatabasename" => appDatabase,
+                "'@@controller'" or "@@controller" => controller,
                 "@@language" => "V",
                 "@@userid" or "@@admin" => "1",
                 "null" or "" => "\0",

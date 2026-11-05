@@ -241,6 +241,31 @@ public partial class GenAllService
     /// <summary>Các table khai báo (table="...") trong những file liên quan tới các controller này — cùng tập file mà Gen All lấy (Dir, Grid, Filter,
     /// Lookup, Report, Upload...). Kết quả đọc file được nhớ trong FileParseCache nên lần sau gần như tức thì; rồi hỏi database xem table có
     /// ở App hay Sys và bao nhiêu dòng.</summary>
+    /// <summary>Gen nhanh Menu của tab Gen Update: mỗi khoá (WMenu ID / Menu ID / controller / SysId) → script DELETE/INSERT wcommand + command
+    /// (đúng cột bảng của database đang chọn, như Gen All · sysmenu), ghi Script\sys\sysmenu_&lt;khoá&gt;.sql — lúc tạo gói gộp vào SYS_Script.sql.
+    /// Menu trùng giữa các khoá chỉ sinh 1 lần.</summary>
+    public async Task<GenAllResult> ResolveMenusAsync(IEnumerable<string> keys)
+    {
+        var result = new GenAllResult();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in keys.Select(k => k.Trim()).Where(k => k.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            List<WCommandItem> menus;
+            try { menus = await _wcommand.FindMenusAsync(key); }
+            catch (Exception ex) { result.Warnings.Add($"{key}: không đọc được wcommand ({ex.Message})."); continue; }
+            menus = menus.Where(m => seen.Add(m.WMenuId ?? "")).ToList();
+            if (menus.Count == 0) { result.Warnings.Add($"{key}: không có dòng wcommand nào khớp (wmenu_id / menu_id / sysid / link)."); continue; }
+            var safe = string.Concat(key.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            result.Add(new PackageItem
+            {
+                Origin = $"Menu {key} · sysmenu ({menus.Count} dòng: {string.Join(", ", menus.Select(m => m.WMenuId))})",
+                RelativeDestPath = PackageLayout.Script(sys: true, $"sysmenu_{safe}.sql"),
+                GeneratedContent = string.Join(Environment.NewLine, menus.Select(_wcommand.GenerateScriptForCurrentDb)),
+            });
+        }
+        return result;
+    }
+
     public async Task<List<RelatedTable>> FindTablesAsync(Workspace ws, IEnumerable<string> controllers)
     {
         var found = new Dictionary<string, RelatedTable>(StringComparer.OrdinalIgnoreCase);

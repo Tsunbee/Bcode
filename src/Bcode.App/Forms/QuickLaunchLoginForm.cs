@@ -329,13 +329,28 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
             }
             else
             {
-                _web.CoreWebView2.Navigate(_ws.LoginWLink);
+                _web.CoreWebView2.Navigate(LoginPageUrl(_ws.LoginWLink));
                 SetStatus("Chưa có sẵn User/Pass — gõ vào 2 ô trên thanh công cụ rồi bấm \"▶ Đăng nhập\" (hoặc Enter ở ô Pass).");
             }
         };
     }
 
     private void SetStatus(string text) => _statusLabel.Text = text;
+
+    /// <summary>Trang đăng nhập chuẩn FBO: {site}/Main/Login.aspx. Login WLink thường chỉ khai thư mục site (http://host/KOG/) — dự án dùng LDAP
+    /// thì trang gốc đó là trang đăng nhập LDAP riêng (không có khung LoginExtender chuẩn) → không tự đăng nhập được, phải vào Main/Login.aspx.
+    /// Link đã trỏ tới 1 trang .aspx cụ thể thì giữ nguyên.</summary>
+    internal static string LoginPageUrl(string loginLink)
+    {
+        var link = (loginLink ?? "").Trim();
+        if (!Uri.TryCreate(link, UriKind.Absolute, out var u)) return link;
+        var p = u.AbsolutePath;
+        if (p.EndsWith(".aspx", StringComparison.OrdinalIgnoreCase)) return link;
+        var i = p.IndexOf("/Main/", StringComparison.OrdinalIgnoreCase);
+        var root = i >= 0 ? p[..(i + 6)]
+            : (p.EndsWith('/') ? p : p + "/") + "Main/";
+        return u.GetLeftPart(UriPartial.Authority) + root + "Login.aspx";
+    }
 
     /// <summary>Tên hồ sơ WebView2 hợp lệ (chữ/số/-_.; tối đa 64 ký tự) cho workspace.</summary>
     private static string ProfileNameFor(Workspace ws)
@@ -432,9 +447,18 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         try
         {
             SetStatus("Đang điều hướng đến trang đăng nhập...");
-            _web.CoreWebView2.Navigate(_ws.LoginWLink);
+            var loginUrl = LoginPageUrl(_ws.LoginWLink);
+            _web.CoreWebView2.Navigate(loginUrl);
             await WaitForPageLoadAsync();
             await Task.Delay(600);
+            // Site không có Main/Login.aspx (404 / trang lạ) thì quay về đúng link khai trong Workspace như trước.
+            if (!string.Equals(loginUrl, _ws.LoginWLink.Trim(), StringComparison.OrdinalIgnoreCase)
+                && await _web.ExecuteScriptAsync("!!document.getElementById('LoginExtender_txtUserName')") != "true")
+            {
+                _web.CoreWebView2.Navigate(_ws.LoginWLink.Trim());
+                await WaitForPageLoadAsync();
+                await Task.Delay(600);
+            }
 
             SetStatus("Đang nhập User và kích hoạt nạp Đơn vị...");
             var triggerUnitScript = $@"

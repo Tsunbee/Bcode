@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Đọc chữ trên ảnh bằng OCR có sẵn của Windows (Windows.Media.Ocr — miễn phí, chạy trong máy, không gửi ảnh đi đâu).
+       Exe riêng vì API WinRT cần TargetFramework windows10.x; Bcode.App giữ net8.0-windows và chỉ build kèm + chép ra thư mục Ocr\ (như ScreenDesigner). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Bcode.Ocr</AssemblyName>
+    <RootNamespace>Bcode.Ocr</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

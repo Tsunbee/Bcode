@@ -34,6 +34,9 @@
     <Compile Include="..\BcodeViewer.App\Host\IncludeTree.cs" Link="Shared\IncludeTree.cs" />
     <!-- Key bản quyền: chạy thẳng BcodeScreenDesigner.exe (không qua Bcode) cũng phải có key như khi mở từ Bcode. -->
     <Compile Include="..\Bcode.App\Services\LicenseService.cs" Link="Shared\LicenseService.cs" />
+    <!-- Key gốc + cách ghép key Decrypt nằm ở Secrets/LocalSecrets.cs (gitignore) — LicenseSecret.cs chỉ tham chiếu. Thiếu file thì dùng bản rỗng. -->
+    <Compile Include="..\Bcode.App\Secrets\LocalSecrets.cs" Link="Shared\LocalSecrets.cs" Condition="Exists('..\Bcode.App\Secrets\LocalSecrets.cs')" />
+    <Compile Include="..\Bcode.App\Secrets\LocalSecrets.Empty.cs" Link="Shared\LocalSecrets.cs" Condition="!Exists('..\Bcode.App\Secrets\LocalSecrets.cs')" />
     <Compile Include="..\Bcode.App\Services\LicenseSecret.cs" Link="Shared\LicenseSecret.cs" />
     <Compile Include="..\Bcode.App\BcodePaths.cs" Link="Shared\BcodePaths.cs" />
     <Compile Include="..\Shared\LicenseCodec.cs" Link="Shared\LicenseCodec.cs" />

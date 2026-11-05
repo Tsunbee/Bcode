@@ -283,7 +283,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add("Cây menu: bỏ qua file theo tên (like)...", () => BeginInvoke(new Action(EditMenuTreeIgnore)))
             .Add("Pivot SQL Query: quy tắc đoán cấu trúc...", () => BeginInvoke(new Action(EditPivotRules)))
             .Add("Hướng dẫn gợi ý code SQL (gõ gì ra gì)...", () => BeginInvoke(new Action(OpenSqlHintsHelpTab)), shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.sqlHints"))
-            .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Decrypt SQL, Create RPT & XML, Excel → FRX)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
+            .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX, Tạo nhanh danh mục…)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
+            // Decrypt SQL Object cấp key RIÊNG (bcrypt ghép khác key chung) — mục riêng, lưu riêng license-decrypt.key
+            .Add(LicenseService.IsDecryptUnlocked ? "Key Decrypt SQL Object ✓ (đã kích hoạt)..." : "Key Decrypt SQL Object...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.Decrypt); f.ShowDialog(this); })))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,
@@ -313,6 +315,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("bbxn", "Biên bản xác nhận (Word)", null, (_, _) => OpenBbxnTab()));
         _toolSpecs.Add(("fsg_req_report", "Báo cáo yêu cầu FSG", null, (_, _) => OpenFsgRequirementReportTab()));
         _toolSpecs.Add(("check_include", "Check Include", null, (_, _) => OpenIncludeCheckTab()));
+        _toolSpecs.Add(("err_shot", "Tra ảnh lỗi", null, (_, _) => OpenErrorShotTab()));
         _toolSpecs.Add(("screen_designer", "Thiết kế màn hình", null, (_, _) => LaunchScreenDesigner(null)));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
         _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => OpenStringBeautyTab()));
@@ -373,6 +376,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var sqlObjectTree = new SqlObjectTreeControl(_sqlObjectService) { Dock = DockStyle.Fill };
         sqlObjectTree.ObjectActivated += async (obj, dropCreate) => await OpenObjectDefinitionAsync(obj, dropCreate);
         sqlObjectTree.UsagesRequested += obj => OpenUsagesTab(obj);
+        sqlObjectTree.DependencyRequested += obj => OpenDependencyTab(DependencyGraphService.ObjectNode(obj));
         _sqlObjectTree = sqlObjectTree;
 
         var wcommandTree = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings) { Dock = DockStyle.Fill };
@@ -1326,6 +1330,93 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private readonly UsageSearchService _usageService;
 
+    private DependencyGraphService? _depService;
+    private TabPage? _depTab;
+
+    private TabPage? _errShotTab;
+
+    /// <summary>Tab "Tra ảnh lỗi" (một tab dùng chung): dán ảnh chụp màn hình lỗi → OCR → màn hình / file / menu khả năng cao (<see cref="ErrorShotService"/>).</summary>
+    private void OpenErrorShotTab()
+    {
+        if (_errShotTab is not null && _documentTabs.TabPages.Contains(_errShotTab)) { _documentTabs.SelectedTab = _errShotTab; return; }
+        var control = new ErrorShotControl(() => _connections.Current, () => _wcommandTree.FlatLeaves());
+        control.OpenFileRequested += path => OpenFileFromLookup(path);
+        control.DependencyRequested += path =>
+        {
+            _depService ??= new DependencyGraphService(_connections, _sqlObjectService, _usageService, () => _wcommandTree.FlatLeaves());
+            OpenDependencyTab(_depService.FileNode(path));
+        };
+        control.RevealMenuRequested += id =>
+        {
+            var hit = _wcommandTree.FlatLeaves().Select(x => x.Item).FirstOrDefault(i => i.WMenuId == id);
+            if (hit is null) return;
+            if (_mainSplit is { Panel1Collapsed: true }) ToggleMenuTree();
+            SelectWCommandTab();
+            _ = _wcommandTree.RevealAsync(hit);
+        };
+        _errShotTab = AddDocumentTab("Tra ảnh lỗi", control);
+        _errShotTab.Disposed += (_, _) => _errShotTab = null;
+    }
+
+    /// <summary>
+    /// Tab "Sơ đồ phụ thuộc": mở cho object / file. Mặc định dùng chung một tab (đang mở thì chuyển sơ đồ sang nút mới, giữ đường dẫn đã đi);
+    /// <paramref name="newTab"/> = mở tab riêng (chuột phải "Xem sơ đồ của nút này" trong sơ đồ), không đè tab cũ.
+    /// </summary>
+    private void OpenDependencyTab(DepNode start, bool newTab = false)
+    {
+        _depService ??= new DependencyGraphService(_connections, _sqlObjectService, _usageService, () => _wcommandTree.FlatLeaves());
+        if (!newTab && _depTab is not null && _documentTabs.TabPages.Contains(_depTab) && _depTab.Controls.OfType<DependencyGraphControl>().FirstOrDefault() is { } open)
+        {
+            _documentTabs.SelectedTab = _depTab;
+            open.ShowNode(start);
+            return;
+        }
+        var control = new DependencyGraphControl(_depService, start);
+        control.OpenRequested += n =>
+        {
+            switch (n.Kind)
+            {
+                case "file": if (n.Path is { } p) OpenFileFromLookup(p); break;
+                case "menu":
+                    var id = n.Key["menu:".Length..];
+                    var hit = _wcommandTree.FlatLeaves().Select(x => x.Item).FirstOrDefault(i => i.WMenuId == id);
+                    if (hit is null) return;
+                    if (_mainSplit is { Panel1Collapsed: true }) ToggleMenuTree();
+                    SelectWCommandTab();
+                    _ = _wcommandTree.RevealAsync(hit);
+                    break;
+                default: _ = OpenObjectDefinitionAsync(DependencyGraphService.ToObject(n)); break;
+            }
+        };
+        control.ContextActionRequested += (n, mode) =>
+        {
+            switch (mode)
+            {
+                case "sql": _ = OpenObjectDefinitionAsync(DependencyGraphService.ToObject(n)); break;
+                case "sqlDropCreate": _ = OpenObjectDefinitionAsync(DependencyGraphService.ToObject(n), dropCreate: true); break;
+                case "usages": OpenUsagesTab(DependencyGraphService.ToObject(n)); break;
+                case "graphNewTab": OpenDependencyTab(n, newTab: true); break;
+                case "viewer": if (n.Path is { } vp) OpenFileInViewer(vp); break;
+                case "scriptTab": if (n.Path is { } sp && File.Exists(sp)) OpenFileInScriptTab(sp); break;
+                case "folder":
+                    if (n.Path is { } fp && File.Exists(fp))
+                        try { Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{fp}\"") { UseShellExecute = true }); } catch { /* explorer bận */ }
+                    break;
+            }
+        };
+        static string TabTitle(DepNode n)
+        {
+            var l = n.Label.StartsWith("dbo.", StringComparison.OrdinalIgnoreCase) ? n.Label[4..] : n.Label;
+            return "Sơ đồ: " + (l.Length > 32 ? l[..31] + "…" : l);
+        }
+        var page = AddDocumentTab(TabTitle(start), control);
+        // tên tab theo nút đang xem — nhiều tab sơ đồ vẫn phân biệt được
+        control.CurrentChanged += n => { if (!page.IsDisposed) page.Text = TabTitle(n); };
+        if (newTab && _depTab is not null && _documentTabs.TabPages.Contains(_depTab)) return;
+        _depTab = page;
+        page.Disposed += (_, _) => { if (_depTab == page) _depTab = null; };
+    }
+
     /// <summary>Tab "Ai đang dùng …" cho 1 object SQL: quét database (App + Sys) và file source. Mỗi object 1 tab; mở lại thì chuyển tới và quét lại.</summary>
     private void OpenUsagesTab(SqlObjectInfo obj)
     {
@@ -1958,6 +2049,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.FileActivated += path => OpenFileFromLookup(path);
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
+        control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         control.MenuForPage = MenuForLookupPage;
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
@@ -2482,7 +2574,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Tab "Decrypt SQL Object" (WebView2): giải mã object WITH ENCRYPTION qua DAC — một tab duy nhất, mở lại thì chuyển tới tab đó.</summary>
     private void OpenDecryptSqlTab()
     {
-        if (!RequireLicense("Decrypt SQL Object")) return;
+        if (!RequireLicense("Decrypt SQL Object", LicenseService.Kind.Decrypt)) return;   // key riêng, không dùng key chung
         if (_decryptSqlTab is not null && _documentTabs.TabPages.Contains(_decryptSqlTab))
         {
             _documentTabs.SelectedTab = _decryptSqlTab;
@@ -2542,12 +2634,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>"Create RPT &amp; XML" và "Excel → FRX" chỉ dùng được khi key đã dán ở Settings khớp key khai báo trong source (<see cref="LicenseService"/>).
     /// Chưa kích hoạt thì mở luôn hộp thoại dán key; dán đúng thì dùng tiếp được ngay.</summary>
-    private bool RequireLicense(string feature)
+    private bool RequireLicense(string feature, LicenseService.Kind kind = LicenseService.Kind.General)
     {
-        if (LicenseService.IsUnlocked) return true;
-        using var f = new LicenseKeyForm($"Tính năng “{feature}” cần key bản quyền. Dán key rồi bấm Xác nhận.");
+        if (LicenseService.IsUnlockedFor(kind)) return true;
+        using var f = new LicenseKeyForm($"Tính năng “{feature}” cần {LicenseService.Describe(kind).Title.ToLowerInvariant()}. Dán key rồi bấm Xác nhận.", kind);
         f.ShowDialog(this);
-        return LicenseService.IsUnlocked;
+        return LicenseService.IsUnlockedFor(kind);
     }
 
     private TabPage? _createRptTab;
@@ -3319,6 +3411,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.FileActivated += path => OpenFileFromLookup(path);
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
+        control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         FileLookupControl.MarkTab(AddDocumentTab(title, control));
         return control;
@@ -3331,6 +3424,33 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var title = _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p => p.Controls.Contains(src))?.Text ?? "File Lookup";
         var control = CreateExtraLookupTab(ws, title.StartsWith("File Lookup") ? title : "File Lookup");
         control.CloneViewFrom(src);
+    }
+
+    /// <summary>Mở file bằng BcodeViewer (chưa khai đường dẫn thì hỏi chọn BcodeViewer.exe một lần, lưu vào cài đặt như File Lookup).</summary>
+    private void OpenFileInViewer(string path)
+    {
+        if (!File.Exists(path)) { MessageBox.Show(this, "Không thấy file:\n" + path, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        if (string.IsNullOrWhiteSpace(_settings.ViewerExePath) || !File.Exists(_settings.ViewerExePath))
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "Chọn BcodeViewer.exe",
+                Filter = "BcodeViewer (BcodeViewer.exe)|BcodeViewer.exe|Tất cả file (*.exe)|*.exe",
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            _settings.ViewerExePath = dialog.FileName;
+            _settings.Save();
+        }
+        try
+        {
+            var projectName = _connections.Current?.Name;
+            var arguments = string.IsNullOrWhiteSpace(projectName) ? $"\"{path}\"" : $"\"{path}\" \"{projectName}\"";
+            Process.Start(new ProcessStartInfo(_settings.ViewerExePath, arguments) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Không mở được BcodeViewer:\n{ex.Message}", "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void OpenFileFromLookup(string path)

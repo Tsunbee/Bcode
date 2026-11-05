@@ -240,6 +240,8 @@ public class GenUpdatePackageControl : UserControl
         // onlyFInGridFilterDir: Grid/Filter/Dir đã có bản .f biên dịch nên không đưa .xml nguồn vào gói update.
         var root = _fileLookupService.BuildTreeForMenuItem(_sourceRoot, item.Link, item.SysId, onlyFInGridFilterDir: true);
         PushTree(root, string.IsNullOrWhiteSpace(item.Bar) ? item.SysId : item.Bar);
+        // Điền sẵn WMenu ID vào ô Gen nhanh Menu — bấm "Gen Script Menu" là có script wcommand + command của đúng menu này.
+        if (!string.IsNullOrWhiteSpace(item.WMenuId)) Js($"genUpdate.onMenu({J(item.WMenuId)})");
     }
 
     private async Task SearchAsync(string category, string name)
@@ -360,6 +362,25 @@ public class GenUpdatePackageControl : UserControl
                     if (res.Warnings.Count > 0) msg += "\n" + string.Join("\n", res.Warnings);
                     Js($"genUpdate.busy(false); genUpdate.onBatch({J(BatchView())}, {J(msg)})");
                     if (res.Items.Count == 0 && res.Warnings.Count > 0) Js($"genUpdate.onError({J(string.Join(" | ", res.Warnings))})");
+                    break;
+                }
+
+                case "genMenu":
+                {
+                    if (_genAll is null) { Js("genUpdate.onError('Chưa sẵn sàng để gen script menu.')"); break; }
+                    var keys = GenAllService.SplitNames(root.GetProperty("keys").GetString());
+                    if (keys.Count == 0) { Js("genUpdate.onError('Nhập WMenu ID / controller / SysId trước.')"); break; }
+                    var res = await _genAll.ResolveMenusAsync(keys);
+                    foreach (var p in res.Items)
+                    {
+                        var item = new BatchItem { DisplayName = p.Origin, Origin = p.Origin, RelativeDestPath = p.RelativeDestPath, GeneratedContent = p.GeneratedContent };
+                        var i = _batch.FindIndex(b => string.Equals(b.RelativeDestPath, item.RelativeDestPath, StringComparison.OrdinalIgnoreCase));
+                        if (i >= 0) _batch[i] = item; else _batch.Add(item);
+                    }
+                    var msg = res.Items.Count > 0 ? $"Đã thêm {res.Items.Count} script menu vào gói update (gộp vào SYS_Script.sql)." : "Không sinh được script menu nào.";
+                    if (res.Warnings.Count > 0) msg += "\n" + string.Join("\n", res.Warnings);
+                    Js($"genUpdate.busy(false); genUpdate.onBatch({J(BatchView())}, {J(msg)})");
+                    if (res.Items.Count == 0) Js($"genUpdate.onError({J(res.Warnings.Count > 0 ? string.Join(" | ", res.Warnings) : msg)})");
                     break;
                 }
 

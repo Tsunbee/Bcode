@@ -39,11 +39,11 @@
 </head>
 <body data-area="editor">
 <div id="main">
-  <h2>Key bản quyền</h2>
+  <h2 id="title">Key bản quyền</h2>
   <div id="reason"></div>
   <div id="state">...</div>
   <div class="hint">Key mở khoá các tính năng:
-    <ul><li><b>Decrypt SQL Object</b> (giải mã object WITH ENCRYPTION)</li><li><b>Create RPT &amp; XML</b> (tạo Excel / Pivot Excel mẫu + khai báo header trong report XML)</li><li><b>Excel → FRX</b> (chuyển Excel mẫu in thành FastReport .frx)</li><li><b>Tạo báo cáo</b></li><li><b>Báo cáo yêu cầu FSG</b></li><li><b>Thiết kế màn hình</b></li><li><b>Khai báo API</b> · <b>Tạo cấu trúc API</b></li><li><b>Tạo nhanh danh mục</b> · <b>Clone danh mục</b></li></ul></div>
+    <ul id="feats"><li><b>Create RPT &amp; XML</b> (tạo Excel / Pivot Excel mẫu + khai báo header trong report XML)</li><li><b>Excel → FRX</b> (chuyển Excel mẫu in thành FastReport .frx)</li><li><b>Tạo báo cáo</b></li><li><b>Báo cáo yêu cầu FSG</b></li><li><b>Thiết kế màn hình</b></li><li><b>Khai báo API</b> · <b>Tạo cấu trúc API</b></li><li><b>Tạo nhanh danh mục</b> · <b>Clone danh mục</b></li></ul></div>
   <div>
     <div class="hint" style="margin-bottom:.3rem"><b>Bước 1.</b> Gửi <b>Mã máy</b> này cho người cấp key (mỗi máy một mã riêng):</div>
     <div class="row"><input type="text" id="machine" readonly class="grow"><button id="bCopyMachine">Copy mã máy</button></div>
@@ -74,6 +74,12 @@
   window.licenseKey = {
     init(o) {
       setBusy(false);
+      // Mỗi loại key (key chung / key Decrypt SQL Object) mở hộp thoại riêng: tiêu đề + danh sách tính năng theo loại
+      if (o.title) { $('title').textContent = o.title; document.title = o.title; }
+      if (Array.isArray(o.features) && o.features.length) {
+        $('feats').innerHTML = '';
+        o.features.forEach((f) => { const li = document.createElement('li'); const i = f.indexOf(' ('); const b = document.createElement('b'); b.textContent = i > 0 ? f.slice(0, i) : f; li.appendChild(b); if (i > 0) li.appendChild(document.createTextNode(f.slice(i))); $('feats').appendChild(li); });
+      }
       const s = $('state');
       s.className = o.unlocked ? 'ok' : 'no';
       s.textContent = o.unlocked ? '✓ Đã kích hoạt trên máy này.' : (o.hasKey ? '✗ Key đã lưu không còn hợp lệ trên máy này — gửi lại Mã máy để xin key mới. Các tính năng đang bị khoá.' : '✗ Chưa kích hoạt — các tính năng đang bị khoá.');

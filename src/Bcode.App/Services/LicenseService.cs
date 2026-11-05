@@ -6,7 +6,8 @@ using Bcode.Shared;
 namespace Bcode.App.Services;
 
 /// <summary>
-/// Bản quyền cho các tính năng: <b>Decrypt SQL Object</b>, <b>Create RPT &amp; XML</b> (tạo Excel / Pivot Excel mẫu) và <b>Excel → FRX</b>.
+/// Bản quyền cho các tính năng: key chung mở <b>Create RPT &amp; XML</b>, <b>Excel → FRX</b>, Tạo nhanh danh mục…; <b>Decrypt SQL Object</b> cần key RIÊNG
+/// (<see cref="Kind.Decrypt"/>, file license-decrypt.key, công thức bcrypt ghép khác) — key chung không mở được Decrypt.
 /// Mã bản quyền gắn với TỪNG MÁY: mỗi máy có "Mã máy" = <c>TÊN_MÁY|ĐỊNH_DANH</c> (xem <see cref="MachineCode"/>); người phát hành dùng công cụ Bcode.KeyGen
 /// (key gốc trong <see cref="LicenseSecret.Key"/> + mã máy) để sinh chuỗi bcrypt cho đúng máy đó (công thức ở <c>Shared/LicenseCodec.cs</c>).
 /// Người dùng dán MỘT LẦN ở Settings → "Key bản quyền"; mã được nhớ ở %AppData%\Bcode\license.key và kiểm tra lại mỗi lần mở Bcode.
@@ -19,17 +20,44 @@ namespace Bcode.App.Services;
 /// </summary>
 public static class LicenseService
 {
-    private static bool? _unlocked;
+    /// <summary>Hai loại key, cấp và lưu riêng: key chung (Excel → FRX, Create RPT &amp; XML, Tạo nhanh danh mục, Tạo báo cáo…) và key riêng cho
+    /// Decrypt SQL Object (công thức bcrypt ghép khác — <see cref="LicenseCodec.Kind"/>).</summary>
+    public enum Kind { General, Decrypt }
+
+    private static readonly Dictionary<Kind, bool?> _unlocked = new() { [Kind.General] = null, [Kind.Decrypt] = null };
 
     /// <summary>Báo khi key được lưu hoặc xoá (để làm mới nhãn menu).</summary>
     public static event Action? Changed;
 
-    private static string KeyPath => Path.Combine(BcodePaths.AppData, "Bcode", "license.key");
+    private static string KeyPath(Kind kind) => Path.Combine(BcodePaths.AppData, "Bcode", kind == Kind.Decrypt ? "license-decrypt.key" : "license.key");
 
-    /// <summary>Mã đã lưu có hợp lệ cho máy này không (tính 1 lần rồi nhớ — bcrypt chạy chậm có chủ đích).</summary>
-    public static bool IsUnlocked => _unlocked ??= Check(LoadKey());
+    private static LicenseCodec.Kind CodecKind(Kind kind) => kind == Kind.Decrypt ? LicenseCodec.Kind.Decrypt : LicenseCodec.Kind.General;
 
-    public static bool HasSavedKey => LoadKey().Length > 0;
+    /// <summary>Tên hiển thị + các tính năng mở khoá của từng loại key (hộp thoại Key bản quyền).</summary>
+    public static (string Title, string[] Features) Describe(Kind kind) => kind == Kind.Decrypt
+        ? ("Key Decrypt SQL Object", new[] { "Decrypt SQL Object (giải mã object WITH ENCRYPTION)" })
+        : ("Key bản quyền", new[]
+        {
+            "Create RPT & XML (Excel / Pivot Excel mẫu + header report XML)", "Excel → FRX / RPT (mẫu in Excel → FastReport / Crystal)",
+            "Tạo báo cáo · Báo cáo yêu cầu FSG · Thiết kế màn hình", "Khai báo API · Tạo cấu trúc API", "Tạo nhanh danh mục · Clone danh mục",
+        });
+
+    /// <summary>Key chung đã lưu có hợp lệ cho máy này không (tính 1 lần rồi nhớ — bcrypt chạy chậm có chủ đích).</summary>
+    public static bool IsUnlocked => IsUnlockedFor(Kind.General);
+
+    /// <summary>Key Decrypt SQL Object (key riêng) đã lưu có hợp lệ cho máy này không.</summary>
+    public static bool IsDecryptUnlocked => IsUnlockedFor(Kind.Decrypt);
+
+    public static bool IsUnlockedFor(Kind kind)
+    {
+        lock (_unlocked) if (_unlocked[kind] is bool b) return b;
+        var ok = Check(LoadKey(kind), kind);
+        lock (_unlocked) _unlocked[kind] = ok;
+        return ok;
+    }
+
+    public static bool HasSavedKey => HasSavedKeyFor(Kind.General);
+    public static bool HasSavedKeyFor(Kind kind) => LoadKey(kind).Length > 0;
 
     /// <summary>Mã máy để gửi cho người cấp key: chuỗi mờ "BM1-…" (bên trong là TÊN_MÁY|G-MachineGuid — hoặc U-UUID bo mạch, cùng lắm là IP —
     /// chỉ người có key gốc giải ra được).</summary>
@@ -122,23 +150,31 @@ public static class LicenseService
         return withGateway.Concat(others).Distinct().ToList();
     }
 
-    public static string LoadKey()
+    public static string LoadKey(Kind kind = Kind.General)
     {
-        try { return File.Exists(KeyPath) ? File.ReadAllText(KeyPath).Trim() : ""; }
+        try { var p = KeyPath(kind); return File.Exists(p) ? File.ReadAllText(p).Trim() : ""; }
         catch { return ""; }
     }
 
     /// <summary>Kiểm tra mã vừa dán; khớp thì lưu (dán 1 lần, lần sau không cần dán lại) và mở khoá.</summary>
-    public static (bool Ok, string Message) Save(string? pasted)
+    public static (bool Ok, string Message) Save(string? pasted, Kind kind = Kind.General)
     {
         var key = (pasted ?? "").Trim();
         if (key.Length == 0) return (false, "Chưa dán mã.");
-        if (!Check(key)) return (false, "Mã không đúng cho máy này. Kiểm tra lại chuỗi đã dán, hoặc gửi lại Mã máy để được cấp mã mới.");
-        _unlocked = true;
+        if (!Check(key, kind))
+        {
+            // dán nhầm loại key (key chung vào ô Decrypt hay ngược lại): báo rõ thay vì chỉ "không đúng"
+            var other = kind == Kind.Decrypt ? Kind.General : Kind.Decrypt;
+            return (false, Check(key, other)
+                ? $"Đây là {Describe(other).Title.ToLowerInvariant()}, không phải {Describe(kind).Title.ToLowerInvariant()} — dán vào đúng mục ở Settings."
+                : "Mã không đúng cho máy này. Kiểm tra lại chuỗi đã dán, hoặc gửi lại Mã máy để được cấp mã mới.");
+        }
+        lock (_unlocked) _unlocked[kind] = true;
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(KeyPath)!);
-            File.WriteAllText(KeyPath, key);
+            var p = KeyPath(kind);
+            Directory.CreateDirectory(Path.GetDirectoryName(p)!);
+            File.WriteAllText(p, key);
         }
         catch (Exception ex)
         {
@@ -146,18 +182,20 @@ public static class LicenseService
             return (true, "Đã kích hoạt nhưng chưa nhớ được mã cho lần mở sau (" + ex.Message + ").");
         }
         Changed?.Invoke();
-        return (true, "Đã kích hoạt: có thể dùng Decrypt SQL Object, Create RPT & XML và Excel → FRX. Mã được nhớ lại, lần sau không cần dán lại.");
+        return (true, kind == Kind.Decrypt
+            ? "Đã kích hoạt: có thể dùng Decrypt SQL Object. Mã được nhớ lại, lần sau không cần dán lại."
+            : "Đã kích hoạt: có thể dùng Create RPT & XML, Excel → FRX, Tạo nhanh danh mục… Mã được nhớ lại, lần sau không cần dán lại.");
     }
 
-    /// <summary>Xoá mã đã lưu (khoá lại các tính năng).</summary>
-    public static void Clear()
+    /// <summary>Xoá mã đã lưu (khoá lại các tính năng của loại key đó).</summary>
+    public static void Clear(Kind kind = Kind.General)
     {
-        try { if (File.Exists(KeyPath)) File.Delete(KeyPath); } catch { /* không xoá được: cờ dưới đây vẫn khoá ngay lúc này */ }
-        _unlocked = false;
+        try { var p = KeyPath(kind); if (File.Exists(p)) File.Delete(p); } catch { /* không xoá được: cờ dưới đây vẫn khoá ngay lúc này */ }
+        lock (_unlocked) _unlocked[kind] = false;
         Changed?.Invoke();
     }
 
     /// <summary>Mã có hợp lệ cho máy này không (không lưu gì): khớp định danh phần cứng (key mới) hoặc một IPv4 hiện có (key cấp theo IP trước đây).</summary>
-    public static bool Check(string? pasted) =>
-        LicenseCodec.Verify(LicenseSecret.Key, pasted, Environment.MachineName, HardwareIds.Concat(LocalIps()));
+    public static bool Check(string? pasted, Kind kind = Kind.General) =>
+        LicenseCodec.Verify(LicenseSecret.Key, pasted, Environment.MachineName, HardwareIds.Concat(LocalIps()), CodecKind(kind));
 }

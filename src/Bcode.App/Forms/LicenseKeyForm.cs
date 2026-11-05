@@ -6,7 +6,8 @@ using Microsoft.Web.WebView2.WinForms;
 namespace Bcode.App.Forms;
 
 /// <summary>
-/// Settings → "Key bản quyền": dán key một lần (mã hoá bcrypt .NET, được nhớ lại) để đối chiếu với key khai trong source của Bcode và mở khoá "Decrypt SQL Object", "Create RPT &amp; XML" và "Excel → FRX". Giao diện là trang WebView2
+/// Settings → "Key bản quyền" / "Key Decrypt SQL Object": dán key một lần (mã hoá bcrypt .NET, được nhớ lại) để đối chiếu với key khai trong source của Bcode.
+/// Key chung mở "Create RPT &amp; XML", "Excel → FRX", Tạo nhanh danh mục…; "Decrypt SQL Object" cần key riêng (<see cref="LicenseService.Kind.Decrypt"/>). Giao diện là trang WebView2
 /// (Web/Shell/licensekey.html) nên tự co giãn theo màn hình và ăn theo Template giao diện; việc kiểm tra key nằm ở <see cref="LicenseService"/>.
 /// </summary>
 public class LicenseKeyForm : ThemedForm
@@ -14,13 +15,16 @@ public class LicenseKeyForm : ThemedForm
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly string? _reason;
+    private readonly LicenseService.Kind _kind;
     private readonly Bcode.App.Controls.WebBarHost? _host;
 
     /// <param name="reason">Lý do mở hộp thoại (vd tính năng đang bị khoá) — hiện ở đầu trang; null = mở từ menu.</param>
-    public LicenseKeyForm(string? reason = null)
+    /// <param name="kind">Loại key: key chung hay key riêng Decrypt SQL Object (cấp, lưu, kiểm tra riêng).</param>
+    public LicenseKeyForm(string? reason = null, LicenseService.Kind kind = LicenseService.Kind.General)
     {
         _reason = reason;
-        Text = "Key bản quyền";
+        _kind = kind;
+        Text = LicenseService.Describe(kind).Title;
         FormBorderStyle = FormBorderStyle.Sizable;
         MinimizeBox = false;
         MaximizeBox = true;
@@ -68,8 +72,9 @@ public class LicenseKeyForm : ThemedForm
     private async Task PushStateAsync(string? message = null, bool? ok = null)
     {
         // bcrypt chạy chậm có chủ đích (lần kiểm tra đầu): làm ở luồng nền để hộp thoại không đơ
-        var unlocked = await Task.Run(() => LicenseService.IsUnlocked);
-        Js($"licenseKey.init({J(new { unlocked, hasKey = LicenseService.HasSavedKey, machine = LicenseService.MachineCode, reason = _reason, message, ok })})");
+        var unlocked = await Task.Run(() => LicenseService.IsUnlockedFor(_kind));
+        var (title, features) = LicenseService.Describe(_kind);
+        Js($"licenseKey.init({J(new { unlocked, hasKey = LicenseService.HasSavedKeyFor(_kind), machine = LicenseService.MachineCode, reason = _reason, message, ok, title, features, kind = _kind.ToString() })})");
     }
 
     private async void OnWebMessage(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2WebMessageReceivedEventArgs e)
@@ -93,14 +98,14 @@ public class LicenseKeyForm : ThemedForm
                 {
                     // bcrypt cố tình chạy chậm (~0,1–0,3 s): chạy nền để hộp thoại không đơ
                     var key = root.TryGetProperty("key", out var k) ? k.GetString() : "";
-                    var (ok, msg) = await Task.Run(() => LicenseService.Save(key));
+                    var (ok, msg) = await Task.Run(() => LicenseService.Save(key, _kind));
                     await PushStateAsync(msg, ok);
                     break;
                 }
 
                 case "clear":
-                    LicenseService.Clear();
-                    await PushStateAsync("Đã xoá key đã lưu. Decrypt SQL Object, Create RPT & XML và Excel → FRX bị khoá lại.", true);
+                    LicenseService.Clear(_kind);
+                    await PushStateAsync("Đã xoá key đã lưu. " + string.Join(", ", LicenseService.Describe(_kind).Features.Select(f => f.Split(" (")[0])) + " bị khoá lại.", true);
                     break;
 
 
@@ -113,7 +118,7 @@ public class LicenseKeyForm : ThemedForm
                     break;
 
                 case "close":
-                    DialogResult = LicenseService.IsUnlocked ? DialogResult.OK : DialogResult.Cancel;
+                    DialogResult = LicenseService.IsUnlockedFor(_kind) ? DialogResult.OK : DialogResult.Cancel;
                     Close();
                     break;
             }

@@ -16,6 +16,7 @@ internal sealed class GenUpdatePage : NativePage
     private readonly Label _ws = NK.Muted(""), _status = NK.Muted("");
     private readonly RoundedInput _pProgram = NK.Input(""), _pMobile = NK.Input(""), _pSave = NK.Input(""), _pFolder = NK.Input(""), _pDesc = NK.Memo(2, "Mô tả gói update (ghi vào description.txt)", mono: false);
     private readonly SegmentedBar _db = new(("app", "App"), ("sys", "Sys"), ("other", "Other"));
+    private readonly RoundedInput _menuKey = NK.Input("WMenu ID / Controller / SysId (nhiều cái cách nhau dấu phẩy)...");
     private readonly RoundedInput _storeName = NK.Input("Tên stored procedure..."), _tblCtrl = NK.Input("Controller / SysId (vd SVTran, ARTran)..."), _tblName = NK.Input("Hoặc nhập tên table / view..."), _nameBox = NK.Input("Tên / SysId (khớp chứa)..."), _treeFilter = NK.Input("Lọc trong cây...");
     private readonly AutoCompleteStringCollection _procSrc = new(), _tblSrc = new(), _nameSrc = new();
     private readonly DropDownButton _cat = new() { Width = NativeSkin.S(170) };
@@ -66,6 +67,11 @@ internal sealed class GenUpdatePage : NativePage
         NK.Stack(c2.Body, _db, NK.Spacer(10), Wrap(_storeName, bGenStore), NK.Spacer(6), NK.Muted("Script (IF EXISTS … DROP rồi CREATE) được gộp vào APP_Script.sql hoặc SYS_Script.sql (Script\\app | Script\\sys) theo App/Sys đã chọn — chung file với script table, giống Note (New).", true));
         _storeName.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; GenStore(); } };
 
+        var cMenu = new CardPanel("Gen nhanh Menu (wcommand)") { Dock = DockStyle.Top };
+        var bGenMenu = NK.Button("Gen Script Menu", GenMenu, primary: true);
+        NK.Stack(cMenu.Body, Wrap(_menuKey, bGenMenu), NK.Spacer(6), NK.Muted("Script DELETE + INSERT cho wcommand và command (đúng cột bảng của database đang chọn), gộp vào SYS_Script.sql (Script\\sys). Double-click 1 menu ở cây WCommand là WMenu ID được điền sẵn.", true));
+        _menuKey.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; GenMenu(); } };
+
         var c3 = new CardPanel("Gen nhanh Table") { Dock = DockStyle.Top };
         _tblCtrl.Inner.AutoCompleteMode = AutoCompleteMode.SuggestAppend; _tblCtrl.Inner.AutoCompleteSource = AutoCompleteSource.CustomSource; _tblCtrl.Inner.AutoCompleteCustomSource = _nameSrc;
         _tblName.Inner.AutoCompleteMode = AutoCompleteMode.SuggestAppend; _tblName.Inner.AutoCompleteSource = AutoCompleteSource.CustomSource; _tblName.Inner.AutoCompleteCustomSource = _tblSrc;
@@ -79,7 +85,7 @@ internal sealed class GenUpdatePage : NativePage
             NK.Muted("Cấu trúc = script tạo table (gộp vào APP_Script.sql) hoặc tạo lại view; Dữ liệu = xoá rồi nạp lại dòng (lọc bằng Where, trống = cả bảng, quá 50.000 dòng cần Where).", true),
             NK.Spacer(8), NK.Row(NK.Button("Gen Script", GenTables, primary: true)));
         var left = new Panel { Dock = DockStyle.Left, Width = NativeSkin.S(430), AutoScroll = true, Padding = new Padding(12, 10, 8, 12) };
-        NK.Stack(left, c1, c2, c3);
+        NK.Stack(left, c1, c2, cMenu, c3);
 
         // ---- giữa: cây source ----
         _cat.SetItems(new[] { "(chưa có)" }, 0);
@@ -162,6 +168,12 @@ internal sealed class GenUpdatePage : NativePage
         if (name.Length == 0) { Toast("Nhập tên stored procedure trước.", "err"); return; }
         if (_db.Value == "other") { Toast("Chọn App hoặc Sys trước khi Gen Script (Other không áp dụng).", "err"); return; }
         SetBusy(true, "Đang lấy script..."); Post(new { action = "genStore", name, db = _db.Value });
+    }
+    private void GenMenu()
+    {
+        var keys = _menuKey.Text.Trim();
+        if (keys.Length == 0) { Toast("Nhập WMenu ID / controller / SysId trước.", "err"); return; }
+        SetBusy(true, "Đang sinh script menu..."); Post(new { action = "genMenu", keys });
     }
     private void LoadTbl() { var v = _tblCtrl.Text.Trim(); if (v.Length == 0) { Toast("Nhập controller / SysId trước.", "err"); return; } SetBusy(true, "Đang dò table liên quan..."); Post(new { action = "loadTables", controllers = v }); }
     private void AddTbl() { var v = _tblName.Text.Trim(); if (v.Length == 0) return; Post(new { action = "lookupTable", name = v }); _tblName.Text = ""; }
@@ -338,6 +350,7 @@ internal sealed class GenUpdatePage : NativePage
                 if (Str(a, 1).Length > 0) Toast(Str(a, 1), "ok");
                 break;
             case "genUpdate.onNames": if (a.Count > 0 && a[0].ValueKind == JsonValueKind.Array) Fill(_nameSrc, a[0].EnumerateArray()); break;
+            case "genUpdate.onMenu": _menuKey.Text = Str(a, 0); break;
             case "genUpdate.onProcs": if (a.Count > 0 && a[0].ValueKind == JsonValueKind.Array) Fill(_procSrc, a[0].EnumerateArray()); break;
             case "genUpdate.onTableNames": if (a.Count > 0 && a[0].ValueKind == JsonValueKind.Array) Fill(_tblSrc, a[0].EnumerateArray()); break;
             case "genUpdate.onTables":

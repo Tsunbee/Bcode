@@ -113,6 +113,12 @@
         <member name="M:ExcelToFrx.ExcelToFrxOptions.CrystalRuntimeInstalled(Microsoft.Win32.RegistryView)">
             <summary>SAP Crystal Reports runtime cho .NET (13.0.x) theo bitness: khoá registry của bản đó trỏ tới thư mục engine có crpe32.dll.</summary>
         </member>
+        <member name="P:ExcelToFrx.ExcelToFrxOptions.OcrPath">
+            <summary>
+            Bcode.Ocr.exe (đọc chữ ảnh / PDF mẫu in bằng OCR có sẵn của Windows — đi kèm Bcode). Rỗng = tìm <c>Ocr\Bcode.Ocr.exe</c>
+            cạnh ExcelToFrx.dll, cạnh ứng dụng chủ, hoặc ở thư mục cha.
+            </summary>
+        </member>
         <member name="T:ExcelToFrx.Hosting.ApiResponse">
             <summary>Trả lời của một request.</summary>
         </member>
@@ -135,6 +141,12 @@
         </member>
         <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.Parse(System.Collections.Specialized.NameValueCollection,System.Byte[])">
             <summary>Upload .xlsx (hoặc <c>?path=</c> do host đưa vào) → layout.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.ParseImageAsync(System.Collections.Specialized.NameValueCollection,System.Byte[],System.Threading.CancellationToken)">
+            <summary>
+            Ảnh chụp / scan / PDF mẫu in giấy (upload hoặc <c>?path=</c>) → Bcode.Ocr.exe đọc chữ (PDF thì dựng trang thành PNG) →
+            <see cref="T:ExcelToFrx.Parsing.ImageLayoutBuilder"/> dò đường kẻ, dựng bố cục nháp cùng khuôn với mẫu Excel.
+            </summary>
         </member>
         <member name="M:ExcelToFrx.Hosting.ExcelToFrxSession.Fields">
             <summary>Trường có thật để đối chiếu: ưu tiên .xsd, không có thì đọc Dictionary của mẫu .frx.</summary>
@@ -219,6 +231,53 @@
         <member name="M:ExcelToFrx.Parsing.FormulaSuggest.Ex.#ctor(System.String,System.Boolean,System.Boolean)">
             <summary>Biểu thức đã dịch. Num = chắc chắn là số (để quyết định có bọc Convert.ToDecimal).</summary>
         </member>
+        <member name="T:ExcelToFrx.Parsing.OcrWord">
+            <summary>Một từ / một dòng chữ đọc được bằng OCR (toạ độ px theo ảnh).</summary>
+            <remarks>FontSize (pt) / Bold / Font chỉ có khi chữ lấy thẳng từ PDF (<see cref="T:ExcelToFrx.Parsing.PdfTextReader"/>); OCR thì null → ước từ khung chữ.</remarks>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.OcrWord.#ctor(System.String,System.Int32,System.Int32,System.Int32,System.Int32,System.Nullable{System.Double},System.Nullable{System.Boolean},System.String)">
+            <summary>Một từ / một dòng chữ đọc được bằng OCR (toạ độ px theo ảnh).</summary>
+            <remarks>FontSize (pt) / Bold / Font chỉ có khi chữ lấy thẳng từ PDF (<see cref="T:ExcelToFrx.Parsing.PdfTextReader"/>); OCR thì null → ước từ khung chữ.</remarks>
+        </member>
+        <member name="T:ExcelToFrx.Parsing.ImageLayoutBuilder">
+            <summary>
+            Mẫu in GIẤY (ảnh chụp / scan) hoặc PDF → layout.json cùng khuôn với <see cref="T:ExcelToFrx.Parsing.LayoutParser"/> — miễn phí, không AI:
+            <list type="number">
+            <item>Dò đường kẻ ngang / dọc trên ảnh (chuỗi điểm tối liên tiếp), đường dọc phải nối hai đường ngang mới tính (loại nét chữ).</item>
+            <item>Bảng = cụm đường dọc lớn nhất; mỗi dải giữa hai đường ngang là một dòng, ô nằm giữa các đường dọc phủ dải đó; thiếu đường ngang giữa
+            hai ô trùng cột thì gộp dọc (tiêu đề hai tầng).</item>
+            <item>Từng từ OCR xếp vào ô theo tâm; chữ ngoài bảng thành ô chữ đúng vị trí (giữa trang thì căn giữa).</item>
+            <item>Phân vùng: trên bảng → ReportHeader; dòng tiêu đề (+ dòng đánh số 1, 2, 3…) → PageHeader; dòng dữ liệu đầu → Detail;
+            dòng "Tổng cộng" và phần dưới bảng → ReportFooter.</item>
+            <item>Đoán trường cột theo chữ tiêu đề (Mã hàng → ma_vt, Số lượng → so_luong…), có .xsd thì chỉ nhận trường có thật, có report .xml thì
+            tiêu đề trùng chữ của tham số thành nhãn ?h_x.</item>
+            </list>
+            Kết quả là bản nháp để chỉnh tiếp trên giao diện kéo thả — không thay được người kiểm.
+            </summary>
+        </member>
+        <member name="T:ExcelToFrx.Parsing.ImageLayoutBuilder.PItem">
+            <summary>Ô / chữ trung gian (toạ độ px) trước khi đổi sang twips.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.ImageLayoutBuilder.PItem.#ctor(System.Int32,System.Int32,System.Int32,System.Int32,System.Text.Json.Nodes.JsonObject,System.Double,System.Boolean,System.String,System.String,System.Boolean,System.Text.Json.Nodes.JsonObject)">
+            <summary>Ô / chữ trung gian (toạ độ px) trước khi đổi sang twips.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.ImageLayoutBuilder.Norm(System.String)">
+            <summary>Bỏ dấu, chữ thường, bỏ phần trong ngoặc và ký tự lạ — OCR tiếng Anh đọc sai dấu nên so khớp phải không dấu.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.ImageLayoutBuilder.NormAll(System.String)">
+            <summary>Như <see cref="M:ExcelToFrx.Parsing.ImageLayoutBuilder.Norm(System.String)"/> nhưng giữ chữ trong ngoặc ("Tổng số tiền (viết bằng chữ)").</summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.ImageLayoutBuilder.Sim(System.String,System.String)">
+            <summary>Độ giống giữa chữ OCR và một khoá: trùng hẳn 1; khoá ≥ 4 ký tự là đầu chuỗi 0.9; còn lại theo Levenshtein.</summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.ImageLayoutBuilder.Build(System.String,System.Collections.Generic.IReadOnlyList{ExcelToFrx.Parsing.OcrLine},System.String,System.Text.Json.Nodes.JsonObject,System.Text.Json.Nodes.JsonObject,System.Boolean)">
+            <param name="imagePath">Ảnh PNG/JPG (PDF đã được Bcode.Ocr dựng thành PNG).</param>
+            <param name="lines">Dòng chữ OCR (có từng từ).</param>
+            <param name="sourceName">Tên file gốc (ảnh / PDF) — đặt tên report.</param>
+            <param name="exactText">Chữ lấy thẳng từ PDF (đúng dấu, có cỡ / đậm / font thật): không sửa dấu, không gộp cỡ chữ.</param>
+            <param name="xsd">Kết quả <c>XsdFieldReader.Parse</c> (tuỳ chọn).</param>
+            <param name="reportXml">Kết quả <c>ReportXmlReader.Parse</c> (tuỳ chọn).</param>
+        </member>
         <member name="T:ExcelToFrx.Parsing.J">
             <summary>Truy cập JsonObject cho gọn, theo ngữ nghĩa dict của Python (<c>.get()</c>, giá trị "truthy").</summary>
         </member>
@@ -292,6 +351,23 @@
               values  = trường giá trị + hàm tổng (sum/count/average/max/min), bề rộng = cột dữ liệu đầu
             </summary>
         </member>
+        <member name="T:ExcelToFrx.Parsing.PdfTextReader">
+            <summary>
+            PDF có sẵn lớp chữ (xuất từ Word / phần mềm, không phải bản scan): đọc thẳng chữ + vị trí + font + cỡ + đậm bằng PdfPig — đúng dấu tiếng Việt
+            100%, không cần OCR. Toạ độ đổi sang pixel của ảnh trang do Bcode.Ocr dựng ra (ảnh vẫn dùng để dò đường kẻ bảng).
+            PDF scan (không có chữ) trả null → dùng kết quả OCR như cũ.
+            </summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.PdfTextReader.TryRead(System.String,System.Int32,System.Int32,System.Int32,System.String@)">
+            <param name="pdfPath">File PDF.</param>
+            <param name="pageNo">Trang (1 = trang đầu).</param>
+            <param name="imgW">Bề rộng ảnh trang đã dựng (px).</param>
+            <param name="imgH">Bề cao ảnh trang đã dựng (px).</param>
+            <param name="info">Mô tả ngắn cho nhật ký.</param>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.PdfTextReader.FontFamily(System.String)">
+            <summary>"ABCDEF+TimesNewRomanPS-BoldMT" → "Times New Roman"; không nhận ra thì giữ tên đã bỏ tiền tố / hậu tố kiểu.</summary>
+        </member>
         <member name="T:ExcelToFrx.Parsing.Py">
             <summary>
             Các phép tính/định dạng phải cho ra ĐÚNG như Python, vì <c>layout.json</c> là hợp đồng
@@ -321,6 +397,21 @@
         </member>
         <member name="F:ExcelToFrx.Parsing.Py.Ordinal">
             <summary>So sánh chuỗi theo mã ký tự như <c>sorted()</c> của Python.</summary>
+        </member>
+        <member name="T:ExcelToFrx.Parsing.VnTextFix">
+            <summary>
+            Sửa dấu tiếng Việt cho chữ OCR khi máy chỉ có gói OCR tiếng Anh ("PHIEU XUÅT KHO" → "PHIẾU XUẤT KHO", "T@n" → "Tên", "CQng" → "Cộng").
+            Không AI: (1) cả câu gần giống một cụm hay gặp trên mẫu in thì thay cả cụm; (2) không thì sửa từng từ theo bảng từ chỉ có MỘT cách
+            viết có dấu trên mẫu in (từ nhiều nghĩa như nhan = nhãn/nhận, chi = chỉ/chi để nguyên). Chữ không nhận ra giữ như OCR đọc.
+            </summary>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.VnTextFix.Fix(System.String,System.Boolean)">
+            <param name="text">Chữ OCR.</param>
+            <param name="ui">Chữ trên màn hình / hộp thoại (tab Tra ảnh lỗi của Bcode), không phải mẫu in: câu văn tự do nên KHÔNG đoán từ gần đúng
+            ("tin" → "tên", "xem" → "kèm"), chỉ sửa từ trùng hẳn trong bảng từ và bỏ qua từ nhiều nghĩa (ban = bán / bạn).</param>
+        </member>
+        <member name="M:ExcelToFrx.Parsing.VnTextFix.Wild(System.String)">
+            <summary>Bỏ dấu, chữ thường; ký tự OCR đọc hỏng (@, &amp;, Q giữa chữ thường) thành '?'.</summary>
         </member>
         <member name="T:ExcelToFrx.Services.FrxGeneratorRunner">
             <summary>

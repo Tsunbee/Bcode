@@ -129,13 +129,15 @@ internal sealed class LicenseKeyPage : DialogPage
     private readonly Label _reason = new() { AutoSize = false, Height = 0, Dock = DockStyle.Top, ForeColor = AppColors.Danger, Padding = new Padding(10, 4, 0, 0) };
     private readonly RoundedInput _machine = NK.Input("", mono: true), _key = NK.Memo(3, "Dán key vào đây...");
     private readonly PillButton _bSave, _bClear, _bPaste;
+    private Label _title = null!, _feats = null!;
 
     public LicenseKeyPage()
     {
         _machine.ReadOnly = true;
         var body = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(14, 8, 14, 8) };
         var h = new Label { Text = "Key bản quyền", AutoSize = true, Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 3, FontStyle.Bold), BackColor = Color.Transparent };
-        var feats = NK.Muted("Key mở khoá: Decrypt SQL Object (giải mã object WITH ENCRYPTION) · Create RPT & XML (Excel / Pivot Excel mẫu + header report XML) · Excel → FRX (Excel mẫu in → FastReport .frx) · Tạo báo cáo · Báo cáo yêu cầu FSG · Thiết kế màn hình · Khai báo API · Tạo cấu trúc API · Tạo nhanh danh mục · Clone danh mục.", true);
+        var feats = NK.Muted("Key mở khoá: Create RPT & XML (Excel / Pivot Excel mẫu + header report XML) · Excel → FRX (Excel mẫu in → FastReport .frx) · Tạo báo cáo · Báo cáo yêu cầu FSG · Thiết kế màn hình · Khai báo API · Tạo cấu trúc API · Tạo nhanh danh mục · Clone danh mục.", true);
+        _title = h; _feats = feats;
         var s1 = NK.Muted("Bước 1. Gửi Mã máy này cho người cấp key (mỗi máy một mã riêng):", true);
         _bPaste = NK.Button("Dán từ clipboard", () => Post(new { action = "paste" })); _bSave = NK.Button("Xác nhận", SaveKey, primary: true); _bClear = NK.Button("Xoá key đã lưu", () => Post(new { action = "clear" }));
         var s2 = NK.Muted("Bước 2. Dán key nhận lại rồi bấm Xác nhận. Chỉ cần dán một lần: key được nhớ lại. Key chỉ dùng được trên máy đã gửi mã.", true);
@@ -169,6 +171,10 @@ internal sealed class LicenseKeyPage : DialogPage
                 var o = Arg(a, 0);
                 Busy(false);
                 var unlocked = PB(o, "unlocked"); var hasKey = PB(o, "hasKey");
+                // key chung / key Decrypt SQL Object: tiêu đề + tính năng theo loại key
+                var title = P(o, "title"); if (title.Length > 0) _title.Text = title;
+                if (o.TryGetProperty("features", out var fs) && fs.ValueKind == JsonValueKind.Array && fs.GetArrayLength() > 0)
+                    _feats.Text = "Key mở khoá: " + string.Join(" · ", fs.EnumerateArray().Select(f => f.GetString() ?? "")) + ".";
                 _state.Text = unlocked ? "✓ Đã kích hoạt trên máy này." : hasKey ? "✗ Key đã lưu không còn hợp lệ trên máy này — gửi lại Mã máy để xin key mới. Các tính năng đang bị khoá." : "✗ Chưa kích hoạt — các tính năng đang bị khoá.";
                 _state.ForeColor = unlocked ? AppColors.Success : AppColors.Accent;
                 _machine.Text = P(o, "machine");

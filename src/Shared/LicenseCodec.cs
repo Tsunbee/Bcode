@@ -70,22 +70,32 @@ internal static class LicenseCodec
         catch { return false; }
     }
 
-    private static string Material(string secret, string machineCode) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret.Trim() + "|" + machineCode)));
+    /// <summary>Loại key: <see cref="General"/> = key chung (Excel → FRX, Create RPT &amp; XML, Tạo nhanh danh mục…); <see cref="Decrypt"/> = key riêng cho
+    /// Decrypt SQL Object — chuỗi đưa vào bcrypt ghép KHÁC hẳn (cách ghép ở Secrets/LocalSecrets.cs, không có trong source) nên key chung không mở được Decrypt và ngược lại.</summary>
+    public enum Kind { General, Decrypt }
+
+    private static string Material(string secret, string machineCode, Kind kind = Kind.General)
+    {
+        if (kind != Kind.Decrypt) return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret.Trim() + "|" + machineCode)));
+        // Cách ghép của key Decrypt nằm ở file bí mật (Secrets/LocalSecrets.cs — gitignore), không để trong source. Bản build thiếu file đó: không cấp / không mở được Decrypt.
+        var tpl = Bcode.App.Services.LicenseSecret.DecryptTemplate;
+        if (string.IsNullOrEmpty(tpl) || !tpl.Contains("{m}") || !tpl.Contains("{k}")) throw new InvalidOperationException("Bản build này không có cách ghép key Decrypt SQL Object (Secrets/LocalSecrets.cs).");
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(tpl.Replace("{m}", machineCode).Replace("{k}", secret.Trim()))));
+    }
 
     /// <summary>Cấp mã cho máy <paramref name="machineCode"/> (mỗi lần gọi ra chuỗi khác nhau nhưng đều hợp lệ — bcrypt có salt ngẫu nhiên).</summary>
-    public static string Issue(string secret, string machineCode) =>
-        BCrypt.Net.BCrypt.HashPassword(Material(secret, machineCode), WorkFactor);
+    public static string Issue(string secret, string machineCode, Kind kind = Kind.General) =>
+        BCrypt.Net.BCrypt.HashPassword(Material(secret, machineCode, kind), WorkFactor);
 
     /// <summary>Mã dán vào có hợp lệ cho một trong các (tên máy, định danh) của máy này không — định danh phần cứng (key mới) hoặc IP (key cũ).</summary>
-    public static bool Verify(string secret, string? license, string machineName, IEnumerable<string> machineIds)
+    public static bool Verify(string secret, string? license, string machineName, IEnumerable<string> machineIds, Kind kind = Kind.General)
     {
         var lic = (license ?? "").Trim();
         if (lic.Length == 0 || secret.Trim().Length == 0) return false;
         try
         {
             foreach (var id in machineIds)
-                if (BCrypt.Net.BCrypt.Verify(Material(secret, MachineCode(machineName, id)), lic)) return true;
+                if (BCrypt.Net.BCrypt.Verify(Material(secret, MachineCode(machineName, id), kind), lic)) return true;
         }
         catch { /* chuỗi bcrypt hỏng */ }
         return false;

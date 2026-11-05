@@ -68,6 +68,9 @@ public partial class FileLookupControl : UserControl
     /// <summary>Chuột phải file Excel → "Chuyển sang .rpt": như <see cref="ExcelToFrxRequested"/> nhưng chọn sẵn định dạng ra .rpt (Crystal).</summary>
     public event Action<string>? ExcelToRptRequested;
 
+    /// <summary>Chuột phải file controller → "Sơ đồ phụ thuộc…" (full path).</summary>
+    public event Action<string>? DependencyRequested;
+
     public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
     {
         _service = service;
@@ -174,7 +177,19 @@ public partial class FileLookupControl : UserControl
                     _fileContextMenu.Items.Add(new ToolStripMenuItem("Chuyển sang .rpt (Excel → RPT)", AppIcons.ExcelTreeBitmap,
                         (_, _) => ExcelToRptRequested?.Invoke(xl.FullPath)));
             }
+            // Mẫu in giấy (ảnh chụp / scan / PDF) -> đọc chữ + đường kẻ, dựng bố cục nháp trong tab "Excel → FRX"
+            else if (_tree.SelectedNode.Tag is FileLookupNode { IsDirectory: false } img
+                && Path.GetExtension(img.FullPath).ToLowerInvariant() is ".pdf" or ".png" or ".jpg" or ".jpeg" or ".bmp" or ".tif" or ".tiff" or ".gif")
+            {
+                _fileContextMenu.Items.Add(new ToolStripSeparator());
+                _fileContextMenu.Items.Add(new ToolStripMenuItem("Dựng mẫu in từ ảnh / PDF → .frx", null,
+                    (_, _) => ExcelToFrxRequested?.Invoke(img.FullPath)) { Font = new Font(_fileContextMenu.Font, FontStyle.Bold) });
+                _fileContextMenu.Items.Add(new ToolStripMenuItem("Dựng mẫu in từ ảnh / PDF → .rpt", null,
+                    (_, _) => ExcelToRptRequested?.Invoke(img.FullPath)));
+            }
             _fileContextMenu.Items.Add(new ToolStripSeparator());
+            if (_tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } depFile)
+                _fileContextMenu.Items.Add("Sơ đồ phụ thuộc…", null, (_, _) => DependencyRequested?.Invoke(depFile.FullPath));
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
             _fileContextMenu.Items.Add("Cấp source (tự động theo phiên bản)...", null, (_, _) => BeginInvoke(new Action(ShowGrantSourceDialog)));

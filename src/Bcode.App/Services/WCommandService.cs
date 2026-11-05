@@ -723,6 +723,21 @@ ORDER BY w.wmenu_id;";
         return list;
     }
 
+    /// <summary>Gen nhanh Menu (tab Gen Update): các dòng wcommand khớp 1 khoá — wmenu_id hoặc menu_id đúng bằng khoá, hoặc trỏ tới controller
+    /// (sysid trùng tên / link bắt đầu "&lt;tên&gt;.aspx", như <see cref="FindByControllerAsync"/>). Đủ cột để <see cref="GenerateScript"/>.</summary>
+    public async Task<List<WCommandItem>> FindMenusAsync(string key)
+    {
+        await using var conn = _connections.CreateConnection(useSysDatabase: true);
+        await conn.OpenAsync();
+        await using var cmd = new SqlCommand("SELECT * FROM dbo.wcommand WHERE wmenu_id = @n OR menu_id = @n OR sysid = @n OR link LIKE @l ORDER BY wmenu_id", conn);
+        cmd.Parameters.AddWithValue("@n", key);
+        cmd.Parameters.AddWithValue("@l", key.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]") + ".aspx%");
+        var list = new List<WCommandItem>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) list.Add(ReadFullRow(reader));
+        return list;
+    }
+
     /// <summary>
     /// Script DELETE + INSERT cho 1 menu (Gen Script Menu). <paramref name="wcommandColumns"/> / <paramref name="commandColumns"/> =
     /// các cột bảng thật sự có (xem <see cref="GetMenuColumns"/>) — cột nào bảng không có thì bỏ khỏi INSERT, giống

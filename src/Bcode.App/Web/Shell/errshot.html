@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* Tra ảnh lỗi: trái = ảnh (khung đọc chữ vẽ đè) + các dòng chữ đọc được; phải = màn hình khả năng cao + câu chữ khớp. Màu / bo góc theo Template giao diện. */
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  body { display: flex; flex-direction: column; background: var(--panel); font-size: 1rem; }
+  header { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; padding: calc(.5rem * var(--dens)) 1rem; border-bottom: var(--bw) solid var(--border); }
+  header h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+  #ws { color: var(--text-muted); font-size: .85rem; }
+  .sp { flex: 1; }
+  #status { color: var(--text-muted); font-size: .85rem; }
+  button { font: inherit; color: var(--text); background: var(--button-back); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .8rem; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1rem; padding: .8rem 1rem 1rem; overflow: auto; }
+  section { min-width: 0; }
+  section h2 { margin: .1rem 0 .5rem; font-size: .8rem; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); display: flex; gap: .5rem; align-items: baseline; }
+  section h2 .n { color: var(--text); background: var(--button-back); border-radius: 999px; padding: 0 .5rem; font-size: .75rem; }
+  #drop { position: relative; border: calc(var(--bw) * 2) dashed var(--border); border-radius: var(--r); min-height: 14rem; display: flex; align-items: center; justify-content: center;
+          text-align: center; color: var(--text-muted); padding: .6rem; }
+  #drop.over { border-color: var(--accent); background: var(--selection); }
+  #drop.has { border-style: solid; padding: 0; display: block; min-height: 0; }
+  #shot { position: relative; display: none; }
+  #drop.has #shot { display: block; }
+  #drop.has #hint { display: none; }
+  #shot img { display: block; max-width: 100%; height: auto; }
+  #boxes { position: absolute; inset: 0; pointer-events: none; }
+  #boxes div { position: absolute; border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent); background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 2px; }
+  #boxes div.hit { border-color: #2da44e; background: color-mix(in srgb, #2da44e 22%, transparent); }
+  #boxes div.hot { border-width: 2px; border-color: #e5534b; }
+  #hint b { color: var(--text); }
+  details { margin-top: .6rem; }
+  summary { cursor: pointer; color: var(--text-muted); font-size: .85rem; }
+  #lines { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .85rem; margin-top: .3rem; max-height: 18rem; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); }
+  #lines div { padding: .1rem .5rem; border-bottom: 1px dashed var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #lines div.hit { color: #2da44e; }
+  .card { border: var(--bw) solid var(--border); border-radius: var(--r); margin-bottom: .5rem; padding: .5rem .7rem; display: flex; flex-direction: column; gap: .3rem; }
+  .card.top { border-color: var(--accent); }
+  .card .hd { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+  .card .rk { flex: none; font-weight: 700; color: var(--accent); width: 1.4rem; }
+  .card .nm { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .sc { flex: none; font-size: .78rem; color: var(--text-muted); }
+  .card .bar { height: .25rem; border-radius: 999px; background: var(--button-back); overflow: hidden; }
+  .card .bar i { display: block; height: 100%; background: var(--accent); }
+  .card .mn { display: flex; flex-wrap: wrap; gap: .3rem; }
+  .card .mn span { font-size: .8rem; color: var(--accent); cursor: pointer; }
+  .card .mn span:hover { text-decoration: underline; }
+  .card .why { font-size: .8rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .acts { display: flex; gap: .4rem; }
+  .card .acts button { padding: .1rem .6rem; font-size: .85rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+  th, td { text-align: left; padding: .22rem .45rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--text-muted); font-weight: 600; font-size: .76rem; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--selection); }
+  td.f { white-space: nowrap; color: var(--accent); }
+  .msg { color: var(--text-muted); padding: .3rem 0; font-size: .9rem; }
+  .msg.err { color: #e5534b; }
+  .tip { flex: none; padding: .3rem 1rem; color: var(--text-muted); font-size: .78rem; border-top: var(--bw) solid var(--border); }
+  @media (max-width: 760px) { main { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body data-area="editor">
+<header>
+  <h1>Tra ảnh lỗi</h1>
+  <span id="ws"></span>
+  <span class="sp"></span>
+  <span id="status"></span>
+  <button id="bPick" class="primary" title="Chọn file ảnh (hoặc Ctrl+V dán ảnh, kéo thả ảnh vào khung)">Chọn ảnh…</button>
+  <button id="bRe" disabled title="Đọc và so khớp lại ảnh đang xem">Tra lại</button>
+  <button id="bIdx" disabled title="Lập lại chỉ mục màn hình từ source (khi source vừa đổi nhiều)">Lập lại chỉ mục</button>
+</header>
+<main>
+  <section>
+    <h2>Ảnh <span class="n" id="nLines">—</span></h2>
+    <div id="drop">
+      <div id="hint"><b>Ctrl+V</b> để dán ảnh chụp màn hình lỗi<br>hoặc kéo thả file ảnh vào đây · hoặc bấm <b>Chọn ảnh…</b><br><br>
+        Đọc chữ bằng OCR có sẵn của Windows, chạy trong máy, không gửi ảnh đi đâu.</div>
+      <div id="shot"><img id="img" alt=""><div id="boxes"></div></div>
+    </div>
+    <details id="dLines"><summary>Các dòng chữ đọc được</summary><div id="lines"></div></details>
+  </section>
+  <section>
+    <h2>Màn hình khả năng cao <span class="n" id="nScr">—</span></h2>
+    <div id="screens"><div class="msg">Chưa có ảnh.</div></div>
+    <h2 style="margin-top:1rem">Câu chữ khớp trong source <span class="n" id="nTxt">—</span></h2>
+    <div id="texts"><div class="msg">—</div></div>
+  </section>
+</main>
+<div class="tip">Màn hình được chấm theo: tên menu (tiêu đề tab) khớp, số nhãn ô cùng khớp, tiêu đề màn hình; nhãn càng hiếm càng nặng điểm · Chữ đọc sai dấu vẫn so được (so không dấu, cho phép sai vài ký tự) ·
+  Câu báo lỗi nằm trong procedure (không có trong file controller) thì không hiện ở mục câu chữ — dùng "Tìm trong nội dung" ở cây SQL Object.</div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let ocr = null, result = null;
+
+  function showImage(url) {
+    $('img').src = url;
+    $('drop').classList.add('has');
+    $('boxes').innerHTML = '';
+  }
+
+  function sendImage(dataUrl) { showImage(dataUrl); post('image', { data: dataUrl }); }
+
+  function readFile(file) {
+    if (!file || !/^image\//.test(file.type)) { $('status').textContent = 'Chỉ nhận file ảnh.'; return; }
+    const fr = new FileReader();
+    fr.onload = () => sendImage(fr.result);
+    fr.readAsDataURL(file);
+  }
+
+  document.addEventListener('paste', (e) => {
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for (const it of items) if (it.type && it.type.startsWith('image/')) { e.preventDefault(); readFile(it.getAsFile()); return; }
+  });
+  const drop = $('drop');
+  ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove('over')));
+  drop.addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) readFile(f); });
+  $('bPick').addEventListener('click', () => post('pick'));
+  $('bRe').addEventListener('click', () => post('rerun'));
+  $('bIdx').addEventListener('click', () => post('rerun', { reindex: true }));
+
+  // khung chữ OCR vẽ đè lên ảnh (toạ độ theo ảnh gốc → % để co giãn theo ảnh hiển thị)
+  function drawBoxes(hotText) {
+    if (!ocr) return;
+    const hits = new Set();
+    if (result) {
+      result.screens.forEach((s) => s.reasons.forEach((r) => hits.add(r)));
+      result.texts.forEach((t) => hits.add(t.ocrText));
+    }
+    $('boxes').innerHTML = ocr.lines.map((l) => {
+      const cls = (hits.has(l.text.trim()) ? 'hit' : '') + (hotText && hotText === l.text.trim() ? ' hot' : '');
+      return `<div class="${cls}" title="${esc(l.text)}" style="left:${l.x / ocr.width * 100}%;top:${l.y / ocr.height * 100}%;width:${l.w / ocr.width * 100}%;height:${l.h / ocr.height * 100}%"></div>`;
+    }).join('');
+    // dòng đã khớp câu trong source / tên menu: hiện câu đúng dấu của source (OCR tiếng Anh đọc sai dấu), rê chuột xem chữ OCR gốc
+    $('lines').innerHTML = ocr.lines.map((l) => {
+      const t = l.text.trim(), good = fixedOf(t);
+      return `<div class="${hits.has(t) ? 'hit' : ''}" title="${esc(good ? 'OCR đọc: ' + l.text : l.text)}">${esc(good || l.text)}</div>`;
+    }).join('');
+  }
+  const fixedOf = (t) => (result && result.fixed && result.fixed[t]) || '';
+  const shown = (t) => fixedOf(t) || t;
+
+  const menuId = (m) => { const x = /\(([\d.]+)\)\s*$/.exec(m); return x ? x[1] : ''; };
+
+  function renderResult() {
+    const r = result;
+    const max = r.screens.reduce((m, s) => Math.max(m, s.score), 0) || 1;
+    $('nScr').textContent = r.screens.length;
+    $('screens').innerHTML = r.screens.length ? r.screens.map((s, i) => `<div class="card${i === 0 ? ' top' : ''}" data-i="${i}">`
+      + `<div class="hd"><span class="rk">${i + 1}</span><span class="nm" title="${esc(s.file)}">${esc(s.label)}</span><span class="sc">${s.score} điểm</span></div>`
+      + `<div class="bar"><i style="width:${Math.round(s.score / max * 100)}%"></i></div>`
+      + (s.menus.length ? `<div class="mn">${s.menus.map((m) => `<span data-menu="${esc(menuId(m))}" title="Chọn menu này trên cây WCommand">${esc(m)}</span>`).join('')}</div>` : '')
+      + `<div class="why" title="${esc(s.reasons.join('\n'))}">Khớp: ${esc(s.reasons.map(shown).join(' · '))}</div>`
+      + `<div class="acts"><button data-open="${esc(s.file)}">Mở file</button><button data-deps="${esc(s.file)}">Sơ đồ phụ thuộc</button><button data-copy="${esc(s.label)}">Chép tên</button></div></div>`).join('')
+      : '<div class="msg">Không đoán được màn hình nào — ảnh có thể quá mờ / quá nhỏ, hoặc không phải màn hình của project đang chọn.</div>';
+    $('nTxt').textContent = r.texts.length;
+    $('texts').innerHTML = r.texts.length
+      ? '<table><thead><tr><th>Chữ trên ảnh</th><th>Câu trong source</th><th>File : dòng</th></tr></thead><tbody>'
+        + r.texts.map((t) => `<tr data-file="${esc(t.file)}" data-ocr="${esc(t.ocrText)}"><td title="${esc('OCR đọc: ' + t.ocrText)}">${esc(shown(t.ocrText))}</td><td>${esc(t.text)}</td><td class="f">${esc(t.label)} : ${t.line}</td></tr>`).join('') + '</tbody></table>'
+      : '<div class="msg">Không có câu nào (≥ 3 từ) trên ảnh khớp nguyên câu trong file controller.</div>';
+    drawBoxes();
+  }
+
+  $('screens').addEventListener('click', (e) => {
+    const t = e.target;
+    if (t.dataset.open) post('openFile', { path: t.dataset.open });
+    else if (t.dataset.deps) post('deps', { path: t.dataset.deps });
+    else if (t.dataset.copy) post('copy', { text: t.dataset.copy });
+    else if (t.dataset.menu) post('menu', { id: t.dataset.menu });
+  });
+  $('screens').addEventListener('mouseover', (e) => {
+    const c = e.target.closest('.card'); if (!c || !result) return;
+    const s = result.screens[+c.dataset.i];
+    const hits = new Set(s.reasons);
+    document.querySelectorAll('#boxes div').forEach((b) => b.classList.toggle('hot', hits.has(b.title.trim())));
+  });
+  $('texts').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-file]'); if (tr) post('openFile', { path: tr.dataset.file }); });
+  $('texts').addEventListener('mouseover', (e) => { const tr = e.target.closest('tr[data-ocr]'); drawBoxes(tr ? tr.dataset.ocr : null); });
+
+  // ---- gọi từ C# (ErrorShotControl) ----
+  window.errshot = {
+    init(i) {
+      $('ws').textContent = i.workspace ? `Project: ${i.workspace}` + (i.source ? '' : ' (chưa khai Source Path)') : 'Chưa chọn project';
+      if (!i.ocr) $('status').textContent = 'Thiếu Ocr\\Bcode.Ocr.exe — build lại Bcode.';
+    },
+    showImage,
+    onStart() {
+      $('status').textContent = 'Đang đọc chữ trên ảnh…';
+      $('bRe').disabled = $('bIdx').disabled = true;
+      ocr = null; result = null;
+      $('screens').innerHTML = '<div class="msg">Đang đọc chữ…</div>'; $('texts').innerHTML = '<div class="msg">—</div>';
+      $('nScr').textContent = $('nTxt').textContent = '…';
+    },
+    onOcr(o) {
+      ocr = o;
+      $('nLines').textContent = o.lines.length + ' dòng';
+      $('status').textContent = `Đọc được ${o.lines.length} dòng chữ (${o.lang}, ${(o.ms / 1000).toFixed(1)} giây) — đang so khớp với source…`;
+      $('screens').innerHTML = '<div class="msg">Đang so khớp…</div>';
+      drawBoxes();
+    },
+    onProgress(m) { $('status').textContent = m; },
+    onResult(r) {
+      result = r;
+      $('status').textContent = `${r.note} · ${(r.ms / 1000).toFixed(1)} giây`;
+      $('bRe').disabled = $('bIdx').disabled = false;
+      renderResult();
+    },
+    onError(m) {
+      $('status').textContent = '';
+      $('bRe').disabled = $('bIdx').disabled = !ocr;
+      $('screens').innerHTML = '<div class="msg err">' + esc(m) + '</div>';
+    },
+  };
+  window.setTheme = (dark) => { document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); if (typeof drawWires === 'function') requestAnimationFrame(() => drawWires()); };
+  post('ready');
+})();
+</script>
+</body>
+</html>

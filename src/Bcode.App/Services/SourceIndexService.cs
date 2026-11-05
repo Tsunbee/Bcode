@@ -94,6 +94,33 @@ public sealed class SourceIndexService
         return new Result(hits, index.Files.Count, read, fromCache, sw.Elapsed, null);
     }
 
+    /// <summary>Tra NHIỀU tên một lượt, chỉ trong chỉ mục (không mở file để xác nhận): tên → các file có từ đó. Dùng cho "Phân tích ảnh hưởng" của sơ đồ
+    /// phụ thuộc — hàng trăm procedure mà mở từng file qua ổ mạng thì quá chậm. Băm 32 bit nên hiếm khi có file thừa.</summary>
+    public Task<Dictionary<string, List<string>>> CandidateFilesAsync(string sourceRoot, IReadOnlyCollection<string> names, Action<string> progress, CancellationToken ct) =>
+        Task.Run(() =>
+        {
+            var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var controllers = ControllersDir(sourceRoot);
+            if (!Directory.Exists(controllers) || names.Count == 0) return result;
+            var index = GetIndex(controllers, Folders, out var key);
+            lock (index)
+            {
+                if (!(DateTime.Now - index.RefreshedAt < RefreshEvery && index.Files.Count > 0)) Refresh(controllers, Folders, key, index, progress, ct);
+                var wanted = names.Distinct(StringComparer.OrdinalIgnoreCase).Select(n => (Name: n, H: Hash(n.ToLowerInvariant()))).ToList();
+                foreach (var (path, e) in index.Files)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    foreach (var (name, h) in wanted)
+                        if (Array.BinarySearch(e.Hashes, h) >= 0)
+                        {
+                            if (!result.TryGetValue(name, out var l)) result[name] = l = new List<string>();
+                            l.Add(path);
+                        }
+                }
+            }
+            return result;
+        }, ct);
+
     private static Index GetIndex(string dir, string[]? folders, out string key)
     {
         key = dir + (folders is null ? "|all" : "|ctl");

@@ -31,4 +31,10 @@ internal static class LocalSecrets
     public const string EInvAppPk = "";
     public const string EInvAppRk = "";
     public const string EInvAppPassword = "";
+
+    // Key gốc cấp / kiểm tra key bản quyền (LicenseSecret → LicenseCodec): key chung + key Decrypt SQL Object. Bcode.KeyGen link cùng file này.
+    public const string LicenseKey = "";
+
+    // Cách ghép chuỗi đưa vào bcrypt cho key Decrypt SQL Object ({m} = mã máy, {k} = key gốc) — khác key chung; rỗng = không cấp / không mở được Decrypt.
+    public const string DecryptKeyTemplate = "";
 }

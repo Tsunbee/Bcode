@@ -62,6 +62,7 @@
     <h3>General</h3>
     <div class="row">
       <label class="chk"><input type="checkbox" id="otherProject"> Save as from Other Project (lấy chứng từ nguồn ở thư mục source khác)</label>
+      <button id="bScanWs" title="Đọc lại danh sách chứng từ của source workspace">Quét source</button>
     </div>
     <div class="row" id="otherRow" hidden style="max-width:60rem">
       <span class="muted">Thư mục source nguồn</span>
@@ -129,6 +130,7 @@
     <h4>File đăng ký dùng chung — thêm dòng cho chứng từ mới</h4>
     <div class="hint">Như FCode: sau mỗi dòng khai báo chứng từ nguồn (Aggregation.v, Voucher.Controller.xxx, Initialize.xml, Extender.ent...) thêm 1 dòng tương ứng cho chứng từ mới; phần còn lại của file giữ nguyên. Bấm 1 dòng để xem.</div>
     <div class="tblw" style="max-height:14rem"><table class="tbl"><thead><tr><th class="c"></th><th>File</th><th>Dòng thêm</th></tr></thead><tbody id="regRows"></tbody></table></div>
+    <div class="hint" id="keptInfo" hidden></div>
     <h4>Controller / include dự án mà chứng từ gọi tới</h4>
     <div class="hint">Chép nguyên (không đổi gì) vào gói — chỉ cần khi mang chứng từ sang dự án khác. Include dùng chung chỉ để xem, không chép.</div>
     <div class="split2" style="min-height:12rem">
@@ -181,7 +183,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const say = (t, k) => { $('status').textContent = t || ''; $('status').className = 'status ' + (k || ''); };
   const STEPS = ['General', 'File Source', 'File Reference', 'Sql Declaration', 'Wcommand', 'File Generation'];
-  let step = 1, vouchers = [], src = null, workspaceSource = '', desktop = '';
+  let step = 1, vouchers = [], wsVouchers = [], src = null, workspaceSource = '', desktop = '';
   let files = [], registry = [], refs = [], controllers = [], menus = [], sql = null, planKey = '', sqlKey = '', autoSys = true, autoPrefix = true, approveLoaded = false;
   let previewBox = 'filePreview';
 
@@ -217,10 +219,10 @@
       srcCode: src ? src.code : '', srcSysId: src ? src.sysId : '', srcTitleV: src ? src.titleV : '', srcTitleE: src ? src.titleE : '', srcTableNo: src ? src.tableNo : '',
       dstCode: $('dstCode').value.trim(), dstSysId: $('dstSysId').value.trim(), dstPrefix: $('dstPrefix').value.trim(),
       dstTitleV: $('dstTitleV').value.trim(), dstTitleE: $('dstTitleE').value.trim(),
-      newTables: isNew(), dstTableNo: $('dstTableNo').value.trim(), fileRenames: fileRenames(),
+      newTables: isNew(), dstTableNo: $('dstTableNo').value.trim(), fileRenames: fileRenames(), copied: files.filter((f) => f.on).map((f) => f.rel),
     };
   }
-  const baseSpec = () => { const s = spec(); delete s.fileRenames; return s; };
+  const baseSpec = () => { const s = spec(); delete s.fileRenames; delete s.copied; return s; };
   const approve = () => ({ srcApprove: $('notApprove').checked ? '' : $('srcApprove').value.trim(), dstApprove: $('notApprove').checked ? '' : $('dstApprove').value.trim() });
   const planKeyNow = () => JSON.stringify([source(), baseSpec()]);
   const sqlKeyNow = () => JSON.stringify([source(), spec(), approve()]);
@@ -231,8 +233,15 @@
     if (s.dstCode.toLowerCase() === s.srcCode.toLowerCase()) return 'Mã chứng từ mới phải khác mã nguồn.';
     if (!s.dstSysId) return 'Nhập SysID mới.';
     if (!s.dstPrefix) return 'Nhập tiền tố file mới.';
-    if (vouchers.some((v) => v.code.toLowerCase() === s.dstCode.toLowerCase())) return 'Mã chứng từ ' + s.dstCode + ' đã có trong source.';
-    if (vouchers.some((v) => v.sysId.toLowerCase() === s.dstSysId.toLowerCase())) return 'SysID ' + s.dstSysId + ' đã có trong source.';
+    const known = vouchers.concat(wsVouchers);   // lấy từ dự án khác: mã mới còn phải không trùng ở workspace đích
+    if (known.some((v) => v.code.toLowerCase() === s.dstCode.toLowerCase())) return 'Mã chứng từ ' + s.dstCode + ' đã có trong source.';
+    if (known.some((v) => v.sysId.toLowerCase() === s.dstSysId.toLowerCase())) return 'SysID ' + s.dstSysId + ' đã có trong source.';
+    if (s.dstPrefix === src.prefix) return 'Tiền tố file mới phải khác tiền tố nguồn (' + src.prefix + ').';
+    if (known.some((v) => v.prefix === s.dstPrefix)) return 'Tiền tố ' + s.dstPrefix + ' đang là của chứng từ khác.';
+    if (s.newTables && !src.tableNo) return 'Bảng nguồn ' + (src.table || '(không khai)') + ' không theo dạng số (m48$000000) nên không tạo được bộ bảng mới — chọn "Dùng chung bảng nguồn".';
+    const a = approve();
+    if (a.srcApprove && a.srcApprove.toLowerCase() === a.dstApprove.toLowerCase()) return 'Approve Type đích phải khác nguồn, hoặc chọn Not Approval.';
+    if ($('direct').checked && $('otherProject').checked) return 'Lấy chứng từ từ dự án khác thì chỉ xuất gói được — bỏ tick ghi thẳng vào source.';
     if (s.newTables && !/^\w+$/.test(s.dstTableNo)) return 'Nhập số bảng mới.';
     if (s.newTables && s.dstTableNo === s.srcTableNo) return 'Số bảng mới phải khác bảng nguồn.';
     if (!$('output').value.trim()) return 'Chọn thư mục lưu (Save As).';
@@ -252,6 +261,7 @@
       if (!$('dstTitleV').value || (prev && $('dstTitleV').value === prev.titleV)) $('dstTitleV').value = src.titleV;
       if (!$('dstTitleE').value || (prev && $('dstTitleE').value === prev.titleE)) $('dstTitleE').value = src.titleE;
       $('srcApprove').value = ''; approveLoaded = false;
+      if (!src.tableNo) { document.querySelector('input[name=tbl][value=share]').checked = true; tblMode(); }
     }
   }
   $('srcPick').addEventListener('input', pickSource);
@@ -267,10 +277,21 @@
   document.querySelectorAll('input[name=tbl]').forEach((r) => r.addEventListener('change', tblMode));
   $('notApprove').onchange = () => { $('dstApprove').disabled = $('notApprove').checked; };
   $('bSuggestNo').onclick = () => post('suggestTableNo');
-  $('otherProject').onchange = () => { $('otherRow').hidden = !$('otherProject').checked; if (!$('otherProject').checked) post('scan', { source: workspaceSource }); };
+  $('otherProject').onchange = () => {
+    const other = $('otherProject').checked;
+    $('otherRow').hidden = !other;
+    $('direct').disabled = other;
+    if (other) $('direct').checked = false; else post('scan', { source: workspaceSource });
+  };
+  $('bScanWs').onclick = () => post('scan', { source: workspaceSource });
   $('bScan').onclick = () => post('scan', { source: $('source').value.trim() });
   $('bDesktop').onclick = () => { $('output').value = desktop; };
-  $('bProgram').onclick = () => { $('output').value = workspaceSource; if (!workspaceSource) say('Workspace chưa khai Source Path.', 'err'); };
+  // Program Folder = ghi thẳng vào source (file vào đúng chỗ, script ở Script\App|Sys) — xuất gói vào đây sẽ tạo thừa thư mục Web bên trong source.
+  $('bProgram').onclick = () => {
+    if (!workspaceSource) { say('Workspace chưa khai Source Path.', 'err'); return; }
+    if ($('otherProject').checked) { say('Lấy chứng từ từ dự án khác thì chỉ xuất gói được.', 'err'); return; }
+    $('output').value = workspaceSource; $('direct').checked = true;
+  };
   document.querySelectorAll('[data-pick]').forEach((b) => { b.onclick = () => post('pickFolder', { target: b.dataset.pick, path: $(b.dataset.pick).value }); });
 
   // ---- Bước 2, 3, 5: kế hoạch ---------------------------------------------------------------------
@@ -284,7 +305,7 @@
     $('pfx').textContent = src ? src.prefix : '';
     $('fileRows').innerHTML = files.length ? files.map((f, i) =>
       '<tr class="click' + (f.on ? '' : ' off') + '" data-i="' + i + '"><td class="c"><input type="checkbox" data-i="' + i + '"' + (f.on ? ' checked' : '') + '></td>' +
-      '<td title="' + esc(f.rel) + '">' + esc(f.rel) + (f.text ? '' : ' <span class="muted">(nhị phân)</span>') + '</td>' +
+      '<td title="' + esc(f.rel) + '">' + esc(f.rel) + (f.text ? '' : ' <span class="muted">(nhị phân)</span>') + (f.backup ? ' <span class="muted">(file sao lưu)</span>' : '') + '</td>' +
       '<td><input type="text" data-t="' + i + '" value="' + esc(f.target) + '" spellcheck="false"></td></tr>').join('')
       : '<tr><td colspan="3" class="muted">Không thấy file nào của chứng từ nguồn.</td></tr>';
   }
@@ -335,6 +356,8 @@
     const rowsTotal = sql.blocks.reduce((n, b) => n + b.rows, 0);
     $('sqlInfo').innerHTML = 'Bảng chứng từ nguồn: <b>' + esc((sql.tables || []).join(', ') || '(không thấy)') + '</b> — ' +
       (s.newTables ? 'tạo bảng mới <b>' + esc((sql.newTables || []).join(', ')) + '</b> theo đúng định nghĩa bảng nguồn + sysgendata + các kỳ.' : 'dùng chung bảng nguồn.') +
+      ((sql.taken || []).length ? '<br><span class="err">Số bảng ' + esc(s.dstTableNo) + ' đã có trong database (' + esc(sql.taken.join(', ')) + ') — đổi số khác.</span>' : '') +
+      ($('otherProject').checked ? '<br><span class="err">Đang lấy file từ dự án khác, nhưng script đọc từ database của workspace hiện tại — kiểm tra lại trước khi chạy.</span>' : '') +
       '<br>Cấu hình chép sang mã ' + esc(s.dstCode) + ': ' + sql.blocks.filter((b) => b.rows > 0).length + ' bảng có dữ liệu, ' + rowsTotal + ' dòng (bảng không có dòng vẫn DELETE cho sạch, như FCode).';
     $('blockRows').innerHTML = sql.blocks.map((b) => '<tr' + (b.rows ? '' : ' class="off"') + ' title="' + esc('WHERE ' + b.where) + '"><td>' + (b.sys ? 'Sys' : 'App') + '</td><td>' + esc(b.table) + '</td><td>' + b.rows + '</td></tr>').join('');
     $('appScript').value = sql.app || '';
@@ -362,6 +385,8 @@
     const e = validate1(); if (e) { say(e, 'err'); go(1); return; }
     if (planKey !== planKeyNow()) { say('Thông tin đã đổi — đang lập lại danh sách file, bấm Tạo file lần nữa.', ''); loadPlan(); return; }
     if (!sql || sql.error || sqlKey !== sqlKeyNow()) { say('Script chưa lập theo thông tin hiện tại — mở bước 4 trước.', 'err'); return; }
+    const same = files.find((x) => x.on && x.rel.toLowerCase() === x.target.toLowerCase());
+    if (same) { say('File đích trùng file nguồn: ' + same.rel + ' — đổi tên đích ở bước 2 hoặc bỏ tick.', 'err'); return; }
     post('generate', {
       source: source(), output: $('output').value.trim(), direct: $('direct').checked, spec: spec(),
       files: files.filter((x) => x.on).map((x) => ({ rel: x.rel, target: x.target })),
@@ -377,14 +402,18 @@
   // ---- C# gọi xuống --------------------------------------------------------------------------------
   window.vc = {
     init(d) { workspaceSource = d.workspaceSource || ''; desktop = d.desktop || ''; $('source').value = d.source || ''; $('output').value = desktop; tblMode(); renderSteps(); },
-    onVouchers(list) {
+    onVouchers(list, isWorkspace) {
       vouchers = list || [];
+      if (isWorkspace) wsVouchers = vouchers;
       $('vouchers').innerHTML = vouchers.map((v) => '<option value="' + esc(v.code + ' ' + v.sysId) + '">' + esc(v.titleV + ' · ' + v.table) + '</option>').join('');
       pickSource();
     },
     onTableNo(no) { if (no) $('dstTableNo').value = no; },
     onPlan(d) {
-      files = (d.files || []).map((f) => Object.assign(f, { on: true }));
+      files = (d.files || []).map((f) => Object.assign(f, { on: !f.backup }));
+      const kept = d.kept || [];
+      $('keptInfo').hidden = !kept.length;
+      $('keptInfo').textContent = 'Entity giữ tên nguồn (' + kept.length + ', dùng chung với controller khác hoặc định nghĩa nhiều dòng): ' + kept.join(', ');
       registry = (d.registry || []).map((r) => Object.assign(r, { on: true }));
       refs = d.refs || [];
       controllers = (d.controllers || []).map((rel) => ({ rel, on: false }));

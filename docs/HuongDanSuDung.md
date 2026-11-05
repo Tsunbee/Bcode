@@ -1015,6 +1015,24 @@ Khi tester / triển khai ghi chú hay ghi lỗi vào y/c trên QLYC (FSG), Bcod
 - **↩ Reply / ↩ Reply all:** mở khung **Trả lời**, điền sẵn người nhận, tiêu đề “Re: …”, trích dẫn thư gốc và chữ ký của mẫu (bỏ tick **Kèm chữ ký của mẫu** nếu không muốn). Reply thư của chính mình = gửi tiếp cho người nhận cũ. Gõ nội dung → **✉ Gửi trả lời**. Bcode luôn hỏi xác nhận và hiện rõ người nhận. Thư trả lời nằm cùng chuỗi trong mục Đã gửi, nên phản hồi tiếp theo vẫn về đúng chuỗi.
 - **⟳ Gửi lại:** gửi lại 1 thư Bcode đã gửi, cùng người nhận, tiêu đề và nội dung. Bcode hỏi xác nhận trước khi gửi. **Xoá** chỉ xoá bản lưu trong Bcode (thư gốc thì xoá cả chuỗi), không đụng hộp thư trên máy chủ.
 
+<a id="tao-chung-tu"></a>
+## Tạo chứng từ
+
+Nhân bản một chứng từ có sẵn sang mã mới, gồm 6 bước. Nút **Tạo chứng từ** nằm trên thanh công cụ.
+
+| Bước | Việc cần làm |
+|---|---|
+| **General** | Chọn chứng từ nguồn; nhập mã, Title, SysID, tiền tố file mới (phải khác nguồn và chưa thuộc chứng từ nào). Chọn dùng chung bảng nguồn hoặc tạo bộ bảng mới. Bảng nguồn không theo dạng số (`hddc`, `phdm`...) thì chỉ dùng chung được. Source là đường mạng thì bấm **Quét source** để đọc danh sách chứng từ. |
+| **File Source** | Tick file cần tạo, sửa tên đích nếu muốn, bấm một dòng để xem nội dung sau khi đổi. File sao lưu (`... - Copy`, `_bk`) hiện nhưng không tick sẵn. File đích trùng file nguồn thì không tạo được. |
+| **File Reference** | Xem các dòng sẽ thêm vào file dùng chung cho chứng từ mới, ngay sau dòng của chứng từ nguồn. Dòng ghi **Entity giữ tên nguồn** liệt kê entity không đổi tên: dùng chung với controller khác hoặc định nghĩa nhiều dòng. |
+| **Sql Declaration** | Xem và sửa `AppScript.sql`, `SysScript.sql`. Chỉ sinh script, không chạy. Approve Type đích phải khác nguồn; bỏ trống hoặc chọn **Not Approval** thì không chép khai báo duyệt. |
+| **Wcommand** | **Tạo menu…** mở form WCOMMAND điền sẵn, chỉ ghi khi bấm Save. |
+| **File Generation** | **Tạo file**: xuất gói `Web\...` và `Script\App|Sys`, hoặc ghi thẳng vào source của workspace (nút **Program Folder** chọn sẵn cách này). |
+
+Lưu ý:
+- Lấy chứng từ từ dự án khác (**Save as from Other Project**) thì chỉ xuất gói được. Script và menu vẫn đọc từ database của workspace hiện tại, nên cần kiểm tra lại trước khi chạy.
+- Khối `<Encrypted>` trong file được giữ nguyên, không đổi tên. Mã bên trong vẫn là của chứng từ nguồn, cần kiểm tra lại khi chứng từ mới dùng bảng khác.
+
 <a id="tool-mo-rong"></a>
 ## Menu Tool mở rộng
 

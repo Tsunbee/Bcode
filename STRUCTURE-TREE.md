@@ -25,11 +25,11 @@ Bcode.App/
 │   ├── CompareObjectsControl.cs  106
 │   ├── CreateRptControl.cs  225
 │   ├── DecryptSqlObjectControl.cs  233
-│   ├── DependencyGraphControl.cs  122
+│   ├── DependencyGraphControl.cs  143
 │   ├── ErrorShotControl.cs  130
 │   ├── FastAskControl.cs  162
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1640
+│   ├── FileLookupControl.cs  1638
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
@@ -41,7 +41,7 @@ Bcode.App/
 │   ├── HintPopup.cs  155
 │   ├── IconRailControl.cs  218
 │   ├── IncludeCheckControl.cs  200
-│   ├── ISqlTab.cs  61
+│   ├── ISqlTab.cs  63
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  256
@@ -88,7 +88,7 @@ Bcode.App/
 │   ├── NativeQueryHistoryControl.cs  346
 │   ├── NativeResultPane.cs  303
 │   ├── NativeShellBars.cs  314
-│   ├── NativeSqlControl.cs  2182
+│   ├── NativeSqlControl.cs  2213
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -98,7 +98,7 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  533
-│   ├── RawSqlControl.cs  2807
+│   ├── RawSqlControl.cs  2816
 │   ├── ResultExport.cs  146
 │   ├── ResultGridMenu.cs  614
 │   ├── SafeTreeView.cs  40
@@ -122,10 +122,10 @@ Bcode.App/
 │   ├── TableEditControl.cs  2305
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
-│   ├── WCommandTreeControl.cs  909
+│   ├── WCommandTreeControl.cs  912
 │   ├── WebActionBar.cs  264
-│   ├── WebBarHost.cs  222
-│   ├── WebFrameHost.cs  210
+│   ├── WebBarHost.cs  228
+│   ├── WebFrameHost.cs  215
 │   ├── WebMenu.cs  337
 │   └── WeeklyMailControl.cs  245
 ├── Forms/
@@ -159,7 +159,8 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  131
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  4333
+│   ├── MainForm.cs  4413
+│   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -170,7 +171,7 @@ Bcode.App/
 │   ├── ProjectActions.cs  52
 │   ├── ProjectPickerForm.cs  131
 │   ├── QuickAccessForm.cs  165
-│   ├── QuickLaunchLoginForm.cs  647
+│   ├── QuickLaunchLoginForm.cs  687
 │   ├── QuickListForm.cs  764
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
@@ -187,7 +188,7 @@ Bcode.App/
 │   ├── TabSwitcherForm.cs  191
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
-│   ├── UiTemplateForm.cs  743
+│   ├── UiTemplateForm.cs  813
 │   ├── WCommandDuplicateForm.cs  29
 │   ├── WCommandEditForm.cs  375
 │   ├── WCommandScriptForm.cs  133
@@ -195,7 +196,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  368
+│   ├── AppSettings.cs  415
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -260,13 +261,14 @@ Bcode.App/
 │   ├── DecryptSqlObjectConfigService.cs  73
 │   ├── DecryptSqlSecret.cs  16
 │   ├── DeletedFileBackup.cs  138
-│   ├── DependencyGraphService.cs  680
+│   ├── DependencyGraphService.cs  803
 │   ├── DesignFieldsGenerator.cs  125
 │   ├── DiffService.cs  295
 │   ├── DtdIncludeResolver.cs  196
 │   ├── DynamicSqlInspector.cs  120
 │   ├── EInvoiceSetupService.cs  371
 │   ├── EntityCheckService.cs  263
+│   ├── ErrorLog.cs  315
 │   ├── ErrorShotService.cs  425
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
@@ -286,6 +288,7 @@ Bcode.App/
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  647
 │   ├── FsgProjectLookupService.cs  679
+│   ├── FSourceDecryptService.cs  68
 │   ├── GenAllService.cs  838
 │   ├── GenAllService.Delivery.cs  117
 │   ├── GenAllService.Suggest.cs  287
@@ -318,8 +321,9 @@ Bcode.App/
 │   ├── SnippetLibraryService.cs  67
 │   ├── SourceCopyRenamer.cs  171
 │   ├── SourceFieldIndex.cs  237
-│   ├── SourceGrantService.cs  311
+│   ├── SourceGrantService.cs  328
 │   ├── SourceIndexService.cs  289
+│   ├── SourceIndexService.Standard.cs  282
 │   ├── SqlAiAssist.cs  349
 │   ├── SqlDefinitionIndex.cs  181
 │   ├── SqlFieldTransform.cs  133
@@ -351,6 +355,7 @@ Bcode.App/
 │   ├── ControlPerf.cs  18
 │   ├── DevToolsDock.cs  190
 │   ├── DpiForm.cs  112
+│   ├── ErrorReporter.cs  274
 │   ├── FastGhostLearnUi.cs  32
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
@@ -361,7 +366,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  58
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  355
+│   ├── ShortcutRegistry.cs  360
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  837
 │   ├── TreeColorOptions.cs  98
@@ -370,7 +375,7 @@ Bcode.App/
 │   ├── UiScale.cs  69
 │   ├── UiTemplate.cs  512
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  384
+│   └── WebViewEnvironment.cs  386
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
@@ -398,7 +403,7 @@ Bcode.App/
 │       ├── copysourcestandard.html  90
 │       ├── createrpt.html  1116
 │       ├── decryptsql.html  141
-│       ├── depgraph.html  359
+│       ├── depgraph.html  374
 │       ├── dialog.css  43
 │       ├── editproject.html  122
 │       ├── entitypeek.html  182
@@ -439,7 +444,7 @@ Bcode.App/
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  184
 │       ├── shell.css  255
-│       ├── sqleditor.html  1645
+│       ├── sqleditor.html  1675
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  317
@@ -457,15 +462,15 @@ Bcode.App/
 │       ├── topbar.html  203
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
-│       ├── uitemplate.html  1226
+│       ├── uitemplate.html  1266
 │       ├── usages.html  133
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  176
+├── Bcode.App.csproj  186
 ├── BcodePaths.cs  48
-└── Program.cs  39
+└── Program.cs  42
 ```
 ```
 BcodeViewer.App/

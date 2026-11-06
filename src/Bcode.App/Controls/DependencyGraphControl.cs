@@ -101,9 +101,30 @@ public class DependencyGraphControl : UserControl
             var res = await Task.Run(() => _service.NeighborsAsync(node, force, msg => Js($"depgraph.onProgress({J(msg)})"), ct), ct);
             if (ct.IsCancellationRequested) return;
             Js($"depgraph.onData({J(new { center = res.Center, up = res.Up, down = res.Down, warnings = res.Warnings, ms = sw.ElapsedMilliseconds })})");
+            if (res.StdPending) _ = WatchStandardIndexAsync(node, ct);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { if (!ct.IsCancellationRequested) Js($"depgraph.onError({J(ex.Message)})"); }
+    }
+
+    /// <summary>Chỉ mục source chuẩn (file .f mã hoá) đang dựng nền: 3 giây hỏi 1 lần để cập nhật dòng báo (bước đang làm, %), dựng xong thì tự tải lại
+    /// sơ đồ — không phải bấm Làm mới. Chuyển sang nút khác / đóng tab thì dừng (ct bị huỷ).</summary>
+    private async Task WatchStandardIndexAsync(DepNode node, CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(3000, ct);
+                var st = await Task.Run(() => _service.StandardBuildState(), ct);
+                if (st is null || ct.IsCancellationRequested) return;
+                if (st.Value.Building) { Js($"depgraph.onStdProgress({J(st.Value.Text)})"); continue; }
+                _ = LoadAsync(node, force: false);   // dựng xong → tra lại (kết quả lúc đang chờ không được nhớ)
+                return;
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch { /* hỏi trạng thái lỗi — thôi, người dùng vẫn bấm Làm mới được */ }
     }
 
     private async Task ImpactAsync(DepNode node)

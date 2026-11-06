@@ -574,7 +574,7 @@ Trên ảnh: **①** mục SQL Object ở cột icon · **②** chọn database 
 |---|---|---|
 | **Cây SQL Object** | Cột icon trái → SQL Object | Nhóm Tables / Views / Stored Procedures / Functions / Triggers (bảng phân kỳ được ẩn). Gõ vào ô lọc là lọc ngay (cây không tự tải khi ô trống). Tick **Tìm trong nội dung (text)** dưới ô lọc: chữ gõ được tìm trong nội dung procedure / function / view / trigger (hỏi database, chờ ~0,5 s sau phím cuối hoặc `Enter`; bảng không có nội dung nên không hiện); bỏ tick về lọc theo tên. Double-click = mở ở tab SQL: procedure / function / view / trigger dạng **IF EXISTS … DROP → GO → CREATE**; chuột phải: **Mở dạng ALTER** · Ai đang dùng object này… · Chép tên. Bảng (double-click hay chuột phải → Mở định nghĩa) luôn là CREATE TABLE kèm khối IF EXISTS / DROP TABLE để sẵn trong comment `/* … */`. |
 | **Ai đang dùng** | `Ctrl+Alt+U` (trên tab mở từ cây SQL Object), hoặc `Ctrl+P` → chọn object → `Shift+Enter` | Liệt kê nơi dùng object: database App, Sys và file controller (Dir, Filter, Grid, Include, Options, Report). Chép danh sách / Quét lại. |
-| **Sơ đồ phụ thuộc** | Chuột phải object trên cây SQL Object, menu trên cây WCommand (hoặc file controller ở File Lookup) → **Sơ đồ phụ thuộc…** | Trái = **Được dùng bởi**, phải = **Dùng tới** (procedure / function / view / trigger / bảng), bấm một nút để xem tiếp; **Phân tích ảnh hưởng** dò ngược tới menu. Loại object lấy theo database (`sys.objects`), kể cả procedure / function **mã hoá** (WITH ENCRYPTION) — các nút này có nhãn **mã hoá**; xem sơ đồ của object mã hoá thì "Dùng tới" chỉ gồm phụ thuộc SQL Server ghi sẵn (không đọc được nội dung). "Được dùng bởi" có cả procedure / function mã hoá gọi tới object (lấy theo phụ thuộc SQL Server ghi sẵn, nên không bắt được lời gọi nằm trong SQL động của chúng). Tên không có trong database đang xem: tra cả database kia (ghi "chỉ có ở Sys Data / App Data"); vẫn không thấy thì đoán theo cách gọi (`exec X` → procedure, `X(…)` → function, ghi "đoán là …"), không đoán được thì vào nhóm **Không xác định** (thường là bí danh bảng như `a`, `b`). |
+| **Sơ đồ phụ thuộc** | Chuột phải object trên cây SQL Object, menu trên cây WCommand (hoặc file controller ở File Lookup) → **Sơ đồ phụ thuộc…** | Trái = **Được dùng bởi**, phải = **Dùng tới** (procedure / function / view / trigger / bảng), bấm một nút để xem tiếp; **Phân tích ảnh hưởng** dò ngược tới menu. Loại object lấy theo database (`sys.objects`), kể cả procedure / function **mã hoá** (WITH ENCRYPTION) — các nút này có nhãn **mã hoá**; xem sơ đồ của object mã hoá thì "Dùng tới" chỉ gồm phụ thuộc SQL Server ghi sẵn (không đọc được nội dung). "Được dùng bởi" có cả procedure / function mã hoá gọi tới object (lấy theo phụ thuộc SQL Server ghi sẵn, nên không bắt được lời gọi nằm trong SQL động của chúng). File **.f mã hoá** của chương trình (khối lệnh `<Encrypted>`, không có file .xml cạnh nó) được xét theo bản **.xml trong kho source chuẩn** (Template → kho SourceCollection) đúng phiên bản của project — không có ở phiên bản đó thì lấy phiên bản thấp hơn gần nhất, như **Cấp source** nhanh của File Lookup; các nút này có nhãn xanh **source &lt;phiên bản&gt;**, bấm đúp = xem bản source (chỉ đọc). Phiên bản lấy theo **Mã phiên bản** đã khai của project (hoặc đoán theo tên thư mục source). Lần đầu Bcode dựng chỉ mục source chuẩn **chạy nền** vài phút: sơ đồ báo "Đang dựng…" kèm bước đang làm và **%** (cập nhật mỗi 3 giây), dựng xong thì **tự tải lại** — không cần bấm Làm mới; lần sau dùng ngay. Nếu khai **Đường dẫn FCode** (Template → Đường dẫn) và máy có **license Fast**, Bcode còn **giải mã thẳng** chính file .f đó (đúng bản khách đang chạy) để đọc tên object — khi đó ghi "giải mã từ .f" thay cho "source &lt;phiên bản&gt;"; máy không có license thì tự quay về dò kho source chuẩn. Tên không có trong database đang xem: tra cả database kia (ghi "chỉ có ở Sys Data / App Data"); vẫn không thấy thì đoán theo cách gọi (`exec X` → procedure, `X(…)` → function, ghi "đoán là …"), không đoán được thì vào nhóm **Không xác định** (thường là bí danh bảng như `a`, `b`). |
 | **So sánh object** | `Ctrl+Shift+J` | So code procedure / view / function / trigger giữa 2 database (vd bản dev ↔ bản khách): lọc Khác nhau / Chỉ bên trái / Chỉ bên phải / Chỉ khác khoảng trắng / Mã hoá → chọn mục → **Sinh script ALTER** (Bcode chỉ sinh, không chạy). |
 | **Compare Structure** | Thanh công cụ | So cấu trúc một bảng giữa 2 workspace (Chỉ có ở trái / phải, Khác nhau, Giống nhau). |
 | **Change Owner** | `Ctrl+Shift+O` | Chuyển object sang schema khác (`ALTER SCHEMA TRANSFER`) — không hoàn tác từ Bcode được. |
@@ -677,7 +677,7 @@ Tab File Lookup (cả tab mở thêm bằng `F4` và tab Mobile) có **ô xanh d
 ### Thanh công cụ
 
 1. **Path:** + **Load** — quét lại thư mục (xoá cache phân tích).
-2. Chọn loại file (`.*`, `.f`, `.xml`, `.aspx`, `.xlsx`, `.rpt`) · **Only Show {đuôi}** · **SearchBox ▾** (mở khung tìm nội dung) · ô **Search...** (lọc tên file khi gõ, tìm trong cả thư mục Path; `Enter` = lọc ngay). Máy yếu gõ bị khựng: Template → **Tìm file** → *Khi gõ vào ô Search* = **Ấn Enter mới tìm** — gõ không tìm, chỉ khi bấm `Enter` mới tìm (ô hiện chữ mờ "Search... (Enter để tìm)"; xoá trống rồi `Enter` = về danh sách / cây menu đầy đủ); tab File Lookup đang mở đổi theo ngay. Đang xem cây của 1 menu mà gõ Search thì tìm cả thư mục; xoá trắng ô Search → quay lại cây của menu vừa xem. Gõ đúng tên trang menu `.aspx` (vd `arcthd1.aspx`) thì cây hiện **toàn bộ file của menu dùng trang đó** (Main, Dir, Filter, Grid, Lookup, Report, Templates…) — y như bấm menu đó trên cây WCommand; thanh trạng thái ghi tên menu (nhiều menu cùng trang thì lấy menu đầu, ghi "+N menu khác"). Trang không có menu nào trên cây WCommand thì vẫn lọc tên file như thường.
+2. Chọn loại file (`.*`, `.f`, `.xml`, `.aspx`, `.xlsx`, `.rpt`) · **Only Show {đuôi}** (đang lọc thì bấm sang menu khác ở cây WCommand vẫn giữ lọc; tắt bằng nút hoặc chọn `.*`) · **SearchBox ▾** (mở khung tìm nội dung) · ô **Search...** (lọc tên file khi gõ, tìm trong cả thư mục Path; `Enter` = lọc ngay). Máy yếu gõ bị khựng: Template → **Tìm file** → *Khi gõ vào ô Search* = **Ấn Enter mới tìm** — gõ không tìm, chỉ khi bấm `Enter` mới tìm (ô hiện chữ mờ "Search... (Enter để tìm)"; xoá trống rồi `Enter` = về danh sách / cây menu đầy đủ); tab File Lookup đang mở đổi theo ngay. Đang xem cây của 1 menu mà gõ Search thì tìm cả thư mục; xoá trắng ô Search → quay lại cây của menu vừa xem. Gõ đúng tên trang menu `.aspx` (vd `arcthd1.aspx`) thì cây hiện **toàn bộ file của menu dùng trang đó** (Main, Dir, Filter, Grid, Lookup, Report, Templates…) — y như bấm menu đó trên cây WCommand; thanh trạng thái ghi tên menu (nhiều menu cùng trang thì lấy menu đầu, ghi "+N menu khác"). Trang không có menu nào trên cây WCommand thì vẫn lọc tên file như thường.
 3. **Copy to... (n)** · **Tick tất cả** · **Bỏ tick** · **Cấp source**.
 
 ### Các bước dùng
@@ -1045,7 +1045,7 @@ Mở: ⚙ Settings → **Giao diện (Template)...** (cả 2 chế độ đều 
 | **Phím tắt** | Đổi phím tắt (xem [Phím tắt](#phim-tat)) |
 | HTML & CSS | CSS riêng cho mọi trang, chế độ thiết kế (nút ✎ trên từng trang), mở thư mục tuỳ chỉnh (`%AppData%\Bcode\ui\`) |
 | Lịch sử SQL | Thư mục lưu lịch sử sửa object |
-| Đường dẫn | BcodeScreenDesigner.exe, BcodeViewer.exe, kho SourceCollection (chính / bổ sung) |
+| Đường dẫn | BcodeScreenDesigner.exe, BcodeViewer.exe, kho SourceCollection (chính / bổ sung), **Báo lỗi** (link Google Sheet lỗi, URL Apps Script, URL forum TK2 Help — xem [Log lỗi và gửi lỗi](#bao-loi)) |
 | Tìm file | Ô Search của File Lookup: **Gõ là tìm luôn** (mặc định) / **Ấn Enter mới tìm** (máy yếu); quy tắc file được tìm nội dung (Search Box); **Giữ bản sao file đã xoá** (Delete file của File Lookup): không giữ / 1 / 3 / **7 ngày (mặc định)** / 14 / 30 ngày |
 | Màu cây | Kiểu tô màu cây WCommand / File Lookup · **định dạng cây File Lookup theo loại file**: mỗi dòng (Thư mục, `.f`, `.xml`, File khác + loại tự thêm như `.aspx`, `.xlsx`, `.js`, `.sql`…) có ô màu (khi chọn "Tự tô màu") và ô **Đậm** (ở mọi chế độ) · **Trả về mặc định** |
 
@@ -1117,6 +1117,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+W` · `Ctrl+Shift+B` | Đóng tab · mở lại tab vừa đóng |
 | `Alt+1` … `Alt+5` | Thả menu nhóm công cụ 1…5 |
 | `Ctrl+Alt+Shift+A` · `Ctrl+Alt+Shift+V` | Add Script · View Script Cart |
+| `F1` (chỉ khi vừa có lỗi) | Gửi lỗi gần nhất lên Google Sheet / forum TK2 Help — lúc không có lỗi chờ gửi, `F1` vẫn làm việc cũ (vd chi tiết dòng ở lưới Table). Xem [Log lỗi và gửi lỗi](#bao-loi) |
 
 **Editor SQL**
 
@@ -1155,6 +1156,30 @@ Các tính năng sau cần key bản quyền gắn theo máy: **Create RPT & XML
 
 Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt". "Key đã lưu không còn hợp lệ trên máy này" hoặc "Mã không đúng cho máy này" → gửi lại **Mã máy** hiện tại để xin key mới. **Xoá key đã lưu** để gỡ.
 
+<a id="bao-loi"></a>
+## Log lỗi và gửi lỗi (F1)
+
+**Log lỗi.** Mọi lỗi của Bcode được ghi vào `%AppData%\Bcode\error.log` (file quá 2 MB đổi thành `error.old.log`), mỗi lỗi một khối: thời gian, phiên bản, **dự án** đang mở, **chức năng** đang dùng (tab + loại công cụ, hoặc hộp thoại đang bật), nơi lỗi hiện ra, thông điệp + stack trace. Mật khẩu / key trong chuỗi kết nối được che thành `***` (tên server, database giữ nguyên để biết lỗi ở đâu). Lỗi được ghi khi:
+
+- lỗi chưa được xử lý (vẫn hiện hộp lỗi .NET như trước — Tiếp tục / Thoát), lỗi trong tác vụ nền;
+- lỗi trong lúc xử lý thao tác trên các trang (thanh công cụ, hộp thoại, tab công cụ);
+- lỗi đã được báo cho bạn: hộp thông báo biểu tượng lỗi (✖ đỏ), hộp thông báo / dòng trạng thái / dòng báo trên trang có kèm thông điệp lỗi.
+
+Không ghi: lỗi SQL của chính script bạn chạy trong khung **Message** của SQL Query (sai cú pháp, sai tên bảng…), thao tác Huỷ. Vừa ghi một lỗi thì thanh trạng thái báo `⚠ Đã ghi log lỗi: … — bấm F1 để gửi lỗi`.
+
+**Gửi lỗi — `F1`.** Trong **15 phút** sau khi có lỗi (chưa gửi), bấm `F1` ở bất kỳ đâu trong Bcode — kể cả ngay lúc hộp báo lỗi đang mở — Bcode hiện nội dung sẽ gửi (thời gian, máy, người dùng Windows, dự án, chức năng, chi tiết lỗi) và hỏi **Có / Không**. Trả lời xong (Có hay Không) hoặc quá 15 phút thì `F1` trở lại việc cũ (chi tiết dòng ở lưới Table, `F1` của editor…). Gửi lại lỗi cũ: `Ctrl+P` → "Gửi lỗi gần nhất…". Đổi phím: Template → **Phím tắt** → *Gửi lỗi gần nhất* (nhóm Cửa sổ).
+
+**Khai nơi nhận** (⚙ Settings → Giao diện (Template) → **Đường dẫn** → *Báo lỗi*, lưu ngay, file `%AppData%\Bcode\error-report.json`):
+
+| Ô | Dùng để |
+|---|---|
+| **Link Google Sheet lỗi** | Link mở sheet (vd `https://docs.google.com/spreadsheets/d/…/edit`). Nút **Mở** mở sheet. Chỉ khai ô này thì `F1` **chép 1 dòng lỗi vào clipboard và mở sheet** — bấm ô cột A của dòng trống đầu tiên rồi `Ctrl+V` (9 cột: Thời gian, Phiên bản, Máy, Người dùng, Dự án, Chức năng, Nguồn, Lỗi, Chi tiết). |
+| **URL nhận tự động (Apps Script …/exec)** | Gửi thẳng vào sheet không cần dán. Google Sheet **không nhận ghi qua link mở sheet**, nên cần gắn một đoạn Apps Script: bấm **Chép mã Apps Script** → mở sheet → *Tiện ích mở rộng → Apps Script* → dán thay toàn bộ → Lưu → *Triển khai → Tùy chọn triển khai mới* → loại **Ứng dụng web**, *Thực thi với tư cách*: Tôi, *Ai có quyền truy cập*: **Bất kỳ ai** → Triển khai → chép **URL ứng dụng web** (đuôi `/exec`) vào ô này → **Gửi thử** (sheet có thêm 1 dòng "Gửi thử"). |
+| **URL forum TK2 Help** | Gửi cả về forum TK2 Help (endpoint nhận lỗi công khai, không cần đăng nhập). Bcode POST cùng gói JSON như Apps Script: `time, version, machine, user, project, feature, source, message, detail` + `app` ("Bcode"), `title` ("[Bcode lỗi] …"), `content` (toàn văn để đăng bài); forum trả mã 2xx là tính gửi được. URL dạng `http://<máy chủ>/TK2_HELP/forum/api/bcode-error` (chỉ nhận từ mạng nội bộ, tối đa 10 lần / phút / máy). Forum đăng thành câu hỏi của **bcode-bot** ở chuyên mục *Lỗi Bcode*; cùng lỗi (chức năng + nguồn + thông điệp) đã có câu hỏi chưa giải quyết thì thêm bình luận vào câu hỏi đó. Hộp kết quả hiện link bài và hỏi mở bài. Lưu ý: **Gửi thử** cũng tạo 1 câu hỏi thật trên forum. |
+| **File log** | Đường dẫn `error.log` + nút **Mở log**. |
+
+Khai cả URL Apps Script lẫn forum thì `F1` gửi tới cả hai và báo ✔ / ✘ từng nơi; gửi tự động thất bại mà có link sheet thì Bcode hỏi chép + mở sheet để dán tay.
+
 <a id="loi-thuong-gap"></a>
 ## Lỗi hay gặp (Bcode)
 
@@ -1175,6 +1200,8 @@ Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt
 | Cây Mobile trống | Sys Data không có bảng dvcommand, hoặc chưa khai Mobile Path. |
 | Tính năng hỏi key bản quyền | Xem [Key bản quyền](#key-ban-quyen). |
 | Máy chậm, tốn RAM | Template → Cửa sổ → Hiệu năng = Thấp; hoặc dùng chế độ App. |
+| Gửi lỗi (`F1`) báo "Máy nhận trả về trang HTML" | Web app Apps Script chưa để *Ai có quyền truy cập: Bất kỳ ai*, hoặc URL không phải đuôi `/exec` — triển khai lại (xem [Log lỗi và gửi lỗi](#bao-loi)). |
+| `F1` ở lưới Table mở hộp "Gửi lỗi" thay vì chi tiết dòng | Vừa có lỗi chưa gửi (15 phút): trả lời Có / Không là `F1` về như cũ; hoặc đổi phím Gửi lỗi ở Template → Phím tắt. |
 
 <a id="viewer"></a>
 # Phần II — BcodeViewer

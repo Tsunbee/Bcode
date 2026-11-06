@@ -7,11 +7,14 @@ namespace Bcode.App.Services;
 
 /// <summary>Một nút của sơ đồ phụ thuộc. Kind: menu | file | proc | func | view | table | trigger | unknown (tên không thấy trong database nào, không đoán được loại).
 /// Key duy nhất: "app:dbo.ten" / "sys:dbo.ten" cho object database, "file:đường dẫn", "menu:wmenu_id".
-/// Encrypted = object tạo WITH ENCRYPTION (không đọc được nội dung).</summary>
-public sealed record DepNode(string Kind, string Key, string Label, bool Sys = false, string Schema = "dbo", string? Path = null, string? Note = null, bool Encrypted = false);
+/// Encrypted = object tạo WITH ENCRYPTION (không đọc được nội dung). StdVersion = file lấy từ kho source chuẩn (phiên bản này) thay cho file .f mã hoá
+/// của chương trình — Path là file .xml trong kho.</summary>
+public sealed record DepNode(string Kind, string Key, string Label, bool Sys = false, string Schema = "dbo", string? Path = null, string? Note = null, bool Encrypted = false,
+    string? StdVersion = null);
 
 /// <summary>Các nút quanh 1 nút: Up = được dùng bởi (ai gọi / ai trỏ tới nó), Down = dùng tới (nó gọi / đọc / include gì).</summary>
-public sealed record DepNeighbors(DepNode Center, List<DepNode> Up, List<DepNode> Down, List<string> Warnings);
+/// <param name="StdPending">true = chỉ mục source chuẩn (cho file .f mã hoá) đang dựng nền — kết quả chưa đủ, không nhớ; sơ đồ tự tải lại khi xong.</param>
+public sealed record DepNeighbors(DepNode Center, List<DepNode> Up, List<DepNode> Down, List<string> Warnings, bool StdPending = false);
 
 /// <summary>1 dòng của "Phân tích ảnh hưởng": nút ở tầng Level (1 = dùng trực tiếp), Via = nút ở tầng trên dẫn tới nó.</summary>
 public sealed record DepImpact(int Level, DepNode Node, string Via);
@@ -123,6 +126,70 @@ public sealed class DependencyGraphService
     /// null = dò theo SysId / Link trong các thư mục controller như trước.</summary>
     public Func<WCommandItem, IReadOnlyList<string>>? MenuFiles { get; set; }
 
+    // ---- Source chuẩn cho file .f mã hoá ---------------------------------------------------------------------------------
+
+    /// <summary>Kho source (Template → kho SourceCollection + kho bổ sung) và mã phiên bản đã khai của project — MainForm gán. null / kho rỗng = không dò.</summary>
+    public Func<(IReadOnlyList<string> Roots, string? VersionCode)>? StandardSource { get; set; }
+
+    /// <summary>Giải mã 1 file .f mã hoá qua helper FDecrypt (dùng fsystem.dll của FCode). Trả nội dung đã giải, null = không giải được — MainForm gán.
+    /// Có cái này thì file .f mã hoá đọc THẲNG bản giải mã của chính file (đúng bản khách đang chạy), không cần dò kho source chuẩn.</summary>
+    public Func<string, string?>? DecryptF { get; set; }
+
+    private static readonly object VersionsLock = new();
+    private static (string Key, DateTime At, List<string> Versions)? _versions;
+
+    /// <summary>Kho + phiên bản source chuẩn của project (đoán như Cấp source: mã phiên bản đã khai, rồi tên thư mục). null = không dò được (<paramref name="note"/> nói vì sao).</summary>
+    private (IReadOnlyList<string> Roots, string Version, List<string> All)? StdContext(out string? note)
+    {
+        note = null;
+        if (StandardSource?.Invoke() is not { Roots.Count: > 0 } s || SourceRoot is not { } root) return null;
+        var vkey = string.Join(";", s.Roots);
+        List<string> versions;
+        lock (VersionsLock)
+        {
+            if (_versions is { } c && c.Key == vkey && DateTime.Now - c.At < TimeSpan.FromMinutes(10)) versions = c.Versions;
+            else
+            {
+                try { versions = SourceGrantService.ListVersions(s.Roots); }
+                catch (Exception ex) { note = "Không đọc được kho source (" + ex.Message + ") — không dò được các file .f mã hoá."; return null; }
+                _versions = (vkey, DateTime.Now, versions);
+            }
+        }
+        var chosen = SourceGrantService.DetectVersion(root, versions, out var why, s.VersionCode);
+        if (chosen is null) { note = "Chưa rõ phiên bản source chuẩn của project (" + why + ") — khai Mã phiên bản của project để dò các file .f mã hoá."; return null; }
+        return (s.Roots, chosen, versions);
+    }
+
+    /// <summary>Nút file cho bản source chuẩn của 1 file .f mã hoá: nhãn theo đường dẫn trong chương trình (đuôi .xml), Path = file trong kho.</summary>
+    private DepNode StdFileNode(string projectFile, string stdFile, string version, string? note)
+    {
+        var label = FileNode(projectFile).Label;
+        if (label.EndsWith(".f", StringComparison.OrdinalIgnoreCase)) label = label[..^2] + ".xml";
+        return new DepNode("file", "file:" + stdFile, label, Path: stdFile, Note: note, StdVersion: version);
+    }
+
+    /// <summary>File .f mã hoá (có &lt;Encrypted&gt;, không có .xml cạnh nó) → nội dung đọc được: ưu tiên GIẢI MÃ chính file qua helper FDecrypt (đúng bản khách
+    /// đang chạy); không giải được thì lấy bản .xml trong kho source chuẩn (chỉ mục nếu đã dựng, không thì tìm thẳng 1 file như Cấp source nhanh).
+    /// Version = "giải mã" khi lấy từ helper, hoặc tên phiên bản khi lấy từ kho.</summary>
+    private (string Path, string Version, string Text)? StandardTextFor(string file, string text)
+    {
+        if (!file.EndsWith(".f", StringComparison.OrdinalIgnoreCase) || text.IndexOf("<Encrypted>", StringComparison.OrdinalIgnoreCase) < 0) return null;
+        try { if (File.Exists(file[..^2] + ".xml")) return null; } catch { return null; }
+        // 1) Giải mã chính file (bản thật của khách) nếu có helper + license
+        if (DecryptF?.Invoke(file) is { Length: > 0 } decrypted) return (file, "giải mã", decrypted);
+        // 2) Không giải được → bản .xml trong kho source chuẩn
+        if (SourceRoot is not { } root || StdContext(out _) is not { } sc) return null;
+        string? std = null, ver = null;
+        if (_index.StandardOf(root, sc.Roots, sc.Version, file) is { } hit) (std, ver) = hit;
+        else if (SourceGrantService.SplitProjectPath(file) is { } sp)
+        {
+            var row = SourceGrantService.ResolveNearestLower(sc.Roots, sc.Version, sc.All, file, sp.Root);
+            (std, ver) = (row.SourcePath, row.FromVersion);
+        }
+        if (std is null || ver is null) return null;
+        try { return (std, ver, File.ReadAllText(std)); } catch { return null; }
+    }
+
     private const int MaxMenuFilesRead = 300;
     /// <summary>File nhị phân không dò tên object (đọc ra toàn rác). .rpt vẫn dò — Crystal Report có tên bảng / store trong file.</summary>
     private static readonly HashSet<string> BinaryExt = new(StringComparer.OrdinalIgnoreCase)
@@ -204,7 +271,7 @@ public sealed class DependencyGraphService
             _ => await ObjectNeighborsAsync(node, force, dbStamp, progress, ct),
         };
         result = await MarkEncryptedAsync(result, dbStamp, ct);
-        Cache[cacheKey] = result;
+        if (!result.StdPending) Cache[cacheKey] = result;   // đang dựng chỉ mục source chuẩn: không nhớ, lần tải lại sau khi xong sẽ tra lại
         return result;
     }
 
@@ -263,7 +330,7 @@ WHERE o.type IN ('P','FN','IF','TF','V','TR') AND o.is_ms_shipped = 0 AND OBJECT
         var warn = r.Warnings;
         if (center.Encrypted)
             warn = new List<string>(warn) { "Object mã hoá (WITH ENCRYPTION): không đọc được nội dung — \"Dùng tới\" chỉ gồm phụ thuộc SQL Server ghi sẵn, không dò được tên nằm trong SQL động." };
-        return new DepNeighbors(center, r.Up.Select(n => Mark(n, app, sys)).ToList(), r.Down.Select(n => Mark(n, app, sys)).ToList(), warn);
+        return new DepNeighbors(center, r.Up.Select(n => Mark(n, app, sys)).ToList(), r.Down.Select(n => Mark(n, app, sys)).ToList(), warn, r.StdPending);
     }
 
     private async Task<DepNeighbors> ObjectNeighborsAsync(DepNode node, bool force, string dbStamp, Action<string> progress, CancellationToken ct)
@@ -358,11 +425,35 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
         var files = Src();
         await Task.WhenAll(Db(false), Db(true), EncryptedCallers(false), EncryptedCallers(true), files);
         var res = await files;
+        var stdPending = false;
         if (res is null) warn.Add("Project chưa khai Source Path — không tìm được file controller.");
         else if (res.Warning is not null) warn.Add(res.Warning);
-        else foreach (var f in res.Files) up.Add(FileNode(f.File, f.Hits + " chỗ"));
+        else
+        {
+            foreach (var f in res.Files) up.Add(FileNode(f.File, f.Hits + " chỗ"));
+            // File .f mã hoá của chương trình: xét theo bản .xml trong kho source chuẩn (chỉ mục dựng nền — chưa có thì sơ đồ tự tải lại khi xong)
+            if (StdContext(out var stdNote) is { } sc)
+            {
+                var already = new HashSet<string>(res.Files.Select(f => f.File), StringComparer.OrdinalIgnoreCase);
+                string? stdStatus = null;
+                var stdHits = await Task.Run(() => _index.FindInStandard(SourceRoot!, sc.Roots, sc.Version, sc.All, obj.Name, ct, out stdStatus), ct);
+                if (stdStatus is not null) { warn.Add(stdStatus); stdPending = true; }
+                foreach (var h in stdHits ?? new())
+                    if (!already.Contains(h.ProjectFile)) up.Add(StdFileNode(h.ProjectFile, h.StdFile, h.Version, h.Count + " chỗ · .f mã hoá"));
+            }
+            else if (stdNote is not null && _index.IsEncryptedIndexedAny(SourceRoot!)) warn.Add(stdNote);
+        }
 
-        return new DepNeighbors(node, Sort(up), Sort(down), warn);
+        return new DepNeighbors(node, Sort(up), Sort(down), warn, stdPending);
+    }
+
+    /// <summary>Trạng thái dựng chỉ mục source chuẩn của project đang chọn: Building = đang dựng (chưa dùng được), Text = dòng báo kèm % —
+    /// sơ đồ hỏi định kỳ để cập nhật dòng báo và tự tải lại khi xong. null = không dò source chuẩn.</summary>
+    public (bool Building, string Text)? StandardBuildState()
+    {
+        if (SourceRoot is not { } root || StdContext(out _) is not { } sc) return null;
+        var (building, status, done, total) = _index.StdState(root, sc.Roots, sc.Version);
+        return (building, SourceIndexService.StdStatusText(sc.Version, status, done, total));
     }
 
     /// <summary>Tên phụ thuộc không thấy trong database của object: tra database kia (Sys ↔ App); vẫn không thấy thì ĐOÁN theo cách gọi trong nội dung
@@ -446,7 +537,18 @@ ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
             try { full = Path.GetFullPath(Path.Combine(dir, m.Groups[1].Value.Replace('/', '\\'))); } catch { continue; }
             if (seen.Add(full)) down.Add(FileNode(full, File.Exists(full) ? "include" : "include — không thấy file"));
         }
-        foreach (var o in NamesIn(text, null)) down.Add(ObjectNode(o));
+        var names = NamesIn(text, null);
+        foreach (var o in names) down.Add(ObjectNode(o));
+        // .f mã hoá: tên store / procedure nằm trong khối <Encrypted> → lấy thêm từ bản .xml trong kho source chuẩn
+        if (await Task.Run(() => StandardTextFor(path, text), ct) is { } std)
+        {
+            var have = new HashSet<string>(names.Select(o => o.Name), StringComparer.OrdinalIgnoreCase);
+            var isDec = std.Version == "giải mã";
+            foreach (var o in NamesIn(std.Text, null))
+                if (have.Add(o.Name)) down.Add(ObjectNode(o, isDec ? "giải mã từ .f" : "theo source " + std.Version));
+            warn.Add(isDec ? "File .f mã hoá — đã giải mã, lấy thêm tên object trong khối mã hoá."
+                           : "File .f mã hoá — tên object lấy thêm từ source chuẩn " + std.Version + ": " + std.Path);
+        }
 
         // Được dùng bởi: menu trỏ tới file + file khác nhắc tới tên file (include, controller gọi controller)
         foreach (var (item, mpath) in _menus())
@@ -514,7 +616,11 @@ ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
 
         // Object database có tên trong các file của menu (store / procedure / function / bảng / view…) — dò như "Dùng tới" của 1 file
         progress("Đang đọc " + files.Count + " file của menu…");
-        foreach (var (o, inFiles) in await ObjectsInFilesAsync(files, ct)) down.Add(ObjectNode(o, "trong " + Path.GetFileName(inFiles[0])));
+        var stdUsed = new List<string>(); var decUsed = new List<string>();
+        foreach (var (o, inFiles) in await ObjectsInFilesAsync(files, ct, (f, ver) => { lock (stdUsed) (ver == "giải mã" ? decUsed : stdUsed).Add(Path.GetFileName(f) + (ver == "giải mã" ? "" : " (" + ver + ")")); }))
+            down.Add(ObjectNode(o, "trong " + Path.GetFileName(inFiles[0])));
+        if (decUsed.Count > 0) warn.Add($"{decUsed.Count} file .f mã hoá — đã giải mã để lấy tên object: " + string.Join(", ", decUsed.Distinct().Take(8)) + (decUsed.Count > 8 ? "…" : ""));
+        if (stdUsed.Count > 0) warn.Add($"{stdUsed.Count} file .f mã hoá — tên object lấy thêm từ source chuẩn: " + string.Join(", ", stdUsed.Take(8)) + (stdUsed.Count > 8 ? "…" : ""));
         if (files.Count > MaxMenuFilesRead) warn.Add($"Menu có {files.Count} file — chỉ dò tên object trong {MaxMenuFilesRead} file đầu.");
         if (files.Count == 0) warn.Add("Không thấy file controller nào của menu (theo SysId / Link).");
         return new DepNeighbors(center, new List<DepNode>(), Sort(down), warn);
@@ -525,7 +631,10 @@ ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
     /// "Gợi ý theo menu" của BcodeNote (Table liên quan). Bỏ file nhị phân, file quá <see cref="MaxMenuFileBytes"/>, chỉ đọc <see cref="MaxMenuFilesRead"/> file đầu.
     /// Mỗi object kèm các file có tên nó (theo thứ tự <paramref name="files"/>). Tên lấy từ cache cây SQL Object — xem <see cref="EnsureObjectNamesAsync"/>.
     /// </summary>
-    public async Task<List<(SqlObjectInfo Obj, List<string> Files)>> ObjectsInFilesAsync(IEnumerable<string> files, CancellationToken ct = default)
+    /// <param name="onStandard">Khác null = file .f mã hoá (không có .xml cạnh nó) thì dò thêm trong bản .xml của kho source chuẩn
+    /// (<see cref="StandardTextFor"/>); gọi lại với (file, phiên bản source) mỗi lần dùng. null = chỉ đọc chính file (như trước).</param>
+    public async Task<List<(SqlObjectInfo Obj, List<string> Files)>> ObjectsInFilesAsync(IEnumerable<string> files, CancellationToken ct = default,
+        Action<string, string>? onStandard = null)
     {
         var found = new Dictionary<string, (SqlObjectInfo Obj, List<string> Files)>(StringComparer.OrdinalIgnoreCase);
         var order = new List<string>();
@@ -535,6 +644,11 @@ ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
             string text;
             try { if (new FileInfo(f).Length > MaxMenuFileBytes) continue; text = await File.ReadAllTextAsync(f, ct); }
             catch (Exception ex) when (ex is not OperationCanceledException) { continue; }
+            if (onStandard is not null && await Task.Run(() => StandardTextFor(f, text), ct) is { } std)
+            {
+                text += "\n" + std.Text;
+                onStandard(f, std.Version);
+            }
             foreach (var o in NamesIn(text, null))
             {
                 var key = (o.FromSysDatabase ? "sys:" : "app:") + o.QualifiedName;
@@ -627,6 +741,15 @@ ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
                 foreach (var (name, label) in wanted)
                     if (hits.TryGetValue(name, out var files))
                         foreach (var f in files) Add(FileNode(f), level, label, next);
+                // file .f mã hoá: theo chỉ mục source chuẩn (đã dựng nền; chưa xong thì bỏ qua)
+                if (StdContext(out _) is { } sc)
+                {
+                    var std = _index.StandardCandidates(root, sc.Roots, sc.Version, sc.All, wanted.Select(w => w.Name).ToList());
+                    foreach (var (name, label) in wanted)
+                        if (std.TryGetValue(name, out var sh))
+                            foreach (var h in sh)
+                                if (!seen.Contains("file:" + h.ProjectFile)) Add(StdFileNode(h.ProjectFile, h.StdFile, h.Version, ".f mã hoá"), level, label, next);
+                }
             }
             frontier = next;
         }

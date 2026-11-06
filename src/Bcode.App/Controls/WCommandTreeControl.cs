@@ -507,6 +507,9 @@ public class WCommandTreeControl : UserControl
         node.EnsureVisible();
     }
 
+    /// <summary>Đưa focus bàn phím vào cây menu — Command Palette chọn menu xong gọi để phím tắt của cây (Ctrl+4, Ctrl+F5, F4…) ăn ngay.</summary>
+    public void FocusTree() { if (_tree.IsHandleCreated && _tree.CanFocus) _tree.Focus(); }
+
     private WCommandItem? SelectedItem => _tree.SelectedNode?.Tag as WCommandItem;
 
     /// <summary>Ctrl+F5 (cấu hình được: Template → Phím tắt, nhóm "Cây menu WCommand") khi cây đang có focus: chạy menu đang chọn. Cây bắt phím trước phím cùng tổ hợp ở phạm vi cửa sổ.</summary>

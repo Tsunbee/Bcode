@@ -9,6 +9,9 @@ internal static class Program
     static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
+        // Log lỗi tập trung (error.log trong thư mục dữ liệu) + theo dõi hộp lỗi + phím Gửi lỗi (F1) — trước khi có form nào.
+        Bcode.App.Services.ErrorLog.Install();
+        Bcode.App.UI.ErrorReporter.Install();
         // Chế độ giao diện (App/WinForms hay Web/WebView2): tham số --native / --web, nếu không thì hỏi (trừ khi đã tắt "hỏi mỗi lần"). Đóng hộp hỏi = thoát.
         UiThemes.ApplyPalettes();
         // Sáng/tối lần trước (nút mặt trời/mặt trăng ghi theme_light.txt) — đặt trước khi có form nào, kể cả hộp hỏi App/Web. Chưa chọn bao giờ = tối.

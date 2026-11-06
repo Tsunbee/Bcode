@@ -50,7 +50,11 @@ public sealed class WebBarHost : Panel, IWebPage
         if (Bcode.App.UI.UiMode.IsNative && NativePages.TryCreate(page, out var np) && np is not null)
         {
             _native = np;
-            np.Message += root => Message?.Invoke(root);
+            np.Message += root =>
+            {
+                try { Message?.Invoke(root); }
+                catch (Exception ex) { Bcode.App.Services.ErrorLog.Record(ex, "Trang " + page); throw; }   // ghi log rồi ném lại — hành vi như cũ
+            };
             Controls.Add(np);
             np.Layout += (_, _) => FitNative();
         }
@@ -141,6 +145,7 @@ public sealed class WebBarHost : Panel, IWebPage
     /// have to guard on readiness themselves.</summary>
     public void Call(string script)
     {
+        Bcode.App.Services.ErrorLog.NoticeDisplayed(script, "Trang " + _page);   // báo lỗi lên trang (thông điệp exception vừa ném) → ghi log kèm stack
         if (_native is not null)
         {
             if (!_ready || IsDisposed) return;
@@ -192,7 +197,8 @@ public sealed class WebBarHost : Panel, IWebPage
             _web.CoreWebView2.WebMessageReceived += (_, e) =>
             {
                 using var doc = JsonDocument.Parse(e.TryGetWebMessageAsString());
-                Message?.Invoke(doc.RootElement);
+                try { Message?.Invoke(doc.RootElement); }
+                catch (Exception ex) { Bcode.App.Services.ErrorLog.Record(ex, "Trang " + _page); throw; }   // ghi log rồi ném lại — hành vi như cũ
             };
             _web.CoreWebView2.NavigationCompleted += (_, _) =>
             {

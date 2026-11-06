@@ -511,12 +511,10 @@ public partial class FileLookupControl : UserControl
     public void ShowForMenuItem(string sourceRootPath, string link, string sysId, string? note = null)
     {
         _menuNote = note;
-        // Reset to "show every file type for this menu" — the shared checkbox may still be
-        // checked from a previous free-browse extension filter. That used to be harmless in
-        // menu mode (onlyF was always false there), but now genuinely restricts results to
-        // .f only, and would otherwise make clicking a menu item show fewer files than
-        // before for no reason visible to the user.
-        _onlyShowFilteredOn = false;
+        // Đang xem menu mà bấm sang menu khác: GIỮ nguyên bộ lọc (ô đuôi + "Only Show") — trước đây luôn tắt Only Show nên đang lọc .xml
+        // bấm menu khác lại hiện cả .f / .ent, phải bật lại. Từ chế độ duyệt thư mục vào menu: chỉ giữ lọc khi đã chọn đuôi cụ thể
+        // (ô ".*" mà Only Show bật — mặc định lúc mở tab — ở chế độ menu nghĩa là hiện cả .xml trong Dir/Filter/Grid, không phải ý người dùng).
+        if (!_menuMode && !_menuBeforeSearch) _onlyShowFilteredOn = _onlyShowFilteredOn && _extensionText != ".*";
         _menuMode = true;
         _menuBeforeSearch = false;
         _menuLink = link;

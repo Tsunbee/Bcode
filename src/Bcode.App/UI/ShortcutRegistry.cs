@@ -50,6 +50,7 @@ public static class ShortcutRegistry
             new("app.settingsMenu", "Mở menu Settings (bánh răng)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.template", "Mở màn Giao diện (Template)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.customUi", "Bật / tắt tuỳ chỉnh giao diện web (chế độ an toàn)", "Cửa sổ", ShortcutScope.App, ""),
+            new(ErrorReporter.ShortcutId, "Gửi lỗi gần nhất lên Google Sheet / forum TK2 Help (Template → Đường dẫn → Báo lỗi) — phím chỉ có tác dụng khi vừa có lỗi chưa gửi (15 phút); lúc khác phím đi tiếp như cũ (vd F1 ở lưới Table)", "Cửa sổ", ShortcutScope.App, "F1"),
 
             // ---- Tab ----
             new("tab.next", "Chuyển sang tab kế", "Tab", ShortcutScope.App, "Ctrl+Tab"),
@@ -224,19 +225,23 @@ public static class ShortcutRegistry
     /// <summary>Chữ hiển thị trên menu/tooltip ("Ctrl+Shift+Q"), rỗng nếu chưa gán phím.</summary>
     public static string Display(string id) => Get(id);
 
+    /// <summary>Phím phạm vi App tự bắt có điều kiện (không qua <see cref="AppIdFor"/>, không đẩy xuống trang): "error.send" chỉ bắt khi vừa có lỗi
+    /// (UI/ErrorReporter.TryHandleKey) — lúc khác cùng phím (F1) đi tiếp tới lưới Table / editor như cũ. Vẫn hiện ở Template → Phím tắt và Command Palette.</summary>
+    public static readonly HashSet<string> SelfHandled = new() { ErrorReporter.ShortcutId };
+
     /// <summary>Id chức năng (phạm vi App) đang gắn với tổ hợp <paramref name="combo"/>, hoặc null.</summary>
     public static string? AppIdFor(string combo)
     {
         var c = Normalize(combo);
         if (c is null) return null;
         foreach (var d in All)
-            if (d.Scope == ShortcutScope.App && Get(d.Id) == c) return d.Id;
+            if (d.Scope == ShortcutScope.App && !SelfHandled.Contains(d.Id) && Get(d.Id) == c) return d.Id;
         return null;
     }
 
     /// <summary>Mọi tổ hợp phạm vi App đang dùng — đẩy xuống các trang WebView2 để bắt phím ngay cả khi con trỏ nằm trong trang.</summary>
     public static List<string> ActiveAppCombos()
-        => All.Where(d => d.Scope == ShortcutScope.App).Select(d => Get(d.Id)).Where(c => c.Length > 0).Distinct().ToList();
+        => All.Where(d => d.Scope == ShortcutScope.App && !SelfHandled.Contains(d.Id)).Select(d => Get(d.Id)).Where(c => c.Length > 0).Distinct().ToList();
 
     /// <summary>Bản đồ id → tổ hợp của các phím Editor (rỗng = tắt) để đẩy cho editor SQL.</summary>
     public static Dictionary<string, string> EditorKeymap()

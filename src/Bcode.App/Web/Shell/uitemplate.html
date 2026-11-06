@@ -277,6 +277,9 @@
       <div class="ctl" style="align-items:flex-start"><textarea id="pSrcExtra" rows="4" spellcheck="false" wrap="off" style="flex:1;min-width:0;font:inherit;color:inherit;background:var(--input,#3c3c3c);border:1px solid var(--border,#555);border-radius:4px;padding:5px 8px"></textarea>
         <button class="btn btn-border" id="pSrcAdd">＋ Thêm thư mục...</button></div></div>
     <div class="muted" style="font-size:11.5px;white-space:pre-line" id="pSrcExtraNote"></div>
+    <div class="row" style="margin-top:12px"><label>Đường dẫn FCode<br/><span class="muted" style="font-size:11px">(giải mã file .f)</span></label>
+      <div class="ctl"><input type="text" id="pFCode" spellcheck="false" placeholder="(trống = tự dò) D:\Bee\Software\FCode" /></div></div>
+    <div class="muted" style="font-size:11.5px" id="pFCodeNote">Thư mục cài FCode (chứa <code>fsystem.dll</code>) — Sơ đồ phụ thuộc dùng để GIẢI MÃ file controller <code>.f</code> mã hoá (khối <code>&lt;Encrypted&gt;</code>) và đọc tên store / procedure bên trong. Chỉ chạy được trên máy có <b>license Fast</b>; không có thì tự quay về dò kho source chuẩn.</div>
   </div>
   <div class="panel">
     <h3>Thư mục kiến thức (ghost text + Hỏi Fast)</h3>
@@ -286,6 +289,24 @@
         <button class="btn btn-border" id="pKnowBrowse">Chọn...</button>
         <button class="btn btn-border" id="pKnowLocal">Dùng máy này</button></div></div>
     <div class="muted" style="font-size:11.5px" id="pKnowNote"></div>
+  </div>
+  <div class="panel">
+    <h3>Báo lỗi (log lỗi + phím Gửi lỗi)</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Mọi lỗi của Bcode được ghi vào <code>error.log</code> (thời gian, dự án, chức năng / tab, thông điệp + stack trace; mật khẩu trong chuỗi kết nối đã che). Vừa có lỗi thì bấm <b id="pErrKey">F1</b> (đổi ở tab Phím tắt → "Gửi lỗi gần nhất") để gửi lỗi đó tới Google Sheet / forum TK2 Help bên dưới — luôn hỏi lại kèm nội dung trước khi gửi; lúc không có lỗi phím vẫn làm việc cũ. Google Sheet không nhận ghi qua link mở sheet: muốn gửi <b>tự động</b> thì gắn mã Apps Script vào sheet (nút "Chép mã Apps Script", dán vào Tiện ích mở rộng → Apps Script, Triển khai → Ứng dụng web, Ai có quyền truy cập: Bất kỳ ai) rồi khai URL <code>…/exec</code>. Chỉ khai link sheet thì F1 chép 1 dòng lỗi vào clipboard và mở sheet để dán.</div>
+    <div class="row"><label>Link Google Sheet lỗi</label>
+      <div class="ctl"><input type="text" id="pErrSheet" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/…/edit" />
+        <button class="btn btn-border" id="pErrOpen">Mở</button></div></div>
+    <div class="row"><label>URL nhận tự động<br/><span class="muted" style="font-size:11px">(Apps Script …/exec)</span></label>
+      <div class="ctl"><input type="text" id="pErrPost" spellcheck="false" placeholder="(trống = chép + mở sheet để dán) https://script.google.com/macros/s/…/exec" />
+        <button class="btn btn-border" id="pErrScript">Chép mã Apps Script</button>
+        <button class="btn btn-border" id="pErrTest">Gửi thử</button></div></div>
+    <div class="row"><label>URL forum TK2 Help<br/><span class="muted" style="font-size:11px">(nhận lỗi, không cần đăng nhập)</span></label>
+      <div class="ctl"><input type="text" id="pErrForum" spellcheck="false" placeholder="(trống = không gửi forum) http://<máy chủ>/TK2_HELP/…" /></div></div>
+    <div class="muted" style="font-size:11.5px;margin-bottom:8px">Forum nhận cùng 1 gói JSON (POST) như Apps Script: <code>time, version, machine, user, project, feature, source, message, detail</code> + <code>app</code>, <code>title</code>, <code>content</code> soạn sẵn để đăng bài; trả mã 2xx là gửi được. Khai cả hai ô thì F1 gửi tới cả Google Sheet lẫn forum. "Gửi thử" gửi 1 dòng thử tới mọi nơi đã khai.</div>
+    <div class="row"><label>File log</label>
+      <div class="ctl"><span class="muted" id="pErrLog" style="font-size:12px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis"></span>
+        <button class="btn btn-border" id="pErrLogOpen">Mở log</button></div></div>
+    <div class="muted" style="font-size:11.5px" id="pErrNote"></div>
   </div>
 </div>
 
@@ -838,7 +859,10 @@ $('swCopyX').onclick = () => sendSwCopy('');
     if (document.activeElement !== $('pSrcExtra')) $('pSrcExtra').value = s.extra.map((e) => e.path).join('\n');
     $('pSrcMainNote').textContent = s.main.path ? (s.main.ok ? '✔ Truy cập được.' : '✘ Không truy cập được thư mục này (sai đường dẫn / mất mạng / không đủ quyền).') : 'Chưa khai báo kho chính.';
     $('pSrcExtraNote').textContent = s.extra.length ? s.extra.map((e) => (e.ok ? '✔ ' : '✘ ') + e.path).join('\n') : 'Chưa có kho bổ sung.';
+    if (s.fcode && document.activeElement !== $('pFCode')) $('pFCode').value = s.fcode.path;
+    if (s.fcode) $('pFCodeNote').textContent = s.fcode.dir ? ('✔ Dùng fsystem.dll ở: ' + s.fcode.dir) : 'Chưa tìm thấy fsystem.dll (khai đường dẫn FCode) — file .f mã hoá sẽ dò theo kho source chuẩn.';
   };
+  $('pFCode').onchange = () => post('paths-set', { key: 'fcode', value: $('pFCode').value });
   $('pSrcMain').onchange = () => post('paths-set', { key: 'srcMain', value: $('pSrcMain').value });
   $('pSrcExtra').onchange = () => post('paths-set', { key: 'srcExtra', value: $('pSrcExtra').value });
   $('pSrcAdd').onclick = () => post('paths-browse', { key: 'srcAdd' });
@@ -852,6 +876,22 @@ $('swCopyX').onclick = () => sendSwCopy('');
   $('pKnow').onchange = () => { post('paths-set', { key: 'knowledge', value: $('pKnow').value.trim() }); window.setKnowledge({ path: $('pKnow').value.trim(), checking: true }); };
   $('pKnowBrowse').onclick = () => post('paths-browse', { key: 'knowledge' });
   $('pKnowLocal').onclick = () => { $('pKnow').value = ''; $('pKnow').onchange(); };
+  // Báo lỗi: link Google Sheet + URL Apps Script nhận lỗi (lưu ngay, file riêng error-report.json)
+  window.setErrorReport = (r) => {
+    if (document.activeElement !== $('pErrSheet')) $('pErrSheet').value = r.sheet;
+    if (document.activeElement !== $('pErrPost')) $('pErrPost').value = r.post;
+    if (document.activeElement !== $('pErrForum')) $('pErrForum').value = r.forum;
+    $('pErrKey').textContent = r.key || '(chưa gán phím)';
+    $('pErrLog').textContent = r.log; $('pErrLog').title = r.log;
+    if (r.note != null) $('pErrNote').textContent = r.note;   // null = giữ dòng ghi chú (PushPaths gọi lại sau khi lưu)
+  };
+  $('pErrSheet').onchange = () => post('paths-set', { key: 'errSheet', value: $('pErrSheet').value.trim() });
+  $('pErrPost').onchange = () => post('paths-set', { key: 'errPost', value: $('pErrPost').value.trim() });
+  $('pErrForum').onchange = () => post('paths-set', { key: 'errForum', value: $('pErrForum').value.trim() });
+  $('pErrOpen').onclick = () => post('err-report', { op: 'open-sheet' });
+  $('pErrScript').onclick = () => post('err-report', { op: 'copy-script' });
+  $('pErrTest').onclick = () => { $('pErrNote').textContent = 'Đang gửi thử…'; post('err-report', { op: 'test' }); };
+  $('pErrLogOpen').onclick = () => post('err-report', { op: 'open-log' });
   // ---- tab Tìm file: quy tắc loại trừ của Search Box (File Lookup) ----
   window.setSearchRules = (r) => {
     $('sInclude').value = r.include || ''; $('sNever').value = r.never; $('sBinary').value = r.binary; $('sFolders').value = r.folders;

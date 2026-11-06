@@ -49,6 +49,7 @@
   .k.table { background: color-mix(in srgb, #e2a84a 34%, transparent); }
   .k.unknown { background: color-mix(in srgb, #8b949e 30%, transparent); }
   .enc { flex: none; font-size: .66rem; padding: 0 .35rem; border-radius: 999px; border: 1px solid #d29922; color: #d29922; }
+  .enc.std { border-color: #4ab38a; color: #4ab38a; }
   .db { flex: none; font-size: .68rem; color: var(--text-muted); }
   #center { position: sticky; top: 1rem; }
   #center .card { border: calc(var(--bw) * 2) solid var(--accent); border-radius: var(--r); padding: .8rem .9rem; background: var(--panel); display: flex; flex-direction: column; gap: .45rem; }
@@ -117,7 +118,9 @@
   const GROUP = { menu: 'Menu', file: 'File controller / include', proc: 'Stored procedure', func: 'Function', view: 'View', trigger: 'Trigger', table: 'Bảng', unknown: 'Không xác định (không thấy trong database)' };
   const ORDER = ['menu', 'file', 'proc', 'func', 'view', 'trigger', 'table', 'unknown'];
   const ENC_TIP = 'Tạo WITH ENCRYPTION — không đọc được nội dung';
-  const encTag = (n) => (n.encrypted ? `<span class="enc" title="${ENC_TIP}">mã hoá</span>` : '');
+  // nhãn "mã hoá" (object WITH ENCRYPTION) + nhãn "source <phiên bản>" (file .f của chương trình bị mã hoá → xét theo bản .xml trong kho source chuẩn)
+  const encTag = (n) => (n.encrypted ? `<span class="enc" title="${ENC_TIP}">mã hoá</span>` : '')
+    + (n.stdVersion ? `<span class="enc std" title="File .f trong chương trình bị mã hoá — xét theo bản .xml trong kho source chuẩn ${esc(n.stdVersion)}">source ${esc(n.stdVersion)}</span>` : '');
 
   let trail = [];          // đường dẫn đã đi (thanh trên)
   let pos = -1;            // nút đang xem trong trail; phía sau pos là các nút để "Tới →"
@@ -214,6 +217,9 @@
       add(n.kind === 'table' ? 'Mở định nghĩa bảng (tab SQL)' : 'Mở dạng ALTER (tab SQL)', () => post('ctx', { node: n, mode: 'sql' }), 'Bấm đúp');
       if (SQLK.includes(n.kind)) add('Mở dạng DROP + CREATE (tab SQL)', () => post('ctx', { node: n, mode: 'sqlDropCreate' }));
       add('Ai đang dùng object này…', () => post('ctx', { node: n, mode: 'usages' }));
+    } else if (n.kind === 'file' && n.stdVersion) {
+      add('Xem source chuẩn ' + n.stdVersion + ' (chỉ đọc)', () => post('open', { node: n }), 'Bấm đúp');
+      add('Mở thư mục chứa file', () => post('ctx', { node: n, mode: 'folder' }));
     } else if (n.kind === 'file') {
       add('Mở bằng BcodeViewer', () => post('ctx', { node: n, mode: 'viewer' }), 'Bấm đúp');
       add('Mở trong tab của Bcode', () => post('ctx', { node: n, mode: 'scriptTab' }));
@@ -309,6 +315,15 @@
       $('impact').classList.remove('on');
     },
     onProgress(m) { $('status').textContent = m; },
+    // tiến độ dựng chỉ mục source chuẩn: thay đúng dòng báo "Đang dựng…" (sơ đồ tự tải lại khi xong)
+    onStdProgress(m) {
+      if (!data) return;
+      const w = data.warnings || [];
+      const i = w.findIndex((x) => x.startsWith('Đang dựng chỉ mục source chuẩn'));
+      if (i >= 0) w[i] = m; else w.push(m);
+      data.warnings = w;
+      $('warn').innerHTML = w.map((x) => '⚠ ' + esc(x)).join('<br>');
+    },
     onData(d) {
       data = d;
       $('status').textContent = `${d.up.length} được dùng bởi · ${d.down.length} dùng tới · ${(d.ms / 1000).toFixed(1)} giây`;

@@ -280,8 +280,10 @@ internal static class WebViewEnvironment
                     var kind = e.KeyEventKind;
                     var isDown = kind == Microsoft.Web.WebView2.Core.CoreWebView2KeyEventKind.KeyDown || kind == Microsoft.Web.WebView2.Core.CoreWebView2KeyEventKind.SystemKeyDown;
                     if (!isDown) return;
-                    if (IsInDialog(web)) return;   // hộp thoại: để trang tự xử lý phím (xem InitAsync)
                     var keys = (Keys)e.VirtualKey | Control.ModifierKeys;
+                    // Phím Gửi lỗi (F1) — chỉ khi vừa có lỗi chưa gửi; có tác dụng cả trong hộp thoại. Lúc khác phím đi tiếp tới trang như cũ.
+                    if (ErrorReporter.TryHandleKey(keys)) { e.Handled = true; return; }
+                    if (IsInDialog(web)) return;   // hộp thoại: để trang tự xử lý phím (xem InitAsync)
                     var combo = ShortcutRegistry.FromKeys(keys);
                     if (combo is null || ShortcutRegistry.AppIdFor(combo) is null) return;
                     if (KeyClaims.Values.Any(c => c.Contains(combo))) return;   // trang đang giữ tổ hợp này (ClaimKeys)

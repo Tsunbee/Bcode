@@ -245,6 +245,12 @@ public class UiTemplateForm : ThemedForm
                     SetToolPath(pk, pv); PushPaths();
                     break;
                 }
+                case "err-report":
+                {
+                    var eop = data.ValueKind == JsonValueKind.Object && data.TryGetProperty("op", out var eope) ? eope.GetString() : null;
+                    BeginInvoke(new Action(() => ErrorReportAction(eop)));
+                    break;
+                }
                 case "paths-browse":
                 {
                     var bk = data.TryGetProperty("key", out var bke) ? bke.GetString() : null;
@@ -374,6 +380,19 @@ public class UiTemplateForm : ThemedForm
     {
         if (key == "viewer") _settings.ViewerExePath = value;
         else if (key == "designer") _settings.ScreenDesignerExePath = value;
+        else if (key == "fcode") { _settings.FCodePath = value; AppSettings.Update(s => s.FCodePath = value); PushSourceStatus(); return; }
+        else if (key is "errSheet" or "errPost" or "errForum")   // Báo lỗi: lưu ngay vào error-report.json (không nằm trong settings.json)
+        {
+            if (value.Length > 0 && !(Uri.TryCreate(value, UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttps || u.Scheme == Uri.UriSchemeHttp)))
+            { PushErrorReport("✘ Link phải bắt đầu bằng http:// hoặc https:// — chưa lưu."); return; }
+            if (key == "errSheet") AppSettings.ErrorSheetUrl = value;
+            else if (key == "errPost") AppSettings.ErrorPostUrl = value;
+            else AppSettings.ErrorForumUrl = value;
+            PushErrorReport(key == "errPost" && value.Contains("docs.google.com/spreadsheets", StringComparison.OrdinalIgnoreCase)
+                ? "⚠ Đã lưu, nhưng đây là link mở sheet — sheet không nhận ghi qua link này. Ô này cần URL web app Apps Script (…/exec); link sheet để ở ô trên."
+                : "Đã lưu.");
+            return;
+        }
         else if (key == "srcMain") _settings.SourceCollectionPath = value;
         else if (key == "srcExtra") _settings.SourceCollectionExtraPaths = value.Split(new[] { (char)10, (char)13 }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         else if (key == "knowledge")
@@ -452,6 +471,55 @@ public class UiTemplateForm : ThemedForm
         Js($"window.setPaths({JsonSerializer.Serialize(state)})");
         PushSourceStatus();
         PushKnowledgeStatus();
+        PushErrorReport(null);
+    }
+
+    /// <summary>Ô Báo lỗi (tab Đường dẫn): link sheet, URL Apps Script, phím gửi lỗi hiện hành, đường dẫn error.log. <paramref name="note"/> null = giữ dòng ghi chú.</summary>
+    private void PushErrorReport(string? note)
+    {
+        var state = new
+        {
+            sheet = AppSettings.ErrorSheetUrl, post = AppSettings.ErrorPostUrl, forum = AppSettings.ErrorForumUrl, log = Bcode.App.Services.ErrorLog.FilePath,
+            key = ShortcutRegistry.Display(Bcode.App.UI.ErrorReporter.ShortcutId), note,
+        };
+        Js($"window.setErrorReport && window.setErrorReport({JsonSerializer.Serialize(state)})");
+    }
+
+    /// <summary>Nút của ô Báo lỗi: mở sheet / mở log / chép mã Apps Script / gửi thử 1 dòng (không chứa dữ liệu thật) tới URL đã khai.</summary>
+    private async void ErrorReportAction(string? op)
+    {
+        try
+        {
+            switch (op)
+            {
+                case "open-sheet":
+                    if (AppSettings.ErrorSheetUrl is { Length: > 0 } sheet) Process.Start(new ProcessStartInfo(sheet) { UseShellExecute = true });
+                    else PushErrorReport("Chưa khai link Google Sheet.");
+                    break;
+                case "open-log":
+                    var log = Bcode.App.Services.ErrorLog.FilePath;
+                    if (File.Exists(log)) Process.Start(new ProcessStartInfo(log) { UseShellExecute = true });
+                    else PushErrorReport("Chưa có lỗi nào được ghi (chưa có file " + log + ").");
+                    break;
+                case "copy-script":
+                    Clipboard.SetText(Bcode.App.Services.ErrorLog.AppsScriptCode);
+                    PushErrorReport("Đã chép mã Apps Script — mở sheet → Tiện ích mở rộng → Apps Script → dán thay toàn bộ → Lưu → Triển khai → Tùy chọn triển khai mới → Ứng dụng web (Thực thi: Tôi, Ai có quyền truy cập: Bất kỳ ai) → chép URL …/exec vào ô trên.");
+                    break;
+                case "test":
+                {
+                    var targets = Bcode.App.UI.ErrorReporter.Targets();
+                    if (targets.Count == 0) { PushErrorReport("Chưa khai URL nhận tự động (Apps Script …/exec hoặc forum TK2 Help) — không có gì để gửi thử."); break; }
+                    var probe = new Bcode.App.Services.ErrorEntry(DateTime.Now, Bcode.App.Services.ErrorLog.Version, "(gửi thử)", "Template → Đường dẫn → Báo lỗi",
+                        "Gửi thử", "Dòng gửi thử từ Bcode — không phải lỗi thật.", "Dòng gửi thử từ Bcode — không phải lỗi thật.");
+                    var results = await Task.WhenAll(targets.Select(async t => (t.Name, R: await Bcode.App.Services.ErrorLog.SendAsync(probe, t.Url))));
+                    if (!IsDisposed) PushErrorReport(string.Join("  ·  ", results.Select(x => x.R.Ok
+                        ? "✔ " + x.Name + ": gửi thử thành công" + (x.R.Info.Length > 0 ? " (máy nhận trả: " + x.R.Info + ")" : "")
+                        : "✘ " + x.Name + ": " + x.R.Info)));
+                    break;
+                }
+            }
+        }
+        catch (Exception ex) { if (!IsDisposed) PushErrorReport("✘ " + ex.Message); }
     }
 
     /// <summary>Kho source (chính + bổ sung) có truy cập được không — kiểm tra ở luồng nền vì ổ mạng không với tới được có thể treo nhiều giây; trang hiện "đang kiểm tra" rồi cập nhật khi xong.</summary>
@@ -459,10 +527,12 @@ public class UiTemplateForm : ThemedForm
     {
         var main = _settings.SourceCollectionPath ?? "";
         var extra = (_settings.SourceCollectionExtraPaths ?? new()).ToList();
+        var fcodePath = _settings.FCodePath ?? "";
         _ = Task.Run(() =>
         {
             bool Ok(string p) { try { return !string.IsNullOrWhiteSpace(p) && Directory.Exists(p); } catch { return false; } }
-            var state = new { main = new { path = main, ok = Ok(main) }, extra = extra.Select(p => new { path = p, ok = Ok(p) }).ToList() };
+            var fcode = new { path = fcodePath, dir = _settings.FCodeDir ?? "" };
+            var state = new { main = new { path = main, ok = Ok(main) }, extra = extra.Select(p => new { path = p, ok = Ok(p) }).ToList(), fcode };
             try { BeginInvoke(new Action(() => Js($"window.setSourcePaths({JsonSerializer.Serialize(state)})"))); } catch { /* form đã đóng */ }
         });
     }

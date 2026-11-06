@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Giải mã file controller .f của Fast (khối <Encrypted>) cho Sơ đồ phụ thuộc / File Lookup.
+       EXE RIÊNG, chạy tiến trình tách: nạp fsystem.dll ĐÃ CÀI của FCode trên máy dev rồi gọi Sec.AnalysisSource — fsystem.dll là
+       binary bị làm rối, nhiều phụ thuộc; chạy tách để lỗi/treo không làm sập Bcode. KHÔNG kèm fsystem.dll hay khoá nào trong repo:
+       khoá là license Fast ghi theo máy (%windir%\<Máy>.c), chỉ máy dev có license mới giải được; máy không có license → trả nguyên văn. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Bcode.FDecrypt</AssemblyName>
+    <RootNamespace>Bcode.FDecrypt</RootNamespace>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- fsystem.dll (.NET Framework) gọi WMI qua System.Management — net8 cần package này để GetClientCode đọc được mã máy. -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

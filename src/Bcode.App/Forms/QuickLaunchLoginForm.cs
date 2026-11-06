@@ -138,19 +138,28 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     private bool _loggingIn;
     private bool _reloginTried;
 
+    // Tab "cửa sổ mới": trang FBO mở cửa sổ mới (window.open, chuột phải "Open link in new window", link target=_blank) → MainForm mở tab này
+    // làm cửa sổ đó (e.NewWindow — giữ window.opener / dữ liệu POST như cửa sổ thật). Tab này không tự đăng nhập / điều hướng gì.
+    private readonly bool _popup;
+    private readonly TaskCompletionSource<CoreWebView2> _coreReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>Do MainForm gán: mở 1 tab FSG FBO "cửa sổ mới" (chế độ popup) cho trang muốn mở cửa sổ mới. Null = để WebView2 bật cửa sổ riêng như mặc định.</summary>
+    public Func<QuickLaunchLoginForm?>? NewWindowTab { get; set; }
+
     public Workspace Workspace => _ws;
     /// <summary>Đã đăng nhập (tự động, tay rồi bấm ➡ Menu, hoặc tab mở thêm đã vào được menu bằng phiên chung).</summary>
     public bool IsLoggedIn => _loggedIn;
     /// <summary>URL menu tab này được mở để chạy (Ctrl+4 / F5 từ BcodeViewer); null = chỉ mở FSG FBO.</summary>
     public string? MenuUrl => _pendingUrl;
 
-    public QuickLaunchLoginForm(Workspace ws, AppSettings settings, string? startUrl = null, string startNote = "", bool reuseSession = false)
+    public QuickLaunchLoginForm(Workspace ws, AppSettings settings, string? startUrl = null, string startNote = "", bool reuseSession = false, bool popup = false)
     {
         _ws = ws;
         _settings = settings;
         _pendingUrl = startUrl;
         _pendingNote = startNote;
         _reuseSession = reuseSession && !string.IsNullOrEmpty(startUrl);
+        _popup = popup;
 
         Text = $"Bung link chương trình — {ws.Name}";
         Width = 1400;
@@ -310,6 +319,19 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
                 if (!_txtUrl.Focused) _txtUrl.Text = _web.CoreWebView2.Source;
             };
             _web.CoreWebView2.NavigationCompleted += async (_, _) => await CheckMenuPageAsync();
+            _web.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
+
+            if (_popup)
+            {
+                // Tab "cửa sổ mới": trang gốc sẽ tự nạp nội dung vào đây (e.NewWindow) — chung hồ sơ nên chung phiên đăng nhập. window.close() = đóng tab.
+                _loggedIn = true;
+                _web.CoreWebView2.WindowCloseRequested += (_, _) => BeginInvoke(new Action(Close));
+                // Trang đầu tiên do trang gốc nạp vào không bắn SourceChanged → cập nhật ô URL khi nạp xong.
+                _web.CoreWebView2.NavigationCompleted += (_, _) => { if (!_txtUrl.Focused) _txtUrl.Text = _web.CoreWebView2.Source; };
+                SetStatus("Cửa sổ mới mở từ trang FSG FBO.");
+                _coreReady.TrySetResult(_web.CoreWebView2);
+                return;
+            }
 
             if (_reuseSession)
             {
@@ -336,6 +358,24 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     }
 
     private void SetStatus(string text) => _statusLabel.Text = text;
+
+    /// <summary>Trang muốn mở cửa sổ mới → mở thành 1 tab FSG FBO trong Bcode thay cho cửa sổ WebView2 rời. Tab chưa sẵn sàng sau 15 giây
+    /// hoặc lỗi thì để WebView2 tự mở cửa sổ như cũ (không mất thao tác của người dùng).</summary>
+    private async void OnNewWindowRequested(object? sender, CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        if (NewWindowTab is null) return;
+        var deferral = e.GetDeferral();
+        try
+        {
+            if (NewWindowTab() is not { } tab) return;
+            var ready = await Task.WhenAny(tab._coreReady.Task, Task.Delay(15_000));
+            if (ready != tab._coreReady.Task) { tab.Close(); return; }
+            e.NewWindow = tab._coreReady.Task.Result;
+            e.Handled = true;
+        }
+        catch { /* để mặc định */ }
+        finally { deferral.Complete(); }
+    }
 
     /// <summary>Trang đăng nhập chuẩn FBO: {site}/Main/Login.aspx. Login WLink thường chỉ khai thư mục site (http://host/KOG/) — dự án dùng LDAP
     /// thì trang gốc đó là trang đăng nhập LDAP riêng (không có khung LoginExtender chuẩn) → không tự đăng nhập được, phải vào Main/Login.aspx.

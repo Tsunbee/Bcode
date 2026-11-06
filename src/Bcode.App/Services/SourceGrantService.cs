@@ -262,6 +262,23 @@ public static class SourceGrantService
         return row;
     }
 
+    /// <summary>Thứ tự phiên bản để tìm 1 file như <see cref="ResolveNearestLower"/>: <paramref name="chosenVersion"/> trước, rồi các phiên bản THẤP HƠN
+    /// cùng dòng sản phẩm (3 chữ đầu), gần nhất trước.</summary>
+    public static List<string> NearestLowerOrder(string chosenVersion, IReadOnlyList<string> allVersions)
+    {
+        var list = new List<string> { chosenVersion };
+        var chosenVer = ParseVersion(chosenVersion);
+        if (chosenVer.Length == 0) return list;
+        var family = chosenVersion.Length >= 3 ? chosenVersion[..3] : chosenVersion;
+        list.AddRange(allVersions
+            .Where(v => !v.Equals(chosenVersion, StringComparison.OrdinalIgnoreCase) && v.StartsWith(family, StringComparison.OrdinalIgnoreCase))
+            .Select(v => (Name: v, Ver: ParseVersion(v)))
+            .Where(v => v.Ver.Length > 0 && CompareVersion(v.Ver, chosenVer) <= 0)
+            .OrderByDescending(v => v.Ver, Comparer<int[]>.Create(CompareVersion))
+            .Select(v => v.Name));
+        return list;
+    }
+
     /// <summary>Khoảng cách thô giữa hai phiên bản (để chọn bản gần nhất khi giờ sửa trùng nhau).</summary>
     private static double Distance(int[] a, int[] b)
     {

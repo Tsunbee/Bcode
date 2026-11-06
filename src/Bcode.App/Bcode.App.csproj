@@ -173,4 +173,14 @@
     </ItemGroup>
     <Copy SourceFiles="@(OcrOutput)" DestinationFiles="@(OcrOutput->'$(OutDir)Ocr\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
+  <ItemGroup>
+    <!-- Giải mã file .f của Fast (khối <Encrypted>) cho Sơ đồ phụ thuộc: exe riêng src/Bcode.FDecrypt, chạy tiến trình tách (nạp fsystem.dll của FCode) — build kèm, chép ra FDecrypt\. -->
+    <ProjectReference Include="..\Bcode.FDecrypt\Bcode.FDecrypt.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" />
+  </ItemGroup>
+  <Target Name="CopyFDecrypt" AfterTargets="Build">
+    <ItemGroup>
+      <FDecryptOutput Include="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FDecryptOutput)" DestinationFiles="@(FDecryptOutput->'$(OutDir)FDecrypt\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

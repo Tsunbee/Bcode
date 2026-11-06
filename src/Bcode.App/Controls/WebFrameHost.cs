@@ -190,12 +190,17 @@ public sealed class WebFrameHost : Panel
             Ready?.Invoke();
         }
 
-        public void Raise(JsonElement root) => Message?.Invoke(root);
+        public void Raise(JsonElement root)
+        {
+            try { Message?.Invoke(root); }
+            catch (Exception ex) { Bcode.App.Services.ErrorLog.Record(ex, "Trang " + Page); throw; }   // ghi log rồi ném lại — hành vi như cũ
+        }
 
         public void PushTheme() => Call($"window.setTheme && window.setTheme({Bool(AppColors.IsDark)})");
 
         public void Call(string script)
         {
+            Bcode.App.Services.ErrorLog.NoticeDisplayed(script, "Trang " + Page);   // báo lỗi lên trang → ghi log kèm stack
             if (!IsReady) return;
             _host.HostCall($"bframe.call({Json(Name)}, {Json(script)})");
         }

@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bcode.Shared;
@@ -64,6 +66,24 @@ public class AppSettings
     public List<string> SourceCollectionRoots =>
         new[] { SourceCollectionPath }.Concat(SourceCollectionExtraPaths ?? new())
             .Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => p.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>Thư mục cài FCode (chứa fsystem.dll) — để GIẢI MÃ file controller .f (khối &lt;Encrypted&gt;) qua Bcode.FDecrypt, cho Sơ đồ phụ thuộc đọc được
+    /// tên store / procedure trong .f mã hoá. Để trống = tự dò vài nơi hay cài; không có / máy không có license Fast → quay về dò kho source chuẩn.</summary>
+    public string FCodePath { get; set; } = "";
+
+    /// <summary>Thư mục chứa fsystem.dll để giải mã .f: <see cref="FCodePath"/> nếu có fsystem.dll, nếu không thì dò vài nơi hay cài FCode. null = không tìm thấy.</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? FCodeDir
+    {
+        get
+        {
+            bool Has(string? d) { try { return !string.IsNullOrWhiteSpace(d) && File.Exists(Path.Combine(d!, "fsystem.dll")); } catch { return false; } }
+            if (Has(FCodePath)) return FCodePath.Trim();
+            foreach (var d in new[] { @"D:\Bee\Software\FCode", @"D:\Bee\Tool\FCode", @"D:\Bee\Update\Fcode\FCode", @"C:\FCode", @"C:\Program Files\FCode", @"C:\Program Files (x86)\FCode" })
+                if (Has(d)) return d;
+            return null;
+        }
+    }
 
     /// <summary>Chế độ hiệu năng: "auto" (đoán theo CPU/RAM máy), "low", "medium", "high" — xem <see cref="UI.PerformanceProfile"/>.</summary>
     public string PerformanceMode { get; set; } = "auto";
@@ -293,6 +313,33 @@ public class AppSettings
 
     /// <summary>Cây menu WCommand / Mobile hiện tên theo Bar2 (tiếng Anh) thay cho Bar (tiếng Việt) — chuột phải "Menu Name: ...".</summary>
     public static bool MenuNameBar2 { get => FlagFile("menu_name_bar2.txt", false); set => SetFlagFile("menu_name_bar2.txt", value); }
+
+    /// <summary>Báo lỗi (Template → Đường dẫn → Báo lỗi): link Google Sheet chứa lỗi (mở để xem / dán tay khi chưa có URL nhận tự động).
+    /// Lưu file riêng error-report.json (cùng lý do với <see cref="AiEmbedded"/>). Trống = chưa khai.</summary>
+    public static string ErrorSheetUrl { get => ReadErrorReport().Sheet; set => WriteErrorReport(c => c.Sheet = (value ?? "").Trim()); }
+
+    /// <summary>URL nhận lỗi tự động — web app Google Apps Script (…/exec) gắn với sheet ở <see cref="ErrorSheetUrl"/> (mã: Services.ErrorLog.AppsScriptCode).
+    /// Có thì F1 gửi thẳng (POST JSON); trống thì F1 chép lỗi vào clipboard rồi mở sheet để dán.</summary>
+    public static string ErrorPostUrl { get => ReadErrorReport().Post; set => WriteErrorReport(c => c.Post = (value ?? "").Trim()); }
+
+    /// <summary>URL nhận lỗi của forum TK2 Help (endpoint công khai, không cần đăng nhập — POST cùng JSON như Apps Script, thêm title / content để đăng bài).
+    /// Có thì F1 gửi cả về đây (cùng lúc với <see cref="ErrorPostUrl"/> nếu có). Trống = không gửi forum.</summary>
+    public static string ErrorForumUrl { get => ReadErrorReport().Forum; set => WriteErrorReport(c => c.Forum = (value ?? "").Trim()); }
+
+    private sealed class ErrorReportConfig { public string Sheet { get; set; } = ""; public string Post { get; set; } = ""; public string Forum { get; set; } = ""; }
+    private static string ErrorReportPath => Path.Combine(SettingsDir, "error-report.json");
+    private static ErrorReportConfig ReadErrorReport()
+    {
+        try { return File.Exists(ErrorReportPath) ? JsonSerializer.Deserialize<ErrorReportConfig>(File.ReadAllText(ErrorReportPath)) ?? new() : new(); }
+        catch { return new(); }
+    }
+    private static void WriteErrorReport(Action<ErrorReportConfig> change)
+    {
+        var c = ReadErrorReport();
+        change(c);
+        Directory.CreateDirectory(SettingsDir);
+        File.WriteAllText(ErrorReportPath, JsonSerializer.Serialize(c, new JsonSerializerOptions { WriteIndented = true }));
+    }
 
     public static AppSettings Load()
     {

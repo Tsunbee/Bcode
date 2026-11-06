@@ -493,6 +493,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }));
         InitSession();
         InitHibernation();
+        InitErrorReport();   // log lỗi: ngữ cảnh dự án / tab cho error.log + báo "F1 gửi lỗi" trên thanh trạng thái (MainForm.ErrorReport.cs)
         // Dựng sẵn 1 tab SQL Query ở nền sau khi cửa sổ đã lên hình (xem TakeSqlControl).
         _spareTimer.Tick += (_, _) => PrepareSpareSql();
         Controls.Add(_spareHost);
@@ -1025,6 +1026,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <param name="file">Có giá trị = sau chữ trạng thái hiện link "Mở file" / "Mở thư mục" cho file này.</param>
     private void PushStatus(string text, string? file = null)
     {
+        ErrorLog.NoticeDisplayed(text, "Thanh trạng thái");   // dòng trạng thái báo lỗi (thông điệp exception vừa ném) → ghi log kèm stack
         _statusFile = file;
         if (_statusNative is not null)
         {
@@ -1312,8 +1314,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     // Hiện cây menu bên trái, mở các nhánh cha và chọn đúng menu — rồi mở file của menu như bấm đúp.
                     if (_mainSplit is { Panel1Collapsed: true }) ToggleMenuTree();
                     SelectWCommandTab();
-                    _ = _wcommandTree.RevealAsync(mi);
+                    var reveal = _wcommandTree.RevealAsync(mi);
                     OpenWCommandItem(mi);
+                    _ = FocusMenuTreeAfterPaletteAsync(reveal);
                 }
                 break;
             case "snip":
@@ -1330,9 +1333,65 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
     }
 
+    // Command Palette chọn menu: focus bàn phím phải nằm ở cây menu bên trái để bấm ngay phím tắt của cây (Ctrl+4 FSG FBO, Ctrl+F5, F4…).
+    // File Lookup nạp xong (bất đồng bộ, có khi vài giây qua UNC) tự Focus cây file của nó (FocusTreeIfIdle) → giữ focus ở cây menu
+    // cho tới khi người dùng tự bấm chuột / phím (không tính Ctrl/Shift/Alt) hoặc quá 30 giây.
+    private long _menuFocusPinUntil;
+    private bool _menuFocusPinHooked;
+
+    private async Task FocusMenuTreeAfterPaletteAsync(Task reveal)
+    {
+        PinMenuTreeFocus();
+        try { await reveal; } catch { /* nạp cây lỗi: vẫn đưa focus về cây */ }
+        if (IsDisposed) return;
+        if (Form.ActiveForm != this) Activate();       // hộp Ctrl+P (WebView2) đã đóng — cửa sổ chính lấy lại focus
+        _wcommandTree.FocusTree();
+    }
+
+    private void PinMenuTreeFocus()
+    {
+        _menuFocusPinUntil = Environment.TickCount64 + 30_000;
+        if (_menuFocusPinHooked) return;
+        _menuFocusPinHooked = true;
+        Application.AddMessageFilter(new UserInputUnpin(this));
+        _wcommandTree.Leave += (_, _) =>
+        {
+            if (Environment.TickCount64 >= _menuFocusPinUntil) return;
+            BeginInvoke(new Action(() =>
+            {
+                // Chỉ kéo lại khi focus bị đưa sang một cây khác bằng code (cây file File Lookup); WebView2 / ô nhập thì để yên.
+                if (Environment.TickCount64 >= _menuFocusPinUntil || IsDisposed || Form.ActiveForm != this) return;
+                if (FromHandle(GetFocusHandle()) is TreeView tv && !_wcommandTree.Contains(tv)) _wcommandTree.FocusTree();
+            }));
+        };
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetFocus")] private static extern IntPtr GetFocusHandle();
+
+    /// <summary>Người dùng tự bấm chuột / phím (trong cửa sổ của app) → thôi giữ focus ở cây menu.</summary>
+    private sealed class UserInputUnpin(MainForm form) : IMessageFilter
+    {
+        public bool PreFilterMessage(ref Message m)
+        {
+            if (form._menuFocusPinUntil == 0) return false;
+            switch (m.Msg)
+            {
+                case 0x0201: case 0x0204: case 0x0207: case 0x00A1: case 0x00A4:   // nút chuột (cả vùng tiêu đề)
+                    form._menuFocusPinUntil = 0; break;
+                case 0x0100: case 0x0104:                                         // WM_KEYDOWN / WM_SYSKEYDOWN
+                    var k = (Keys)(int)m.WParam & Keys.KeyCode;
+                    if (k is not (Keys.ControlKey or Keys.ShiftKey or Keys.Menu or Keys.LControlKey or Keys.RControlKey or Keys.LShiftKey or Keys.RShiftKey or Keys.LMenu or Keys.RMenu))
+                        form._menuFocusPinUntil = 0;
+                    break;
+            }
+            return false;
+        }
+    }
+
     private readonly UsageSearchService _usageService;
 
     private DependencyGraphService? _depService;
+    private FSourceDecryptService? _fdecrypt;
     private TabPage? _depTab;
 
     private TabPage? _errShotTab;
@@ -1376,6 +1435,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             Walk(_fileLookupService.BuildTreeForMenuItem(src, item.Link, item.SysId));
             return files;
         };
+        // File .f mã hoá → xét theo bản .xml trong kho source chuẩn (như Cấp source nhanh của File Lookup)
+        _depService.StandardSource = () => (_settings.SourceCollectionRoots, _connections.Current?.VersionCode);
+        // …và ưu tiên GIẢI MÃ chính file .f qua FDecrypt (fsystem.dll của FCode) nếu máy có license Fast
+        _fdecrypt ??= new FSourceDecryptService(() => _settings.FCodeDir);
+        _depService.DecryptF = f => _fdecrypt.TryDecrypt(f);
         return _depService;
     }
 
@@ -1393,6 +1457,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         {
             switch (n.Kind)
             {
+                // bản .xml trong kho source chuẩn (thay cho .f mã hoá): chỉ xem, không mở để sửa vào kho
+                case "file" when n.StdVersion is { } sv && n.Path is { } stdPath: SourceViewForm.Open(stdPath, "Source chuẩn " + sv + " — file .f trong chương trình bị mã hoá", this); break;
                 case "file": if (n.Path is { } p) OpenFileFromLookup(p); break;
                 case "menu":
                     var id = n.Key["menu:".Length..];
@@ -1811,6 +1877,19 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _quickLaunchForms.Add(form);
         var page = AddFormTab("FSG FBO · " + ws.Name + (string.IsNullOrWhiteSpace(menuTitle) ? "" : " · " + menuTitle.Trim()), form);
         page.Disposed += (_, _) => _quickLaunchForms.Remove(form);
+        form.NewWindowTab = () => ShowFboPopupTab(ws);
+        return form;
+    }
+
+    /// <summary>Trang trong tab FSG FBO mở cửa sổ mới (chuột phải "Open link in new window", window.open, link target=_blank): mở thành tab FSG FBO
+    /// mới trong Bcode (chung phiên đăng nhập), không bật cửa sổ WebView2 rời. Trang tự nạp nội dung vào tab này (xem QuickLaunchLoginForm.OnNewWindowRequested).</summary>
+    private QuickLaunchLoginForm ShowFboPopupTab(Workspace ws)
+    {
+        var form = new QuickLaunchLoginForm(ws, _settings, popup: true);
+        _quickLaunchForms.Add(form);
+        var page = AddFormTab("FSG FBO · " + ws.Name + " · cửa sổ mới", form);
+        page.Disposed += (_, _) => _quickLaunchForms.Remove(form);
+        form.NewWindowTab = () => ShowFboPopupTab(ws);
         return form;
     }
 
@@ -3234,6 +3313,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "app.settingsMenu": _settingsMenu().Show(TopBarControl, 10, TopBarControl.Height); return true;
             case "app.template": BeginInvoke(new Action(OpenUiTemplate)); return true;
             case "app.customUi": ToggleCustomUi(); return true;
+            case Bcode.App.UI.ErrorReporter.ShortcutId: Bcode.App.UI.ErrorReporter.SendLast(this, force: true); return true;   // Command Palette: gửi cả lỗi cũ / đã gửi
             case "db.app": ApplyActiveDatabase(false); return true;
             case "db.sys": ApplyActiveDatabase(true); return true;
             case "db.refresh": _ = RefreshDatabaseAsync(); return true;

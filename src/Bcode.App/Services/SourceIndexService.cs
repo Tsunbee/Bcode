@@ -12,7 +12,7 @@ namespace Bcode.App.Services;
 /// (3) tra một tên = tìm trong chỉ mục (tức thì) rồi chỉ mở các file ứng viên để lấy dòng trích và xác nhận đúng ranh giới tên.
 /// Việc liệt kê thư mục chỉ làm lại sau <see cref="RefreshEvery"/> (hoặc khi người dùng bấm "Quét lại").
 /// </summary>
-public sealed class SourceIndexService
+public sealed partial class SourceIndexService
 {
     public static readonly string[] Folders = { "Dir", "Filter", "Grid", "Include", "Options", "Report" };
     private static readonly string[] Extensions = { ".f", ".xml", ".aspx", ".ascx", ".vb", ".cs", ".js", ".htm", ".html", ".txt", ".config", ".sql" };

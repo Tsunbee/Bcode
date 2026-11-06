@@ -128,9 +128,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>"Tạo chứng từ" (nhân bản chứng từ có sẵn sang mã mới) — mở song song như Tạo nhanh danh mục.</summary>
     private void OpenVoucherClone()
     {
+        if (!RequireLicense("Tạo chứng từ")) return;
         if (_voucherCloneForm is { IsDisposed: false } open)
         {
-            if (open.WindowState == FormWindowState.Minimized) open.WindowState = FormWindowState.Normal;
+            if (open.WindowState == FormWindowState.Minimized) open.WindowState = FormWindowState.Maximized;
             open.Activate();
             return;
         }
@@ -1241,7 +1242,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "bcode_note", "team_notes", "open_ssms" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };

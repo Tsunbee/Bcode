@@ -330,6 +330,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => OpenFsgCrawlerTab()));
         _toolSpecs.Add(("quick_launch", "FSG FBO", "Ctrl+4", (_, _) => OpenQuickLaunchLogin()));
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
+        _toolSpecs.Add(("open_ssms", "Mở SSMS", null, (_, _) => _ = OpenSsmsAsync()));
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm(_settings.Workspaces, _connections.Current).ShowDialog(this); }));
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this); }));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
@@ -1196,7 +1197,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "bcode_note" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "bcode_note", "open_ssms" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
@@ -4186,6 +4187,31 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     }
 
 
+    private bool _ssmsOpening;
+
+    /// <summary>Mở SSMS đăng nhập sẵn vào database đang chọn ở ô WS (App / Sys / database phụ) — xem Services/SsmsLauncher.
+    /// Chưa thấy SSMS.exe thì hỏi 1 lần và nhớ vào AppSettings.SqlSmsPath.</summary>
+    private async Task OpenSsmsAsync()
+    {
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.Server)) { PushStatus("Chưa chọn workspace — chọn project trước khi mở SSMS."); return; }
+        if (_ssmsOpening) { PushStatus("SSMS đang mở, chờ chút…"); return; }
+        var exe = SsmsLauncher.FindExe(_settings.SqlSmsPath);
+        if (exe is null)
+        {
+            using var dlg = new OpenFileDialog { Title = "Chọn SSMS.exe (SQL Server Management Studio)", Filter = "SSMS.exe|ssms.exe|Chương trình (*.exe)|*.exe", FileName = "SSMS.exe" };
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            exe = dlg.FileName;
+            _settings.SqlSmsPath = exe;
+            try { _settings.Save(); } catch { /* không lưu được thì lần sau hỏi lại */ }
+        }
+        var db = _topDbSys ? ws.SysDatabase : ws.EffectiveAppDatabase;
+        _ssmsOpening = true;
+        PushStatus($"Đang mở SSMS: {ws.Server} / {db}…");
+        try { PushStatus(await SsmsLauncher.OpenAsync(exe, ws, db)); }
+        catch (Exception ex) { PushStatus("Không mở được SSMS: " + ex.Message); }
+        finally { _ssmsOpening = false; }
+    }
+
     private void OpenProgramPath()
     {
         if (_connections.Current is { } ws && !string.IsNullOrWhiteSpace(ws.ProgramPath))
@@ -4204,7 +4230,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         menu.Items.Add(new ToolStripMenuItem("New Bcode window", null, (_, _) => RunAppShortcut("window.new")) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("window.new") });
         menu.Items.Add(new ToolStripMenuItem("Switch Database", null, (_, _) => ToggleActiveDatabase()) { ShortcutKeyDisplayString = "Ctrl+1" });
         menu.Items.Add(new ToolStripMenuItem("SQL Profiler", null, (_, _) => OpenSqlProfilerTab()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tool:sql_profiler") });
-        menu.Items.Add(new ToolStripMenuItem("SQL SMS", null, (_, _) => { /* Mở SSMS */ }));
+        menu.Items.Add(new ToolStripMenuItem("SQL SMS (Mở SSMS)", null, (_, _) => _ = OpenSsmsAsync()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("tool:open_ssms") });
         menu.Items.Add(new ToolStripMenuItem("Open Program Path", null, (_, _) => OpenProgramPath()) { ShortcutKeyDisplayString = Bcode.App.UI.ShortcutRegistry.Display("app.programPath") });
         
         menu.Items.Add(new ToolStripSeparator());

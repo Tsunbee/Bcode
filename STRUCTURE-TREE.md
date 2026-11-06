@@ -14,6 +14,7 @@ Bcode.App/
 │   │   └── SP24.txt  70
 │   ├── logo/
 │   ├── rpt/
+│   ├── ssms/
 │   └── README.md  17
 ├── Controls/
 │   ├── AdvanceNoteControl.cs  579
@@ -324,6 +325,7 @@ Bcode.App/
 │   ├── SqlHistoryService.cs  310
 │   ├── SqlLineAnalyzer.cs  160
 │   ├── SqlObjectBrowserService.cs  676
+│   ├── SsmsLauncher.cs  136
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  406
 │   ├── TableDataService.cs  652

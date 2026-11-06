@@ -97,6 +97,7 @@
     <EmbeddedResource Include="Assets\includecheck\*.txt" LogicalName="includecheck.%(Filename)%(Extension)" />
     <!-- Write Schema → cập nhật bảng trong .rpt: chạy bằng Windows PowerShell 5.1 + Crystal runtime (Services/Rpt/RptSchemaService). -->
     <EmbeddedResource Include="Assets\rpt\rptschema.ps1" LogicalName="rpt.rptschema.ps1" />
+    <EmbeddedResource Include="Assets\ssms\ssmslogin.ps1" LogicalName="ssms.ssmslogin.ps1" />
   </ItemGroup>
   <ItemGroup>
     <!-- Bee's own FCode client DLL (see Libs/README.md) — referenced as an ordinary library and

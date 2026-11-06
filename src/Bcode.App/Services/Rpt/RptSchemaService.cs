@@ -47,11 +47,54 @@ public static class RptSchemaService
         {
             var r = await RunAsync(new { mode = "update", rpt = rptPath, xsd = xsdPath, output, maps, adds, subreports });
             var backup = rptPath + ".bak";
-            File.Copy(rptPath, backup, overwrite: true);
-            File.Copy(output, rptPath, overwrite: true);
+            try { ReplaceWithBackup(rptPath, output, backup); }
+            catch (UnauthorizedAccessException ex)
+            {
+                // Crystal đã làm xong, chỉ không ghi được lên share: giữ kết quả để chép tay, không bắt người dùng làm lại.
+                var saved = SaveLocalCopy(output, rptPath, xsdPath);
+                throw new UnauthorizedAccessException($"{ex.Message}\r\n\r\nBản đã cập nhật được lưu ở:\r\n{saved}\r\nChép file này đè lên file .rpt khi có quyền ghi.", ex);
+            }
             return new RptUpdateResult(r.Warnings ?? new(), r.Tables ?? new(), backup);
         }
         finally { TryDelete(output); }
+    }
+
+    /// <summary>
+    /// Sao lưu <paramref name="rptPath"/> rồi chép đè bằng <paramref name="output"/>. File của Fast hay có thuộc tính chỉ đọc: File.Copy đè lên file đó báo "Access to the path
+    /// is denied", và bản .bak thừa hưởng thuộc tính này nên lần sau hỏng ngay ở bước sao lưu. Bỏ chỉ đọc khi ghi, ghi xong trả lại thuộc tính cho file gốc; .bak luôn ghi đè được.
+    /// </summary>
+    public static void ReplaceWithBackup(string rptPath, string output, string backup)
+    {
+        var attributes = File.GetAttributes(rptPath);
+        var step = "tạo bản sao lưu " + Path.GetFileName(backup);
+        try
+        {
+            if (File.Exists(backup)) File.SetAttributes(backup, File.GetAttributes(backup) & ~FileAttributes.ReadOnly);
+            File.Copy(rptPath, backup, overwrite: true);
+            File.SetAttributes(backup, File.GetAttributes(backup) & ~FileAttributes.ReadOnly);
+            step = "bỏ thuộc tính chỉ đọc của " + Path.GetFileName(rptPath);
+            File.SetAttributes(rptPath, attributes & ~FileAttributes.ReadOnly);
+            step = "ghi đè " + Path.GetFileName(rptPath);
+            File.Copy(output, rptPath, overwrite: true);
+            File.SetAttributes(rptPath, attributes);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            try { File.SetAttributes(rptPath, attributes); } catch { /* không đổi được thuộc tính: file gốc vẫn như cũ */ }
+            throw new UnauthorizedAccessException($"Bị từ chối ở bước {step}, file .rpt gốc chưa bị đổi.\r\nTài khoản: {Environment.UserDomainName}\\{Environment.UserName}\r\nThư mục: {Path.GetDirectoryName(rptPath)}", ex);
+        }
+    }
+
+    /// <summary>Chép file đã cập nhật về cạnh file xsd (không có thì thư mục tạm) với tên {tên}.updated.rpt, không đè bản đang có.</summary>
+    public static string SaveLocalCopy(string output, string rptPath, string xsdPath)
+    {
+        var dir = Path.GetDirectoryName(xsdPath);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) dir = TempDir();
+        var stem = Path.GetFileNameWithoutExtension(rptPath) + ".updated";
+        var path = Path.Combine(dir, stem + ".rpt");
+        for (var i = 2; File.Exists(path); i++) path = Path.Combine(dir, $"{stem}{i}.rpt");
+        File.Copy(output, path);
+        return path;
     }
 
     private static async Task<Response> RunAsync(object request)

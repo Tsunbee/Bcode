@@ -235,6 +235,12 @@ public sealed class RptSchemaForm : WebDialogForm
                 MessageBox.Show(this, ResultStatus, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             CloseWith(DialogResult.OK);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            // Nhiều dòng, có đường dẫn file đã lưu: dòng trạng thái bị cắt nên hiện đủ trong hộp thoại.
+            Status("Không ghi được file .rpt.", "err");
+            MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
         catch (Exception ex) { Status(ex.Message, "err"); }
         finally { SetBusy(false, null); }
     }

@@ -41,7 +41,7 @@ Bcode.App/
 │   ├── ISqlTab.cs  61
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
-│   ├── MonacoPreviewControl.cs  256
+│   ├── MonacoPreviewControl.cs  260
 │   ├── MonacoPreviewControl.Native.cs  134
 │   ├── MultiResultView.cs  229
 │   ├── NativeAdvanceNoteControl.cs  1222
@@ -155,7 +155,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  126
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  4174
+│   ├── MainForm.cs  4192
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
@@ -166,10 +166,10 @@ Bcode.App/
 │   ├── ProjectPickerForm.cs  131
 │   ├── QuickAccessForm.cs  165
 │   ├── QuickLaunchLoginForm.cs  623
-│   ├── QuickListForm.cs  764
+│   ├── QuickListForm.cs  758
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
-│   ├── RptSchemaForm.cs  250
+│   ├── RptSchemaForm.cs  256
 │   ├── ScriptPopupForm.cs  155
 │   ├── SetupEInvoiceForm.cs  166
 │   ├── SimplePromptForm.cs  78
@@ -183,6 +183,8 @@ Bcode.App/
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
 │   ├── UiTemplateForm.cs  743
+│   ├── VoucherCloneForm.cs  541
+│   ├── VoucherPreviewForm.cs  64
 │   ├── WCommandDuplicateForm.cs  29
 │   ├── WCommandEditForm.cs  375
 │   ├── WCommandScriptForm.cs  133
@@ -203,7 +205,7 @@ Bcode.App/
 │   ├── WeeklyMailTemplate.cs  20
 │   └── Workspace.cs  146
 ├── Secrets/
-│   ├── LocalSecrets.cs  26
+│   ├── LocalSecrets.cs  30
 │   ├── LocalSecrets.Empty.cs  34
 │   ├── README.md  20
 ├── Services/
@@ -223,7 +225,7 @@ Bcode.App/
 │   │   ├── ReportDeployService.cs  141
 │   │   ├── ReportProfilerService.cs  56
 │   │   ├── RptModels.cs  72
-│   │   ├── RptSchemaService.cs  124
+│   │   ├── RptSchemaService.cs  167
 │   │   ├── RptXmlBuilder.cs  103
 │   │   └── XsdSchemaWriter.cs  110
 │   ├── AdvanceNoteService.cs  180
@@ -331,7 +333,10 @@ Bcode.App/
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
-│   ├── WCommandService.cs  911
+│   ├── VoucherCloneService.cs  1306
+│   ├── VoucherOverlay.cs  62
+│   ├── VoucherSqlScriptService.cs  356
+│   ├── WCommandService.cs  919
 │   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77
@@ -448,6 +453,8 @@ Bcode.App/
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1226
 │       ├── usages.html  133
+│       ├── vouchercopy.html  836
+│       ├── voucherview.html  88
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
@@ -520,7 +527,7 @@ BcodeViewer.App/
 │   │   ├── OFL.txt  93
 │   │   └── roboto.css  33
 │   ├── chat.js  83
-│   ├── checkfield.js  457
+│   ├── checkfield.js  468
 │   ├── completion.js  2693
 │   ├── contextmenu.js  1132
 │   ├── dirpreview.js  1257
@@ -607,8 +614,9 @@ Bcode.ReportBuilder/
 ```
 ```
 Bcode.KeyGen/
-├── Bcode.KeyGen.csproj  19
-└── Program.cs  94
+└── Bcode.KeyGen/
+    ├── Bcode.KeyGen.csproj  19
+    └── Program.cs  90
 ```
 ```
 Shared/

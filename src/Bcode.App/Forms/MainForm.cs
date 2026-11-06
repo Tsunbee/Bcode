@@ -136,6 +136,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         }
         _voucherCloneForm = new VoucherCloneForm(_connections, _wcommandService, _settings);
         _voucherCloneForm.FormClosed += (_, _) => _voucherCloneForm = null;
+        _voucherCloneForm.OpenSqlRequested += (script, sys, title) => OpenProjectScriptTab(script, title, "", sys);
         _voucherCloneForm.Show();
     }
 

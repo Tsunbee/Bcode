@@ -22,8 +22,22 @@
   .step.on .dot { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
   .page { flex: 1; min-height: 0; overflow: auto; display: none; flex-direction: column; gap: .6rem; }
   .page.on { display: flex; }
-  h3 { margin: 0; font-size: 1.15rem; }
   h4 { margin: .3rem 0 0; font-size: .95rem; }
+  summary { cursor: pointer; }
+  .tip { display: inline-flex; align-items: center; justify-content: center; width: 1.1rem; height: 1.1rem; border-radius: 50%; border: var(--bw) solid var(--border); color: var(--text-muted); font-size: .75rem; font-weight: 400; cursor: help; flex: none; }
+  .tbl tr.grp td { background: var(--button-back); font-weight: 600; cursor: pointer; padding-top: .3rem; padding-bottom: .3rem; }
+  .tbl tr.grp input { margin: 0 .4rem 0 .15rem; vertical-align: middle; }
+  #fileRows tr[data-i] td { padding-top: .05rem; padding-bottom: .05rem; }
+  #fileRows tr[data-i] td.c { width: 3.2rem; text-align: right; }
+  .tbl tr.grp .muted { font-weight: 400; }
+  .tbl tr.grp .caret { display: inline-block; width: 1rem; color: var(--text-muted); }
+  /* Màu theo loại thư mục: --c đặt ở từng dòng (KINDS). Chữ của biểu tượng lấy từ data-l để không lẫn vào tên file. */
+  .dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: var(--c); margin-right: .4rem; vertical-align: middle; }
+  .gname { color: var(--c); }
+  .ico { display: inline-flex; align-items: center; justify-content: center; width: 1.15rem; height: 1.15rem; border-radius: 50%; margin-right: .45rem; vertical-align: middle;
+    border: 1.5px solid var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 16%, transparent); font-size: .68rem; font-weight: 700; }
+  .ico::before { content: attr(data-l); }
+  .tbl tr.off .ico { opacity: .45; }
   .hint { color: var(--text-muted); font-size: .9rem; line-height: 1.5; }
   .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2rem; }
   fieldset { border: var(--bw) solid var(--border); border-radius: var(--r); padding: .6rem .8rem .8rem; margin: 0; }
@@ -40,8 +54,37 @@
   .tbl input[type=text]:focus { background: var(--input); border-color: var(--accent); }
   .tbl tr.off td { color: var(--text-muted); }
   .tbl tr.click { cursor: pointer; }
+  .tbl tr.sel td { background: var(--button-back); }
+  /* Đang xem file: cột Dòng thêm đã có trong khung xem, nhường chỗ cho khung xem. */
+  #regSplit.open .tbl th:nth-child(3), #regSplit.open .tbl td:nth-child(3) { display: none; }
+  #refPane { flex: 2.6; display: flex; flex-direction: column; gap: .3rem; }
+  #refName { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vc-add { background: rgba(46, 160, 67, .28); }
+  .vc-add-g { background: var(--success); width: 4px !important; margin-left: 3px; }
+  pre .vc-add { display: inline-block; min-width: 100%; }
   .tbl td.add { font-family: Consolas, monospace; font-size: .82rem; color: var(--success); white-space: pre-wrap; }
   .split2 { flex: 1; min-height: 14rem; display: flex; gap: .6rem; }
+  /* Bước 5: cây menu như tab Menu của quicklist.html */
+  .menuwrap { flex: 1; min-height: 20rem; display: flex; gap: .8rem; }
+  .mleft { flex: 1.3; min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
+  .mright { flex: 1; min-width: 18rem; overflow: auto; display: flex; flex-direction: column; gap: .5rem; padding-right: .2rem; }
+  .mright h4 { margin: .2rem 0 0; font-size: .9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  .tree { flex: 1; min-height: 0; padding: .25rem 0; user-select: none; }
+  .tree .node { display: flex; align-items: center; gap: .35rem; padding: .14rem .5rem; cursor: pointer; white-space: nowrap; }
+  .tree .node:hover { background: rgba(127, 127, 127, .12); }
+  .tree .node.sel { background: var(--selection); }
+  .tree .node.hit .nm { color: var(--accent); }
+  .tree .tg { flex: none; width: .8rem; height: .8rem; border: 1px solid var(--text-muted); border-radius: 2px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; line-height: 1; color: var(--text); }
+  .tree .tg.leaf { border-color: transparent; }
+  .tree .id { color: var(--text-muted); }
+  .tree .src { color: var(--accent); font-size: .82rem; }
+  .tree .lk { color: var(--text-muted); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; }
+  .tree .lk::before { content: "· "; }
+  .tree .msg { padding: .4rem .7rem; color: var(--text-muted); }
+  table.kv { border-collapse: collapse; width: 100%; }
+  table.kv th { text-align: left; font-weight: normal; color: var(--text-muted); padding: .2rem .6rem .2rem 0; white-space: nowrap; vertical-align: top; width: 7.5rem; }
+  table.kv td { padding: .2rem 0; word-break: break-word; }
+  table.kv td.new { color: var(--accent); font-weight: 600; }
   .split2 > * { min-width: 0; }
   pre.code, textarea.code { margin: 0; font-family: Consolas, monospace; font-size: .86rem; background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: .5rem; overflow: auto; white-space: pre; tab-size: 4; color: var(--text); }
   textarea.code { resize: none; width: 100%; box-sizing: border-box; flex: 1; min-height: 12rem; }
@@ -62,7 +105,6 @@
 
   <!-- 1. General -->
   <div class="page" data-p="1">
-    <h3>General</h3>
     <div class="row">
       <label class="chk"><input type="checkbox" id="otherProject"> Save as from Other Project (lấy chứng từ nguồn ở thư mục source khác)</label>
       <button id="bScanWs" title="Đọc lại danh sách chứng từ theo wcommand (sysid + syscode) và file của source workspace">Quét source</button>
@@ -79,9 +121,10 @@
           <label class="l">Title 2</label><span class="ro" id="srcTitleE">—</span>
           <label class="l">SysID</label><span class="ro" id="srcSysId">—</span>
           <label class="l">Bảng</label><span class="ro" id="srcTable">—</span>
-          <label class="l">Approve Type</label><input type="text" id="srcApprove" spellcheck="false" placeholder="(đọc từ file Dir / gndmloaiduyet)">
-          <label class="l">Approve Controller</label><input type="text" id="srcApproveCtrl" spellcheck="false" placeholder="(đọc từ file Dir)" title="APVController trong file Dir">
-          <label class="l">Notify Code</label><input type="text" id="srcNotify" spellcheck="false" placeholder="(đọc từ file Dir)" title="PostNotifyGroup trong file Dir">
+          <label class="l apvNone" hidden>Duyệt</label><div class="row apvNone" hidden><span class="ro">Chứng từ không khai báo duyệt</span><button id="bShowApv">Nhập tay</button></div>
+          <label class="l apv">Approve Type</label><input type="text" class="apv" id="srcApprove" spellcheck="false" placeholder="(đọc từ file Dir / gndmloaiduyet)">
+          <label class="l apv">Approve Controller</label><input type="text" class="apv" id="srcApproveCtrl" spellcheck="false" placeholder="(đọc từ file Dir)" title="APVController trong file Dir">
+          <label class="l apv">Notify Code</label><input type="text" class="apv" id="srcNotify" spellcheck="false" placeholder="(đọc từ file Dir)" title="PostNotifyGroup trong file Dir">
         </div>
       </fieldset>
       <fieldset><legend>Destination</legend>
@@ -98,15 +141,17 @@
             <input type="text" id="dstTableNo" spellcheck="false" style="width:4.5rem">
             <button id="bSuggestNo" title="Gợi ý số bảng chưa dùng trong database">Gợi ý</button>
           </div>
-          <label class="l">Approve Type</label>
-          <div class="row"><input type="text" id="dstApprove" spellcheck="false" style="flex:1"><label class="chk"><input type="checkbox" id="notApprove"> Not Approval</label></div>
-          <label class="l">Approve Controller</label><input type="text" id="dstApproveCtrl" spellcheck="false" title="Ghi vào APVController của chứng từ mới">
-          <label class="l">Notify Code</label><input type="text" id="dstNotify" spellcheck="false" placeholder="Trống = dùng chung mã nguồn" title="Ghi vào PostNotifyGroup và notifygroup.code của chứng từ mới">
+          <label class="l apv">Approve Type</label>
+          <div class="row apv"><input type="text" id="dstApprove" spellcheck="false" style="flex:1"><label class="chk"><input type="checkbox" id="notApprove"> Not Approval</label></div>
+          <label class="l apv">Approve Controller</label><input type="text" class="apv" id="dstApproveCtrl" spellcheck="false" title="Ghi vào APVController của chứng từ mới">
+          <label class="l apv">Notify Code</label><input type="text" class="apv" id="dstNotify" spellcheck="false" placeholder="Trống = dùng chung mã nguồn" title="Ghi vào PostNotifyGroup và notifygroup.code của chứng từ mới">
         </div>
       </fieldset>
     </div>
-    <p class="hint">Bảng mới: c/m/d/i/t…<span id="tblEx">164</span>$000000 (+ $log) đổi sang số mới — CREATE TABLE theo đúng bảng nguồn, sysgendata và tạo các kỳ (bước 4). Dùng chung bảng: chứng từ mới ghi chung bảng nguồn, phân biệt bằng mã ct.
+    <details class="hint"><summary>Giải thích Bảng, Approve Type, Notify Code</summary>
+    <p style="margin:.3rem 0 0">Bảng mới: c/m/d/i/t…<span id="tblEx">164</span>$000000 (+ $log) đổi sang số mới — CREATE TABLE theo đúng bảng nguồn, sysgendata và tạo các kỳ (bước 4). Dùng chung bảng: chứng từ mới ghi chung bảng nguồn, phân biệt bằng mã ct.
       Approve Type: đổi loại duyệt trong file và chép khai báo duyệt (gndmttcttg / sodmttcttg) sang loại mới; bỏ trống hoặc "Not Approval" = không chép. Notify Code: đổi PostNotifyGroup và chép dòng notifygroup sang mã mới; bỏ trống = dùng chung nhóm của nguồn.</p>
+    </details>
     <fieldset><legend>Save As …</legend>
       <div class="row">
         <span class="muted">Path</span>
@@ -123,39 +168,44 @@
 
   <!-- 2. File Source -->
   <div class="page" data-p="2">
-    <h3>File Source</h3>
-    <div class="hint">File của chứng từ nguồn (tên có tiền tố <b id="pfx"></b>, cả trong Include) và file Main theo link menu. Tick file cần tạo, sửa tên đích nếu muốn; bấm 1 dòng để xem nội dung sau khi đổi.</div>
-    <div class="row"><button id="bView" title="Dựng màn hình Dir của chứng từ mới từ các file đang tick, như Xem trước Dir của BcodeViewer. Chưa ghi gì xuống đĩa.">Xem chứng từ</button></div>
+    <div class="row"><button id="bView" title="Dựng màn hình Dir của chứng từ mới từ các file đang tick, như Xem trước Dir của BcodeViewer. Chưa ghi gì xuống đĩa.">Xem chứng từ</button><label class="chk" title="Ẩn và không lấy file .f, kể cả khi đổi chứng từ hay mở lại form. Bỏ tick để thấy lại và chọn file .f."><input type="checkbox" id="noF" checked> Không chọn file .f</label><input type="text" id="fileFilter" spellcheck="false" placeholder="Lọc theo tên file..." style="width:16rem"><button id="bHidePreview" hidden>Đóng khung xem</button><span class="tip" title="File của chứng từ nguồn (tên có tiền tố của chứng từ, cả trong Include) và file Main theo link menu. Tick file cần tạo, sửa tên đích nếu muốn; bấm 1 dòng để xem nội dung sau khi đổi. Bấm dòng thư mục để thu gọn.">?</span></div>
+    <div class="row" id="dirWarn" hidden><span class="err" id="dirWarnText"></span><button id="bShowF">Hiện lại file .f</button></div>
+    <div class="hint" id="noFInfo" hidden></div>
     <div class="split2">
-      <div class="tblw" style="flex:1.1"><table class="tbl"><thead><tr><th class="c"><input type="checkbox" id="allFiles" checked></th><th>File nguồn</th><th>→ File đích</th></tr></thead><tbody id="fileRows"></tbody></table></div>
-      <pre class="code" id="filePreview" style="flex:1">Bấm 1 file để xem nội dung sau khi đổi mã.</pre>
+      <div class="tblw" style="flex:1.1"><table class="tbl"><thead><tr><th class="c" style="width:3.2rem;text-align:left"><input type="checkbox" id="allFiles" checked></th><th>File nguồn</th><th>→ File đích</th></tr></thead><tbody id="fileRows"></tbody></table></div>
+      <pre class="code" id="filePreview" style="flex:1" hidden></pre>
     </div>
   </div>
 
   <!-- 3. File Reference -->
   <div class="page" data-p="3">
-    <h3>File Reference</h3>
-    <h4>File đăng ký dùng chung — thêm dòng cho chứng từ mới</h4>
-    <div class="hint">Như FCode: sau mỗi dòng khai báo chứng từ nguồn (Aggregation.v, Voucher.Controller.xxx, Initialize.xml, Extender.ent...) thêm 1 dòng tương ứng cho chứng từ mới; phần còn lại của file giữ nguyên. Bấm 1 dòng để xem.</div>
-    <div class="tblw" style="max-height:14rem"><table class="tbl"><thead><tr><th class="c"></th><th>File</th><th>Dòng thêm</th></tr></thead><tbody id="regRows"></tbody></table></div>
-    <div class="hint" id="keptInfo" hidden></div>
-    <h4>Controller / include dự án mà chứng từ gọi tới</h4>
+    <h4>File đăng ký dùng chung — thêm dòng cho chứng từ mới <span class="tip" title="Như FCode: sau mỗi dòng khai báo chứng từ nguồn (Aggregation.v, Voucher.Controller.xxx, Initialize.xml, Extender.ent...) thêm 1 dòng tương ứng cho chứng từ mới; phần còn lại của file giữ nguyên. Bấm 1 dòng để xem.">?</span></h4>
+    <div class="split2" id="regSplit">
+      <div class="tblw" style="flex:1"><table class="tbl"><thead><tr><th class="c"></th><th>File</th><th>Dòng thêm</th></tr></thead><tbody id="regRows"></tbody></table></div>
+      <div id="refPane" hidden>
+        <div class="row"><span id="refName"></span><span class="muted" id="refCount"></span><button id="bMarkPrev" title="Chỗ thay đổi trước">▲</button><button id="bMarkNext" title="Chỗ thay đổi sau">▼</button><button id="bRefClose">Đóng</button></div>
+        <pre class="code" id="refPreview" style="flex:1"></pre>
+      </div>
+    </div>
+    <details class="hint" id="keptBox" hidden><summary id="keptSum"></summary><div id="keptInfo" style="margin-top:.3rem"></div></details>
+    <div class="hint" id="apvInfo" hidden></div>
+    <details>
+    <summary><h4 style="display:inline">Controller / include dự án mà chứng từ gọi tới</h4> <span class="muted">(chỉ cần khi mang chứng từ sang dự án khác)</span></summary>
     <div class="hint">Chép nguyên (không đổi gì) vào gói — chỉ cần khi mang chứng từ sang dự án khác. Include dùng chung chỉ để xem, không chép.</div>
-    <div class="split2" style="min-height:12rem">
+    <div class="split2" style="height:20rem">
       <div class="tblw" style="flex:1"><table class="tbl"><thead><tr><th class="c"></th><th>Controller được gọi</th></tr></thead><tbody id="ctrlRows"></tbody></table></div>
       <div class="tblw" style="flex:1"><table class="tbl"><thead><tr><th>Include dùng chung</th><th style="width:6rem"></th></tr></thead><tbody id="refRows"></tbody></table></div>
     </div>
-    <pre class="code" id="refPreview" style="flex:none;height:14rem" hidden></pre>
+    </details>
   </div>
 
   <!-- 4. Sql Declaration -->
   <div class="page" data-p="4">
-    <h3>Sql Declaration</h3>
     <div class="hint" id="sqlInfo">Đang đọc database...</div>
     <div class="split2" style="min-height:20rem">
       <div class="tblw" style="flex:.8"><table class="tbl"><thead><tr><th style="width:3rem">DB</th><th>Bảng</th><th style="width:3.5rem">Dòng</th></tr></thead><tbody id="blockRows"></tbody></table></div>
       <div style="flex:1.6;display:flex;flex-direction:column;gap:.4rem">
-        <div class="tabs2"><button id="tApp" class="on">Script\App\AppScript.sql</button><button id="tSys">Script\Sys\SysScript.sql</button><span class="muted" style="align-self:center">— sửa được, lưu ở bước 6</span></div>
+        <div class="tabs2"><button id="tApp" class="on">Script\App\AppScript.sql</button><button id="tSys">Script\Sys\SysScript.sql</button><span class="muted" style="align-self:center">— sửa được, lưu ở bước 6</span><button id="bOpenSql" style="margin-left:auto" disabled title="Mở script đang xem (kể cả phần vừa sửa) sang tab SQL Query mới của Bcode, đúng database App / Sys. Chưa chạy gì.">Open</button></div>
         <textarea class="code" id="appScript" spellcheck="false"></textarea>
         <textarea class="code" id="sysScript" spellcheck="false" hidden></textarea>
       </div>
@@ -164,15 +214,22 @@
 
   <!-- 5. Wcommand -->
   <div class="page" data-p="5">
-    <h3>Wcommand</h3>
-    <div class="hint">Menu của chứng từ nguồn — menu mới chép từ menu này (menu cha, type, icon...), đổi tên, link (file Main mới), sysid và syscode. Bấm <b>Tạo menu…</b> mở form WCOMMAND (New) điền sẵn; chỉ ghi <code>wcommand</code> + <code>command</code> khi bấm Save trong form đó.</div>
-    <div class="tblw" style="max-height:14rem"><table class="tbl"><thead><tr><th>WMenu Id</th><th>Menu Id</th><th>Tên</th><th>Link</th></tr></thead><tbody id="menuRows"></tbody></table></div>
-    <div class="row"><button id="bMenu" class="primary">Tạo menu…</button><span class="muted" id="menuInfo"></span></div>
+    <div class="menuwrap">
+      <div class="mleft">
+        <div class="row"><input type="search" id="menuFilter" placeholder="Tìm menu: id, tên, link..." spellcheck="false" style="flex:1"><button id="bMenuReload" title="Đọc lại bảng wcommand">⟳</button></div>
+        <div class="tblw tree" id="menuTree" tabindex="0"></div>
+      </div>
+      <div class="mright">
+        <h4>Menu sẽ tạo</h4>
+        <table class="kv" id="menuPlan"></table>
+        <div class="row"><button id="bMenuSrc" title="Đặt menu mới cạnh menu của chứng từ nguồn">Về vị trí menu nguồn</button><span style="flex:1"></span><button id="bMenu" class="primary" title="Mở form WCOMMAND (New) điền sẵn. Chỉ ghi vào database khi bấm Save trong form đó.">Tạo menu…</button></div>
+        <p class="muted hint">Chọn 1 menu ở cây để đặt menu mới cạnh nó, chọn 1 nhóm để đặt vào trong nhóm đó. Type, icon, tham số vẫn chép từ menu của chứng từ nguồn. Bấm <b>Tạo menu…</b> mở form WCOMMAND điền sẵn, WMenu Id / Menu Id được gợi ý số còn trống. Chỉ khi bấm <b>Save</b> trong form đó mới ghi vào <code>wcommand</code> + <code>command</code>.</p>
+      </div>
+    </div>
   </div>
 
   <!-- 6. File Generation -->
   <div class="page" data-p="6">
-    <h3>File Generation</h3>
     <div class="summary" id="summary"></div>
     <div class="row"><button id="bGen" class="primary">Tạo file</button><button id="bOpen" hidden>Mở thư mục</button></div>
     <div class="files" id="genFiles"></div>
@@ -197,7 +254,8 @@
   const STEPS = ['General', 'File Source', 'File Reference', 'Sql Declaration', 'Wcommand', 'File Generation'];
   let step = 1, vouchers = [], wsVouchers = [], src = null, workspaceSource = '', desktop = '';
   let files = [], registry = [], refs = [], controllers = [], menus = [], sql = null, planKey = '', sqlKey = '', autoSys = true, autoPrefix = true, autoCtrl = true;
-  let previewBox = 'filePreview';
+  let previewBox = 'filePreview', kept = [], dirAck = false, marks = [], markAt = 0, markCount = 0;
+  const collapsed = new Set();
 
   // ---- Khung code: Monaco + ngôn ngữ + theme của BcodeViewer (như filepreview.html); chưa nạp xong hoặc thiếu thì dùng pre / textarea ----
   const editors = {};
@@ -259,6 +317,7 @@
   }
   function go(n) {
     if (n > step && step === 1) { const e = validate1(); if (e) { say(e, 'err'); return; } }
+    if (n > step && step === 2 && dirMissing() && !dirAck) { dirAck = true; say('Chưa chọn file Dir của ' + src.sysId + '. Bấm lại lần nữa nếu vẫn muốn tiếp tục.', 'err'); return; }
     step = Math.max(1, Math.min(6, n)); say('');
     renderSteps();
     if (step >= 2 && planKey !== planKeyNow()) loadPlan();
@@ -282,10 +341,11 @@
     srcApprove: no ? '' : $('srcApprove').value.trim(), dstApprove: no ? '' : $('dstApprove').value.trim(), dstApproveController: no ? '' : $('dstApproveCtrl').value.trim(),
     srcNotify: $('srcNotify').value.trim(), dstNotify: $('dstNotify').value.trim(),
   }; };
+  const noPartition = () => !!src && !!src.tableNo && !src.table.includes('$');
   function spec() {
     return {
       ...approval(),
-      srcCode: src ? src.code : '', srcSysId: src ? src.sysId : '', srcTitleV: src ? src.titleV : '', srcTitleE: src ? src.titleE : '', srcTableNo: src ? src.tableNo : '',
+      srcCode: src ? src.code : '', srcSysId: src ? src.sysId : '', srcTitleV: src ? src.titleV : '', srcTitleE: src ? src.titleE : '', srcTableNo: src ? src.tableNo : '', srcNoPartition: noPartition(),
       dstCode: $('dstCode').value.trim(), dstSysId: $('dstSysId').value.trim(), dstPrefix: $('dstPrefix').value.trim(),
       dstTitleV: $('dstTitleV').value.trim(), dstTitleE: $('dstTitleE').value.trim(),
       newTables: isNew(), dstTableNo: $('dstTableNo').value.trim(), fileRenames: fileRenames(), copied: files.filter((f) => f.on).map((f) => f.rel),
@@ -313,7 +373,7 @@
     if (known.some((v) => v.sysId.toLowerCase() === s.dstSysId.toLowerCase())) return 'SysID ' + s.dstSysId + ' đã có trong source.';
     if (s.dstPrefix === src.prefix) return 'Tiền tố file mới phải khác tiền tố nguồn (' + src.prefix + ').';
     if (known.some((v) => v.prefix === s.dstPrefix)) return 'Tiền tố ' + s.dstPrefix + ' đang là của chứng từ khác.';
-    if (s.newTables && !src.tableNo) return 'Bảng nguồn ' + (src.table || '(không khai)') + ' không theo dạng số (m48$000000) nên không tạo được bộ bảng mới — chọn "Dùng chung bảng nguồn".';
+    if (s.newTables && !src.tableNo) return 'Bảng nguồn ' + (src.table || '(không khai)') + ' không theo dạng m48$000000 hoặc ph48 nên không tạo được bộ bảng mới — chọn "Dùng chung bảng nguồn".';
     const a = approve();
     if (a.srcApprove && a.srcApprove.toLowerCase() === a.dstApprove.toLowerCase()) return 'Approve Type đích phải khác nguồn, hoặc chọn Not Approval.';
     if ($('direct').checked && $('otherProject').checked) return 'Lấy chứng từ từ dự án khác thì chỉ xuất gói được — bỏ tick ghi thẳng vào source.';
@@ -339,8 +399,10 @@
       if (!$('dstTitleV').value || (prev && $('dstTitleV').value === prev.titleV)) $('dstTitleV').value = src.titleV;
       if (!$('dstTitleE').value || (prev && $('dstTitleE').value === prev.titleE)) $('dstTitleE').value = src.titleE;
       $('srcApprove').value = $('srcApproveCtrl').value = $('srcNotify').value = $('dstApproveCtrl').value = ''; autoCtrl = true;
+      setApv(true); loadNoF();
       post('approval', { source: source(), sysId: src.sysId, code: src.code });
-      if (!src.tableNo) { document.querySelector('input[name=tbl][value=share]').checked = true; tblMode(); }
+      // Không phân kỳ vẫn tạo được bảng mới nhưng hiếm dùng nên để mặc định dùng chung, người dùng tự chọn lại.
+      if (!src.tableNo || noPartition()) { document.querySelector('input[name=tbl][value=share]').checked = true; tblMode(); }
     }
   }
   $('srcPick').addEventListener('input', pickSource);
@@ -356,6 +418,13 @@
   $('dstPrefix').addEventListener('input', suggestCtrl);
   $('srcApproveCtrl').addEventListener('input', suggestCtrl);
   $('dstApproveCtrl').addEventListener('input', () => { autoCtrl = false; });
+  /** Nguồn không có khai báo duyệt thì ẩn các ô duyệt; xoá giá trị đích để không mang theo từ chứng từ chọn trước. */
+  function setApv(show) {
+    document.querySelectorAll('.apv').forEach((x) => { x.hidden = !show; });
+    document.querySelectorAll('.apvNone').forEach((x) => { x.hidden = show; });
+    if (!show) { $('dstApprove').value = $('dstApproveCtrl').value = $('dstNotify').value = ''; }
+  }
+  $('bShowApv').onclick = () => setApv(true);
   function tblMode() { $('dstTableNo').disabled = $('bSuggestNo').disabled = !isNew(); }
   document.querySelectorAll('input[name=tbl]').forEach((r) => r.addEventListener('change', tblMode));
   $('notApprove').onchange = () => { $('dstApprove').disabled = $('dstApproveCtrl').disabled = $('notApprove').checked; };
@@ -381,29 +450,137 @@
   function loadPlan() {
     planKey = planKeyNow();
     $('fileRows').innerHTML = '<tr><td colspan="3" class="muted" id="planWait">Đang lập danh sách file...</td></tr>';
-    $('regRows').innerHTML = $('ctrlRows').innerHTML = $('refRows').innerHTML = $('menuRows').innerHTML = '';
+    $('regRows').innerHTML = $('ctrlRows').innerHTML = $('refRows').innerHTML = '';
     post('plan', { source: source(), spec: spec() });
   }
-  function renderFiles() {
-    $('pfx').textContent = src ? src.prefix : '';
-    $('fileRows').innerHTML = files.length ? files.map((f, i) =>
-      '<tr class="click' + (f.on ? '' : ' off') + '" data-i="' + i + '"><td class="c"><input type="checkbox" data-i="' + i + '"' + (f.on ? ' checked' : '') + '></td>' +
-      '<td title="' + esc(f.rel) + '">' + esc(f.rel) + (f.text ? '' : ' <span class="muted">(nhị phân)</span>') + (f.backup ? ' <span class="muted">(file sao lưu)</span>' : '') + '</td>' +
-      '<td><input type="text" data-t="' + i + '" value="' + esc(f.target) + '" spellcheck="false"></td></tr>').join('')
-      : '<tr><td colspan="3" class="muted">Không thấy file nào của chứng từ nguồn.</td></tr>';
+  const isF = (f) => /\.f$/i.test(f.rel);
+  const fileOn = (f) => !f.backup && !($('noF').checked && isF(f));
+  // Source chuẩn đa số chỉ có .f, không có .xml cùng tên: bỏ .f là màn hình đó không được chép, Dir mới gọi lại controller của nguồn.
+  function noFCount() {
+    const off = $('noF').checked ? files.filter((f) => isF(f) && !f.on && !f.backup) : [];
+    const names = new Set(files.map((f) => f.rel.toLowerCase()));
+    return { off: off.length, lone: off.filter((f) => !names.has(f.rel.slice(0, -2).toLowerCase() + '.xml')).length };
   }
+  /** File Dir chính của chứng từ ({SysID}.xml / .f trong Dir), không có file nào được chọn thì chứng từ mới không có màn hình. */
+  const isMainDir = (f) => src && new RegExp('\\\\Dir\\\\[^\\\\]+$', 'i').test(f.rel) && f.rel.split('\\').pop().replace(/\.[^.]*$/, '').toLowerCase() === src.sysId.toLowerCase();
+  const dirMissing = () => !!src && files.length > 0 && !files.some((f) => f.on && isMainDir(f));
+  function noFNote() {
+    const { off, lone } = noFCount();
+    $('noFInfo').hidden = !off;
+    $('noFInfo').textContent = 'Đang ẩn ' + off + ' file .f' + (lone ? ', trong đó ' + lone + ' file không có bản .xml cùng tên nên sẽ không được chép.' : '.');
+    const missing = dirMissing();
+    $('dirWarn').hidden = !missing;
+    $('bShowF').hidden = !$('noF').checked;
+    if (missing) $('dirWarnText').textContent = 'Chưa chọn file Dir của ' + src.sysId + ', chứng từ mới sẽ không có màn hình.';
+  }
+  function loadNoF() {
+    $('noF').checked = true;   // mặc định ẩn .f; chỉ tắt khi người dùng đã bỏ tick
+    try { $('noF').checked = localStorage.getItem('vcNoF') !== '0'; } catch (e) { }
+  }
+  loadNoF();
+  function applyNoF() { dirAck = false; files.filter(isF).forEach((f) => (f.on = fileOn(f))); renderFiles(); }
+  $('noF').onchange = () => {
+    try { localStorage.setItem('vcNoF', $('noF').checked ? '1' : '0'); } catch (e) { }
+    applyNoF();
+  };
+  // Chỉ cho chứng từ đang làm: không lưu lại, chọn chứng từ khác hoặc mở lại form thì ẩn .f như đã đặt.
+  $('bShowF').onclick = () => { $('noF').checked = false; applyNoF(); };
+
+  const ROOT = 'App_Data\\Controllers\\';
+  const startsWith = (s, p) => s.toLowerCase().startsWith(p.toLowerCase());
+  /** Nhóm theo thư mục cấp 1 trong Controllers (Dir, Filter, Grid...), file ngoài Controllers theo thư mục đầu (Main). */
+  function place(f) {
+    const root = startsWith(f.rel, ROOT) ? ROOT : '', rest = f.rel.slice(root.length), i = rest.indexOf('\\');
+    return i < 0 ? { group: '(gốc)', base: root } : { group: rest.slice(0, i), base: root + rest.slice(0, i + 1) };
+  }
+  const KINDS = { Dir: '#4aa3ff', Filter: '#3ddc84', Grid: '#ff9f43', Include: '#2dd4bf', Options: '#ff5fa2', Message: '#ffc107', Config: '#b388ff', XML: '#22d3ee', Javascript: '#ff6b6b',
+    Command: '#a3e635', Report: '#fb7185', Lookup: '#818cf8', Main: '#34d399', Templates: '#c084fc', Notify: '#fbbf24', Query: '#38bdf8', Request: '#a78bfa', Standard: '#93c5fd' };
+  const kindColor = (k) => KINDS[k] || '#94a3b8';
+  /** Loại của file: thư mục sâu nhất có trong KINDS (Include\XML\A.txt → XML, Grid\Config\Fields\B.xml → Config). */
+  const kindOf = (f) => f.rel.split('\\').slice(0, -1).reverse().find((s) => KINDS[s]) || place(f).group;
+  const inside = (p, base) => (startsWith(p, base) ? p.slice(base.length) : p);
+  const fileQuery = () => $('fileFilter').value.trim().toLowerCase();
+  const matches = (f) => { const q = fileQuery(); return !q || f.rel.toLowerCase().includes(q) || f.target.toLowerCase().includes(q); };
+  const shown = (f) => !($('noF').checked && isF(f)) && matches(f);
+  function renderFiles() {
+    noFNote();
+    const groups = new Map();
+    files.forEach((f, i) => {
+      if (!shown(f)) return;
+      const p = place(f);
+      if (!groups.has(p.group)) groups.set(p.group, { base: p.base, rows: [] });
+      groups.get(p.group).rows.push(i);
+    });
+    const open = (g) => !!fileQuery() || !collapsed.has(g);
+    const row = (i, base) => { const f = files[i]; return '<tr class="click' + (f.on ? '' : ' off') + '" data-i="' + i + '"><td class="c"><input type="checkbox" data-i="' + i + '"' + (f.on ? ' checked' : '') + '></td>' +
+      '<td title="' + esc(f.rel) + '"><span class="ico" data-l="' + esc(kindOf(f)[0]) + '" style="--c:' + kindColor(kindOf(f)) + '"></span>' + esc(inside(f.rel, base)) + (f.text ? '' : ' <span class="muted">(nhị phân)</span>') + (f.backup ? ' <span class="muted">(file sao lưu)</span>' : '') + '</td>' +
+      '<td><input type="text" data-t="' + i + '" value="' + esc(inside(f.target, base)) + '" title="' + esc(f.target) + '" spellcheck="false"></td></tr>'; };
+    const rows = [...groups].map(([g, v]) => { const on = v.rows.filter((i) => files[i].on).length;
+      return '<tr class="grp" data-g="' + esc(g) + '"><td colspan="3"><input type="checkbox" data-gc="' + esc(g) + '"' + (on === v.rows.length ? ' checked' : '') + ' data-part="' + (on > 0 && on < v.rows.length ? 1 : 0) + '">' +
+        '<span class="caret">' + (open(g) ? '▾' : '▸') + '</span><span class="dot" style="--c:' + kindColor(g) + '"></span><span class="gname" style="--c:' + kindColor(g) + '">' + esc(g) + '</span> <span class="muted">' + on + '/' + v.rows.length + ' file</span></td></tr>' +
+        (open(g) ? v.rows.map((i) => row(i, v.base)).join('') : ''); }).join('');
+    const empty = fileQuery() ? 'Không có file khớp.' : files.length ? 'Chứng từ này chỉ có file .f, đang ẩn. Bỏ tick "Không chọn file .f" để thấy.' : 'Không thấy file nào của chứng từ nguồn.';
+    $('fileRows').innerHTML = rows || '<tr><td colspan="3" class="muted">' + empty + '</td></tr>';
+    $('fileRows').querySelectorAll('input[data-part="1"]').forEach((x) => { x.indeterminate = true; });
+  }
+  $('fileFilter').addEventListener('input', renderFiles);
   $('fileRows').addEventListener('change', (e) => {
     const x = e.target;
-    if (x.type === 'checkbox') { files[+x.dataset.i].on = x.checked; x.closest('tr').classList.toggle('off', !x.checked); }
-    else if (x.dataset.t) files[+x.dataset.t].target = x.value.trim();
+    if (x.dataset.gc != null) { files.filter((f) => shown(f) && place(f).group === x.dataset.gc).forEach((f) => { f.on = x.checked; }); dirAck = false; renderFiles(); }
+    else if (x.type === 'checkbox') { files[+x.dataset.i].on = x.checked; dirAck = false; renderFiles(); }
+    else if (x.dataset.t) { const f = files[+x.dataset.t], v = x.value.trim(), base = place(f).base; f.target = v && startsWith(f.target, base) ? base + v : v; x.title = f.target; }
   });
+  $('fileRows').addEventListener('click', (e) => {
+    const g = e.target.closest('tr[data-g]');
+    if (!g || e.target.tagName === 'INPUT') return;
+    if (collapsed.has(g.dataset.g)) collapsed.delete(g.dataset.g); else collapsed.add(g.dataset.g);
+    renderFiles();
+  });
+  $('bHidePreview').onclick = () => { $('filePreview').hidden = true; $('bHidePreview').hidden = true; };
   $('bView').onclick = () => {
     say('Đang dựng màn hình...');
     post('viewVoucher', { source: source(), spec: spec(), files: files.filter((x) => x.on).map((x) => ({ rel: x.rel, target: x.target })), registry: registry.filter((x) => x.on).map((x) => x.rel) });
   };
-  function preview(rel, kind, box) { previewBox = box; $(box).hidden = false; setCode(box, 'Đang đọc...'); post('previewFile', { source: source(), rel, kind, spec: spec() }); }
+  function preview(rel, kind, box) {
+    previewBox = box; $(box).hidden = false;
+    if (box === 'filePreview') $('bHidePreview').hidden = false;
+    else { $('refPane').hidden = false; $('regSplit').classList.add('open'); $('refName').textContent = rel.replace(ROOT, ''); $('refName').title = rel; marks = []; showMark(); }
+    setCode(box, 'Đang đọc...'); post('previewFile', { source: source(), rel, kind, spec: spec() });
+  }
+  /** Đánh dấu dòng thêm trong khung xem bước 3 rồi đưa tới chỗ đầu tiên. marks = dòng đầu của từng cụm dòng liền nhau. */
+  function markLines(lines) {
+    marks = lines.filter((n, i) => i === 0 || lines[i - 1] !== n - 1);
+    markCount = lines.length; markAt = 0;
+    const ed = editors.refPreview;
+    if (ed) {
+      ed.deltaDecorations([], lines.map((n) => ({ range: new monaco.Range(n, 1, n, 1), options: { isWholeLine: true, className: 'vc-add', linesDecorationsClassName: 'vc-add-g',
+        overviewRuler: { color: '#2ea043', position: monaco.editor.OverviewRulerLane.Full } } })));
+      ed.layout();
+    } else {
+      const set = new Set(lines), el = $('refPreview');
+      el.innerHTML = el.textContent.split('\n').map((l, i) => (set.has(i + 1) ? '<span class="vc-add" data-n="' + (i + 1) + '">' + esc(l) + '</span>' : esc(l))).join('\n');
+    }
+    showMark();
+    goMark(0);
+  }
+  function showMark() {
+    $('refCount').textContent = marks.length ? markCount + ' dòng thêm · chỗ ' + (markAt + 1) + '/' + marks.length : '';
+    $('bMarkPrev').hidden = $('bMarkNext').hidden = marks.length < 2;
+  }
+  function goMark(i) {
+    if (!marks.length) return;
+    markAt = (i + marks.length) % marks.length;
+    const ed = editors.refPreview, n = marks[markAt];
+    if (ed) { ed.revealLineInCenter(n); ed.setPosition({ lineNumber: n, column: 1 }); }
+    else { const x = $('refPreview').querySelector('[data-n="' + n + '"]'); if (x) x.scrollIntoView({ block: 'center' }); }
+    showMark();
+  }
+  $('bMarkPrev').onclick = () => goMark(markAt - 1);
+  $('bMarkNext').onclick = () => goMark(markAt + 1);
+  $('bRefClose').onclick = () => { $('refPane').hidden = true; $('regSplit').classList.remove('open'); selectRow(null); };
+  const selectRow = (tr) => { document.querySelectorAll('#regRows tr.sel, #ctrlRows tr.sel').forEach((x) => x.classList.remove('sel')); if (tr) tr.classList.add('sel'); };
   $('fileRows').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr && e.target.tagName !== 'INPUT') preview(files[+tr.dataset.i].rel, 'file', 'filePreview'); });
-  $('allFiles').onchange = () => { files.forEach((f) => (f.on = $('allFiles').checked)); renderFiles(); };
+  $('allFiles').onchange = () => { files.filter(shown).forEach((f) => (f.on = $('allFiles').checked)); dirAck = false; renderFiles(); };
   function renderRefs() {
     $('regRows').innerHTML = registry.length ? registry.map((r, i) =>
       '<tr class="click' + (r.on ? '' : ' off') + '" data-i="' + i + '"><td class="c"><input type="checkbox" data-r="' + i + '"' + (r.on ? ' checked' : '') + '></td><td title="' + esc(r.rel) + '">' + esc(r.rel) + '</td>' +
@@ -416,19 +593,110 @@
       : '<tr><td colspan="2" class="muted">Không có.</td></tr>';
   }
   $('regRows').addEventListener('change', (e) => { const x = e.target; if (x.dataset.r != null) { registry[+x.dataset.r].on = x.checked; x.closest('tr').classList.toggle('off', !x.checked); } });
-  $('regRows').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr && e.target.tagName !== 'INPUT') preview(registry[+tr.dataset.i].rel, 'registry', 'refPreview'); });
+  $('regRows').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr && e.target.tagName !== 'INPUT') { selectRow(tr); preview(registry[+tr.dataset.i].rel, 'registry', 'refPreview'); } });
   $('ctrlRows').addEventListener('change', (e) => { const x = e.target; if (x.dataset.k != null) controllers[+x.dataset.k].on = x.checked; });
-  $('ctrlRows').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-c]'); if (tr && e.target.tagName !== 'INPUT') preview(controllers[+tr.dataset.c].rel, 'asis', 'refPreview'); });
-  function renderMenus() {
-    $('menuRows').innerHTML = menus.length ? menus.map((m) => '<tr><td>' + esc(m.id) + '</td><td>' + esc(m.menuId) + '</td><td>' + esc(m.bar) + '</td><td class="muted">' + esc(m.link) + '</td></tr>').join('')
-      : '<tr><td colspan="4" class="muted">Chứng từ nguồn chưa có menu (wcommand) — menu mới sẽ là menu trống.</td></tr>';
-    const main = files.find((f) => /^Main\\/i.test(f.rel) && f.on);
-    $('menuInfo').textContent = 'Menu mới: ' + ($('dstTitleV').value || '?') + ' · link ' + (main ? main.target.replace(/^Main\\/i, '') : spec().dstSysId + '.aspx') + ' · sysid ' + spec().dstSysId + ' · syscode ' + spec().dstCode;
+  $('ctrlRows').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-c]'); if (tr && e.target.tagName !== 'INPUT') { selectRow(tr); preview(controllers[+tr.dataset.c].rel, 'asis', 'refPreview'); } });
+  // ---- Bước 5: cây menu như tab Menu của quicklist.html. Ở đây cây chỉ chọn VỊ TRÍ; thông tin menu luôn chép từ menu của chứng từ nguồn.
+  let tree = [], treeById = new Map(), kids = new Map(), roots = [], expanded = new Set(), menuSel = '', treeAsked = false;
+  const treeMsg = (t) => { $('menuTree').innerHTML = '<div class="msg">' + esc(t) + '</div>'; };
+  const loadTree = () => { treeAsked = true; treeMsg('Đang đọc wcommand...'); post('loadMenus'); };
+  const isSep = (m) => /^-*$/.test(m.bar.trim());
+  const srcMenuId = () => (menus[0] ? (menus[0].id || '').trim() : '');
+  const isSrcMenu = (id) => menus.some((m) => (m.id || '').trim() === id);
+  /** Cha = wmenu_id0; trống thì suy theo nhóm "NN.00.00" (như WCommandService.InferParentId). */
+  function parentOf(m) {
+    if (m.parent && treeById.has(m.parent) && m.parent !== m.id) return m.parent;
+    const p = m.id.split('.');
+    if (p.length === 3 && !(p[1] === '00' && p[2] === '00')) { const g = p[0] + '.00.00'; if (treeById.has(g) && g !== m.id) return g; }
+    return '';
   }
-  $('bMenu').onclick = () => {
+  function buildTree() {
+    kids = new Map(); roots = [];
+    tree.forEach((m) => {
+      if (isSep(m)) return;
+      const p = parentOf(m);
+      if (p) { if (!kids.has(p)) kids.set(p, []); kids.get(p).push(m); } else roots.push(m);
+    });
+  }
+  /**
+   * Vị trí đang chọn (chưa chọn = cạnh menu nguồn). Menu lá: menu mới cùng cha; nhóm: menu mới nằm trong nhóm.
+   * seed = menu trong nhánh đó, để form WCOMMAND gợi ý WMenu Id / Menu Id đúng nhánh thay vì nhánh của menu nguồn.
+   */
+  function menuPos() {
+    const sel = treeById.get(menuSel || srcMenuId()); if (!sel) return null;
+    const ch = kids.get(sel.id) || [];
+    if (!ch.length) return { sel, parentId: parentOf(sel), seed: sel, group: false };
+    const leaf = ch.find((m) => !(kids.get(m.id) || []).length && m.link.trim() && m.link.trim() !== '.');
+    return { sel, parentId: sel.id, seed: leaf || sel, group: true };
+  }
+  function renderTree() {
+    if (!tree.length) return;
+    const q = $('menuFilter').value.trim().toLowerCase(), cur = menuSel || srcMenuId();
+    const hit = (m) => !!q && (m.id + ' ' + m.bar + ' ' + m.bar2 + ' ' + m.link).toLowerCase().includes(q);
+    // Đang tìm: chỉ giữ nhánh có mục khớp, và mở sẵn các nhánh đó.
+    const keep = new Map();
+    const check = (m) => { if (keep.has(m.id)) return keep.get(m.id); keep.set(m.id, false); const r = hit(m) || (kids.get(m.id) || []).some(check); keep.set(m.id, r); return r; };
+    const out = [];
+    const walk = (list, depth) => list.forEach((m) => {
+      if (q && !check(m)) return;
+      const ch = kids.get(m.id) || [], open = ch.length && (q ? true : expanded.has(m.id));
+      out.push('<div class="node' + (m.id === cur ? ' sel' : '') + (hit(m) ? ' hit' : '') + '" data-id="' + esc(m.id) + '" style="padding-left:' + (0.5 + depth * 1.15) + 'rem" title="' +
+        esc(m.bar2 + (m.link ? ' — ' + m.link : '')) + '">' +
+        '<span class="tg' + (ch.length ? '' : ' leaf') + '" data-tg="1">' + (ch.length ? (open ? '−' : '+') : '') + '</span>' +
+        '<span class="nm">' + esc(m.bar) + '</span><span class="id">(' + esc(m.id) + ')</span>' + (isSrcMenu(m.id) ? '<span class="src">menu nguồn</span>' : '') +
+        (m.link && m.link.trim() !== '.' ? '<span class="lk">' + esc(m.link) + '</span>' : '') + '</div>');
+      if (open) walk(ch, depth + 1);
+    });
+    walk(roots, 0);
+    $('menuTree').innerHTML = out.length ? out.join('') : '<div class="msg">Không có menu nào khớp.</div>';
+  }
+  /** Mở sẵn đường tới vị trí đang chọn rồi cuộn tới đó. */
+  function showPos() {
+    const seen = new Set();
+    for (let m = treeById.get(menuSel || srcMenuId()); m && !seen.has(m.id); ) { seen.add(m.id); const p = parentOf(m); if (!p) break; expanded.add(p); m = treeById.get(p); }
+    renderTree();
+    const n = $('menuTree').querySelector('.node.sel'); if (n) n.scrollIntoView({ block: 'center' });
+  }
+  function renderMenuPlan() {
+    const r = menuPos(), parent = r && r.parentId ? treeById.get(r.parentId) : null, s = spec(), src0 = menus[0];
     const main = files.find((f) => /^Main\\/i.test(f.rel) && f.on);
-    post('menu', { spec: spec(), mainTarget: main ? main.target : '' });
-  };
+    const row = (k, v, cls) => '<tr><th>' + k + '</th><td' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</td></tr>';
+    const none = (t) => '<span class="muted">' + t + '</span>';
+    $('menuPlan').innerHTML =
+      row('Vị trí', !r ? none('(chưa chọn — chọn 1 menu cùng nhóm, hoặc 1 nhóm, ở cây bên trái)')
+        : r.group ? 'Bên trong nhóm <b>' + esc(r.sel.bar) + '</b>' : 'Cạnh menu <b>' + esc(r.sel.bar) + '</b> (cùng cha)') +
+      row('Menu cha', r && r.parentId ? '<code>' + esc(r.parentId) + '</code> ' + esc(parent ? parent.bar : '') : r ? '(gốc)' : none('(theo menu nguồn)')) +
+      row('Chép thông tin từ', src0 ? '<code>' + esc(src0.id) + '</code> ' + esc(src0.bar) : none('(chứng từ nguồn chưa có menu — menu trống)')) +
+      row('Bar', esc($('dstTitleV').value) || none('(Tên trống)'), 'new') +
+      row('Bar2', esc($('dstTitleE').value) || none('(Tên tiếng Anh trống)'), 'new') +
+      row('Link', esc(main ? main.target.replace(/^Main\\/i, '') : s.dstSysId + '.aspx'), 'new') +
+      row('Sysid', esc(s.dstSysId), 'new') +
+      row('Syscode', esc(s.dstCode), 'new') +
+      row('WMenu Id / Menu Id', none('tự gợi ý số còn trống khi mở form'));
+    $('bMenuSrc').disabled = !menuSel || !treeById.has(srcMenuId());
+  }
+  function renderMenus() {
+    if (step === 5 && !treeAsked) loadTree();
+    renderTree(); renderMenuPlan();
+  }
+  function createMenu() {
+    const main = files.find((f) => /^Main\\/i.test(f.rel) && f.on), r = menuPos();
+    post('menu', Object.assign({ spec: spec(), mainTarget: main ? main.target : '' }, r ? { parentId: r.parentId, seedId: r.seed.id, seedMenuId: r.seed.menuId } : {}));
+  }
+  $('bMenu').onclick = createMenu;
+  $('bMenuReload').onclick = loadTree;
+  $('bMenuSrc').onclick = () => { menuSel = ''; showPos(); renderMenuPlan(); };
+  $('menuFilter').addEventListener('input', renderTree);
+  $('menuTree').addEventListener('click', (e) => {
+    const node = e.target.closest('.node[data-id]'); if (!node) return;
+    const id = node.dataset.id, hasKids = (kids.get(id) || []).length > 0;
+    // Bấm ô +/− = chỉ mở/đóng; bấm tên = chọn vị trí (nhóm thì mở luôn nếu đang đóng).
+    if (e.target.closest('[data-tg]') && hasKids) { expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderTree(); return; }
+    menuSel = id;
+    if (hasKids) expanded.add(id);
+    renderTree(); renderMenuPlan();
+  });
+  $('menuTree').addEventListener('dblclick', (e) => { const n = e.target.closest('.node[data-id]'); if (n && !e.target.closest('[data-tg]') && !(kids.get(n.dataset.id) || []).length) createMenu(); });
 
   // ---- Bước 4: SQL -------------------------------------------------------------------------------
   function loadSql() {
@@ -442,31 +710,42 @@
     if (sql.error) { $('sqlInfo').innerHTML = '<span class="err">Không đọc được database: ' + esc(sql.error) + '</span>'; return; }
     const rowsTotal = sql.blocks.reduce((n, b) => n + b.rows, 0);
     $('sqlInfo').innerHTML = 'Bảng chứng từ nguồn: <b>' + esc((sql.tables || []).join(', ') || '(không thấy)') + '</b> — ' +
-      (s.newTables ? 'tạo bảng mới <b>' + esc((sql.newTables || []).join(', ')) + '</b> theo đúng định nghĩa bảng nguồn + sysgendata + các kỳ.' : 'dùng chung bảng nguồn.') +
+      (s.newTables ? 'tạo bảng mới <b>' + esc((sql.newTables || []).join(', ')) + '</b> theo đúng định nghĩa bảng nguồn' + (noPartition() ? ', không phân kỳ.' : ' + sysgendata + các kỳ.') : 'dùng chung bảng nguồn.') +
       ((sql.taken || []).length ? '<br><span class="err">Số bảng ' + esc(s.dstTableNo) + ' đã có trong database (' + esc(sql.taken.join(', ')) + ') — đổi số khác.</span>' : '') +
       ($('otherProject').checked ? '<br><span class="err">Đang lấy file từ dự án khác, nhưng script đọc từ database của workspace hiện tại — kiểm tra lại trước khi chạy.</span>' : '') +
       '<br>Cấu hình chép sang mã ' + esc(s.dstCode) + ': ' + sql.blocks.filter((b) => b.rows > 0).length + ' bảng có dữ liệu, ' + rowsTotal + ' dòng (bảng không có dòng vẫn DELETE cho sạch, như FCode).';
     $('blockRows').innerHTML = sql.blocks.map((b) => '<tr' + (b.rows ? '' : ' class="off"') + ' title="' + esc('WHERE ' + b.where) + '"><td>' + (b.sys ? 'Sys' : 'App') + '</td><td>' + esc(b.table) + '</td><td>' + b.rows + '</td></tr>').join('');
     setCode('appScript', sql.app || '', 'AppScript.sql');
     setCode('sysScript', sql.sysScript || '', 'SysScript.sql');
+    $('bOpenSql').disabled = false;
   }
   $('tApp').onclick = () => { $('tApp').classList.add('on'); $('tSys').classList.remove('on'); $('appScript').hidden = false; $('sysScript').hidden = true; };
   $('tSys').onclick = () => { $('tSys').classList.add('on'); $('tApp').classList.remove('on'); $('sysScript').hidden = false; $('appScript').hidden = true; };
+  $('bOpenSql').onclick = () => {
+    const sys = $('tSys').classList.contains('on');
+    post('openSql', { script: getCode(sys ? 'sysScript' : 'appScript'), sys, title: (sys ? 'SysScript ' : 'AppScript ') + spec().dstCode });
+  };
 
   // ---- Bước 6 ------------------------------------------------------------------------------------
   function renderSummary() {
-    const s = spec(), f = files.filter((x) => x.on), r = registry.filter((x) => x.on), c = controllers.filter((x) => x.on), direct = $('direct').checked;
+    const s = spec(), f = files.filter((x) => x.on), r = registry.filter((x) => x.on), c = controllers.filter((x) => x.on), direct = $('direct').checked, noF = noFCount();
+    const warns = [];
+    if (dirMissing()) warns.push('Chưa chọn file Dir của ' + src.sysId + ', chứng từ mới sẽ không có màn hình.');
+    if (sql && (sql.taken || []).length) warns.push('Số bảng ' + s.dstTableNo + ' đã có trong database.');
     const rows = [
       ['Nguồn', src ? src.code + ' — ' + src.sysId + ' — ' + src.titleV : '(chưa chọn)'],
       ['Đích', s.dstCode + ' — ' + s.dstSysId + ' — ' + s.dstTitleV],
-      ['Bảng', s.newTables ? 'bộ bảng mới số ' + s.dstTableNo : 'dùng chung ' + (src ? src.table : '')],
+      ['Bảng', s.newTables ? 'bộ bảng mới số ' + s.dstTableNo + (noPartition() ? ' (không phân kỳ)' : '') : 'dùng chung ' + (src ? src.table : '')],
       ['File chứng từ', f.length + ' file'],
+      ['File .f đang ẩn', noF.off ? noF.off + ' file' + (noF.lone ? ', ' + noF.lone + ' file không có bản .xml nên không được chép' : '') : 'không có'],
+      ['Entity giữ tên nguồn', kept.length + ' entity'],
       ['File đăng ký (thêm dòng)', r.length + ' file'],
       ['Controller chép nguyên', direct ? '(bỏ qua khi ghi thẳng vào source)' : c.length + ' file'],
       ['Script', (sql && !sql.error ? 'Script\\App\\AppScript.sql, Script\\Sys\\SysScript.sql' : '(chưa lập — mở bước 4)')],
       ['Lưu vào', direct ? 'file → ' + source() + ' · script → ' + $('output').value + '\\Script' : $('output').value + '\\Web, ' + $('output').value + '\\Script'],
     ];
-    $('summary').innerHTML = rows.map(([k, v]) => '<b>' + k + '</b><span>' + esc(v) + '</span>').join('');
+    $('summary').innerHTML = rows.map(([k, v]) => '<b>' + k + '</b><span>' + esc(v) + '</span>').join('') +
+      (warns.length ? '<b class="err">Cảnh báo</b><span class="err">' + warns.map(esc).join('<br>') + '</span>' : '');
   }
   $('bGen').onclick = () => {
     const e = validate1(); if (e) { say(e, 'err'); go(1); return; }
@@ -500,25 +779,40 @@
       if (!src || src.sysId !== sysId) return;   // đã chọn chứng từ khác trong lúc đọc
       $('srcApprove').value = a.type || ''; $('srcApproveCtrl').value = a.controller || ''; $('srcNotify').value = a.notify || '';
       suggestCtrl();
+      setApv(!!(a.type || a.controller || a.notify) || !a.hasFile);
       if (!a.hasFile) say('Source không có file Dir của ' + sysId + ' nên không đọc được Approve Controller, Notify Code và cũng không có file để chép. Kiểm tra lại thư mục source.', 'err');
     },
     onPlan(d) {
-      files = (d.files || []).map((f) => Object.assign(f, { on: !f.backup }));
-      const kept = d.kept || [];
-      $('keptInfo').hidden = !kept.length;
-      $('keptInfo').textContent = 'Entity giữ tên nguồn (' + kept.length + ', dùng chung với controller khác hoặc định nghĩa nhiều dòng): ' + kept.join(', ');
+      files = (d.files || []).map((f) => Object.assign(f, { on: fileOn(f) }));
+      kept = d.kept || [];
+      dirAck = false;
+      $('keptBox').hidden = !kept.length;
+      $('keptSum').textContent = 'Entity giữ tên nguồn: ' + kept.length;
+      $('keptInfo').textContent = 'Dùng chung với controller khác hoặc định nghĩa nhiều dòng: ' + kept.join(', ');
+      const apv = d.approval || {}, apvFiles = apv.files || [];
+      $('apvInfo').hidden = !apv.src;
+      $('apvInfo').textContent = !apv.src ? '' : apv.src === apv.dst ? 'Action mail duyệt: dùng chung ' + apv.src + ' của chứng từ nguồn.'
+        : 'Action mail duyệt: ' + apv.src + ' → ' + apv.dst + (apvFiles.length ? '. Sẽ sinh ' + apvFiles.join(', ') + ' và đăng ký vào Message.xml / Comment.xml.' : '. Không thấy action nguồn trong Message.xml / Comment.xml.');
       registry = (d.registry || []).map((r) => Object.assign(r, { on: true }));
       refs = d.refs || [];
       controllers = (d.controllers || []).map((rel) => ({ rel, on: false }));
       menus = d.menus || [];
-      renderFiles(); renderRefs(); renderMenus();
+      menuSel = '';
+      renderFiles(); renderRefs(); renderMenus(); showPos();
       if (files.length) say(files.length + ' file chứng từ, ' + registry.length + ' file đăng ký, ' + controllers.length + ' controller được gọi, ' + menus.length + ' menu nguồn.', 'ok');
       else say('Chứng từ có trong wcommand nhưng source không có file nào của ' + (src ? src.sysId : 'chứng từ này') + ', không có gì để chép. Xem lại thư mục source.', 'err');
     },
-    onPreview(rel, text) { setCode(previewBox, text, rel); },
+    onPreview(rel, text, lines) { setCode(previewBox, text, rel); if (previewBox === 'refPreview' && lines && lines.length) markLines(lines); },
     onTheme(theme) { if (!window.bcodeTheme) return; if (window.monaco) window.bcodeTheme.apply(theme); else window.bcodeTheme.theme = theme; },
     onSql(d) { sql = d; renderSql(); },
-    onMenuClosed() { say('Đã đóng form menu. Bấm Refresh ở cây WCommand để thấy thay đổi.', ''); },
+    onMenuTree(list, err) {
+      tree = (list || []).map((m) => ({ id: (m.id || '').trim(), parent: (m.parent || '').trim(), bar: m.bar || '', bar2: m.bar2 || '', link: m.link || '', menuId: m.menuId || '' }));
+      treeById = new Map(tree.map((m) => [m.id, m]));
+      buildTree();
+      if (err || !tree.length) treeMsg(err || 'Không có menu web (wcommand).'); else showPos();
+      renderMenuPlan();
+    },
+    onMenuClosed() { loadTree(); say('Đã đóng form menu. Bấm Refresh ở cây WCommand để thấy thay đổi.', ''); },
     onGenerated(d) {
       lastFolder = (d.files[0] || {}).path || d.folder; $('bOpen').hidden = false;
       $('genFiles').innerHTML = d.files.map((f) => '<a data-p="' + esc(f.path) + '" title="' + esc(f.path) + '">' + esc(f.name) + '</a>').join('');

@@ -38,6 +38,17 @@ public class VoucherSqlScriptService
         ("dmxlct2", "ma_ct", "code"), ("gndmttcttg", "loai_duyet", "approve"), ("sodmttcttg", "loai_duyet", "approve"),
         ("gndmloaiduyet", "ma_ct", "codeapprove"), ("syscredit", "ma_ct", "code"), ("sysflowinfo", "ma_ct", "code"), ("voucher", "ma_ct", "code"),
         ("sysspdetailinfo", "xid", "code"), ("dmctduyet", "ma_ct", "codeapprove"),
+        // Khai báo loại duyệt theo 3 nhóm (dm = mua hàng, so = bán hàng, gn = chung). Không chép người duyệt / người nhận / uỷ quyền
+        // (dmduyet, dmnttduyet, dmuqduyet, dmnsdtd...): đó là phân công người cụ thể, khai lại cho loại duyệt mới.
+        ("dmloaiduyet", "loai_duyet", "approve"), ("sodmloaiduyet", "loai_duyet", "approve"), ("dmttcttg", "loai_duyet", "approve"),
+        ("dmquyen", "loai_duyet", "approve"), ("sodmquyen", "loai_duyet", "approve"), ("gndmquyen", "loai_duyet", "approve"),
+        ("dmquyenct", "loai_duyet", "approve"), ("sodmquyenct", "loai_duyet", "approve"), ("gndmquyenct", "loai_duyet", "approve"),
+        ("dmquyentd", "loai_duyet", "approve"), ("sodmquyentd", "loai_duyet", "approve"), ("gndmquyentd", "loai_duyet", "approve"),
+        ("dmquyentdct", "loai_duyet", "approve"), ("sodmquyentdct", "loai_duyet", "approve"), ("gndmquyentdct", "loai_duyet", "approve"),
+        ("dmquyentdct2", "loai_duyet", "approve"), ("sodmquyentdct2", "loai_duyet", "approve"), ("gndmquyentdct2", "loai_duyet", "approve"),
+        ("dmkieuduyet", "loai_duyet", "approve"), ("sodmkieuduyet", "loai_duyet", "approve"), ("gndmkieuduyet", "loai_duyet", "approve"),
+        ("ctkieuduyet", "loai_duyet", "approve"), ("soctkieuduyet", "loai_duyet", "approve"), ("gnctkieuduyet", "loai_duyet", "approve"),
+        ("dmthaydoiloai", "loai_duyet", "approve"), ("sodmthaydoiloai", "loai_duyet", "approve"), ("gndmthaydoiloai", "loai_duyet", "approve"),
     };
 
     /// <summary>Đổi 1 giá trị chuỗi của dòng cấu hình sang chứng từ mới (như nội dung file + số bảng trong tên CT48 / PH48 / d48log, id 08048...).</summary>
@@ -48,6 +59,9 @@ public class VoucherSqlScriptService
         if (s.DstNotify.Length > 0 && table.Equals("notifygroup", StringComparison.OrdinalIgnoreCase) && col.Equals("code", StringComparison.OrdinalIgnoreCase)
             && value.Trim().Equals(s.SrcNotify, StringComparison.OrdinalIgnoreCase)) return s.DstNotify;
         if (value.Trim().Equals(s.SrcCode, StringComparison.OrdinalIgnoreCase)) return s.DstCode;
+        // Loại duyệt dùng chung nhiều chứng từ: ma_ct là danh sách (PO1, PO2).
+        if (col.Equals("ma_ct", StringComparison.OrdinalIgnoreCase) && table.EndsWith("loaiduyet", StringComparison.OrdinalIgnoreCase))
+            return Regex.Replace(value, @"(?<![A-Za-z0-9_])" + Regex.Escape(s.SrcCode) + @"(?![A-Za-z0-9_])", s.DstCode.Replace("$", "$$"), RegexOptions.IgnoreCase);
         // Tên chứng từ (dmct.ten_ct / ten_ct2 / tieu_de_ct viết HOA, freefunctions.description...): trùng tiêu đề nguồn → tiêu đề mới, giữ kiểu HOA.
         static bool IsUpper(string x) => x.Any(char.IsLetter) && x == x.ToUpperInvariant();
         foreach (var (src, dst) in new[] { (s.SrcTitleV, s.DstTitleV), (s.SrcTitleE, s.DstTitleE) })
@@ -180,8 +194,8 @@ WHERE c.object_id = OBJECT_ID(@t)", conn);
 
     // ---- Bảng mới ---------------------------------------------------------------------------------------
 
-    /// <summary>Bảng của chứng từ nguồn: [chữ]{số}$000000 và $log (vd c48, m48, m48$log, d48, d48$log, i48, t48...).</summary>
-    public async Task<List<string>> SourceTablesAsync(string tableNo)
+    /// <summary>Bảng của chứng từ nguồn: [chữ]{số}$000000 và $log (vd c48, m48, m48$log, d48, d48$log, i48, t48...); không phân kỳ thì phz29, ctz29, iz29 (+ $log).</summary>
+    public async Task<List<string>> SourceTablesAsync(string tableNo, bool noPartition = false)
     {
         var list = new List<string>();
         if (tableNo.Length == 0) return list;
@@ -189,7 +203,9 @@ WHERE c.object_id = OBJECT_ID(@t)", conn);
         await conn.OpenAsync();
         await using var cmd = new SqlCommand("SELECT name FROM sys.tables ORDER BY name", conn);
         await using var r = await cmd.ExecuteReaderAsync();
-        var re = new Regex("^[a-z]{1,3}" + Regex.Escape(tableNo) + @"\$(000000|log)$", RegexOptions.IgnoreCase);
+        var re = noPartition
+            ? new Regex("^(?:" + VoucherCloneService.TablePrefixes(tableNo) + ")" + Regex.Escape(tableNo) + @"(\$log)?$", RegexOptions.IgnoreCase)
+            : new Regex("^[a-z]{1,3}" + Regex.Escape(tableNo) + @"\$(000000|log)$", RegexOptions.IgnoreCase);
         while (await r.ReadAsync()) { var n = r.GetString(0); if (re.IsMatch(n)) list.Add(n); }
         // c, m, m$log, d, d$log, i, t, t$log... như thứ tự FCode
         return list.OrderBy(n => Order(n)).ThenBy(n => n.EndsWith("$log", StringComparison.OrdinalIgnoreCase)).ThenBy(n => n).ToList();
@@ -197,9 +213,9 @@ WHERE c.object_id = OBJECT_ID(@t)", conn);
     }
 
     public static string NewName(string table, string srcNo, string dstNo) =>
-        Regex.Replace(table, @"^([a-z]{1,3})" + Regex.Escape(srcNo) + @"\$", "${1}" + dstNo + "$", RegexOptions.IgnoreCase);
+        Regex.Replace(table, @"^([a-z]{1,5})" + Regex.Escape(srcNo) + @"(?=\$|$)", "${1}" + dstNo, RegexOptions.IgnoreCase);
 
-    /// <summary>CREATE TABLE + index theo đúng định nghĩa bảng nguồn (bỏ qua nếu bảng mới đã có), sysgendata và khối tạo các kỳ.</summary>
+    /// <summary>CREATE TABLE + khoá chính + index theo đúng định nghĩa bảng nguồn (dạng nhiều dòng như FCode, không kiểm tra bảng đã có), sysgendata và khối tạo các kỳ.</summary>
     public async Task<string> NewTablesScriptAsync(IReadOnlyList<string> sourceTables, VoucherCloneSpec s)
     {
         var sb = new StringBuilder();
@@ -258,21 +274,35 @@ WHERE i.object_id = OBJECT_ID(@t) AND i.type IN (1, 2) ORDER BY i.index_id, ic.i
                 }
             }
 
-            sb.AppendLine($"/* IF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'dbo.{dst}') AND xType = 'U') DROP TABLE [dbo].[{dst}] */");
+            sb.AppendLine("/*");
+            sb.AppendLine($"IF EXISTS (SELECT * FROM dbo.sysobjects WHERE id = OBJECT_ID(N'dbo.{dst}') AND xType = 'U')");
+            sb.AppendLine($"DROP TABLE [dbo].[{dst}]");
+            sb.AppendLine("*/");
             sb.AppendLine("GO");
+            sb.AppendLine($"CREATE TABLE [dbo].[{dst}] (");
+            sb.AppendLine(string.Join("," + Environment.NewLine, cols.Select(c => "    " + c)));
+            sb.AppendLine(")");
+            sb.AppendLine();
+            sb.AppendLine("GO");
+            sb.AppendLine();
             var pk = indexes.FirstOrDefault(x => x.Pk);
-            var pkLine = pk.Name == null ? "" : $", CONSTRAINT [PK_{dst}] PRIMARY KEY {(pk.Clustered ? "CLUSTERED" : "NONCLUSTERED")} ({string.Join(", ", pk.Keys)})";
-            sb.AppendLine($"IF OBJECT_ID(N'dbo.{dst}') IS NULL");
-            sb.AppendLine($"CREATE TABLE [dbo].[{dst}] ( {string.Join(", ", cols)}{pkLine} ) ON [PRIMARY]");
-            sb.AppendLine("GO");
+            if (pk.Name != null)
+            {
+                sb.AppendLine($"ALTER TABLE dbo.{dst} ADD CONSTRAINT [PK_{dst}] PRIMARY KEY {(pk.Clustered ? "CLUSTERED" : "NONCLUSTERED")}");
+                sb.AppendLine("(");
+                sb.AppendLine(string.Join("," + Environment.NewLine, pk.Keys.Select(k => "    " + k)));
+                sb.AppendLine(") ON [PRIMARY]");
+                sb.AppendLine();
+                sb.AppendLine("GO");
+                sb.AppendLine();
+            }
             foreach (var ix in indexes.Where(x => !x.Pk))
             {
-                sb.AppendLine($"IF NOT EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'dbo.{dst}') AND name = N'{ix.Name}')");
                 sb.AppendLine($"CREATE {(ix.Unique ? "UNIQUE " : "")}{(ix.Clustered ? "CLUSTERED " : "")}INDEX [{ix.Name}] ON dbo.{dst}({string.Join(", ", ix.Keys)})" +
                               (ix.Includes.Count > 0 ? $" INCLUDE ({string.Join(", ", ix.Includes)})" : "") + " ON [PRIMARY]");
                 sb.AppendLine("GO");
+                sb.AppendLine();
             }
-            sb.AppendLine();
         }
 
         // sysgendata: các bảng gốc $000000 để FastBusiness sinh kỳ; rồi tạo luôn các kỳ trong khoảng ngày khoá sổ.
@@ -305,21 +335,22 @@ WHERE i.object_id = OBJECT_ID(@t) AND i.type IN (1, 2) ORDER BY i.index_id, ic.i
         return sb.ToString();
     }
 
-    /// <summary>Loại duyệt (loai_duyet) của chứng từ nguồn trong gndmloaiduyet, nếu có.</summary>
+    /// <summary>Loại duyệt (loai_duyet) của chứng từ nguồn trong gndmloaiduyet / sodmloaiduyet / dmloaiduyet, nếu có.</summary>
     public async Task<string?> SourceApproveTypeAsync(string code)
     {
         foreach (var sys in new[] { false, true })
-        {
-            try
+            foreach (var table in new[] { "gndmloaiduyet", "sodmloaiduyet", "dmloaiduyet" })
             {
-                await using var conn = _connections.CreateConnection(sys);
-                await conn.OpenAsync();
-                await using var cmd = new SqlCommand("IF OBJECT_ID('dbo.gndmloaiduyet') IS NOT NULL AND COL_LENGTH('dbo.gndmloaiduyet', 'loai_duyet') IS NOT NULL SELECT TOP 1 loai_duyet FROM dbo.gndmloaiduyet WHERE ma_ct = @c", conn);
-                cmd.Parameters.AddWithValue("@c", code);
-                if (await cmd.ExecuteScalarAsync() is string v && v.Trim().Length > 0) return v.Trim();
+                try
+                {
+                    await using var conn = _connections.CreateConnection(sys);
+                    await conn.OpenAsync();
+                    await using var cmd = new SqlCommand($"IF COL_LENGTH('dbo.{table}', 'loai_duyet') IS NOT NULL AND COL_LENGTH('dbo.{table}', 'ma_ct') IS NOT NULL SELECT TOP 1 loai_duyet FROM dbo.{table} WHERE ma_ct = @c", conn);
+                    cmd.Parameters.AddWithValue("@c", code);
+                    if (await cmd.ExecuteScalarAsync() is string v && v.Trim().Length > 0) return v.Trim();
+                }
+                catch { /* thử bảng / DB khác */ }
             }
-            catch { /* thử DB kia */ }
-        }
         return null;
     }
 }

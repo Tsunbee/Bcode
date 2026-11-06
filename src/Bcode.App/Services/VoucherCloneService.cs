@@ -20,6 +20,13 @@ public record VoucherInfo(string SysId, string Code, string Table, string TitleV
 /// <summary>Khai báo duyệt / thông báo trong file Dir của chứng từ: APVApprovalType, APVController, PostNotifyGroup. Null = không khai.</summary>
 public record VoucherApproval(string? Type, string? Controller, string? Notify);
 
+/// <summary>
+/// 1 action duyệt của chứng từ nguồn trong Options\Message.xml / Comment.xml. <see cref="Kind"/> = Message | SMS | Comment.
+/// <see cref="Entity"/> = entity nguồn nạp file chứa action (khai ở <see cref="EntityRel"/>, có thể nằm trong khối điều kiện); null = action viết thẳng trong <see cref="Host"/>.
+/// <see cref="CopiedRel"/> = file action riêng của chứng từ (ZVCApprovalActionMessage.xml) đã có trong danh sách chép, không phải sinh file mới.
+/// </summary>
+public record ApprovalAction(string Kind, string Host, string Block, string? Entity, string? EntityRel, string? CopiedRel);
+
 /// <summary>Thông số nhân bản: nguồn → đích.</summary>
 public class VoucherCloneSpec
 {
@@ -28,6 +35,8 @@ public class VoucherCloneSpec
     public string SrcTitleV { get; set; } = "";
     public string SrcTitleE { get; set; } = "";
     public string SrcTableNo { get; set; } = "";
+    /// <summary>Chứng từ không phân kỳ: bảng phz29 / ctz29, không có $000000, sysgendata và các kỳ.</summary>
+    public bool SrcNoPartition { get; set; }
     public string DstCode { get; set; } = "";
     public string DstSysId { get; set; } = "";
     public string DstPrefix { get; set; } = "";
@@ -44,6 +53,14 @@ public class VoucherCloneSpec
     /// <summary>Mã nhóm thông báo nguồn / đích (PostNotifyGroup, notifygroup.code). Đích trống = dùng chung mã nguồn.</summary>
     public string SrcNotify { get; set; } = "";
     public string DstNotify { get; set; } = "";
+
+    /// <summary>Id action mail duyệt nguồn / đích (&amp;APVController; hoặc &amp;MessageID; truyền cho Message.Message.SendPrivate). Tính ở Prepare.</summary>
+    public string SrcAction { get; set; } = "";
+    public string DstAction { get; set; } = "";
+    /// <summary>Id nguồn không theo tiền tố (DomesticPurchaseOrder, PurchaseRequisition): đổi nguyên từ trong nội dung.</summary>
+    public bool RenameAction { get; set; }
+    /// <summary>Action duyệt phải nhân bản cho chứng từ mới. Tính ở Prepare.</summary>
+    public List<ApprovalAction> ApprovalActions { get; set; } = new();
 
     public string SrcPrefix => VoucherCloneService.PrefixOf(SrcSysId);
 
@@ -85,7 +102,8 @@ public class VoucherCloneSpec
             keep.Add(@"[&%](?:" + names + @")(?=;)");
             keep.Add(@"<!ENTITY\s+(?:%\s+)?(?:" + names + @")(?=\s)");
         }
-        _tokens = new Regex("(?<keep>" + string.Join("|", keep) + ")|" + VoucherCloneService.WordPattern(SrcPrefix), RegexOptions.CultureInvariant);
+        // Sau dấu $ là tên store (FastBusiness$APV$SO$UnPostAuthorize): store dùng chung, không đổi theo chứng từ.
+        _tokens = new Regex("(?<keep>" + string.Join("|", keep) + @")|(?<!\$)" + VoucherCloneService.WordPattern(SrcPrefix), RegexOptions.CultureInvariant);
         _tokensKept = KeepEntities.Count;
         return _tokens;
     }
@@ -372,9 +390,19 @@ public class VoucherCloneService
 
     public static string TableNoOf(string table)
     {
-        var m = Regex.Match(table, @"^[a-z]+(\w*?)\$", RegexOptions.IgnoreCase);
+        // 1 chữ loại bảng (m, d, c, a...; nhóm BI có thêm "bi") + mã nhóm: m48 → 48, bim06 → 06, ms2 → s2, mzvc → zvc.
+        var m = Regex.Match(table, @"^(?:bi)?[a-z](\w+?)\$", RegexOptions.IgnoreCase);
+        if (m.Success) return m.Groups[1].Value;
+        // Không phân kỳ: phz29 → z29 (bộ bảng phz29, ctz29, iz29).
+        m = Regex.Match(table, @"^ph(\w+)$", RegexOptions.IgnoreCase);
         return m.Success ? m.Groups[1].Value : "";
     }
+
+    /// <summary>
+    /// Tiền tố bảng của chứng từ không phân kỳ, dạng regex. Mã ngắn (phdm, phhd) chỉ nhận đúng ph / ct / i, vì [chữ]+dm khớp cả tên khác;
+    /// mã từ 3 ký tự (z29) đủ riêng nên nhận mọi tiền tố chữ.
+    /// </summary>
+    public static string TablePrefixes(string tableNo) => tableNo.Length >= 3 ? "[a-z]{1,5}" : "ph|ct|i";
 
     /// <summary>File sao lưu (SVTran - Copy.xml, SOTran_bk_260625V.xml): liệt kê nhưng mặc định không chép.</summary>
     public static bool IsBackupName(string fileName) => Backup.IsMatch(fileName);
@@ -390,7 +418,7 @@ public class VoucherCloneService
                && stem.Length > sysId.Length && stem.StartsWith(sysId, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Đường mạng (UNC hoặc ổ map) — không tự đọc khi mở form, chờ người dùng bấm Quét.</summary>
+    /// <summary>Đường mạng (UNC hoặc ổ map): đọc nhiều luồng hơn để bù độ trễ.</summary>
     public static bool IsNetworkPath(string path)
     {
         if (path.StartsWith(@"\\", StringComparison.Ordinal)) return true;
@@ -512,6 +540,8 @@ public class VoucherCloneService
 
     private static readonly Regex ApproveControllerDef = new(@"(<!ENTITY\s+APVController\s+"")[^""]*""", RegexOptions.CultureInvariant);
     private static readonly Regex ApproveTypeDef = new(@"(<!ENTITY\s+APVApprovalType\s+"")([^""]*)""", RegexOptions.CultureInvariant);
+    private static readonly Regex ApproveControllerValue = new(@"(<!ENTITY\s+APVController\s+"")([^""]*)""", RegexOptions.CultureInvariant);
+    private static readonly Regex MessageIdDef = new(@"(<!ENTITY\s+MessageID\s+"")([^""]*)""", RegexOptions.CultureInvariant);
     private static readonly Regex NotifyDef = new(@"(<!ENTITY\s+PostNotifyGroup\s+"")([^""]*)""", RegexOptions.CultureInvariant);
 
     /// <summary>File .f có thể mã hoá giá trị entity: "FastBusiness.Encryption.Begin...End". Không giải mã được nên không dùng làm giá trị đọc ra.</summary>
@@ -523,6 +553,9 @@ public class VoucherCloneService
         if (ControllersDir(sourceRoot) is not { } c) return null;
         var texts = new[] { ".xml", ".f" }.Select(e => Path.Combine(c, "Dir", sysId + e)).Where(File.Exists).Select(p => Decode(File.ReadAllBytes(p), out _)).ToList();
         if (texts.Count == 0) return null;
+        // Nhóm BI khai duyệt ở include riêng (PQTran: Include\BIMode.PQTran).
+        var bi = Path.Combine(c, "Include", "BIMode." + sysId);
+        if (File.Exists(bi)) texts.Add(Decode(File.ReadAllBytes(bi), out _));
         string? Value(string name) => texts.Select(t => Regex.Match(t, @"<!ENTITY\s+" + name + @"\s+""([^""]*)""").Groups[1].Value)
             .FirstOrDefault(v => v.Length > 0 && !IsEncryptedValue(v));
         return new VoucherApproval(Value("APVApprovalType"), Value("APVController"), Value("PostNotifyGroup"));
@@ -542,6 +575,12 @@ public class VoucherCloneService
         }
         if (s.DstApproveController.Length > 0)
             t = ApproveControllerDef.Replace(t, m => m.Groups[1].Value + s.DstApproveController + "\"");
+        // Id action mã hoá trong .f (PRTran.f) không đổi theo chữ được: ghi đè bằng id đích dạng thường.
+        if (s.DstAction.Length > 0 && s.DstAction != s.SrcAction)
+        {
+            string Plain(Match m) => IsEncryptedValue(m.Groups[2].Value) ? m.Groups[1].Value + s.DstAction + "\"" : m.Value;
+            t = MessageIdDef.Replace(ApproveControllerValue.Replace(t, Plain), Plain);
+        }
         if (s.SrcNotify.Length > 0 && s.DstNotify.Length > 0)
             t = NotifyDef.Replace(t, m => m.Groups[2].Value == s.SrcNotify || IsEncryptedValue(m.Groups[2].Value) ? m.Groups[1].Value + s.DstNotify + "\"" : m.Value);
         return t;
@@ -549,7 +588,8 @@ public class VoucherCloneService
 
     /// <summary>Tiền tố dài hơn của chứng từ khác bắt đầu bằng tiền tố này: HD → HDC; AS → ASA01, ASAsset.</summary>
     public static List<string> OtherPrefixes(IEnumerable<VoucherInfo> vouchers, string prefix) =>
-        vouchers.Select(v => v.Prefix).Where(p => p.Length > prefix.Length && p.StartsWith(prefix, StringComparison.Ordinal)).Distinct().ToList();
+        // PRApproval có file Dir kiểu Voucher nhưng là màn duyệt của chính PRTran, không phải chứng từ khác.
+        vouchers.Select(v => v.Prefix).Where(p => p.Length > prefix.Length && p.StartsWith(prefix, StringComparison.Ordinal) && p != prefix + "Approval").Distinct().ToList();
 
     // ---- Đổi tên: 1 hàm duy nhất cho cả tên file lẫn nội dung ------------------------------------------
 
@@ -622,6 +662,181 @@ public class VoucherCloneService
                 foreach (var w in WordsOf(Path.GetFileName(f.Rel), s.SrcPrefix, s.OtherPrefixes))
                     if (!s.OwnWords.Contains(w)) s.SharedNames.Add(w);
         PlanEntities(s, copied, index);
+        PlanApproval(tree, s, copied, index);
+    }
+
+    // ---- Action duyệt: Options\Message.xml, Comment.xml (mẫu ZVCApprovalActionMessage.xml) ---------------------
+
+    private static readonly Regex ActionFile = new(@"(Message|SMS|Comment)\.xml$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>Id action duyệt của chứng từ: APVController, MessageID trong Dir / Include\BIMode.{SysID}, không có (hoặc mã hoá) thì NotifyID trong Notify.</summary>
+    private static string SourceAction(SourceTree tree, VoucherCloneSpec s)
+    {
+        if (tree.Controllers is not { } c) return "";
+        string Rel(string dir, string file) => Path.GetRelativePath(tree.Root, Path.Combine(c, dir, file));
+        var texts = new[] { Rel("Dir", s.SrcSysId + ".xml"), Rel("Dir", s.SrcSysId + ".f"), Rel("Include", "BIMode." + s.SrcSysId), Rel("Notify", s.SrcSysId + ".xml") }
+            .Where(tree.Exists).Select(tree.Text).OfType<string>().ToList();
+        foreach (var name in new[] { "APVController", "MessageID", "NotifyID" })
+            foreach (var t in texts)
+                if (Regex.Match(t, @"<!ENTITY\s+" + name + @"\s+""(\w+)""") is { Success: true } m) return m.Groups[1].Value;
+        return "";
+    }
+
+    /// <summary>
+    /// Id action đích và các action cần nhân bản. Id theo tiền tố thì đổi theo tiền tố; id riêng (DomesticPurchaseOrder) thành {tiền tố mới}Approval.
+    /// Id trùng controller không chép (hrRMApproval: Grid\hrRMApproval.f) thì dùng chung action của nguồn, vì đổi id sẽ trỏ tới màn hình không có.
+    /// </summary>
+    private static void PlanApproval(SourceTree tree, VoucherCloneSpec s, IReadOnlyCollection<string> copied, EntityIndex index)
+    {
+        s.ApprovalActions = new();
+        s.SrcAction = SourceAction(tree, s);
+        s.DstAction = s.SrcAction;
+        s.RenameAction = false;
+        if (s.SrcAction.Length == 0 || tree.Controllers is not { } controllers) return;
+
+        var own = new HashSet<string>(copied, StringComparer.OrdinalIgnoreCase);
+        var mapped = MapWord(s.SrcAction, s, false);
+        var isController = tree.Files.Any(f => Path.GetFileNameWithoutExtension(f.Rel).Equals(s.SrcAction, StringComparison.OrdinalIgnoreCase) && !own.Contains(f.Rel));
+        s.RenameAction = mapped == s.SrcAction && !isController;
+        s.DstAction = s.DstApproveController.Length > 0 ? s.DstApproveController : mapped != s.SrcAction ? mapped : isController ? s.SrcAction : s.DstPrefix + "Approval";
+        if (s.DstAction == s.SrcAction) return;
+
+        var hosts = new[] { "Message.xml", "Comment.xml" }.Select(n => Path.GetRelativePath(tree.Root, Path.Combine(controllers, "Options", n))).Where(tree.Exists).ToList();
+        foreach (var host in hosts)
+        {
+            if (tree.Text(host) is not { } text) continue;
+            var comment = Path.GetFileName(host).Equals("Comment.xml", StringComparison.OrdinalIgnoreCase);
+            var sms = text.IndexOf("<sms", StringComparison.Ordinal);
+            foreach (var (start, block) in ActionBlocks(text, s.SrcAction))
+                s.ApprovalActions.Add(new(comment ? "Comment" : sms >= 0 && start > sms ? "SMS" : "Message", host, block, null, null, null));
+        }
+        // Action nằm ở file include: entity nạp file đó có thể ở trong khối điều kiện (PaymentMessage.ent, BIMode.Message).
+        var xml = Path.GetRelativePath(tree.Root, Path.Combine(controllers, "Include", "XML")) + Path.DirectorySeparatorChar;
+        foreach (var f in tree.Files.Where(f => f.Rel.StartsWith(xml, StringComparison.OrdinalIgnoreCase) && ActionFile.IsMatch(f.Rel)))
+        {
+            if (tree.Text(f.Rel) is not { } text) continue;
+            var name = Path.GetFileName(f.Rel);
+            var word = ActionFile.Match(name).Groups[1].Value;
+            var kind = word.Equals("SMS", StringComparison.OrdinalIgnoreCase) ? "SMS" : word.Equals("Comment", StringComparison.OrdinalIgnoreCase) ? "Comment" : "Message";
+            var host = hosts.FirstOrDefault(h => Path.GetFileName(h).StartsWith(kind == "Comment" ? "Comment" : "Message", StringComparison.OrdinalIgnoreCase));
+            if (host == null) continue;
+            var hostText = tree.Text(host) ?? "";
+            var entity = index.SystemRefs.FirstOrDefault(r => r.Target.Equals(name, StringComparison.OrdinalIgnoreCase) && hostText.Contains("&" + r.Name + ";", StringComparison.Ordinal));
+            if (entity.Name == null) continue;
+            foreach (var (_, block) in ActionBlocks(text, s.SrcAction))
+                s.ApprovalActions.Add(new(kind, host, block, entity.Name, entity.DefRel, own.Contains(f.Rel) ? f.Rel : null));
+        }
+    }
+
+    /// <summary>Các khối &lt;action id="..."&gt;...&lt;/action&gt;: bỏ qua CDATA khi tìm thẻ đóng.</summary>
+    private static IEnumerable<(int Start, string Block)> ActionBlocks(string text, string id)
+    {
+        foreach (Match m in Regex.Matches(text, @"<action\b[^>]*\bid=""" + Regex.Escape(id) + @"""[^>]*>"))
+        {
+            var i = m.Index + m.Length;
+            while (true)
+            {
+                var close = text.IndexOf("</action>", i, StringComparison.Ordinal);
+                if (close < 0) { i = -1; break; }
+                var cdata = text.IndexOf("<![CDATA[", i, close - i, StringComparison.Ordinal);
+                if (cdata < 0) { i = close + "</action>".Length; break; }
+                var end = text.IndexOf("]]>", cdata, StringComparison.Ordinal);
+                if (end < 0) { i = -1; break; }
+                i = end + 3;
+            }
+            if (i > 0) yield return (m.Index, text[m.Index..i]);
+        }
+    }
+
+    private static string ApprovalEntity(ApprovalAction a, VoucherCloneSpec s) => s.DstPrefix + "ApprovalAction" + a.Kind;
+
+    private static string ApprovalFileName(ApprovalAction a, VoucherCloneSpec s) =>
+        a.CopiedRel != null ? Path.GetFileName(TargetPath(a.CopiedRel, s)) : ApprovalEntity(a, s) + ".xml";
+
+    /// <summary>File action mới cần sinh (tương đối so với gốc source) và nội dung: 1 action / file, như ZVCApprovalActionMessage.xml.</summary>
+    public static List<(string Rel, string Text)> ApprovalFiles(SourceTree tree, VoucherCloneSpec s)
+    {
+        var result = new List<(string, string)>();
+        if (tree.Controllers is not { } controllers) return result;
+        foreach (var a in s.ApprovalActions.Where(a => a.CopiedRel == null))
+            result.Add((Path.GetRelativePath(tree.Root, Path.Combine(controllers, "Include", "XML", ApprovalFileName(a, s))), ApprovalBlock(a.Block, s)));
+        return result;
+    }
+
+    /// <summary>Khối action cho chứng từ mới: đổi như nội dung file, chốt id đích, đặt lại tiêu đề mail (tiêu đề nguồn là câu riêng, không trùng tên chứng từ).</summary>
+    private static string ApprovalBlock(string block, VoucherCloneSpec s)
+    {
+        var t = Transform(block, s);
+        // Action nguồn có thể ghi sai loại duyệt (Comment của BISA ghi 01250, BIIL ghi 01510) nên đổi theo mã nguồn sẽ sót: luôn đặt loại duyệt đích.
+        if (s.DstApprove.Length > 0) t = Regex.Replace(t, @"(GetApprovalDetail\s+@@stt_rec,\s*')\w+'", m => m.Groups[1].Value + s.DstApprove + "'");
+        var open = Regex.Match(t, @"<action\b[^>]*>");
+        string X(string v) => v.Replace("&", "&#38;").Replace("\"", "&quot;").Replace("<", "&lt;").Replace("$", "$$");
+        var tag = Regex.Replace(open.Value, @"\bid=""[^""]*""", "id=\"" + s.DstAction.Replace("$", "$$") + "\"");
+        if (s.DstTitleV.Length > 0) tag = Regex.Replace(tag, @"\bv=""[^""]*""", "v=\"" + X(s.DstTitleV) + " chờ duyệt\"");
+        if (s.DstTitleE.Length > 0) tag = Regex.Replace(tag, @"\be=""[^""]*""", "e=\"" + X(s.DstTitleE) + " waiting for approval\"");
+        t = tag + t[open.Length..];
+        if (s.DstTitleV.Length > 0) t = Regex.Replace(t, @"(<notification\b[^>]*\bv="")[^""]*""", "${1}Tình trạng duyệt " + X(s.DstTitleV) + "\"");
+        if (s.DstTitleE.Length > 0) t = Regex.Replace(t, @"(<notification\b[^>]*\be="")[^""]*""", "${1}" + X(s.DstTitleE) + " workflow process\"");
+        return t;
+    }
+
+    /// <summary>Ghi các file action mới.</summary>
+    public static List<string> WriteApprovalFiles(SourceTree tree, string outputRoot, VoucherCloneSpec s)
+    {
+        var written = new List<string>();
+        foreach (var (rel, text) in ApprovalFiles(tree, s))
+        {
+            var dst = Path.Combine(outputRoot, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+            File.WriteAllText(dst, text, Utf8Bom);
+            written.Add(dst);
+        }
+        return written;
+    }
+
+    /// <summary>
+    /// Đăng ký action mới. Action viết thẳng: thêm entity trước "]&gt;" và dòng gọi đầu &lt;template&gt; của mục mail / sms.
+    /// Action ở include: sau mỗi dòng định nghĩa entity nguồn thêm dòng tương ứng (giữ đúng khối điều kiện + dòng rỗng dự phòng), sau dòng gọi thêm dòng gọi mới.
+    /// </summary>
+    private static List<string> AddApprovalLines(List<string> lines, string rel, VoucherCloneSpec s)
+    {
+        var added = new List<string>();
+        void Insert(int at, string line)
+        {
+            if (lines.Any(l => l.Trim() == line.Trim())) return;
+            lines.Insert(at, line);
+            added.Add(line.Trim());
+        }
+        foreach (var a in s.ApprovalActions)
+        {
+            var name = ApprovalEntity(a, s);
+            var file = ApprovalFileName(a, s);
+            var inHost = a.Host.Equals(rel, StringComparison.OrdinalIgnoreCase);
+            if (a.Entity == null)
+            {
+                if (!inHost) continue;
+                var end = lines.FindIndex(l => l.TrimStart().StartsWith("]>", StringComparison.Ordinal));
+                if (end >= 0) Insert(end, "\t<!ENTITY " + name + " SYSTEM \"..\\Include\\XML\\" + file + "\">");
+                var section = lines.FindIndex(l => l.TrimStart().StartsWith(a.Kind == "SMS" ? "<sms" : "<mail", StringComparison.Ordinal));
+                var template = section < 0 ? -1 : lines.FindIndex(section, l => l.Trim() == "<template>");
+                if (template >= 0) Insert(template + 1, "\t\t\t&" + name + ";");
+                continue;
+            }
+            if (a.EntityRel!.Equals(rel, StringComparison.OrdinalIgnoreCase))
+                for (var i = lines.Count - 1; i >= 0; i--)
+                    if (EntityIndex.DefinedBy(lines[i]) == a.Entity)
+                    {
+                        var line = lines[i].Replace("<!ENTITY " + a.Entity, "<!ENTITY " + name);
+                        line = Regex.Replace(line, @"[^\\/""]+(""\s*>\s*)$", m => file + m.Groups[1].Value);
+                        Insert(i + 1, line);
+                    }
+            if (inHost)
+            {
+                var use = lines.FindIndex(l => l.Trim() == "&" + a.Entity + ";");
+                if (use >= 0) Insert(use + 1, lines[use].Replace(a.Entity, name));
+            }
+        }
+        return added;
     }
 
     /// <summary>
@@ -744,11 +959,16 @@ public class VoucherCloneService
     public static List<(string Rel, List<string> Added)> RegistryEdits(SourceTree tree, VoucherCloneSpec s, IEnumerable<string> ownFiles, EntityIndex index)
     {
         var result = new List<(string, List<string>)>();
-        if (tree.Controllers is not { } controllers || s.SrcSysId.Length == 0) return result;
+        if (tree.Controllers == null || s.SrcSysId.Length == 0) return result;
         var own = new HashSet<string>(ownFiles, StringComparer.OrdinalIgnoreCase);
         // Chỉ mở file chắc chắn liên quan: chỉ mục đã biết file đăng ký nào có SysID nguồn.
         var candidates = new HashSet<string>(s.EntityFiles, StringComparer.OrdinalIgnoreCase);
         if (index.WordFiles.TryGetValue(s.SrcSysId, out var withSysId)) candidates.UnionWith(withSysId);
+        foreach (var a in s.ApprovalActions)
+        {
+            candidates.Add(a.Host);
+            if (a.EntityRel != null) candidates.Add(a.EntityRel);
+        }
         candidates.ExceptWith(own);
         var sizes = tree.Files.Where(f => candidates.Contains(f.Rel)).ToDictionary(f => f.Rel, f => f.Length, StringComparer.OrdinalIgnoreCase);
         candidates.RemoveWhere(r => sizes.GetValueOrDefault(r) > 4_000_000);
@@ -756,8 +976,7 @@ public class VoucherCloneService
         foreach (var rel in candidates)
         {
             if (tree.Text(rel) is not { } text) continue;
-            var registry = IsRegistryFile(Path.GetRelativePath(controllers, Path.Combine(tree.Root, rel)));
-            var added = AddRegistryLines(text, s, registry, out _);
+            var added = AddRegistryLines(tree.Root, rel, text, s, out _);
             if (added.Count > 0) result.Add((rel, added));
         }
         return result.OrderBy(x => x.Item1, StringComparer.OrdinalIgnoreCase).ToList();
@@ -767,7 +986,7 @@ public class VoucherCloneService
     /// Sau mỗi dòng cần nhân bản, chèn bản đã đổi sang chứng từ mới (nếu file chưa có dòng đó). Dòng cần nhân bản: có SysID nguồn
     /// (khi <paramref name="registry"/> = file đăng ký), hoặc định nghĩa 1 entity trong <see cref="VoucherCloneSpec.CopyEntities"/>.
     /// </summary>
-    public static List<string> AddRegistryLines(string text, VoucherCloneSpec s, bool registry, out string newText)
+    public static List<string> AddRegistryLines(string text, VoucherCloneSpec s, bool registry, out string newText, string? rel = null)
     {
         var token = new Regex(@"(?<![A-Za-z0-9_])" + Regex.Escape(s.SrcSysId) + @"(?![A-Za-z0-9_])");
         var eol = text.Contains("\r\n") ? "\r\n" : "\n";
@@ -779,6 +998,22 @@ public class VoucherCloneService
         {
             var line = lines[i];
             var hit = registry && token.IsMatch(line);
+            var controller = registry ? ControllerLine.Match(line) : Match.Empty;
+            // Controller của chứng từ khai 1 dòng (SOApproval, SOClose ở Aggregation.v, Initialize.xml); dòng con trong khối <request> của chứng từ khác có field=.
+            if (!hit && controller.Success && s.OwnWords.Contains(controller.Groups[1].Value) && !line.Contains(" field=", StringComparison.Ordinal)) hit = true;
+            // Khối <controller ...> nhiều dòng (Lookup\Config\Include\Voucher.xml): chép riêng dòng mở sẽ làm hỏng XML.
+            if (hit && controller.Success && controller.Groups[2].Length == 0 && ControllerEnd(lines, i) is var close and >= 0)
+            {
+                var block = lines[i..(close + 1)];
+                output.AddRange(block);
+                i = close;
+                var copies = block.Select(l => Transform(l, s)).ToList();
+                if (copies[0] == line || present.Contains(copies[0].Trim())) continue;
+                output.AddRange(copies);
+                added.AddRange(copies.Select(c => c.Trim()).Where(c => c.Length > 0));
+                present.Add(copies[0].Trim());
+                continue;
+            }
             // Dòng mở khối điều kiện <![%Conditional.FATran.Nested;[: nhân bản nguyên khối tới ]]> tương ứng, chép riêng dòng mở sẽ làm hỏng DTD.
             if (hit && line.TrimStart().StartsWith("<![%", StringComparison.Ordinal))
             {
@@ -801,8 +1036,23 @@ public class VoucherCloneService
             if (copy == line || present.Contains(copy.Trim())) continue;
             output.Add(copy); added.Add(copy.Trim()); present.Add(copy.Trim());
         }
+        if (rel != null) added.AddRange(AddApprovalLines(output, rel, s));
         newText = string.Join(eol, output);
         return added;
+    }
+
+    private static readonly Regex ControllerLine = new(@"^\s*<controller\s+name=""([^""]+)""[^>]*?(/?)>\s*$", RegexOptions.CultureInvariant);
+
+    /// <summary>Dòng &lt;/controller&gt; của khối mở ở dòng <paramref name="start"/>, -1 nếu không thấy.</summary>
+    private static int ControllerEnd(string[] lines, int start)
+    {
+        var depth = 0;
+        for (var i = start; i < lines.Length; i++)
+        {
+            depth += Regex.Matches(lines[i], @"<controller\b[^>]*[^/>]>").Count - Regex.Matches(lines[i], @"</controller>").Count;
+            if (depth <= 0) return i;
+        }
+        return -1;
     }
 
     /// <summary>Dòng đóng ]]> của khối điều kiện mở ở dòng <paramref name="start"/> (tính cả khối lồng nhau), -1 nếu không thấy.</summary>
@@ -821,7 +1071,7 @@ public class VoucherCloneService
     public static List<string> AddRegistryLines(string sourceRoot, string rel, string text, VoucherCloneSpec s, out string newText)
     {
         var registry = ControllersDir(sourceRoot) is { } c && IsRegistryFile(Path.GetRelativePath(c, Path.Combine(sourceRoot, rel)));
-        return AddRegistryLines(text, s, registry, out newText);
+        return AddRegistryLines(text, s, registry, out newText, rel);
     }
 
     /// <summary>Tên file đích: đổi các từ theo tiền tố trong TÊN file (giữ thư mục), cùng hàm với nội dung. File Main không theo tiền tố thì đổi theo mã ct.</summary>
@@ -932,6 +1182,8 @@ public class VoucherCloneService
                  .Replace($"'{s.SrcCode}'", $"'{s.DstCode}'")
                  .Replace($"\"{s.SrcCode}\"", $"\"{s.DstCode}\"");
         }
+        if (s.RenameAction && s.SrcAction != s.DstAction)
+            t = Regex.Replace(t, @"(?<![A-Za-z0-9_])" + Regex.Escape(s.SrcAction) + @"(?![A-Za-z0-9_])", s.DstAction.Replace("$", "$$"));
         t = ApplyApproval(t, s);
         // Tiêu đề v/e của chứng từ (không phân biệt hoa thường: Dir ghi "đơn đặt hàng", Main ghi "Đơn đặt hàng") + description="..." ở file đăng ký.
         if (s.SrcTitleV.Length > 0 && s.DstTitleV.Length > 0)
@@ -939,7 +1191,9 @@ public class VoucherCloneService
         if (s.SrcTitleE.Length > 0 && s.DstTitleE.Length > 0)
             t = Regex.Replace(t, "\\b(e|description)=\"" + Regex.Escape(s.SrcTitleE) + "\"", "$1=\"" + s.DstTitleE.Replace("$", "$$") + "\"", RegexOptions.IgnoreCase);
         if (s.NewTables && s.SrcTableNo.Length > 0 && s.DstTableNo.Length > 0 && s.SrcTableNo != s.DstTableNo)
-            t = Regex.Replace(t, @"\b([a-z]{1,3})" + Regex.Escape(s.SrcTableNo) + @"\$", "${1}" + s.DstTableNo + "$", RegexOptions.IgnoreCase);
+            t = s.SrcNoPartition
+                ? Regex.Replace(t, @"\b(" + TablePrefixes(s.SrcTableNo) + ")" + Regex.Escape(s.SrcTableNo) + @"\b", "${1}" + s.DstTableNo, RegexOptions.IgnoreCase)
+                : Regex.Replace(t, @"\b([a-z]{1,3})" + Regex.Escape(s.SrcTableNo) + @"\$", "${1}" + s.DstTableNo + "$", RegexOptions.IgnoreCase);
         // Tên file Main (tpblcthdx.aspx → tpblcthdz.aspx) trong link / url
         foreach (var (from, to) in s.FileRenames)
             if (from.Length > 0 && !from.Equals(to, StringComparison.OrdinalIgnoreCase))
@@ -975,6 +1229,26 @@ public class VoucherCloneService
         if (File.Exists(dst)) File.SetAttributes(dst, FileAttributes.Normal);
         File.Copy(src, dst, overwrite: true);
         File.SetAttributes(dst, File.GetAttributes(dst) & ~FileAttributes.ReadOnly);
+    }
+
+    /// <summary>
+    /// Số dòng (từ 1) trong <paramref name="after"/> được thêm hoặc đổi so với <paramref name="before"/>, để đánh dấu khi xem file đăng ký.
+    /// Lệch dòng mà dòng cũ vẫn còn ở phía sau thì dòng hiện tại là dòng thêm; dòng cũ không còn nữa thì dòng hiện tại là dòng đã đổi.
+    /// </summary>
+    public static List<int> ChangedLines(string before, string after)
+    {
+        static string[] Split(string x) => x.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();
+        var a = Split(before);
+        var b = Split(after);
+        var result = new List<int>();
+        var j = 0;
+        for (var i = 0; i < b.Length; i++)
+        {
+            if (j < a.Length && b[i] == a[j]) { j++; continue; }
+            result.Add(i + 1);
+            if (j < a.Length && Array.IndexOf(b, a[j], i + 1) < 0) j++;
+        }
+        return result;
     }
 
     /// <summary>Ghi bản file đăng ký dùng chung đã thêm dòng chứng từ mới (giữ đúng tên + bảng mã).</summary>

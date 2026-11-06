@@ -28,6 +28,9 @@ public class VoucherCloneForm : WebDialogForm
     private string _loadSource = "";
     private VoucherPreviewForm? _preview;
 
+    /// <summary>Nút Open ở bước Sql Declaration: (script, chạy trên Sys, tiêu đề tab) — MainForm mở tab SQL Query mới.</summary>
+    public event Action<string, bool, string>? OpenSqlRequested;
+
     /// <summary>Cây file + chỉ mục của 1 thư mục source, dựng 1 lần ở nền rồi mọi bước dùng chung.</summary>
     private sealed record SourceData(SourceTree Tree, EntityIndex Entities);
 
@@ -63,9 +66,8 @@ public class VoucherCloneForm : WebDialogForm
         PushEditorTheme();
         var src = _connections.Current?.SourcePath ?? "";
         Js($"vc.init({J(new { source = src, workspaceSource = src, desktop = Path.Combine(Desktop, "VoucherClone") })})");
-        // Đường mạng: không tự đọc khi mở form, chờ người dùng bấm Quét.
-        if (src.Length > 0 && VoucherCloneService.IsNetworkPath(src)) Js($"vc.onStatus({J("Source là đường mạng — bấm \"Quét source\" để đọc danh sách chứng từ.")}, '')");
-        else _ = ScanAsync(src);
+        // Quét ngay cả khi source là đường mạng: Source Path do người dùng tự khai, lần sau chỉ đọc file đã đổi.
+        _ = ScanAsync(src);
         _ = SuggestTableNoAsync();
     }
 
@@ -81,7 +83,8 @@ public class VoucherCloneForm : WebDialogForm
             case "sql": await SqlAsync(msg); break;
             case "previewFile": await PreviewAsync(S("source"), S("rel"), S("kind"), ReadSpec(msg.GetProperty("spec"))); break;
             case "viewVoucher": await ViewVoucherAsync(msg); break;
-            case "menu": await MenuAsync(ReadSpec(msg.GetProperty("spec")), S("mainTarget")); break;
+            case "loadMenus": await LoadMenusAsync(); break;
+            case "menu": await MenuAsync(ReadSpec(msg.GetProperty("spec")), S("mainTarget"), msg); break;
             case "generate": { var copy = msg.Clone(); var data = await DataAsync(S("source")); BeginInvoke(new Action(() => Generate(copy, data))); break; }
             case "pickFolder":
             {
@@ -95,6 +98,14 @@ public class VoucherCloneForm : WebDialogForm
                 break;
             }
             case "openFolder": OpenFolder(S("path")); break;
+            case "openSql":
+            {
+                var script = S("script");
+                var sys = msg.TryGetProperty("sys", out var sp) && sp.ValueKind == JsonValueKind.True;
+                var title = S("title");
+                BeginInvoke(new Action(() => OpenSqlRequested?.Invoke(script, sys, title)));
+                break;
+            }
             case "openViewer": { var p = S("path"); BeginInvoke(new Action(() => OpenInViewer(p))); break; }
         }
     }
@@ -105,6 +116,7 @@ public class VoucherCloneForm : WebDialogForm
         var spec = new VoucherCloneSpec
         {
             SrcCode = S("srcCode"), SrcSysId = S("srcSysId"), SrcTitleV = S("srcTitleV"), SrcTitleE = S("srcTitleE"), SrcTableNo = S("srcTableNo"),
+            SrcNoPartition = s.TryGetProperty("srcNoPartition", out var np) && np.ValueKind == JsonValueKind.True,
             DstCode = S("dstCode"), DstSysId = S("dstSysId"), DstPrefix = S("dstPrefix"), DstTitleV = S("dstTitleV"), DstTitleE = S("dstTitleE"),
             NewTables = s.TryGetProperty("newTables", out var n) && n.ValueKind == JsonValueKind.True, DstTableNo = S("dstTableNo"),
             SrcApprove = S("srcApprove"), DstApprove = S("dstApprove"), DstApproveController = S("dstApproveController"), SrcNotify = S("srcNotify"), DstNotify = S("dstNotify"),
@@ -264,6 +276,7 @@ public class VoucherCloneForm : WebDialogForm
             {
                 files = files.Select(f => new { rel = f, target = VoucherCloneService.TargetPath(f, spec), text = data.Tree.Text(f) != null, backup = VoucherCloneService.IsBackupOf(f, spec.SrcSysId) }),
                 kept = spec.KeepEntities.OrderBy(k => k, StringComparer.OrdinalIgnoreCase),
+                approval = new { src = spec.SrcAction, dst = spec.DstAction, files = VoucherCloneService.ApprovalFiles(data.Tree, spec).Select(a => Path.GetFileName(a.Rel)) },
                 registry = registry.Select(r => new { rel = r.Rel, added = r.Added }),
                 refs = refs.Select(r => new { rel = r.Rel, exists = r.Exists, specific = r.Specific }),
                 controllers,
@@ -308,13 +321,17 @@ public class VoucherCloneForm : WebDialogForm
             // Chạy ngoài luồng giao diện: file chưa đọc lần nào thì phải qua mạng.
             var result = await Task.Run(() =>
             {
-                if (data.Tree.Text(rel) is not { } text) return "(file nhị phân — chép nguyên)";
+                if (data.Tree.Text(rel) is not { } text) return ("(file nhị phân — chép nguyên)", new List<int>());
                 Prepare(data, spec);
-                if (kind == "registry") VoucherCloneService.AddRegistryLines(source, rel, text, spec, out text);
-                else if (kind != "asis") text = VoucherCloneService.Transform(text, spec);
-                return text;
+                if (kind == "registry")
+                {
+                    VoucherCloneService.AddRegistryLines(source, rel, text, spec, out var added);
+                    return (added, VoucherCloneService.ChangedLines(text, added));
+                }
+                if (kind != "asis") text = VoucherCloneService.Transform(text, spec);
+                return (text, new List<int>());
             });
-            Js($"vc.onPreview({J(rel)}, {J(result)})");
+            Js($"vc.onPreview({J(rel)}, {J(result.Item1)}, {J(result.Item2)})");
         }
         catch (Exception ex) { Js($"vc.onPreview({J(rel)}, {J("Không đọc được: " + ex.Message)})"); }
     }
@@ -333,9 +350,9 @@ public class VoucherCloneForm : WebDialogForm
             // freecolumns khai theo controller của chứng từ: {SysID}, {tiền tố}Detail / Tax / Charge / Deductible (như gói FCode).
             var controllers = new[] { spec.SrcPrefix + "Detail", spec.SrcSysId, spec.SrcPrefix + "Tax", spec.SrcPrefix + "Charge", spec.SrcPrefix + "Deductible" };
             var blocks = await _sql.ConfigBlocksAsync(spec, controllers, S("srcApprove"), S("dstApprove"));
-            var tables = spec.SrcTableNo.Length > 0 ? await _sql.SourceTablesAsync(spec.SrcTableNo) : new List<string>();
+            var tables = spec.SrcTableNo.Length > 0 ? await _sql.SourceTablesAsync(spec.SrcTableNo, spec.SrcNoPartition) : new List<string>();
             var tableScript = spec.NewTables && spec.DstTableNo.Length > 0 && tables.Count > 0 ? await _sql.NewTablesScriptAsync(tables, spec) : "";
-            var taken = spec.NewTables && spec.DstTableNo.Length > 0 ? await _sql.SourceTablesAsync(spec.DstTableNo) : new List<string>();
+            var taken = spec.NewTables && spec.DstTableNo.Length > 0 ? await _sql.SourceTablesAsync(spec.DstTableNo, spec.SrcNoPartition) : new List<string>();
 
             // App: tạo bảng → cấu hình → sysgendata + tạo các kỳ (như thứ tự gói FCode). Sys: cấu hình.
             var split = tableScript.IndexOf("DELETE sysgendata", StringComparison.Ordinal);
@@ -362,8 +379,32 @@ public class VoucherCloneForm : WebDialogForm
     // ---- Bước 5: menu -----------------------------------------------------------------------------------
 
     /// <summary>Mở form WCOMMAND (New) chép từ menu của chứng từ nguồn, đổi tên / link / sysid / syscode sang chứng từ mới. Chỉ ghi DB khi bấm Save.</summary>
-    private async Task MenuAsync(VoucherCloneSpec spec, string mainTarget)
+    /// <summary>Cây menu web (wcommand) của bước 5 để chọn vị trí menu mới.</summary>
+    private async Task LoadMenusAsync()
     {
+        try
+        {
+            var flat = new List<WCommandItem>();
+            void Walk(IEnumerable<WCommandItem> items) { foreach (var x in items) { flat.Add(x); Walk(x.Children); } }
+            Walk(await _wcommand.LoadTreeAsync());
+            Js($"vc.onMenuTree({J(flat.Where(x => !x.IsAppCommand).OrderBy(m => m.WMenuId, StringComparer.Ordinal).Select(m => new
+            {
+                id = m.WMenuId, parent = m.WMenuId0, bar = m.Bar, bar2 = m.Bar2, link = m.Link, menuId = m.MenuId,
+            }))})");
+        }
+        catch (Exception ex) { Js($"vc.onMenuTree([], {J("Không đọc được wcommand: " + ex.Message)})"); }
+    }
+
+    /// <summary>
+    /// Mở form WCOMMAND điền sẵn từ menu chứng từ nguồn. Vị trí do trang tính từ cây: parentId = menu cha; seedId / seedMenuId = menu cùng nhánh
+    /// để form gợi ý id đúng nhánh mới (không gửi = giữ vị trí menu nguồn). Đọc <paramref name="msg"/> trước await: JsonElement không sống qua lượt xử lý.
+    /// </summary>
+    private async Task MenuAsync(VoucherCloneSpec spec, string mainTarget, JsonElement msg)
+    {
+        string? Opt(string n) => msg.TryGetProperty(n, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
+        var parentId = Opt("parentId");
+        var seedId = Opt("seedId");
+        var seedMenuId = Opt("seedMenuId");
         try
         {
             var existing = await _wcommand.FindByControllerAsync(spec.DstSysId);
@@ -392,6 +433,9 @@ public class VoucherCloneForm : WebDialogForm
                     var page = link.Split('?')[0].Trim();   // không có file Main mới (bỏ tick / Main dùng chung): giữ trang của menu nguồn
                     template.Link = (mainTarget.Length > 0 ? Path.GetFileName(mainTarget) : page.Length > 0 ? page : spec.DstSysId + ".aspx") + query;
                     template.Parameter = VoucherCloneService.TransformMenu(template.Parameter ?? "", spec);
+                    if (parentId != null) template.WMenuId0 = parentId;
+                    if (seedId != null) template.WMenuId = seedId;
+                    if (seedMenuId != null) template.MenuId = seedMenuId;
                 }
                 using var form = new WCommandEditForm(_wcommand, edit, template, _connections.Current?.SourcePath);
                 form.ShowDialog(this);
@@ -441,6 +485,7 @@ public class VoucherCloneForm : WebDialogForm
         {
             Prepare(data, spec, files.Select(f => f.Rel));
             var targets = files.Select(f => Path.Combine(webRoot, f.Target)).Concat(registry.Select(r => Path.Combine(webRoot, r)))
+                .Concat(VoucherCloneService.ApprovalFiles(data.Tree, spec).Select(a => Path.Combine(webRoot, a.Rel)))
                 .Concat(direct ? Enumerable.Empty<string>() : copies.Select(r => Path.Combine(webRoot, r))).ToList();
             var existing = targets.Where(File.Exists).ToList();
             if (existing.Count > 0)
@@ -452,6 +497,7 @@ public class VoucherCloneForm : WebDialogForm
 
             var written = VoucherCloneService.WriteFiles(source, webRoot, files, spec);
             written.AddRange(VoucherCloneService.WriteRegistry(source, webRoot, registry, spec));
+            written.AddRange(VoucherCloneService.WriteApprovalFiles(data.Tree, webRoot, spec));
             if (!direct) written.AddRange(VoucherCloneService.CopyAsIs(source, webRoot, copies));
 
             void Script(string sub, string name, string text)

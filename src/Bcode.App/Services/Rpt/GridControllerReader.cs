@@ -86,9 +86,10 @@ public class GridControllerReader
     private static ControllerInfo Empty(string name, string note) =>
         new(name, "", "", new(), new(StringComparer.OrdinalIgnoreCase), null, null, note.Trim());
 
-    private record Parsed(string Name, Dictionary<string, string> Attrs, string V, string E);
+    internal record Parsed(string Name, Dictionary<string, string> Attrs, string V, string E);
 
-    private static List<Parsed> ParseFields(string xml)
+    /// <summary>Các &lt;field&gt; trong khối &lt;fields&gt; đầu tiên (Grid / Dir / Filter) — dùng chung cho Check Fields của SQL Query (<see cref="ResultFieldChecker"/>).</summary>
+    internal static List<Parsed> ParseFields(string xml)
     {
         var list = new List<Parsed>();
         var block = FieldsBlock.Match(xml);

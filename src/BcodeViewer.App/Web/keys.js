@@ -75,6 +75,7 @@ const BCODE_COMMANDS = [
   ['Công cụ', 'tool.refreshWebConfig', 'Reset WebConfig', '', () => window.bcodeShell && window.bcodeShell.cmd('refreshWebConfig')],
   ['Công cụ', 'tool.translateDict', 'Từ điển dịch (Việt → Anh)', '', () => window.bcodeDialogs.showTranslateDictionary()],
   ['Công cụ', 'tool.checkField', 'Check Field (đối chiếu <fields> với <views>)', '', () => window.bcodeCheckField && window.bcodeCheckField.toggle()],
+  ['Công cụ', 'tool.checkFieldSql', 'Check SQL (chạy câu SQL, đối chiếu cột trả ra với <fields> của Grid)', '', () => window.bcodeCheckField && window.bcodeCheckField.checkSql()],
 
   // Nhóm nút trên thanh công cụ (Web/toolbar.js): Alt+N thả menu của nhóm thứ N tính từ trái — như Alt+1…5 của Bcode.
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ['Thanh công cụ', 'bar.group' + n, 'Mở nhóm nút thứ ' + n + ' trên thanh công cụ', n <= 5 ? 'Alt+' + n : '',

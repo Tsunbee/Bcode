@@ -107,6 +107,9 @@ public partial class ScriptEditorControl : UserControl
 
     public event Action? DirtyChanged;
 
+    /// <summary>Phím file.save (mặc định Ctrl+S) trong khung — nơi mở tab gắn file (MainForm.OpenFileInScriptTab) ghi file. Không ai nghe thì phím đi tiếp như cũ.</summary>
+    public event Action? SaveRequested;
+
     /// <summary>Raised when the user clicks ✕ to hide the "(nội dung tạm)" bar —
     /// MainForm listens to this to remember the choice (AppSettings.ShowTempContentBar)
     /// so newly opened generated-content tabs stay collapsed too.</summary>
@@ -295,7 +298,21 @@ public partial class ScriptEditorControl : UserControl
 
         _textBox.KeyDown += (_, e) =>
         {
-            if (e.KeyCode == Keys.F12)
+            // Phím cấu hình được (Template → Phím tắt → "Khung xem file"), kiểm trước F12 / Ctrl+F… vì có thể trùng tổ hợp.
+            var combo = Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData);
+            if (combo is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("file.openInViewer"))
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                OpenInViewerAtCaret();
+            }
+            else if (combo is not null && SaveRequested is not null && combo == Bcode.App.UI.ShortcutRegistry.Get("file.save"))
+            {
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+                SaveRequested.Invoke();
+            }
+            else if (e.KeyCode == Keys.F12)
             {
                 e.Handled = true;
                 e.SuppressKeyPress = true;
@@ -945,6 +962,34 @@ public partial class ScriptEditorControl : UserControl
             ? new F12Result(file, null, null, null, null, false)
             : new F12Result(null, null, null, null, $"Entity \"{name}\" khai báo trỏ tới file không tồn tại:\n{fullPath}"
                 + (string.IsNullOrWhiteSpace(prog) ? "" : $"\n\nĐã tìm cả trong Program Path của dự án đang chọn:\n{prog}"), true);
+    }
+
+    /// <summary>Phím file.openInViewer (mặc định Ctrl+F12): file mà F12 tại <paramref name="caretIndex"/> sẽ đi tới, để mở bằng BcodeViewer —
+    /// entity SYSTEM / đường dẫn Include → file đó; entity giá trị → file khai báo nó; con trỏ không ở entity → chính file đang xem
+    /// (<paramref name="currentPath"/>, không có trên đĩa — vd cửa sổ xem giá trị entity — thì file khai báo <paramref name="basePath"/>).
+    /// null + <paramref name="message"/> = không có file để mở (F12 báo lỗi, hoặc khung không gắn với file nào).</summary>
+    internal static string? ResolveViewerTarget(string text, int caretIndex, string? basePath, string? currentPath, out string? message, out bool isWarning)
+    {
+        message = null;
+        isWarning = false;
+        var r = ResolveF12(text, caretIndex, basePath);
+        if (r.NavigatePath is { } target) return target;
+        if (r.PeekName is not null && r.PeekDeclaringPath is { } declaring) return declaring;
+        // Entity khai báo trỏ tới file không có → báo như F12. "Không tìm thấy khai báo" (con trỏ ở chữ thường) → mở chính file như dưới.
+        if (r.Message is { } msg && r.IsWarning) { message = msg; isWarning = true; return null; }
+        if (!string.IsNullOrEmpty(currentPath) && File.Exists(currentPath)) return currentPath;
+        if (!string.IsNullOrEmpty(basePath) && File.Exists(basePath)) return basePath;
+        message = "Khung này không gắn với file nào trên đĩa — không có gì để mở bằng BcodeViewer.";
+        return null;
+    }
+
+    /// <summary>Ctrl+F12 (file.openInViewer) trong khung này: mở bằng BcodeViewer file F12 sẽ đi tới (<see cref="ResolveViewerTarget"/>).</summary>
+    private void OpenInViewerAtCaret()
+    {
+        var path = ResolveViewerTarget(_textBox.Text, _textBox.SelectionStart, _entityResolveBasePath, CurrentPath, out var msg, out var warn);
+        if (path is not null) Bcode.App.Services.ViewerLauncher.Open(FindForm(), path);
+        else if (msg is not null)
+            MessageBox.Show(this, msg, "Bcode", MessageBoxButtons.OK, warn ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
     }
 
     // ---- Ctrl+G "Go to" — hộp giống hệt BcodeViewer (GoToBox.cs = bản C# của BcodeViewer.App/Web/goto.js) ----

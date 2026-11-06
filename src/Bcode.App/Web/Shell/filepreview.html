@@ -85,6 +85,19 @@
 
     let editor = null;
     let pending = null;
+    let viewerKey = 'Ctrl+F12';
+    // Tổ hợp phím dạng ShortcutRegistry ("Ctrl+Alt+Shift+F12") — cùng cách đọc với comboOf của uitemplate.html.
+    const NAMED_KEYS = { Tab: 'Tab', Enter: 'Enter', NumpadEnter: 'Enter', Space: 'Space', Backspace: 'Backspace', Delete: 'Delete', Insert: 'Insert', Home: 'Home', End: 'End',
+      PageUp: 'PageUp', PageDown: 'PageDown', ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', Backquote: '`', Minus: '-', Equal: '=',
+      BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/' };
+    function comboOf(e) {
+      const c = e.code || ''; let k = null;
+      if (/^Key[A-Z]$/.test(c)) k = c.charAt(3); else if (/^Digit[0-9]$/.test(c)) k = c.charAt(5);
+      else if (/^F([1-9]|1[0-9]|2[0-4])$/.test(c)) k = c; else if (NAMED_KEYS[c]) k = NAMED_KEYS[c];
+      if (!k || e.metaKey) return null;
+      const m = []; if (e.ctrlKey) m.push('Ctrl'); if (e.altKey) m.push('Alt'); if (e.shiftKey) m.push('Shift'); m.push(k);
+      return m.join('+');
+    }
 
     function showMessage(text) {
       const el = document.getElementById('message');
@@ -117,7 +130,9 @@
       if (!msg) return;
       switch (msg.type) {
         case 'theme': window.bcodeTheme.apply(msg.theme || window.bcodeTheme.theme); if (editor) editor.updateOptions({ fontFamily: window.bcodeTheme.fontFamily }); break;
-        case 'load': case 'message': load(msg); break;
+        case 'load': case 'message':
+          if (typeof msg.viewerKey === 'string') viewerKey = msg.viewerKey;   // phím file.openInViewer hiện hành (Template → Phím tắt), rỗng = tắt
+          load(msg); break;
         case 'find': if (editor) { editor.focus(); editor.getAction('actions.find').run(); } break;
         case 'reveal':
           if (editor && editor.getModel()) {
@@ -195,6 +210,16 @@
       };
       editor.addCommand(monaco.KeyCode.F12, () => f12(editor.getPosition(), true));
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => f12(editor.getPosition(), false));
+      // Phím file.openInViewer (mặc định Ctrl+F12): host mở bằng BcodeViewer file mà F12 tại con trỏ sẽ đi tới. Bắt ở pha capture của window
+      // (trước keybinding của Monaco) nên thắng lệnh Ctrl+F12 = F12 ở trên; đổi sang phím khác thì Ctrl+F12 lại như F12 như cũ.
+      window.addEventListener('keydown', (e) => {
+        if (!viewerKey || !editor || comboOf(e) !== viewerKey) return;
+        if (!document.activeElement || !editor.getDomNode().contains(document.activeElement)) return;   // chỉ khi con trỏ ở editor (không phải hộp Ctrl+G…)
+        const model = editor.getModel(), pos = editor.getPosition();
+        if (!model || !pos) return;
+        e.preventDefault(); e.stopPropagation();
+        post({ action: 'viewer', offset: model.getOffsetAt(pos) });
+      }, true);
       // Ctrl+G — hộp "Go to" của BcodeViewer (viewer/goto.js: TAG fields / command / script / response / css / ENTITY + DETAIL,
       // tô cam/đỏ mục hay dùng cả trong hộp lẫn trong editor), thay Monaco go-to-line — 2 bên giống hệt nhau.
       // goto.js cần: editor, currentModel, revealPosition và bộ hẹn giờ window.bcodeTyping của Viewer (ở đây chỉ cần hẹn giờ thường).

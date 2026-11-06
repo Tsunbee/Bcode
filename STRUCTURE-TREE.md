@@ -21,6 +21,7 @@ Bcode.App/
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
+│   ├── CheckFieldsPopup.cs  107
 │   ├── CheckMailControl.cs  146
 │   ├── CompareObjectsControl.cs  106
 │   ├── CreateRptControl.cs  225
@@ -44,9 +45,9 @@ Bcode.App/
 │   ├── ISqlTab.cs  63
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
-│   ├── MonacoPreviewControl.cs  256
-│   ├── MonacoPreviewControl.Native.cs  134
-│   ├── MultiResultView.cs  288
+│   ├── MonacoPreviewControl.cs  273
+│   ├── MonacoPreviewControl.Native.cs  137
+│   ├── MultiResultView.cs  330
 │   ├── NativeAdvanceNoteControl.cs  1222
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
@@ -86,9 +87,9 @@ Bcode.App/
 │   ├── NativePages.SqlHistory.cs  300
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  346
-│   ├── NativeResultPane.cs  303
+│   ├── NativeResultPane.cs  315
 │   ├── NativeShellBars.cs  314
-│   ├── NativeSqlControl.cs  2213
+│   ├── NativeSqlControl.cs  2228
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -98,11 +99,11 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  533
-│   ├── RawSqlControl.cs  2816
+│   ├── RawSqlControl.cs  2828
 │   ├── ResultExport.cs  146
 │   ├── ResultGridMenu.cs  627
 │   ├── SafeTreeView.cs  40
-│   ├── ScriptEditorControl.cs  1087
+│   ├── ScriptEditorControl.cs  1132
 │   ├── ScriptEditorControl.EntityIndex.cs  178
 │   ├── SetupEInvoiceControl.cs  164
 │   ├── SnippetSession.cs  202
@@ -160,7 +161,7 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  131
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  4413
+│   ├── MainForm.cs  4467
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
@@ -223,7 +224,7 @@ Bcode.App/
 │   │   └── PostmanConverter.cs  349
 │   ├── Rpt/
 │   │   ├── ExcelTemplateWriter.cs  84
-│   │   ├── GridControllerReader.cs  112
+│   │   ├── GridControllerReader.cs  113
 │   │   ├── PivotDetector.cs  142
 │   │   ├── PivotRules.cs  93
 │   │   ├── PivotXlsxWriter.cs  286
@@ -317,6 +318,7 @@ Bcode.App/
 │   ├── RawSqlService.cs  390
 │   ├── ReportBuilderModule.cs  71
 │   ├── ResultExportService.cs  271
+│   ├── ResultFieldChecker.cs  161
 │   ├── SchemaCompareService.cs  79
 │   ├── ScriptFileService.cs  69
 │   ├── SessionStore.cs  69
@@ -345,6 +347,7 @@ Bcode.App/
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  70
+│   ├── ViewerLauncher.cs  49
 │   ├── WCommandService.cs  926
 │   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
@@ -368,7 +371,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  58
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  362
+│   ├── ShortcutRegistry.cs  366
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  837
 │   ├── TreeColorOptions.cs  98
@@ -413,7 +416,7 @@ Bcode.App/
 │       ├── fastask.html  371
 │       ├── filelookupbar.html  195
 │       ├── filelookuppreview.html  98
-│       ├── filepreview.html  222
+│       ├── filepreview.html  247
 │       ├── filereference.html  108
 │       ├── findbar.html  60
 │       ├── framehost.html  55
@@ -437,7 +440,7 @@ Bcode.App/
 │       ├── quicklist.html  1666
 │       ├── quickreport.html  1028
 │       ├── reportmodes.html  64
-│       ├── resultview.html  659
+│       ├── resultview.html  661
 │       ├── richreq.js  77
 │       ├── rowdetail.html  83
 │       ├── rptschema.html  112
@@ -454,7 +457,7 @@ Bcode.App/
 │       ├── sqlobjectbar.html  75
 │       ├── sqlpivot.html  117
 │       ├── sqlprofilerbar.html  170
-│       ├── sqlquerybar.html  409
+│       ├── sqlquerybar.html  415
 │       ├── sqlresulttabs.html  53
 │       ├── statusbar.html  75
 │       ├── stepparams.html  43
@@ -538,7 +541,7 @@ BcodeViewer.App/
 │   │   ├── OFL.txt  93
 │   │   └── roboto.css  33
 │   ├── chat.js  83
-│   ├── checkfield.js  468
+│   ├── checkfield.js  621
 │   ├── completion.js  2693
 │   ├── contextmenu.js  1136
 │   ├── dirpreview.js  1257
@@ -553,7 +556,7 @@ BcodeViewer.App/
 │   ├── history.js  489
 │   ├── hostcall.js  106
 │   ├── index.html  236
-│   ├── keys.js  224
+│   ├── keys.js  225
 │   ├── mailpreview.js  718
 │   ├── outline.js  239
 │   ├── perfwatch.js  110
@@ -563,7 +566,7 @@ BcodeViewer.App/
 │   ├── search.js  335
 │   ├── settings.js  773
 │   ├── shell.js  868
-│   ├── sqlrun.js  631
+│   ├── sqlrun.js  635
 │   ├── style.css  1056
 │   ├── tabs.js  249
 │   ├── tabswitcher.js  228

@@ -458,7 +458,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     }
 
     /// <summary>Ctrl + chuột phải vào tên procedure / function / view / trigger (như chế độ Web và FCode): lấy CẢ tên đầy đủ dưới chuột
-    /// (dbo.FastBusiness$Function$X — '$' và '.' là một phần tên) rồi nhờ MainForm tìm object và chèn định nghĩa lên đầu script, script đang gõ nằm dưới GO.</summary>
+    /// (dbo.FastBusiness$Function$X — '$' và '.' là một phần tên) rồi nhờ MainForm tìm object và chèn định nghĩa lên đầu script, script đang gõ nằm dưới GO.
+    /// Tên bảng thì MainForm mở cấu trúc bảng ở tab riêng.</summary>
     private void OnCtrlRightClick(Point at)
     {
         var pos = _ed.CharPositionFromPoint(at.X, at.Y);
@@ -520,7 +521,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         new("uncomment", "Uncomment", "button", _ => ToggleComment(false), null, "editor.uncomment"),
         new("default-type", "Default Type (chữ HOA / thường)", "select", null, null, null),
         new("write-schema", "Write Schema", "button", _ => WriteSchema(), null, "editor.writeSchema"),
-        new("check-fields", "Check Fields", "button", c => { _ = CheckFieldsAsync(); }, null, "editor.checkFields"),
+        new("check-fields", "Check Fields", "button", c => ShowCheckFields(c), null, "editor.checkFields"),
         new("save-history", "Lưu lịch sử", "button", _ => SaveToHistory(), null, "editor.saveHistory"),
         new("history", "Lịch sử sửa procedure / function", "button", _ => BeginInvoke(new Action(OpenSqlHistory)), null, null),
         new("ask-claude", "→ Claude", "button", _ => SendToAi("claude"), null, null),
@@ -707,6 +708,20 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     {
         _resultTabOn = !_resultTabOn;
         RefreshBarToggles();
+    }
+
+    /// <summary>Nút Check Fields (như FCode, giống chế độ Web): ô "Fields" thả xuống dưới nút — dán danh sách field / đường dẫn file Grid → đối chiếu
+    /// với bảng kết quả đang chọn (<see cref="NativeResultPane.CheckFieldsTables"/>); dòng dưới ô vẫn là kiểm script SET NOEXEC ON (<see cref="CheckFieldsAsync"/>).</summary>
+    /// <param name="anchor">Nút trên thanh / nút nhóm đã bấm; null (phím tắt) = góc trái thanh.</param>
+    private void ShowCheckFields(Control? anchor)
+    {
+        Control owner = anchor is { IsHandleCreated: true, Visible: true } ? anchor : _bar;
+        var at = owner == _bar ? new Point(NativeSkin.S(6), _bar.Height) : new Point(0, owner.Height + 2);
+        CheckFieldsPopup.Show(owner, at, input =>
+        {
+            var tables = _results.CheckFieldsTables(out var chosen);
+            CheckFieldsPopup.Report(this, input, tables, chosen);
+        }, () => _ = CheckFieldsAsync());
     }
 
     /// <summary>Check Fields: SET NOEXEC ON rồi chạy thử script để SQL Server báo bảng / cột sai mà không thực thi gì.</summary>
@@ -1410,7 +1425,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("editor.ai")) { ShowAiEdit(); return true; }
             if (combo == ShortcutRegistry.Get("editor.suggest")) { _ = SuggestAsync(explicitCall: true); return true; }
             if (combo == ShortcutRegistry.Get("editor.fastLong")) { ToggleFastGhostLong(); return true; }
-            if (combo == ShortcutRegistry.Get("editor.checkFields")) { _ = CheckFieldsAsync(); return true; }
+            if (combo == ShortcutRegistry.Get("editor.checkFields")) { ShowCheckFields(null); return true; }
             if (combo == ShortcutRegistry.Get("editor.dbApp")) { _db.Select(0, raise: true); return true; }
             if (combo == ShortcutRegistry.Get("editor.dbSys")) { _db.Select(1, raise: true); return true; }
             if (combo == ShortcutRegistry.Get("editor.toggleSuggest")) { ToggleSuggest(); return true; }

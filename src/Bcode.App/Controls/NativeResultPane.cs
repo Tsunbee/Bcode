@@ -41,6 +41,17 @@ public sealed class NativeResultPane : UserControl
 
     public int TableCount => _tables.Count;
 
+    private int _focusedTable = -1;   // bảng có lưới được focus cuối cùng từ lần chạy này (-1 = chưa bấm bảng nào)
+
+    /// <summary>Check Fields (như MultiResultView.CheckFieldsTables của chế độ Web): cột mọi bảng + bảng đang chọn — 1 bảng thì lấy luôn;
+    /// nhiều bảng: "Từng tab" = bảng đang hiện, "Xếp chồng" = bảng bấm vào cuối cùng (-1 = chưa chọn).</summary>
+    public List<List<Bcode.App.Services.ResultFieldChecker.Column>> CheckFieldsTables(out int chosen)
+    {
+        var count = _tables.Count;
+        chosen = count == 1 ? 0 : count > 1 && _mode == "tabs" ? _activeTable : _focusedTable < count ? _focusedTable : -1;
+        return _tables.Select(Bcode.App.Services.ResultFieldChecker.ColumnsOf).ToList();
+    }
+
     public NativeResultPane()
     {
         Dock = DockStyle.Fill;
@@ -131,7 +142,7 @@ public sealed class NativeResultPane : UserControl
     {
         _tables = tables;
         _collapsed.Clear(); _manual.Clear();
-        _activeTable = 0;
+        _activeTable = 0; _focusedTable = -1;
         _tabPills.SuspendLayout();
         _tabPills.Controls.Clear();
         for (var i = 0; i < tables.Count && tables.Count > 1; i++) { var idx = i; _tabPills.Controls.Add(Tab($"Bảng {i + 1} · {tables[i].Rows.Count:N0} dòng", () => ShowTable(idx))); }
@@ -152,6 +163,7 @@ public sealed class NativeResultPane : UserControl
             var idx = i;
             var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false,
                 SelectionMode = DataGridViewSelectionMode.CellSelect, ClipboardCopyMode = DataGridViewClipboardCopyMode.EnableWithoutHeaderText, BorderStyle = BorderStyle.None };
+            grid.Enter += (_, _) => _focusedTable = idx;   // Check Fields: bảng bấm vào cuối cùng
             ResultGridMenu.Attach(grid);
             ResultGridMenu.EnableCopy(grid);   // Ctrl+C 1 ô = giá trị gốc; nhiều ô = TSV chỉ bọc "..." khi cần
             ResultGridMenu.EnableSave(grid, () => _tables.Count > 1 ? $"Bảng {idx + 1}" : null);   // Save as CSV / Excel (.xlsx)

@@ -194,6 +194,7 @@
     const tp = $('tabPills'); tp.style.display = n > 1 && S.mode === 'tabs' ? 'inline-flex' : 'none';
     tp.innerHTML = S.tables.map((t, i) => '<button data-i="' + i + '"' + (i === S.active ? ' class="on"' : '') + '>' + esc(t.name) + ' (' + t.total + ')</button>').join('');
     tp.querySelectorAll('button').forEach((b) => { b.onclick = () => { S.active = +b.dataset.i; render(); }; });
+    post('resultMode', { tabs: n > 1 && S.mode === 'tabs', active: S.active });   // Check Fields: chế độ Từng tab → kiểm bảng đang hiện
 
     const stack = $('stack'); stack.textContent = '';
     if (!n) { stack.innerHTML = '<div id="none">Chưa có kết quả.</div>'; return; }
@@ -233,6 +234,7 @@
       document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
     };
     t.card = card; t.wrap = card.querySelector('.gwrap');
+    card.addEventListener('mousedown', () => post('focusTable', { table: t.idx }), true);   // Check Fields: bảng bấm vào cuối cùng (cả tiêu đề / thanh cuộn)
     // Lưới chỉ vẽ các dòng đang thấy theo chiều cao khung — khung đổi cỡ mà không qua rsz/resize cửa sổ (bảng cuối 'grow'
     // giãn/co khi kéo bảng phía trên, mở/thu gọn bảng khác) thì phải vẽ lại, không sẽ hở trắng phía dưới.
     if (t.ro) t.ro.disconnect();
@@ -289,7 +291,7 @@
     wrap.onkeydown = (e) => keyDown(e, t);
     // Phím copy tên cột (result.copyColumnName, mặc định Ctrl+Shift+C) có thể trùng 1 phím toàn cục người dùng tự gán: lưới đang focus thì báo C# nhường phím này cho trang (MultiResultView → WebViewEnvironment.ClaimKeys).
     wrap.__t = t;
-    wrap.addEventListener('focus', () => post('keys', { claim: true }));
+    wrap.addEventListener('focus', () => { post('keys', { claim: true }); post('focusTable', { table: t.idx }); });   // Check Fields lấy bảng bấm vào cuối cùng
     wrap.addEventListener('blur', () => post('keys', { claim: false }));
   }
   // Script phím toàn cục gắn sẵn ở document (pha capture) chặn tổ hợp toàn cục trước lưới → bắt phím copy tên cột sớm hơn ở window khi phím bấm trong lưới.

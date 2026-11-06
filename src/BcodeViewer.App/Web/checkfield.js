@@ -83,7 +83,7 @@ class BcodeCheckField {
     if (this.panel) return;
     const p = document.createElement('div'); p.id = 'cfPanel';
     p.innerHTML = `
-      <div id="cfHead"><span id="cfTitle">Check Field</span><span class="grow"></span><button id="cfRefresh" title="Đọc lại file đang mở">⟳ Làm mới</button><button id="cfClose" title="Đóng (Esc)">✕ Đóng</button></div>
+      <div id="cfHead"><span id="cfTitle">Check Field</span><span class="grow"></span><button id="cfSql" title="Dán câu SQL (vd exec rs_… của báo cáo), chạy thử (rollback) rồi đối chiếu cột trả ra với &lt;fields&gt; của file này — như Check Fields của Bcode">▶ Check SQL</button><button id="cfRefresh" title="Đọc lại file đang mở">⟳ Làm mới</button><button id="cfClose" title="Đóng (Esc)">✕ Đóng</button></div>
       <div id="cfTabs"><span class="t on" data-t="design">Design</span><span class="t" data-t="header">Header</span><span class="gap"></span>
         <select id="cfFilter" title="Lọc danh sách"><option value="all">Tất cả</option><option value="noview">Chưa có trong View</option><option value="missing">Có trong View nhưng chưa khai báo</option><option value="dupdecl">Khai báo trùng</option><option value="dupview">View trùng</option></select></div>
       <div id="cfBody"></div>
@@ -94,6 +94,7 @@ class BcodeCheckField {
     this.body = p.querySelector('#cfBody');
     p.querySelector('#cfClose').onclick = () => this.close();
     p.querySelector('#cfRefresh').onclick = () => this.refresh();
+    p.querySelector('#cfSql').onclick = () => this.checkSql();
     p.querySelectorAll('#cfTabs .t').forEach((t) => { t.onclick = () => { this.tab = t.dataset.t; p.querySelectorAll('#cfTabs .t').forEach((x) => x.classList.toggle('on', x === t)); this.render(); }; });
     p.querySelector('#cfFilter').onchange = (e) => { this.filter = e.target.value; this.render(); };
     p.querySelector('#cfBarCopy').onclick = () => { this.copy(p.querySelector('#cfBarText').value, 'Đã copy vào clipboard.'); };
@@ -175,6 +176,7 @@ class BcodeCheckField {
         const r = row(n); r.decl++;
         if (r.decl === 1) {
           r.type = f.getAttribute('type') || '';
+          r.external = (f.getAttribute('external') || '').toLowerCase() === 'true';   // Check SQL: field external không lấy từ câu SQL
           r.format = f.getAttribute('dataFormatString') || '';
           const ac = (f.getAttribute('allowContain') || '').toLowerCase(); r.allowContain = ac === 'true' || ac === '1';
           const h = Array.from(f.children).find((x) => x.tagName === 'header');
@@ -218,6 +220,176 @@ class BcodeCheckField {
     this.data = await this.analyze();
     this.sel = new Set([...this.sel].filter((n) => this.data.rows && this.data.rows.some((r) => r.name === n)));
     this.render();
+  }
+
+  // ---- Check SQL: chạy câu SQL rồi đối chiếu cột trả ra với <fields> (như Check Fields của SQL Query bên Bcode) -------------------
+
+  /// <dir id="N"> của Filter cùng tên (…\Grid\X.xml → …\Filter\X.xml|.f) = thứ tự bảng (tính từ 0) mà procedure báo cáo trả ra để đổ lên Grid
+  /// (vd trả 3 bảng 0, 1, 2 — id="1" là bảng thứ 2). null = không phải file trong thư mục Grid / không có Filter / không có id.
+  async filterTableId(path) {
+    const m = /^(.*[\\/])Grid([\\/])([^\\/]+?)\.(xml|f)$/i.exec(path || '');
+    if (!m) return null;
+    for (const ext of ['xml', 'f']) {
+      const p = m[1] + 'Filter' + m[2] + m[3] + '.' + ext;
+      let raw = '';
+      try { raw = String(await window.bcodeHost.call('BeginReadFile', p) || ''); } catch { continue; }
+      if (!raw) continue;
+      const id = /<dir\b[^>]*?\bid\s*=\s*"(\d+)"/i.exec(raw.replace(/<!--[\s\S]*?-->/g, ''));
+      return id ? { id: +id[1], file: 'Filter\\' + m[3] + '.' + ext } : null;
+    }
+    return null;
+  }
+
+  /// Nút "▶ Check SQL": dán câu SQL (exec rs_… của báo cáo / SELECT), chạy bằng đúng phần "Chạy SQL" (câu có EXEC / ghi hỏi trước, mặc định
+  /// ROLLBACK), lấy bảng thứ N (mặc định theo <dir id> của Filter) rồi báo field của <fields> không có trong bảng, sai kiểu, và cột thừa.
+  async checkSql() {
+    if (!this.open) await this.openPanel(); else await this.refresh();
+    const d = this.data;
+    if (!d || d.error || !d.rows) return;   // panel đã hiện lỗi (chưa mở file / không có <fields>)
+    const fields = d.rows.filter((r) => r.decl > 0 && !r.external);
+    if (!fields.length) { this.status('Check SQL: <fields> của file này không có field nào (trừ external) để đối chiếu.'); return; }
+    if (!window.bcodeSqlRun) { this.status('Check SQL: chưa nạp được phần Chạy SQL.'); return; }
+    const path = this.bcode.activePath || '';
+    const fid = await this.filterTableId(path);
+    const ans = await this.askSql(path, fid);
+    if (!ans) return;
+    this.status('Check SQL: đang chạy câu lệnh (kết quả ở khung SQL bên dưới)…');
+    await window.bcodeSqlRun.run({ text: ans.sql, source: 'Check SQL', onResult: (res) => this.showSqlCheck(res, ans.index, fid, fields, path) });
+  }
+
+  askSql(path, fid) {
+    const memo = this._sqlMemo || (this._sqlMemo = new Map());   // câu SQL + số bảng đã dùng theo từng file (trong phiên)
+    const last = memo.get(path) || { sql: '', index: fid ? fid.id : 0 };
+    return new Promise((resolve) => {
+      const dlg = window.bcodeDialogs;
+      const { overlay, body } = dlg.makeDialog('Check SQL — đối chiếu cột SQL với <fields>');
+      overlay.firstChild.style.width = '760px';
+      body.appendChild(dlg.makeLabel('Câu SQL trả dữ liệu cho Grid (vd exec rs_… @ngay_ct1 = \'…\'). Chạy trên WS Bcode đang chọn; câu có EXEC / ghi sẽ hỏi trước và mặc định chạy thử (ROLLBACK). Ctrl+Enter = chạy.'));
+      const area = document.createElement('textarea');
+      area.className = 'dlgTextarea'; area.rows = 10; area.spellcheck = false; area.value = last.sql;
+      body.appendChild(area);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:6px';
+      const lab = dlg.makeLabel('Bảng số (tính từ 0):'); lab.style.margin = '0';
+      const num = document.createElement('input');
+      num.type = 'number'; num.min = '0'; num.value = String(last.index);
+      num.style.cssText = 'width:70px;background:var(--bc-bg);color:var(--bc-text);border:1px solid var(--bc-border);padding:3px 6px;border-radius:3px';
+      const note = dlg.makeLabel(fid ? `theo <dir id="${fid.id}"> của ${fid.file}` : 'không thấy <dir id> ở file Filter cùng tên — mặc định bảng 0');
+      note.style.margin = '0';
+      row.append(lab, num, note);
+      body.appendChild(row);
+      const runBtn = dlg.makeButton('Chạy & đối chiếu', 'primary');
+      const cancelBtn = dlg.makeButton('Hủy');
+      let done = false;
+      const finish = (v) => { if (done) return; done = true; overlay.remove(); resolve(v); };
+      runBtn.onclick = () => {
+        const sql = area.value.trim();
+        if (!sql) { area.focus(); return; }
+        const index = Math.max(0, parseInt(num.value, 10) || 0);
+        memo.set(path, { sql: area.value, index });
+        finish({ sql, index });
+      };
+      cancelBtn.onclick = () => finish(null);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) finish(null); });
+      overlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); }
+        else if (e.key === 'Enter' && (e.ctrlKey || e.target === num)) { e.preventDefault(); runBtn.click(); }
+      });
+      body.appendChild(dlg.makeButtonRow([cancelBtn, runBtn]));
+      document.body.appendChild(overlay);
+      area.focus(); area.select();
+    });
+  }
+
+  /// So <fields> (trừ external) với cột của bảng thứ index — quy tắc như FCode / Bcode Check Fields: không phân biệt hoa thường;
+  /// ten_xx%l = phải có ten_xx và ten_xx2; kiểu: Decimal/Int → cột số, Date/DateTime → cột ngày, Boolean → bit, còn lại → cột chuỗi.
+  showSqlCheck(res, index, fid, fields, path) {
+    const tables = [];
+    const errors = [];
+    for (const b of (res && res.batches) || []) { for (const t of b.tables || []) tables.push(t); if (b.error) errors.push(b.error); }
+    const file = (path.split(/[\\/]/).pop()) || 'file đang mở';
+    const lines = [];
+    if (errors.length) lines.push('Lỗi khi chạy: ' + errors.join(' | '), '');
+    if (!tables.length) { this.showReport('Check SQL', lines.concat('Câu SQL không trả bảng nào để đối chiếu.').join('\r\n'), false); return; }
+    if (index >= tables.length) {
+      this.showReport('Check SQL', lines.concat(`Câu SQL trả ${tables.length} bảng (số 0…${tables.length - 1}) — không có bảng số ${index}.`).join('\r\n'), false);
+      return;
+    }
+    const cols = tables[index].columns || [];
+    const byName = new Map(cols.map((c) => [String(c.name).toLowerCase(), c]));
+    const used = new Set();
+    const NUM = /^(tinyint|smallint|int|bigint|decimal|numeric|money|smallmoney|float|real)$/i, DATE = /^(date|datetime|datetime2|smalldatetime|datetimeoffset)$/i;
+    const kind = (t) => NUM.test(t) ? 'num' : DATE.test(t) ? 'date' : /^bit$/i.test(t) ? 'bool' : 'str';
+    const missing = [], badType = [];
+    let errFields = 0;
+    for (const f of fields) {
+      const before = missing.length + badType.length;
+      let col = null;
+      if (/%l$/i.test(f.name) && f.name.length > 2) {
+        const b = f.name.slice(0, -2);
+        for (const n of [b, b + '2']) { const c = byName.get(n.toLowerCase()); if (c) { used.add(n.toLowerCase()); col = col || c; } else missing.push(n); }
+      } else {
+        col = byName.get(f.name.toLowerCase()) || null;
+        if (col) used.add(f.name.toLowerCase()); else missing.push(f.name);
+      }
+      if (col) {
+        const t = (f.type || '').trim(), k = kind(col.type || '');
+        const want = /^(Decimal|Int32|Int16|Byte)$/i.test(t) ? 'num' : /^(Date|DateTime)$/i.test(t) ? 'date' : /^Boolean$/i.test(t) ? 'bool' : 'str';
+        if (k !== want) badType.push(`${f.name} — Grid khai ${t || 'String'}, cột SQL [${col.name}] là ${col.type}`);
+      }
+      if (missing.length + badType.length > before) errFields++;
+    }
+    const extra = cols.filter((c) => !used.has(String(c.name).toLowerCase())).map((c) => c.name);
+    const n = fields.length;
+    const via = fid && fid.id === index ? ` (theo <dir id="${fid.id}"> của ${fid.file})` : '';
+    lines.push(`${file}: bảng ${index}${via} trong ${tables.length} bảng SQL trả ra · ${cols.length} cột.`);
+    if (!errFields) lines.push(`Fields matched — ${n}/${n} field của <fields> đều có trong bảng, đúng kiểu.`);
+    else {
+      lines.push(`${errFields} field lỗi / ${n} field (khớp ${n - errFields}/${n}).`);
+      if (missing.length) lines.push('', `Not matched (${missing.length}):`, missing.join(', '));
+      if (badType.length) lines.push('', `Sai kiểu (${badType.length}):`, ...badType);
+    }
+    if (extra.length) lines.push('', `Cột SQL không khai báo trong <fields> (${extra.length}) — chỉ để tham khảo:`, extra.join(', '));
+    this.status(errFields ? `Check SQL: ${errFields} field lỗi / ${n}` : `Check SQL: khớp hết ${n}/${n} field`);
+    this.showReport('Check SQL', lines.join('\r\n'), !errFields && !errors.length);
+  }
+
+  /// Hộp kết quả Check SQL: rộng, chữ lấp đầy khung (danh sách cột thừa thường dài); ⛶ Phóng to / bấm đúp tiêu đề = gần cả cửa sổ
+  /// (nhớ trong phiên). Kích thước theo vw/vh → tự theo cửa sổ và DPI.
+  showReport(title, text, ok) {
+    const dlg = window.bcodeDialogs;
+    const { overlay, body } = dlg.makeDialog(title + (ok ? ' — khớp' : ''));
+    const box = overlay.firstChild, header = box.firstChild;
+    const size = () => {
+      const big = !!this._bigReport;
+      box.style.cssText = big
+        ? 'width:96vw;max-width:96vw;height:92vh;display:flex;flex-direction:column'
+        : 'width:min(1100px,94vw);max-width:94vw;height:min(640px,80vh);display:flex;flex-direction:column';
+      zoomBtn.textContent = big ? '🗗 Thu nhỏ' : '⛶ Phóng to';
+    };
+    body.style.cssText = 'flex:1 1 auto;min-height:0';
+    const area = document.createElement('textarea');
+    area.className = 'dlgTextarea'; area.readOnly = true; area.spellcheck = false; area.value = text;
+    area.style.cssText = 'flex:1 1 auto;min-height:0;resize:none;line-height:1.45';
+    body.appendChild(area);
+    const zoomBtn = dlg.makeButton('');
+    zoomBtn.title = 'Phóng to gần cả cửa sổ / thu về (bấm đúp tiêu đề cũng được)';
+    const toggle = () => { this._bigReport = !this._bigReport; size(); };
+    zoomBtn.onclick = toggle;
+    header.style.cursor = 'default'; header.title = 'Bấm đúp để phóng to / thu nhỏ';
+    header.addEventListener('dblclick', toggle);
+    const copyBtn = dlg.makeButton('Copy');
+    const closeBtn = dlg.makeButton('Đóng', 'primary');
+    copyBtn.onclick = () => this.copy(text, 'Đã copy kết quả Check SQL.');
+    closeBtn.onclick = () => overlay.remove();
+    overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); overlay.remove(); } });
+    const row = dlg.makeButtonRow([zoomBtn, copyBtn, closeBtn]);
+    row.style.cssText = 'margin:0;padding:10px 12px;border-top:1px solid var(--bc-border);flex:0 0 auto';
+    zoomBtn.style.marginRight = 'auto';
+    box.appendChild(row);
+    size();
+    document.body.appendChild(overlay);
+    closeBtn.focus();
   }
 
   // ---- hiển thị ----------------------------------------------------------------------------------
@@ -323,6 +495,7 @@ class BcodeCheckField {
 
   onKey(e) {
     if (!this.open) return;
+    if (document.querySelector('.dlgOverlay')) return;   // đang có hộp thoại (Check SQL, Chạy SQL…) đè lên: phím (Esc, Ctrl+C) thuộc về hộp đó
     if (e.key === 'Escape') { if (document.getElementById('cfGoto')) this.closeGoto(); else if (document.getElementById('cfMenu')) this.closeMenu(); else this.close(); e.preventDefault(); e.stopPropagation(); return; }
     if (document.getElementById('cfGoto')) return;     // đang gõ trong hộp Goto: các phím còn lại để hộp tự xử lý
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && !this.inOwnInput(e.target)) { e.preventDefault(); e.stopPropagation(); if (e.shiftKey) this.copyXml(); else this.copyColumn(); return; }   // Ctrl+C = copy giá trị của CỘT đang tô đậm (tên / kiểu / format / XML...); Ctrl+Shift+C và F6 = copy XML <field name="x"/>

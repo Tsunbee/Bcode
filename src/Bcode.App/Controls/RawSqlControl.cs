@@ -345,7 +345,7 @@ public class RawSqlControl : UserControl, ISqlTab
                 case "cancel": CancelRun(); break;
                 case "debug-target": _ = PickDebugTargetAsync(); break;
                 case "write-schema": _ = WriteSchemaAsync(); break;
-                case "check-fields": _ = CheckFieldsAsync(); break;
+                case "check-fields": ShowCheckFields(root2.TryGetProperty("x", out var cfx) && cfx.TryGetInt32(out var cfxi) ? cfxi : 10); break;
                 case "comment": ToggleComment(true); break;
                 case "uncomment": ToggleComment(false); break;
                 case "beauty": BeautyFormat(); break;
@@ -1504,7 +1504,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             case "save": SaveFile(); break;
             case "debug-target": _ = PickDebugTargetAsync(); break;
             case "write-schema": _ = WriteSchemaAsync(); break;
-            case "check-fields": _ = CheckFieldsAsync(); break;
+            case "check-fields": ShowCheckFields(10); break;
             case "comment": ToggleComment(true); break;
             case "uncomment": ToggleComment(false); break;
             case "suggest": case "reset-conn": case "result-tab": case "debug-step": ToggleOption(name); break;
@@ -2372,6 +2372,18 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     }
 
     // ---------------- Check Fields ----------------
+
+    /// <summary>Nút Check Fields (như FCode): ô "Fields" thả xuống dưới nút — dán danh sách field / đường dẫn file Grid → đối chiếu với bảng kết quả
+    /// đang chọn (<see cref="MultiResultView.CheckFieldsTables"/>). Dòng dưới ô vẫn chạy kiểm script bằng SET NOEXEC ON như nút cũ.</summary>
+    /// <param name="x">Mép trái nút trên thanh (px thiết bị, trang gửi kèm); phím tắt thì 10.</param>
+    private void ShowCheckFields(int x)
+    {
+        CheckFieldsPopup.Show(BarControl, new Point(Math.Max(0, x), BarHeight), input =>
+        {
+            var tables = _resultView.CheckFieldsTables(out var chosen);
+            CheckFieldsPopup.Report(BarControl, input, tables, chosen);
+        }, () => _ = CheckFieldsAsync());
+    }
 
     private async Task CheckFieldsAsync()
     {

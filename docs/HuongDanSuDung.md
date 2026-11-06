@@ -13,7 +13,7 @@ Trong Bcode, tài liệu này mở bằng nút **Trợ giúp** trên thanh trên
   - [Chế độ giao diện Web và App](#che-do-giao-dien)
   - [Chọn dự án / workspace](#du-an)
   - [Màn hình chính Bcode](#khung-chinh)
-  - [SQL Query](#sql-query) · [Debug từng bước](#debug-sql) · [Lịch sử SQL](#lich-su-sql) · [Write Schema (.xsd / .rpt)](#write-schema)
+  - [SQL Query](#sql-query) · [Check Fields](#check-fields) · [Debug từng bước](#debug-sql) · [Lịch sử SQL](#lich-su-sql) · [Write Schema (.xsd / .rpt)](#write-schema)
   - [Table](#table) · [Lookup](#command-lookup) · [SQL Object, Ai đang dùng, So sánh](#sql-object)
   - [WCommand](#wcommand) · [Mobile](#mobile) · [File Lookup](#file-lookup) · [Cấp source, Copy to, Clone](#cap-source)
   - [Gen Update](#gen-update) · [Note và Note (New)](#note) · [BcodeNote (nhiều dự án)](#bcodenote) · [Create RPT & XML, Tạo báo cáo](#create-rpt)
@@ -22,7 +22,7 @@ Trong Bcode, tài liệu này mở bằng nút **Trợ giúp** trên thanh trên
 - **Phần II — BcodeViewer**
   - [Màn hình chính](#viewer-giao-dien) · [Mở, lưu file và lịch sử](#viewer-mo-file) · [IntelliSense](#viewer-intellisense)
   - [F12 / Peek entity và điều hướng](#viewer-entity) · [Problems, tìm / thay](#viewer-problems) · [Xem trước Dir (Alt+P)](#viewer-dir-preview)
-  - [Chạy SQL](#viewer-sql) · [Ctrl+Tab](#viewer-tab) · [Settings và phím tắt](#viewer-settings) · [AI](#viewer-ai) · [Liên kết với Bcode](#viewer-bcode) · [Lỗi hay gặp](#viewer-loi)
+  - [Chạy SQL](#viewer-sql) · [Check SQL](#viewer-check-sql) · [Ctrl+Tab](#viewer-tab) · [Settings và phím tắt](#viewer-settings) · [AI](#viewer-ai) · [Liên kết với Bcode](#viewer-bcode) · [Lỗi hay gặp](#viewer-loi)
 - **Phụ lục**
   - [Bảng phím tắt tổng hợp](#phim-tat-tong-hop) · [Dữ liệu lưu ở đâu](#du-lieu)
 
@@ -297,7 +297,7 @@ Trên ảnh: **①** ▶ Execute · **②** ✦ Beauty · **③** Script ▾ (Wr
 | `F7` | **Beauty** — định dạng lại đoạn chọn (đoạn mới vẫn được bôi đen) / cả script; `Ctrl+Z` quay về đúng bản trước khi Beauty (Default Type, nạp bản từ Lịch sử cũng vậy) |
 | `F12` | Xem nhanh (peek) object dưới con trỏ hoặc mọi tên trong đoạn chọn (tối đa 40): bảng → cấu trúc, procedure / function / view / trigger → code. Tìm database đang chọn trước, rồi database kia. (Chế độ App: mở sang tab mới.) Đứng trên **biến** `@x` thì khung peek hiện cả script, cuộn tới **chỗ khai báo** (tham số store hoặc `DECLARE`) trong lô hiện tại và tô xanh dòng đó. |
 | `Ctrl+F12` | Mở object dưới con trỏ sang tab SQL Query mới |
-| `Ctrl`+chuột phải lên tên procedure / function | Chèn định nghĩa của nó lên **đầu script** + `GO` (đã có thì nhảy tới); `Ctrl+Z` để bỏ |
+| `Ctrl`+chuột phải lên tên procedure / function / view | Chèn định nghĩa của nó lên **đầu script** + `GO` (đã có thì nhảy tới); `Ctrl+Z` để bỏ. Lên tên **bảng** (`dmkh`, `dbo.dmkh`, `[dmkh]`) thì mở **cấu trúc bảng** (CREATE TABLE, khối DROP để trong comment) sang tab riêng như "Mở định nghĩa" ở cây SQL Object. Tìm database đang chọn của tab trước, không có mới tìm database kia |
 | `Ctrl+I` | AI sửa / sinh SQL theo yêu cầu (gõ yêu cầu, `Ctrl+Enter` gửi, xem lại rồi **Insert**). Cần API key: ⚙ Options → Cấu hình Claude / Gemini API Key. |
 | `Alt+\` | Gọi gợi ý AI (ghost text) ngay |
 | `Alt+Shift+\` | Đổi gợi ý Fast dài ⇄ ngắn (mặc định dài) rồi gợi ý lại ngay — không AI |
@@ -305,11 +305,32 @@ Trên ảnh: **①** ▶ Execute · **②** ✦ Beauty · **③** Script ▾ (Wr
 | `Ctrl+Alt+H` | Lưu đoạn chọn / script vào **Lịch sử SQL** |
 | `Alt+Z` | Bật / tắt tự xuống dòng |
 | Bấm lề trái | Đặt breakpoint (dùng cho Debug từng bước) |
-| Check Fields | Kiểm tra mọi bảng / cột trong script có tồn tại (chạy `SET NOEXEC ON`, không chạy thật) |
+| Check Fields | Đối chiếu danh sách field với **bảng kết quả đang chọn** (như FCode) — xem [Check Fields](#check-fields) bên dưới |
 
 Chuột phải trong editor: snippet theo nhóm (Library), Cut / Copy / Paste, Beauty Format; khi có vùng chọn: **Change Field to:** MAX / MIN / SUM / COUNT / AVG, **Alias** (gắn / bỏ tiền tố a., b.…), ISNULL…; Hỏi AI.
 
 > **Lưu ý:** `Ctrl` + lăn chuột (hoặc ⚙ Tùy chọn → Tăng / Giảm cỡ chữ) đổi cỡ chữ editor, `Ctrl+0` về mặc định.
+
+<a id="check-fields"></a>
+### Check Fields — field có khớp với bảng kết quả không
+
+Dùng khi cần biết các field (của Grid, của yêu cầu…) có đúng tên cột mà câu SQL trả ra không — như nút Check Fields của FCode.
+
+1. Chạy câu lệnh / procedure (`F5`) cho ra bảng kết quả.
+2. Có **nhiều bảng**: bấm vào bảng cần kiểm (chế độ **Từng tab** thì lấy bảng đang hiện). Chỉ 1 bảng thì không cần.
+3. Bấm **Check Fields** (Web: nhóm **✎ Script ▾**; App: nút trên thanh / nhóm Script) → ô **Fields** thả xuống dưới nút.
+4. Dán danh sách field, ví dụ `ma_vt, ten_vt, ten_khach_hang`, rồi `Enter` hoặc ✓.
+
+Bcode báo **Not matched (k/n)** kèm các field không có trong bảng và **Khớp m/n field**; khớp hết thì báo **Matched**.
+
+- Tách field theo dấu phẩy, chấm phẩy, xuống dòng, Tab hoặc khoảng trắng (dán cả cột copy từ Excel được). Bỏ `[ ]`, nháy, dấu `~`, tiền tố bí danh (`a.ma_kh` → `ma_kh`); không phân biệt hoa thường.
+- `ten_kh%l` = phải có cả `ten_kh` và `ten_kh2`.
+- Dán **đường dẫn file Grid / Dir / Filter** (`.xml` / `.f`) thay cho danh sách → Bcode lấy các `<field name>` trong `<fields>` của file (bỏ `external="true"` và phần đã comment) để đối chiếu, kèm kiểm **kiểu**: `Decimal` / `Int` phải là cột số, `Date` / `DateTime` là cột ngày, `Boolean` là cột bit, còn lại là cột chuỗi.
+- File Grid mà kết quả có nhiều bảng: Bcode tự lấy bảng theo `<dir id="N">` của file **Filter cùng tên** (N tính từ 0 — procedure trả 3 bảng 0, 1, 2 thì `id="1"` là bảng thứ 2), không cần bấm chọn bảng.
+- Dòng **Kiểm bảng / cột trong script (SET NOEXEC ON)** dưới ô Fields giữ chức năng cũ của nút: kiểm mọi bảng / cột trong script có tồn tại mà không chạy thật.
+- Ô Fields nhớ chữ đã gõ cho lần mở sau. Gán phím tắt: Template → Phím tắt → **Check Fields** (mặc định chưa có phím).
+
+> **Lưu ý:** việc đối chiếu chỉ so tên cột của kết quả đã có trong Bcode — không chạy gì thêm xuống SQL Server, không ảnh hưởng tốc độ báo cáo. Chưa chạy gì thì báo "Chưa có bảng kết quả".
 
 <a id="hoi-fast"></a>
 ## Hỏi Fast — chat tra kiến thức Fast (không AI)
@@ -693,9 +714,9 @@ Trên ảnh: **①** Path + Load · **②** loại file · Only Show · SearchBo
    **Duyệt tự do**: gõ Path rồi **Load**. (Đổi dự án xong cây chưa quét — chọn menu hoặc bấm Load.)
    File tạo **ngoài Bcode** — tạo tay trong Explorer, copy vào, biên dịch `Filter\X.xml` ra `X.f` bằng FCode / BcodeViewer, `git pull`, người khác deploy… — hiện ngay ở lần bấm menu (hoặc lần tìm) kế tiếp, kể cả file nằm trong thư mục mới; file bị xoá / đổi tên cũng tự mất khỏi cây. Không cần `F5`: mỗi lần lọc Bcode chỉ hỏi giờ sửa của các thư mục (rất nhanh) và chỉ đọc lại thư mục nào vừa thay đổi.
    > Share mạng: Windows có thể nhớ giờ thư mục vài giây, nên file người khác vừa tạo trên server có khi phải chờ chừng 10 giây mới hiện. `F5` trên cây (hoặc **Load**) vẫn quét lại toàn bộ như trước.
-2. Bấm một file → khung xem trước (Monaco, chỉ đọc) bên phải, kèm "Last Modified". Khung theo theme sáng / tối của Bcode và đổi ngay khi đổi theme; theme BcodeViewer đang dùng cùng sáng / tối với Bcode thì tô màu y như BcodeViewer. `F12` trên `&Entity;` để peek nội dung entity — tìm trong cả cây Include của file (không giới hạn số cấp), kể cả F12 bên trong giá trị entity đang peek hay trong file .txt/.ent vừa mở ra từ F12 (vẫn thấy entity khai báo ở file Dir/Grid cha). Mở file xong Bcode đọc sẵn cây Include ở nền, các lần F12 sau gần như tức thì; `Ctrl+F` tìm trong file; `Ctrl+G` hộp **Go to** giống hệt BcodeViewer (TAG fields / command / script / response / css / ENTITY — DETAIL, tô cam/đỏ command Inserted/Updated, `on$…$ExecuteCommand` / `ResponseComplete`, `onChange$Grid…`, cả trong hộp lẫn trong khung xem — chế độ Web và App như nhau).
+2. Bấm một file → khung xem trước (Monaco, chỉ đọc) bên phải, kèm "Last Modified". Khung theo theme sáng / tối của Bcode và đổi ngay khi đổi theme; theme BcodeViewer đang dùng cùng sáng / tối với Bcode thì tô màu y như BcodeViewer. `F12` trên `&Entity;` để peek nội dung entity — tìm trong cả cây Include của file (không giới hạn số cấp), kể cả F12 bên trong giá trị entity đang peek hay trong file .txt/.ent vừa mở ra từ F12 (vẫn thấy entity khai báo ở file Dir/Grid cha). Mở file xong Bcode đọc sẵn cây Include ở nền, các lần F12 sau gần như tức thì. **`Ctrl+F12`** = mở bằng **BcodeViewer** để sửa đúng file mà F12 sẽ đi tới: `&Entity;` SYSTEM / đường dẫn Include → file đó; entity giá trị → file khai báo nó; con trỏ ở chữ thường → chính file đang xem (cũng dùng được trong cửa sổ xem mở ra từ F12 và trong tab mở file; lần đầu chưa khai đường dẫn BcodeViewer thì Bcode hỏi BcodeViewer.exe; đổi phím ở Template → Phím tắt → "Khung xem file"); `Ctrl+F` tìm trong file; `Ctrl+G` hộp **Go to** giống hệt BcodeViewer (TAG fields / command / script / response / css / ENTITY — DETAIL, tô cam/đỏ command Inserted/Updated, `on$…$ExecuteCommand` / `ResponseComplete`, `onChange$Grid…`, cả trong hộp lẫn trong khung xem — chế độ Web và App như nhau).
 3. File **tô đỏ** = thiếu entity / include: chọn file để xem danh sách "✖ …" bị thiếu. Dòng trạng thái: "Kết quả n file(s) — ⚠ k file lỗi entity/include…".
-4. **Edit in BcodeViewer** (hoặc double-click file) để sửa. Lần đầu Bcode hỏi đường dẫn BcodeViewer.exe. File `.rpt` / `.xlsx` mở bằng chương trình Windows.
+4. **Edit in BcodeViewer** (hoặc double-click file) để sửa. Lần đầu Bcode hỏi đường dẫn BcodeViewer.exe. File `.rpt` / `.xlsx` mở bằng chương trình Windows. Double-click khi **chưa** khai BcodeViewer thì file mở ở tab mới của Bcode: sửa xong bấm **`Ctrl+S`** để lưu (dòng trạng thái báo "Đã lưu …"). Bcode không ghi đè file trong kho SourceCollection, file `.f` đang mã hoá (`<Encrypted>`) hay file đặt Read-only — có hộp báo lý do.
 5. **Cấp source nhanh**: chọn 1 file `.f` của Dir / Grid / Filter → dòng dưới đường dẫn hiện **Source <phiên bản> · <thư mục trong kho>**: phiên bản của dự án; dự án không có file đó thì tự lùi về **phiên bản thấp hơn gần nhất** có file (chữ màu cam + ↓, rê chuột xem giải thích). Bấm vào nhãn để xem file .xml trong kho (chỉ đọc). Bấm **Cấp source** cạnh nhãn → hỏi xác nhận (báo rõ nếu sẽ ghi đè) rồi chép luôn file đó vào dự án. Nút **Cấp source** ở thanh trên vẫn mở hộp thoại cấp nhiều file như cũ.
 
 ### Tìm nội dung (SearchBox)
@@ -1155,6 +1176,8 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 
 **Cây file File Lookup**: `F2` đổi tên file · `F5` quét lại · `F4` nhân bản tab File Lookup · `Ctrl+C` copy đường dẫn các file đã tick (không tick thì dòng đang chọn) · `Ctrl` + click tick / bỏ tick nhanh.
 
+**Khung xem file** (xem trước File Lookup, cửa sổ xem mở từ F12, tab mở file): `F12` đi tới / peek entity · `Ctrl+F12` mở bằng BcodeViewer đúng file F12 sẽ đi tới (con trỏ ở chữ thường → chính file đang xem) · `Ctrl+S` lưu (chỉ tab mở file — khi chưa khai BcodeViewer) · `Ctrl+F` tìm · `Ctrl+G` Go to.
+
 **Khai báo API**: `Ctrl+Shift+Enter` gửi · `Ctrl+S` lưu · `Ctrl+Shift+T` lấy token · `Ctrl+Shift+F` format · `Ctrl+Shift+K` validate.
 
 <a id="key-ban-quyen"></a>
@@ -1473,6 +1496,19 @@ Không cần mở Alt+P, trong `<views>` của file Dir/Grid:
 4. Kết quả ở bảng **SQL** phía dưới: tối đa 500 dòng mỗi bảng, timeout 60 giây; dòng trạng thái báo thời gian, số dòng, "ĐÃ ROLLBACK" nếu chạy thử. **Copy kết quả** dán thẳng sang Excel; **Dừng** để huỷ khi chạy lâu.
 
 > **Lưu ý:** mặc định Viewer **chặn câu ghi thật** (INSERT / UPDATE / DELETE / EXEC…): chỉ chạy thử rollback được. Muốn ghi thật: Settings → Gợi ý & chạy SQL → tick "Cho phép "Chạy SQL" thực thi câu ghi".
+
+<a id="viewer-check-sql"></a>
+### Check SQL — chạy câu SQL rồi đối chiếu cột với `<fields>` của Grid
+
+Giống **Check Fields** của SQL Query bên Bcode nhưng làm ngay trên file Grid đang mở: biết cột procedure / câu SQL trả ra có khớp `<fields>` của Grid không.
+
+1. Mở file Grid → **⚠ Check** (Check Field) → nút **▶ Check SQL** trên đầu bảng (hoặc gán phím cho "Check SQL" ở Settings → phím tắt).
+2. Dán câu SQL trả dữ liệu cho Grid, ví dụ `exec rs_… @ngay_ct1 = '20260101', …` (Viewer nhớ câu đã dán theo từng file trong phiên). `Ctrl+Enter` = chạy.
+3. **Bảng số (tính từ 0)** tự lấy theo `<dir id="N">` của file **Filter cùng tên** — procedure trả 3 bảng 0, 1, 2 thì `id="1"` là bảng thứ 2. Không có Filter thì mặc định 0, sửa tay được.
+4. Câu lệnh chạy bằng đúng phần **Chạy SQL** ở trên: có EXEC / ghi thì hiện hộp Chạy SQL, mặc định **chạy thử (rollback)** — dữ liệu không đổi. Kết quả vẫn hiện ở bảng **SQL** phía dưới.
+5. Hộp kết quả: **Not matched** (field trong `<fields>` không có trong bảng), **Sai kiểu** (`Decimal` / `Int` phải là cột số, `Date` / `DateTime` cột ngày, `Boolean` cột bit, còn lại cột chuỗi), và **Cột SQL không khai báo trong `<fields>`** (chỉ để tham khảo). Khớp hết thì báo **Fields matched**. Nút **Copy** chép cả nội dung; **⛶ Phóng to** (hoặc bấm đúp tiêu đề hộp) mở hộp gần cả cửa sổ, bấm lại để thu về.
+
+Quy tắc như FCode: không phân biệt hoa thường; `ten_xx%l` phải có `ten_xx` và `ten_xx2`; field `external="true"` và phần đã comment không tính.
 
 ### Debug trong Bcode
 

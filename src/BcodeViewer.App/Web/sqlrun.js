@@ -133,11 +133,13 @@ class BcodeSqlRun {
   // ---- Running --------------------------------------------------------------------------
 
   /// opts.debug: "Debug trong Bcode" — open the prepared script in a Bcode SQL Query tab instead of running it here.
+  /// opts.text / opts.source: chạy câu lệnh được đưa vào (vd dán ở "Check SQL" của Check Field) thay cho câu tại con trỏ.
+  /// opts.onResult(result): gọi khi chạy xong không lỗi kết nối (result.batches[].tables[].columns) — Check Field đối chiếu cột với <fields>.
   async run(opts = {}) {
     if (this.running) return;
     this.dock.show('sqlPanel');
 
-    const picked = this.sqlAtCaret();
+    const picked = opts.text != null ? { text: String(opts.text), source: opts.source || 'SQL' } : this.sqlAtCaret();
     if (!picked || !picked.text.trim()) {
       this.setStatus('Đặt con trỏ trong <command>/<action> hoặc bôi đen câu lệnh rồi bấm Ctrl+Enter.', true);
       return;
@@ -178,7 +180,8 @@ class BcodeSqlRun {
     const params = {};
     for (const name of info.parameters) params[name] = this.paramValues[name] || '';
     if (debug) { await this.sendToBcode(this.applyMacros(sql, macros), info, params, picked.source); return; }
-    await this.execute(this.applyMacros(sql, macros), rollback, notes, picked.source, params);
+    const result = await this.execute(this.applyMacros(sql, macros), rollback, notes, picked.source, params);
+    if (result && opts.onResult) opts.onResult(result);
   }
 
   /// "Debug trong Bcode": the same script this panel would run, made standalone — every parameter
@@ -467,6 +470,7 @@ class BcodeSqlRun {
     this.stopBtn.style.display = 'none';
     this.running = false;
     this.render(result, notes, rollback);
+    return result;
   }
 
   /// Asks the host every so often whether the script has finished.

@@ -129,6 +129,9 @@ public partial class MonacoPreviewControl : UserControl
             case "f12":
                 OnF12(offset, selStart, selEnd);
                 break;
+            case "viewer":   // phím file.openInViewer (mặc định Ctrl+F12) — trang bắt theo tổ hợp gửi kèm lệnh load
+                OnOpenInViewer(offset);
+                break;
             // Ctrl+G không còn qua host: trang dùng hộp "Go to" của BcodeViewer (viewer/goto.js) — xem filepreview.html.
         }
     }
@@ -150,6 +153,20 @@ public partial class MonacoPreviewControl : UserControl
                 result.IsWarning ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
     }
 
+    /// <summary>Phím file.openInViewer (mặc định Ctrl+F12): mở bằng BcodeViewer file mà F12 tại <paramref name="offset"/> sẽ đi tới
+    /// (<see cref="ScriptEditorControl.ResolveViewerTarget"/>). BeginInvoke: đến từ callback của trang WebView2 — hộp chọn BcodeViewer.exe
+    /// (lần đầu, chưa cài) là hộp modal, không mở ngay trong callback đó.</summary>
+    private void OnOpenInViewer(int offset)
+    {
+        var path = ScriptEditorControl.ResolveViewerTarget(_text, offset, _entityResolveBasePath, CurrentPath, out var msg, out var warn);
+        BeginInvoke(new Action(() =>
+        {
+            if (path is not null) Bcode.App.Services.ViewerLauncher.Open(FindForm(), path);
+            else if (msg is not null)
+                MessageBox.Show(this, msg, "Bcode", MessageBoxButtons.OK, warn ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+        }));
+    }
+
     /// <summary>Same contract as <see cref="ScriptEditorControl.LoadContent"/>: a null
     /// <paramref name="path"/> shows <paramref name="content"/> as a plain message (loading
     /// hint, "not a text file", read error) rather than as a document.</summary>
@@ -166,7 +183,7 @@ public partial class MonacoPreviewControl : UserControl
             return;
         }
         _text = content.Replace("\r\n", "\n").Replace('\r', '\n');
-        Send(JsonSerializer.Serialize(new { type = "load", path, content = _text }));
+        Send(JsonSerializer.Serialize(new { type = "load", path, content = _text, viewerKey = ShortcutRegistry.Get("file.openInViewer") }));
     }
 
     public void Clear()

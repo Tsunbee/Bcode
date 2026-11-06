@@ -18,7 +18,10 @@ public partial class MonacoPreviewControl
         _ed.ReadOnly = true;
         _ed.KeyDown += (_, e) =>
         {
-            if (e.KeyCode == Keys.F12) { e.Handled = e.SuppressKeyPress = true; F12Native(); }
+            // Phím file.openInViewer (mặc định Ctrl+F12) kiểm trước F12 — trước đây Ctrl+F12 cũng chạy như F12.
+            var combo = ShortcutRegistry.FromKeys(e.KeyData);
+            if (combo is not null && combo == ShortcutRegistry.Get("file.openInViewer")) { e.Handled = e.SuppressKeyPress = true; OnOpenInViewer(Pos(_ed!.CurrentPosition)); }
+            else if (e.KeyCode == Keys.F12) { e.Handled = e.SuppressKeyPress = true; F12Native(); }
             else if (e.Control && e.KeyCode == Keys.G) { e.Handled = e.SuppressKeyPress = true; GoToNative(); }
             else if (e.Control && e.KeyCode == Keys.F) { e.Handled = e.SuppressKeyPress = true; ShowFindNative(); }
         };

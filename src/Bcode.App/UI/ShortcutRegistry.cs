@@ -164,6 +164,10 @@ public static class ShortcutRegistry
             new("fileLookup.rename", "Cây file File Lookup: đổi tên file đang chọn (sửa tên ngay trên cây — Enter đổi, Esc huỷ)", "Cây file File Lookup", ShortcutScope.Tree, "F2"),
             new("fileLookup.copyPaths", "Cây file File Lookup: copy đường dẫn các file đã tick (mỗi dòng 1 file); không tick file nào thì copy đường dẫn dòng đang chọn", "Cây file File Lookup", ShortcutScope.Tree, "Ctrl+C"),
 
+            // ---- Khung xem file (xem trước File Lookup, cửa sổ xem mở bằng F12, tab mở file của Bcode) — chỉ khi con trỏ ở khung đó ----
+            new("file.openInViewer", "Khung xem file: mở bằng BcodeViewer để sửa đúng file F12 sẽ đi tới (entity SYSTEM / đường dẫn Include → file đó; entity giá trị → file khai báo nó; con trỏ không ở entity → chính file đang xem)", "Khung xem file", ShortcutScope.Editor, "Ctrl+F12"),
+            new("file.save", "Tab mở file trong Bcode (mở file khi chưa cài BcodeViewer): lưu file", "Khung xem file", ShortcutScope.Editor, "Ctrl+S"),
+
             // ---- Lưới Table ----
             new("table.rowDetail", "Table: xem / sửa chi tiết dòng đang chọn (View Detail Datarow)", "Lưới Table", ShortcutScope.Grid, "F1"),
             new("table.addNew", "Table: thêm dòng mới (Add New)", "Lưới Table", ShortcutScope.Grid, "F4"),

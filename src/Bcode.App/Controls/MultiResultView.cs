@@ -60,6 +60,9 @@ public class MultiResultView : UserControl
             else if (a.GetString() == "viewCell") ViewCell(root);
             else if (a.GetString() == "save") Save(root);
             else if (a.GetString() == "designFields") DesignFields(root);
+            else if (a.GetString() == "focusTable" && root.TryGetProperty("table", out var ft) && ft.TryGetInt32(out var fi)) _focused = fi;   // Check Fields: bảng bấm vào cuối cùng
+            else if (a.GetString() == "resultMode") _tabsActive = root.TryGetProperty("tabs", out var tb) && tb.ValueKind == JsonValueKind.True
+                && root.TryGetProperty("active", out var ac) && ac.TryGetInt32(out var ai) ? ai : -1;
             else if (a.GetString() == "keys")   // lưới focus / blur: phím copy tên cột (result.copyColumnName) thắng phím toàn cục trùng tổ hợp
             {
                 // + phím xem đủ giá trị ô (result.viewCell, mặc định Ctrl+F3).
@@ -75,6 +78,7 @@ public class MultiResultView : UserControl
     public void SetTables(IReadOnlyList<DataTable> tables)
     {
         if (tables.Count == 0) { Clear(); return; }
+        _focused = -1;
         _tables = tables.ToList();
         _ = SendTablesAsync(_tables);
     }
@@ -90,7 +94,44 @@ public class MultiResultView : UserControl
         Send(json);
     }
 
-    public void Clear() { _sendVersion++; _tables = null; Send("{\"type\":\"clear\"}"); }
+    public void Clear() { _sendVersion++; _tables = null; _focused = -1; Send("{\"type\":\"clear\"}"); }
+
+    private int _focused = -1;     // bảng người dùng bấm vào cuối cùng (trang gửi "focusTable") — -1 = chưa bấm bảng nào từ lần chạy này
+    private int _tabsActive = -1;  // chế độ "Từng tab" (nhiều bảng): bảng đang hiện; -1 = Xếp chồng / chỉ 1 bảng (trang gửi "resultMode")
+
+    /// <summary>Check Fields: cột (tên + kiểu) của mọi bảng kết quả + bảng đang chọn — 1 bảng thì lấy luôn; nhiều bảng: chế độ Từng tab = bảng đang hiện,
+    /// Xếp chồng = bảng bấm vào cuối cùng (-1 = chưa bấm bảng nào). Sau khi tab ngủ đông dậy (<see cref="Restore"/>) không còn DataTable gốc → đọc từ JSON đã chụp.</summary>
+    public List<List<Services.ResultFieldChecker.Column>> CheckFieldsTables(out int chosen)
+    {
+        var tables = _tables is { Count: > 0 } ts ? ts.Select(Services.ResultFieldChecker.ColumnsOf).ToList() : SnapshotColumns(_pending);
+        var count = tables.Count;
+        chosen = count == 1 ? 0 : _tabsActive >= 0 && _tabsActive < count ? _tabsActive : _focused < count ? _focused : -1;
+        return tables;
+    }
+
+    private static List<List<Services.ResultFieldChecker.Column>> SnapshotColumns(string? json)
+    {
+        var list = new List<List<Services.ResultFieldChecker.Column>>();
+        if (string.IsNullOrEmpty(json)) return list;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("tables", out var ts) || ts.ValueKind != JsonValueKind.Array) return list;
+            foreach (var t in ts.EnumerateArray())
+            {
+                var cols = new List<Services.ResultFieldChecker.Column>();
+                if (t.TryGetProperty("cols", out var cs) && cs.ValueKind == JsonValueKind.Array)
+                    foreach (var c in cs.EnumerateArray())
+                    {
+                        var key = c.TryGetProperty("t", out var k) ? k.GetString() ?? "" : "";
+                        cols.Add(new(c.TryGetProperty("n", out var n) ? n.GetString() ?? "" : "", Services.DesignFieldsGenerator.KindOf(key), key));
+                    }
+                list.Add(cols);
+            }
+        }
+        catch (JsonException) { }
+        return list;
+    }
 
     /// <summary>Menu chuột phải "Save as CSV… / Save as Excel (.xlsx)… / Xuất nhanh ra Excel" của trang: {table, format: "csv"|"xlsx", rows: null | [chỉ số dòng gốc], quick}.</summary>
     private void Save(JsonElement root)
@@ -195,6 +236,7 @@ public class MultiResultView : UserControl
         if (json is null) return;
         _sendVersion++;
         _tables = null;
+        _focused = -1;
         Send(json);
     }
 

@@ -177,7 +177,12 @@
   document.getElementById('btnRun').addEventListener('click', () => post({ action: _running ? 'cancel' : 'run' }));
   document.getElementById('btnDebugTarget').addEventListener('click', () => post({ action: 'debug-target' }));
   document.getElementById('btnWriteSchema').addEventListener('click', () => post({ action: 'write-schema' }));
-  document.getElementById('btnCheckFields').addEventListener('click', () => post({ action: 'check-fields' }));
+  // Check Fields: gửi kèm mép trái nút (px thiết bị) để ô "Fields" thả xuống ngay dưới nút như FCode.
+  // Nút nằm trong menu nhóm (bị ẩn, rộng 0) → lấy mép trái nút nhóm vừa mở (openGroup ghi window.__barGroupX).
+  document.getElementById('btnCheckFields').addEventListener('click', (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    post({ action: 'check-fields', x: r.width > 0 ? Math.round(r.left * (window.devicePixelRatio || 1)) : (window.__barGroupX || 10) });
+  });
   document.getElementById('btnComment').addEventListener('click', () => post({ action: 'comment' }));
   document.getElementById('btnUncomment').addEventListener('click', () => post({ action: 'uncomment' }));
   document.getElementById('btnOptions').addEventListener('click', () => post({ action: 'options' }));
@@ -369,6 +374,7 @@
     function openGroup(i) {
       var g = layout && layout.groups[i]; if (!g) return false;
       var b = groupBtns[i], r = b.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+      window.__barGroupX = Math.round(r.left * dpr);   // Check Fields chọn từ menu nhóm: ô Fields thả xuống dưới nút nhóm
       post({ action: 'bar-group-menu', name: g.name, x: Math.round(r.left * dpr), y: Math.round(r.bottom * dpr), items: g.keys.map(menuItem) });
       return true;
     }

@@ -235,6 +235,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _connections.WorkspaceChanged += UpdateWindowTitle;
         // F12 trong khung xem XML: include không có trong source thì tìm tiếp ở Program Path của dự án đang chọn.
         Bcode.App.Controls.ScriptEditorControl.ProjectRoots = () => (_connections.Current?.SourcePath, _connections.Current?.ProgramPath);
+        // Ctrl+F12 (file.openInViewer) trong khung xem file / cửa sổ xem F12 / tab mở file: mở bằng BcodeViewer theo cài đặt + dự án đang chọn.
+        Bcode.App.Services.ViewerLauncher.Settings = () => _settings;
+        Bcode.App.Services.ViewerLauncher.ProjectName = () => _connections.Current?.Name;
         UpdateWindowTitle();
         Width = 1280;
         Height = 820;
@@ -3582,6 +3585,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             var content = _scriptFileService.ReadFile(path);
             var editor = new ScriptEditorControl();
             editor.LoadContent(path, content);
+            editor.SaveRequested += () => SaveScriptEditor(editor);   // Ctrl+S (file.save) — trước đây tab này không có phím lưu
             AddDocumentTab(Path.GetFileName(path), editor);
         }
         catch (Exception ex)
@@ -3659,8 +3663,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var obj = await ResolveProcedureAsync(identifier, useSysDatabase);
         if (obj is null)
         {
-            MessageBox.Show(this, $"Không tìm thấy procedure/function '{identifier}' (đã tìm cả App Data và Sys Data).", "Bcode — SQL Query",
+            MessageBox.Show(this, $"Không tìm thấy object '{identifier}' (procedure / function / view / trigger / bảng — đã tìm cả App Data và Sys Data).", "Bcode — SQL Query",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        // Bảng: mở cấu trúc bảng ở tab riêng như "Mở định nghĩa" trên cây SQL Object (CREATE TABLE, khối IF EXISTS / DROP trong comment).
+        if (obj.Kind == SqlObjectKind.Table)
+        {
+            await OpenObjectDefinitionAsync(obj);
             return;
         }
 
@@ -3689,13 +3700,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var name = parts.Length == 2 ? parts[1] : parts[0];
         if (string.IsNullOrWhiteSpace(name)) return null;
 
-        // Procedure, Function (scalar/table), View, Trigger — mọi object có định nghĩa (trừ bảng). Tìm ở database đang chọn trước, không thấy
-        // thì thử database còn lại (object của Fast thường nằm ở Sys Data hoặc App Data tuỳ loại).
+        // Procedure, Function (scalar/table), View, Trigger trước; không có thì bảng (mở cấu trúc bảng). Tìm ở database đang chọn trước,
+        // không thấy thì thử database còn lại (object của Fast thường nằm ở Sys Data hoặc App Data tuỳ loại).
         foreach (var sys in new[] { useSysDatabase, !useSysDatabase })
         {
-            var matches = (await _sqlObjectService.ListObjectsAsync(sys, name))
-                .Where(o => o.Kind != SqlObjectKind.Table && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
+            var all = (await _sqlObjectService.ListObjectsAsync(sys, name))
+                .Where(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+            var matches = all.Where(o => o.Kind != SqlObjectKind.Table).ToList();
+            if (matches.Count == 0)
+                matches = all.OrderBy(o => string.Equals(o.Schema, "dbo", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ToList();
             if (matches.Count == 0) continue;
 
             if (schema is not null)
@@ -3806,13 +3820,53 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void SaveActiveScript()
     {
         if (GetActiveEditor() is not { } editor) return;
-        if (editor.CurrentPath is null)
+        SaveScriptEditor(editor);
+    }
+
+    /// <summary>Lưu tab mở file (Save Script / Ctrl+S của tab): chỉ ghi khi người dùng lưu; không ghi đè file trong kho SourceCollection
+    /// (chỉ đọc kho), file .f đang mã hoá (&lt;Encrypted&gt; — nội dung trong tab chỉ là bản mã) hay file chỉ đọc.</summary>
+    private void SaveScriptEditor(ScriptEditorControl editor)
+    {
+        if (editor.CurrentPath is not { } path)
         {
             MessageBox.Show(this, "Tab này không gắn với file trên đĩa (ví dụ kết quả Decrypt/Library). Dùng Copy Script để lấy nội dung.", "Bcode");
             return;
         }
-        _scriptFileService.WriteFile(editor.CurrentPath, editor.Content);
-        editor.MarkSaved();
+        if (editor.ReadOnly) return;
+        string? refuse = null;
+        try
+        {
+            var full = Path.GetFullPath(path);
+            foreach (var root in _settings.SourceCollectionRoots)
+            {
+                if (string.IsNullOrWhiteSpace(root)) continue;
+                var r = Path.GetFullPath(root).TrimEnd('\\') + "\\";
+                if (full.StartsWith(r, StringComparison.OrdinalIgnoreCase)) { refuse = "File nằm trong kho source (" + root + ") — kho chỉ đọc, Bcode không ghi đè."; break; }
+            }
+            if (refuse is null && File.Exists(full))
+            {
+                if (File.GetAttributes(full).HasFlag(FileAttributes.ReadOnly)) refuse = "File đang đặt thuộc tính chỉ đọc (Read-only).";
+                else if (full.EndsWith(".f", StringComparison.OrdinalIgnoreCase)
+                    && _scriptFileService.ReadFile(full).IndexOf("<Encrypted>", StringComparison.OrdinalIgnoreCase) >= 0)
+                    refuse = "File .f đang mã hoá (<Encrypted>) — không ghi đè.";
+            }
+        }
+        catch { /* đường dẫn lạ / không đọc được thuộc tính: để WriteFile báo lỗi thật bên dưới */ }
+        if (refuse is not null)
+        {
+            MessageBox.Show(this, "Không lưu " + Path.GetFileName(path) + ":\n" + refuse, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        try
+        {
+            _scriptFileService.WriteFile(path, editor.Content);
+            editor.MarkSaved();
+            PushStatus($"Đã lưu {path} ({DateTime.Now:HH:mm:ss}).");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Không lưu được " + path + ":\n" + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void CopyActiveScript() => GetActiveEditor()?.CopyToClipboard();

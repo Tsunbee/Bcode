@@ -29,12 +29,12 @@ Bcode.App/
 │   ├── ErrorShotControl.cs  130
 │   ├── FastAskControl.cs  162
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1638
+│   ├── FileLookupControl.cs  1676
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  274
-│   ├── FsgRequirementReportControl.cs  349
+│   ├── FsgRequirementReportControl.cs  351
 │   ├── GenUpdatePackageControl.cs  527
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
@@ -46,7 +46,7 @@ Bcode.App/
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  256
 │   ├── MonacoPreviewControl.Native.cs  134
-│   ├── MultiResultView.cs  229
+│   ├── MultiResultView.cs  288
 │   ├── NativeAdvanceNoteControl.cs  1222
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
@@ -100,7 +100,7 @@ Bcode.App/
 │   ├── QuickReportControl.cs  533
 │   ├── RawSqlControl.cs  2816
 │   ├── ResultExport.cs  146
-│   ├── ResultGridMenu.cs  614
+│   ├── ResultGridMenu.cs  627
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1087
 │   ├── ScriptEditorControl.EntityIndex.cs  178
@@ -119,7 +119,7 @@ Bcode.App/
 │   ├── SqlWatchControl.Form.cs  39
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  2305
+│   ├── TableEditControl.cs  2346
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
 │   ├── WCommandTreeControl.cs  912
@@ -136,6 +136,7 @@ Bcode.App/
 │   ├── ApiSchemaBuilderForm.Native.cs  322
 │   ├── AppCommandEditForm.cs  255
 │   ├── CatalogCloneForm.cs  146
+│   ├── CellEditForm.cs  133
 │   ├── ChangeOwnerForm.cs  158
 │   ├── ChangeOwnerForm.Native.cs  87
 │   ├── ChooseDebugTargetForm.cs  84
@@ -179,7 +180,7 @@ Bcode.App/
 │   ├── ScriptPopupForm.cs  155
 │   ├── SetupEInvoiceForm.cs  166
 │   ├── SimplePromptForm.cs  78
-│   ├── SourceViewForm.cs  125
+│   ├── SourceViewForm.cs  166
 │   ├── SqlAiEditForm.cs  108
 │   ├── SqlHistoryForm.cs  329
 │   ├── StepParamsForm.cs  134
@@ -196,7 +197,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  415
+│   ├── AppSettings.cs  422
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -286,7 +287,7 @@ Bcode.App/
 │   ├── FileLookupService.cs  1521
 │   ├── FileParseCache.cs  406
 │   ├── FileReferenceService.cs  46
-│   ├── FsgNotifyService.cs  647
+│   ├── FsgNotifyService.cs  662
 │   ├── FsgProjectLookupService.cs  679
 │   ├── FSourceDecryptService.cs  68
 │   ├── GenAllService.cs  838
@@ -306,6 +307,7 @@ Bcode.App/
 │   ├── MobilePathService.cs  53
 │   ├── NoteService.cs  66
 │   ├── ObjectCompareService.cs  209
+│   ├── OfflineExcelDesign.cs  242
 │   ├── PeriodTableQueryService.cs  167
 │   ├── ProfilerTemplateService.cs  222
 │   ├── QueryHistoryService.cs  322
@@ -355,7 +357,7 @@ Bcode.App/
 │   ├── ControlPerf.cs  18
 │   ├── DevToolsDock.cs  190
 │   ├── DpiForm.cs  112
-│   ├── ErrorReporter.cs  274
+│   ├── ErrorReporter.cs  299
 │   ├── FastGhostLearnUi.cs  32
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
@@ -366,7 +368,7 @@ Bcode.App/
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  58
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  360
+│   ├── ShortcutRegistry.cs  362
 │   ├── ThemedForm.cs  11
 │   ├── ThemeManager.cs  837
 │   ├── TreeColorOptions.cs  98
@@ -415,7 +417,7 @@ Bcode.App/
 │       ├── filereference.html  108
 │       ├── findbar.html  60
 │       ├── framehost.html  55
-│       ├── fsgnotify.html  149
+│       ├── fsgnotify.html  151
 │       ├── fsgreq.html  765
 │       ├── genupdate.html  636
 │       ├── grantsource.html  132
@@ -435,11 +437,11 @@ Bcode.App/
 │       ├── quicklist.html  1666
 │       ├── quickreport.html  1028
 │       ├── reportmodes.html  64
-│       ├── resultview.html  628
+│       ├── resultview.html  659
 │       ├── richreq.js  77
 │       ├── rowdetail.html  83
 │       ├── rptschema.html  112
-│       ├── scriptpopup.html  88
+│       ├── scriptpopup.html  95
 │       ├── scriptviewbar.html  65
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  184

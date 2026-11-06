@@ -379,9 +379,9 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             catch { /* không lưu được thì lần sau gọi lại thủ tục */ }
     }
 
-    /// <summary>1 dòng của "Báo cáo yêu cầu FSG" (bảng nvphyc + hạn hoàn thành từ vnbcnhanhtda).</summary>
+    /// <summary>1 dòng của "Báo cáo yêu cầu FSG" (bảng nvphyc + hạn hoàn thành từ vnbcnhanhtda). IError &gt; 0 = y/c đang có lỗi, nội dung lỗi ở Loi (nbphyc.ierror / nbphyc.loi).</summary>
     public sealed record RequirementRow(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1,
-        string NoiDung, string MaLt1, string MaNv1, DateTime? NgayHt, string TrangThai, string GhiChu = "");
+        string NoiDung, string MaLt1, string MaNv1, DateTime? NgayHt, string TrangThai, string GhiChu = "", int IError = 0, string Loi = "");
 
     /// <summary>
     /// Báo cáo yêu cầu FSG: đọc nvphyc (ma_da, menu_id, ten_menu_ngan, trang_tlks, tlks_yn, bp_lt, fcode1, noi_dung, ma_lt1, ma_nv1, trang_thai) và JOIN
@@ -439,7 +439,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             // WITH (NOLOCK): chỉ đọc để xem — không giữ khoá trong lúc người khác đang sửa y/c trên web FSG.
             // Giờ server (mốc cho lần kéo theo mốc sau) đọc chung 1 lượt với câu chính — không tốn thêm 1 vòng gọi.
             string Query(bool noteStamp) => $@"SELECT SYSDATETIME();
-SELECT a.stt_rec, a.ma_da, a.menu_id, a.ten_menu_ngan, a.trang_tlks, a.tlks_yn, a.bp_lt, a.fcode1, a.noi_dung, a.ma_lt1, a.ma_nv1, b.ngay_ht, a.trang_thai
+SELECT a.stt_rec, a.ma_da, a.menu_id, a.ten_menu_ngan, a.trang_tlks, a.tlks_yn, a.bp_lt, a.fcode1, a.noi_dung, a.ma_lt1, a.ma_nv1, b.ngay_ht, a.trang_thai, a.ierror, a.loi
 FROM nvphyc a WITH (NOLOCK)
 	-- vnbcnhanhtda có thể có NHIỀU dòng cho cùng (ma_da, giai_doan_da) → JOIN thường làm 1 yêu cầu hiện lặp nhiều lần; chỉ lấy 1 dòng (hạn muộn nhất).
 	OUTER APPLY (SELECT TOP 1 x.ngay_ht FROM vnbcnhanhtda x WITH (NOLOCK) WHERE x.ma_da = a.ma_da AND x.giai_doan_da = a.giai_doan_da ORDER BY x.ngay_ht DESC) b
@@ -471,7 +471,7 @@ ORDER BY a.ma_da, a.xorder, a.stt_rec";
                     DateTime? d = r.IsDBNull(r.GetOrdinal("ngay_ht")) ? null : Convert.ToDateTime(r.GetValue(r.GetOrdinal("ngay_ht")));
                     stts.Add(S("stt_rec"));
                     rows.Add(new RequirementRow(S("ma_da"), S("menu_id"), S("ten_menu_ngan"), S("trang_tlks"), S("tlks_yn"), S("bp_lt"), S("fcode1"),
-                        S("noi_dung"), S("ma_lt1"), S("ma_nv1"), d, S("trang_thai")));
+                        S("noi_dung"), S("ma_lt1"), S("ma_nv1"), d, S("trang_thai"), IError: int.TryParse(S("ierror"), out var ie) ? ie : 0, Loi: S("loi")));
                 }
             }
 

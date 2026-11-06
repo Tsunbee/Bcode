@@ -58,7 +58,19 @@ public static class ResultGridMenu
             if (e.KeyData == (Keys.Control | Keys.C)) { e.Handled = e.SuppressKeyPress = true; CopyCells(grid, false, false); }
             else if (Bcode.App.UI.ShortcutRegistry.Get("result.copyColumnName") is { Length: > 0 } k && Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData) == k)
             { e.Handled = e.SuppressKeyPress = true; CopySelectedColumnNames(grid); }   // thường đã bắt ở HandleCopyKey; đây là đường dự phòng
+            else if (Bcode.App.UI.ShortcutRegistry.Get("result.viewCell") is { Length: > 0 } kv && Bcode.App.UI.ShortcutRegistry.FromKeys(e.KeyData) == kv)
+            { e.Handled = e.SuppressKeyPress = true; ViewCell(grid); }
         };
+    }
+
+    /// <summary>Phím result.viewCell (mặc định Ctrl+F3) / menu "Xem đủ giá trị ô": mở cửa sổ xem chỉ đọc đủ giá trị ô đang chọn (như bản Web — MultiResultView).</summary>
+    private static void ViewCell(DataGridView grid)
+    {
+        var cell = grid.CurrentCell;
+        if (cell is null || cell.RowIndex < 0 || cell.ColumnIndex < 0) return;
+        if (MultiResultView.CellText(cell.Value, full: true) is not { } text) { System.Media.SystemSounds.Beep.Play(); return; }   // NULL
+        var col = grid.Columns[cell.ColumnIndex].HeaderText;
+        Forms.SourceViewForm.OpenValue($"{col} — dòng {cell.RowIndex + 1}", $"Cột {col} · dòng {cell.RowIndex + 1} · {text.Length:N0} ký tự", text, grid.FindForm());
     }
 
     /// <summary>Phím result.copyColumnName (mặc định Ctrl+Shift+C = copy tên cột của ô đang chọn) khi lưới kết quả đang focus — MainForm.ProcessCmdKey gọi
@@ -79,6 +91,7 @@ public static class ResultGridMenu
         menu.Add("Copy", () => CopyCells(grid, false, false), shortcut: "Ctrl+C");
         menu.Add("Copy kèm tên cột", () => CopyCells(grid, true, false));
         menu.Add("Copy cả bảng", () => CopyCells(grid, true, true));
+        menu.Add("Xem đủ giá trị ô", () => ViewCell(grid), shortcut: Bcode.App.UI.ShortcutRegistry.Display("result.viewCell"));
     }
 
     /// <summary>1 ô (không kèm tên cột) = giá trị gốc y nguyên (JSON / script dán ra dùng luôn). Nhiều ô = TSV theo khung chữ nhật bao các ô chọn

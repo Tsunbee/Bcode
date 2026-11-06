@@ -14,7 +14,8 @@ public sealed record CapturedEvent(
     string ApplicationName,
     string ObjectName,
     string Text,
-    string ModuleText = "");   // phần đầu định nghĩa procedure (CREATE PROCEDURE … tham số) — dựng khung lời gọi khi không có giá trị
+    string ModuleText = "",    // phần đầu định nghĩa procedure (CREATE PROCEDURE … tham số) — dựng khung lời gọi khi không có giá trị
+    bool FullPending = false); // Text mới là 4000 ký tự đầu + TruncatedNote, chưa tìm hết các nguồn — TraceWatcher.ResolveFullAsync khi xem / copy
 
 /// <summary>
 /// Bắt SQL:BatchStarting / RPC:Starting / SP:Starting bằng DMV.
@@ -31,12 +32,35 @@ public sealed class TraceWatcher : IAsyncDisposable
     private readonly Dictionary<int, DateTime> _batchSeen = new();
     private readonly HashSet<string> _spSeen = new(StringComparer.OrdinalIgnoreCase);
     private DateTime _started;
+    // Mốc last_request_start_time lớn nhất đã đọc: mỗi nhịp chỉ hỏi phiên có lệnh mới từ mốc này (lùi 1 giây cho chắc, _batchSeen lọc trùng)
+    // thay vì mọi phiên đã chạy lệnh từ lúc Bắt đầu — server đông người thì mỗi nhịp trả về ít dòng hơn hẳn.
+    private DateTime _watermark;
+    // Procedure đang chạy đã lấy nội dung (spid|start|objectid): nhịp sau chỉ còn dò, không kéo lại 8000 ký tự nội dung mỗi nhịp.
+    private readonly HashSet<string> _moduleSeen = new(StringComparer.Ordinal);
+    // Một kết nối dùng chung cho nhịp đọc và việc tìm cả câu khi người dùng xem / copy (SqlConnection không chạy song song 2 lệnh).
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private int _statsLookups;
     private bool _hasInputBuffer;
     private bool _dbccInputBuffer = true;
 
+    /// <summary>Số lần tìm bản đầy đủ của câu dài trong dm_exec_query_stats tối đa mỗi nhịp đọc; câu dài hơn nữa trong nhịp đó để tới khi xem / copy.</summary>
+    private const int StatsLookupsPerPoll = 2;
+
     /// <summary>USER ID (program_name = u_id mà Fast gắn) — lọc ngay khi đọc trên server: server đông người thì bớt tải, bớt đọc
-    /// DBCC INPUTBUFFER cho phiên của người khác. "" = mọi user. Đổi lúc đang bắt thì áp từ nhịp đọc kế tiếp.</summary>
-    public string UserIdFilter { get; set; } = "";
+    /// DBCC INPUTBUFFER cho phiên của người khác. "" = mọi user. Đổi lúc đang bắt thì áp từ nhịp đọc kế tiếp (đọc lại từ lúc Bắt đầu như trước).</summary>
+    public string UserIdFilter
+    {
+        get => _userIdFilter;
+        set
+        {
+            value ??= "";
+            if (value.Trim().Equals(_userIdFilter.Trim(), StringComparison.Ordinal))
+                return;
+            _userIdFilter = value;
+            _watermark = _started;
+        }
+    }
+    private string _userIdFilter = "";
 
     public TraceWatcher(string connectionString, IReadOnlyList<string> databases)
     {
@@ -87,6 +111,7 @@ public sealed class TraceWatcher : IAsyncDisposable
         await using var started = new SqlCommand("SELECT SYSDATETIME();", _connection);
         var clock = await started.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         _started = clock is DateTime time ? time : DateTime.Now;
+        _watermark = _started;
 
         await using var bufferProbe = new SqlCommand("SELECT OBJECT_ID(N'sys.dm_exec_input_buffer');", _connection);
         var bufferId = await bufferProbe.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
@@ -121,8 +146,17 @@ public sealed class TraceWatcher : IAsyncDisposable
     public async Task<IReadOnlyList<CapturedEvent>> PollAsync(CancellationToken cancellationToken)
     {
         var found = new List<CapturedEvent>();
-        await ReadBatchesAsync(found, cancellationToken).ConfigureAwait(false);
-        await ReadModulesAsync(found, cancellationToken).ConfigureAwait(false);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _statsLookups = 0;
+            await ReadBatchesAsync(found, cancellationToken).ConfigureAwait(false);
+            await ReadModulesAsync(found, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
         found.Sort(static (a, b) =>
         {
             var time = a.Time.CompareTo(b.Time);
@@ -154,22 +188,25 @@ public sealed class TraceWatcher : IAsyncDisposable
               AND ISNULL(s.program_name, N'') NOT LIKE N'Bcode%'
               AND ISNULL(s.program_name, N'') NOT LIKE N'FCode%'
               AND (@uid = N'' OR ISNULL(s.program_name, N'') = @uid)
-              AND s.last_request_start_time >= @started
+              AND s.last_request_start_time >= @since
               AND p.dbid IN ({DatabaseIdList()})
             """;
 
+        var since = _watermark.AddSeconds(-1) > _started ? _watermark.AddSeconds(-1) : _started;
         var changed = new List<SessionHead>();
         await using (var command = new SqlCommand(sql, _connection) { CommandTimeout = 20 })
         {
             command.Parameters.Add("@appName", SqlDbType.NVarChar, 128).Value = ApplicationName;
             command.Parameters.Add("@uid", SqlDbType.NVarChar, 128).Value = UserIdFilter.Trim();
-            command.Parameters.Add("@started", SqlDbType.DateTime2).Value = _started;
+            command.Parameters.Add("@since", SqlDbType.DateTime2).Value = since;
             AddDatabaseParameters(command);
             await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 var spid = GetInt(reader, 0);
                 var start = reader.GetDateTime(5);
+                if (start > _watermark)
+                    _watermark = start;
                 if (_batchSeen.TryGetValue(spid, out var seen) && seen >= start)
                     continue;
 
@@ -185,7 +222,7 @@ public sealed class TraceWatcher : IAsyncDisposable
 
         foreach (var head in changed)
         {
-            var (eventType, text, module) = await ReadClientTextAsync(head.Spid, head.Start, cancellationToken).ConfigureAwait(false);
+            var (eventType, text, module, pending) = await ReadClientTextAsync(head.Spid, head.Start, cancellationToken).ConfigureAwait(false);
 
             _batchSeen[head.Spid] = head.Start;
             if (string.IsNullOrWhiteSpace(text))
@@ -204,7 +241,8 @@ public sealed class TraceWatcher : IAsyncDisposable
                 head.ApplicationName,
                 calls.Count == 0 ? "" : calls[0].Name,
                 text,
-                module));
+                module,
+                pending));
 
             foreach (var call in calls)
             {
@@ -224,7 +262,7 @@ public sealed class TraceWatcher : IAsyncDisposable
         }
     }
 
-    private async Task<(string EventType, string Text, string Module)> ReadClientTextAsync(int spid, DateTime start, CancellationToken cancellationToken)
+    private async Task<(string EventType, string Text, string Module, bool Pending)> ReadClientTextAsync(int spid, DateTime start, CancellationToken cancellationToken)
     {
         // SQL 2008 (không có dm_exec_input_buffer): DBCC INPUTBUFFER — chỉ đọc, cần VIEW SERVER STATE — trả đúng batch client gửi
         // ("declare @0…; select @0=…; exec zrpt_67 @0…"). most_recent_sql_handle bị SQL động bên trong procedure ghi đè (đọc ra
@@ -233,7 +271,19 @@ public sealed class TraceWatcher : IAsyncDisposable
         {
             var (bufferType, bufferText, truncated) = await ReadInputBufferAsync(spid, cancellationToken).ConfigureAwait(false);
             if (bufferType.Equals("Language Event", StringComparison.OrdinalIgnoreCase) && bufferText.Length > 0)
-                return (bufferType, truncated ? await FullBatchAsync(spid, start, bufferText, cancellationToken).ConfigureAwait(false) : bufferText, "");
+            {
+                if (!truncated)
+                    return (bufferType, bufferText, "", false);
+                // Lúc bắt chỉ tìm ở nguồn rẻ (câu đang chạy của phiên) + query_stats tối đa StatsLookupsPerPoll lần / nhịp; quét plan cache
+                // (đọc text mọi câu ad-hoc — server Fast có hàng chục nghìn câu, nặng) để tới khi người dùng xem / copy dòng đó.
+                var useStats = _statsLookups < StatsLookupsPerPoll;
+                if (useStats)
+                    _statsLookups++;
+                var full = await FindFullBatchAsync(_connection, spid, start, bufferText, useStats, useCache: false, cancellationToken).ConfigureAwait(false);
+                return full is not null
+                    ? (bufferType, full, "", false)
+                    : (bufferType, bufferText + Environment.NewLine + TruncatedNote, "", true);
+            }
         }
 
         var sql = _hasInputBuffer
@@ -257,14 +307,14 @@ public sealed class TraceWatcher : IAsyncDisposable
         command.Parameters.Add("@spid", SqlDbType.Int).Value = spid;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-            return ("", "", "");
+            return ("", "", "", false);
         var eventType = GetString(reader, 0);
         if (_hasInputBuffer || !eventType.Equals("RPC Event", StringComparison.OrdinalIgnoreCase))
-            return (eventType, GetString(reader, 1), "");
+            return (eventType, GetString(reader, 1), "", false);
         // SQL 2008: lời gọi RPC chỉ còn tên procedure (không có giá trị tham số) — giữ phần đầu định nghĩa để dựng khung lời gọi.
         var module = GetString(reader, 1);
         return (eventType, "EXEC " + ModuleName(GetInt(reader, 2), GetString(reader, 3), GetString(reader, 4), module),
-            module.Length > 8000 ? module[..8000] : module);
+            module.Length > 8000 ? module[..8000] : module, false);
     }
 
     /// <summary>DBCC INPUTBUFFER(spid): (EventType, EventInfo, bị cắt). EventInfo chỉ là nvarchar(4000) — câu dài hơn bị cắt ở ký tự 4000
@@ -296,8 +346,10 @@ public sealed class TraceWatcher : IAsyncDisposable
     /// có cùng 4000 ký tự đầu với buffer. Thứ tự: câu đang chạy / câu gần nhất trên kết nối (rẻ nhất, nhưng batch gọi procedure thì
     /// sql_handle / most_recent_sql_handle trỏ vào procedure hoặc SQL động bên trong) → dm_exec_query_stats chạy từ lúc batch bắt đầu
     /// (câu đầu batch chạy xong là có, sắp mới nhất trước) → plan cache (Adhoc / Prepared, kể cả stub khi bật optimize for ad hoc workloads).
-    /// Cả ba chỉ cần VIEW SERVER STATE. Không thấy thì giữ 4000 ký tự đầu + dòng <see cref="TruncatedNote"/>.</summary>
-    private async Task<string> FullBatchAsync(int spid, DateTime start, string buffer, CancellationToken cancellationToken)
+    /// Cả ba chỉ cần VIEW SERVER STATE. Không thấy thì null (nơi gọi giữ 4000 ký tự đầu + dòng <see cref="TruncatedNote"/>).
+    /// useStats / useCache = có hỏi 2 nguồn sau không (lúc bắt bỏ plan cache — xem ReadClientTextAsync).</summary>
+    private static async Task<string?> FindFullBatchAsync(SqlConnection connection, int spid, DateTime start, string buffer,
+        bool useStats, bool useCache, CancellationToken cancellationToken)
     {
         const string sessionSql = """
             SELECT t.text FROM sys.dm_exec_requests AS r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS t WHERE r.session_id = @spid
@@ -325,11 +377,16 @@ public sealed class TraceWatcher : IAsyncDisposable
         needle = (lineEnd > 0 ? needle[..lineEnd] : needle).Trim();
         needle = needle[..Math.Min(needle.Length, 200)];
 
-        foreach (var (sql, distinctOnly) in new[] { (sessionSql, false), (statsSql, false), (cacheSql, true) })
+        var sources = new List<(string Sql, bool DistinctOnly)> { (sessionSql, false) };
+        if (useStats)
+            sources.Add((statsSql, false));
+        if (useCache)
+            sources.Add((cacheSql, true));
+        foreach (var (sql, distinctOnly) in sources)
         {
             try
             {
-                await using var command = new SqlCommand(sql, _connection) { CommandTimeout = 20 };
+                await using var command = new SqlCommand(sql, connection) { CommandTimeout = 20 };
                 command.Parameters.Add("@spid", SqlDbType.Int).Value = spid;
                 command.Parameters.Add("@since", SqlDbType.DateTime).Value = start.AddSeconds(-2);
                 command.Parameters.Add("@needle", SqlDbType.NVarChar, 200).Value = needle;
@@ -357,7 +414,46 @@ public sealed class TraceWatcher : IAsyncDisposable
                 // nguồn này không đọc được (quyền / hết giờ) — thử nguồn kế tiếp
             }
         }
-        return buffer + Environment.NewLine + TruncatedNote;
+        return null;
+    }
+
+    /// <summary>Dòng FullPending (câu dài, lúc bắt chưa tìm hết nguồn): tìm bản đầy đủ ở mọi nguồn, dùng kết nối đang bắt (chờ nhịp đọc xong).
+    /// Trả dòng mới (FullPending = false; không tìm được thì giữ 4000 ký tự đầu + TruncatedNote, không tìm lại nữa).</summary>
+    public async Task<CapturedEvent> ResolveFullAsync(CapturedEvent row, CancellationToken cancellationToken)
+    {
+        if (!row.FullPending)
+            return row;
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await ResolveFullAsync(_connection, row, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>Như trên nhưng đã Dừng bắt: mở kết nối riêng theo chuỗi kết nối lúc bắt rồi đóng.</summary>
+    public static async Task<CapturedEvent> ResolveFullAsync(string connectionString, CapturedEvent row, CancellationToken cancellationToken)
+    {
+        if (!row.FullPending)
+            return row;
+        await using var connection = new SqlConnection(connectionString);
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        return await ResolveFullAsync(connection, row, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<CapturedEvent> ResolveFullAsync(SqlConnection connection, CapturedEvent row, CancellationToken cancellationToken)
+    {
+        var note = Environment.NewLine + TruncatedNote;
+        var buffer = row.Text.EndsWith(note, StringComparison.Ordinal) ? row.Text[..^note.Length] : row.Text;
+        var full = await FindFullBatchAsync(connection, row.Spid, row.Time, buffer, useStats: true, useCache: true, cancellationToken).ConfigureAwait(false);
+        if (full is null)
+            return row with { FullPending = false };
+        full = TrimText(full);
+        var objectName = row.ObjectName.Length > 0 ? row.ObjectName : ProcCalls.Find(full) is { Count: > 0 } calls ? calls[0].Name : "";
+        return row with { Text = full, ObjectName = objectName, FullPending = false };
     }
 
     private static string Squash(string text) => Regex.Replace(text, @"\s+", " ").Trim();
@@ -398,7 +494,7 @@ public sealed class TraceWatcher : IAsyncDisposable
                     WHEN t.objectid IS NULL OR t.dbid IS NULL THEN NULL
                     ELSE OBJECT_NAME(t.objectid, t.dbid)
                 END AS object_name,
-                LEFT(t.text, 8000) AS module_text
+                r.sql_handle
             FROM sys.dm_exec_requests AS r
             INNER JOIN sys.dm_exec_sessions AS s ON s.session_id = r.session_id
             INNER JOIN sys.sysprocesses AS p ON p.spid = r.session_id AND p.ecid = 0
@@ -419,30 +515,52 @@ public sealed class TraceWatcher : IAsyncDisposable
         command.Parameters.Add("@uid", SqlDbType.NVarChar, 128).Value = UserIdFilter.Trim();
         command.Parameters.Add("@started", SqlDbType.DateTime2).Value = _started;
         AddDatabaseParameters(command);
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        // Procedure đang chạy lâu (báo cáo) hiện ở mọi nhịp: trước đây mỗi nhịp kéo lại 8000 ký tự nội dung. Giờ nhịp chỉ dò (session,
+        // start, objectid, sql_handle); procedure mới thấy lần đầu mới đọc nội dung bằng sql_handle (1 câu riêng).
+        var fresh = new List<(int Spid, DateTime Start, string Database, string Login, string Host, string App, int ObjectId, string Schema, string Name, byte[]? Handle)>();
+        await using (var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
         {
-            var spid = GetInt(reader, 0);
-            var start = reader.GetDateTime(1);
-            var objectId = GetInt(reader, 6);
-            var schema = GetString(reader, 7);
-            var name = GetString(reader, 8);
-            var objectName = ModuleName(objectId, schema, name, GetString(reader, 9));
-            if (!MarkSp(spid, start, objectName))
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                var spid = GetInt(reader, 0);
+                var start = reader.GetDateTime(1);
+                var objectId = GetInt(reader, 6);
+                if (!_moduleSeen.Add(spid + "|" + start.Ticks + "|" + objectId))
+                    continue;
+                fresh.Add((spid, start, GetString(reader, 2), GetString(reader, 3), GetString(reader, 4), GetString(reader, 5),
+                    objectId, GetString(reader, 7), GetString(reader, 8), reader.IsDBNull(9) ? null : (byte[])reader.GetValue(9)));
+            }
+        }
+        if (_moduleSeen.Count > 50000)
+            _moduleSeen.Clear();
+
+        foreach (var m in fresh)
+        {
+            var moduleText = m.Handle is null ? "" : await ReadModuleTextAsync(m.Handle, cancellationToken).ConfigureAwait(false);
+            var objectName = ModuleName(m.ObjectId, m.Schema, m.Name, moduleText);
+            if (!MarkSp(m.Spid, m.Start, objectName))
                 continue;
 
             found.Add(new CapturedEvent(
-                start,
+                m.Start,
                 "SP:Starting",
-                GetString(reader, 2),
-                spid,
-                GetString(reader, 3),
-                GetString(reader, 4),
-                GetString(reader, 5),
+                m.Database,
+                m.Spid,
+                m.Login,
+                m.Host,
+                m.App,
                 objectName,
                 "EXEC " + objectName,
-                GetString(reader, 9)));
+                moduleText));
         }
+    }
+
+    private async Task<string> ReadModuleTextAsync(byte[] handle, CancellationToken cancellationToken)
+    {
+        await using var command = new SqlCommand("SELECT LEFT(text, 8000) FROM sys.dm_exec_sql_text(@h);", _connection) { CommandTimeout = 20 };
+        command.Parameters.Add("@h", SqlDbType.VarBinary, 64).Value = handle;
+        var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        return value is string text ? text : "";
     }
 
     private string BuildDatabaseCheckSql()

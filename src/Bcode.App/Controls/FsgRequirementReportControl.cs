@@ -101,7 +101,9 @@ public class FsgRequirementReportControl : UserControl
     }
 
     // ---- Dữ liệu đã lưu theo từng dự án (%AppData%\Bcode\fsg-requirements.json) ----
-    internal sealed record Req(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1, string NoiDung, string MaLt1, string MaNv1, string TrangThai, string? NgayHt, string GhiChu = "");
+    /// <summary>IError / Loi: nbphyc.ierror (&gt; 0 = có lỗi) và nội dung lỗi nbphyc.loi — null = dòng lưu từ bản Bcode chưa kéo cột lỗi (thông báo "Lỗi" bỏ qua so sánh).</summary>
+    internal sealed record Req(string MaDa, string MenuId, string TenMenuNgan, string TrangTlks, string TlksYn, string BpLt, string Fcode1, string NoiDung, string MaLt1, string MaNv1, string TrangThai, string? NgayHt, string GhiChu = "",
+        int? IError = null, string? Loi = null);
 
     internal sealed class ProjectData
     {
@@ -285,7 +287,7 @@ public class FsgRequirementReportControl : UserControl
     }
 
     internal static Req ToReq(FsgProjectLookupService.RequirementRow r) =>
-        new(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu);
+        new(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu, r.IError, r.Loi);
 
     /// <summary>Ghép lần kéo vào bản lưu: chỉ thay dữ liệu của các dự án vừa kéo (có trong kết quả hoặc nằm trong ô Mã dự án); dự án khác đã lưu giữ nguyên.
     /// Dùng chung cho "Kéo về" và kéo ngầm tự động (<see cref="FsgNotifyService"/>).</summary>

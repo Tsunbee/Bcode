@@ -279,7 +279,8 @@ public class TableEditControl : UserControl
                 .Add("Paste", () => _ = PasteFromClipboardAsync(), shortcut: "Ctrl+V")
                 .Add("Clone Row", () => _ = CloneRowAsync(), shortcut: K("table.cloneRow"))
                 .Add("Insert New Row After", InsertRowAfter, shortcut: K("table.insertAfter"))
-                .Add("Copy One Value", CopyOneValue, shortcut: K("table.copyValue"));
+                .Add("Copy One Value", CopyOneValue, shortcut: K("table.copyValue"))
+                .Add("Sửa đủ nội dung ô...", () => _ = ShowCellEditorAsync(), shortcut: K("table.editCell"));
             if (_writeInfo.Identity is { } idCol)
                 menu.Add($"Giữ id khi dán ([{idCol}] — IDENTITY_INSERT)", ToggleKeepIdentity, @checked: _keepIdentity);
             menu.AddSeparator()
@@ -499,6 +500,7 @@ public class TableEditControl : UserControl
         if (combo is null) return false;
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.rowDetail")) { BeginInvoke(new Action(() => _ = ShowRowDetailAsync())); return true; }
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.listEditor")) { BeginInvoke(new Action(() => _ = ShowListEditorAsync())); return true; }
+        if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.editCell")) { BeginInvoke(new Action(() => _ = ShowCellEditorAsync())); return true; }
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.addNew")) { BeginInvoke(new Action(AddNewRow)); return true; }
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.delete")) { BeginInvoke(new Action(() => _ = DeleteSelectedRowsAsync())); return true; }
         if (combo == Bcode.App.UI.ShortcutRegistry.Get("table.cloneRow")) { BeginInvoke(new Action(() => _ = CloneRowAsync())); return true; }
@@ -888,6 +890,45 @@ public class TableEditControl : UserControl
             if (data.Columns[name] is { } dc && TryConvertCell(joined, dc, out var v)) drv.Row[dc] = v;
         _grid.Refresh();
         _statusLabel.Text = $"Đã cập nhật {form.Values.Count} ô.";
+        await AutoSaveRowAsync();
+    }
+
+    /// <summary>Ctrl+F3 (table.editCell, như FCode): ô đang chọn → form sửa đủ nội dung (chuỗi dài HTML / XML / JSON / script không thấy hết trên lưới),
+    /// Lưu = ghi vào ô rồi tự lưu dòng như F1 / F3 (AutoSaveRowAsync). Ô chỉ đọc (cột tính toán / identity, nhị phân, guid) thì chỉ xem.</summary>
+    private async Task ShowCellEditorAsync()
+    {
+        if (_grid.DataSource is not DataTable data) return;
+        if (_grid.IsCurrentCellInEditMode) _grid.EndEdit();
+        if (_grid.CurrentCell is not { RowIndex: >= 0 } cell || _grid.Rows[cell.RowIndex].DataBoundItem is not DataRowView drv
+            || data.Columns[GridColName(cell.OwningColumn)] is not { } dc)
+        { _statusLabel.Text = "Chọn 1 ô của dòng đã có dữ liệu rồi bấm " + Bcode.App.UI.ShortcutRegistry.Display("table.editCell") + "."; return; }
+
+        var ci = System.Globalization.CultureInfo.CurrentCulture;
+        var t = Nullable.GetUnderlyingType(dc.DataType) ?? dc.DataType;
+        var isNull = drv.Row.IsNull(dc);
+        // Cùng cách hiện giá trị như F1 (TryConvertCell đọc lại được); nhị phân hiện đủ hex để xem.
+        var value = isNull ? "" : drv.Row[dc] switch
+        {
+            bool b => b ? "True" : "False",
+            DateTime d => d.ToString("yyyy-MM-dd HH:mm:ss", ci),
+            byte[] bytes => "0x" + Convert.ToHexString(bytes),
+            IFormattable f => f.ToString(null, ci),
+            var o => Convert.ToString(o, ci) ?? "",
+        };
+        var readOnly = dc.ReadOnly || _grid.ReadOnly || cell.OwningColumn.ReadOnly || t == typeof(byte[]) || t == typeof(Guid);
+        var rowNo = cell.RowIndex + 1;
+        var info = $"[{_schema}].[{_table}] · cột {dc.ColumnName} ({t.Name}{(dc.MaxLength > 0 ? ", " + dc.MaxLength : "")}) · dòng {rowNo} · {(isNull ? "NULL" : value.Length.ToString("N0", ci) + " ký tự")}";
+        using var form = new Bcode.App.Forms.CellEditForm($"{dc.ColumnName} — dòng {rowNo}", info, value, readOnly);
+        if (form.ShowDialog(FindForm()) != DialogResult.OK) return;
+        // Bảng / dòng đã đổi trong lúc mở form (tải lại, xoá dòng) → không ghi nhầm chỗ.
+        if (!ReferenceEquals(_grid.DataSource, data) || drv.Row.RowState is DataRowState.Deleted or DataRowState.Detached)
+        { _statusLabel.Text = "Bảng đã tải lại / dòng đã bị xoá trong lúc sửa — không ghi."; return; }
+        if (dc.MaxLength > 0 && t == typeof(string) && form.Value.Length > dc.MaxLength)
+        { _statusLabel.Text = $"Nội dung dài {form.Value.Length:N0} ký tự, quá độ dài cột {dc.ColumnName} ({dc.MaxLength:N0}) — không ghi."; return; }
+        if (!TryConvertCell(form.Value, dc, out var v)) { _statusLabel.Text = $"Giá trị không đổi được sang kiểu {t.Name} của cột {dc.ColumnName} — không ghi."; return; }
+        drv.Row[dc] = v;
+        _grid.Refresh();
+        _statusLabel.Text = $"Đã sửa ô {dc.ColumnName} dòng {rowNo} ({form.Value.Length:N0} ký tự).";
         await AutoSaveRowAsync();
     }
 

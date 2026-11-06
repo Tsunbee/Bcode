@@ -74,7 +74,7 @@ public partial class MainForm
         if (_fsgReqTab is not null && FindDescendant<FsgRequirementReportControl>(_fsgReqTab) is { } fsg) fsg.ShowRequirement(maDa, fcode1);
     }
 
-    private static readonly Dictionary<string, string> FsgKindText = new() { ["note"] = "Ghi chú mới", ["status"] = "Đổi trạng thái", ["new"] = "Y/c mới giao", ["due"] = "Đổi hạn HT" };
+    private static readonly Dictionary<string, string> FsgKindText = new() { ["note"] = "Ghi chú mới", ["status"] = "Đổi trạng thái", ["new"] = "Y/c mới giao", ["due"] = "Đổi hạn HT", ["error"] = "Lỗi" };
 
     /// <summary>Toast Windows (balloon của NotifyIcon — Windows 10/11 hiện thành thông báo) khi Bcode không ở trước; bấm = mở khung Thông báo.</summary>
     private void ShowFsgToast(IReadOnlyList<FsgNotifyService.Item> items)
@@ -100,6 +100,6 @@ public partial class MainForm
             return $"{i.MaDa} · {i.Fcode1}: {(FsgKindText.TryGetValue(i.Kind, out var k) ? k : i.Kind)}{(i.Who.Length > 0 ? " [" + i.Who + "]" : "")} — {(t.Length > 70 ? t[..70] + "…" : t)}";
         })) + (items.Count > 3 ? $"\n… và {items.Count - 3} thông báo khác" : "");
         _fsgToastIcon.Visible = true;
-        _fsgToastIcon.ShowBalloonTip(10000, $"Bcode — {items.Count} thông báo y/c FSG", body.Length > 250 ? body[..250] + "…" : body, ToolTipIcon.Info);
+        _fsgToastIcon.ShowBalloonTip(10000, $"Bcode — {items.Count} thông báo y/c FSG", body.Length > 250 ? body[..250] + "…" : body, items.Any(i => i.Kind == "error") ? ToolTipIcon.Warning : ToolTipIcon.Info);
     }
 }

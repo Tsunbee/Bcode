@@ -96,6 +96,8 @@ public sealed partial class MainForm : Form
     public Func<string, Task<string?>>? UserIdLookup { get; set; }
 
     private TraceWatcher? _watcher;
+    // Chuỗi kết nối lần bắt gần nhất — đã Dừng mà xem / copy dòng câu dài chưa đủ (FullPending) thì mở kết nối riêng để tìm cả câu.
+    private string _connectionString = "";
     private CancellationTokenSource? _lifetime;
     private bool _busy;
     private bool _paused;
@@ -160,8 +162,8 @@ public sealed partial class MainForm : Form
         _stop.Click += async (_, _) => await StopAsync();
         _pause.Click += (_, _) => TogglePause();
         _clear.Click += (_, _) => ClearGrid();
-        _copySql.Click += (_, _) => CopySqlCommand();
-        _debugSql.Click += (_, _) => DebugSelected();
+        _copySql.Click += async (_, _) => await CopySqlCommandAsync();
+        _debugSql.Click += async (_, _) => await DebugSelectedAsync();
         _loginDefault.Click += (_, _) => { _login.Text = SqlLogin.User; _password.Text = SqlLogin.Password; };
         _events.Click += (_, _) => _eventMenu.Show(_events, new Point(0, _events.Height));
         _loginFilter.TextChanged += (_, _) => { RebuildGrid(); OnFiltersChanged(); };
@@ -502,7 +504,8 @@ public sealed partial class MainForm : Form
         _grid.AllowUserToResizeRows = false;
         _grid.RowHeadersVisible = false;
         _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-        _grid.MultiSelect = false;
+        // Chọn nhiều dòng như SQL Server Profiler: Chi tiết / Copy ghép câu của các dòng đã chọn (SelectedCommand).
+        _grid.MultiSelect = true;
         _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
         _grid.BorderStyle = BorderStyle.None;
         _grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
@@ -550,17 +553,17 @@ public sealed partial class MainForm : Form
         _grid.SelectionChanged += (_, _) => ShowSelected();
         // Bấm lại dòng đang chọn (lựa chọn không đổi → không có SelectionChanged) cũng hiện nội dung.
         _grid.CellClick += (_, _) => ShowSelected();
-        _grid.CellDoubleClick += (_, _) => CopyDetail();
+        _grid.CellDoubleClick += async (_, _) => await CopyDetailAsync();
         // Ctrl+C trên lưới: cả câu của dòng đang chọn (mặc định lưới chỉ chép chữ trong ô — cột Nội dung đã rút còn 1 dòng).
         _grid.KeyDown += (_, e) =>
         {
-            if (e.Control && e.KeyCode == Keys.C) { CopyDetail(); e.Handled = e.SuppressKeyPress = true; }
+            if (e.Control && e.KeyCode == Keys.C) { _ = CopyDetailAsync(); e.Handled = e.SuppressKeyPress = true; }
         };
         // Ctrl+C trong khung Chi tiết khi chưa bôi đen gì hoặc đã Ctrl+A: cả câu, kể cả phần không hiện ra.
         _detail.KeyDown += (_, e) =>
         {
             if (!e.Control || e.KeyCode != Keys.C || (_detail.SelectionLength > 0 && _detail.SelectionLength < _detail.TextLength)) return;
-            CopyDetail();
+            _ = CopyDetailAsync();
             e.Handled = e.SuppressKeyPress = true;
         };
     }
@@ -673,6 +676,7 @@ public sealed partial class MainForm : Form
         SaveLogin(_project.Text.Trim(), user, password);
         var builder = TraceWatcher.CreateBuilder(_server.Text, user, password, "master", TraceWatcher.ApplicationName);
         var watcher = new TraceWatcher(builder.ConnectionString, databases) { UserIdFilter = _appFilter.Text.Trim() };
+        _connectionString = builder.ConnectionString;
         try
         {
             UseWaitCursor = true;
@@ -937,15 +941,24 @@ public sealed partial class MainForm : Form
         if (SelectedEvent() is not { } row)
             return;
         var sql = SelectedCommand();
+        var many = _grid.SelectedRows.Count > 1;
+        // Câu dài chưa đủ (SQL 2008 / 2012, lúc bắt không quét plan cache): bấm 1 dòng thì đi tìm cả câu rồi hiện lại.
+        if (!many && PendingFor([row]).Count > 0)
+            _ = ResolveAndShowAsync();
         var shown = sql.Length <= DetailMaxLength
             ? sql
             : sql[..DetailMaxLength] + "\n\n-- ... còn " + (sql.Length - DetailMaxLength).ToString("N0") + " ký tự nữa (cả câu "
-              + sql.Length.ToString("N0") + " ký tự) — double-click dòng / Ctrl+C / Copy SQL Command lấy đủ cả câu";
+              + sql.Length.ToString("N0") + " ký tự) — " + (many ? "" : "double-click dòng / ") + "Ctrl+C / Copy SQL Command lấy đủ cả câu";
         // Chỉ để hiện: mọi kiểu xuống dòng (CR lẻ, LF lẻ, U+2028…) thành xuống dòng thật, dồn chuỗi dòng trống còn 1 dòng —
         // batch của Fast có thể chèn nhiều dòng trống trước "exec …" làm câu gọi rơi xuống dưới khung. Copy vẫn lấy nguyên văn.
         var text = LineBreak.Replace(shown, Environment.NewLine);
         text = BlankRun.Replace(text, Environment.NewLine + Environment.NewLine);
         _detail.Text = text;
+        if (many)
+        {
+            _detailCaption.Text = $"Chi tiết  ·  {_grid.SelectedRows.Count} dòng đã chọn — ghép theo thứ tự thời gian, cách nhau GO  ·  Ctrl+C / Copy SQL Command lấy cả chuỗi";
+            return;
+        }
 
         // Dòng SP:Starting hiện cả batch đã gọi nó (có declare / gán biến thì mới chạy lại / debug được) — cuộn tới câu exec của
         // dòng này cho thấy ngay, tiêu đề khung ghi rõ đang xem batch.
@@ -974,20 +987,32 @@ public sealed partial class MainForm : Form
     private CapturedEvent? SelectedEvent() =>
         (_grid.SelectedRows.Count > 0 ? _grid.SelectedRows[0] : _grid.CurrentRow)?.Tag as CapturedEvent;
 
+    /// <summary>Các dòng đang chọn (Ctrl / Shift + click, kéo chuột, Shift+↑↓, Ctrl+A) theo thứ tự trên lưới = thứ tự thời gian bắt.</summary>
+    private List<CapturedEvent> SelectedEvents()
+    {
+        var rows = new List<DataGridViewRow>(_grid.SelectedRows.Count);
+        foreach (DataGridViewRow row in _grid.SelectedRows)
+            rows.Add(row);
+        rows.Sort((a, b) => a.Index.CompareTo(b.Index));
+        return rows.Select(row => row.Tag).OfType<CapturedEvent>().ToList();
+    }
+
     private const int DetailMaxLength = 20000;
     private const string DetailCaption = "Chi tiết  ·  double-click một dòng để copy";
     private static readonly Regex LineBreak = new(@"\r\n|\r|\n| | |\u0085", RegexOptions.Compiled);
     private static readonly Regex BlankRun = new(@"\r\n(?:[ \t]*\r\n){2,}", RegexOptions.Compiled);
 
-    private void CopyDetail()
+    private async Task CopyDetailAsync()
     {
+        await EnsureFullAsync(SelectedEvents());
         var sql = SelectedCommand();
         if (sql.Length == 0)
             return;
         try
         {
             Clipboard.SetText(sql.Replace("\r\n", "\n").Replace("\n", Environment.NewLine));
-            ReportStatus($"Đã copy cả câu ({sql.Length:N0} ký tự).");
+            var many = _grid.SelectedRows.Count > 1 ? $"{_grid.SelectedRows.Count} dòng ghép, " : "";
+            ReportStatus($"Đã copy cả câu ({many}{sql.Length:N0} ký tự).");
         }
         catch (Exception ex)
         {
@@ -1093,8 +1118,26 @@ public sealed partial class MainForm : Form
     /// - Chỉ có "EXEC tên" (RPC trên SQL 2008, không đọc được giá trị tham số): dựng khung declare + exec từ tham số trong định nghĩa.</summary>
     private string SelectedCommand()
     {
-        if (SelectedEvent() is not { } row)
-            return "";
+        var rows = SelectedEvents();
+        if (rows.Count <= 1)
+            return SelectedEvent() is { } row ? CommandFor(row, out _) : "";
+        // Chọn nhiều dòng (như SQL Server Profiler): ghép câu của từng dòng theo thứ tự trên lưới (= thứ tự bắt), cách nhau dòng GO.
+        // Dòng SP:Starting lấy batch gọi nó — batch đó đã có (chính dòng batch cũng được chọn, hoặc SP khác cùng batch) thì không lặp lại.
+        var used = new HashSet<CapturedEvent>(ReferenceEqualityComparer.Instance);
+        var parts = new List<string>();
+        foreach (var row in rows)
+        {
+            var sql = CommandFor(row, out var source);
+            if (sql.Length > 0 && used.Add(source))
+                parts.Add(sql);
+        }
+        return string.Join(Environment.NewLine + "GO" + Environment.NewLine, parts);
+    }
+
+    /// <summary>Câu SQL của 1 dòng (xem SelectedCommand); source = dòng thật sự cho ra câu đó (SP:Starting → dòng batch đã gọi nó).</summary>
+    private string CommandFor(CapturedEvent row, out CapturedEvent source)
+    {
+        source = row;
         var name = row.ObjectName;
         if (row.EventName == "SP:Starting" && name.Length > 0)
         {
@@ -1106,6 +1149,7 @@ public sealed partial class MainForm : Form
                     continue;
                 if (IsBareExec(e) || !ProcCalls.Calls(e.Text, name))
                     continue;
+                source = e;
                 return e.Text.Trim();
             }
         }
@@ -1118,6 +1162,119 @@ public sealed partial class MainForm : Form
         return row.Text.Trim();
     }
 
+    // ---- Câu dài trên SQL 2008 / 2012 (FullPending): lúc bắt không quét plan cache (nặng cho server), xem / copy dòng đó mới tìm cả câu ----
+    private const int ResolveMax = 20;
+    private readonly Dictionary<CapturedEvent, Task<CapturedEvent>> _resolving = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>Các dòng FullPending mà câu của các dòng đã cho cần tới: chính dòng, batch mà SP:Starting lấy, hoặc (SP:Starting chưa ghép được
+    /// batch nào — lời gọi nằm ở phần bị cắt) batch câu dài gần nhất trước nó cùng SPID.</summary>
+    private List<CapturedEvent> PendingFor(IEnumerable<CapturedEvent> rows)
+    {
+        var pending = new List<CapturedEvent>();
+        var seen = new HashSet<CapturedEvent>(ReferenceEqualityComparer.Instance);
+        void Add(CapturedEvent e)
+        {
+            if (e.FullPending && seen.Add(e))
+                pending.Add(e);
+        }
+        foreach (var row in rows)
+        {
+            Add(row);
+            CommandFor(row, out var source);
+            Add(source);
+            if (row.EventName != "SP:Starting" || !ReferenceEquals(source, row))
+                continue;
+            var at = _captured.FindLastIndex(e => ReferenceEquals(e, row));
+            for (int i = (at < 0 ? _captured.Count : at) - 1, n = 0; i >= 0 && n < 500; i--, n++)
+            {
+                var e = _captured[i];
+                if (e.Spid != row.Spid || e.EventName == "SP:Starting" || e.Time > row.Time)
+                    continue;
+                if (e.FullPending)
+                    Add(e);
+                break;
+            }
+        }
+        return pending;
+    }
+
+    private async Task EnsureFullAsync(IEnumerable<CapturedEvent> rows)
+    {
+        var pending = PendingFor(rows);
+        if (pending.Count == 0)
+            return;
+        var skipped = Math.Max(0, pending.Count - ResolveMax);
+        ReportStatus($"Đang tìm cả câu dài (máy chủ chỉ cho đọc 4000 ký tự đầu) — {Math.Min(pending.Count, ResolveMax)} dòng...");
+        UseWaitCursor = true;
+        try
+        {
+            foreach (var old in pending.Take(ResolveMax))
+            {
+                if (!_resolving.TryGetValue(old, out var task))
+                {
+                    task = ResolveOneAsync(old);
+                    _resolving[old] = task;
+                }
+                ReplaceEvent(old, await task);
+                _resolving.Remove(old);
+            }
+        }
+        finally
+        {
+            UseWaitCursor = false;
+        }
+        if (skipped > 0)
+            ReportStatus($"{skipped} dòng câu dài còn lại giữ 4000 ký tự đầu (mỗi lần tìm tối đa {ResolveMax} dòng — chọn ít dòng hơn).");
+        else
+        {
+            _flashUntil = DateTime.MinValue;
+            UpdateStatus();
+        }
+    }
+
+    private async Task<CapturedEvent> ResolveOneAsync(CapturedEvent row)
+    {
+        try
+        {
+            var token = _lifetime?.Token ?? CancellationToken.None;
+            if (_watcher is { } watcher)
+                return await watcher.ResolveFullAsync(row, token);
+            if (_connectionString.Length > 0)
+                return await TraceWatcher.ResolveFullAsync(_connectionString, row, token);
+        }
+        catch (Exception ex)
+        {
+            ReportStatus("Không tìm được cả câu: " + ex.Message);
+        }
+        return row with { FullPending = false };   // không tìm lại mãi (ShowSelected tự tìm khi bấm dòng)
+    }
+
+    /// <summary>Thay dòng đã bắt bằng bản đã tìm cả câu: trong _captured (SP:Starting ghép batch theo danh sách này) và Tag của dòng lưới.</summary>
+    private void ReplaceEvent(CapturedEvent old, CapturedEvent fresh)
+    {
+        if (ReferenceEquals(old, fresh))
+            return;
+        var at = _captured.FindIndex(e => ReferenceEquals(e, old));
+        if (at >= 0)
+            _captured[at] = fresh;
+        foreach (DataGridViewRow row in _grid.Rows)
+        {
+            if (!ReferenceEquals(row.Tag, old))
+                continue;
+            row.Tag = fresh;
+            row.Cells[2].Value = OneLine(fresh.Text);
+            row.Cells[8].Value = fresh.ObjectName;
+            break;
+        }
+    }
+
+    private async Task ResolveAndShowAsync()
+    {
+        await EnsureFullAsync(SelectedEvents());
+        if (_grid.SelectedRows.Count == 1)
+            ShowSelected();
+    }
+
     /// <summary>Dòng chỉ có "EXEC tên" (không tham số / giá trị).</summary>
     private static bool IsBareExec(CapturedEvent e)
     {
@@ -1125,8 +1282,9 @@ public sealed partial class MainForm : Form
         return parts.Length == 2 && parts[0].Equals("EXEC", StringComparison.OrdinalIgnoreCase);
     }
 
-    private void CopySqlCommand()
+    private async Task CopySqlCommandAsync()
     {
+        await EnsureFullAsync(SelectedEvents());
         var sql = SelectedCommand();
         if (sql.Length == 0)
         {
@@ -1152,12 +1310,19 @@ public sealed partial class MainForm : Form
             return;
         }
         ReportStatus($"Đã copy SQL Command ({sql.Length} ký tự){cut} — đã mở SQL Query và dán vào.");
-        OpenInSqlQuery(sql, SelectedEvent()?.DatabaseName ?? "");
+        // Nhiều dòng: database của dòng đầu (sớm nhất) trong các dòng đã chọn.
+        var database = _grid.SelectedRows.Count > 1 ? SelectedEvents().FirstOrDefault()?.DatabaseName : SelectedEvent()?.DatabaseName;
+        OpenInSqlQuery(sql, database ?? "");
     }
 
-    private void DebugSelected()
+    private async Task DebugSelectedAsync()
     {
-        var sql = SelectedCommand();
+        // Debug 1 store: chọn nhiều dòng thì lấy dòng đang trỏ (dòng bấm sau cùng), không lấy chuỗi ghép.
+        var many = _grid.SelectedRows.Count > 1 && _grid.CurrentRow is { Selected: true, Tag: CapturedEvent };
+        await EnsureFullAsync(many ? [(CapturedEvent)_grid.CurrentRow!.Tag] : SelectedEvents());
+        var sql = _grid.SelectedRows.Count > 1 && _grid.CurrentRow is { Selected: true, Tag: CapturedEvent current }
+            ? CommandFor(current, out _)
+            : SelectedCommand();
         if (sql.Length == 0)
         {
             ReportStatus("Chọn 1 dòng có gọi store (exec …) rồi bấm Debug store.");

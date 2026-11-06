@@ -36,6 +36,7 @@
   .it:hover .side button { visibility: visible; }
   .k { display: inline-block; padding: 0 .5rem; border-radius: 999px; font-size: .82rem; border: var(--bw) solid var(--border); white-space: nowrap; }
   .k.k-note { border-color: #3b7dd8; } .k.k-status { border-color: #e0a800; } .k.k-new { border-color: #2e9a5b; } .k.k-due { border-color: #d9534f; }   /* tiền tố k-: .status đã là class của dialog.css */
+  .k.k-error { border-color: #d9534f; background: #d9534f; color: #fff; font-weight: 600; }
   .who { color: var(--accent); }
   .empty { padding: 2rem 1rem; text-align: center; color: var(--text-muted); line-height: 1.6; }
 </style>
@@ -59,6 +60,7 @@
     <label class="chk"><input type="checkbox" id="kStatus"> Đổi trạng thái</label>
     <label class="chk"><input type="checkbox" id="kNew"> Y/c mới giao cho mình</label>
     <label class="chk"><input type="checkbox" id="kDue"> Đổi hạn hoàn thành</label>
+    <label class="chk" title="Y/c có lỗi (ierror > 0) mới, số lỗi tăng hoặc nội dung lỗi (cột loi) đổi"><input type="checkbox" id="kErr"> Lỗi mới</label>
   </span>
   <span class="sep"></span>
   <label class="chk" title="Ngoài y/c mình lập trình (ma_lt1), báo cả y/c mình là triển khai (ma_nv1)"><input type="checkbox" id="dep"> Báo cả y/c mình là triển khai</label>
@@ -79,7 +81,7 @@
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const KIND = { note: 'Ghi chú mới', status: 'Đổi trạng thái', new: 'Y/c mới giao', due: 'Đổi hạn HT' };
+  const KIND = { note: 'Ghi chú mới', status: 'Đổi trạng thái', new: 'Y/c mới giao', due: 'Đổi hạn HT', error: 'Lỗi' };
   const fmt = (t) => t ? t.slice(8, 10) + '/' + t.slice(5, 7) + ' ' + t.slice(11, 16) : '';
   let d = { items: [], settings: {} }, onlyNew = false, cfgOpen = false;
   try { cfgOpen = localStorage.getItem('fsgnotify.cfg') === '1'; } catch { /* bỏ qua */ }
@@ -92,7 +94,7 @@
     $('cfg').classList.toggle('on', cfgOpen); $('btnCfg').classList.toggle('primary', cfgOpen);
     if (document.activeElement !== $('prog')) $('prog').value = d.programmer || '';
     if (document.activeElement !== $('mins')) $('mins').value = s.minutes || 10;
-    $('en').checked = !!s.enabled; $('kNote').checked = !!s.note; $('kStatus').checked = !!s.status; $('kNew').checked = !!s.new; $('kDue').checked = !!s.due;
+    $('en').checked = !!s.enabled; $('kNote').checked = !!s.note; $('kStatus').checked = !!s.status; $('kNew').checked = !!s.new; $('kDue').checked = !!s.due; $('kErr').checked = s.error !== false;
     $('dep').checked = !!s.deployer; $('toast').checked = !!s.toast;
     $('wh').checked = !!s.workHoursOnly; $('whSat').checked = !!s.workSat; $('whSun').checked = !!s.workSun;
     if (document.activeElement !== $('whFrom')) $('whFrom').value = s.workFrom || '07:30';
@@ -116,15 +118,15 @@
       + `<span class="mn" title="${esc(x.menuId)}">${esc(x.tenMenu || x.menuId)}</span></div>`
       + `<span class="side">${esc(fmt(x.at))}${x.seen ? '' : `<button data-seen="${esc(x.id)}" title="Đánh dấu đã xem">✓</button>`}</span>`
       + `<div class="tx">${esc(x.text)}</div></div>`).join('')
-      : `<div class="empty">${onlyNew ? 'Không có thông báo chưa xem.' : 'Chưa có thông báo nào.'}<br>Bcode báo khi y/c bạn lập trình có ghi chú mới, đổi trạng thái, đổi hạn hoàn thành hoặc y/c mới giao cho bạn.</div>`;
+      : `<div class="empty">${onlyNew ? 'Không có thông báo chưa xem.' : 'Chưa có thông báo nào.'}<br>Bcode báo khi y/c bạn lập trình có ghi chú mới, đổi trạng thái, đổi hạn hoàn thành, có lỗi mới hoặc y/c mới giao cho bạn.</div>`;
   };
 
   const saveCfg = () => post('settings', { settings: {
     enabled: $('en').checked, minutes: Math.max(1, Math.min(1440, parseInt($('mins').value, 10) || 10)),
-    note: $('kNote').checked, status: $('kStatus').checked, new: $('kNew').checked, due: $('kDue').checked, deployer: $('dep').checked, toast: $('toast').checked,
+    note: $('kNote').checked, status: $('kStatus').checked, new: $('kNew').checked, due: $('kDue').checked, error: $('kErr').checked, deployer: $('dep').checked, toast: $('toast').checked,
     workHoursOnly: $('wh').checked, workFrom: $('whFrom').value || '07:30', workTo: $('whTo').value || '19:00', workSat: $('whSat').checked, workSun: $('whSun').checked,
   }, programmer: $('prog').value.trim() });
-  ['en', 'kNote', 'kStatus', 'kNew', 'kDue', 'dep', 'toast', 'wh', 'whFrom', 'whTo', 'whSat', 'whSun'].forEach((id) => $(id).addEventListener('change', saveCfg));
+  ['en', 'kNote', 'kStatus', 'kNew', 'kDue', 'kErr', 'dep', 'toast', 'wh', 'whFrom', 'whTo', 'whSat', 'whSun'].forEach((id) => $(id).addEventListener('change', saveCfg));
   $('mins').addEventListener('change', saveCfg);
   $('prog').addEventListener('change', saveCfg);
   $('prog').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('prog').blur(); } });

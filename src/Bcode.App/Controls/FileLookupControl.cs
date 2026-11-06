@@ -122,7 +122,7 @@ public partial class FileLookupControl : UserControl
         };
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
-            if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node)
+            if (e.Node?.Tag is FileLookupNode { IsDirectory: false } node && !TryOpenOfflineExcel(node.FullPath))
                 FileActivated?.Invoke(node.FullPath);
         };
 
@@ -211,12 +211,27 @@ public partial class FileLookupControl : UserControl
                 lastDeleted is null ? "Khôi phục file vừa xoá" : $"Khôi phục file vừa xoá ({lastDeleted.Files.Count} file, {lastDeleted.Time:HH:mm dd/MM})...",
                 null, (_, _) => BeginInvoke(new Action(RestoreLastDeleted))) { Enabled = lastDeleted is not null });
             _fileContextMenu.Items.Add(new ToolStripSeparator());
+            // Như FCode: bật thì mở mẫu in Excel (Templates\Excel) bằng bản sao — Excel không khoá file gốc, FBO in được (Services/OfflineExcelDesign.cs).
+            _fileContextMenu.Items.Add(new ToolStripMenuItem("Offline Design Excel File", null, (_, _) =>
+            {
+                _settings.FileLookupOfflineExcel = !_settings.FileLookupOfflineExcel;
+                _settings.Save();
+                SetStatus(_settings.FileLookupOfflineExcel
+                    ? "Offline Design Excel File: BẬT — mở mẫu in Excel ở Templates\\Excel bằng bản sao, lưu trong Excel thì tự chép về file gốc."
+                    : "Offline Design Excel File: TẮT — mở thẳng file Excel gốc.", false);
+            })
+            {
+                Checked = _settings.FileLookupOfflineExcel,
+                ToolTipText = "Mở mẫu in Excel (Templates\\Excel) bằng bản sao để Excel không khoá file gốc — FBO vẫn in được; Excel lưu thì bản sửa tự chép về file gốc.",
+            });
             _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };
         _tree.ContextMenuStrip = _fileContextMenu;
         WireRename();
         _service.IndexRefreshed += OnIndexRefreshed;
         Disposed += (_, _) => _service.IndexRefreshed -= OnIndexRefreshed;
+        OfflineExcelDesign.Synced += OnOfflineExcelSynced;
+        Disposed += (_, _) => OfflineExcelDesign.Synced -= OnOfflineExcelSynced;
         VisibleChanged += (_, _) =>
         {
             if (!Visible) return;
@@ -1046,12 +1061,35 @@ public partial class FileLookupControl : UserControl
     /// panel) on the currently previewed file, prompting once to locate BcodeViewer.exe if
     /// it isn't configured yet (and remembering the choice in AppSettings, same as the
     /// existing VSAppPath/SqlSmsPath external-tool settings).</summary>
+    /// <summary>"Offline Design Excel File" đang bật và <paramref name="path"/> là mẫu in Excel (Templates\Excel) → mở bản sao offline
+    /// (<see cref="OfflineExcelDesign"/>) thay cho file gốc. Trả true = đã xử lý (kể cả khi người dùng huỷ), nơi gọi không mở thêm.</summary>
+    private bool TryOpenOfflineExcel(string path)
+    {
+        if (!_settings.FileLookupOfflineExcel || !OfflineExcelDesign.IsCandidate(path)) return false;
+        if (OfflineExcelDesign.Open(this, path, ProjectName))
+            SetStatus("Offline Design Excel: đang sửa bản sao của " + Path.GetFileName(path) + " — lưu trong Excel thì tự chép về file gốc.", false);
+        return true;
+    }
+
+    private void OnOfflineExcelSynced(string original, string? error)
+    {
+        if (IsDisposed || !IsHandleCreated) return;
+        BeginInvoke(new Action(() =>
+        {
+            if (IsDisposed) return;
+            SetStatus(error is null
+                ? $"Offline Design Excel: đã chép bản sửa về {original} ({DateTime.Now:HH:mm:ss})."
+                : $"Offline Design Excel: chưa chép về {Path.GetFileName(original)} — {error}", error is not null);
+        }));
+    }
+
     private void OpenInViewer()
     {
         if (_previewEditor.CurrentPath is not { } path) return;
 
         // *.rpt (Crystal Reports), *.xlsx (Excel) — mở bằng đúng ứng dụng hỗ trợ thay vì
         // BcodeViewer, xem NativeAppLauncher.
+        if (TryOpenOfflineExcel(path)) return;
         if (NativeAppLauncher.TryOpenWithNativeApp(this, path)) return;
 
         if (string.IsNullOrWhiteSpace(_settings.ViewerExePath) || !File.Exists(_settings.ViewerExePath))

@@ -137,6 +137,7 @@
   // ---- Dữ liệu -------------------------------------------------------------------------------
   function load(payload) {
     readRem();
+    S.cut = payload.cut || 0;
     S.tables = (payload.tables || []).map((t, i) => {
       const o = { idx: i, name: t.name || ('Table ' + (i + 1)), cols: t.cols.map((c) => ({ n: c.n, t: c.t, num: ['int', 'long', 'short', 'byte', 'decimal', 'double'].includes(c.t), label: c.n })),
         rows: t.rows, total: t.total, ms: t.ms, view: null, sort: null, filter: null, colors: new Map(), sel: null, anchor: null, diff: null, h: 0, collapsed: false, w: [] };
@@ -222,7 +223,7 @@
       '<span class="sp"></span><button class="ghost cp" title="Copy cả bảng (kèm tên cột)">⎘ Copy</button></div>' +
       '<div class="gwrap" tabindex="0"></div>' + (fill ? '' : '<div class="rsz"></div>');
     card.querySelector('.cl').onclick = () => { t.collapsed = !t.collapsed; card.classList.toggle('collapsed', t.collapsed); card.querySelector('.cl').textContent = t.collapsed ? '▸' : '▾'; if (!t.collapsed) draw(t, card); };
-    card.querySelector('.cp').onclick = () => copyText(tsv(t, allRange(t), true), 'Đã copy cả bảng (' + t.view.length + ' dòng).');
+    card.querySelector('.cp').onclick = () => copyRange(t, allRange(t), true, 'Đã copy cả bảng (' + t.view.length + ' dòng).');
     const chip = card.querySelector('.chip b'); if (chip) chip.onclick = () => { t.filter = null; render(); };
     const rsz = card.querySelector('.rsz');
     if (rsz) rsz.onmousedown = (e) => {
@@ -293,8 +294,8 @@
   }
   // Script phím toàn cục gắn sẵn ở document (pha capture) chặn tổ hợp toàn cục trước lưới → bắt phím copy tên cột sớm hơn ở window khi phím bấm trong lưới.
   window.addEventListener('keydown', (e) => {
-    const kn = keyOf('result.copyColumnName', 'Ctrl+Shift+C');
-    if (!kn || !(e.ctrlKey || e.altKey) || comboOfEvent(e) !== kn) return;
+    const kn = keyOf('result.copyColumnName', 'Ctrl+Shift+C'), kv = keyOf('result.viewCell', 'Ctrl+F3'), combo = comboOfEvent(e);
+    if (!((kn && (e.ctrlKey || e.altKey) && combo === kn) || (kv && combo === kv))) return;
     const w = e.target && e.target.closest ? e.target.closest('.gwrap') : null;
     if (w && w.__t) { e.stopPropagation(); keyDown(e, w.__t); }
   }, true);
@@ -381,12 +382,35 @@
     return out.join('\r\n');
   }
 
+  // Ô bị cắt khi C# gửi sang (MultiResultView.CellText): chữ dài hơn S.cut ký tự → S.cut ký tự đầu + "…"; nhị phân dài → "0x…… (N bytes)".
+  const isCut = (t, c, v) => v != null && ((S.cut > 0 && v.length === S.cut + 1 && v.charCodeAt(S.cut) === 0x2026) || (t.cols[c].t === 'bytes' && / bytes\)$/.test(v) && v.includes('…')));
+  // Copy 1 vùng: có ô bị cắt thì gửi kèm vị trí (chỉ số dòng gốc) để C# dựng lại từ DataTable gốc cho đủ giá trị; text = bản dự phòng (kết quả khôi phục sau ngủ đông).
+  function copyRange(t, rg, withHead, msg) {
+    const text = tsv(t, rg, withHead);
+    let cut = false;
+    if (rg && t.view.length) for (let i = rg.r0; i <= rg.r1 && !cut; i++) { const row = t.rows[t.view[i]]; for (let c = rg.c0; c <= rg.c1; c++) if (isCut(t, c, row[c])) { cut = true; break; } }
+    if (!cut) { copyText(text, msg); return; }
+    const rows = []; for (let i = rg.r0; i <= rg.r1; i++) rows.push(t.view[i]);
+    post('copy', { text, full: { table: t.idx, rows, c0: rg.c0, c1: rg.c1, head: !!withHead } });
+    toast(msg || 'Đã copy.');
+  }
+  // Xem đủ giá trị ô đang chọn (phím result.viewCell, mặc định Ctrl+F3 — như FCode): C# lấy giá trị gốc rồi mở cửa sổ xem chỉ đọc (SourceViewForm).
+  function viewCell(t) {
+    const a = t.anchor || (t.sel ? { r: t.sel.r0, c: t.sel.c0 } : null);
+    if (!a || !t.view.length || !t.cols[a.c]) { toast('Chọn 1 ô để xem.'); return; }
+    const r = t.view[a.r], v = t.rows[r][a.c];
+    if (v == null) { toast('Ô đang chọn là NULL.'); return; }
+    post('viewCell', { table: t.idx, row: r, col: a.c, disp: a.r + 1, name: t.cols[a.c].n, text: v, cut: isCut(t, a.c, v) });
+  }
+
   function keyDown(e, t) {
     if (e.ctrlKey || e.altKey) {
       const kn = keyOf('result.copyColumnName', 'Ctrl+Shift+C');
       if (kn && comboOfEvent(e) === kn) { e.preventDefault(); copyColNames(t); return; }
     }
-    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') { if (t.sel) { e.preventDefault(); copyText(tsv(t, t.sel, false), 'Đã copy ' + ((t.sel.r1 - t.sel.r0 + 1) * (t.sel.c1 - t.sel.c0 + 1)) + ' ô.'); } return; }
+    const kv = keyOf('result.viewCell', 'Ctrl+F3');
+    if (kv && comboOfEvent(e) === kv) { e.preventDefault(); viewCell(t); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') { if (t.sel) { e.preventDefault(); copyRange(t, t.sel, false, 'Đã copy ' + ((t.sel.r1 - t.sel.r0 + 1) * (t.sel.c1 - t.sel.c0 + 1)) + ' ô.'); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') { e.preventDefault(); t.sel = allRange(t); draw(t, t.card); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); gotoColumn(t); return; }
     if (e.ctrlKey || e.altKey) {
@@ -451,9 +475,10 @@
     const sel = t.sel;
     if (head) { cap('Thống kê'); ['Sum', 'Max', 'Min', 'Avg'].forEach((k) => add(k + ' value', () => colStat(t, col, k))); }
     cap('Copy');
-    add('Copy', () => sel && copyText(tsv(t, sel, false), 'Đã copy.'), 'Ctrl+C');
-    add('Copy kèm tên cột', () => sel && copyText(tsv(t, sel, true), 'Đã copy.'));
-    add('Copy cả bảng', () => copyText(tsv(t, allRange(t), true), 'Đã copy cả bảng.'));
+    add('Copy', () => sel && copyRange(t, sel, false, 'Đã copy.'), 'Ctrl+C');
+    add('Copy kèm tên cột', () => sel && copyRange(t, sel, true, 'Đã copy.'));
+    add('Copy cả bảng', () => copyRange(t, allRange(t), true, 'Đã copy cả bảng.'));
+    add('Xem đủ giá trị ô', () => viewCell(t), keyOf('result.viewCell', 'Ctrl+F3'));
     // Lưu ra file: C# ghi từ DataTable gốc (đủ mọi dòng, kể cả phần trang không hiện); "dòng đã chọn" gửi chỉ số dòng gốc theo thứ tự đang hiện.
     cap('Lưu ra file');
     add('Xuất nhanh ra Excel (mở luôn)  (' + t.total.toLocaleString() + ' dòng)', () => saveFile(t, 'xlsx', false, true), keyOf('result.quickExcel', 'Ctrl+E'));
@@ -486,7 +511,13 @@
     m.querySelectorAll('.sw i').forEach((el) => { el.onclick = () => { hideMenu(); setColor(t, el.dataset.c || null); }; });
   }
   // Phím tắt cấu hình được (Template → Phím tắt → "Lưới kết quả SQL Query"): C# đẩy window.__bcodeEditorKeys, rỗng = tắt.
-  function keyOf(id, def) { const m = window.__bcodeEditorKeys || {}; return Object.prototype.hasOwnProperty.call(m, id) ? m[id] : def; }
+  // Trang là 1 khung (iframe) của WebFrameHost thì script phím C# chỉ chạy ở trang cha (framehost.html) → đọc bản đồ phím của trang cha (cùng origin).
+  function keyOf(id, def) {
+    let m = window.__bcodeEditorKeys;
+    if (!m) { try { if (window.parent !== window) m = window.parent.__bcodeEditorKeys; } catch { /* khác origin */ } }
+    m = m || {};
+    return Object.prototype.hasOwnProperty.call(m, id) ? m[id] : def;
+  }
   function comboOfEvent(e) {
     if (window.__bcodeCombo) return window.__bcodeCombo(e);
     const k = e.key.length === 1 ? e.key.toUpperCase() : e.key;

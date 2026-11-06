@@ -77,6 +77,47 @@ public sealed class SourceViewForm : ThemedForm
         return f.ShowNear(near, cascade);
     }
 
+    /// <summary>Mở cửa sổ xem 1 GIÁ TRỊ bất kỳ (vd ô kết quả SQL Query — phím result.viewCell / Ctrl+F3): đủ chuỗi, chỉ đọc, Ctrl+F tìm, chọn copy được.
+    /// Tô màu theo nội dung: JSON / HTML / XML nhận ra ở đây, còn lại đuôi .txt (khung xem tự tô SQL / JS / FCode như file include).</summary>
+    public static SourceViewForm OpenValue(string title, string info, string value, Form? near)
+    {
+        var f = new SourceViewForm(null, null);
+        f.Text = title;
+        f._info.Text = info;
+        f._tip.SetToolTip(f._info, info);
+        f._view.LoadContent(GuessValueName(value), value);
+        return f.ShowNear(near, cascade: false);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex HtmlStart = new(
+        @"^<(!doctype\s+html|html|head|body|div|span|table|thead|tbody|tr|td|th|p|a|ul|ol|li|script|style|form|input|button|label|select|br|hr|img|h[1-6]|b|i|u|strong|em|section|header|footer|nav|iframe|font|center)\b",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Tên giả (chỉ để chọn ngôn ngữ tô màu) cho <see cref="OpenValue"/>.</summary>
+    private static string GuessValueName(string value)
+    {
+        var s = value.TrimStart();
+        if (s.StartsWith('{') || s.StartsWith('['))
+        {
+            try { using var _ = System.Text.Json.JsonDocument.Parse(value); return "value.json"; } catch { /* không phải JSON */ }
+        }
+        if (s.StartsWith('<')) return HtmlStart.IsMatch(s) ? "value.html" : "value.xml";
+        return "value.txt";
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex SqlWords = new(
+        @"\b(select|insert|update|delete|exec|execute|declare|create|alter|drop|set|if|begin|from|where|join)\b",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Ngôn ngữ Monaco cho 1 giá trị (form sửa ô CellEditForm): json / html / xml như <see cref="GuessValueName"/>, chữ có từ khoá SQL → sql, còn lại plaintext.</summary>
+    internal static string GuessValueLanguage(string value) => Path.GetExtension(GuessValueName(value)) switch
+    {
+        ".json" => "json",
+        ".html" => "html",
+        ".xml" => "xml",
+        _ => SqlWords.IsMatch(value.Length > 20000 ? value[..20000] : value) ? "sql" : "plaintext",
+    };
+
     private SourceViewForm ShowNear(Form? near, bool cascade)
     {
         var area = Screen.FromControl((Control?)near ?? this).WorkingArea;

@@ -155,6 +155,10 @@ public class AppSettings
     /// %AppData%\Bcode\deleted-files). 0 = không sao lưu (xoá hẳn như trước). Sửa ở Template → "Tìm file".</summary>
     public int FileLookupDeleteBackupDays { get; set; } = 7;
 
+    /// <summary>File Lookup → chuột phải → "Offline Design Excel File" (như FCode, khoá registry OfflineDesignExcelFile): bật thì mở mẫu in Excel ở Templates\Excel
+    /// bằng bản sao (Services/OfflineExcelDesign.cs) để Excel không khoá file gốc — FBO vẫn in được; Excel lưu thì bản sửa tự chép về file gốc. Mặc định tắt.</summary>
+    public bool FileLookupOfflineExcel { get; set; }
+
     // ---- File Lookup → Search Box (String search): các file/thư mục bị LOẠI khi tìm nội dung. Mặc định = đúng như trước đây; sửa ở Template → "Tìm file".
     /// <summary>Đuôi file ĐƯỢC tìm khi File Type là *.* (chỉ quét các đuôi này; để trống = mọi đuôi trừ 2 danh sách loại trừ). Gõ rõ đuôi ở File Type thì không áp.</summary>
     public string SearchIncludeExtensions { get; set; } = ".xml, .f, .txt, .js, .sql, .ent, .xsd, .css, .config, .json, .html";
@@ -316,7 +320,10 @@ public class AppSettings
 
     /// <summary>Báo lỗi (Template → Đường dẫn → Báo lỗi): link Google Sheet chứa lỗi (mở để xem / dán tay khi chưa có URL nhận tự động).
     /// Lưu file riêng error-report.json (cùng lý do với <see cref="AiEmbedded"/>). Trống = chưa khai.</summary>
-    public static string ErrorSheetUrl { get => ReadErrorReport().Sheet; set => WriteErrorReport(c => c.Sheet = (value ?? "").Trim()); }
+    public static string ErrorSheetUrl { get => ReadErrorReport().Sheet ?? DefaultErrorSheetUrl; set => WriteErrorReport(c => c.Sheet = (value ?? "").Trim()); }
+
+    /// <summary>Link Google Sheet lỗi mặc định (người dùng chọn) — dùng khi chưa khai bao giờ; xoá trắng ô ở Template thì giữ trống.</summary>
+    public const string DefaultErrorSheetUrl = "https://docs.google.com/spreadsheets/d/1c7j31sOt4leZsOYH4rHLghaHSnB_p-Nu3bPL466xUdg/edit?gid=0#gid=0";
 
     /// <summary>URL nhận lỗi tự động — web app Google Apps Script (…/exec) gắn với sheet ở <see cref="ErrorSheetUrl"/> (mã: Services.ErrorLog.AppsScriptCode).
     /// Có thì F1 gửi thẳng (POST JSON); trống thì F1 chép lỗi vào clipboard rồi mở sheet để dán.</summary>
@@ -326,7 +333,7 @@ public class AppSettings
     /// Có thì F1 gửi cả về đây (cùng lúc với <see cref="ErrorPostUrl"/> nếu có). Trống = không gửi forum.</summary>
     public static string ErrorForumUrl { get => ReadErrorReport().Forum; set => WriteErrorReport(c => c.Forum = (value ?? "").Trim()); }
 
-    private sealed class ErrorReportConfig { public string Sheet { get; set; } = ""; public string Post { get; set; } = ""; public string Forum { get; set; } = ""; }
+    private sealed class ErrorReportConfig { public string? Sheet { get; set; } public string Post { get; set; } = ""; public string Forum { get; set; } = ""; }
     private static string ErrorReportPath => Path.Combine(SettingsDir, "error-report.json");
     private static ErrorReportConfig ReadErrorReport()
     {

@@ -8,7 +8,8 @@ namespace Bcode.App.Services;
 /// <summary>
 /// Thông báo y/c FSG (chuông 🔔 trên thanh trên): chạy NGẦM (cả khi không mở tab Yêu cầu FSG), định kỳ kéo lại y/c của chính người dùng
 /// (ma_lt1 = tên lập trình đã khai — AppSettings.NoteProgrammer; tuỳ chọn cả ma_nv1) cho các dự án đã lưu trong fsg-requirements.json, so với lần lưu trước
-/// theo khoá ma_da + fcode1 rồi ghi thông báo: ghi chú có dòng mới (bỏ dòng do chính mình ghi), đổi trạng thái, y/c mới giao cho mình, đổi hạn hoàn thành.
+/// theo khoá ma_da + fcode1 rồi ghi thông báo: ghi chú có dòng mới (bỏ dòng do chính mình ghi), đổi trạng thái, y/c mới giao cho mình, đổi hạn hoàn thành,
+/// lỗi mới (ierror &gt; 0, nội dung cột loi).
 /// Chỉ ĐỌC database FSG (<see cref="FsgProjectLookupService.FetchRequirementReportAsync"/>). Lỗi mạng / VPN: im lặng, lần sau thử lại.
 /// Kéo xong thì cập nhật luôn các dòng đó vào fsg-requirements.json (tab đang mở tự vẽ lại qua <see cref="StoreUpdated"/>); "Kéo về" bằng tay ở tab cũng được so
 /// (<see cref="RecordFetch"/>) để thay đổi không bị nuốt mất. Cài đặt + lịch sử thông báo: %AppData%\Bcode\fsg-notify.json — dùng chung giữa các cửa sổ Bcode
@@ -24,6 +25,7 @@ public sealed class FsgNotifyService : IDisposable
         public bool Status { get; set; } = true;     // đổi trạng thái
         public bool New { get; set; } = true;        // y/c mới giao cho mình
         public bool Due { get; set; } = true;        // đổi hạn hoàn thành
+        public bool Error { get; set; } = true;      // lỗi mới / nội dung lỗi đổi (nbphyc.ierror > 0, nội dung ở nbphyc.loi)
         public bool Deployer { get; set; }           // báo cả y/c mình là triển khai (ma_nv1)
         public bool Toast { get; set; } = true;      // toast Windows khi Bcode không ở trước
         /// <summary>Chỉ kéo NGẦM trong giờ làm (kéo tay / "Kiểm tra ngay" vẫn chạy bất kỳ lúc nào) — tối, cuối tuần máy để mở Bcode không gọi FSG.</summary>
@@ -45,7 +47,7 @@ public sealed class FsgNotifyService : IDisposable
         return from <= to ? tod >= from && tod < to : tod >= from || tod < to;   // giờ qua đêm (vd 20:00 → 06:00)
     }
 
-    /// <summary>1 thông báo. Kind: note | status | new | due. Role: lt (mình là lập trình) | nv (mình là triển khai).</summary>
+    /// <summary>1 thông báo. Kind: note | status | new | due | error. Role: lt (mình là lập trình) | nv (mình là triển khai).</summary>
     public sealed class Item
     {
         public string Id { get; set; } = "";
@@ -339,7 +341,8 @@ public sealed class FsgNotifyService : IDisposable
             // Kéo theo mốc: chỉ y/c SỬA sau lần kéo trước (nvphyc.datetime2) — thường vài dòng thay vì cả dự án. Không lọc theo người ở server để bắt cả
             // y/c vừa chuyển sang / chuyển khỏi mình (Diff tự lọc y/c của mình). Lần đầu, đổi danh sách dự án / người, hoặc quá FullPollEvery thì kéo đủ
             // như trước: chỉ y/c của mình (ma_lt1 = mình, hoặc ma_nv1 khi bật "cả triển khai"). Mỗi lần ≤ 150 mã dự án.
-            var key = string.Join(",", projects.Select(p => p.Trim().ToUpperInvariant()).OrderBy(p => p, StringComparer.Ordinal)) + "|" + me.ToUpperInvariant() + "|" + s.Deployer;
+            // "|loi": bản lưu từ trước khi kéo cột lỗi (ierror / loi) đổi khoá → kéo đủ một lần cho mọi y/c của mình có cột lỗi (không báo gì vì bản cũ chưa có để so).
+            var key = string.Join(",", projects.Select(p => p.Trim().ToUpperInvariant()).OrderBy(p => p, StringComparer.Ordinal)) + "|" + me.ToUpperInvariant() + "|" + s.Deployer + "|loi";
             DateTime? since = null;
             if (!force && _data.PollKey == key && DateTime.TryParse(_data.PollSince, out var ps)
                 && DateTime.TryParse(_data.LastFullPoll, out var lf) && DateTime.Now - lf < FullPollEvery)
@@ -355,7 +358,7 @@ public sealed class FsgNotifyService : IDisposable
                     : await new FsgProjectLookupService().FetchRequirementReportExAsync(string.Join(",", chunk), "", "", "", "", changedSince: since);
                 if (err is not null) { error = err; break; }
                 serverNow ??= sn;
-                fetched.AddRange(rows.Select(r => new Req(r.MaDa, r.MenuId, r.TenMenuNgan, r.TrangTlks, r.TlksYn, r.BpLt, r.Fcode1, r.NoiDung, r.MaLt1, r.MaNv1, r.TrangThai, r.NgayHt?.ToString("yyyy-MM-dd"), r.GhiChu)));
+                fetched.AddRange(rows.Select(FsgRequirementReportControl.ToReq));
             }
             if (error is not null) { Mutate(d => { d.LastError = error; d.FailCount++; }); return error; }   // mạng / VPN: im lặng, lần sau (giãn dần) thử lại
 
@@ -508,6 +511,8 @@ public sealed class FsgNotifyService : IDisposable
     private static readonly Regex LtReply = new(@"\s*\[LT:.*\]\s*$", RegexOptions.Compiled | RegexOptions.Singleline);
     private static string NoteKey(string line) => Regex.Replace(LtReply.Replace(line, ""), @"\s+", " ").Trim().ToUpperInvariant();
 
+    private static string LoiKey(string? loi) => Regex.Replace(loi ?? "", @"\s+", " ").Trim().ToUpperInvariant();
+
     private static IEnumerable<string> NoteLines(string? ghiChu) => (ghiChu ?? "").Replace("\r\n", "\n").Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0);
 
     /// <summary>
@@ -593,6 +598,16 @@ public sealed class FsgNotifyService : IDisposable
             }
             if (s.Status && !Eq(o.TrangThai, n.TrangThai)) items.Add(Make("status", "", Label(o.TrangThai) + " → " + Label(n.TrangThai)));
             if (s.Due && !Eq(o.NgayHt, n.NgayHt)) items.Add(Make("due", "", "Hạn hoàn thành " + Date(o.NgayHt) + " → " + Date(n.NgayHt)));
+            // Lỗi: ierror > 0 = y/c có lỗi, nội dung ở cột loi. Báo khi vừa có lỗi, số lỗi tăng hoặc nội dung lỗi đổi. Dòng lưu từ bản Bcode chưa kéo
+            // cột lỗi (o.Loi null) thì chỉ ghi lại, không báo — tránh bắn hàng loạt thông báo giả ở lần chạy đầu.
+            var ne = n.IError ?? 0;
+            if (s.Error && o.Loi is not null && ne > 0)
+            {
+                var oe = o.IError ?? 0;
+                var loi = (n.Loi ?? "").Trim();
+                if (oe <= 0 || ne > oe || LoiKey(o.Loi) != LoiKey(loi))
+                    items.Add(Make("error", "", loi.Length > 0 ? loi : $"Y/c có lỗi (ierror = {ne}) — cột lỗi trống."));
+            }
         }
         return items;
     }

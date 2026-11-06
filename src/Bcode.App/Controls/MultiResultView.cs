@@ -53,14 +53,18 @@ public class MultiResultView : UserControl
             if (!root.TryGetProperty("action", out var a)) return;
             if (a.GetString() == "copy" && root.TryGetProperty("text", out var t))
             {
-                try { Clipboard.SetText(t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }
+                // Vùng copy có ô bị cắt khi gửi sang trang (chuỗi > MaxCellChars, nhị phân dài) → dựng lại từ DataTable gốc cho đủ giá trị.
+                var text = root.TryGetProperty("full", out var full) && full.ValueKind == JsonValueKind.Object ? FullCopyText(full) : null;
+                try { Clipboard.SetText(text ?? t.GetString() ?? ""); } catch { /* clipboard đang bị chương trình khác giữ */ }
             }
+            else if (a.GetString() == "viewCell") ViewCell(root);
             else if (a.GetString() == "save") Save(root);
             else if (a.GetString() == "designFields") DesignFields(root);
             else if (a.GetString() == "keys")   // lưới focus / blur: phím copy tên cột (result.copyColumnName) thắng phím toàn cục trùng tổ hợp
             {
-                var combo = Bcode.App.UI.ShortcutRegistry.Get("result.copyColumnName");
-                if (root.TryGetProperty("claim", out var c) && c.ValueKind == JsonValueKind.True && combo.Length > 0) Bcode.App.UI.WebViewEnvironment.ClaimKeys(this, combo);
+                // + phím xem đủ giá trị ô (result.viewCell, mặc định Ctrl+F3).
+                var combos = new[] { "result.copyColumnName", "result.viewCell" }.Select(Bcode.App.UI.ShortcutRegistry.Get).Where(k => k.Length > 0).ToArray();
+                if (root.TryGetProperty("claim", out var c) && c.ValueKind == JsonValueKind.True && combos.Length > 0) Bcode.App.UI.WebViewEnvironment.ClaimKeys(this, combos);
                 else Bcode.App.UI.WebViewEnvironment.ClaimKeys(this);
             }
         };
@@ -134,6 +138,54 @@ public class MultiResultView : UserControl
         _web.PostJson(JsonSerializer.Serialize(new { type = "designFields", text }));
     }
 
+    /// <summary>Copy có ô bị cắt: {table, rows: [chỉ số dòng gốc theo thứ tự đang hiện], c0, c1, head} → TSV y như tsv() của trang nhưng giá trị đủ
+    /// (1 ô không kèm tên cột = giá trị gốc y nguyên). null = không còn dữ liệu gốc (kết quả khôi phục sau ngủ đông) → dùng bản trang gửi.</summary>
+    private string? FullCopyText(JsonElement full)
+    {
+        var ti = full.TryGetProperty("table", out var a) && a.TryGetInt32(out var n) ? n : -1;
+        if (_tables is null || ti < 0 || ti >= _tables.Count || !full.TryGetProperty("rows", out var rs) || rs.ValueKind != JsonValueKind.Array) return null;
+        var table = _tables[ti];
+        int c0 = full.TryGetProperty("c0", out var x0) && x0.TryGetInt32(out var v0) ? v0 : 0, c1 = full.TryGetProperty("c1", out var x1) && x1.TryGetInt32(out var v1) ? v1 : -1;
+        if (c0 < 0 || c1 >= table.Columns.Count || c1 < c0) return null;
+        var head = full.TryGetProperty("head", out var h) && h.ValueKind == JsonValueKind.True;
+        var rows = new List<int>(rs.GetArrayLength());
+        foreach (var r in rs.EnumerateArray()) { if (!r.TryGetInt32(out var i) || i < 0 || i >= table.Rows.Count) return null; rows.Add(i); }
+        if (!head && rows.Count == 1 && c0 == c1) return CellText(table.Rows[rows[0]][c0], full: true) ?? "";
+        static string Quote(string? s) => s is null ? "" : s.StartsWith('"') || s.IndexOfAny(['\t', '\r', '\n']) >= 0 ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
+        var sb = new System.Text.StringBuilder();
+        if (head) sb.Append(string.Join("\t", Enumerable.Range(c0, c1 - c0 + 1).Select(c => table.Columns[c].ColumnName)));
+        foreach (var r in rows)
+        {
+            if (sb.Length > 0 || head) sb.Append("\r\n");
+            for (var c = c0; c <= c1; c++) { if (c > c0) sb.Append('\t'); sb.Append(Quote(CellText(table.Rows[r][c], full: true))); }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Phím result.viewCell (mặc định Ctrl+F3) / menu "Xem đủ giá trị ô": {table, row: chỉ số dòng gốc, col, disp: số dòng đang hiện, text: bản trang có}
+    /// → mở cửa sổ xem chỉ đọc (<see cref="Forms.SourceViewForm.OpenValue"/>) với giá trị ĐỦ lấy từ DataTable gốc.</summary>
+    private void ViewCell(JsonElement root)
+    {
+        static int Int(JsonElement e, string name) => e.TryGetProperty(name, out var v) && v.TryGetInt32(out var i) ? i : -1;
+        int ti = Int(root, "table"), r = Int(root, "row"), c = Int(root, "col"), disp = Int(root, "disp");
+        var text = root.TryGetProperty("text", out var tx) && tx.ValueKind == JsonValueKind.String ? tx.GetString() ?? "" : "";
+        var col = root.TryGetProperty("name", out var nm) ? nm.GetString() ?? "" : "";
+        var partial = false;
+        if (_tables is { } ts && ti >= 0 && ti < ts.Count && r >= 0 && r < ts[ti].Rows.Count && c >= 0 && c < ts[ti].Columns.Count)
+        {
+            text = CellText(ts[ti].Rows[r][c], full: true) ?? "";
+            col = ts[ti].Columns[c].ColumnName;
+        }
+        else partial = root.TryGetProperty("cut", out var cut) && cut.ValueKind == JsonValueKind.True;
+        var info = $"Cột {col} · dòng {(disp > 0 ? disp : r + 1)} · {text.Length:N0} ký tự"
+            + (partial ? " · CHỈ CÓ BẢN ĐÃ CẮT (kết quả khôi phục từ lần mở trước) — chạy lại truy vấn để xem đủ" : "");
+        var anchor = Anchor;
+        Action run = () => Forms.SourceViewForm.OpenValue($"{col} — dòng {(disp > 0 ? disp : r + 1)}", info, text, anchor.FindForm());
+        // Như Save: tạo cửa sổ có WebView2 ngay trong handler WebMessageReceived dễ lỗi → đợi xử lý xong tin nhắn.
+        if (anchor.IsHandleCreated) anchor.BeginInvoke(run);
+        else SynchronizationContext.Current?.Post(_ => run(), null);
+    }
+
     /// <summary>JSON lần gửi gần nhất (bảng đang hiện) — để tab SQL "ngủ đông" rồi dựng lại y như cũ (<see cref="Restore"/>).</summary>
     public string? Snapshot => _pending;
 
@@ -159,6 +211,7 @@ public class MultiResultView : UserControl
         {
             w.WriteStartObject();
             w.WriteString("type", "tables");
+            w.WriteNumber("cut", MaxCellChars);   // trang nhận ra ô bị cắt (độ dài cut + 1, đuôi "…") để copy / Ctrl+F3 xin giá trị đủ
             w.WriteStartArray("tables");
             for (var i = 0; i < tables.Count; i++)
             {
@@ -207,22 +260,28 @@ public class MultiResultView : UserControl
     /// nhị phân → hex rút gọn ("0x4D5A… (12.345 bytes)").</summary>
     private static void WriteValue(Utf8JsonWriter w, object value)
     {
+        if (CellText(value, full: false) is { } s) w.WriteStringValue(s); else w.WriteNullValue();
+    }
+
+    /// <summary>Chuỗi của 1 ô (null = NULL). <paramref name="full"/> = false: bản gửi sang lưới (chữ cắt ở <see cref="MaxCellChars"/> + "…",
+    /// nhị phân chỉ <see cref="BinaryPreviewBytes"/> byte đầu); true: đủ giá trị — copy ô bị cắt, Ctrl+F3 (cả lưới chế độ App: ResultGridMenu).</summary>
+    internal static string? CellText(object? value, bool full)
+    {
         switch (value)
         {
-            case DBNull or null: w.WriteNullValue(); break;
-            case DateTime d: w.WriteStringValue(d.TimeOfDay == TimeSpan.Zero ? d.ToString("dd/MM/yyyy") : d.ToString("dd/MM/yyyy HH:mm:ss")); break;
+            case DBNull or null: return null;
+            case DateTime d: return d.TimeOfDay == TimeSpan.Zero ? d.ToString("dd/MM/yyyy") : d.ToString("dd/MM/yyyy HH:mm:ss");
             case byte[] b:
             {
+                if (full) return "0x" + Convert.ToHexString(b);
                 var hex = Convert.ToHexString(b, 0, Math.Min(b.Length, BinaryPreviewBytes));
-                w.WriteStringValue(b.Length > BinaryPreviewBytes ? $"0x{hex}… ({b.Length:N0} bytes)" : "0x" + hex);
-                break;
+                return b.Length > BinaryPreviewBytes ? $"0x{hex}… ({b.Length:N0} bytes)" : "0x" + hex;
             }
-            case IFormattable f: w.WriteStringValue(f.ToString(null, CultureInfo.CurrentCulture)); break;
+            case IFormattable f: return f.ToString(null, CultureInfo.CurrentCulture);
             default:
             {
                 var str = value.ToString() ?? "";
-                w.WriteStringValue(str.Length > MaxCellChars ? str[..MaxCellChars] + "…" : str);
-                break;
+                return !full && str.Length > MaxCellChars ? str[..MaxCellChars] + "…" : str;
             }
         }
     }

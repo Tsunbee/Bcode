@@ -22,6 +22,7 @@
 
     let editor = null;
     let pendingText = null;
+    let pendingLang = null;
     let isDark = !document.documentElement.classList.contains('light');
 
     function setText(text) {
@@ -59,7 +60,11 @@
       if (typeof msg === 'string') { try { msg = JSON.parse(msg); } catch { return; } }
       if (!msg) return;
       switch (msg.type) {
-        case 'load': setText(msg.text); break;
+        case 'load':
+          // lang (tuỳ chọn): ngôn ngữ tô màu — form sửa ô của tab Table (CellEditForm) gửi json / html / xml / sql / plaintext; View Script không gửi = sql.
+          if (msg.lang) { pendingLang = msg.lang; if (editor) monaco.editor.setModelLanguage(editor.getModel(), msg.lang); }
+          if (msg.readOnly && editor) editor.updateOptions({ readOnly: true });
+          setText(msg.text); break;
         case 'clear': setText(''); break;
         case 'find': findNext(msg.value); break;
       }
@@ -69,7 +74,7 @@
     require(['vs/editor/editor.main'], function () {
       editor = monaco.editor.create(document.getElementById('editor'), {
         value: '',
-        language: 'sql',
+        language: pendingLang || 'sql',
         theme: isDark ? 'vs-dark' : 'vs',
         automaticLayout: true,
         fontSize: 14,
@@ -81,6 +86,8 @@
         mouseWheelZoom: true,
       });
       if (pendingText !== null) { setText(pendingText); pendingText = null; }
+      // Ctrl+S → báo host (CellEditForm = Lưu vào ô; ScriptPopupForm bỏ qua tin này).
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => post({ action: 'save-key' }));
       post({ action: 'ready' });
     });
   </script>

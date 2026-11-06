@@ -286,6 +286,10 @@ public class EditorBridge
         wordWrap = _settings.WordWrap,
         aiSidebarPosition = _settings.AiSidebarPosition,
         f5ReuseTab = _settings.F5ReuseTab,
+        f5Browser = _settings.F5Browser,
+        f5HasChrome = BrowserTabLauncher.FindExe("chrome") is not null,
+        f5HasEdge = BrowserTabLauncher.FindExe("edge") is not null,
+        autoClearReadOnly = _settings.AutoClearReadOnly,
     });
 
     /// <summary>Saves what the page's Settings dialog sends back, then reloads what depends on
@@ -330,6 +334,8 @@ public class EditorBridge
             _settings.LightMode = S("lightMode") is "on" or "off" ? S("lightMode") : "auto";
             _settings.WordWrap = B("wordWrap");
             if (r.TryGetProperty("f5ReuseTab", out _)) _settings.F5ReuseTab = B("f5ReuseTab");
+            if (r.TryGetProperty("f5Browser", out _)) _settings.F5Browser = S("f5Browser") is "chrome" or "edge" or "bcode" ? S("f5Browser") : "default";
+            if (r.TryGetProperty("autoClearReadOnly", out _)) _settings.AutoClearReadOnly = B("autoClearReadOnly");
             if (r.TryGetProperty("autoFitMinFont", out var minFont) && minFont.TryGetInt32(out var mf)) _settings.AutoFitMinFont = Math.Clamp(mf, 6, 14);
             var fcodeStyle = S("fcodeThemeStyle") == "fcode" ? "fcode" : "bcode";
             var styleChanged = fcodeStyle != _settings.FcodeThemeStyle;
@@ -353,7 +359,7 @@ public class EditorBridge
     private HintSnippetStore? _hintEditStore;
     private List<FileTemplate> _fileTemplates = new();
 
-    /// <summary>Save dialog for "Export..." (Hint Code) and for the new file of New from Template:
+    /// <summary>Save dialog for "Export..." (Hint Code) and for MainForm closing with untitled tabs:
     /// (suggested file name, initial folder, filter) → chosen path or null. Set by MainForm.</summary>
     public Func<string, string?, string, string?>? ChooseSavePath { get; set; }
 
@@ -503,21 +509,33 @@ public class EditorBridge
     public void BeginReadFileTemplate(string requestId, string path) =>
         _async.Begin(requestId, () => _fileTemplates.FirstOrDefault(t => t.Path == path)?.ReadContent() ?? "");
 
-    /// <summary>Asks where to put the new file, writes the rendered template there and returns its
-    /// path ("" when cancelled). <paramref name="nearPath"/> = the open file, for the initial folder.</summary>
+    /// <summary>New from Template → "Tạo file": render template, KHÔNG hỏi nơi lưu. Trả JSON <c>{untitled:true, name, dir, content}</c> →
+    /// trang mở tab chưa đặt tên (Untitled) với nội dung đó, Ctrl+S mới hỏi nơi lưu (như FCode); "" = không còn template đó.
+    /// <paramref name="nearPath"/> = file đang mở — thư mục gợi ý cho hộp lưu sau này.</summary>
     public void BeginCreateFromTemplate(string requestId, string path, string nearPath) =>
         _async.Begin(requestId, () =>
         {
             var template = _fileTemplates.FirstOrDefault(t => t.Path == path);
             if (template is null) return "";
-            var target = ChooseSavePath?.Invoke(
-                template.SuggestedFileName,
-                string.IsNullOrEmpty(nearPath) ? null : Path.GetDirectoryName(nearPath),
-                "Tất cả file (*.*)|*.*");
-            if (string.IsNullOrEmpty(target)) return "";
-            File.WriteAllText(target, template.Render(target, CurrentProjectName?.Invoke() ?? ""));
-            return target;
+            var nearDir = string.IsNullOrEmpty(nearPath) || IsUntitledPath(nearPath) ? null : Path.GetDirectoryName(nearPath);
+            // "Tạo file" mở ngay tab chưa đặt tên (như file mới của FCode), KHÔNG hỏi nơi lưu trước — Ctrl+S mới hỏi (editor.js saveActiveAs).
+            // Chưa có tên file thật: ${FileName}/${Name} lấy theo tên file template (cũng là tên gợi ý của hộp lưu sau này).
+            return JsonSerializer.Serialize(new
+            {
+                untitled = true,
+                name = template.SuggestedFileName,
+                dir = nearDir ?? "",
+                content = template.Render(template.SuggestedFileName, CurrentProjectName?.Invoke() ?? ""),
+            });
         });
+
+    /// <summary>Thư mục giả của tab chưa đặt tên (New from Template → Tạo file), khớp UNTITLED_ROOT trong editor.js. '&lt;' '&gt;' không hợp lệ
+    /// trong tên file Windows nên mọi thao tác đọc/ghi lỡ đi tới đường dẫn này đều lỗi ngay, không bao giờ tạo ra file thật.</summary>
+    internal const string UntitledRoot = "<untitled>";
+
+    /// <summary>Đường dẫn là tab chưa đặt tên (chưa có file trên đĩa)?</summary>
+    internal static bool IsUntitledPath(string? path) =>
+        path is not null && path.StartsWith(UntitledRoot + "\\", StringComparison.Ordinal);
 
     /// <summary>Native folder picker for the Settings dialog; "" when cancelled.</summary>
     public void BeginChooseFolder(string requestId, string initial) =>
@@ -794,16 +812,37 @@ public class EditorBridge
         {
             lock (SaveGateFor(path))
             {
-                return SaveWithHistoryCore(path, content);
+                return SaveWithHistoryCore(path, content, _settings.AutoClearReadOnly);
+            }
+        });
+
+    /// <summary>Như <see cref="BeginSaveWithHistory"/> nhưng file đang Read-only thì bỏ Chỉ đọc rồi ghi — trang gọi sau khi người dùng
+    /// đồng ý ở hộp hỏi (editor.js saveToHost).</summary>
+    public void BeginSaveWithHistoryClearReadOnly(string requestId, string path, string content) =>
+        _async.Begin(requestId, () =>
+        {
+            lock (SaveGateFor(path))
+            {
+                return SaveWithHistoryCore(path, content, clearReadOnly: true);
             }
         });
 
     /// <summary>Same save as <see cref="BeginSaveWithHistory"/>, run synchronously — for
     /// MainForm writing unsaved tabs while the window closes. Internal so it is not exposed
-    /// to the page through the host object. Throws on a failed write.</summary>
-    internal static void SaveWithHistory(string path, string content)
+    /// to the page through the host object. Throws on a failed write (file Read-only mà
+    /// <paramref name="clearReadOnly"/> = false → <see cref="ReadOnlyFileException"/>).</summary>
+    internal static void SaveWithHistory(string path, string content, bool clearReadOnly = false)
     {
-        lock (SaveGateFor(path)) { SaveWithHistoryCore(path, content); }
+        lock (SaveGateFor(path)) { SaveWithHistoryCore(path, content, clearReadOnly); }
+    }
+
+    /// <summary>File đích đang có thuộc tính Read-only (hay gặp ở file chép từ bộ source chuẩn / gói cài) — Windows không cho ghi đè,
+    /// trước đây hiện "Access to the path ... is denied". Thông điệp bắt đầu bằng <see cref="Marker"/> để trang nhận ra và hỏi bỏ Chỉ đọc.</summary>
+    internal sealed class ReadOnlyFileException : IOException
+    {
+        public const string Marker = "READONLY:";
+        public ReadOnlyFileException(string path)
+            : base($"{Marker} File đang để Chỉ đọc (Read-only) nên không ghi đè được: {path}") { }
     }
 
     /// <summary>One lock object per file, shared across every EditorBridge in the process.
@@ -819,8 +858,20 @@ public class EditorBridge
         return SaveGates.GetOrAdd(key, _ => new object());
     }
 
-    private static string SaveWithHistoryCore(string path, string content)
+    private static string SaveWithHistoryCore(string path, string content, bool clearReadOnly = false)
     {
+        // Tab chưa đặt tên phải đi Save As (editor.js saveActive) — tới đây là lỗi lập trình, báo rõ thay vì lỗi tên file khó hiểu.
+        if (IsUntitledPath(path)) throw new IOException("File chưa đặt tên — dùng Save As để chọn nơi lưu.");
+        // File Read-only: hỏi trước (ném ReadOnlyFileException cho trang hỏi người dùng) hoặc bỏ Chỉ đọc rồi ghi (đã đồng ý / Settings "tự bỏ").
+        // Kiểm trước mọi bước khác để khi còn phải hỏi thì chưa chụp lịch sử, chưa đụng gì tới file.
+        var target = new FileInfo(path);
+        if (target.Exists && target.IsReadOnly)
+        {
+            if (!clearReadOnly) throw new ReadOnlyFileException(path);
+            target.IsReadOnly = false;
+        }
+
+
         string? previous = null;
         DateTime? previousWrite = null;
         string? previousOwner = null;
@@ -1220,7 +1271,7 @@ public class EditorBridge
         _async.Begin(requestId, null, async token =>
         {
             var project = WorkspaceConnection.ResolveProjectName(path) ?? "";
-            try { return await MenuLauncher.OpenInBrowserAsync(path, project, _settings.F5ReuseTab, token); }
+            try { return await MenuLauncher.OpenInBrowserAsync(path, project, _settings.F5Browser, _settings.F5ReuseTab, token); }
             catch (Exception ex) { return "Đã lưu. Không mở được trình duyệt: " + ex.Message; }
         });
 

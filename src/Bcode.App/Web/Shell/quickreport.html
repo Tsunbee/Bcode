@@ -400,6 +400,7 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
     const busy = k === 'busy';
     $('status').className = 'status ' + (busy ? '' : (k || ''));
     $('status').innerHTML = (busy ? '<span class="spin"></span>' : '') + `<span>${esc(t || '')}</span>`;
+    $('status').title = t || '';   // thanh trạng thái một dòng — rê chuột xem đủ thông báo dài (lỗi + gợi ý)
   };
   const opt = (v, t, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(t)}</option>`;
   const H = (o) => (S.lang === 'e' ? o.headerE || o.headerV : o.headerV || o.headerE) || o.field || o.name;
@@ -981,7 +982,7 @@ Dịch ngay trên máy theo các cặp tiêu đề Việt/Anh có sẵn trong so
       $('setSel').value = pick;
       useSet(pick);
       $('runInfo').textContent = `· ${d.ms} ms`;
-      say(`Chạy xong (${d.ms} ms) — ${S.sets.length} result set. Chỉnh cột lưới rồi sang bước 3.`, 'ok');
+      say(`Chạy xong (${d.ms} ms) — ${S.sets.length} result set. ${d.note ? d.note + ' ' : ''}Chỉnh cột lưới rồi sang bước 3.`, d.note ? 'warn' : 'ok');
       showStep(2);
     },
     onPreview(files) {

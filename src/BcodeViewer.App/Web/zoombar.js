@@ -1,29 +1,29 @@
-// Ô phần trăm phóng to chữ — LUÔN hiện ở đầu bên phải toolbar, ngang hàng với các nút: "[150%]  −  +  Đặt lại".
+// Ô phần trăm phóng to chữ — hiện ở đầu bên phải toolbar, ngang hàng với các nút: "[150%]  −  +  Đặt lại". Toolbar ẩn thì ô ẩn theo.
 // Ctrl + lăn chuột (zoom có sẵn của Monaco) đổi cỡ chữ; ô này cho biết đang ở mức nào, gõ số % cụ thể + Enter để đặt, hoặc dùng − / + / Đặt lại.
 // 100% = cỡ chữ gốc của editor lúc khởi tạo; mức hiện tại = fontInfo.fontSize (đã gồm zoom) — Monaco giữ zoom chung cho mọi editor.
 (function () {
   let ed = null, bar = null, input = null, base = 15, lastText = '100%';
+  const watch = new MutationObserver(() => place());   // toolbar / thanh trên cùng đổi style-class → ẩn/hiện, đặt lại ô
 
   const percent = () => Math.round((ed.getOption(monaco.editor.EditorOption.fontInfo).fontSize || base) / base * 100);
 
-  // Đặt ô đè lên đầu bên phải toolbar, căn theo HÀNG ĐẦU của thanh (nút đầu tiên) và chừa chỗ ở thanh để không đè nút;
-  // không có toolbar thì rơi về góc phải trên editor.
+  // Đặt ô đè lên đầu bên phải toolbar, căn theo HÀNG ĐẦU của thanh (nút đầu tiên) và chừa chỗ ở thanh để không đè nút.
+  // Toolbar đang ẩn (Settings → Bố cục / ẩn nhanh, hoặc "Tự ẩn Menu/Toolbar" lúc chưa rê chuột lên mép trên) thì ẩn luôn ô này —
+  // trước đây ô rơi về góc phải trên editor và đè lên hộp tìm (Ctrl+F) của Monaco.
   function place() {
     if (!bar) return;
     const tb = document.querySelector('.shToolbar');
+    if (tb && !tb.dataset.zoomWatch) { tb.dataset.zoomWatch = '1'; watch.observe(tb, { attributes: true, attributeFilter: ['style'] }); }
     const r = tb && tb.offsetParent !== null ? tb.getBoundingClientRect() : null;
-    if (r && r.height > 0) {
-      if (!tb.dataset.zoomPad) { tb.dataset.zoomPad = '1'; tb.style.boxSizing = 'border-box'; tb.style.paddingRight = (bar.offsetWidth + 16) + 'px'; }
-      const first = tb.querySelector('button, .shTbBtn');
-      const fr = first ? first.getBoundingClientRect() : r;
-      bar.style.top = Math.max(0, fr.top + (fr.height - bar.offsetHeight) / 2) + 'px';
-      bar.style.right = Math.max(4, window.innerWidth - r.right + 10) + 'px';
-    } else {
-      const area = document.getElementById('editorContainer');
-      const ar = area ? area.getBoundingClientRect() : { top: 40, right: window.innerWidth };
-      bar.style.top = Math.max(4, ar.top + 6) + 'px';
-      bar.style.right = Math.max(4, window.innerWidth - ar.right + 26) + 'px';
-    }
+    if (!r || r.height <= 0 || r.bottom <= 0 || r.top >= window.innerHeight) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    // "Tự ẩn": thanh trên cùng nổi (z-index 15000) khi rê chuột lên mép trên → ô phải nổi trên nó, vẫn dưới menu (21000).
+    bar.style.zIndex = document.body.classList.contains('shAutoHide') && tb.closest('#shellTop') ? '15001' : '60';
+    if (!tb.dataset.zoomPad) { tb.dataset.zoomPad = '1'; tb.style.boxSizing = 'border-box'; tb.style.paddingRight = (bar.offsetWidth + 16) + 'px'; }
+    const first = tb.querySelector('button, .shTbBtn');
+    const fr = first ? first.getBoundingClientRect() : r;
+    bar.style.top = Math.max(0, fr.top + (fr.height - bar.offsetHeight) / 2) + 'px';
+    bar.style.right = Math.max(4, window.innerWidth - r.right + 10) + 'px';
   }
 
   function refresh() {
@@ -93,6 +93,9 @@
       window.addEventListener('resize', place);
       window.addEventListener('wheel', (e) => { if (e.ctrlKey) setTimeout(refresh, 40); }, { capture: true, passive: true });
       setInterval(place, 1000);   // toolbar được dựng lại / đổi vị trí (Settings → Bố cục) → đặt lại ô
+      // Ẩn/hiện toolbar, "Tự ẩn" trượt thanh trên cùng ra/vào → ẩn/hiện ô ngay, không chờ nhịp 1 giây ở trên.
+      const top = document.getElementById('shellTop');
+      if (top) { watch.observe(top, { attributes: true, attributeFilter: ['class', 'style'] }); top.addEventListener('transitionend', place); }
     },
     show: refresh,
   };

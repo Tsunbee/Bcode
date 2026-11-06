@@ -39,19 +39,84 @@ public static class RptSchemaService
         return new RptInfo(r.Version ?? "", r.Tables ?? new(), r.Subreports ?? new(), r.Used ?? new());
     }
 
-    /// <summary>Đổi nguồn / thêm bảng rồi lưu ra file tạm; thành công mới sao lưu bản gốc thành &lt;tên&gt;.rpt.bak và chép đè — lỗi giữa chừng không làm hỏng file gốc.</summary>
-    public static async Task<RptUpdateResult> UpdateAsync(string rptPath, string xsdPath, IReadOnlyList<RptTableMap> maps, IReadOnlyList<string> adds, bool subreports)
+    /// <summary>Đổi nguồn / thêm bảng rồi lưu ra file tạm; thành công mới sao lưu bản gốc rồi chép đè — lỗi giữa chừng không làm hỏng file gốc.
+    /// Sao lưu: &lt;tên&gt;.rpt.bak cạnh file; máy chủ không cho tạo file đó (share chỉ cho sửa file có sẵn, phần mềm chặn đuôi .bak...) thì
+    /// sao lưu vào %AppData%\Bcode\rpt-backup\&lt;giờ&gt;\ trên máy này. File .rpt đang Read-only: <paramref name="clearReadOnly"/> = true thì
+    /// bỏ Chỉ đọc rồi ghi, false thì báo <see cref="RptReadOnlyException"/> (form hỏi người dùng trước). Ghi đè không được thì bản đã cập
+    /// nhật được giữ lại ở %AppData%\Bcode\rpt-backup\&lt;giờ&gt;\ và thông báo nói rõ lý do + chỗ lấy file.</summary>
+    public static async Task<RptUpdateResult> UpdateAsync(string rptPath, string xsdPath, IReadOnlyList<RptTableMap> maps, IReadOnlyList<string> adds, bool subreports,
+        bool clearReadOnly = false)
     {
+        if (!clearReadOnly && IsReadOnly(rptPath)) throw new RptReadOnlyException(rptPath);
         var output = Path.Combine(TempDir(), "out_" + Guid.NewGuid().ToString("N") + ".rpt");
+        var keepOutput = false;
         try
         {
             var r = await RunAsync(new { mode = "update", rpt = rptPath, xsd = xsdPath, output, maps, adds, subreports });
+            var warnings = r.Warnings ?? new();
+            var name = Path.GetFileName(rptPath);
+            string? localDir = null;
+            string LocalDir() => localDir ??= Directory.CreateDirectory(Path.Combine(BcodePaths.AppData, "Bcode", "rpt-backup",
+                DateTime.Now.ToString("yyyyMMdd-HHmmss") + "_" + Path.GetFileNameWithoutExtension(name))).FullName;
+
+            // 1) Sao lưu bản gốc: cạnh file, không được thì về máy này. Không sao lưu được ở đâu cả thì dừng (chưa đụng file gốc).
             var backup = rptPath + ".bak";
-            File.Copy(rptPath, backup, overwrite: true);
-            File.Copy(output, rptPath, overwrite: true);
-            return new RptUpdateResult(r.Warnings ?? new(), r.Tables ?? new(), backup);
+            try
+            {
+                if (File.Exists(backup)) File.SetAttributes(backup, FileAttributes.Normal); // .bak cũ Read-only (File.Copy chép cả thuộc tính) thì ghi đè lỗi
+                File.Copy(rptPath, backup, overwrite: true);
+                File.SetAttributes(backup, FileAttributes.Normal);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                var local = Path.Combine(LocalDir(), name);
+                try { File.Copy(rptPath, local, overwrite: true); }
+                catch (Exception ex2) { throw new IOException($"Chưa cập nhật (file gốc còn nguyên): không sao lưu được bản gốc — cạnh file: {Reason(ex, backup)}; trên máy: {ex2.Message}"); }
+                warnings.Add($"Không tạo được {Path.GetFileName(backup)} cạnh file ({Reason(ex, backup)}) — bản gốc sao lưu ở {local}.");
+                backup = local;
+            }
+
+            // 2) Ghi đè file gốc bằng bản đã cập nhật.
+            try
+            {
+                if (clearReadOnly && IsReadOnly(rptPath)) File.SetAttributes(rptPath, File.GetAttributes(rptPath) & ~FileAttributes.ReadOnly);
+                File.Copy(output, rptPath, overwrite: true);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                // Giữ lại bản đã cập nhật để không mất công: chép tay vào, hoặc nhờ người có quyền ghi.
+                var kept = Path.Combine(LocalDir(), Path.GetFileNameWithoutExtension(name) + " (đã cập nhật).rpt");
+                try { File.Copy(output, kept, overwrite: true); } catch { keepOutput = true; kept = output; }
+                throw new IOException($"Không ghi đè được {name}: {Reason(ex, rptPath)}. File gốc chưa bị đổi. Bản đã cập nhật để ở: {kept}");
+            }
+            return new RptUpdateResult(warnings, r.Tables ?? new(), backup);
         }
-        finally { TryDelete(output); }
+        finally { if (!keepOutput) TryDelete(output); }
+    }
+
+    /// <summary>File .rpt đang có thuộc tính Read-only (Chỉ đọc) — <see cref="UpdateAsync"/> không tự bỏ khi chưa được đồng ý.</summary>
+    public sealed class RptReadOnlyException(string path) : IOException($"File {System.IO.Path.GetFileName(path)} đang để Chỉ đọc (Read-only).")
+    {
+        public string FilePath { get; } = path;
+    }
+
+    private static bool IsReadOnly(string path)
+    {
+        try { return File.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReadOnly) != 0; }
+        catch { return false; }
+    }
+
+    /// <summary>Lý do ghi file không được, nói bằng tiếng Việt (thay cho exception thô "Access to the path ... is denied").</summary>
+    private static string Reason(Exception ex, string path)
+    {
+        var code = ex.HResult & 0xFFFF;
+        if (code is 32 or 33) // ERROR_SHARING_VIOLATION / ERROR_LOCK_VIOLATION
+            return "file đang được mở bởi chương trình khác (Crystal Reports, Visual Studio, FBO đang in...) — đóng chương trình đó rồi bấm lại";
+        if (ex is UnauthorizedAccessException)
+            return IsReadOnly(path)
+                ? "file đang để Chỉ đọc (Read-only)"
+                : "Windows từ chối quyền ghi (Access denied) — tài khoản của bạn chỉ có quyền đọc ở thư mục này, hoặc máy chủ chặn tạo / ghi loại file này; nhờ người quản trị share cấp quyền ghi";
+        return ex.Message;
     }
 
     private static async Task<Response> RunAsync(object request)

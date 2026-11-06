@@ -101,36 +101,80 @@ public class QuickReportService
         _ => null,
     };
 
-    /// <summary>Tham số của procedure (theo thứ tự khai báo) từ sys.parameters của App Data.</summary>
-    public static async Task<List<(string Name, string SqlType, bool IsOutput)>> ReadParamsAsync(SqlConnection conn, string proc)
+    /// <summary>Một tham số procedure đọc từ database. <see cref="BaseType"/> = kiểu hệ thống (kiểu alias như sysname quy về nvarchar);
+    /// <see cref="MaxLength"/> = số ký tự / byte, -1 = max; <see cref="Default"/> = giá trị mặc định ghi trong CREATE PROCEDURE (null = không có).</summary>
+    public sealed record ProcParam(string Name, string SqlType, string BaseType, int MaxLength, byte Precision, byte Scale, bool IsOutput, bool IsTable, string? Default)
     {
-        const string sql = @"select p.name, type_name(p.user_type_id), p.max_length, p.precision, p.scale, p.is_output
-from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 0 order by p.parameter_id";
-        await using var cmd = new SqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@proc", proc);
-        var list = new List<(string, string, bool)>();
-        await using var rd = await cmd.ExecuteReaderAsync();
-        while (await rd.ReadAsync())
+        public bool HasDefault => Default != null;
+    }
+
+    /// <summary>Tham số (theo thứ tự khai báo) + định nghĩa của procedure trong App Data. Định nghĩa null khi procedure mã hoá / không có quyền xem.</summary>
+    public sealed record ProcInfo(List<ProcParam> Params, string? Definition);
+
+    /// <summary>Tham số của procedure (theo thứ tự khai báo) từ sys.parameters của App Data.</summary>
+    public static async Task<List<ProcParam>> ReadParamsAsync(SqlConnection conn, string proc, SqlTransaction? tx = null) =>
+        (await ReadProcAsync(conn, proc, tx)).Params;
+
+    public static async Task<ProcInfo> ReadProcAsync(SqlConnection conn, string proc, SqlTransaction? tx = null, CancellationToken ct = default)
+    {
+        const string sql = @"select p.name, type_name(p.user_type_id), type_name(p.system_type_id), p.max_length, p.precision, p.scale, p.is_output,
+  cast(case when t.is_table_type = 1 then 1 else 0 end as bit)
+from sys.parameters p join sys.types t on t.user_type_id = p.user_type_id
+where p.object_id = object_id(@proc) and p.parameter_id > 0 order by p.parameter_id;
+select object_definition(object_id(@proc));";
+        await using var cmd = new SqlCommand(sql, conn, tx);
+        cmd.Parameters.Add("@proc", SqlDbType.NVarChar, 776).Value = proc;
+        var raw = new List<(string Name, string User, string Base, int Len, byte Prec, byte Scale, bool Out, bool Table)>();
+        string? def = null;
+        await using (var rd = await cmd.ExecuteReaderAsync(ct))
         {
-            var type = rd.GetString(1);
-            int len = rd.GetInt16(2), prec = rd.GetByte(3), scale = rd.GetByte(4);
-            var full = type.ToLowerInvariant() switch
+            while (await rd.ReadAsync(ct))
+                raw.Add((rd.GetString(0).TrimStart('@'), rd.GetString(1), rd.IsDBNull(2) ? rd.GetString(1) : rd.GetString(2),
+                    rd.GetInt16(3), rd.GetByte(4), rd.GetByte(5), rd.GetBoolean(6), rd.GetBoolean(7)));
+            if (await rd.NextResultAsync(ct) && await rd.ReadAsync(ct) && !rd.IsDBNull(0)) def = rd.GetString(0);
+        }
+        var defaults = def is null ? new Dictionary<string, string>() : ParamDefaults(def);
+        return new ProcInfo(raw.Select(x =>
+        {
+            // kiểu alias (sysname, kiểu tự định nghĩa) → kiểu gốc; kiểu bảng / kiểu CLR giữ tên
+            var type = x.Table || x.Base.ToLowerInvariant() is "hierarchyid" or "geometry" or "geography" ? x.User : x.Base;
+            var low = type.ToLowerInvariant();
+            var len = low is "nvarchar" or "nchar" ? (x.Len < 0 ? -1 : x.Len / 2) : x.Len;
+            var full = low switch
             {
-                "varchar" or "char" or "varbinary" or "binary" => $"{type}({(len < 0 ? "max" : len.ToString())})",
-                "nvarchar" or "nchar" => $"{type}({(len < 0 ? "max" : (len / 2).ToString())})",
-                "decimal" or "numeric" => $"{type}({prec}, {scale})",
+                "varchar" or "char" or "varbinary" or "binary" or "nvarchar" or "nchar" => $"{type}({(len < 0 ? "max" : len.ToString())})",
+                "decimal" or "numeric" => $"{type}({x.Prec}, {x.Scale})",
+                "datetime2" or "time" or "datetimeoffset" when x.Scale != 7 => $"{type}({x.Scale})",
                 _ => type,
             };
-            list.Add((rd.GetString(0).TrimStart('@'), full, rd.GetBoolean(5)));
-        }
-        return list;
+            return new ProcParam(x.Name, full, low, len, x.Prec, x.Scale, x.Out, x.Table,
+                defaults.TryGetValue(x.Name, out var d) ? d : x.Table ? "" : null);   // tham số kiểu bảng bỏ trống = bảng rỗng
+        }).ToList(), def);
     }
 
     private static bool IsDateSql(string t) => Regex.IsMatch(t, @"^(small)?date(time2?)?|^date\b", RegexOptions.IgnoreCase);
     private static bool IsNumSql(string t) => Regex.IsMatch(t, @"^(numeric|decimal|money|smallmoney|float|real|int|bigint|smallint|tinyint)\b", RegexOptions.IgnoreCase);
 
+    /// <summary>Giá trị mặc định khai trong CREATE PROCEDURE → giá trị thử hiển thị ('' / N'abc' → abc, NULL → trống).</summary>
+    public static string DefaultTest(string? def)
+    {
+        if (string.IsNullOrWhiteSpace(def) || def.Trim().Equals("null", StringComparison.OrdinalIgnoreCase)) return "";
+        var d = def.Trim();
+        if (d.StartsWith("N'", StringComparison.OrdinalIgnoreCase)) d = d[1..];
+        return d.Length >= 2 && d[0] == '\'' && d[^1] == '\'' ? d[1..^1].Replace("''", "'") : d;
+    }
+
     /// <summary>Gợi ý vai trò / field / kiểu / tra cứu cho một tham số procedure. Tiêu đề + tra cứu ưu tiên từ điển của "Tạo báo cáo"
     /// (ReportCatalog — rút từ Filter thật của source FastBusiness), rồi mới tới header.xml.</summary>
+    public static QuickReportParam SuggestParam(ProcParam m)
+    {
+        var p = SuggestParam(m.Name, m.SqlType, m.IsOutput || m.IsTable);
+        if (m.IsTable) p.Arg = "null";   // kiểu bảng: không truyền, procedure nhận bảng rỗng
+        if (p.IsFilter && m.HasDefault) p.Test = DefaultTest(m.Default);
+        else if (p.IsFilter && p.Type == "DateTime" && p.Test.Length == 0) p.Test = $"{DateTime.Today:yyyy-MM-dd}";
+        return p;
+    }
+
     public static QuickReportParam SuggestParam(string name, string sqlType, bool isOutput)
     {
         var p = new QuickReportParam { Name = name, SqlType = sqlType };
@@ -138,17 +182,425 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
         if (isOutput) { p.Role = "system"; p.Arg = "null"; return p; }
         if (SystemArg(name) is { } arg) { p.Role = "system"; p.Arg = arg; return p; }
 
-        if (DateFromNames.Contains(low)) { p.Field = "tu_ngay"; p.Type = "DateTime"; p.HeaderV = "Từ ngày"; p.HeaderE = "Date from"; p.Test = $"{DateTime.Today:yyyy}-01-01"; return p; }
-        if (DateToNames.Contains(low)) { p.Field = "den_ngay"; p.Type = "DateTime"; p.HeaderV = "Đến ngày"; p.HeaderE = "Date to"; p.Test = $"{DateTime.Today:yyyy-MM-dd}"; return p; }
+        if (DateFromNames.Contains(low)) { SetField(p, "tu_ngay"); return p; }
+        if (DateToNames.Contains(low)) { SetField(p, "den_ngay"); return p; }
 
         var dict = FieldDictionaryService.Instance;
         // @ma_kh → ma_kh; @Customer (đặt theo tên controller) → field mã tra cứu bằng controller đó.
-        p.Field = low.Contains('_') || Catalog.Instance.Filter(low) != null || dict.Header(low) != null ? low : dict.FieldForController(name) ?? low;
-        p.Type = IsDateSql(sqlType) ? "DateTime" : IsNumSql(sqlType) ? "Decimal" : "";
-        if (FilterHeader(p.Field) is { } h) { p.HeaderV = h.V; p.HeaderE = h.E; }
-        if (p.Type == "") p.Lookup = Lookups(p.Field).FirstOrDefault();
-        if (p.Type == "Decimal") p.Test = "0";
+        SetField(p, low.Contains('_') || Catalog.Instance.Filter(low) != null || dict.Header(low) != null ? low : dict.FieldForController(name) ?? low);
         return p;
+    }
+
+    /// <summary>Đặt field lọc cho tham số + tiêu đề / kiểu ô / tra cứu / giá trị thử theo field đó.</summary>
+    public static void SetField(QuickReportParam p, string field)
+    {
+        p.Role = "filter"; p.Arg = ""; p.Field = field; p.HeaderV = p.HeaderE = ""; p.Lookup = null;
+        switch (field.ToLowerInvariant())
+        {
+            case "tu_ngay": p.Type = "DateTime"; p.HeaderV = "Từ ngày"; p.HeaderE = "Date from"; p.Test = $"{DateTime.Today:yyyy}-01-01"; return;
+            case "den_ngay": p.Type = "DateTime"; p.HeaderV = "Đến ngày"; p.HeaderE = "Date to"; p.Test = $"{DateTime.Today:yyyy-MM-dd}"; return;
+        }
+        p.Type = IsDateSql(p.SqlType) ? "DateTime" : IsNumSql(p.SqlType) ? "Decimal" : "";
+        if (FilterHeader(field) is { } h) { p.HeaderV = h.V; p.HeaderE = h.E; }
+        if (p.Type == "") p.Lookup = Lookups(field).FirstOrDefault();
+        p.Test = p.Type == "Decimal" ? NumericTest(p.Name) ?? NumericTest(field) ?? "0" : "";
+    }
+
+    private static readonly Regex MonthName = new(@"^(?:(?:from|to|end|start)?(?:month|period|thang|ky)(?:from|to|\d)?|(?:thang|ky)_?(?:tu|den|\d)|p(?:from|to|\d))$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex YearName = new(@"^(?:(?:from|to|fiscal)?(?:year|nam)(?:from|to|\d)?|nam_?(?:tu|den|tc|\d)|y(?:from|to|\d))$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex QuarterName = new(@"^(?:(?:from|to)?(?:quarter|quy)(?:from|to|\d)?)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Giá trị thử hợp lý cho tham số số theo tên: tháng / kỳ = tháng hiện tại, năm = năm hiện tại, quý = quý hiện tại
+    /// (truyền 0 thì procedure dựng ngày từ kỳ 0 năm 0 → lỗi chuyển kiểu ngày).</summary>
+    public static string? NumericTest(string name)
+    {
+        var t = DateTime.Today;
+        if (MonthName.IsMatch(name)) return t.Month.ToString();
+        if (YearName.IsMatch(name)) return t.Year.ToString();
+        if (QuarterName.IsMatch(name)) return ((t.Month - 1) / 3 + 1).ToString();
+        return null;
+    }
+
+    // ---- Đọc khai báo procedure ------------------------------------------------------------------
+
+    /// <summary>Thay chú thích (-- … / /* … */) bằng dấu cách, giữ nguyên chuỗi '…' và [tên] — vị trí ký tự không đổi.</summary>
+    public static string StripComments(string sql)
+    {
+        var sb = new StringBuilder(sql);
+        for (var i = 0; i < sql.Length; i++)
+        {
+            var c = sql[i];
+            if (c == '\'' || c == '[' || c == '"')
+            {
+                var close = c == '[' ? ']' : c;
+                for (i++; i < sql.Length; i++)
+                    if (sql[i] == close) { if (i + 1 < sql.Length && sql[i + 1] == close) i++; else break; }
+            }
+            else if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+                for (; i < sql.Length && sql[i] != '\n'; i++) sb[i] = ' ';
+            else if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+            {
+                var depth = 0;
+                for (; i < sql.Length; i++)
+                {
+                    if (sql[i] == '/' && i + 1 < sql.Length && sql[i + 1] == '*') { depth++; sb[i] = sb[i + 1] = ' '; i++; continue; }
+                    if (sql[i] == '*' && i + 1 < sql.Length && sql[i + 1] == '/') { depth--; sb[i] = sb[i + 1] = ' '; i++; if (depth == 0) break; continue; }
+                    if (sql[i] != '\n' && sql[i] != '\r') sb[i] = ' ';
+                }
+            }
+        }
+        return sb.ToString();
+    }
+
+    private static readonly Regex ProcHead = new(@"\b(?:CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+(?:(?:\[[^\]]*\]|""[^""]*""|[\w$#@]+)\s*\.\s*)*(?:\[[^\]]*\]|""[^""]*""|[\w$#@]+)(?:\s*;\s*\d+)?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Giá trị mặc định của từng tham số (<c>@p int = 0</c>, <c>@s varchar(10) = ''</c>…) đọc từ phần khai báo của CREATE PROCEDURE.</summary>
+    public static Dictionary<string, string> ParamDefaults(string definition)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var sql = StripComments(definition);
+        var m = ProcHead.Match(sql);
+        if (!m.Success) return result;
+        var i = m.Index + m.Length;
+        while (i < sql.Length && char.IsWhiteSpace(sql[i])) i++;
+        var wrapped = i < sql.Length && sql[i] == '(';
+        if (wrapped) i++;
+        var segments = new List<string>();
+        var cur = new StringBuilder();
+        var depth = 0;
+        bool Word(int at, string w) =>
+            at + w.Length <= sql.Length && string.Compare(sql, at, w, 0, w.Length, StringComparison.OrdinalIgnoreCase) == 0 &&
+            (at == 0 || !(char.IsLetterOrDigit(sql[at - 1]) || sql[at - 1] is '_' or '@' or '$' or '#')) &&
+            (at + w.Length == sql.Length || !(char.IsLetterOrDigit(sql[at + w.Length]) || sql[at + w.Length] is '_' or '$' or '#'));
+        for (; i < sql.Length; i++)
+        {
+            var c = sql[i];
+            if (c is '\'' or '[' or '"')
+            {
+                var close = c == '[' ? ']' : c;
+                var start = i;
+                for (i++; i < sql.Length; i++)
+                    if (sql[i] == close) { if (i + 1 < sql.Length && sql[i + 1] == close) i++; else break; }
+                cur.Append(sql, start, Math.Min(i, sql.Length - 1) - start + 1);
+                continue;
+            }
+            if (c == '(') depth++;
+            else if (c == ')') { if (depth == 0 && wrapped) break; depth--; }
+            else if (depth == 0 && c == ',') { segments.Add(cur.ToString()); cur.Clear(); continue; }
+            else if (depth == 0 && !wrapped && (Word(i, "AS") || Word(i, "WITH") || Word(i, "FOR")))
+            {
+                // "@p AS int" (AS ngay sau tên tham số) là cú pháp khai báo, không phải đầu thân procedure
+                if (!(Word(i, "AS") && Regex.IsMatch(cur.ToString(), @"^\s*@[\w@$#]+\s*$"))) break;
+            }
+            cur.Append(c);
+        }
+        segments.Add(cur.ToString());
+        foreach (var seg in segments)
+        {
+            var pm = Regex.Match(seg, @"^\s*@([\w@$#]+)", RegexOptions.Singleline);
+            if (!pm.Success) continue;
+            var eq = TopLevelIndexOf(seg, '=', pm.Length);
+            if (eq < 0) continue;
+            var d = Regex.Replace(seg[(eq + 1)..], @"\s+(OUTPUT|OUT|READONLY)(\s+(OUTPUT|OUT|READONLY))*\s*$", "", RegexOptions.IgnoreCase).Trim();
+            if (d.Length > 0) result[pm.Groups[1].Value] = d;
+        }
+        return result;
+    }
+
+    /// <summary>Vị trí ký tự <paramref name="ch"/> đầu tiên ngoài chuỗi '…' và ngoài ngoặc, tính từ <paramref name="start"/>.</summary>
+    private static int TopLevelIndexOf(string s, char ch, int start)
+    {
+        var depth = 0;
+        for (var i = start; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (c == '\'') { for (i++; i < s.Length; i++) if (s[i] == '\'') { if (i + 1 < s.Length && s[i + 1] == '\'') i++; else break; } continue; }
+            if (c == '(') depth++;
+            else if (c == ')') depth--;
+            else if (c == ch && depth == 0) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Tham số chuỗi bị procedure ghép thẳng vào câu SQL động (<c>'… ' + @Order + ', …'</c>) mà không chỗ nào kiểm tra rỗng
+    /// (<c>@Order &lt;&gt; ''</c>, <c>len(@Order)</c>, <c>isnull(@Order…</c>…) — để trống thì câu ghép ra sai cú pháp (vd <c>order by a, , b</c>).
+    /// </summary>
+    public static List<string> UnguardedConcatParams(string? definition, IEnumerable<string> names)
+    {
+        var list = new List<string>();
+        if (string.IsNullOrEmpty(definition)) return list;
+        var body = ProcBody(definition);
+        foreach (var name in names)
+            if (UnguardedConcats(body, name).Any()) list.Add(name);
+        return list;
+    }
+
+    /// <summary>Thân procedure đã bỏ chú thích (phần sau tên procedure).</summary>
+    private static string ProcBody(string definition)
+    {
+        var sql = StripComments(definition);
+        return ProcHead.Match(sql) is { Success: true } h ? sql[(h.Index + h.Length)..] : sql;
+    }
+
+    /// <summary>
+    /// Các chỗ procedure ghép thẳng tham số vào chuỗi mà không có IF / CASE WHEN / WHILE KIỂM TRA RỖNG tham số đó (<c>@x &lt;&gt; ''</c>, <c>= ''</c>,
+    /// <c>len(@x)</c>, <c>isnull(@x…</c>, <c>@x is null</c>, <c>@a + @x &lt;&gt; ''</c>) ngay trên cùng dòng hoặc 3 dòng trước. <c>IF @x = 0 … + @x</c>
+    /// không tính là kiểm tra (chuỗi trống so với 0 vẫn đúng → ghép ra sai cú pháp).
+    /// </summary>
+    private static IEnumerable<Match> UnguardedConcats(string body, string name)
+    {
+        var n = Regex.Escape(name);
+        // procedure tự gán lại giá trị (SET @x = … / SELECT @x = …) thì không còn là giá trị người dùng truyền
+        if (Regex.IsMatch(body, $@"\b(set|select)\s+@{n}\s*=(?!=)", RegexOptions.IgnoreCase)) yield break;
+        var guard = new Regex(
+            $@"\b(IF|WHEN|WHILE)\b[^\n]*?(?:\w+\s*\(\s*)*@{n}\b\s*\)*\s*(?:\+[^\n]*?)?(?:<>|!=|>|=)\s*N?''(?!')" +
+            $@"|\b(IF|WHEN|WHILE)\b[^\n]*?\b(len|datalength|isnull|coalesce|nullif)\s*\([^\n]*?@{n}\b" +
+            $@"|\b(IF|WHEN|WHILE)\b[^\n]*?@{n}\b\s*\)*\s+is\s+(not\s+)?null" +
+            $@"|\b(IF|WHEN|WHILE)\b[^\n]*?N?''\s*(?:<>|!=|<|=)\s*(?:\w+\s*\(\s*)*@{n}\b", RegexOptions.IgnoreCase);
+        foreach (Match m in Regex.Matches(body, $@"\+\s*(?:[\w.$\[\]]+\s*\(\s*)*@{n}\b(?!\s*=)|(?<![=<>!])\B@{n}\b\s*\)*\s*\+", RegexOptions.IgnoreCase))
+        {
+            var from = m.Index;
+            for (var lines = 0; from > 0 && lines < 4; from--) if (body[from - 1] == '\n') lines++;
+            var end = body.IndexOf('\n', m.Index + m.Length);
+            if (guard.IsMatch(body[from..(end < 0 ? body.Length : end)])) continue;   // gồm cả "IF @a + @b <> ''" và CASE WHEN … THEN … ELSE … + @x
+            yield return m;
+        }
+    }
+
+    private static readonly Regex ByList = new(@"\b(?:order|group)\s+by\s+((?:(?:[A-Za-z_]\w*\.)?[A-Za-z_]\w*(?:\s+(?:asc|desc))?\s*,\s*)*(?:[A-Za-z_]\w*\.)?[A-Za-z_]\w*)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Cột có trong các danh sách order by / group by viết sẵn của procedure, bỏ tiền tố bí danh — danh sách trên dòng có #report
+    /// (bảng kết quả báo cáo Fast, nơi @Order được dùng) trước, rồi theo thứ tự gặp.</summary>
+    private static List<string> ByColumns(string body) => ByList.Matches(body).Cast<Match>()
+        .OrderBy(m => body.IndexOf("#report", m.Index - Math.Min(m.Index, 300), Math.Min(m.Index, 300) + m.Length, StringComparison.OrdinalIgnoreCase) >= 0 ? 0 : 1)
+        .SelectMany(m => m.Groups[1].Value.Split(',').Select(c => Regex.Replace(c.Trim(), @"\s+(asc|desc)$", "", RegexOptions.IgnoreCase)))
+        .Select(c => c.Contains('.') ? c[(c.LastIndexOf('.') + 1)..] : c)
+        .Where(c => !Regex.IsMatch(c, "^(case|select|null|newid|row_number|by|order|group)$", RegexOptions.IgnoreCase))
+        .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>Dòng chứa chỗ ghép <paramref name="m"/>.</summary>
+    private static string LineOf(string body, Match m)
+    {
+        var start = m.Index == 0 ? 0 : body.LastIndexOf('\n', m.Index - 1) + 1;
+        var end = body.IndexOf('\n', m.Index);
+        return body[start..(end < 0 ? body.Length : end)];
+    }
+
+    private static readonly Regex OrderName = new(@"^(order|orderby|order_by|sort|sortby|sort_by|sap_xep|thu_tu)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Giá trị thử thay cho chuỗi trống của tham số mà procedure ghép thẳng vào SQL động không kiểm tra rỗng (null = không đoán được):
+    /// ghép vào ORDER BY hoặc tên kiểu @Order / @Sort → <see cref="OrderByFiller"/>; procedure tự so sánh tham số với hằng
+    /// (<c>IF @Report = 'ma_phi'</c>, <c>RTRIM(@GroupBy) = 'loai_vt'</c>) → hằng đầu tiên. <paramref name="why"/> = mô tả ngắn để báo.
+    /// </summary>
+    public static string? BlankFallback(string? definition, string name, out string why) => BlankFallback(definition, name, out why, out _);
+
+    /// <param name="asSystem">true = tham số sắp xếp: nên là tham số hệ thống truyền hằng (như Filter gốc của Fast), không phải ô lọc.</param>
+    public static string? BlankFallback(string? definition, string name, out string why, out bool asSystem)
+    {
+        why = ""; asSystem = false;
+        if (string.IsNullOrEmpty(definition)) return null;
+        var body = ProcBody(definition);
+        if (!UnguardedConcats(body, name).Any()) return null;
+        if (IsOrderByConcat(definition, name)) { why = "ghép vào ORDER BY"; asSystem = true; return OrderByFiller; }
+        var n = Regex.Escape(name);
+        // procedure tự so sánh tham số với hằng: IF @Report = 'ma_phi' / RTRIM(@GroupBy) = 'loai_vt' / IF @CalculateTransfer = 0
+        var lit = Regex.Match(body, $@"\b(?:IF|WHEN|AND|OR|WHILE)\b[^\n]*?(?:\w+\s*\(\s*)*@{n}\b\s*\)*\s*=\s*(?:N?'((?:[^']|'')+)'|(-?\d+(?:\.\d+)?)\b)", RegexOptions.IgnoreCase);
+        if (lit.Success) { why = "giá trị store tự so sánh"; return (lit.Groups[1].Success ? lit.Groups[1].Value.Replace("''", "'") : lit.Groups[2].Value).Trim(); }
+        var hits = UnguardedConcats(body, name).ToList();
+        if (OrderName.IsMatch(name))
+        {
+            // danh sách sắp xếp đưa sang chỗ khác (vd FastBusiness$System$UpdateOrderField → create index … (@Order)) cần tên cột thật:
+            // cột chính procedure order by / group by, trừ cột đã có trên dòng ghép @Order (order by trùng cột → lỗi 169)
+            why = "tham số sắp xếp"; asSystem = true;
+            var used = string.Join("\n", hits.Select(m => LineOf(body, m)));
+            return ByColumns(body).FirstOrDefault(c => !Regex.IsMatch(used, $@"(?<![\w.]){Regex.Escape(c)}\b|\.{Regex.Escape(c)}\b", RegexOptions.IgnoreCase))
+                ?? OrderByFiller;
+        }
+        // ghép vào biểu thức của SQL động: "' + REPLACE(@Status, …) + ' = ''1''" → lấy hằng bên kia phép so sánh
+        foreach (var m in hits)
+        {
+            var line = LineOf(body, m);
+            var rest = line[(m.Index - (m.Index == 0 ? 0 : body.LastIndexOf('\n', m.Index - 1) + 1) + m.Length)..];
+            var cmp = Regex.Match(rest, @"^[^+]*\+\s*'\s*(?:<>|!=|<=|>=|=|<|>)\s*(?:''((?:[^']|'''')*)''|(-?\d+(?:\.\d+)?))", RegexOptions.IgnoreCase);
+            if (cmp.Success) { why = "hằng store so sánh trong SQL động"; return cmp.Groups[1].Success ? cmp.Groups[1].Value.Replace("''''", "'") : cmp.Groups[2].Value; }
+        }
+        return null;
+    }
+
+    /// <summary>Tham số số được procedure dùng làm số chia (<c>tuoi / @PeriodCycle</c>, <c>% @n</c>) → truyền 0 sẽ lỗi chia cho 0.</summary>
+    public static bool IsDivisor(string? definition, string name) =>
+        !string.IsNullOrEmpty(definition) &&
+        Regex.IsMatch(ProcBody(definition), $@"[/%]\s*(?:\w+\s*\(\s*)*@{Regex.Escape(name)}\b(?!\s*[+\-*/])", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Gợi ý lúc Nạp cho các ô lọc còn trống / 0 mà procedure dùng sao cho trống sẽ lỗi (xem <see cref="BlankFallback"/>, <see cref="IsDivisor"/>):
+    /// tham số sắp xếp → tham số hệ thống truyền hằng; còn lại → giá trị thử. Trả mô tả từng thay đổi; <paramref name="risky"/> = tham số
+    /// vẫn bị ghép thẳng mà không đoán được giá trị.
+    /// </summary>
+    public static List<string> SuggestBlankValues(ProcInfo info, List<QuickReportParam> ps, out List<string> risky)
+    {
+        var notes = new List<string>();
+        risky = new List<string>();
+        foreach (var p in ps.Where(p => p.IsFilter))
+        {
+            if (p.Type == "Decimal" && p.Test.Trim() is "0" or "" && IsDivisor(info.Definition, p.Name))
+            {
+                p.Test = "1"; notes.Add($"@{p.Name} = 1 (số chia)");
+                continue;
+            }
+            if (p.Type != "" || p.Test.Trim().Length > 0) continue;
+            if (BlankFallback(info.Definition, p.Name, out var why, out var asSystem) is { } fill)
+            {
+                if (asSystem) { p.Role = "system"; p.Arg = $"'{fill.Replace("'", "''")}'"; p.Field = ""; p.Lookup = null; notes.Add($"@{p.Name} = '{fill}' ({why}, tham số hệ thống)"); }
+                else { p.Test = fill; notes.Add($"@{p.Name} = {fill} ({why})"); }
+            }
+            else if (UnguardedConcatParams(info.Definition, new[] { p.Name }).Count > 0) risky.Add(p.Name);
+        }
+        return notes;
+    }
+
+    /// <summary>Giá trị thay khi tham số trống bị ghép vào ORDER BY của câu SQL động.</summary>
+    public const string OrderByFiller = "(select null)";
+
+    // chuỗi đứng ngay trước dấu + đang mở ở mệnh đề ORDER BY: "… order by ngay_ct, so_ct,'" / "' ORDER BY a.ngay_ct, a.so_ct0, '"
+    private static readonly Regex OrderByTail = new(@"\border\s+by\b[^']*'\s*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Tham số trống bị procedure ghép thẳng vào danh sách ORDER BY của câu SQL động (<c>' order by ngay_ct, so_ct,' + @Order</c>,
+    /// <c>', a.so_ct0, ' + REPLACE(RTRIM(@Order)…) + ', a.stt_rec'</c>) → true. Khi đó truyền <see cref="OrderByFiller"/> — một biểu thức sắp xếp
+    /// hợp lệ không đổi thứ tự — thay cho chuỗi trống (ra <c>order by a, , b</c> sai cú pháp). Chỗ ghép khác (WHERE, danh sách cột…) → false.
+    /// </summary>
+    public static bool IsOrderByConcat(string? definition, string name)
+    {
+        if (string.IsNullOrEmpty(definition)) return false;
+        var body = ProcBody(definition);
+        var hits = UnguardedConcats(body, name).ToList();
+        // mọi chỗ ghép đều là "'…order by …,' + @x" (dạng "@x + …" đứng đầu biểu thức thì không phải)
+        return hits.Count > 0 && hits.All(m =>
+        {
+            if (body[m.Index] != '+') return false;
+            var start = m.Index == 0 ? 0 : body.LastIndexOf('\n', m.Index - 1) + 1;
+            return OrderByTail.IsMatch(body[start..m.Index]);
+        });
+    }
+
+    // ---- Lấy cách truyền tham số từ Filter có sẵn -----------------------------------------------
+
+    /// <summary>Một lệnh <c>exec</c> gọi procedure trong Filter có sẵn: file, procedure được gọi, danh sách đối số (tên tham số nếu gọi kiểu
+    /// <c>@p = …</c>), các field khai trong Filter kèm giá trị mặc định (clientDefault / defaultValue đơn giản).</summary>
+    public sealed record FilterCall(string File, string Proc, List<(string? Name, string Arg)> Args, Dictionary<string, string> Fields);
+
+    /// <summary>Tên controller Filter hay dùng cho procedure: zrs_rptX / rs_rptX / fs_X → rptX, X; giữ cả tên procedure.</summary>
+    public static IEnumerable<string> FilterCandidates(string proc)
+    {
+        var names = new List<string> { proc };
+        var bare = Regex.Replace(proc, @"^z?(rs|fs|ws|ts|cs|ps|sp|usp|zrs)_", "", RegexOptions.IgnoreCase);
+        if (!names.Contains(bare, StringComparer.OrdinalIgnoreCase)) names.Add(bare);
+        if (proc.StartsWith("z", StringComparison.OrdinalIgnoreCase) && proc.Length > 1 && !names.Contains(proc[1..], StringComparer.OrdinalIgnoreCase)) names.Add(proc[1..]);
+        return names;
+    }
+
+    /// <summary>
+    /// Tìm trong <c>App_Data\Controllers\Filter</c> của source workspace (theo tên file đoán từ tên procedure — không quét cả thư mục, thư mục
+    /// mạng hàng nghìn file) một Filter đang <c>exec</c> procedure này (hoặc bản z… / bản bỏ z của nó) và tách đối số. Không thấy → null.
+    /// </summary>
+    public static FilterCall? FindFilterCall(string sourcePath, string proc)
+    {
+        var dir = Path.Combine(sourcePath, @"App_Data\Controllers\Filter");
+        if (!Directory.Exists(dir)) return null;
+        var targets = new[] { proc, "z" + proc, proc.StartsWith("z", StringComparison.OrdinalIgnoreCase) ? proc[1..] : proc }
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var call = new Regex(@"\bexec(?:ute)?\s+(?:(?:\[?dbo\]?|\[?\w+\]?\s*\.\s*\[?\w*\]?)\s*\.\s*)?\[?(" + string.Join("|", targets.Select(Regex.Escape)) + @")\]?(?![\w$#])",
+            RegexOptions.IgnoreCase);
+        foreach (var name in FilterCandidates(proc))
+        {
+            var file = Path.Combine(dir, name + ".xml");
+            if (!File.Exists(file)) continue;
+            var text = File.ReadAllText(file).Replace("<![CDATA[", "").Replace("]]>", "");
+            // Ưu tiên lệnh gọi đúng tên procedure; không có mới lấy bản z… (bản sửa của dự án) — map theo tên tham số
+            var hits = call.Matches(text).Cast<Match>().OrderBy(x => x.Groups[1].Value.Equals(proc, StringComparison.OrdinalIgnoreCase) ? 0 : 1).ToList();
+            foreach (var m in hits)
+            {
+                var args = SplitExecArgs(text, m.Index + m.Length);
+                if (args.Count == 0) continue;
+                var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (Match f in Regex.Matches(text, @"<field\s+([^>]*?)/?>", RegexOptions.IgnoreCase))
+                {
+                    var attrs = f.Groups[1].Value;
+                    if (Regex.Match(attrs, @"\bname=""(\w+)""") is not { Success: true } fn) continue;
+                    var dv = Regex.Match(attrs, @"\bclientDefault=""([^""]*)""") is { Success: true } cd ? cd.Groups[1].Value
+                        : Regex.Match(attrs, @"\bdefaultValue=""(-?\d+(?:\.\d+)?|'[^'""]*')""") is { Success: true } d ? DefaultTest(d.Groups[1].Value) : "";
+                    fields.TryAdd(fn.Groups[1].Value, dv);
+                }
+                return new FilterCall(Path.GetFileName(file), m.Groups[1].Value, args, fields);
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Tách đối số sau tên procedure: dấu phẩy ngoài chuỗi / ngoặc; xuống dòng mà dòng không kết thúc bằng dấu phẩy = hết lệnh.</summary>
+    public static List<(string? Name, string Arg)> SplitExecArgs(string text, int start)
+    {
+        var args = new List<(string?, string)>();
+        var cur = new StringBuilder();
+        var depth = 0;
+        void Flush()
+        {
+            var a = cur.ToString().Trim(); cur.Clear();
+            if (a.Length == 0) return;
+            var named = Regex.Match(a, @"^@([\w$#]+)\s*=\s*(.+)$", RegexOptions.Singleline);
+            args.Add(named.Success ? (named.Groups[1].Value, named.Groups[2].Value.Trim()) : (null, a));
+        }
+        for (var i = start; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '\'')
+            {
+                var s = i;
+                for (i++; i < text.Length; i++) if (text[i] == '\'') { if (i + 1 < text.Length && text[i + 1] == '\'') i++; else break; }
+                cur.Append(text, s, Math.Min(i, text.Length - 1) - s + 1);
+                continue;
+            }
+            if (c == '(') depth++;
+            else if (c == ')') { if (depth == 0) break; depth--; }
+            else if (depth == 0 && c == ',') { Flush(); continue; }
+            else if (depth == 0 && (c is '\n' or ';' or '<'))
+            {
+                if (c == '\n' && args.Count > 0 && cur.ToString().Trim().Length == 0) continue;   // dòng trước kết thúc bằng dấu phẩy → đối số tiếp ở dòng sau
+                break;
+            }
+            cur.Append(c);
+        }
+        Flush();
+        return args;
+    }
+
+    /// <summary>
+    /// Áp cách Filter có sẵn truyền vào tham số: hằng số ('a.ma_kh', 1, null…) / @@biến → tham số hệ thống truyền đúng hằng đó;
+    /// @field có trong Filter → ô lọc field đó (giá trị thử = mặc định của field). Tham số Bcode đã tự nhận ra (@@unit, '@@sysDatabaseName',
+    /// @@language…) giữ nguyên. Trả mô tả ngắn những gì đã đổi (rỗng = không đổi).
+    /// </summary>
+    public static string? ApplyFilterArg(QuickReportParam p, string arg, FilterCall call)
+    {
+        if (SystemArg(p.Name) != null) return null;
+        var a = Regex.Replace(arg.Trim(), @"'\s*&Controller;\s*'", "'@@controller'", RegexOptions.IgnoreCase);
+        if (a.Contains('&')) return null;   // entity khác (&Identity;…) — không biết giá trị
+        if (Regex.IsMatch(a, @"^@@\w+$|^'@@\w+'$|^-?\d+(\.\d+)?$|^N?'([^']|'')*'$|^null$", RegexOptions.IgnoreCase))
+        {
+            p.Role = "system"; p.Arg = a; p.Field = ""; p.Lookup = null;
+            return $"@{p.Name} = {a}";
+        }
+        if (Regex.Match(a, @"^@(\w+)$") is { Success: true } v && call.Fields.TryGetValue(v.Groups[1].Value, out var def))
+        {
+            var field = v.Groups[1].Value;
+            if (!p.Field.Equals(field, StringComparison.OrdinalIgnoreCase) || !p.IsFilter) SetField(p, field);
+            if (def.Length > 0 && p.Type != "DateTime") p.Test = def;
+            return null;
+        }
+        return null;
     }
 
     /// <summary>Tiêu đề ô lọc của field: ReportCatalog (Filter thật) → header.xml.</summary>
@@ -183,30 +635,63 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
     /// Chạy procedure với giá trị thử, trong một transaction luôn ROLLBACK (procedure có ghi bảng tạm / bảng thật cũng không để lại gì),
     /// trả về cấu trúc mọi result set + tối đa <paramref name="maxRows"/> dòng đầu mỗi set.
     /// </summary>
-    public static async Task<List<QuickReportSet>> RunAsync(SqlConnection conn, QuickReportSpec spec, string sysDatabase, int maxRows, CancellationToken ct)
+    /// <param name="notes">nhận các thay thế Bcode tự làm khi chạy thử (vd @Order trống → (select null)).</param>
+    public static async Task<List<QuickReportSet>> RunAsync(SqlConnection conn, QuickReportSpec spec, string sysDatabase, int maxRows, CancellationToken ct,
+        List<string>? notes = null)
     {
+        // Kiểu / mặc định / OUTPUT đọc lại từ database mỗi lần chạy (cấu hình đã lưu có thể cũ hơn procedure)
+        var info = await ReadProcAsync(conn, spec.ProcName, null, ct);
+        var specByName = spec.Params.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         var sets = new List<QuickReportSet>();
+        var blank = new List<string>();   // tham số chuỗi đang truyền '' (để gợi ý khi lỗi)
         await using var tx = (SqlTransaction)await conn.BeginTransactionAsync(ct);
         try
         {
             await using var cmd = new SqlCommand(spec.ProcName, conn, tx) { CommandType = CommandType.StoredProcedure, CommandTimeout = 300 };
-            foreach (var p in spec.Params) cmd.Parameters.AddWithValue("@" + p.Name, TestValue(p, sysDatabase, conn.Database, spec.Controller));
-            await using var rd = await cmd.ExecuteReaderAsync(ct);
-            do
+            foreach (var m in info.Params)
             {
-                if (rd.FieldCount == 0) continue;
-                var cols = Enumerable.Range(0, rd.FieldCount).Select(i => (rd.GetName(i), FieldType(rd.GetFieldType(i)))).ToList();
-                var rows = new List<string?[]>();
-                var truncated = false;
-                while (await rd.ReadAsync(ct))
+                var prm = BuildParameter(m, specByName.GetValueOrDefault(m.Name), sysDatabase, conn.Database, spec.Controller, out var sentBlank);
+                if (prm != null) cmd.Parameters.Add(prm);
+                // trống mà store ghép thẳng vào SQL động (vd "order by a, , b") → giá trị thử đoán được (biểu thức sắp xếp trung tính / hằng store so sánh)
+                if (sentBlank && prm != null && BlankFallback(info.Definition, m.Name, out var why) is { } fill && (m.MaxLength < 0 || m.MaxLength >= fill.Length))
                 {
-                    if (rows.Count >= maxRows) { truncated = true; break; }
-                    var row = new string?[cols.Count];
-                    for (var i = 0; i < cols.Count; i++) row[i] = rd.IsDBNull(i) ? null : Cell(rd.GetValue(i));
-                    rows.Add(row);
+                    prm.Value = fill;
+                    notes?.Add($"@{m.Name} = {fill} ({why})");
                 }
-                sets.Add(new QuickReportSet(cols, rows, truncated));
-            } while (await rd.NextResultAsync(ct));
+                else if (sentBlank) blank.Add(m.Name);
+                // số chia đang là 0 → 1 (tránh lỗi chia cho 0 khi chạy thử)
+                else if (prm?.Value is not null and not DBNull && prm.SqlDbType is SqlDbType.Int or SqlDbType.SmallInt or SqlDbType.TinyInt or SqlDbType.BigInt or SqlDbType.Decimal
+                         or SqlDbType.Float or SqlDbType.Real or SqlDbType.Money && Convert.ToDecimal(prm.Value, CultureInfo.InvariantCulture) == 0 && IsDivisor(info.Definition, m.Name))
+                {
+                    prm.Value = ConvertValue(prm.SqlDbType, "1", m);
+                    notes?.Add($"@{m.Name} = 1 (số chia)");
+                }
+            }
+            try
+            {
+                await using var rd = await cmd.ExecuteReaderAsync(ct);
+                do
+                {
+                    if (rd.FieldCount == 0) continue;   // lệnh không trả bảng (update/insert…) — bỏ qua
+                    var cols = Enumerable.Range(0, rd.FieldCount).Select(i => (ColumnName(rd, i), FieldType(SafeFieldType(rd, i)))).ToList();
+                    var rows = new List<string?[]>();
+                    var truncated = false;
+                    while (await rd.ReadAsync(ct))
+                    {
+                        if (rows.Count >= maxRows) { truncated = true; break; }
+                        var row = new string?[cols.Count];
+                        for (var i = 0; i < cols.Count; i++) row[i] = SafeCell(rd, i);
+                        rows.Add(row);
+                    }
+                    sets.Add(new QuickReportSet(cols, rows, truncated));
+                } while (await rd.NextResultAsync(ct));
+            }
+            // 266/3902/3903: procedure tự COMMIT / ROLLBACK làm lệch transaction chạy thử — các result set đã đọc vẫn dùng được
+            catch (SqlException ex) when (ex.Number is 266 or 3902 or 3903 && sets.Count > 0) { }
+        }
+        catch (SqlException ex) when (!ct.IsCancellationRequested)
+        {
+            throw new InvalidOperationException(Explain(ex, spec.ProcName, info.Definition, blank), ex);
         }
         finally
         {
@@ -215,33 +700,155 @@ from sys.parameters p where p.object_id = object_id(@proc) and p.parameter_id > 
         return sets;
     }
 
-    private static object TestValue(QuickReportParam p, string sysDatabase, string appDatabase, string controller)
+    /// <summary>Thông báo lỗi chạy thử: nơi lỗi (procedure con / dòng / SQL động) + gợi ý khi lỗi cú pháp do tham số để trống bị ghép vào SQL động.</summary>
+    public static string Explain(SqlException ex, string proc, string? definition, IReadOnlyCollection<string> blank)
     {
-        string raw;
-        if (p.IsFilter) raw = p.Test;
-        else
+        // procedure lặp cùng lỗi nhiều lần (mỗi kỳ / mỗi bảng phân kỳ một lần) → gộp dòng trùng, tối đa 3 lỗi khác nhau
+        var lines = ex.Message.Split('\n').Select(s => s.Trim()).Where(s => s.Length > 0).Distinct().ToList();
+        var sb = new StringBuilder(string.Join(" ⏎ ", lines.Take(3)) + (lines.Count > 3 ? " …" : ""));
+        var where = ex.Procedure is { Length: > 0 } pr
+            ? (pr.Equals(proc, StringComparison.OrdinalIgnoreCase) || pr.EndsWith("." + proc, StringComparison.OrdinalIgnoreCase) ? $"dòng {ex.LineNumber}" : $"{pr} dòng {ex.LineNumber}")
+            : ex.Number is 2812 or 2809 or 201 or 8144 or 8145 or 8146 or 8114 or 8152 ? ""   // lỗi ở chính lệnh gọi (không có procedure / sai tham số)
+            : "câu SQL động store tự ghép (sp_executesql / exec)";
+        sb.Append(where.Length > 0 ? $" [lỗi {ex.Number}, {where}]" : $" [lỗi {ex.Number}]");
+        var suspects = UnguardedConcatParams(definition, blank);
+        if (suspects.Count > 0)
+            sb.Append($" — Store ghép thẳng tham số đang trống vào câu SQL: {string.Join(", ", suspects.Select(n => "@" + n))}. " +
+                      "Nhập giá trị thử cho tham số đó, hoặc bấm “⇣ Hệ thống” và truyền hằng số như Filter gốc (vd @Order = 'a.ma_kh').");
+        else if (ex.Number is 102 or 105 or 156 or 170 && blank.Count > 0)
+            sb.Append($" — Có thể store ghép tham số đang trống vào SQL động; thử nhập giá trị cho: {string.Join(", ", blank.Take(8).Select(n => "@" + n))}{(blank.Count > 8 ? "…" : "")}.");
+        return sb.ToString();
+    }
+
+    /// <summary>Giá trị chữ của tham số khi chạy thử: ô lọc = giá trị thử; tham số hệ thống = giá trị Bcode thay cho @@… / hằng số. null = NULL.</summary>
+    private static string? RawValue(QuickReportParam p, string sysDatabase, string appDatabase, string controller)
+    {
+        if (p.IsFilter) return p.Test ?? "";
+        var arg = p.Arg.Trim();
+        switch (arg.ToLowerInvariant())
         {
-            var arg = p.Arg.Trim();
-            raw = arg.ToLowerInvariant() switch
-            {
-                "@@unit" => p.Test,
-                "'@@sysdatabasename'" or "@@sysdatabasename" => sysDatabase,
-                "'@@appdatabasename'" or "@@appdatabasename" => appDatabase,
-                "'@@controller'" or "@@controller" => controller,
-                "@@language" => "V",
-                "@@userid" or "@@admin" => "1",
-                "null" or "" => "\0",
-                _ => arg.Length >= 2 && arg[0] == '\'' && arg[^1] == '\'' ? arg[1..^1].Replace("''", "'") : arg,
-            };
+            case "@@unit": return p.Test ?? "";
+            case "'@@sysdatabasename'" or "@@sysdatabasename": return sysDatabase;
+            case "'@@appdatabasename'" or "@@appdatabasename": return appDatabase;
+            case "'@@controller'" or "@@controller": return controller;
+            case "@@language": return "V";
+            case "@@userid" or "@@admin": return "1";
+            case "null" or "": return null;
         }
-        if (raw == "\0") return DBNull.Value;
-        if (IsDateSql(p.SqlType))
-            return DateTime.TryParseExact(raw, new[] { "yyyy-MM-dd", "dd/MM/yyyy", "yyyyMMdd", "d/M/yyyy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
-                ? d : DBNull.Value;
-        if (Regex.IsMatch(p.SqlType, @"^bit\b", RegexOptions.IgnoreCase)) return raw is "1" or "true" or "True";
-        if (IsNumSql(p.SqlType))
-            return decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? n : 0m;
-        return raw;
+        if (arg.StartsWith("N'", StringComparison.OrdinalIgnoreCase)) arg = arg[1..];
+        return arg.Length >= 2 && arg[0] == '\'' && arg[^1] == '\'' ? arg[1..^1].Replace("''", "'") : arg;
+    }
+
+    private static readonly string[] DateFormats =
+    {
+        "yyyy-MM-dd", "yyyy-MM-ddTHH:mm", "yyyy-MM-ddTHH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm:ss.fff",
+        "dd/MM/yyyy", "d/M/yyyy", "dd/MM/yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "yyyyMMdd", "yyyy/MM/dd",
+    };
+
+    /// <summary>
+    /// SqlParameter đúng kiểu khai báo (không dùng AddWithValue — tránh suy sai kiểu / tràn số). Trả null = không truyền tham số đó
+    /// (kiểu bảng, hoặc ô lọc để trống mà procedure có giá trị mặc định — SQL tự lấy mặc định). Ô trống không có mặc định: chuỗi '',
+    /// số 0, bit 0, ngày / guid / nhị phân… NULL. Giá trị gõ sai kiểu: số → 0, ngày / guid → NULL (không văng lỗi chuyển kiểu).
+    /// </summary>
+    public static SqlParameter? BuildParameter(ProcParam m, QuickReportParam? p, string sysDatabase, string appDatabase, string controller, out bool sentBlank)
+    {
+        sentBlank = false;
+        if (m.IsTable) return null;
+        var raw = p is null ? "" : RawValue(p, sysDatabase, appDatabase, controller);
+        var blank = raw is not null && raw.Trim().Length == 0;
+        if (blank && (p is null || p.IsFilter || p.Arg.Trim().Length == 0) && m.HasDefault && !m.IsOutput) return null;
+
+        var t = m.BaseType;
+        var prm = new SqlParameter { ParameterName = "@" + m.Name, Direction = m.IsOutput ? ParameterDirection.InputOutput : ParameterDirection.Input };
+        prm.SqlDbType = t switch
+        {
+            "bigint" => SqlDbType.BigInt, "int" => SqlDbType.Int, "smallint" => SqlDbType.SmallInt, "tinyint" => SqlDbType.TinyInt, "bit" => SqlDbType.Bit,
+            "decimal" or "numeric" => SqlDbType.Decimal, "money" => SqlDbType.Money, "smallmoney" => SqlDbType.SmallMoney,
+            "float" => SqlDbType.Float, "real" => SqlDbType.Real,
+            "date" => SqlDbType.Date, "datetime" => SqlDbType.DateTime, "datetime2" => SqlDbType.DateTime2, "smalldatetime" => SqlDbType.SmallDateTime,
+            "datetimeoffset" => SqlDbType.DateTimeOffset, "time" => SqlDbType.Time,
+            "char" => SqlDbType.Char, "varchar" => SqlDbType.VarChar, "text" => SqlDbType.Text,
+            "nchar" => SqlDbType.NChar, "nvarchar" => SqlDbType.NVarChar, "ntext" => SqlDbType.NText,
+            "binary" => SqlDbType.Binary, "varbinary" => SqlDbType.VarBinary, "image" => SqlDbType.Image, "timestamp" or "rowversion" => SqlDbType.Timestamp,
+            "uniqueidentifier" => SqlDbType.UniqueIdentifier, "xml" => SqlDbType.Xml, "sql_variant" => SqlDbType.Variant,
+            // kiểu CLR (hierarchyid, geometry, geography): truyền NULL dạng varbinary — SQL tự đổi kiểu, không cần nạp assembly kiểu CLR
+            "hierarchyid" or "geometry" or "geography" => SqlDbType.VarBinary,
+            _ => SqlDbType.NVarChar,
+        };
+        if (t is "hierarchyid" or "geometry" or "geography") { prm.Size = -1; prm.Value = DBNull.Value; return prm; }
+        if (prm.SqlDbType is SqlDbType.Char or SqlDbType.VarChar or SqlDbType.NChar or SqlDbType.NVarChar or SqlDbType.Binary or SqlDbType.VarBinary)
+            prm.Size = m.MaxLength < 0 ? -1 : Math.Max(1, m.MaxLength);
+        if (prm.SqlDbType == SqlDbType.Decimal) { prm.Precision = m.Precision; prm.Scale = m.Scale; }
+        if (prm.SqlDbType is SqlDbType.DateTime2 or SqlDbType.Time or SqlDbType.DateTimeOffset) prm.Scale = m.Scale;
+        prm.Value = raw is null ? DBNull.Value : ConvertValue(prm.SqlDbType, raw.Trim().Length == 0 ? "" : raw, m);
+        sentBlank = blank && prm.Value is string;
+        return prm;
+    }
+
+    private static object ConvertValue(SqlDbType type, string raw, ProcParam m)
+    {
+        var s = raw.Trim();
+        decimal Num() => decimal.TryParse(s.Replace(" ", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? n
+            : decimal.TryParse(s.Replace(" ", ""), NumberStyles.Number, CultureInfo.GetCultureInfo("vi-VN"), out n) ? n : 0m;
+        decimal Clamp(decimal v, decimal lo, decimal hi) => Math.Truncate(Math.Min(hi, Math.Max(lo, v)));
+        switch (type)
+        {
+            case SqlDbType.BigInt: return (long)Clamp(Num(), long.MinValue, long.MaxValue);
+            case SqlDbType.Int: return (int)Clamp(Num(), int.MinValue, int.MaxValue);
+            case SqlDbType.SmallInt: return (short)Clamp(Num(), short.MinValue, short.MaxValue);
+            case SqlDbType.TinyInt: return (byte)Clamp(Num(), 0, 255);
+            case SqlDbType.Bit:
+                return s.ToLowerInvariant() is "true" or "y" or "yes" or "có" or "x" || (decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var b) && b != 0);
+            case SqlDbType.Decimal or SqlDbType.Money or SqlDbType.SmallMoney:
+            {
+                var v = Num();
+                if (type == SqlDbType.Decimal && m.Precision > 0)
+                {
+                    v = Math.Round(v, m.Scale, MidpointRounding.AwayFromZero);
+                    var max = (decimal)Math.Pow(10, Math.Min(28, m.Precision - m.Scale)) - 1;   // numeric(5, 2) chứa tối đa 999.99
+                    if (Math.Abs(v) > max) v = 0m;
+                }
+                return v;
+            }
+            case SqlDbType.Float: return (double)Num();
+            case SqlDbType.Real: return (float)Num();
+            case SqlDbType.Date or SqlDbType.DateTime or SqlDbType.DateTime2 or SqlDbType.SmallDateTime:
+            {
+                if (!DateTime.TryParseExact(s, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)) return DBNull.Value;
+                var (lo, hi) = type switch
+                {
+                    SqlDbType.SmallDateTime => (new DateTime(1900, 1, 1), new DateTime(2079, 6, 6)),
+                    SqlDbType.DateTime => (new DateTime(1753, 1, 1), DateTime.MaxValue),
+                    _ => (DateTime.MinValue, DateTime.MaxValue),
+                };
+                return d < lo || d > hi ? DBNull.Value : d;
+            }
+            case SqlDbType.DateTimeOffset:
+                return DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var o) ? o : DBNull.Value;
+            case SqlDbType.Time:
+                return TimeSpan.TryParse(s, CultureInfo.InvariantCulture, out var ts) && ts >= TimeSpan.Zero && ts < TimeSpan.FromDays(1) ? ts : DBNull.Value;
+            case SqlDbType.UniqueIdentifier: return Guid.TryParse(s, out var g) ? g : DBNull.Value;
+            case SqlDbType.Binary or SqlDbType.VarBinary or SqlDbType.Image or SqlDbType.Timestamp:
+                return Regex.IsMatch(s, @"^0x([0-9a-fA-F]{2})*$") ? Convert.FromHexString(s[2..]) : DBNull.Value;
+            case SqlDbType.Xml: return s.Length == 0 ? DBNull.Value : raw;
+            default: return raw;   // chuỗi: giữ nguyên (kể cả dấu nháy đơn — SqlParameter tự xử lý, không ghép chuỗi)
+        }
+    }
+
+    private static string ColumnName(SqlDataReader rd, int i) { var n = rd.GetName(i); return n.Length > 0 ? n : $"Column{i + 1}"; }
+
+    private static Type SafeFieldType(SqlDataReader rd, int i)
+    {
+        try { return rd.GetFieldType(i) ?? typeof(string); } catch { return typeof(string); }   // kiểu CLR (geography…) chưa nạp assembly
+    }
+
+    private static string? SafeCell(SqlDataReader rd, int i)
+    {
+        try { return rd.IsDBNull(i) ? null : Cell(rd.GetValue(i)); }
+        catch
+        {
+            try { return rd.GetSqlValue(i)?.ToString(); } catch { return "(?)"; }
+        }
     }
 
     private static string FieldType(Type t)

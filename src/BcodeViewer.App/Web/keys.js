@@ -50,6 +50,7 @@ const BCODE_COMMANDS = [
   ['Điều hướng', 'nav.goto', 'Go to (tag / chi tiết controller)', 'Ctrl+G', () => window.bcodeGoto && window.bcodeGoto.open()],
   ['Điều hướng', 'nav.peek', 'Xem trước nơi khai báo (peek)', 'F12', (b) => b.jumpToEntityAtCaret('peek')],
   ['Điều hướng', 'nav.go', 'Đi tới file / nơi khai báo', 'Ctrl+F12', (b) => b.jumpToEntityAtCaret('go')],
+  ['Điều hướng', 'nav.fullXml', 'Xem XML đầy đủ (bung mọi &entity; / include)', 'Ctrl+Shift+F12', (b) => b.openFullXml()],
   ['Điều hướng', 'nav.function', 'Đi tới function tại con trỏ', 'F11', (b) => b.gotoFunctionAtCaret()],
   ['Điều hướng', 'nav.references', 'Tìm nơi sử dụng (toàn project)', 'Shift+F12', () => window.bcodeOutline.findReferencesAtCaret()],
 

@@ -386,6 +386,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.DesignRequested += item => LaunchScreenDesigner(item.SysId);
         wcommandTree.RequirementsRequested += menu => OpenFsgRequirementReportTab(menu);
         wcommandTree.RunInFboRequested += item => _ = RunMenuInFboAsync(item);
+        wcommandTree.DependencyRequested += item => OpenDependencyTab(DepService().MenuNodeOf(item));
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,
@@ -1344,8 +1345,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.OpenFileRequested += path => OpenFileFromLookup(path);
         control.DependencyRequested += path =>
         {
-            _depService ??= new DependencyGraphService(_connections, _sqlObjectService, _usageService, () => _wcommandTree.FlatLeaves());
-            OpenDependencyTab(_depService.FileNode(path));
+            OpenDependencyTab(DepService().FileNode(path));
         };
         control.RevealMenuRequested += id =>
         {
@@ -1363,16 +1363,32 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// Tab "Sơ đồ phụ thuộc": mở cho object / file. Mặc định dùng chung một tab (đang mở thì chuyển sơ đồ sang nút mới, giữ đường dẫn đã đi);
     /// <paramref name="newTab"/> = mở tab riêng (chuột phải "Xem sơ đồ của nút này" trong sơ đồ), không đè tab cũ.
     /// </summary>
+    private DependencyGraphService DepService()
+    {
+        if (_depService is not null) return _depService;
+        _depService = new DependencyGraphService(_connections, _sqlObjectService, _usageService, () => _wcommandTree.FlatLeaves());
+        // File của menu = đúng các file File Lookup hiện khi bấm menu (mọi đuôi file)
+        _depService.MenuFiles = item =>
+        {
+            var files = new List<string>();
+            if (_connections.Current?.SourcePath is not { Length: > 0 } src) return files;
+            void Walk(FileLookupNode n) { if (!n.IsDirectory && n.FullPath.Length > 0) files.Add(n.FullPath); foreach (var c in n.Children) Walk(c); }
+            Walk(_fileLookupService.BuildTreeForMenuItem(src, item.Link, item.SysId));
+            return files;
+        };
+        return _depService;
+    }
+
     private void OpenDependencyTab(DepNode start, bool newTab = false)
     {
-        _depService ??= new DependencyGraphService(_connections, _sqlObjectService, _usageService, () => _wcommandTree.FlatLeaves());
+        DepService();
         if (!newTab && _depTab is not null && _documentTabs.TabPages.Contains(_depTab) && _depTab.Controls.OfType<DependencyGraphControl>().FirstOrDefault() is { } open)
         {
             _documentTabs.SelectedTab = _depTab;
             open.ShowNode(start);
             return;
         }
-        var control = new DependencyGraphControl(_depService, start);
+        var control = new DependencyGraphControl(DepService(), start);
         control.OpenRequested += n =>
         {
             switch (n.Kind)
@@ -2182,7 +2198,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return _genUpdatePackageControl;
         }
 
-        var control = new GenUpdatePackageControl(_fileLookupService, _sqlObjectService, ws, _genAllService);
+        var control = new GenUpdatePackageControl(_fileLookupService, _sqlObjectService, ws, _genAllService) { MenuRoots = () => _wcommandTree.RootsAll };
         _genUpdatePackageTabPage = AddDocumentTab("Gen Update", control);
         _genUpdatePackageControl = control;
         return control;
@@ -3827,9 +3843,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (!ok) MessageBox.Show(this, message, "Create Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 
-    /// <summary>Lệnh từ BcodeViewer (F5): chọn đúng workspace của file, tra menu wcommand trỏ tới controller của file
-    /// (sysid = tên file không đuôi, hoặc link "&lt;tên&gt;.aspx"), rồi bung FSG FBO đăng nhập và đi thẳng tới URL của menu.
-    /// Không tìm thấy menu (vd file Include/.ent) vẫn bung FSG FBO, chỉ không điều hướng tới đâu.</summary>
+    /// <summary>Lệnh từ BcodeViewer (F5, Settings của Viewer → Mở web (F5) → "Bcode — FSG FBO (như Ctrl+4)"): chọn đúng workspace
+    /// của file, tra menu wcommand trỏ tới controller của file (sysid = tên file không đuôi, hoặc link "&lt;tên&gt;.aspx"), rồi chạy
+    /// menu đó y như Ctrl+4 trên cây menu (RunMenuInFboAsync: menu đã có tab FSG FBO thì chuyển tới + nạp lại, chưa có thì mở tab
+    /// mới dùng chung phiên đăng nhập). Không tìm thấy menu (vd file Include/.ent) vẫn bung FSG FBO, chỉ không điều hướng tới đâu.</summary>
     private async Task RunMenuForFileAsync(string path, string projectName)
     {
         try
@@ -3849,26 +3866,22 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 return;
             }
 
-            string? url = null;
             var note = "";
             var controller = Path.GetFileNameWithoutExtension(path);
+            WCommandItem? item = null;
             try
             {
                 var items = await _wcommandService.FindByControllerAsync(controller);
-                var item = items.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Link));
+                item = items.FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Link));
                 if (item is null) note = $"Không có menu nào gắn với \"{controller}\" — chỉ bung FSG FBO.";
-                else
-                {
-                    url = BuildMenuUrl(ws.LoginWLink, item);
-                    note = $"Menu: {item.Bar} ({item.WMenuId})";
-                }
             }
             catch (Exception ex)
             {
                 note = "Không tra được menu (wcommand): " + ex.Message;
             }
 
-            await OpenMenuInFboTabAsync(ws, url, note);
+            if (item is not null) await RunMenuInFboAsync(item);   // như Ctrl+4 trên cây menu: mỗi menu 1 tab, có rồi thì nạp lại tab đó
+            else await OpenMenuInFboTabAsync(ws, null, note);
             Activate();
         }
         catch (Exception ex)

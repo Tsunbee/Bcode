@@ -68,7 +68,8 @@ class BcodeContextMenu {
     const model = editorInstance.editor.getModel();
     const docText = model ? model.getValue() : '';
     const hasFile = !!editorInstance.activePath;
-    const has = (needle) => hasFile && docText.indexOf(needle) >= 0;
+    const untitled = isUntitledPath(editorInstance.activePath); // tab chưa đặt tên (New from Template → Tạo file)
+    const has =(needle) => hasFile && docText.indexOf(needle) >= 0;
 
     // Chuột phải trong <items style="Lookup" controller="vctck2" .../> → mở file của controller đó.
     // Mục hiện ngay (bấm sớm vẫn mở được); danh sách file có thật được điền vào sau, vì phải hỏi ổ mạng.
@@ -127,6 +128,9 @@ class BcodeContextMenu {
       { label: 'Đi tới ENTITY / file', shortcut: 'Ctrl+F12', run: () => editorInstance.jumpToEntityAtCaret('go'),
         enabled: () => hasFile && this.entityAtCaret(editorInstance, docText),
         disabledHint: 'Con trỏ không đứng trên một &Entity; hay đường dẫn file nào' },
+      { label: 'Xem XML đầy đủ', shortcut: 'Ctrl+Shift+F12', run: () => editorInstance.openFullXml(),
+        enabled: () => hasFile && !isUntitledPath(editorInstance.activePath),
+        disabledHint: 'Chỉ dùng cho file đã lưu trên đĩa' },
       { sep: true },
       { label: 'Open File Config', id: 'openFileConfig', submenu: openFileConfigItems },
       // Images nằm ở gốc site (cạnh App_Data); Options/Lookup/Templates ở App_Data\Controllers. Trước đây cả bốn
@@ -182,9 +186,9 @@ class BcodeContextMenu {
       { label: 'Gợi ý (IntelliSense)', shortcut: 'Ctrl+Space', run: () => editorInstance.triggerSuggest() },
       { label: 'Lịch sử file', shortcut: 'Ctrl+Shift+H', run: () => window.bcodeHistory.showHistory(editorInstance) },
       { label: 'Clone file...', run: () => editorInstance.cloneFile(editorInstance.activePath),
-        enabled: () => hasFile, disabledHint: 'Cần mở 1 file' },
+        enabled: () => hasFile && !untitled, disabledHint: untitled ? 'File chưa đặt tên — Ctrl+S lưu trước' : 'Cần mở 1 file' },
       { label: 'Get Hash Source', run: () => window.bcodeDialogs.showHashSource(editorInstance),
-        enabled: () => hasFile, disabledHint: 'Cần mở 1 file' },
+        enabled: () => hasFile && !untitled, disabledHint: untitled ? 'File chưa đặt tên — Ctrl+S lưu trước' : 'Cần mở 1 file' },
       { label: 'Refresh', run: () => editorInstance.refreshActive() }
     ];
 

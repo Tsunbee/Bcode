@@ -11,8 +11,8 @@ namespace BcodeViewer.App.Host;
 /// Không có cách nào điều khiển tab của trình duyệt thường bằng API (Chrome 136+ không cho bật cổng DevTools trên hồ sơ
 /// đang dùng), nên làm qua UI Automation của Windows — đúng thứ trình đọc màn hình dùng: dải tab (TabItem) và thanh địa chỉ
 /// (Edit "OmniboxViewViews") của cửa sổ Chrome đều đọc / chọn được.
-///  • Lần đầu: Process.Start(url) như cũ (trình duyệt mặc định, đang mở thì thành tab mới trong cửa sổ đang mở, chưa mở thì
-///    trình duyệt tự khởi động) rồi so danh sách tab trước / sau để nhớ tab mới là tab của URL này.
+///  • Lần đầu: <see cref="Launch"/> (trình duyệt mặc định, hoặc đúng chrome.exe / msedge.exe nếu Settings chọn — đang mở thì thành
+///    tab mới trong cửa sổ đang mở, chưa mở thì trình duyệt tự khởi động) rồi so danh sách tab trước / sau để nhớ tab mới là tab của URL này.
 ///  • Lần sau: tìm tab đã nhớ (RuntimeId của UIA + pid trình duyệt — trình duyệt mở lại thì bỏ), hoặc cửa sổ nào đang hiện
 ///    đúng trang đó ở tab đang chọn; chọn tab, đưa cửa sổ lên trước (Viewer đang được focus vì vừa nhận F5 nên được quyền),
 ///    gõ lại địa chỉ vào thanh địa chỉ + Enter = nạp lại bằng GET (không bị hộp "gửi lại biểu mẫu" như phím F5 của trình
@@ -26,9 +26,57 @@ internal static class BrowserTabLauncher
     /// cũng dùng lớp cửa sổ này nên phải lọc theo tên tiến trình.</summary>
     private static readonly string[] ChromiumProcesses = { "chrome", "msedge", "brave", "vivaldi", "opera", "browser" /* Cốc Cốc */ };
 
-    /// <summary>Mở URL (thay cho Process.Start) — chạy thử thì thay bằng hàm mở trình duyệt thử.</summary>
-    internal static Action<string> Opener { get; set; } = url =>
+    /// <summary>Chạy thử: thay cách mở URL bằng hàm mở trình duyệt thử. Null = <see cref="Launch"/>.</summary>
+    internal static Action<string>? Opener { get; set; }
+
+    /// <summary>Mở URL thành 1 tab mới: <paramref name="browser"/> "chrome" / "edge" = chạy đúng chrome.exe / msedge.exe với URL
+    /// (trình duyệt đang mở thì thành tab mới trong cửa sổ đang mở, dùng hồ sơ đang dùng; chưa cài thì về trình duyệt mặc định);
+    /// còn lại = trình duyệt mặc định của máy (Process.Start như cũ).</summary>
+    public static void Launch(string url, string browser)
+    {
+        if (Opener is { } test) { test(url); return; }
+        if (FindExe(browser) is { } exe)
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = false };
+            psi.ArgumentList.Add(url);
+            System.Diagnostics.Process.Start(psi)?.Dispose();
+            return;
+        }
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+    }
+
+    /// <summary>Đường dẫn chrome.exe ("chrome") / msedge.exe ("edge"); không cài hoặc giá trị khác → null.</summary>
+    public static string? FindExe(string browser)
+    {
+        var (exeName, relative) = browser switch
+        {
+            "chrome" => ("chrome.exe", @"Google\Chrome\Application\chrome.exe"),
+            "edge" => ("msedge.exe", @"Microsoft\Edge\Application\msedge.exe"),
+            _ => ("", ""),
+        };
+        if (exeName.Length == 0) return null;
+        foreach (var hive in new[] { Registry.CurrentUser, Registry.LocalMachine })
+        {
+            try
+            {
+                using var k = hive.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\" + exeName);
+                if (k?.GetValue(null) is string p && File.Exists(p.Trim('"'))) return p.Trim('"');
+            }
+            catch { }
+        }
+        foreach (var root in new[]
+                 {
+                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                     Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                 })
+        {
+            if (string.IsNullOrEmpty(root)) continue;
+            var p = Path.Combine(root, relative);
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
 
     /// <summary>Chỉ xét cửa sổ của các tiến trình này (chạy thử, để không đụng trình duyệt thật). Null = mọi trình duyệt Chromium.</summary>
     internal static Func<int, bool>? ProcessFilter { get; set; }
@@ -37,21 +85,26 @@ internal static class BrowserTabLauncher
     private static readonly Dictionary<string, Remembered> TabByUrl = new(StringComparer.OrdinalIgnoreCase);
     private static readonly SemaphoreSlim Gate = new(1, 1);
 
+    /// <param name="browser">"default" = trình duyệt mặc định (tìm tab trong mọi trình duyệt họ Chromium đang mở);
+    /// "chrome" / "edge" = chỉ Chrome / chỉ Edge (mở tab mới cũng bằng đúng trình duyệt đó — xem <see cref="Launch"/>).</param>
     /// <returns>Câu mô tả việc đã làm (ghép vào thông báo của F5).</returns>
-    public static async Task<string> OpenAsync(string url, CancellationToken token)
+    public static async Task<string> OpenAsync(string url, string browser, CancellationToken token)
     {
         await Gate.WaitAsync(token);
         try
         {
             // UIA gọi sang tiến trình khác: chạy trên luồng nền (MTA), không chặn luồng giao diện của Viewer.
-            return await Task.Run(() => Open(url, token), token);
+            return await Task.Run(() => Open(url, browser, token), token);
         }
         finally { Gate.Release(); }
     }
 
-    private static string Open(string url, CancellationToken token)
+    private static string Open(string url, string browser, CancellationToken token)
     {
         var key = Normalize(url);
+        // Chọn hẳn Chrome / Edge mà máy có cài: chỉ xét cửa sổ của trình duyệt đó; chưa cài thì Launch về trình duyệt mặc định → xét mọi trình duyệt.
+        var only = FindExe(browser) is null ? null : browser == "edge" ? "msedge" : "chrome";
+        List<BrowserWindow> BrowserWindows() => BrowserTabLauncher.BrowserWindows(only);
         var windows = BrowserWindows();
 
         Tab? tab = null;
@@ -63,8 +116,8 @@ internal static class BrowserTabLauncher
         if (tab is null)
         {
             var before = windows.SelectMany(w => w.Tabs()).Select(t => t.RuntimeId).ToHashSet();
-            Opener(url);
-            var opened = WaitForNewTab(before, token);
+            Launch(url, browser);
+            var opened = WaitForNewTab(before, only, token);
             if (opened is not null) TabByUrl[key] = new Remembered(opened.RuntimeId, opened.Window.ProcessId);
             return windows.Count == 0 ? "đã mở trình duyệt" : $"đã mở tab mới trong {opened?.Window.Name ?? "trình duyệt"}";
         }
@@ -79,12 +132,12 @@ internal static class BrowserTabLauncher
     }
 
     /// <summary>Sau Process.Start: chờ tối đa ~6 giây tab mới xuất hiện (trình duyệt chưa mở thì lâu hơn), ưu tiên tab đang chọn.</summary>
-    private static Tab? WaitForNewTab(HashSet<string> before, CancellationToken token)
+    private static Tab? WaitForNewTab(HashSet<string> before, string? only, CancellationToken token)
     {
         for (var i = 0; i < 30 && !token.IsCancellationRequested; i++)
         {
             Thread.Sleep(200);
-            var fresh = BrowserWindows().SelectMany(w => w.Tabs()).Where(t => !before.Contains(t.RuntimeId)).ToList();
+            var fresh = BrowserWindows(only).SelectMany(w => w.Tabs()).Where(t => !before.Contains(t.RuntimeId)).ToList();
             if (fresh.Count > 0) return fresh.FirstOrDefault(t => t.IsSelected) ?? fresh[^1];
         }
         return null;
@@ -92,7 +145,8 @@ internal static class BrowserTabLauncher
 
     // ---- cửa sổ / tab qua UI Automation ------------------------------------------------------------------------
 
-    private static List<BrowserWindow> BrowserWindows()
+    /// <param name="only">Tên tiến trình ("chrome" / "msedge") khi người dùng chọn hẳn 1 trình duyệt; null = mọi trình duyệt Chromium.</param>
+    private static List<BrowserWindow> BrowserWindows(string? only)
     {
         var list = new List<BrowserWindow>();
         AutomationElementCollection tops;
@@ -107,7 +161,7 @@ internal static class BrowserTabLauncher
                 if (ProcessFilter is { } f ? !f(pid) : false) continue;
                 string name;
                 using (var p = System.Diagnostics.Process.GetProcessById(pid)) name = p.ProcessName.ToLowerInvariant();
-                if (!ChromiumProcesses.Contains(name)) continue;
+                if (only is not null ? name != only : !ChromiumProcesses.Contains(name)) continue;
                 list.Add(new BrowserWindow(e, pid, new IntPtr(e.Current.NativeWindowHandle), name));
             }
             catch { /* cửa sổ vừa đóng */ }

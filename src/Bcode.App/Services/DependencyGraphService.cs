@@ -5,9 +5,10 @@ using Microsoft.Data.SqlClient;
 
 namespace Bcode.App.Services;
 
-/// <summary>Một nút của sơ đồ phụ thuộc. Kind: menu | file | proc | func | view | table | trigger.
-/// Key duy nhất: "app:dbo.ten" / "sys:dbo.ten" cho object database, "file:đường dẫn", "menu:wmenu_id".</summary>
-public sealed record DepNode(string Kind, string Key, string Label, bool Sys = false, string Schema = "dbo", string? Path = null, string? Note = null);
+/// <summary>Một nút của sơ đồ phụ thuộc. Kind: menu | file | proc | func | view | table | trigger | unknown (tên không thấy trong database nào, không đoán được loại).
+/// Key duy nhất: "app:dbo.ten" / "sys:dbo.ten" cho object database, "file:đường dẫn", "menu:wmenu_id".
+/// Encrypted = object tạo WITH ENCRYPTION (không đọc được nội dung).</summary>
+public sealed record DepNode(string Kind, string Key, string Label, bool Sys = false, string Schema = "dbo", string? Path = null, string? Note = null, bool Encrypted = false);
 
 /// <summary>Các nút quanh 1 nút: Up = được dùng bởi (ai gọi / ai trỏ tới nó), Down = dùng tới (nó gọi / đọc / include gì).</summary>
 public sealed record DepNeighbors(DepNode Center, List<DepNode> Up, List<DepNode> Down, List<string> Warnings);
@@ -19,7 +20,8 @@ public sealed record DepImpact(int Level, DepNode Node, string Via);
 /// Sơ đồ phụ thuộc menu → controller → include → procedure / function / view → bảng. Không dựng trước cả đồ thị: chỉ tra QUANH nút đang xem, khi cần,
 /// dùng lại những gì Bcode đã có — chỉ ĐỌC, không cài trigger, không gắn gì vào lúc sửa procedure:
 ///  · object database, "dùng tới": <c>sys.sql_expression_dependencies</c> (SQL Server tự ghi khi tạo / sửa object) + dò tên object trong định nghĩa (bắt cả tên nằm
-///    trong chuỗi SQL động). "Được dùng bởi": quét định nghĩa như "Ai đang dùng" (<see cref="UsageSearchService"/>) + chỉ mục source (<see cref="SourceIndexService"/>).
+///    trong chuỗi SQL động). "Được dùng bởi": quét định nghĩa như "Ai đang dùng" (<see cref="UsageSearchService"/>) + object mã hoá gọi tới (theo sys.sql_expression_dependencies — không quét được định nghĩa của chúng)
+///    + chỉ mục source (<see cref="SourceIndexService"/>).
 ///  · file controller: đọc file, lấy include (<!ENTITY … SYSTEM "…">) và tên object database trong file; "được dùng bởi" = menu trỏ tới file + file khác nhắc tới tên file.
 ///  · menu: file controller theo SysId / Link (cùng quy tắc với "Ai đang dùng").
 /// Kết quả nhớ trong bộ nhớ theo chữ ký database (số object + ngày sửa mới nhất) và ngày sửa file — mở lại sơ đồ không hỏi database lại nếu không có gì đổi.
@@ -77,8 +79,23 @@ public sealed class DependencyGraphService
         _ => "func",
     };
 
+    /// <summary>Loại nút theo sys.objects.type của object ĐƯỢC THAM CHIẾU (kể cả object hệ thống / mã hoá). null = không có type (không thấy object).</summary>
+    private static string? KindOfRefType(string? type) => type?.Trim() switch
+    {
+        null or "" => null,
+        "P" or "X" or "PC" or "RF" => "proc",
+        "FN" or "IF" or "TF" or "FS" or "FT" or "AF" => "func",
+        "V" => "view",
+        "U" or "S" or "IT" => "table",
+        "TR" or "TA" => "trigger",
+        _ => "unknown",
+    };
+
     public static DepNode ObjectNode(SqlObjectInfo o, string? note = null) =>
         new(KindOf(o.Kind), (o.FromSysDatabase ? "sys:" : "app:") + o.QualifiedName, o.QualifiedName, o.FromSysDatabase, o.Schema, null, note);
+
+    private static DepNode DbNode(string kind, string schema, string name, bool sys, string? note, bool encrypted = false) =>
+        new(kind, (sys ? "sys:" : "app:") + schema + "." + name, schema + "." + name, sys, schema, null, note, encrypted);
 
     public DepNode FileNode(string path, string? note = null)
     {
@@ -91,6 +108,34 @@ public sealed class DependencyGraphService
 
     private static DepNode MenuNode(WCommandItem item, string path) =>
         new("menu", "menu:" + item.WMenuId, item.Bar + " (" + item.WMenuId + ")", Path: path.Length > 0 ? path : null);
+
+    /// <summary>Menu mở sơ đồ từ cây WCommand (cả menu nhóm, menu con) — nhớ lại để tra được cả menu không phải lá.</summary>
+    private readonly ConcurrentDictionary<string, WCommandItem> _menuItems = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Nút sơ đồ cho 1 menu trên cây WCommand (chuột phải → Sơ đồ phụ thuộc…).</summary>
+    public DepNode MenuNodeOf(WCommandItem item)
+    {
+        _menuItems[item.WMenuId] = item;
+        return MenuNode(item, "");
+    }
+
+    /// <summary>File của 1 menu đúng như File Lookup hiện khi bấm menu (MainForm gán = FileLookupService.BuildTreeForMenuItem).
+    /// null = dò theo SysId / Link trong các thư mục controller như trước.</summary>
+    public Func<WCommandItem, IReadOnlyList<string>>? MenuFiles { get; set; }
+
+    private const int MaxMenuFilesRead = 300;
+    /// <summary>File nhị phân không dò tên object (đọc ra toàn rác). .rpt vẫn dò — Crystal Report có tên bảng / store trong file.</summary>
+    private static readonly HashSet<string> BinaryExt = new(StringComparer.OrdinalIgnoreCase)
+        { ".xlsx", ".xls", ".xlsm", ".xlsb", ".docx", ".doc", ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".zip", ".rar", ".7z", ".dll", ".exe", ".pdb" };
+    private const long MaxMenuFileBytes = 8L << 20;
+
+    private static string MenuInfo(WCommandItem m)
+    {
+        var parts = new List<string> { "wmenu_id " + m.WMenuId };
+        void Add(string k, string? v) { if (!string.IsNullOrWhiteSpace(v)) parts.Add(k + " " + v.Trim()); }
+        Add("menu_id", m.MenuId); Add("sysid", m.SysId); Add("link", m.Link); Add("parameter", m.Parameter); Add("type", m.Type);
+        return string.Join(" · ", parts);
+    }
 
     public static SqlObjectInfo ToObject(DepNode n) => new() { Schema = n.Schema, Name = n.Label.Contains('.') ? n.Label[(n.Label.IndexOf('.') + 1)..] : n.Label, Kind = ObjectKind(n.Kind), FromSysDatabase = n.Sys };
 
@@ -147,21 +192,25 @@ public sealed class DependencyGraphService
     /// <param name="force">true = bỏ kết quả đã nhớ, tra lại (nút Làm mới).</param>
     public async Task<DepNeighbors> NeighborsAsync(DepNode node, bool force, Action<string> progress, CancellationToken ct)
     {
-        var stamp = await StampAsync(node, ct);
+        var dbStamp = await DbStampAsync();
+        var stamp = dbStamp;
+        if (node.Path is { } p && node.Kind == "file") try { stamp += "|" + File.GetLastWriteTimeUtc(p).Ticks; } catch { }
         var cacheKey = node.Key + "|" + stamp;
         if (!force && Cache.TryGetValue(cacheKey, out var hit)) return hit;
         var result = node.Kind switch
         {
-            "menu" => MenuNeighbors(node),
+            "menu" => await MenuNeighborsAsync(node, progress, ct),
             "file" => await FileNeighborsAsync(node, force, progress, ct),
-            _ => await ObjectNeighborsAsync(node, force, progress, ct),
+            _ => await ObjectNeighborsAsync(node, force, dbStamp, progress, ct),
         };
+        result = await MarkEncryptedAsync(result, dbStamp, ct);
         Cache[cacheKey] = result;
         return result;
     }
 
-    /// <summary>"Dấu" để biết kết quả đã nhớ còn đúng: chữ ký 2 database (1 câu rất nhẹ trên sys.objects) + ngày sửa file. Lỗi kết nối thì dùng dấu rỗng.</summary>
-    private async Task<string> StampAsync(DepNode node, CancellationToken ct)
+    /// <summary>"Dấu" để biết kết quả đã nhớ còn đúng: chữ ký 2 database (1 câu rất nhẹ trên sys.objects). Lỗi kết nối thì dùng dấu rỗng.
+    /// (Nút file cộng thêm ngày sửa file.)</summary>
+    private async Task<string> DbStampAsync()
     {
         var parts = new List<string> { _connections.Current?.Name ?? "" };
         try
@@ -170,11 +219,54 @@ public sealed class DependencyGraphService
             parts.Add(await _browser.GetSignatureAsync(true));
         }
         catch { parts.Add("offline"); }
-        if (node.Path is { } p && node.Kind == "file") try { parts.Add(File.GetLastWriteTimeUtc(p).Ticks.ToString()); } catch { }
         return string.Join("|", parts);
     }
 
-    private async Task<DepNeighbors> ObjectNeighborsAsync(DepNode node, bool force, Action<string> progress, CancellationToken ct)
+    // ---- Object mã hoá (WITH ENCRYPTION) -----------------------------------------------------------------------------------
+
+    private static readonly ConcurrentDictionary<string, HashSet<string>> EncryptedCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Tên đầy đủ (schema.tên) các object mã hoá của 1 database — 1 câu nhẹ trên sys.objects, nhớ theo chữ ký database. Lỗi thì trả tập rỗng.</summary>
+    private async Task<HashSet<string>> EncryptedNamesAsync(bool sys, string dbStamp, CancellationToken ct)
+    {
+        var key = dbStamp + "|" + (sys ? "sys" : "app");
+        if (EncryptedCache.TryGetValue(key, out var hit)) return hit;
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            await using var conn = _connections.CreateConnection(sys);
+            await conn.OpenAsync(ct);
+            await using var cmd = new SqlCommand(@"
+SELECT SCHEMA_NAME(o.schema_id), o.name FROM sys.objects o
+WHERE o.type IN ('P','FN','IF','TF','V','TR') AND o.is_ms_shipped = 0 AND OBJECTPROPERTY(o.object_id, 'IsEncrypted') = 1;", conn) { CommandTimeout = 30 };
+            await using var r = await cmd.ExecuteReaderAsync(ct);
+            while (await r.ReadAsync(ct)) set.Add(r.GetString(0) + "." + r.GetString(1));
+            EncryptedCache[key] = set;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* không tra được thì thôi không gắn nhãn "mã hoá" */ }
+        return set;
+    }
+
+    private static readonly string[] CodeKinds = { "proc", "func", "view", "trigger" };
+
+    private static DepNode Mark(DepNode n, HashSet<string> app, HashSet<string> sys) =>
+        !n.Encrypted && CodeKinds.Contains(n.Kind) && (n.Sys ? sys : app).Contains(n.Label) ? n with { Encrypted = true } : n;
+
+    /// <summary>Gắn nhãn "mã hoá" cho các nút procedure / function / view / trigger tạo WITH ENCRYPTION. Nút giữa mã hoá → nhắc "Dùng tới" chỉ theo phụ thuộc SQL Server ghi sẵn.</summary>
+    private async Task<DepNeighbors> MarkEncryptedAsync(DepNeighbors r, string dbStamp, CancellationToken ct)
+    {
+        if (!new[] { r.Center }.Concat(r.Up).Concat(r.Down).Any(n => CodeKinds.Contains(n.Kind))) return r;
+        var app = await EncryptedNamesAsync(false, dbStamp, ct);
+        var sys = await EncryptedNamesAsync(true, dbStamp, ct);
+        var center = Mark(r.Center, app, sys);
+        var warn = r.Warnings;
+        if (center.Encrypted)
+            warn = new List<string>(warn) { "Object mã hoá (WITH ENCRYPTION): không đọc được nội dung — \"Dùng tới\" chỉ gồm phụ thuộc SQL Server ghi sẵn, không dò được tên nằm trong SQL động." };
+        return new DepNeighbors(center, r.Up.Select(n => Mark(n, app, sys)).ToList(), r.Down.Select(n => Mark(n, app, sys)).ToList(), warn);
+    }
+
+    private async Task<DepNeighbors> ObjectNeighborsAsync(DepNode node, bool force, string dbStamp, Action<string> progress, CancellationToken ct)
     {
         var obj = ToObject(node);
         var up = new List<DepNode>();
@@ -188,10 +280,18 @@ public sealed class DependencyGraphService
             await using var conn = _connections.CreateConnection(obj.FromSysDatabase);
             await conn.OpenAsync(ct);
             var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // referenced_id NULL không có nghĩa là bảng: "exec ten_proc" / "ten_func(…)" không ghi schema được SQL Server lưu dạng caller-dependent (referenced_id NULL)
+            // → tra lại theo tên trong sys.all_objects (có cả object hệ thống, object mã hoá vẫn có type). Vẫn không thấy thì tra database kia, rồi mới đoán.
+            var unresolved = new List<(string Schema, string Name, bool SchemaGiven)>();
             await using (var cmd = new SqlCommand(@"
-SELECT DISTINCT ISNULL(d.referenced_schema_name, ISNULL(SCHEMA_NAME(o.schema_id), 'dbo')), d.referenced_entity_name, o.type
+SELECT DISTINCT COALESCE(d.referenced_schema_name, SCHEMA_NAME(o.schema_id), SCHEMA_NAME(x.schema_id), 'dbo'), d.referenced_entity_name,
+       COALESCE(o.type, x.type), CASE WHEN d.referenced_schema_name IS NULL THEN 0 ELSE 1 END
 FROM sys.sql_expression_dependencies d
 LEFT JOIN sys.objects o ON o.object_id = d.referenced_id
+OUTER APPLY (SELECT TOP 1 a.schema_id, a.type FROM sys.all_objects a
+             WHERE d.referenced_id IS NULL AND a.name = d.referenced_entity_name
+               AND (d.referenced_schema_name IS NULL OR a.schema_id = SCHEMA_ID(d.referenced_schema_name))
+             ORDER BY CASE WHEN a.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END, a.is_ms_shipped) x
 WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL AND d.referenced_entity_name IS NOT NULL;", conn) { CommandTimeout = 30 })
             {
                 cmd.Parameters.AddWithValue("@full", obj.QualifiedName);
@@ -200,10 +300,12 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
                 {
                     var schema = r.GetString(0); var name = r.GetString(1);
                     if (name.Equals(obj.Name, StringComparison.OrdinalIgnoreCase) || !known.Add(name)) continue;
-                    var kind = r.IsDBNull(2) ? "table" : KindOfType(r.GetString(2));
-                    down.Add(ObjectNode(new SqlObjectInfo { Schema = schema, Name = name, Kind = ObjectKind(kind), FromSysDatabase = obj.FromSysDatabase }, r.IsDBNull(2) ? "chưa có trong database" : null));
+                    if (KindOfRefType(r.IsDBNull(2) ? null : r.GetString(2)) is { } kind)
+                        down.Add(DbNode(kind, schema, name, obj.FromSysDatabase, kind == "unknown" ? "loại " + r.GetString(2).Trim() : null));
+                    else unresolved.Add((schema, name, r.GetInt32(3) == 1));
                 }
             }
+            var def = "";
             if (obj.Kind == SqlObjectKind.Table)
             {
                 // Bảng: trigger gắn trên bảng
@@ -215,7 +317,6 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
             }
             else
             {
-                string def;
                 await using (var dc = new SqlCommand("SELECT OBJECT_DEFINITION(OBJECT_ID(@full));", conn) { CommandTimeout = 30 })
                 {
                     dc.Parameters.AddWithValue("@full", obj.QualifiedName);
@@ -225,6 +326,7 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
                     if (!o.Name.Equals(obj.Name, StringComparison.OrdinalIgnoreCase) && known.Add(o.Name))
                         down.Add(ObjectNode(o, "tên có trong nội dung (có thể là SQL động)"));
             }
+            if (unresolved.Count > 0) down.AddRange(await ResolveElsewhereAsync(obj, unresolved, StripComments(def), ct));
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { warn.Add("Không đọc được phụ thuộc: " + ex.Message); }
@@ -241,15 +343,88 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
             catch (OperationCanceledException) { throw; }
             catch (Exception ex) { lock (warn) warn.Add((sys ? "Sys Data" : "App Data") + ": " + ex.Message); }
         }
+        // Object mã hoá không quét được định nghĩa → lấy ai gọi tới từ phụ thuộc SQL Server ghi sẵn (chỉ thêm object mã hoá; object thường đã có ở trên)
+        async Task EncryptedCallers(bool sys)
+        {
+            var enc = await EncryptedNamesAsync(sys, dbStamp, ct);
+            if (enc.Count == 0) return;
+            var w = new List<string>();
+            foreach (var (_, o) in await DependentsAsync(sys, new List<string> { obj.Name }, ct, w))
+                if (enc.Contains(o.QualifiedName) && !(o.FromSysDatabase == obj.FromSysDatabase && o.QualifiedName.Equals(obj.QualifiedName, StringComparison.OrdinalIgnoreCase)))
+                    lock (up) up.Add(ObjectNode(o, "mã hoá — theo phụ thuộc SQL Server ghi sẵn") with { Encrypted = true });
+            lock (warn) foreach (var m in w) if (!warn.Contains(m)) warn.Add(m);
+        }
         async Task<SourceIndexService.Result?> Src() => SourceRoot is { } root ? await _index.FindAsync(root, obj.Name, force, progress, ct) : null;
         var files = Src();
-        await Task.WhenAll(Db(false), Db(true), files);
+        await Task.WhenAll(Db(false), Db(true), EncryptedCallers(false), EncryptedCallers(true), files);
         var res = await files;
         if (res is null) warn.Add("Project chưa khai Source Path — không tìm được file controller.");
         else if (res.Warning is not null) warn.Add(res.Warning);
         else foreach (var f in res.Files) up.Add(FileNode(f.File, f.Hits + " chỗ"));
 
         return new DepNeighbors(node, Sort(up), Sort(down), warn);
+    }
+
+    /// <summary>Tên phụ thuộc không thấy trong database của object: tra database kia (Sys ↔ App); vẫn không thấy thì ĐOÁN theo cách gọi trong nội dung
+    /// (exec X → procedure, X(…) → function) và ghi rõ là đoán; không đoán được thì để "Không xác định" — không mặc định là bảng.</summary>
+    private async Task<List<DepNode>> ResolveElsewhereAsync(SqlObjectInfo obj, List<(string Schema, string Name, bool SchemaGiven)> names, string def, CancellationToken ct)
+    {
+        var other = !obj.FromSysDatabase;
+        var found = new Dictionary<string, List<(string Schema, string Type, bool Enc)>>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            await using var conn = _connections.CreateConnection(other);
+            await conn.OpenAsync(ct);
+            foreach (var chunk in names.Select(n => n.Name).Distinct(StringComparer.OrdinalIgnoreCase).Chunk(500))
+            {
+                await using var cmd = new SqlCommand { Connection = conn, CommandTimeout = 30 };
+                var ps = chunk.Select((n, i) => { cmd.Parameters.Add("@n" + i, System.Data.SqlDbType.NVarChar, 256).Value = n; return "@n" + i; }).ToList();
+                cmd.CommandText = @"
+SELECT o.name, SCHEMA_NAME(o.schema_id), o.type, CASE WHEN OBJECTPROPERTY(o.object_id, 'IsEncrypted') = 1 THEN 1 ELSE 0 END
+FROM sys.objects o WHERE o.is_ms_shipped = 0 AND o.name IN (" + string.Join(", ", ps) + @")
+ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
+                await using var r = await cmd.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct))
+                {
+                    if (!found.TryGetValue(r.GetString(0), out var l)) found[r.GetString(0)] = l = new();
+                    l.Add((r.GetString(1), r.GetString(2), r.GetInt32(3) == 1));
+                }
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* database kia không mở được — chuyển sang đoán */ }
+
+        var otherName = other ? "Sys Data" : "App Data";
+        var list = new List<DepNode>();
+        foreach (var (schema, name, given) in names)
+        {
+            var hit = found.TryGetValue(name, out var l) ? l.FirstOrDefault(x => !given || x.Schema.Equals(schema, StringComparison.OrdinalIgnoreCase)) : default;
+            if (hit.Type is not null && KindOfRefType(hit.Type) is { } kind)
+                list.Add(DbNode(kind, hit.Schema, name, other, "chỉ có ở " + otherName, hit.Enc));
+            else if (GuessKind(def, name) is { } g)
+                list.Add(DbNode(g.Kind, schema, name, obj.FromSysDatabase, "đoán là " + g.How + " — không thấy trong database"));
+            else
+                list.Add(DbNode("unknown", schema, name, obj.FromSysDatabase, "không thấy trong database"));
+        }
+        return list;
+    }
+
+    private static readonly HashSet<string> NotFuncBefore = new(StringComparer.OrdinalIgnoreCase) { "INTO", "TABLE", "INSERT", "MERGE", "REFERENCES", "ON", "EXEC", "EXECUTE", "PROCEDURE", "PROC", "FUNCTION", "VIEW" };
+
+    /// <summary>Đoán loại theo cách gọi trong nội dung (đã bỏ comment): <c>exec [schema.]X</c> → procedure; <c>[schema.]X(</c> (không đứng sau INTO / TABLE / ON…) → function.</summary>
+    private static (string Kind, string How)? GuessKind(string def, string name)
+    {
+        if (def.Length == 0) return null;
+        var target = @"(?:\[?[\w$#]+\]?\s*\.\s*)?\[?" + Regex.Escape(name) + @"\]?(?![\w$#])";
+        if (Regex.IsMatch(def, @"\bEXEC(?:UTE)?\s+(?:@[\w$#]+\s*=\s*)?" + target, RegexOptions.IgnoreCase))
+            return ("proc", "procedure (có exec)");
+        foreach (Match m in Regex.Matches(def, @"(?<![\w$#.\[\]@])" + target + @"\s*\(", RegexOptions.IgnoreCase))
+        {
+            var before = Regex.Match(def[..m.Index], @"([A-Za-z_]+)\s*$");
+            if (!before.Success || !NotFuncBefore.Contains(before.Groups[1].Value))
+                return ("func", "function (có tên(…))");
+        }
+        return null;
     }
 
     private async Task<DepNeighbors> FileNeighborsAsync(DepNode node, bool force, Action<string> progress, CancellationToken ct)
@@ -285,14 +460,44 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
         return new DepNeighbors(node, Sort(up), Sort(down), warn);
     }
 
-    private DepNeighbors MenuNeighbors(DepNode node)
+    /// <summary>Quanh 1 menu: thông tin menu (wmenu_id / menu_id / sysid / link — hiện ở thẻ giữa), "Dùng tới" = menu con + file của menu (như File Lookup)
+    /// + object database có tên trong các file đó (store / procedure / bảng / view…, ghi "trong &lt;file&gt;").</summary>
+    private async Task<DepNeighbors> MenuNeighborsAsync(DepNode node, Action<string> progress, CancellationToken ct)
     {
         var id = node.Key["menu:".Length..];
         var down = new List<DepNode>();
         var warn = new List<string>();
-        var item = _menus().Select(x => x.Item).FirstOrDefault(i => i.WMenuId == id);
-        if (item is null) warn.Add("Không thấy menu " + id + " trong cây WCommand đã nạp.");
-        else if (SourceRoot is not { } root) warn.Add("Project chưa khai Source Path — không tìm được file controller.");
+        var item = _menus().Select(x => x.Item).FirstOrDefault(i => i.WMenuId == id) ?? (_menuItems.TryGetValue(id, out var remembered) ? remembered : null);
+        if (item is null)
+        {
+            warn.Add("Không thấy menu " + id + " trong cây WCommand đã nạp.");
+            return new DepNeighbors(node, new List<DepNode>(), down, warn);
+        }
+        var center = node with { Note = MenuInfo(item) };
+        foreach (var c in item.Children.OrderBy(c => c.WMenuId, StringComparer.OrdinalIgnoreCase))
+        {
+            _menuItems[c.WMenuId] = c;
+            down.Add(MenuNode(c, "") with { Note = c.Children.Count > 0 ? "menu nhóm con" : "menu con" });
+        }
+        if (string.IsNullOrWhiteSpace(item.Link) && string.IsNullOrWhiteSpace(item.SysId))
+        {
+            if (item.Children.Count == 0) warn.Add("Menu không có Link / SysId — không tìm được file controller.");
+            return new DepNeighbors(center, new List<DepNode>(), down, warn);
+        }
+        if (SourceRoot is not { } root)
+        {
+            warn.Add("Project chưa khai Source Path — không tìm được file controller.");
+            return new DepNeighbors(center, new List<DepNode>(), down, warn);
+        }
+
+        progress("Đang tìm file của menu " + item.WMenuId + "…");
+        var files = new List<string>();
+        if (MenuFiles is { } menuFiles)
+        {
+            try { files.AddRange(await Task.Run(() => menuFiles(item), ct)); }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { warn.Add("Không lấy được file của menu: " + ex.Message); }
+        }
         else
         {
             var controllers = SourceIndexService.ControllersDir(root);
@@ -300,15 +505,66 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
             {
                 var d = Path.Combine(controllers, folder);
                 if (!Directory.Exists(d)) continue;
-                try
-                {
-                    foreach (var f in Directory.EnumerateFiles(d, "*", SearchOption.TopDirectoryOnly))
-                        if (MenuMatchesFile(item, f)) down.Add(FileNode(f, folder));
-                }
+                try { files.AddRange(Directory.EnumerateFiles(d, "*", SearchOption.TopDirectoryOnly).Where(f => MenuMatchesFile(item, f))); }
                 catch (Exception ex) { warn.Add(folder + ": " + ex.Message); }
             }
         }
-        return new DepNeighbors(node, new List<DepNode>(), Sort(down), warn);
+        files = files.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var f in files) down.Add(FileNode(f, Path.GetFileName(Path.GetDirectoryName(f))));
+
+        // Object database có tên trong các file của menu (store / procedure / function / bảng / view…) — dò như "Dùng tới" của 1 file
+        progress("Đang đọc " + files.Count + " file của menu…");
+        foreach (var (o, inFiles) in await ObjectsInFilesAsync(files, ct)) down.Add(ObjectNode(o, "trong " + Path.GetFileName(inFiles[0])));
+        if (files.Count > MaxMenuFilesRead) warn.Add($"Menu có {files.Count} file — chỉ dò tên object trong {MaxMenuFilesRead} file đầu.");
+        if (files.Count == 0) warn.Add("Không thấy file controller nào của menu (theo SysId / Link).");
+        return new DepNeighbors(center, new List<DepNode>(), Sort(down), warn);
+    }
+
+    /// <summary>
+    /// Object database (store / function / bảng / view…) có tên trong các file — cách sơ đồ dò "Dùng tới" của 1 menu, dùng chung cho
+    /// "Gợi ý theo menu" của BcodeNote (Table liên quan). Bỏ file nhị phân, file quá <see cref="MaxMenuFileBytes"/>, chỉ đọc <see cref="MaxMenuFilesRead"/> file đầu.
+    /// Mỗi object kèm các file có tên nó (theo thứ tự <paramref name="files"/>). Tên lấy từ cache cây SQL Object — xem <see cref="EnsureObjectNamesAsync"/>.
+    /// </summary>
+    public async Task<List<(SqlObjectInfo Obj, List<string> Files)>> ObjectsInFilesAsync(IEnumerable<string> files, CancellationToken ct = default)
+    {
+        var found = new Dictionary<string, (SqlObjectInfo Obj, List<string> Files)>(StringComparer.OrdinalIgnoreCase);
+        var order = new List<string>();
+        foreach (var f in files.Where(f => !BinaryExt.Contains(Path.GetExtension(f))).Take(MaxMenuFilesRead))
+        {
+            ct.ThrowIfCancellationRequested();
+            string text;
+            try { if (new FileInfo(f).Length > MaxMenuFileBytes) continue; text = await File.ReadAllTextAsync(f, ct); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { continue; }
+            foreach (var o in NamesIn(text, null))
+            {
+                var key = (o.FromSysDatabase ? "sys:" : "app:") + o.QualifiedName;
+                if (found.TryGetValue(key, out var hit)) { hit.Files.Add(f); continue; }
+                found[key] = (o, new List<string> { f });
+                order.Add(key);
+            }
+        }
+        return order.Select(k => found[k]).ToList();
+    }
+
+    /// <summary>
+    /// Bảo đảm cache danh sách object của 2 database (cái <see cref="ObjectsInFilesAsync"/> dò tên theo) có và còn đúng — nơi không có cây SQL Object
+    /// (BcodeNote) gọi trước khi dò. Chữ ký database khác cache (hoặc chưa có cache) thì nạp lại như cây SQL Object (bỏ bảng phân kỳ) rồi lưu cache.
+    /// Trả lỗi kết nối (nếu có) để báo; khi đó vẫn dò bằng cache cũ. <paramref name="includeSys"/> = false: chỉ App (Sys giữ cache đang có).
+    /// </summary>
+    public async Task<List<string>> EnsureObjectNamesAsync(bool includeSys = true)
+    {
+        var errors = new List<string>();
+        foreach (var sys in includeSys ? new[] { false, true } : new[] { false })
+        {
+            try
+            {
+                var sig = await _browser.GetSignatureAsync(sys);
+                if (_browser.LoadCache(sys)?.Signature == sig) continue;
+                _browser.SaveCache(sys, sig, await _browser.ListObjectsAsync(sys, null, hidePeriodTables: true));
+            }
+            catch (Exception ex) { errors.Add((sys ? "Sys Data: " : "App Data: ") + ex.Message); }
+        }
+        return errors;
     }
 
     // ---- Phân tích ảnh hưởng (dò ngược nhiều tầng) -------------------------------------------------------------------------
@@ -374,6 +630,13 @@ WHERE d.referencing_id = OBJECT_ID(@full) AND d.referenced_database_name IS NULL
             }
             frontier = next;
         }
+        if (rows.Any(r => CodeKinds.Contains(r.Node.Kind)))
+        {
+            var dbStamp = await DbStampAsync();
+            var app = await EncryptedNamesAsync(false, dbStamp, ct);
+            var sys = await EncryptedNamesAsync(true, dbStamp, ct);
+            rows = rows.Select(r => r with { Node = Mark(r.Node, app, sys) }).ToList();
+        }
         return (rows, truncated, warn);
     }
 
@@ -410,7 +673,7 @@ WHERE o.is_ms_shipped = 0 AND d.referenced_entity_name IN (" + string.Join(", ",
     private static readonly Regex Comments = new(@"--[^\r\n]*|/\*.*?\*/", RegexOptions.Compiled | RegexOptions.Singleline);
     private static string StripComments(string sql) => Comments.Replace(sql ?? "", " ");
 
-    private static readonly string[] KindOrder = { "menu", "file", "proc", "func", "view", "trigger", "table" };
+    private static readonly string[] KindOrder = { "menu", "file", "proc", "func", "view", "trigger", "table", "unknown" };
     private static List<DepNode> Sort(List<DepNode> nodes) =>
         nodes.GroupBy(n => n.Key, StringComparer.OrdinalIgnoreCase).Select(g => g.First())
              .OrderBy(n => Array.IndexOf(KindOrder, n.Kind)).ThenBy(n => n.Label, StringComparer.OrdinalIgnoreCase).ToList();

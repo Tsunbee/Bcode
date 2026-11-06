@@ -287,7 +287,7 @@ public class WCommandService
 
     /// <summary>So theo chữ đã chuẩn hoá (<see cref="SearchText"/>): gõ "ngân hàng" bằng bộ gõ Unicode tổ hợp (NFD) hay thừa dấu cách vẫn khớp
     /// tên lưu dựng sẵn (NFC) — trước đây so thẳng Ordinal nên không ra. Ô lọc không có dấu ("ngan hang") thì so cả tên menu đã bỏ dấu.</summary>
-    private static bool Matches(WCommandItem item, string filter)
+    internal static bool Matches(WCommandItem item, string filter)
     {
         var f = SearchText(filter, fold: false);
         if (f.Length == 0) return true;

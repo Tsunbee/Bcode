@@ -31,7 +31,7 @@ class BcodeHistory {
   /// right is what's in the editor (yours) — the same order VSCode uses for a merge, and
   /// the one that makes "their change" read as an insertion rather than a deletion.
   async showExternalDiff(bcode, diskWriteTimeUtc) {
-    if (!bcode.activePath) return;
+    if (!bcode.activePath || isUntitledPath(bcode.activePath)) return;
 
     let disk;
     try {
@@ -77,6 +77,11 @@ class BcodeHistory {
   async showHistory(bcode, startMode) {
     if (!bcode.activePath) {
       alert('Chưa mở file nào.');
+      return;
+    }
+    if (isUntitledPath(bcode.activePath)) {
+      // Tab chưa đặt tên (New from Template → Tạo file): chưa có file nên chưa có lịch sử — lưu (Ctrl+S) trước.
+      if (bcode.showToast) bcode.showToast('File chưa đặt tên — chưa có lịch sử. Ctrl+S để chọn nơi lưu trước.', 3500);
       return;
     }
     const path = bcode.activePath;

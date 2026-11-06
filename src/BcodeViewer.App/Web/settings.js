@@ -599,8 +599,24 @@ class BcodeSettingsDialog {
     // ===== Mở web (F5) =====
     addPage('web', 'Mở web (F5)');
     section('F5 — lưu rồi mở menu của file trên trình duyệt');
+    const f5Browser = row('Mở bằng:', select([
+      ['default', 'Trình duyệt mặc định của máy'],
+      ['chrome', 'Google Chrome' + (s.f5HasChrome === false ? ' (máy chưa cài — sẽ dùng trình duyệt mặc định)' : '')],
+      ['edge', 'Microsoft Edge' + (s.f5HasEdge === false ? ' (máy chưa cài — sẽ dùng trình duyệt mặc định)' : '')],
+      ['bcode', 'Bcode — tab FSG FBO (như Ctrl+4 trên cây menu)'],
+    ], ['chrome', 'edge', 'bcode'].includes(s.f5Browser) ? s.f5Browser : 'default'));
+    note('Chrome / Edge: mở bằng đúng trình duyệt đó với hồ sơ đang dùng (đang mở thì thành 1 tab trong cửa sổ đang mở). Bcode: gửi file sang Bcode — Bcode tự chọn đúng dự án, tra menu của file rồi chạy y như Ctrl+4 trên cây menu (tự đăng nhập; menu đã có tab FSG FBO thì chuyển tới và nạp lại, chưa có thì mở tab mới dùng chung phiên đăng nhập). Bcode phải đang mở.');
     const f5Reuse = row('', check('Dùng lại tab đã mở cho trang đó (Chrome / Edge đang mở)', s.f5ReuseTab !== false));
-    note('Bật (mặc định): F5 lần đầu mở trang bằng trình duyệt mặc định như cũ — Chrome / Edge đang mở thì thành 1 tab trong đó. F5 lần sau cho cùng file: chuyển tới đúng tab ấy, đưa cửa sổ lên trước và nạp lại trang (gõ lại địa chỉ + Enter), không mở thêm tab. Tab đã đóng thì mở tab mới. Áp dụng cho trình duyệt họ Chromium (Chrome, Edge, Cốc Cốc, Brave…); trình duyệt khác (Firefox) vẫn mở tab mới mỗi lần. Tắt = mỗi lần F5 mở 1 tab mới.');
+    note('Bật (mặc định): F5 lần đầu mở trang thành 1 tab mới — Chrome / Edge đang mở thì thành 1 tab trong đó. F5 lần sau cho cùng file: chuyển tới đúng tab ấy, đưa cửa sổ lên trước và nạp lại trang (gõ lại địa chỉ + Enter), không mở thêm tab. Tab đã đóng thì mở tab mới. Áp dụng cho trình duyệt họ Chromium (Chrome, Edge, Cốc Cốc, Brave…); trình duyệt khác (Firefox) vẫn mở tab mới mỗi lần. Tắt = mỗi lần F5 mở 1 tab mới. Không áp dụng khi mở bằng Bcode (Bcode tự dùng lại tab của menu).');
+    const syncF5 = () => { f5Reuse.box.disabled = f5Browser.value === 'bcode'; };
+    f5Browser.addEventListener('change', syncF5);
+    syncF5();
+
+    // ===== Lưu file =====
+    addPage('save', 'Lưu file');
+    section('File đang để Chỉ đọc (Read-only)');
+    const autoClearRo = row('', check('Tự bỏ Chỉ đọc rồi lưu, không hỏi', s.autoClearReadOnly === true));
+    note('File chép từ bộ source chuẩn / gói cài hay mang thuộc tính Chỉ đọc (Read-only) — Windows không cho ghi đè, trước đây Ctrl+S báo "Access to the path ... is denied". Tắt (mặc định): Ctrl+S / F5 / Save As / lưu khi thoát gặp file Chỉ đọc thì hỏi "Bỏ Chỉ đọc rồi lưu?". Bật: tự bỏ Chỉ đọc của file đó rồi lưu luôn. File sau khi lưu không còn Chỉ đọc.');
 
     // ===== Sao lưu =====
     customPage('backup', 'Sao lưu / chuyển máy', (h) => {
@@ -707,7 +723,8 @@ class BcodeSettingsDialog {
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
         matchHighlightColor: mhMode.value === 'theme' ? 'theme' : (mhMode.value === 'custom' ? mhColor.value : ''),
         showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,
-        f5ReuseTab: f5Reuse.box.checked,
+        f5ReuseTab: f5Reuse.box.checked, f5Browser: f5Browser.value,
+        autoClearReadOnly: autoClearRo.box.checked,
       };
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));

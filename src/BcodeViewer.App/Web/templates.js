@@ -389,14 +389,19 @@ class BcodeTemplatePickerDialog {
 
     const create = async () => {
       if (!selected) return;
-      let path = '';
+      let res = null;
       try {
-        path = await window.bcodeHost.call('BeginCreateFromTemplate', selected.path,
+        const raw = await window.bcodeHost.call('BeginCreateFromTemplate', selected.path,
           (window.bcodeViewer && window.bcodeViewer.activePath) || '');
+        res = raw ? JSON.parse(raw) : null;
       } catch (e) { alert('Không tạo được file:\n' + e); return; }
-      if (!path) return; // huỷ hộp chọn chỗ lưu
-      this.dlg.close();
-      if (window.bcodeViewer) window.bcodeViewer.openFile(path);
+      if (!res) return; // template vừa bị xoá khỏi thư mục
+      if (this.dlg) this.dlg.close();
+      if (!window.bcodeViewer) return;
+      // "Tạo file" → mở ngay tab chưa đặt tên có sẵn nội dung template (như file mới của FCode), không hỏi nơi lưu trước;
+      // Ctrl+S mới hỏi nơi lưu. (res.path: host cũ đã ghi file sẵn — mở như thường.)
+      if (res.untitled) window.bcodeViewer.openUntitled(res.name, res.content, res.dir);
+      else if (res.path) window.bcodeViewer.openFile(res.path);
     };
 
     templates.forEach((t, i) => {

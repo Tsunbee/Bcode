@@ -42,6 +42,9 @@ public class WCommandTreeControl : UserControl
     /// <summary>Menu "Yêu cầu liên quan (QLYC)…": mở tab Yêu cầu FSG lọc sẵn các y/c của dự án đang chọn liên quan tới menu này (quy tắc map: xem fsgreq.html, menuWhy).</summary>
     public event Action<FsgRequirementReportControl.MenuQuery>? RequirementsRequested;
 
+    /// <summary>Menu "Sơ đồ phụ thuộc…": mở tab sơ đồ từ menu đang chọn (menu con, file controller, procedure / bảng trong các file đó).</summary>
+    public event Action<WCommandItem>? DependencyRequested;
+
     private void RequestRequirements()
     {
         if (IsMenuTable || _tree.SelectedNode is not { Tag: WCommandItem item } node) return;
@@ -193,6 +196,7 @@ public class WCommandTreeControl : UserControl
                 .Add("Cấp source (Add Source)...", ShowAddSource, enabled: hasSelection && _settings is not null)
                 .AddSeparator()
                 .Add("Yêu cầu liên quan (QLYC)…", RequestRequirements, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.requirements"), enabled: hasSelection && RequirementsRequested is not null)
+                .Add("Sơ đồ phụ thuộc…", () => { if (SelectedItem is { } it) DependencyRequested?.Invoke(it); }, enabled: hasSelection && DependencyRequested is not null)
                 .AddSeparator()
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
                 .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)
@@ -452,6 +456,9 @@ public class WCommandTreeControl : UserControl
     }
 
     private List<WCommandItem> _rootsAll = new();
+
+    /// <summary>Cây menu đầy đủ (không lọc) của lần tải gần nhất — hộp "Chọn menu…" của Gen Update dựng cây theo đây, không hỏi lại database. Chỉ đọc.</summary>
+    public IReadOnlyList<WCommandItem> RootsAll => _rootsAll;
 
     /// <summary>Mọi menu lá (kèm đường dẫn cha) của lần tải đầy đủ gần nhất — Command Palette tìm theo đây, không hỏi lại database.</summary>
     public List<(WCommandItem Item, string Path)> FlatLeaves()
@@ -794,7 +801,7 @@ public class WCommandTreeControl : UserControl
     private static event Action? MenuNameChanged;
 
     /// <summary>Tên hiển thị của menu: Bar2 khi đang chọn Menu Name: Bar2 (trống thì vẫn dùng Bar), không thì Bar.</summary>
-    private static string DisplayName(WCommandItem item) =>
+    internal static string DisplayName(WCommandItem item) =>
         ShowBar2 && !string.IsNullOrWhiteSpace(item.Bar2) ? item.Bar2 : item.Bar;
 
     // Đọc file cờ 1 lần (DisplayName chạy cho từng node, ~1600 menu).

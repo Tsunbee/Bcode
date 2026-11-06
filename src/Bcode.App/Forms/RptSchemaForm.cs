@@ -227,7 +227,19 @@ public sealed class RptSchemaForm : WebDialogForm
         SetBusy(true, "Đang cập nhật file .rpt...");
         try
         {
-            var r = await RptSchemaService.UpdateAsync(_rptPath, _xsdPath, maps, adds, subreports);
+            RptUpdateResult r;
+            try { r = await RptSchemaService.UpdateAsync(_rptPath, _xsdPath, maps, adds, subreports); }
+            catch (RptSchemaService.RptReadOnlyException)
+            {
+                // File .rpt Chỉ đọc (hay gặp ở file chép từ bộ source chuẩn): hỏi bỏ Chỉ đọc rồi cập nhật — giống BcodeViewer khi lưu.
+                if (MessageBox.Show(this, $"File {Path.GetFileName(_rptPath)} đang để Chỉ đọc (Read-only) nên không ghi đè được.\r\n\r\nBỏ Chỉ đọc rồi cập nhật?",
+                        Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                {
+                    Status("Chưa cập nhật — file .rpt đang để Chỉ đọc (Read-only).", "err");
+                    return;
+                }
+                r = await RptSchemaService.UpdateAsync(_rptPath, _xsdPath, maps, adds, subreports, clearReadOnly: true);
+            }
             var summary = string.Join(", ", maps.Select(m => m.Alias + (m.Alias == m.Xsd ? "" : "←" + m.Xsd)).Concat(adds.Select(a => "+" + a)));
             ResultStatus = $"Đã cập nhật {Path.GetFileName(_rptPath)} ({summary}); bản cũ: {Path.GetFileName(r.BackupPath)}." +
                            (r.Warnings.Count > 0 ? " Lưu ý: " + string.Join(" ", r.Warnings) : "");

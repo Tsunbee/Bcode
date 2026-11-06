@@ -1243,6 +1243,8 @@ public class MainForm : DpiForm
         try
         {
             var dirty = new List<(string Path, string Content)>();
+            // Tab chưa đặt tên (New from Template → Tạo file): khoá tab → (tên gợi ý, thư mục gợi ý) cho hộp chọn nơi lưu.
+            var untitled = new Dictionary<string, (string Name, string Dir)>(StringComparer.Ordinal);
             try
             {
                 var raw = await _webView.ExecuteScriptAsync(
@@ -1250,7 +1252,13 @@ public class MainForm : DpiForm
                 using var json = JsonDocument.Parse(raw);
                 if (json.RootElement.ValueKind == JsonValueKind.Array)
                     foreach (var d in json.RootElement.EnumerateArray())
-                        dirty.Add((d.GetProperty("path").GetString() ?? "", d.GetProperty("content").GetString() ?? ""));
+                    {
+                        var p = d.GetProperty("path").GetString() ?? "";
+                        dirty.Add((p, d.GetProperty("content").GetString() ?? ""));
+                        if (d.TryGetProperty("untitled", out var u) && u.ValueKind == JsonValueKind.True)
+                            untitled[p] = (d.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                                           d.TryGetProperty("dir", out var dd) ? dd.GetString() ?? "" : "");
+                    }
             }
             catch { /* page gone or broken — nothing we can ask it, let the window close */ }
 
@@ -1265,9 +1273,29 @@ public class MainForm : DpiForm
                 if (answer == DialogResult.Cancel) return;
                 if (answer == DialogResult.Yes)
                 {
-                    foreach (var (path, content) in dirty)
+                    foreach (var (tabPath, content) in dirty)
                     {
-                        try { EditorBridge.SaveWithHistory(path, content); }
+                        var path = tabPath;
+                        if (untitled.TryGetValue(tabPath, out var hint))
+                        {
+                            // Chưa có nơi lưu: hỏi như Ctrl+S (Save As). Cancel = giữ cửa sổ mở, không mất nội dung.
+                            var chosen = ChooseSavePathFor(string.IsNullOrEmpty(hint.Name) ? Path.GetFileName(tabPath) : hint.Name,
+                                string.IsNullOrEmpty(hint.Dir) ? null : hint.Dir, "Tất cả file (*.*)|*.*");
+                            if (string.IsNullOrEmpty(chosen)) return;
+                            path = chosen;
+                        }
+                        try
+                        {
+                            try { EditorBridge.SaveWithHistory(path, content, _settings.AutoClearReadOnly); }
+                            catch (EditorBridge.ReadOnlyFileException)
+                            {
+                                // File Read-only (Chỉ đọc): hỏi như khi Ctrl+S; không đồng ý thì giữ cửa sổ mở để không mất thay đổi.
+                                var clear = await Msg($"\"{Path.GetFileName(path)}\" đang để Chỉ đọc (Read-only) nên không ghi đè được.\n\nBỏ Chỉ đọc của file rồi lưu?",
+                                    "BcodeViewer", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, yesText: "Bỏ Chỉ đọc và lưu", noText: "Không");
+                                if (clear != DialogResult.Yes) return;
+                                EditorBridge.SaveWithHistory(path, content, clearReadOnly: true);
+                            }
+                        }
                         catch (Exception ex)
                         {
                             await Msg($"Không ghi được file:\n{path}\n{ex.Message}",
@@ -1974,6 +2002,18 @@ public class MainForm : DpiForm
 
     private void OnFileOpened(string path)
     {
+        if (EditorBridge.IsUntitledPath(path))
+        {
+            // Tab chưa đặt tên (New from Template → Tạo file): chưa có file thật — không đưa vào cây file gần đây, không đổi dự án,
+            // không đọc giờ sửa; chỉ đổi tiêu đề / ngôn ngữ. Lưu (Ctrl+S → Save As) xong trang mở lại theo đường dẫn thật.
+            _activePath = path;
+            if (!_webShell) _breadcrumb.Controls.Clear();
+            PushShellActive(path);
+            Text = $"BcodeViewer — {Path.GetFileName(path)} (chưa đặt tên)";
+            _langLabel.Text = Path.GetExtension(path).TrimStart('.').ToUpperInvariant();
+            _modifiedLabel.Text = "";
+            return;
+        }
         var projectName = Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other";
         _projectName = projectName;
         Host.WorkspaceConnection.CurrentProject = projectName;
@@ -2161,7 +2201,7 @@ public class MainForm : DpiForm
         }
         PushShellTree(false);
 
-        if (!isDirty)
+        if (!isDirty && !EditorBridge.IsUntitledPath(path))
         {
             // Save just completed — the on-disk timestamp the status bar shows was captured
             // when the file was opened, so without this it keeps reading the pre-save time

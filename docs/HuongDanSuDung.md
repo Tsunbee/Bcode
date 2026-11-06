@@ -442,6 +442,12 @@ Hộp "Write Schema — cập nhật bảng trong file .rpt" (giống Set Dataso
 
 > **Lưu ý:** bản gốc luôn được sao lưu thành **`<tên>.rpt.bak`** cạnh file — muốn quay lại thì đổi tên file .bak.
 
+**Khi báo lỗi ghi file (trước đây chỉ hiện "Access to the path … is denied"):**
+
+- File .rpt đang để **Chỉ đọc (Read-only)**: Bcode hỏi "Bỏ Chỉ đọc rồi cập nhật?"; chọn **No** thì chưa cập nhật gì.
+- Máy chủ không cho **tạo file mới** cạnh .rpt (share chỉ cho sửa file có sẵn, hoặc chặn đuôi `.bak`): Bcode sao lưu bản gốc vào `%AppData%\Bcode\rpt-backup\<giờ>_<tên>\` trên máy bạn rồi vẫn cập nhật; dòng kết quả ghi rõ chỗ sao lưu.
+- **Không ghi đè được** .rpt (file đang mở trong Crystal Reports / Visual Studio, hoặc tài khoản chỉ có quyền đọc): file gốc **giữ nguyên**, thông báo nói rõ lý do, và bản đã cập nhật được để ở `%AppData%\Bcode\rpt-backup\<giờ>_<tên>\<tên> (đã cập nhật).rpt` — đóng chương trình đang mở file rồi bấm lại, hoặc chép tay file đó vào / nhờ người quản trị share cấp quyền ghi.
+
 ### Yêu cầu và lỗi hay gặp
 
 - Máy cần cài **SAP Crystal Reports runtime 13 for .NET Framework** (bản 64-bit, `CRRuntime_64bit_13_0_x.msi`). Bcode gọi runtime qua **Windows PowerShell 5.1** có sẵn của Windows.
@@ -568,6 +574,7 @@ Trên ảnh: **①** mục SQL Object ở cột icon · **②** chọn database 
 |---|---|---|
 | **Cây SQL Object** | Cột icon trái → SQL Object | Nhóm Tables / Views / Stored Procedures / Functions / Triggers (bảng phân kỳ được ẩn). Gõ vào ô lọc là lọc ngay (cây không tự tải khi ô trống). Tick **Tìm trong nội dung (text)** dưới ô lọc: chữ gõ được tìm trong nội dung procedure / function / view / trigger (hỏi database, chờ ~0,5 s sau phím cuối hoặc `Enter`; bảng không có nội dung nên không hiện); bỏ tick về lọc theo tên. Double-click = mở ở tab SQL: procedure / function / view / trigger dạng **IF EXISTS … DROP → GO → CREATE**; chuột phải: **Mở dạng ALTER** · Ai đang dùng object này… · Chép tên. Bảng (double-click hay chuột phải → Mở định nghĩa) luôn là CREATE TABLE kèm khối IF EXISTS / DROP TABLE để sẵn trong comment `/* … */`. |
 | **Ai đang dùng** | `Ctrl+Alt+U` (trên tab mở từ cây SQL Object), hoặc `Ctrl+P` → chọn object → `Shift+Enter` | Liệt kê nơi dùng object: database App, Sys và file controller (Dir, Filter, Grid, Include, Options, Report). Chép danh sách / Quét lại. |
+| **Sơ đồ phụ thuộc** | Chuột phải object trên cây SQL Object, menu trên cây WCommand (hoặc file controller ở File Lookup) → **Sơ đồ phụ thuộc…** | Trái = **Được dùng bởi**, phải = **Dùng tới** (procedure / function / view / trigger / bảng), bấm một nút để xem tiếp; **Phân tích ảnh hưởng** dò ngược tới menu. Loại object lấy theo database (`sys.objects`), kể cả procedure / function **mã hoá** (WITH ENCRYPTION) — các nút này có nhãn **mã hoá**; xem sơ đồ của object mã hoá thì "Dùng tới" chỉ gồm phụ thuộc SQL Server ghi sẵn (không đọc được nội dung). "Được dùng bởi" có cả procedure / function mã hoá gọi tới object (lấy theo phụ thuộc SQL Server ghi sẵn, nên không bắt được lời gọi nằm trong SQL động của chúng). Tên không có trong database đang xem: tra cả database kia (ghi "chỉ có ở Sys Data / App Data"); vẫn không thấy thì đoán theo cách gọi (`exec X` → procedure, `X(…)` → function, ghi "đoán là …"), không đoán được thì vào nhóm **Không xác định** (thường là bí danh bảng như `a`, `b`). |
 | **So sánh object** | `Ctrl+Shift+J` | So code procedure / view / function / trigger giữa 2 database (vd bản dev ↔ bản khách): lọc Khác nhau / Chỉ bên trái / Chỉ bên phải / Chỉ khác khoảng trắng / Mã hoá → chọn mục → **Sinh script ALTER** (Bcode chỉ sinh, không chạy). |
 | **Compare Structure** | Thanh công cụ | So cấu trúc một bảng giữa 2 workspace (Chỉ có ở trái / phải, Khác nhau, Giống nhau). |
 | **Change Owner** | `Ctrl+Shift+O` | Chuyển object sang schema khác (`ALTER SCHEMA TRANSFER`) — không hoàn tác từ Bcode được. |
@@ -609,6 +616,7 @@ Trên ảnh: **①** ô lọc theo tên / ID / link · **②** ô (C) chỉ menu
 | Đổi tên hiển thị | **Menu Name: Bar2 (tiếng Anh)** / **Menu Name: Bar (tiếng Việt)** — đổi cho cả cây WCommand và Mobile, được nhớ lại |
 | Copy đường dẫn menu | `Ctrl+C` → copy dạng "Phải thu \ Tạo hóa đơn … (C)" |
 | Xem yêu cầu QLYC của menu | Chuột phải → **Yêu cầu liên quan (QLYC)…** (phím: chưa gán, đặt ở Template → Phím tắt, nhóm Cây menu) → mở tab **Yêu cầu FSG** lọc sẵn các yêu cầu của **dự án đang chọn** liên quan menu đó (xem bên dưới) |
+| Xem menu liên quan tới những gì | Chuột phải → **Sơ đồ phụ thuộc…** → tab sơ đồ: thẻ giữa ghi wmenu_id · menu_id · sysid · link; cột **Dùng tới** = menu con (menu nhóm), các file của menu đúng như File Lookup hiện (Dir / Grid / Filter / Query / Report / Upload…) và store / procedure / function / bảng / view có tên trong các file đó (ghi "trong &lt;file&gt;"). Bấm một nút để đi tiếp (vd bấm procedure xem nó dùng bảng nào, ai khác gọi nó). Tên object dò theo chữ trong file (lấy danh sách tên từ cây SQL Object) nên có thể thừa vài tên trùng từ thường như `entity`, `lookup`. |
 | Nạp lại | `F5` **Refresh** |
 
 ### Yêu cầu liên quan (QLYC)
@@ -745,6 +753,10 @@ Mở: nút **Gen Update** (`Ctrl+Shift+G`). Cần Source Path.
 
 1. **Đường dẫn & kết nối**: Program Path, Mobile Path, **Save At Path** (mặc định Working Path; 📂 mở thư mục), **Folder Name** (mặc định `{Mã dự án}_{TÊN MÁY}_{yyyyMMddHHmmss}`, ↻ tạo giờ mới), Description (ghi vào description.txt).
 2. **Gen nhanh Store (Procedure)**: chọn App / Sys / Other, gõ tên procedure → **Gen Script** → script `IF EXISTS … DROP` rồi `CREATE`, gộp vào `Script\app\APP_Script.sql` hoặc `Script\sys\SYS_Script.sql` (danh sách vẫn hiện từng store để bỏ riêng được).
+   **Gen nhanh Menu (wcommand)**: script `DELETE` + `INSERT` cho `wcommand` và `command` (đúng cột bảng của database đang chọn), gộp vào `Script\sys\SYS_Script.sql`. Có 3 cách đưa menu vào:
+   - Gõ **WMenu ID / Controller / SysId** vào ô (nhiều cái cách nhau dấu phẩy) → **Gen Script Menu** (hoặc Enter).
+   - Double-click 1 menu ở cây WCommand bên trái → WMenu ID được điền sẵn vào ô.
+   - **☰ Chọn menu…**: mở hộp cây WCommand có ô lọc — gõ tên menu (không dấu cũng được, vd `phieu thu`), WMenu ID, link hoặc SysId; tick nhiều menu (tick nhóm = cả nhóm đang hiện) → **Gen Script Menu (N)** là gen luôn, ô nhận danh sách WMenu ID đã chọn. Phím: `↓` từ ô lọc xuống cây, `Space` tick / bỏ, `Enter` hoặc double-click 1 menu = gen ngay (chưa tick gì thì lấy menu đang đứng), `Esc` đóng. WMenu ID đang có trong ô được tick sẵn, ô lọc nhớ lần trước. Hộp lấy cây WCommand đã nạp ở bên trái (chưa có menu thì mở / `F5` cây WCommand trước); chỉ có menu bảng `wcommand`.
 3. **Gen nhanh Table**: gõ Controller/SysId → **Tải table**, hoặc gõ tên bảng → **＋ Thêm**. Mỗi bảng chọn DB, **Cấu trúc**, **Dữ liệu**, Where → **Gen Script** (gộp vào APP_Script.sql). Hơn 50.000 dòng bắt buộc nhập Where. Table **không bao giờ** bị DROP.
 4. **Source File**: double-click menu ở cây WCommand (hoặc gõ tên → **Tìm**) → chọn nhóm (Web_Dir, Web_Grid, Web_Filter, Web_Report…), tick file → **＋ Add**. Khi nạp theo menu, Grid / Filter / Dir chỉ lấy file `.f`.
 5. **File đã thêm vào gói update**: kiểm tra danh sách (Bỏ file đã chọn / Xoá hết) → **⚙ Create Update File** → "✔ Đã tạo N file tại: …" (Copy link / Mở thư mục).
@@ -874,7 +886,7 @@ Làm việc:
    - **File Path**: file của menu trong Source Path, dò như File Lookup — tick sẵn đúng các file Gen All sẽ đóng gói (Main\*.aspx, Report, Templates…; riêng Dir / Grid / Filter chỉ lấy bản `.f`).
    - **SQL Object**: procedure / function được `exec` trong Dir / Grid / Filter, xếp vào App hoặc Sys theo nơi tìm thấy (không thấy ở đâu thì không tick được).
    - **Script menu** (Sys): script DELETE / INSERT `wcommand` + `command` như **Gen Script Menu**, cho menu đang chọn và từng menu cha — điền vào **SQL Bottom Script** của **Sys**. Menu đang chọn và menu cha có `(C)` / `(*)` (làm riêng cho khách, đích thường chưa có) tick sẵn; tick Gen All thì menu đang chọn tự bỏ tick (Gen All đã tự sinh script menu theo controller). Bấm **Xem** để xem script.
-   - **Table liên quan**: table khai trong file của menu — tick sẵn bảng của Dir và Grid chi tiết (đưa script **Cấu trúc** vào gói); các bảng khác vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where).
+   - **Table liên quan**: bảng có tên trong mọi file của menu (.f / .xml / .aspx / include JS / SQL…) — cùng cách dò với **Sơ đồ phụ thuộc** của Bcode, cột **Trong file** ghi bảng nằm ở file nào — cộng bảng khai `table=` ở Dir / Grid. Tick sẵn bảng của Dir và Grid chi tiết (đưa script **Cấu trúc** vào gói); các bảng khác vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where). Bảng chỉ có ở database Sys (command, entity…) chỉ hiện khi khai `table=`.
 4. Bỏ / thêm tick → **Điền vào y/c** (`Ctrl+Enter`). Bcode Note chỉ **thêm** dòng chưa có, không xoá gì bạn đã nhập; chưa mở y/c nào thì tạo y/c mới đặt tên theo menu. Sửa lại các ô nếu cần rồi **Xem trước gói** / **Generate Update** như thường.
 
 Lưu ý:
@@ -912,6 +924,16 @@ Nút **Excel → FRX** trên thanh công cụ, hoặc chuột phải file `.xlsx
 Menu **Tool mở rộng → Tạo báo cáo** → cửa sổ riêng "Tạo báo cáo — {workspace}", 2 chế độ:
 
 - **① Từ procedure có sẵn**: gõ tên procedure (vd `zrs_O067`) + Enter / **Nạp** → **▶ Chạy store** → **Tiếp: File & lưu ›** → **Menu…** / **Lưu vào source…** (có diff + sao lưu).
+  - Khi **Nạp**, Bcode tự gợi ý giá trị thử: tham số có giá trị mặc định trong `CREATE PROCEDURE` lấy đúng mặc định đó (để trống ô = để procedure tự dùng mặc định); tháng / kỳ / năm / quý = tháng, năm, quý hiện tại; ngày = hôm nay. Nếu source dự án có Filter dạng `.xml` đang `exec` procedure này (hoặc bản `z…` của nó, vd `rptReceiptTransactionList.xml` gọi `zrs_rptReceiptTransactionList`), Bcode lấy luôn cách Filter đó truyền tham số: tham số được truyền hằng số (vd `@Form = 1`, `@Order = 'a.ma_kh'`) thành tham số hệ thống với đúng hằng đó. Filter `.f` đã mã hoá thì không đọc được.
+  - **▶ Chạy store** gọi procedure bằng tham số đúng kiểu khai báo (không ghép chuỗi, nên giá trị có dấu nháy `'` vẫn chạy được), luôn trong transaction rồi **ROLLBACK**. Chạy được với mọi kiểu tham số: chuỗi, số (gõ quá lớn thì lấy giá trị lớn nhất của kiểu), bit, ngày (`yyyy-MM-dd` hoặc `dd/MM/yyyy`), giờ, guid, nhị phân `0x…`, xml, tham số OUTPUT, tham số kiểu bảng (bỏ trống, tức là bảng rỗng). Procedure trả nhiều kết quả, không trả kết quả nào, hoặc tự COMMIT / ROLLBACK đều không làm hỏng lần chạy thử.
+  - Procedure ghép thẳng tham số chuỗi vào câu SQL động mà không kiểm tra rỗng thì để trống sẽ lỗi cú pháp. Ví dụ `rs_rptStockByReceipt` có `' order by ngay_ct, so_ct,' + @Order`: để trống thì lỗi `Incorrect syntax near ','`. Bcode tự điền giá trị cho những tham số như vậy, cả lúc **Nạp** lẫn lúc **▶ Chạy store**:
+    - ghép vào cuối `ORDER BY` → truyền `(select null)` (không sắp thêm), tham số chuyển thành tham số hệ thống;
+    - tên kiểu `@Order` / `@Sort` nhưng đưa sang chỗ khác (vd `FastBusiness$System$UpdateOrderField`) → một cột chính procedure order by / group by (ưu tiên của `#report`, vd `sysorder`), tránh cột đã có trên cùng dòng;
+    - procedure tự so sánh tham số với hằng (`IF @Report = 'ma_phi'`, `@Form = '1'`, `IF @CalculateTransfer = 0`) → lấy hằng đầu tiên làm giá trị thử;
+    - tham số ghép trước phép so sánh trong SQL động (`' + @Status + ' = ''1''`) → lấy hằng bên kia;
+    - tham số số làm số chia (`tuoi / @PeriodCycle`) đang là 0 → 1.
+    Tham số chỉ nhận giá trị trong danh sách riêng của store (vd `@Group` của báo cáo tài sản phải là `fa_so_the_ts`, `loai_ts`…) thì Bcode không đoán được, cần nhập tay.
+    Có tự điền thì thanh trạng thái ghi rõ đã truyền gì. Tham số kiểu này còn để trống trong ô lọc thì báo cáo sinh ra vẫn lỗi khi chạy thật, nên hãy nhập giá trị hoặc bấm **⇣ Hệ thống** truyền hằng. Không đoán được thì thanh trạng thái báo **⚠** kèm tên tham số. Khi chạy lỗi, thông báo có số lỗi, nơi lỗi (dòng trong procedure, procedure con hay câu SQL động) và tên tham số nghi gây lỗi. Rê chuột lên thanh trạng thái để đọc hết thông báo dài.
 - **② Thiết kế từ bảng**: kéo thả bảng / cột kiểu Power BI để dựng báo cáo.
 
 > **Lưu ý:** file Crystal Report (`.rpt`) có sẵn thì cập nhật cấu trúc bằng **Write Schema** của SQL Query (xem [Write Schema](#write-schema)).
@@ -1185,6 +1207,8 @@ Góc phải thanh menu có nút **💡 Hint** (bóng đèn) — mở Hint Code (
 
 Save (`Ctrl+S`) · Save As · ⚠ Check (so `<fields>` với `<views>` của Dir/Grid) · Undo · Redo · Comment (`Ctrl+/`) · Bookmark · ● Next · Refresh (tải lại file từ đĩa) · Hint (Hint Code) · Tìm project · Problems · Outline · Xem Dir · Chạy SQL · Tách đôi · Wrap (`Alt+Z`) · 🤖 Claude Sidebar · ✨ Gemini Sidebar · 📎 Đính kèm file · Clear Structure · Reset WebConfig · Open WebConfig (mở web.config của site).
 
+Đầu bên phải thanh công cụ là ô **cỡ chữ** `100%  −  +  Đặt lại` (gõ số % rồi Enter, hoặc `Ctrl` + lăn chuột). Ẩn thanh công cụ (Settings → Bố cục, hoặc *Tự ẩn Menu/Toolbar*) thì ô này ẩn theo — `Ctrl` + lăn chuột vẫn đổi cỡ chữ.
+
 Dưới thanh công cụ là thanh **File Path**: đường dẫn **đầy đủ** của file đang mở, từ máy chủ (`\\172.168.5.14`, tô màu cam) tới tên file (đậm). Bấm vào một đoạn để mở thư mục đó trong Explorer; bấm nhãn **File Path** để copy cả đường dẫn. Đường dẫn dài hơn bề ngang thì lăn chuột trên thanh để cuộn ngang (mặc định cuộn sẵn tới tên file).
 
 ### Tuỳ biến thanh công cụ (ghim, nhóm, vị trí)
@@ -1305,6 +1329,7 @@ Trên ảnh: **①** tên entity + file khai báo · **②** nội dung (chỉ x
 | `Shift+F12` | Tìm nơi sử dụng từ tại con trỏ trong toàn project (khớp trọn từ, tối đa 2000 kết quả, hiện ở bảng Tìm kiếm). |
 | `Ctrl+G` | Go to: cột trái là thẻ (fields, command, script, response, css, ENTITY), cột phải là chi tiết; `Enter` / double-click để nhảy. Mục hay dùng tô cam / đỏ (cả trong hộp lẫn ngay trong editor): command Inserted (cam) / Updated (đỏ); `on$<đối tượng>$ExecuteCommand` (đỏ) và `on$<đối tượng>$ResponseComplete` (cam) của mọi đối tượng — `on$Voucher$…`, `on$GridVoucherDetail$…`, lưới chi tiết khác; `onChange$Grid…` (cam). |
 | `Alt+O` | Outline: ENTITY / View / Field / Command / Action / Function kèm số dòng, có ô lọc. (Trước đây là `Ctrl+Shift+U` — phím đó nay dùng để viết hoa.) |
+| `Ctrl+Shift+F12` | **Xem XML đầy đủ** (View → Xem XML đầy đủ, chuột phải → Xem XML đầy đủ): mở tab **chỉ đọc** `<tên>.full.xml` = file đang mở sau khi thay hết `&Entity;` và nội dung các file include `SYSTEM` (bỏ phần `<!DOCTYPE … ]>`), lặp tới khi không còn entity — chính là XML mà FBO đọc (như tool *ToolsViewXml* / View XML của FSD Studio; đã so 200 controller với trình đọc XML .NET: giống hệt). `&Tên;` trong `<!-- -->` và `<![CDATA[ ]]>` giữ nguyên như trình đọc XML. Đầu tab là chú thích: số chỗ đã thay và danh sách entity **không thay được** kèm lý do (không có khai báo trong chuỗi include / không đọc được file) — đó là lỗi FBO sẽ gặp khi mở màn hình; entity tự gọi lại chính nó thì báo dừng. Tab không sửa được, đóng không hỏi lưu; `Ctrl+S` lưu ra file khác nếu cần. Đổi phím ở Phím tắt (nhóm Điều hướng). |
 
 F12 trên ký tự có sẵn của XML (`&lt;` `&gt;` `&amp;` `&quot;` `&apos;`, `&#123;`) hay từ khoá khai báo (`<!ENTITY`, `SYSTEM`…) chỉ báo ngay "không phải entity" — không còn đi tra cả project.
 
@@ -1315,7 +1340,7 @@ Trong cửa sổ peek: **Mở nơi khai báo (Ctrl+F12)** · **Copy code**; `F12
 ### Menu chuột phải trong editor
 
 - Con trỏ ở `<items controller="X">`: **Goto File: X** · **Clone file: X…**
-- Goto Response Tag · Goto Command · Goto Function (`F11`) · Xem trước ENTITY / file (`F12`) · Đi tới ENTITY / file (`Ctrl+F12`)
+- Goto Response Tag · Goto Command · Goto Function (`F11`) · Xem trước ENTITY / file (`F12`) · Đi tới ENTITY / file (`Ctrl+F12`) · **Xem XML đầy đủ** (`Ctrl+Shift+F12`)
 - **Open File Config ▸**, giống menu của FCode, đường dẫn tính từ gốc site (thư mục trên App_Data của file đang mở; chưa mở file thì lấy Source Path của workspace). File không có thì báo rõ đường dẫn:
   - **Aggregation ▸**: List / Dir / Report / SubReport / Voucher, lần lượt là `App_Data\Controllers\Grid\Config\Aggregation.l` / `.d` / `.xml` / `.q` / `.v`.
   - **List Extend ▸** / **Voucher Extend ▸**: các file `List.*` / `Voucher.*` trong `Grid\Config\Include`, kèm `Include\Field.ent`.
@@ -1418,7 +1443,17 @@ Nút **Debug trong Bcode** (hoặc chuột phải → Debug SQL trong Bcode) d�
 
 `F5` lưu file, tra `wcommand` (Sys Data) theo tên file (sysid hoặc link `<tên>.aspx`) rồi mở menu đó trên Login WLink của dự án (tự đăng nhập bằng tay). Không có menu → mở trang đăng nhập; chưa biết link web → khai Config.xml của FCode trong Settings.
 
-- `F5` lần đầu: mở trang bằng **trình duyệt mặc định** của máy. Chrome / Edge đang mở thì trang thành 1 tab trong cửa sổ đang mở (dùng luôn phiên đăng nhập sẵn có), chưa mở thì trình duyệt tự bật.
+Chọn cách mở ở Settings → **Mở web (F5)** → **Mở bằng**:
+
+| Lựa chọn | F5 làm gì |
+|---|---|
+| Trình duyệt mặc định của máy (mặc định) | Mở trang bằng trình duyệt mặc định. |
+| Google Chrome / Microsoft Edge | Mở bằng đúng trình duyệt đó, với hồ sơ đang dùng. Máy chưa cài thì dùng trình duyệt mặc định. |
+| Bcode — tab FSG FBO (như Ctrl+4 trên cây menu) | Gửi file sang Bcode. Bcode tự chọn đúng dự án, tra menu của file rồi chạy y như `Ctrl+4` trên cây menu: tự đăng nhập; menu đã có tab FSG FBO thì chuyển tới tab đó và nạp lại, chưa có thì mở tab mới dùng chung phiên đăng nhập. Bcode phải đang mở, chưa mở thì Viewer báo "Bcode chưa mở". |
+
+Khi mở bằng trình duyệt (3 lựa chọn đầu):
+
+- `F5` lần đầu: Chrome / Edge đang mở thì trang thành 1 tab trong cửa sổ đang mở (dùng luôn phiên đăng nhập sẵn có), chưa mở thì trình duyệt tự bật.
 - `F5` lần sau cho **cùng file**: chuyển tới **đúng tab đã mở** cho trang đó, đưa cửa sổ trình duyệt lên trước rồi nạp lại trang (BcodeViewer gõ lại địa chỉ + Enter, nên trang ASPX không bị hỏi "gửi lại biểu mẫu"). Không mở thêm tab. Tab đó đang ở trang khác (vd bị đẩy về trang đăng nhập) thì được đưa về lại trang menu.
 - Tab đã đóng thì mở tab mới. Mở lại BcodeViewer thì Viewer quên các tab cũ, chỉ nhận lại tab nào đang hiện đúng trang đó.
 - Dùng được với trình duyệt họ Chromium (Chrome, Edge, Cốc Cốc, Brave…). Firefox vẫn mở tab mới mỗi lần.
@@ -1461,7 +1496,10 @@ Quy tắc gán phím: phải kèm `Ctrl` hoặc `Alt` (chỉ `F1`–`F24` đư�
 ### Hint Code và New from Template
 
 - Nút **Hint**: thư viện snippet — tìm theo prefix / tag / mô tả / code; New · Save · Delete · Insert · Export… · Import… (`.code-snippets` / `.json`). Mỗi hint có Category (JS/SQL/XML/CSS), Prefix, Tag, Description, "Chỉ ở file" (vd `*\Grid\*`), "Hiện trong danh sách gợi ý khi gõ".
-- **File → New from Template…** (`Ctrl+N`): chọn mẫu "Riêng" (`%AppData%\Bcode\templates`) hoặc "Chung" (thư mục chung `\files`) → **Tạo file** → chọn chỗ lưu → file mới mở ra.
+- **File → New from Template…** (`Ctrl+N`): chọn mẫu "Riêng" (`%AppData%\Bcode\templates`) hoặc "Chung" (thư mục chung `\files`) → **Tạo file** → mở ngay một tab **chưa đặt tên** (`Untitled-1.xml`…) có sẵn nội dung template để gõ tiếp, không phải chọn chỗ lưu trước (như file mới của FCode). `${FileName}` / `${Name}` lấy theo tên file template.
+  - Tab chưa đặt tên luôn có dấu ● (chưa lưu). `Ctrl+S` / Save / `F5` mới hỏi nơi lưu; lưu xong tab đổi thành file thật (F5 mở web tiếp). Cancel lần nữa thì tab giữ nguyên, chưa lưu.
+  - Đóng tab đó thì hỏi "bỏ thay đổi?" như file chưa lưu. Thoát BcodeViewer → **Lưu** thì hỏi nơi lưu cho từng tab chưa đặt tên; Cancel thì cửa sổ không đóng.
+  - Khi chưa lưu: không có Lịch sử file, báo file đổi ngoài, Refresh, Clone file, Get Hash Source. F12 chỉ tìm được entity khai báo ngay trong file, Problems chỉ kiểm lỗi trong file (chưa dò file include).
 
 ### Theme
 
@@ -1534,6 +1572,7 @@ Kết quả lưu ở **Thư mục kiến thức** dùng chung với Bcode (Bcode
 | Báo "Thiếu entity" sai với file include | File include chưa biết file cha: mở file cha trước, hoặc `F12` lần nữa để tìm toàn project. |
 | Ctrl+I / ghost text không chạy | Chưa nhập API key (Settings → AI); ghost text còn phải bật riêng. |
 | Viewer giật khi gõ / đổi tab | Bật **Chế độ nhẹ** (Settings → Giao diện); gửi file **Help → Log độ mượt** cho người phát triển. |
+| Lưu file hỏi "đang để Chỉ đọc (Read-only)" (trước đây báo "Access to the path … is denied") | File mang thuộc tính Chỉ đọc (hay gặp ở file chép từ bộ source chuẩn / gói cài). Bấm **Bỏ Chỉ đọc và lưu** (Ctrl+S, F5, Save As, lưu khi thoát đều hỏi); bấm **Không** = chưa lưu, thay đổi vẫn còn. Muốn tự bỏ không hỏi: Settings → **Lưu file** → tick "Tự bỏ Chỉ đọc rồi lưu, không hỏi". |
 
 <a id="phu-luc"></a>
 # Phụ lục

@@ -226,6 +226,14 @@ class BcodeProblems {
     const text = model.getValue();
     const runId = (this._runId = (this._runId || 0) + 1);
 
+    // Tab chưa đặt tên: chưa có thư mục thật nên file include / entity tương đối không dò được (sẽ báo thiếu giả) —
+    // chỉ chạy các kiểm tra không cần I/O; lưu xong (mở lại theo đường dẫn thật) thì kiểm đủ.
+    if (isUntitledPath(path)) {
+      this.setItems([...this.checkDuplicateFields(text), ...this.checkDuplicateIds(text),
+        ...this.checkTagBalance(text), ...this.checkMissingHandlers(text)], path);
+      return;
+    }
+
     const worker = this.ensureWorker();
     if (worker) {
       this._workerRun = { runId, path, model };

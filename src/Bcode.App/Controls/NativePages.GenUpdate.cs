@@ -69,7 +69,9 @@ internal sealed class GenUpdatePage : NativePage
 
         var cMenu = new CardPanel("Gen nhanh Menu (wcommand)") { Dock = DockStyle.Top };
         var bGenMenu = NK.Button("Gen Script Menu", GenMenu, primary: true);
-        NK.Stack(cMenu.Body, Wrap(_menuKey, bGenMenu), NK.Spacer(6), NK.Muted("Script DELETE + INSERT cho wcommand và command (đúng cột bảng của database đang chọn), gộp vào SYS_Script.sql (Script\\sys). Double-click 1 menu ở cây WCommand là WMenu ID được điền sẵn.", true));
+        // "Chọn menu…": hộp cây WCommand có ô lọc + tick nhiều menu (Forms.MenuPickerForm, mở ở GenUpdatePackageControl như chế độ Web), OK là gen luôn.
+        var bPickMenu = NK.Button("☰ Chọn menu…", () => Post(new { action = "pickMenu", keys = _menuKey.Text }), tip: "Chọn menu trên cây WCommand (ô lọc + tick nhiều menu) rồi gen script luôn");
+        NK.Stack(cMenu.Body, Wrap(_menuKey, bGenMenu), NK.Spacer(4), NK.Row(bPickMenu), NK.Spacer(6), NK.Muted("Script DELETE + INSERT cho wcommand và command (đúng cột bảng của database đang chọn), gộp vào SYS_Script.sql (Script\\sys). Double-click 1 menu ở cây WCommand là WMenu ID được điền sẵn; “Chọn menu…” = lọc theo tên / WMenu ID, tick nhiều menu rồi gen ngay.", true));
         _menuKey.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; GenMenu(); } };
 
         var c3 = new CardPanel("Gen nhanh Table") { Dock = DockStyle.Top };

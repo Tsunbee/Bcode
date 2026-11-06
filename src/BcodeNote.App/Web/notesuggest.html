@@ -39,8 +39,8 @@
   <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="menu" title="Tick / bỏ tick cả nhóm"><b>Script menu</b><span class="tag">Sys</span><span class="hint">DELETE / INSERT wcommand + command (như Gen Script Menu) → thêm vào SQL Bottom Script của Sys. menu đang chọn và menu cha (C) / (*) tick sẵn; tick Gen All thì menu đang chọn tự bỏ tick (Gen All đã sinh script menu)</span></div>
     <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Menu</th><th>wmenu_id</th><th></th><th></th></tr></thead><tbody id="tMenu"></tbody></table></div></div>
 
-  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="tbl" title="Tick / bỏ tick cả nhóm"><b>Table liên quan</b><span class="hint">tick = đưa script tạo table (Cấu trúc) vào gói; không tick vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where)</span></div>
-    <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Table</th><th>Vai trò</th><th>DB</th><th>Số dòng</th><th>Controller</th></tr></thead><tbody id="tTbl"></tbody></table></div></div>
+  <div class="sec"><div class="h"><input type="checkbox" class="all" data-k="tbl" title="Tick / bỏ tick cả nhóm"><b>Table liên quan</b><span class="hint">bảng có tên trong file của menu (như Sơ đồ phụ thuộc) — tick = đưa script tạo table (Cấu trúc) vào gói; không tick vẫn hiện ở bảng Table liên quan để chọn sau (Dữ liệu, Where)</span></div>
+    <div class="body"><table class="tbl"><thead><tr><th class="c"></th><th>Table</th><th>Vai trò</th><th>DB</th><th>Số dòng</th><th>Trong file</th></tr></thead><tbody id="tTbl"></tbody></table></div></div>
 </div>
 <div class="dlg-bar">
   <span id="status" class="status">Chỉ THÊM những dòng chưa có vào y/c đang mở (không xoá gì bạn đã nhập). Chưa mở y/c nào thì tạo y/c mới.</span>
@@ -89,8 +89,9 @@
       const db = x.inApp && x.inSys ? 'App, Sys' : x.inApp ? 'App' : x.inSys ? 'Sys' : '';
       return '<tr class="' + (has ? '' : 'off') + '">' + ck('tbl', i, t.pick, !has) + '<td class="mono">' + esc(x.name) + '</td><td>' + esc(t.role === 'Dir' ? 'bảng Dir' : t.role === 'Grid' ? 'Grid chi tiết' : '') +
         '</td><td>' + (db ? '<span class="tag">' + db + '</span>' : '<span class="tag err">không thấy</span>') + (x.isView ? ' <span class="tag">view</span>' : '') +
-        '</td><td class="muted">' + (x.isView ? '' : fmtRows(x.inApp ? x.rowsApp : x.rowsSys)) + '</td><td class="muted">' + esc((x.controllers || []).join(', ')) + '</td></tr>';
-    }).join('') : '<tr><td class="none" colspan="6">Không có table khai báo trong file của menu.</td></tr>';
+        '</td><td class="muted">' + (x.isView ? '' : fmtRows(x.inApp ? x.rowsApp : x.rowsSys)) + '</td><td class="muted mono">' +
+        esc((t.from || []).length ? t.from.join(', ') : 'table= của ' + (x.controllers || []).join(', ')) + '</td></tr>';
+    }).join('') : '<tr><td class="none" colspan="6">Không thấy table nào trong file của menu.</td></tr>';
     syncAll();
   }
   const boxes = (k) => [...document.querySelectorAll('.ck[data-k="' + k + '"]')].filter((b) => !b.disabled);

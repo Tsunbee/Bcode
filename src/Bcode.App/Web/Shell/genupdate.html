@@ -189,8 +189,9 @@
         <div class="ct">Gen nhanh Menu (wcommand)</div>
         <div class="cb">
           <div class="inl rel"><input type="text" id="menuKey" placeholder="WMenu ID / Controller / SysId (nhiều cái cách nhau dấu phẩy)..." spellcheck="false" autocomplete="off" />
+            <button id="bPickMenu" title="Chọn menu trên cây WCommand (ô lọc + tick nhiều menu) rồi gen script luôn">☰ Chọn menu…</button>
             <button class="primary" id="bGenMenu">Gen Script Menu</button></div>
-          <div class="muted">Script DELETE + INSERT cho wcommand và command (đúng cột bảng của database đang chọn), gộp vào SYS_Script.sql (Script\sys). Double-click 1 menu ở cây WCommand là WMenu ID được điền sẵn.</div>
+          <div class="muted">Script DELETE + INSERT cho wcommand và command (đúng cột bảng của database đang chọn), gộp vào SYS_Script.sql (Script\sys). Double-click 1 menu ở cây WCommand là WMenu ID được điền sẵn; “Chọn menu…” = lọc theo tên / WMenu ID, tick nhiều menu rồi gen ngay.</div>
         </div>
       </div>
 
@@ -490,6 +491,7 @@
     busy(true, 'Đang sinh script menu...'); post('genMenu', { keys });
   };
   $('menuKey').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('bGenMenu').click(); });
+  $('bPickMenu').onclick = () => post('pickMenu', { keys: $('menuKey').value });
 
   // ---- Gen nhanh Table ---------------------------------------------------------------------------
   S.tbls = [];

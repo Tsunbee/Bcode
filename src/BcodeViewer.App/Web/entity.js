@@ -36,6 +36,66 @@ function yieldEvery(count) {
   return count % 40 === 0 ? new Promise((r) => setTimeout(r, 0)) : null;
 }
 
+/// Vị trí phần <!DOCTYPE … [ … ]> (start, end = ngay sau dấu > đóng) hoặc null. Quét theo cú pháp chứ không dùng regex /\]>/: giá trị entity
+/// hay chứa <![CDATA[ … ]]> (có chuỗi "]>") — regex sẽ cắt DOCTYPE giữa chừng.
+function doctypeRange(text) {
+  const start = text.search(/<!DOCTYPE\b/i);
+  if (start < 0) return null;
+  let i = start + 9;
+  const n = text.length;
+  const skipQuoted = (j) => { const q = text[j]; const e = text.indexOf(q, j + 1); return e < 0 ? n : e + 1; };
+  // Phần đầu: tên gốc, SYSTEM/PUBLIC "…" — tới '[' (có tập con nội) hoặc '>' (không có).
+  while (i < n && text[i] !== '[' && text[i] !== '>') i = (text[i] === '"' || text[i] === "'") ? skipQuoted(i) : i + 1;
+  if (i >= n) return null;
+  if (text[i] === '>') return { start, end: i + 1 };
+  i++;
+  while (i < n) {
+    const c = text[i];
+    if (c === ']') {
+      let j = i + 1;
+      while (j < n && /\s/.test(text[j])) j++;
+      return { start, end: text[j] === '>' ? j + 1 : j };
+    }
+    if (text.startsWith('<!--', i)) { const e = text.indexOf('-->', i + 4); i = e < 0 ? n : e + 3; continue; }
+    if (c === '<') {                                                     // <!ENTITY …> / <!ELEMENT …> / <?pi?>: đọc tới '>' bỏ qua chuỗi trong nháy
+      i++;
+      while (i < n && text[i] !== '>') i = (text[i] === '"' || text[i] === "'") ? skipQuoted(i) : i + 1;
+      i++;
+      continue;
+    }
+    i++;                                                                 // khoảng trắng, %Tên; …
+  }
+  return null;
+}
+
+/// Gọi fn(tên, '&tên;', vị trí) cho mỗi tham chiếu entity thường ngoài <!-- --> và <![CDATA[ ]]> (trình đọc XML không thay entity ở 2 chỗ đó).
+function scanEntityRefs(text, fn) {
+  const re = /<!--|<!\[CDATA\[|&([A-Za-z_][\w.:$-]*);/g;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m[0] === '<!--') { const e = text.indexOf('-->', re.lastIndex); re.lastIndex = e < 0 ? text.length : e + 3; continue; }
+    if (m[1] === undefined) { const e = text.indexOf(']]>', re.lastIndex); re.lastIndex = e < 0 ? text.length : e + 3; continue; }
+    fn(m[1], m[0], m.index);
+  }
+}
+
+function forEachEntityRef(text, fn) { scanEntityRefs(text, (name) => fn(name)); }
+
+/// Thay mỗi tham chiếu (theo scanEntityRefs) bằng fn(tên, '&tên;'); ghép 1 lượt, không dùng split/join cả chuỗi.
+function replaceEntityRefs(text, fn) {
+  const parts = [];
+  let last = 0;
+  scanEntityRefs(text, (name, ref, at) => {
+    const v = fn(name, ref);
+    if (v === ref) return;
+    parts.push(text.slice(last, at), v);
+    last = at + ref.length;
+  });
+  if (!parts.length) return text;
+  parts.push(text.slice(last));
+  return parts.join('');
+}
+
 class BcodeEntity {
   constructor(bcode) {
     this.bcode = bcode;
@@ -667,6 +727,78 @@ class BcodeEntity {
     return { text: result, unresolved: [...unresolved] };
   }
 
+
+  /// "Xem XML đầy đủ" (như ToolsViewXml / View XML của FSD Studio): bỏ phần <!DOCTYPE …[ … ]>, thay MỌI &Tên; ở phần thân bằng giá trị
+  /// (entity giá trị) hoặc NỘI DUNG file (entity SYSTEM, bỏ dòng <?xml ?>), lặp tới khi hết — kết quả là XML mà FBO thật sự đọc.
+  /// Tra theo chuỗi include của CHÍNH file path/text (resolveTop, chỉ entity thường), không theo tab đang mở → đổi tab giữa chừng vẫn đúng.
+  /// Như trình đọc XML: &Tên; trong <!-- … --> và <![CDATA[ … ]]> giữ nguyên. Trả { text, unresolved: [{ name, reason }], count, loop }.
+  async expandDocument(path, text, maxPasses = 40) {
+    const dt = doctypeRange(text);
+    let body = dt ? text.slice(0, dt.start) + text.slice(dt.end) : text;
+    const values = new Map();                     // tên -> chuỗi thay | null (không thay được)
+    const unresolved = new Map();                 // tên -> lý do
+    let count = 0;
+    let loop = false;
+    for (let pass = 0; pass < maxPasses; pass++) {
+      const names = new Set();
+      forEachEntityRef(body, (name) => { if (!XML_BUILTIN_ENTITIES.has(name) && !values.has(name)) names.add(name); });
+      for (const name of names) {
+        const found = await this.resolveTop(name, path, text, 'general');
+        let value = null;
+        if (!found) unresolved.set(name, 'không thấy khai báo trong chuỗi include');
+        else if (found.decl.kind === 'value') value = found.decl.value;
+        else {
+          const target = resolvePath(dirNameOf(found.path), found.decl.systemPath.replace(/\//g, '\\'));
+          const content = await this.readFile(target);
+          if (content == null) unresolved.set(name, 'không đọc được file ' + target);
+          else value = content.replace(/^﻿?\s*<\?xml[^>]*\?>/i, '');
+        }
+        values.set(name, value);
+      }
+      let changed = 0;
+      body = replaceEntityRefs(body, (name, ref) => {
+        const v = values.get(name);
+        if (v == null) return ref;
+        changed++;
+        return v;
+      });
+      count += changed;
+      if (!changed) break;
+      if (pass === maxPasses - 1 || body.length > 50 * 1024 * 1024) { loop = true; break; } // entity tự gọi lại chính nó (trực tiếp / gián tiếp)
+    }
+    return { text: body, unresolved: [...unresolved].map(([name, reason]) => ({ name, reason })), count, loop };
+  }
+
+  /// Lệnh "Xem XML đầy đủ": bung file đang mở (expandDocument) ra tab CHỈ ĐỌC chưa đặt tên <tên>.full.xml (Ctrl+S = lưu ra file khác nếu cần).
+  /// Đầu tab là chú thích: file gốc, số chỗ đã thay, entity không thay được (= lỗi FBO sẽ gặp khi đọc file).
+  async openFullXml() {
+    const b = this.bcode;
+    const path = b.activePath;
+    const doc = path && b.docs.get(path);
+    if (!doc || doc.untitled) { b.showToast('Mở một file controller (đã lưu trên đĩa) trước.', 3000); return; }
+    b.showToast('Đang bung entity / include…', 60000);
+    let r;
+    try { r = await this.expandDocument(path, doc.model.getValue()); }
+    catch (e) { b.showToast('Không bung được: ' + e, 5000); return; }
+    const safe = (s) => String(s).replace(/--/g, '- -');
+    const lines = [
+      `<!-- XML đầy đủ của ${safe(path)}`,
+      `     Đã thay ${r.count} chỗ &entity; (gồm cả nội dung file include). Tab CHỈ ĐỌC — sửa ở file gốc.`,
+    ];
+    if (r.loop) lines.push('     ⚠ Dừng giữa chừng: có entity tự gọi lại chính nó (vòng lặp) hoặc kết quả quá lớn.');
+    if (r.unresolved.length) {
+      lines.push(`     ⚠ ${r.unresolved.length} entity KHÔNG thay được (giữ nguyên &Tên;):`);
+      for (const u of r.unresolved) lines.push(`       &${safe(u.name)}; — ${safe(u.reason)}`);
+    }
+    lines.push('-->');
+    // <?xml …?> phải đứng đầu file (chú thích trước nó = XML hỏng) → giữ nó ở dòng 1, chú thích ngay sau; bỏ dòng trống còn lại chỗ <!DOCTYPE> vừa bỏ.
+    const decl = /^﻿?\s*<\?xml[^>]*\?>/i.exec(r.text);
+    const rest = (decl ? r.text.slice(decl[0].length) : r.text).replace(/^(?:[ \t]*\r?\n)+/, '');
+    const content = (decl ? decl[0].replace(/^﻿?\s*/, '') + '\n' : '') + lines.join('\n') + '\n' + rest;
+    const name = fileNameOf(path).replace(/(\.[^.\\]*)?$/, '.full.xml');
+    b.openUntitled(name, content, dirNameOf(path), { readOnly: true });
+    b.showToast(r.unresolved.length ? `Đã bung — ${r.unresolved.length} entity không thay được (xem đầu tab).` : `Đã bung ${r.count} chỗ entity.`, 4000);
+  }
 
   /// Tự trích xuất từ dưới con trỏ, cho phép chứa dấu chấm (.), gạch ngang (-), hai chấm (:), đô la ($)
   getEntityWordAtPosition(model, position) {

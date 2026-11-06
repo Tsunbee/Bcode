@@ -304,6 +304,14 @@ public partial class GenAllService
             }
         }
 
+        await FillTableInfoAsync(found);
+        return found.Values.OrderByDescending(t => t.InApp || t.InSys).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>Điền table có ở App / Sys không + số dòng; tên không thấy là table thì kiểm có phải view (table="..." đôi khi trỏ vào view).
+    /// <paramref name="found"/> khoá theo tên (không phân biệt hoa thường).</summary>
+    private async Task FillTableInfoAsync(Dictionary<string, RelatedTable> found)
+    {
         var all = found.Keys.ToList();
         foreach (var sys in new[] { false, true })
         {
@@ -312,14 +320,13 @@ public partial class GenAllService
                 var rows = await _sql.GetTableRowCountsAsync(sys, all);
                 foreach (var (n, c) in rows)
                 {
-                    var info = found[n];
+                    if (!found.TryGetValue(n, out var info)) continue;
                     if (sys) { info.InSys = true; info.RowsSys = c; } else { info.InApp = true; info.RowsApp = c; }
                 }
             }
             catch { /* database không kết nối được — vẫn trả danh sách, chỉ không biết table ở đâu */ }
         }
-        await MarkViewsAsync(found.Values.Where(t => !t.InApp && !t.InSys));   // table="..." đôi khi trỏ vào view
-        return found.Values.OrderByDescending(t => t.InApp || t.InSys).ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        await MarkViewsAsync(found.Values.Where(t => !t.InApp && !t.InSys));
     }
 
     /// <summary>Sinh script cho đúng các table được chọn (Gen nhanh Table của Gen Update) — cùng cách sinh với Table liên quan của Note (New).</summary>

@@ -412,7 +412,8 @@ class BcodeEditor {
   updateDirty(path) {
     const doc = this.docs.get(path);
     if (!doc) return;
-    const dirty = doc.model.getAlternativeVersionId() !== doc.savedVersionId;
+    // Tab chưa đặt tên: chưa có bản nào trên đĩa nên còn nội dung là "chưa lưu" (đóng tab / thoát app sẽ hỏi).
+    const dirty = doc.readOnly ? false : doc.untitled ? doc.model.getValueLength() > 0 : doc.model.getAlternativeVersionId() !== doc.savedVersionId;
     if (dirty === doc.dirty) return;
     doc.dirty = dirty;
     window.bcodeNotify('NotifyDirtyChanged', path, dirty);
@@ -423,7 +424,12 @@ class BcodeEditor {
   /// window is closing, to ask about them and, on "Yes", write them itself.
   getDirtyDocs() {
     const out = [];
-    for (const [path, doc] of this.docs) if (doc.dirty) out.push({ path, content: doc.model.getValue() });
+    for (const [path, doc] of this.docs) {
+      if (!doc.dirty) continue;
+      // Tab chưa đặt tên: host phải hỏi nơi lưu (MainForm.OnFormClosing) — gửi kèm tên gợi ý + thư mục gợi ý.
+      if (doc.untitled) out.push({ path, content: doc.model.getValue(), untitled: true, name: doc.untitled.name, dir: doc.untitled.dir });
+      else out.push({ path, content: doc.model.getValue() });
+    }
     return out;
   }
 
@@ -489,6 +495,7 @@ class BcodeEditor {
     this.activePath = path;
     this.touchMru(path);
     this.editor.setModel(doc.model);
+    if (!!doc.readOnly !== !!this._readOnlyOn) { this._readOnlyOn = !!doc.readOnly; this.editor.updateOptions({ readOnly: this._readOnlyOn }); }
     if (doc.viewState) this.editor.restoreViewState(doc.viewState);
     this.editor.focus();
     this.renderBookmarks();
@@ -510,7 +517,7 @@ class BcodeEditor {
     // from its included files. Fire-and-forget: the provider falls back to the document's
     // own declarations until the walk lands.
     // Đã dựng cho file này rồi thì thôi (invalidate()/lưu file sẽ dựng lại); chưa có thì dựng SAU khi file đã hiện xong (idle) để chuyển file không bị khựng khi đọc include qua UNC.
-    if (window.bcodeEntity && !window.bcodeEntity.includeIndexFor(path)) {
+    if (window.bcodeEntity && !doc.untitled && !window.bcodeEntity.includeIndexFor(path)) {
       const warm = () => { if (this.activePath === path) window.bcodeEntity.refreshIncludeIndex(path, doc.model.getValue()); };
       if (window.requestIdleCallback) window.requestIdleCallback(warm, { timeout: 1500 }); else setTimeout(warm, 300);
     }
@@ -697,6 +704,36 @@ class BcodeEditor {
     this.refreshSplitPicker();
   }
 
+  /// Tab mới CHƯA ĐẶT TÊN (như file mới của FCode): New from Template → "Tạo file" mở ngay nội dung template để gõ tiếp, không hỏi nơi lưu trước;
+  /// Ctrl+S / Save / F5 mới hỏi nơi lưu (saveActiveAs). <paramref>suggestedName</paramref> = tên gợi ý cho hộp lưu (đuôi file quyết định
+  /// ngôn ngữ tô màu), <paramref>dir</paramref> = thư mục gợi ý. Lịch sử, file đổi ngoài, F12 tới file include... bỏ qua cho tới khi lưu.
+  /// opts.readOnly: tab chỉ để xem (vd "Xem XML đầy đủ") — không sửa được, không tính "chưa lưu" khi đóng; Ctrl+S vẫn lưu ra file khác được.
+  openUntitled(suggestedName, content, dir, opts) {
+    const name = suggestedName || '';
+    const dot = name.lastIndexOf('.');
+    const ext = dot > 0 ? name.slice(dot) : '';
+    let n = 1;
+    let key;
+    do { key = `${UNTITLED_ROOT}\\Untitled-${n++}${ext}`; } while (this.docs.has(key));
+    const model = monaco.editor.createModel(content || '', detectLanguage(name || key, content || ''));
+    this.docs.set(key, {
+      model,
+      dirty: false,
+      savedVersionId: model.getAlternativeVersionId(),
+      bookmarks: new Set(),
+      bookmarkDecorations: [],
+      viewState: null,
+      loadedWriteTimeUtc: null,
+      dismissedWriteTimeUtc: null,
+      untitled: { name: name || fileNameOf(key), dir: dir || '' },
+      readOnly: !!(opts && opts.readOnly),
+    });
+    this.activateDoc(key);
+    this.updateDirty(key); // còn nội dung = chưa lưu (vẽ ● trên tab, thoát app sẽ hỏi)
+    this.refreshSplitPicker();
+    return key;
+  }
+
   /// Moves the caret and scrolls to it — the landing step shared by every "go to" in the
   /// panels (search hit, problem, reference, outline node).
   revealPosition(line, column) {
@@ -808,6 +845,7 @@ class BcodeEditor {
     if (!this.activePath) return;
     await this.saveActive();
     if (this.dirty) return; // lưu lỗi (saveActive đã báo) — không chạy bản cũ
+    if (isUntitledPath(this.activePath)) return; // tab chưa đặt tên mà bấm Cancel hộp lưu — chưa có file để mở
     try {
       const msg = await window.bcodeHost.call('BeginRunMenu', this.activePath);
       this.showToast(msg);
@@ -986,8 +1024,26 @@ class BcodeEditor {
     if (diff >= 1 || (diff >= 0.5 && atLimit)) ed.updateOptions({ fontSize: target });
   }
 
+  /// Ghi file qua host (lưu kèm lịch sử). File đang Read-only (Chỉ đọc — hay gặp ở file chép từ bộ source chuẩn; trước đây báo
+  /// "Access to the path ... is denied"): host ném lỗi "READONLY:" → hỏi bỏ Chỉ đọc rồi ghi lại; không đồng ý = trả SAVE_DECLINED.
+  /// Settings → "Lưu file" bật "tự bỏ Chỉ đọc" thì host tự bỏ, không tới đây.
+  async saveToHost(path, text) {
+    try {
+      return await window.bcodeHost.call('BeginSaveWithHistory', path, text);
+    } catch (e) {
+      if (!String((e && e.message) || e).includes('READONLY:')) throw e;
+      const ok = await window.bcodeUi.confirm(
+        `"${fileNameOf(path)}" đang để Chỉ đọc (Read-only) nên không ghi đè được.\n\nBỏ Chỉ đọc của file rồi lưu?\n(Settings → Lưu file: có thể cho tự bỏ, không hỏi lại.)`,
+        { okText: 'Bỏ Chỉ đọc và lưu', cancelText: 'Không' });
+      if (!ok) return SAVE_DECLINED;
+      return await window.bcodeHost.call('BeginSaveWithHistoryClearReadOnly', path, text);
+    }
+  }
+
   async saveActive() {
     if (!this.activePath) return;
+    // Tab chưa đặt tên: Ctrl+S / Save / F5 = hỏi nơi lưu (Save As); Cancel thì tab giữ nguyên, vẫn chưa lưu.
+    if (this.activeDoc && this.activeDoc.untitled) return this.saveActiveAs();
     // A save is no longer instantaneous from the page's point of view — it runs on a host
     // worker now (see hostcall.js), so Ctrl+S twice in a row, or Ctrl+S during a slow write
     // to a share, would otherwise start a second one. The host serialises writes to a path
@@ -999,7 +1055,8 @@ class BcodeEditor {
       // Version taken with the text being written: anything typed while the save is in
       // flight stays dirty afterwards.
       const savedVersion = this.currentModel.getAlternativeVersionId();
-      const saveRes = await window.bcodeHost.call('BeginSaveWithHistory', this.activePath, this.currentModel.getValue());
+      const saveRes = await this.saveToHost(this.activePath, this.currentModel.getValue());
+      if (saveRes === SAVE_DECLINED) { this.showToast('Chưa lưu — file đang để Chỉ đọc (Read-only).', 3000); return; }
       this.markClean(this.activePath, savedVersion);
       // Báo "đã lưu" NGAY — các bước dọn cache bên dưới không được làm người dùng phải chờ (trên share, dựng lại
       // chỉ mục include là đọc từng file include qua mạng).
@@ -1043,7 +1100,7 @@ class BcodeEditor {
   /// now (GetFileWriteTimeUtc returns "" for that) — this is a periodic best-effort check,
   /// not something that should interrupt the user with a transient I/O hiccup.
   async checkExternalChange() {
-    if (!this.activePath) return;
+    if (!this.activePath || isUntitledPath(this.activePath)) return; // tab chưa đặt tên: chưa có file trên đĩa để so
     // The interval that drives this doesn't wait for the previous check to come back. On a
     // share that has gone away each one can sit for seconds, so without this the timer
     // would stack up a fresh probe every 4s against a path already known to be unresponsive.
@@ -1112,7 +1169,7 @@ class BcodeEditor {
   /// case for double-clicking the same file twice), which is exactly the case this needs to
   /// actually do something.
   async reloadFromDisk(diskWriteTimeUtc) {
-    if (!this.activePath) return;
+    if (!this.activePath || isUntitledPath(this.activePath)) return;
     const path = this.activePath;
     let content;
     try {
@@ -1150,10 +1207,14 @@ class BcodeEditor {
   /// switches to editing that new path — same as most editors' Save As behavior.
   async saveActiveAs() {
     if (!this.activePath) return;
-    const newPath = await window.bcodeHost.call('BeginChooseSaveAsPath', this.activePath);
-    if (!newPath) return; // user cancelled
+    // Tab chưa đặt tên: hộp lưu gợi ý tên file template + thư mục của file đang mở lúc tạo (không đưa đường dẫn giả "<untitled>\..." cho hộp lưu).
+    const u = this.activeDoc && this.activeDoc.untitled;
+    const suggested = u ? (u.dir ? u.dir.replace(/[\\/]+$/, '') + '\\' + u.name : u.name) : this.activePath;
+    const newPath = await window.bcodeHost.call('BeginChooseSaveAsPath', suggested);
+    if (!newPath) return; // user cancelled — tab chưa đặt tên giữ nguyên, vẫn chưa lưu
     try {
-      await window.bcodeHost.call('BeginSaveWithHistory', newPath, this.currentModel.getValue());
+      const res = await this.saveToHost(newPath, this.currentModel.getValue());
+      if (res === SAVE_DECLINED) { this.showToast('Chưa lưu — file đích đang để Chỉ đọc (Read-only).', 3000); return; }
     } catch (e) {
       alert('Không ghi được file:\n' + newPath + '\n' + e);
       return;
@@ -1228,6 +1289,11 @@ class BcodeEditor {
   // file's own folder, and opened in place (see openFile) — it becomes the current file,
   // added to the left "recent files" tree so getting back to what you came from is just a
   // click there.
+  /// Xem XML đầy đủ: bung mọi &entity; / file include của file đang mở ra tab chỉ đọc (entity.js openFullXml).
+  async openFullXml() {
+    if (window.bcodeEntity) await window.bcodeEntity.openFullXml();
+  }
+
   async jumpToEntityAtCaret(mode = 'peek') {
     if (!this.activePath) return;
     // Resolution lives in entity.js: what `&Name;` means depends on the whole chain of
@@ -1625,6 +1691,7 @@ class BcodeEditor {
 
   async refreshActive() {
     if (!this.activePath) return;
+    if (isUntitledPath(this.activePath)) { this.showToast('File chưa đặt tên — chưa có bản trên đĩa để tải lại.', 3000); return; }
     if (this.dirty && !(await window.bcodeUi.confirm('File có thay đổi chưa lưu. Tải lại từ đĩa và bỏ thay đổi?', { danger: true }))) return;
     try {
       const content = await window.bcodeHost.call('BeginReadFile', this.activePath);
@@ -1733,11 +1800,19 @@ class BcodeEditor {
 }
 
 /// Last path segment of a Windows or UNC path — tab captions, result groups, prompts.
+/// saveToHost: người dùng không đồng ý bỏ Chỉ đọc → chưa lưu (không phải lỗi).
+const SAVE_DECLINED = Symbol('save-declined');
+
 function fileNameOf(path) {
   if (!path) return '';
   const i = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'));
   return i >= 0 ? path.slice(i + 1) : path;
 }
+
+/// Tab chưa đặt tên (New from Template → Tạo file): khoá trong docs là "<untitled>\Untitled-N.ext" — '<' '>' không hợp lệ trong
+/// tên file Windows nên lỡ có chỗ nào đọc/ghi đường dẫn này thì host lỗi ngay chứ không tạo ra file. Khớp EditorBridge.UntitledRoot.
+const UNTITLED_ROOT = '<untitled>';
+function isUntitledPath(path) { return !!path && path.startsWith(UNTITLED_ROOT + '\\'); }
 
 /// Everything before that segment.
 function dirNameOf(path) {

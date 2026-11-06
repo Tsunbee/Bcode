@@ -34,6 +34,7 @@ internal static class Pages
         NativePages.Register("decryptsql.html", () => new DecryptSqlPage());
         NativePages.Register("includecheck.html", () => new IncludeCheckPage());
         NativePages.Register("genupdate.html", () => new GenUpdatePage());
+        NativePages.Register("menupicker.html", () => new MenuPickerPage());
         // bbxn.html (Biên bản xác nhận): user chọn giữ dạng WebView ở chế độ App (2026-10-15) — BbxnPage còn trong NativePages.Bbxn.cs, chỉ không đăng ký.
         // NativePages.Register("bbxn.html", () => new BbxnPage());
         NativePages.Register("cfsdiag.html", () => new CfsDiagPage());

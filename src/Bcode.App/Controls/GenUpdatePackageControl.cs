@@ -370,19 +370,13 @@ public class GenUpdatePackageControl : UserControl
                     if (_genAll is null) { Js("genUpdate.onError('Chưa sẵn sàng để gen script menu.')"); break; }
                     var keys = GenAllService.SplitNames(root.GetProperty("keys").GetString());
                     if (keys.Count == 0) { Js("genUpdate.onError('Nhập WMenu ID / controller / SysId trước.')"); break; }
-                    var res = await _genAll.ResolveMenusAsync(keys);
-                    foreach (var p in res.Items)
-                    {
-                        var item = new BatchItem { DisplayName = p.Origin, Origin = p.Origin, RelativeDestPath = p.RelativeDestPath, GeneratedContent = p.GeneratedContent };
-                        var i = _batch.FindIndex(b => string.Equals(b.RelativeDestPath, item.RelativeDestPath, StringComparison.OrdinalIgnoreCase));
-                        if (i >= 0) _batch[i] = item; else _batch.Add(item);
-                    }
-                    var msg = res.Items.Count > 0 ? $"Đã thêm {res.Items.Count} script menu vào gói update (gộp vào SYS_Script.sql)." : "Không sinh được script menu nào.";
-                    if (res.Warnings.Count > 0) msg += "\n" + string.Join("\n", res.Warnings);
-                    Js($"genUpdate.busy(false); genUpdate.onBatch({J(BatchView())}, {J(msg)})");
-                    if (res.Items.Count == 0) Js($"genUpdate.onError({J(res.Warnings.Count > 0 ? string.Join(" | ", res.Warnings) : msg)})");
+                    await GenMenuScriptsAsync(keys);
                     break;
                 }
+
+                case "pickMenu":
+                    await PickMenusAsync(root.TryGetProperty("keys", out var pk) ? pk.GetString() : "");
+                    break;
 
                 case "create":
                     await CreateAsync(root.GetProperty("savePath").GetString() ?? "", root.GetProperty("folder").GetString() ?? "",
@@ -414,6 +408,48 @@ public class GenUpdatePackageControl : UserControl
         {
             Js($"genUpdate.onError({J(ex.Message)})");
         }
+    }
+
+    /// <summary>Cây WCommand đầy đủ đang nạp ở cây bên trái (MainForm gán) — nguồn của hộp "Chọn menu…". null / rỗng = chưa nạp.</summary>
+    public Func<IReadOnlyList<WCommandItem>>? MenuRoots { get; set; }
+
+    /// <summary>Gen nhanh Menu: script DELETE/INSERT wcommand + command cho từng khoá, thêm (hoặc thay) vào gói.</summary>
+    private async Task GenMenuScriptsAsync(List<string> keys)
+    {
+        if (_genAll is null) return;
+        var res = await _genAll.ResolveMenusAsync(keys);
+        foreach (var p in res.Items)
+        {
+            var item = new BatchItem { DisplayName = p.Origin, Origin = p.Origin, RelativeDestPath = p.RelativeDestPath, GeneratedContent = p.GeneratedContent };
+            var i = _batch.FindIndex(b => string.Equals(b.RelativeDestPath, item.RelativeDestPath, StringComparison.OrdinalIgnoreCase));
+            if (i >= 0) _batch[i] = item; else _batch.Add(item);
+        }
+        var msg = res.Items.Count > 0 ? $"Đã thêm {res.Items.Count} script menu vào gói update (gộp vào SYS_Script.sql)." : "Không sinh được script menu nào.";
+        if (res.Warnings.Count > 0) msg += "\n" + string.Join("\n", res.Warnings);
+        Js($"genUpdate.busy(false); genUpdate.onBatch({J(BatchView())}, {J(msg)})");
+        if (res.Items.Count == 0) Js($"genUpdate.onError({J(res.Warnings.Count > 0 ? string.Join(" | ", res.Warnings) : msg)})");
+    }
+
+    /// <summary>Nút "Chọn menu…": hộp cây WCommand có ô lọc + tick nhiều (<see cref="Forms.MenuPickerForm"/>, dùng chung chế độ Web / App). WMenu ID đang có
+    /// trong ô được tick sẵn; OK → ô nhận danh sách mới (khoá không phải WMenu ID trên cây — controller / SysId gõ tay — vẫn giữ ở đầu) rồi gen script ngay.</summary>
+    private async Task PickMenusAsync(string? currentKeys)
+    {
+        if (_genAll is null) { Js("genUpdate.onError('Chưa sẵn sàng để gen script menu.')"); return; }
+        // Ra khỏi handler WebMessageReceived của WebView2 trước khi mở hộp modal (vòng lặp thông điệp lồng trong handler của WebView2 dễ treo / gọi lại sai).
+        await Task.Yield();
+        if (IsDisposed) return;
+        var roots = MenuRoots?.Invoke() ?? Array.Empty<WCommandItem>();
+        var current = GenAllService.SplitNames(currentKeys);
+        var picked = Forms.MenuPickerForm.Pick(FindForm(), roots, current);
+        if (picked is null || picked.Count == 0) return;
+
+        var onTree = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Collect(WCommandItem it) { if (!it.IsAppCommand && !string.IsNullOrWhiteSpace(it.WMenuId)) onTree.Add(it.WMenuId); foreach (var c in it.Children) Collect(c); }
+        foreach (var r in roots) Collect(r);
+        var keys = current.Where(k => !onTree.Contains(k)).Concat(picked).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        Js($"genUpdate.onMenu({J(string.Join(", ", keys))}); genUpdate.busy(true, {J($"Đang sinh script {picked.Count} menu...")})");
+        await GenMenuScriptsAsync(keys);
     }
 
     /// <summary>"Gen Script" của Gen nhanh Store — tìm đúng 1 stored procedure theo tên trong database App/Sys, lấy definition

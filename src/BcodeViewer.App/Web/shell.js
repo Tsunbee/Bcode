@@ -140,6 +140,7 @@ class BcodeShell {
         { label: 'Bảng Problems', shortcut: this.k('panel.problems'), run: () => b.toggleProblemsPanel() },
         { label: 'Xem trước Dir', shortcut: this.k('panel.dirPreview'), run: () => b.toggleDirPreview() },
         { label: 'Outline', shortcut: this.k('panel.outline'), run: () => b.toggleOutlinePanel() },
+        { label: 'Xem XML đầy đủ (bung entity / include)', shortcut: this.k('nav.fullXml'), run: () => b.openFullXml() },
         { label: 'Hỏi Fast (không AI)', shortcut: this.k('panel.fastAsk'), run: () => window.bcodeFastAsk && window.bcodeFastAsk.toggle() },
         { label: 'Gợi ý Fast: đổi dài ⇄ ngắn', shortcut: this.k('edit.fastLong'), run: () => window.bcodeCompletion && window.bcodeCompletion.toggleFastLong() },
         { label: 'Chạy SQL tại con trỏ', shortcut: this.k('tool.runSql'), run: () => b.runSql() },
@@ -412,6 +413,12 @@ class BcodeShell {
   renderBreadcrumb(path) {
     this.breadcrumb.textContent = '';
     if (!path) return;
+    if (isUntitledPath(path)) {
+      // Tab chưa đặt tên: chưa có thư mục thật để bấm mở.
+      this.breadcrumb.appendChild(Object.assign(document.createElement('span'), {
+        className: 'shCrumbLabel', textContent: fileNameOf(path) + ' — chưa đặt tên, Ctrl+S để chọn nơi lưu' }));
+      return;
+    }
     const isUnc = path.startsWith('\\\\');
     const parts = path.split('\\').filter(Boolean);
     const full = [];

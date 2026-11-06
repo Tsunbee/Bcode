@@ -23,11 +23,14 @@ public sealed class SuggestObject
     public bool Pick { get; set; }
 }
 
-/// <summary>1 table gợi ý cho "Table liên quan": thông tin như nút Tải table + vai trò trong menu (bảng của Dir / Grid chi tiết).</summary>
+/// <summary>1 table gợi ý cho "Table liên quan": thông tin như nút Tải table + vai trò trong menu (bảng của Dir / Grid chi tiết)
+/// + các file của menu có tên bảng (<see cref="From"/>, như "trong …" của Sơ đồ phụ thuộc).</summary>
 public sealed class SuggestTable
 {
     public RelatedTable Info { get; set; } = new();
     public string Role { get; set; } = "";
+    /// <summary>File của menu có tên bảng (tương đối trong App_Data\Controllers, hoặc Main\…). Rỗng = chỉ thấy qua table="..." mà không dò ra trong file.</summary>
+    public List<string> From { get; set; } = new();
     public bool Pick { get; set; }
 }
 
@@ -77,8 +80,9 @@ public partial class GenAllService
     /// <summary>
     /// Gợi ý cho Note (New) theo 1 menu (BcodeNote.exe — bước "chọn menu cần gen"): controller của menu (sysid, Controller="" của trang Main\*.aspx,
     /// không có thì tên trang), các file của menu theo đúng cách File Lookup dò (BuildTreeForMenuItem) — tick sẵn như tập file Gen All đóng gói (Dir/Grid/Filter chỉ .f),
-    /// procedure / function được EXEC trong Dir / Grid / Filter (tick sẵn cái có thật trong App / Sys), table liên quan (FindTablesAsync — tick sẵn
-    /// bảng của Dir và Grid chi tiết). Chỉ đọc file / database, không ghi gì.
+    /// procedure / function được EXEC trong Dir / Grid / Filter (tick sẵn cái có thật trong App / Sys), table liên quan (table="..." theo FindTablesAsync
+    /// + bảng có tên trong mọi file của menu theo DependencyGraphService.ObjectsInFilesAsync — khớp Sơ đồ phụ thuộc; tick sẵn bảng của Dir và Grid chi tiết).
+    /// Chỉ đọc file / database (ngoài cache danh sách object như cây SQL Object).
     /// </summary>
     /// <param name="ancestors">Các menu cha của <paramref name="menu"/> (gốc trước) — để gợi ý script menu cha customize (C) / (*).</param>
     public async Task<MenuSuggestion> SuggestForMenuAsync(Workspace ws, WCommandItem menu, IReadOnlyList<WCommandItem>? ancestors = null)
@@ -177,14 +181,38 @@ public partial class GenAllService
         {
             try
             {
-                var mainTables = new HashSet<string>(own.Details.Append(own.Master).Where(t => t.Length > 0), StringComparer.OrdinalIgnoreCase);
-                foreach (var t in await FindTablesAsync(ws, s.Controllers))
+                // 1) table="..." khai trong Dir / Grid / Filter (như nút Tải table)
+                var byName = new Dictionary<string, SuggestTable>(StringComparer.OrdinalIgnoreCase);
+                foreach (var t in await FindTablesAsync(ws, s.Controllers)) byName[t.Name] = new SuggestTable { Info = t };
+
+                // 2) Bảng có tên trong mọi file của menu (SQL / JS / include / .f / .aspx…) — đúng cách Sơ đồ phụ thuộc dò "Dùng tới" của menu.
+                //    Chỉ lấy bảng App: bảng chỉ có ở Sys là bảng hệ thống (command, entity, ticket…) trùng từ thường trong file (<!ENTITY…) — muốn thì khai table=.
+                var deps = Deps();
+                foreach (var e in await deps.EnsureObjectNamesAsync(includeSys: false)) s.Warnings.Add("Không nạp được danh sách object — " + e);
+                var extra = new Dictionary<string, RelatedTable>(StringComparer.OrdinalIgnoreCase);
+                foreach (var (o, inFiles) in await deps.ObjectsInFilesAsync(files.OrderBy(f => f, StringComparer.OrdinalIgnoreCase)))
                 {
-                    var role = string.Equals(t.Name, own.Master, StringComparison.OrdinalIgnoreCase) ? "Dir"
-                        : own.Details.Contains(t.Name, StringComparer.OrdinalIgnoreCase) ? "Grid" : "";
-                    s.Tables.Add(new SuggestTable { Info = t, Role = role, Pick = mainTables.Contains(t.Name) && (t.InApp || t.InSys) && !t.IsView });
+                    if (o.Kind != SqlObjectKind.Table || (o.FromSysDatabase && !byName.ContainsKey(o.Name))) continue;
+                    if (!byName.TryGetValue(o.Name, out var st))
+                    {
+                        var info = new RelatedTable { Name = o.Name, Controllers = { s.Controllers[0] } };
+                        byName[o.Name] = st = new SuggestTable { Info = info };
+                        extra[o.Name] = info;
+                    }
+                    foreach (var rel in inFiles.Select(f => ControllerRel(source, f)))
+                        if (!st.From.Contains(rel, StringComparer.OrdinalIgnoreCase)) st.From.Add(rel);
                 }
-                s.Tables = s.Tables.OrderBy(t => t.Role.Length == 0 ? 1 : 0).ThenBy(t => t.Info.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                if (extra.Count > 0) await FillTableInfoAsync(extra);
+
+                var mainTables = new HashSet<string>(own.Details.Append(own.Master).Where(t => t.Length > 0), StringComparer.OrdinalIgnoreCase);
+                foreach (var st in byName.Values)
+                {
+                    var t = st.Info;
+                    st.Role = string.Equals(t.Name, own.Master, StringComparison.OrdinalIgnoreCase) ? "Dir"
+                        : own.Details.Contains(t.Name, StringComparer.OrdinalIgnoreCase) ? "Grid" : "";
+                    st.Pick = mainTables.Contains(t.Name) && (t.InApp || t.InSys) && !t.IsView;
+                }
+                s.Tables = byName.Values.OrderBy(t => t.Role.Length == 0 ? 1 : 0).ThenBy(t => t.Info.Name, StringComparer.OrdinalIgnoreCase).ToList();
             }
             catch (Exception ex) { s.Warnings.Add("Dò table liên quan lỗi: " + ex.Message); }
         }
@@ -218,7 +246,25 @@ public partial class GenAllService
         return s;
     }
 
-    private static readonly string[] SuggestGroups = { "Main", "Dir", "Grid", "Filter", "Lookup", "Report", "Include", "Templates" };
+    private DependencyGraphService? _deps;
+
+    /// <summary>Bộ dò tên object trong file của Sơ đồ phụ thuộc (chỉ dùng <see cref="DependencyGraphService.ObjectsInFilesAsync"/>) — cùng kết nối với <see cref="_sql"/>.</summary>
+    private DependencyGraphService Deps() => _deps ??= new DependencyGraphService(_sql.Connections, _sql,
+        new UsageSearchService(_sql.Connections, new FileReferenceService()), () => Array.Empty<(WCommandItem, string)>());
+
+    /// <summary>Đường dẫn file để hiện: tương đối trong App_Data\Controllers (Grid\X.f, Include\…), không thì trong Source Path (Main\X.aspx).</summary>
+    private static string ControllerRel(string source, string file)
+    {
+        try
+        {
+            var rel = Path.GetRelativePath(Path.Combine(source, "App_Data", "Controllers"), file);
+            if (!rel.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(rel)) return rel;
+            return IsUnder(source, file) ? Path.GetRelativePath(source, file) : Path.GetFileName(file);
+        }
+        catch { return Path.GetFileName(file); }
+    }
+
+    private static readonly string[] SuggestGroups ={ "Main", "Dir", "Grid", "Filter", "Lookup", "Report", "Include", "Templates" };
 
     private static int GroupRank(string g) { var i = Array.IndexOf(SuggestGroups, g); return i < 0 ? SuggestGroups.Length : i; }
 

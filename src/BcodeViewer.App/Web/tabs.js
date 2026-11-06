@@ -122,7 +122,7 @@ class BcodeTabs {
       const tab = document.createElement('div');
       tab.className = 'edTab' + (path === this.bcode.activePath ? ' active' : '') + (doc.dirty ? ' dirty' : '');
       tab.dataset.path = path;   // setActive tìm tab theo đường dẫn
-      tab.title = path + (doc.dirty ? '\n(chưa lưu)' : '');
+      tab.title = doc.untitled ? `${name} — chưa đặt tên, Ctrl+S để chọn nơi lưu` : path + (doc.dirty ? '\n(chưa lưu)' : '');
 
       const label = document.createElement('span');
       label.className = 'tabName';
@@ -208,6 +208,8 @@ class BcodeTabs {
       ['Copy đường dẫn', () => navigator.clipboard.writeText(path)],
       ['Mở thư mục chứa file', () => window.chrome.webview.hostObjects.host.OpenFolder(path)],
     ];
+    // Tab chưa đặt tên: chưa có đường dẫn / thư mục thật để copy hay mở.
+    if (isUntitledPath(path)) items.splice(items.length - 2, 2);
 
     // Reuses the context-menu look already defined for the editor's own right-click menu
     // (contextmenu.js / .ctxMenu in style.css) so there is one menu style in the app.

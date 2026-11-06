@@ -98,6 +98,15 @@ public class ViewerSettings
     /// trong Chrome / Edge đang mở của người dùng (Host/BrowserTabLauncher.cs, qua UI Automation); false = mỗi lần F5 bung 1 tab mới như cũ.</summary>
     public bool F5ReuseTab { get; set; } = true;
 
+    /// <summary>F5 mở bằng gì: "default" (mặc định) = trình duyệt mặc định của máy; "chrome" / "edge" = đúng Chrome / Edge (chạy chrome.exe /
+    /// msedge.exe với URL — đang mở thì thành tab trong cửa sổ đang mở); "bcode" = gửi sang Bcode chạy menu trong tab FSG FBO y như Ctrl+4
+    /// trên cây menu (tự đăng nhập; Bcode phải đang mở). <see cref="F5ReuseTab"/> chỉ dùng cho 3 lựa chọn trình duyệt.</summary>
+    public string F5Browser { get; set; } = "default";
+
+    /// <summary>Lưu file đang Read-only (Chỉ đọc — hay gặp ở file chép từ bộ source chuẩn): false (mặc định) = hỏi "Bỏ Chỉ đọc rồi lưu?";
+    /// true = tự bỏ Chỉ đọc rồi lưu, không hỏi. Settings → "Lưu file".</summary>
+    public bool AutoClearReadOnly { get; set; } = false;
+
     /// <summary>Đường dẫn Config.xml của FCode (vd D:\Tool\FCode\Config\Config.xml). Chỉ dùng khi
     /// Bcode CHƯA có workspace nào (chưa có settings.json) — "Chạy SQL" và gợi ý SQL khi đó tự kết
     /// nối theo project trong file này (xem WorkspaceConnection.LoadFromFcodeConfig).</summary>

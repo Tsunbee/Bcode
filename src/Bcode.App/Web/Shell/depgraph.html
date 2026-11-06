@@ -47,6 +47,8 @@
   .k.func, .k.view { background: color-mix(in srgb, #3fb6c9 32%, transparent); }
   .k.trigger { background: color-mix(in srgb, #e5534b 30%, transparent); }
   .k.table { background: color-mix(in srgb, #e2a84a 34%, transparent); }
+  .k.unknown { background: color-mix(in srgb, #8b949e 30%, transparent); }
+  .enc { flex: none; font-size: .66rem; padding: 0 .35rem; border-radius: 999px; border: 1px solid #d29922; color: #d29922; }
   .db { flex: none; font-size: .68rem; color: var(--text-muted); }
   #center { position: sticky; top: 1rem; }
   #center .card { border: calc(var(--bw) * 2) solid var(--accent); border-radius: var(--r); padding: .8rem .9rem; background: var(--panel); display: flex; flex-direction: column; gap: .45rem; }
@@ -111,9 +113,11 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const KIND = { menu: 'Menu', file: 'File', proc: 'Proc', func: 'Func', view: 'View', trigger: 'Trigger', table: 'Bảng' };
-  const GROUP = { menu: 'Menu', file: 'File controller / include', proc: 'Stored procedure', func: 'Function', view: 'View', trigger: 'Trigger', table: 'Bảng' };
-  const ORDER = ['menu', 'file', 'proc', 'func', 'view', 'trigger', 'table'];
+  const KIND = { menu: 'Menu', file: 'File', proc: 'Proc', func: 'Func', view: 'View', trigger: 'Trigger', table: 'Bảng', unknown: '?' };
+  const GROUP = { menu: 'Menu', file: 'File controller / include', proc: 'Stored procedure', func: 'Function', view: 'View', trigger: 'Trigger', table: 'Bảng', unknown: 'Không xác định (không thấy trong database)' };
+  const ORDER = ['menu', 'file', 'proc', 'func', 'view', 'trigger', 'table', 'unknown'];
+  const ENC_TIP = 'Tạo WITH ENCRYPTION — không đọc được nội dung';
+  const encTag = (n) => (n.encrypted ? `<span class="enc" title="${ENC_TIP}">mã hoá</span>` : '');
 
   let trail = [];          // đường dẫn đã đi (thanh trên)
   let pos = -1;            // nút đang xem trong trail; phía sau pos là các nút để "Tới →"
@@ -122,7 +126,7 @@
 
   const dbTag = (n) => (['menu', 'file'].includes(n.kind) ? '' : `<span class="db">${n.sys ? 'Sys' : 'App'}</span>`);
   const nodeHtml = (n, side) => `<div class="node" data-key="${esc(n.key)}" data-side="${side}" title="${esc(n.label + (n.path ? '\n' + n.path : '') + (n.note ? '\n' + n.note : ''))}">`
-    + `<span class="k ${esc(n.kind)}">${esc(KIND[n.kind] || n.kind)}</span><span class="nm">${esc(n.label)}</span>${dbTag(n)}`
+    + `<span class="k ${esc(n.kind)}">${esc(KIND[n.kind] || n.kind)}</span><span class="nm">${esc(n.label)}</span>${encTag(n)}${dbTag(n)}`
     + (n.note ? `<span class="nt">${esc(n.note)}</span>` : '') + `<button class="op" data-open="1" title="Mở">↗</button></div>`;
 
   const q = () => $('flt').value.trim().toLowerCase();
@@ -141,7 +145,8 @@
 
   function renderCenter(n) {
     $('cTitle').textContent = n.label;
-    $('cSub').innerHTML = `<span class="k ${esc(n.kind)}">${esc(KIND[n.kind] || n.kind)}</span> ${n.kind === 'menu' || n.kind === 'file' ? '' : (n.sys ? 'Sys Data' : 'App Data')} ${esc(n.path || '')}`;
+    $('cSub').innerHTML = `<span class="k ${esc(n.kind)}">${esc(KIND[n.kind] || n.kind)}</span> ${n.kind === 'menu' || n.kind === 'file' ? '' : (n.sys ? 'Sys Data' : 'App Data')} ${encTag(n)} ${esc(n.path || '')}`
+      + (n.kind === 'menu' && n.note ? `<div>${esc(n.note)}</div>` : '');
     $('cActs').innerHTML = '<button data-act="open">Mở</button><button data-act="copy">Chép tên</button>';
   }
 
@@ -338,7 +343,7 @@
     $('iBody').innerHTML = r.rows.length
       ? '<table><thead><tr><th>Tầng</th><th>Loại</th><th>Tên</th><th>Qua</th></tr></thead><tbody>'
         + v.slice(0, 500).map((x) => `<tr data-key="${esc(x.node.key)}"><td class="lv">${x.level}</td><td><span class="k ${esc(x.node.kind)}">${esc(KIND[x.node.kind] || x.node.kind)}</span></td>`
-          + `<td title="${esc(x.node.path || '')}">${esc(x.node.label)} ${dbTag(x.node)}</td><td class="nt">${esc(x.via)}</td></tr>`).join('') + '</tbody></table>'
+          + `<td title="${esc(x.node.path || '')}">${esc(x.node.label)} ${encTag(x.node)} ${dbTag(x.node)}</td><td class="nt">${esc(x.via)}</td></tr>`).join('') + '</tbody></table>'
         + (v.length > 500 ? `<div class="msg">Đang hiện 500/${v.length} dòng — gõ ô lọc phía trên để thu hẹp.</div>` : '')
       : '<div class="msg">Không thấy gì phụ thuộc vào nút này.</div>';
     if (r.warnings && r.warnings.length) $('iBody').insertAdjacentHTML('beforeend', '<div class="msg">⚠ ' + r.warnings.map(esc).join('<br>⚠ ') + '</div>');

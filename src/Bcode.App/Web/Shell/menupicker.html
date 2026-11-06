@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  /* "Chọn menu…" của Gen nhanh Menu (tab Gen Update) — Forms/MenuPickerForm.cs; chế độ App: Controls/NativePages.MenuPicker.cs. */
+  #filter { width: 100%; }
+  #tree { flex: 1; min-height: 0; overflow: auto; border: var(--bw) solid var(--border); border-radius: var(--r); background: var(--input); padding: .3rem .2rem .5rem; font-size: .98rem; outline: none; }
+  .tn { display: flex; align-items: center; gap: .4rem; padding: calc(.12rem * var(--dens)) .3rem; border-radius: var(--r-sm); white-space: nowrap; cursor: default; }
+  .tn:hover { background: rgba(127,127,127,.12); }
+  .tn.cur { background: var(--selection); }
+  .tn.grp > .nm { font-weight: 600; color: var(--accent); }
+  .tn .arrow { width: 1rem; text-align: center; color: var(--text-muted); font-size: .8em; flex: none; cursor: pointer; transition: transform .1s; }
+  .tn .arrow.open { transform: rotate(90deg); }
+  .tn .arrow.leaf { visibility: hidden; }
+  .tn .id { font-family: Consolas, monospace; color: var(--text-muted); font-size: .92em; flex: none; }
+  .tn .nm { overflow: hidden; text-overflow: ellipsis; }
+  .tn .sid { color: var(--text-muted); font-size: .85em; flex: none; }
+  .kids { margin-left: 1.15rem; border-left: 1px dotted var(--border); padding-left: .2rem; }
+  .kids.hide { display: none; }
+  .empty { padding: 1.4rem; text-align: center; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <input type="text" id="filter" placeholder="Lọc theo tên menu / WMenu ID / link / SysId (gõ không dấu cũng được)..." spellcheck="false" autocomplete="off" />
+  <div class="hint">Tick menu cần gen (tick nhóm = cả nhóm đang hiện). ↓ từ ô lọc xuống cây; Space = tick / bỏ; Enter hoặc double-click 1 menu = Gen Script Menu ngay.</div>
+  <div id="tree" tabindex="0"></div>
+</div>
+<div class="dlg-bar"><span class="status" id="count"></span><button id="bNone">Bỏ tick hết</button><button id="bCancel">Đóng</button><button id="bOk" class="primary">Gen Script Menu</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const S = { roots: [], checked: new Set(), open: new Set(), cur: null, rows: [] };
+
+  // Cùng luật ô lọc cây WCommand (WCommandService.Matches): NFC + chữ thường + gộp khoảng trắng; ô lọc không dấu thì so cả tên đã bỏ dấu.
+  const norm = (s, fold) => {
+    s = String(s || '').trim().split(/\s+/).join(' ').normalize('NFC').toLowerCase();
+    return fold ? s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd') : s;
+  };
+  function matcher(filter) {
+    const f = norm(filter, false);
+    if (!f) return null;
+    const fold = /^[\x00-\x7f]*$/.test(f);
+    return (n) => [n.bar, n.bar2, n.link, n.id, n.sysId].some((s) => norm(s, fold).includes(f));
+  }
+
+  function render() {
+    const box = $('tree'), m = matcher($('filter').value);
+    S.rows = [];
+    // Node hiện khi chính nó khớp (kèm mọi menu con — để tick cả nhóm) hoặc có menu con khớp (chỉ hiện nhánh khớp).
+    const build = (n, parentHit) => {
+      const self = parentHit || !m || m(n);
+      const kids = (n.kids || []).map((c) => build(c, self)).filter(Boolean);
+      if (!self && !kids.length) return null;
+      const grp = (n.kids || []).length > 0;
+      const wrap = document.createElement('div');
+      const row = document.createElement('div');
+      row.className = 'tn' + (grp ? ' grp' : '');
+      const isOpen = grp && (m ? true : S.open.has(n.id));
+      row.innerHTML = '<span class="arrow' + (grp ? (isOpen ? ' open' : '') : ' leaf') + '">▶</span><input type="checkbox" class="ck"' + (S.checked.has(n.id) ? ' checked' : '') + '>' +
+        '<span class="id">' + esc(n.id) + '</span><span class="nm" title="' + esc([n.bar, n.bar2, n.sysId ? 'SysId: ' + n.sysId : '', n.link].filter(Boolean).join('\n')) + '">' + esc(n.name) + '</span>' +
+        (n.sysId && !grp ? '<span class="sid">' + esc(n.sysId) + '</span>' : '');
+      row._n = n; row._wrap = wrap;
+      wrap.appendChild(row);
+      S.rows.push(row);
+      if (grp) {
+        const k = document.createElement('div'); k.className = 'kids' + (isOpen ? '' : ' hide');
+        kids.forEach((c) => k.appendChild(c));
+        wrap.appendChild(k); row._kids = k;
+      }
+      return wrap;
+    };
+    const frag = document.createDocumentFragment();
+    S.roots.forEach((r) => { const w = build(r, false); if (w) frag.appendChild(w); });
+    box.textContent = '';
+    if (!frag.childNodes.length) box.innerHTML = '<div class="empty">Không có menu nào khớp.</div>';
+    else box.appendChild(frag);
+    S.cur = null;
+    syncChecks();
+  }
+
+  const visibleRows = () => S.rows.filter((r) => r.offsetParent !== null);
+  function setCur(row, scroll) {
+    if (S.cur) S.cur.classList.remove('cur');
+    S.cur = row || null;
+    if (S.cur) { S.cur.classList.add('cur'); if (scroll) S.cur.scrollIntoView({ block: 'nearest' }); }
+  }
+  function toggleOpen(row, on) {
+    if (!row._kids) return;
+    const open = on == null ? row._kids.classList.contains('hide') : on;
+    row._kids.classList.toggle('hide', !open);
+    row.querySelector('.arrow').classList.toggle('open', open);
+    if (open) S.open.add(row._n.id); else S.open.delete(row._n.id);
+  }
+  // Tick 1 dòng: kéo theo mọi dòng con đang hiện trên cây.
+  function setChecked(row, on) {
+    const walk = (r) => {
+      if (on) S.checked.add(r._n.id); else S.checked.delete(r._n.id);
+      if (r._kids) r._kids.querySelectorAll(':scope > div > .tn').forEach(walk);
+    };
+    walk(row);
+    syncChecks();
+  }
+  function syncChecks() {
+    S.rows.forEach((r) => { r.querySelector('.ck').checked = S.checked.has(r._n.id); });
+    const n = S.checked.size;
+    $('count').textContent = n ? 'Đã tick ' + n + ' menu' : 'Chưa tick menu nào';
+    $('count').className = 'status';
+    $('bOk').textContent = n ? 'Gen Script Menu (' + n + ')' : 'Gen Script Menu';
+  }
+
+  function accept() {
+    // Chưa tick gì mà đang đứng ở 1 menu → lấy menu đó (gõ lọc, ↓ tới menu, Enter là xong).
+    if (!S.checked.size && S.cur) S.checked.add(S.cur._n.id);
+    if (!S.checked.size) { $('count').textContent = 'Tick ít nhất 1 menu.'; $('count').className = 'status err'; return; }
+    const ids = [];
+    const walk = (n) => { if (S.checked.has(n.id)) ids.push(n.id); (n.kids || []).forEach(walk); };
+    S.roots.forEach(walk);
+    post('ok', { ids, filter: $('filter').value.trim() });
+  }
+
+  const tree = $('tree');
+  tree.addEventListener('click', (e) => {
+    const row = e.target.closest('.tn'); if (!row) return;
+    setCur(row);
+    if (e.target.classList.contains('arrow')) { toggleOpen(row); return; }
+    if (e.target.classList.contains('ck')) { setChecked(row, e.target.checked); return; }
+    if (row._kids) toggleOpen(row);
+  });
+  tree.addEventListener('dblclick', (e) => {
+    const row = e.target.closest('.tn'); if (!row || row._kids || e.target.classList.contains('ck')) return;
+    if (!S.checked.has(row._n.id)) setChecked(row, true);
+    accept();
+  });
+  tree.addEventListener('keydown', (e) => {
+    const rows = visibleRows(); if (!rows.length) return;
+    let i = S.cur ? rows.indexOf(S.cur) : -1;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (e.key === 'ArrowUp' && i <= 0) { $('filter').focus(); return; }
+      setCur(rows[Math.min(rows.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))], true);
+    } else if (e.key === 'ArrowRight' && S.cur) { e.preventDefault(); toggleOpen(S.cur, true); }
+    else if (e.key === 'ArrowLeft' && S.cur) {
+      e.preventDefault();
+      if (S.cur._kids && !S.cur._kids.classList.contains('hide')) toggleOpen(S.cur, false);
+      else { const p = S.cur._wrap.parentElement && S.cur._wrap.parentElement.closest('div:not(.kids)'); const pr = p && p.querySelector(':scope > .tn'); if (pr && pr !== S.cur) setCur(pr, true); }
+    } else if (e.key === ' ' && S.cur) { e.preventDefault(); setChecked(S.cur, !S.checked.has(S.cur._n.id)); }
+    else if (e.key === 'Enter') { e.preventDefault(); accept(); }
+  });
+
+  let timer = null;
+  $('filter').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(render, 160); });
+  $('filter').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); const rows = visibleRows(); if (rows.length) { tree.focus(); setCur(rows.find((r) => !r._kids) || rows[0], true); } }
+    else if (e.key === 'Enter') { e.preventDefault(); if (timer) { clearTimeout(timer); timer = null; render(); } accept(); }
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); });
+  $('bOk').onclick = accept;
+  $('bCancel').onclick = () => post('cancel');
+  $('bNone').onclick = () => { S.checked.clear(); syncChecks(); };
+
+  window.menuPicker = {
+    // d = { roots: [{id, name, bar, bar2, link, sysId, kids}], checked: [id], filter }
+    init(d) {
+      S.roots = d.roots || []; S.checked = new Set(d.checked || []); S.open.clear();
+      // Không lọc: mở sẵn các nhánh đang chứa menu được tick (mở lại hộp vẫn thấy menu đã chọn).
+      const walk = (n) => { let any = S.checked.has(n.id); (n.kids || []).forEach((c) => { if (walk(c)) { any = true; S.open.add(n.id); } }); return any; };
+      S.roots.forEach(walk);
+      $('filter').value = d.filter || '';
+      render();
+      $('filter').focus(); $('filter').select();
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

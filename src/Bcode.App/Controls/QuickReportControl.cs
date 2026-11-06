@@ -185,15 +185,55 @@ public class QuickReportControl : UserControl
                 proc = rd.GetString(0);   // đúng hoa/thường như trong database
             }
             var ctx = new ColumnHeaderGuesser.Context(proc, Array.Empty<string>(), "", "");
-            var ps = (await QuickReportService.ReadParamsAsync(conn, proc)).Select(x =>
+            var info = await QuickReportService.ReadProcAsync(conn, proc);
+            var suggested = info.Params.Select(QuickReportService.SuggestParam).ToList();
+
+            // Filter có sẵn trong source đang exec procedure này (hoặc bản z…): lấy cách nó truyền tham số — hằng số như @Order = 'a.ma_kh',
+            // @Form = 1 mà để trống thì procedure ghép SQL động ra sai cú pháp.
+            var applied = new List<string>();
+            QuickReportService.FilterCall? call = null;
+            if (Ws?.SourcePath is { Length: > 0 } src)
             {
-                var p = QuickReportService.SuggestParam(x.Name, x.SqlType, x.IsOutput);
+                try { call = await Task.Run(() => QuickReportService.FindFilterCall(src, proc)).WaitAsync(TimeSpan.FromSeconds(8)); }
+                catch { /* source mạng chậm / không vào được — bỏ qua */ }
+            }
+            if (call != null)
+            {
+                // gọi đúng procedure: theo vị trí / tên; gọi bản khác (zrs_…): map theo TÊN tham số của bản được gọi
+                var calledNames = call.Proc.Equals(proc, StringComparison.OrdinalIgnoreCase)
+                    ? info.Params.Select(x => x.Name).ToList()
+                    : (await QuickReportService.ReadParamsAsync(conn, call.Proc)).Select(x => x.Name).ToList();
+                var byName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                for (var i = 0; i < call.Args.Count; i++)
+                {
+                    var name = call.Args[i].Name ?? (i < calledNames.Count ? calledNames[i] : null);
+                    if (name != null) byName.TryAdd(name, call.Args[i].Arg);
+                }
+                foreach (var p in suggested)
+                    if (byName.TryGetValue(p.Name, out var arg) && QuickReportService.ApplyFilterArg(p, arg, call) is { } note) applied.Add(note);
+            }
+
+            // ô lọc trống / 0 mà procedure dùng sao cho trống sẽ lỗi (ghép thẳng vào SQL động, làm số chia…) → tự điền giá trị thử;
+            // tham số sắp xếp (@Order kiểu Fast — Filter gốc truyền hằng) → tham số hệ thống
+            var filled = QuickReportService.SuggestBlankValues(info, suggested, out var risky);
+
+            var ps = suggested.Select(p =>
+            {
                 if (p.IsFilter && p.HeaderV.Length == 0 && _headers.Guess(p.Field, ctx) is { } g) { p.HeaderV = g.V; p.HeaderE = QuickReportService.English(g.V, g.E); }
                 return ParamDto(p);
             }).ToList();
             var saved = QuickListConfigStore.Load(WorkspaceKey, proc, ConfigFolder);
             Js($"qr.onProc({J(new { proc, controller = DefaultController(proc), @params = ps, saved })})");
-            Js($"qr.onStatus({J($"{proc}: {ps.Count} tham số. Kiểm tra ô lọc, nhập giá trị thử rồi bấm “▶ Chạy store”.")}, 'ok')");
+
+            var msg = $"{proc}: {ps.Count} tham số.";
+            if (call != null)
+                msg += $" Theo Filter {call.File} (exec {call.Proc})" + (applied.Count > 0 ? $": truyền hằng {string.Join(", ", applied.Take(6))}{(applied.Count > 6 ? "…" : "")}." : ".");
+            if (filled.Count > 0)
+                msg += $" Tự điền vì để trống store sẽ lỗi: {string.Join(", ", filled)} — xem lại trước khi Lưu.";
+            if (risky.Count > 0)
+                msg += $" ⚠ Store ghép thẳng {string.Join(", ", risky.Select(n => "@" + n))} vào câu SQL động mà không kiểm tra rỗng — nhập giá trị thử (hoặc chuyển thành tham số hệ thống với hằng số), để trống dễ lỗi cú pháp.";
+            else msg += " Kiểm tra ô lọc, nhập giá trị thử rồi bấm “▶ Chạy store”.";
+            Js($"qr.onStatus({J(msg)}, '{(risky.Count > 0 ? "warn" : "ok")}')");
         }
         catch (Exception ex) { Js($"qr.onStatus({J("Không đọc được procedure: " + ex.Message)}, 'err')"); }
     }
@@ -244,12 +284,14 @@ public class QuickReportControl : UserControl
         {
             await using var conn = _connections.CreateConnection(false);
             await conn.OpenAsync(cts.Token);
-            var sets = await QuickReportService.RunAsync(conn, spec, Ws?.SysDatabase ?? "", SampleRows, cts.Token);
+            var notes = new List<string>();
+            var sets = await QuickReportService.RunAsync(conn, spec, Ws?.SysDatabase ?? "", SampleRows, cts.Token, notes);
             if (!ReferenceEquals(_runCts, cts)) return;   // đã có lần chạy mới hơn
             var ctx = new ColumnHeaderGuesser.Context(spec.ProcName, Array.Empty<string>(), spec.TitleV, spec.TitleE);
             Js($"qr.onRun({J(new
             {
                 ms = sw.ElapsedMilliseconds,
+                note = notes.Count > 0 ? $"Tham số trống bị store ghép thẳng vào SQL, chạy thử đã truyền {string.Join(", ", notes)} — nhập giá trị đó vào ô lọc (hoặc “⇣ Hệ thống” truyền hằng) để báo cáo thật không lỗi." : "",
                 sets = sets.Select(s => new
                 {
                     columns = s.Columns.Select(c =>

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Bcode.App.Models;
@@ -21,10 +22,14 @@ public class VoucherCloneForm : WebDialogForm
     private readonly AppSettings _settings;
     private readonly VoucherCloneService _service;
     private readonly VoucherSqlScriptService _sql;
-    private readonly object _cacheLock = new();
-    private string _cacheSource = "";
-    private List<VoucherInfo>? _vouchers;
-    private EntityIndex? _entities;
+    private readonly object _loadLock = new();
+    private CancellationTokenSource _loadCts = new();
+    private Task<SourceData>? _load;
+    private string _loadSource = "";
+    private VoucherPreviewForm? _preview;
+
+    /// <summary>Cây file + chỉ mục của 1 thư mục source, dựng 1 lần ở nền rồi mọi bước dùng chung.</summary>
+    private sealed record SourceData(SourceTree Tree, EntityIndex Entities);
 
     public VoucherCloneForm(DbConnectionService connections, WCommandService wcommand, AppSettings settings)
         : base(Title, "vouchercopy.html", 1300, 860, 900, 600)
@@ -37,15 +42,25 @@ public class VoucherCloneForm : WebDialogForm
 
         // Mở song song với Bcode (MainForm.OpenVoucherClone dùng Show) — cửa sổ riêng trên taskbar, thu nhỏ được.
         StartPosition = FormStartPosition.CenterScreen;
+        WindowState = FormWindowState.Maximized;
         MinimizeBox = true;
         ShowInTaskbar = true;
         if (Bcode.App.UI.AppIcons.AppIcon is { } icon) { Icon = icon; ShowIcon = true; }
+        Bcode.App.UI.ThemeManager.Subscribe(this, PushEditorTheme);
     }
 
     private static string Desktop => Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
 
+    /// <summary>Theme cho các khung Monaco trong trang: tô màu XML / SQL giống BcodeViewer.</summary>
+    private void PushEditorTheme()
+    {
+        try { Js($"vc.onTheme({Bcode.App.Controls.MonacoPreviewControl.ThemeJson(Bcode.App.UI.AppColors.IsDark)})"); }
+        catch { /* viewer-theme.json đang ghi dở — giữ theme hiện tại */ }
+    }
+
     protected override void OnReady()
     {
+        PushEditorTheme();
         var src = _connections.Current?.SourcePath ?? "";
         Js($"vc.init({J(new { source = src, workspaceSource = src, desktop = Path.Combine(Desktop, "VoucherClone") })})");
         // Đường mạng: không tự đọc khi mở form, chờ người dùng bấm Quét.
@@ -61,11 +76,13 @@ public class VoucherCloneForm : WebDialogForm
         {
             case "scan": await ScanAsync(S("source")); break;
             case "suggestTableNo": await SuggestTableNoAsync(); break;
+            case "approval": await ApprovalAsync(S("source"), S("sysId"), S("code")); break;
             case "plan": await PlanAsync(S("source"), ReadSpec(msg.GetProperty("spec"))); break;
             case "sql": await SqlAsync(msg); break;
-            case "previewFile": Preview(S("source"), S("rel"), S("kind"), ReadSpec(msg.GetProperty("spec"))); break;
+            case "previewFile": await PreviewAsync(S("source"), S("rel"), S("kind"), ReadSpec(msg.GetProperty("spec"))); break;
+            case "viewVoucher": await ViewVoucherAsync(msg); break;
             case "menu": await MenuAsync(ReadSpec(msg.GetProperty("spec")), S("mainTarget")); break;
-            case "generate": { var copy = msg.Clone(); BeginInvoke(new Action(() => Generate(copy))); break; }
+            case "generate": { var copy = msg.Clone(); var data = await DataAsync(S("source")); BeginInvoke(new Action(() => Generate(copy, data))); break; }
             case "pickFolder":
             {
                 var target = S("target");
@@ -90,6 +107,7 @@ public class VoucherCloneForm : WebDialogForm
             SrcCode = S("srcCode"), SrcSysId = S("srcSysId"), SrcTitleV = S("srcTitleV"), SrcTitleE = S("srcTitleE"), SrcTableNo = S("srcTableNo"),
             DstCode = S("dstCode"), DstSysId = S("dstSysId"), DstPrefix = S("dstPrefix"), DstTitleV = S("dstTitleV"), DstTitleE = S("dstTitleE"),
             NewTables = s.TryGetProperty("newTables", out var n) && n.ValueKind == JsonValueKind.True, DstTableNo = S("dstTableNo"),
+            SrcApprove = S("srcApprove"), DstApprove = S("dstApprove"), DstApproveController = S("dstApproveController"), SrcNotify = S("srcNotify"), DstNotify = S("dstNotify"),
         };
         if (s.TryGetProperty("fileRenames", out var fr) && fr.ValueKind == JsonValueKind.Array)
             spec.FileRenames = fr.EnumerateArray().Select(x => (x.GetProperty("from").GetString() ?? "", x.GetProperty("to").GetString() ?? "")).ToList();
@@ -98,29 +116,83 @@ public class VoucherCloneForm : WebDialogForm
         return spec;
     }
 
-    /// <summary>Danh sách chứng từ và chỉ mục entity của 1 thư mục source — đọc 1 lần, bấm Quét thì đọc lại.</summary>
-    private (List<VoucherInfo> Vouchers, EntityIndex Entities) Cache(string source)
-    {
-        lock (_cacheLock)
-        {
-            if (!source.Equals(_cacheSource, StringComparison.OrdinalIgnoreCase)) { _vouchers = null; _entities = null; _cacheSource = source; }
-            _vouchers ??= VoucherCloneService.ScanVouchers(source);
-            _entities ??= EntityIndex.Build(source);
-            return (_vouchers, _entities);
-        }
-    }
 
     /// <summary>
     /// Chuẩn bị spec theo đúng các file sẽ chép (tiền tố chứng từ khác, tên dùng chung, entity chép / giữ tên) để xem trước, SQL và ghi file
     /// ra cùng 1 kết quả. Không truyền <paramref name="copied"/> thì lấy file đang tick ở bước 2, chưa có thì mọi file trừ file sao lưu.
     /// </summary>
-    private void Prepare(string source, VoucherCloneSpec spec, IEnumerable<string>? copied = null)
+    private static void Prepare(SourceData data, VoucherCloneSpec spec, IEnumerable<string>? copied = null)
     {
-        var (vouchers, entities) = Cache(source);
-        spec.OtherPrefixes = VoucherCloneService.OtherPrefixes(vouchers, spec.SrcPrefix);
+        spec.OtherPrefixes = VoucherCloneService.OtherPrefixes(data.Entities.Vouchers, spec.SrcPrefix);
         var list = copied ?? (spec.Copied.Count > 0 ? spec.Copied
-            : VoucherCloneService.SourceFiles(source, spec.SrcPrefix, spec.OtherPrefixes).Where(f => !VoucherCloneService.IsBackupName(Path.GetFileName(f))));
-        VoucherCloneService.Prepare(source, spec, list, entities);
+            : VoucherCloneService.SourceFiles(data.Tree, spec.SrcPrefix, spec.OtherPrefixes).Where(f => !VoucherCloneService.IsBackupOf(f, spec.SrcSysId)));
+        VoucherCloneService.Prepare(data.Tree, spec, list, data.Entities);
+    }
+
+    /// <summary>
+    /// Dữ liệu của 1 source: đang dựng hoặc đã xong thì dùng lại, không dựng 2 lần. <paramref name="refresh"/> = duyệt lại cây (bấm Quét);
+    /// file không đổi vẫn lấy từ cache trên đĩa nên không đọc lại.
+    /// </summary>
+    private Task<SourceData> DataAsync(string source, bool refresh = false)
+    {
+        lock (_loadLock)
+        {
+            if (!refresh && _load is { IsFaulted: false, IsCanceled: false } && source.Equals(_loadSource, StringComparison.OrdinalIgnoreCase)) return _load;
+            _loadCts.Cancel();
+            _loadCts = new CancellationTokenSource();
+            var ct = _loadCts.Token;
+            _loadSource = source;
+            return _load = Task.Run(() => LoadSource(source, ct), ct);
+        }
+    }
+
+    private SourceData LoadSource(string source, CancellationToken ct)
+    {
+        // Source của workspace: danh sách theo wcommand, hỏi database song song với duyệt cây. Dự án khác không có kết nối nên theo file Dir.
+        var menuTask = IsWorkspace(source) ? MenuVouchersAsync() : Task.FromResult<List<VoucherInfo>?>(null);
+        var tree = SourceTree.Load(source, ct);
+        List<VoucherInfo>? all = null;
+        var entities = EntityIndex.Load(tree, CachePath(source), (done, total) => Js($"vc.onIndex({done}, {total})"),
+            dir => all = ShowVouchers(source, dir, menuTask.GetAwaiter().GetResult()), ct);
+        entities.Vouchers = all ?? ShowVouchers(source, entities.Vouchers, menuTask.GetAwaiter().GetResult());   // không có Controllers thì EntityIndex không báo danh sách
+        Js("vc.onIndex(0, 0)");
+        return new SourceData(tree, entities);
+    }
+
+    private static string CachePath(string source)
+    {
+        var key = SHA1.HashData(Encoding.UTF8.GetBytes(source.TrimEnd('\\', '/').ToLowerInvariant()));
+        return Path.Combine(BcodePaths.AppData, "cache", "voucher-clone", Convert.ToHexString(key)[..16] + ".json.gz");
+    }
+
+    private bool IsWorkspace(string source) => source.Equals(_connections.Current?.SourcePath ?? "", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Chứng từ theo wcommand; null = không đọc được hoặc không có dòng nào (sản phẩm không có wcommand), khi đó theo file Dir.</summary>
+    private async Task<List<VoucherInfo>?> MenuVouchersAsync()
+    {
+        try { return await _service.MenuVouchersAsync() is { Count: > 0 } list ? list : null; }
+        catch { return null; }
+    }
+
+    /// <summary>Đưa danh sách lên trang. Trả về mọi chứng từ đã biết, gồm cả chứng từ có file mà không có menu: vẫn phải tính khi kiểm tra trùng mã và tiền tố.</summary>
+    private List<VoucherInfo> ShowVouchers(string source, List<VoucherInfo> dir, List<VoucherInfo>? menu)
+    {
+        var (list, others) = menu != null ? VoucherCloneService.MergeMenu(menu, dir) : (dir, new List<VoucherInfo>());
+        static object Row(VoucherInfo v) => new { code = v.Code, sysId = v.SysId, table = v.Table, titleV = v.TitleV, titleE = v.TitleE, prefix = v.Prefix, tableNo = v.TableNo };
+        Js($"vc.onVouchers({J(list.Select(Row))}, {J(IsWorkspace(source))}, {J(others.Select(Row))})");
+
+        var withFile = dir.Select(v => v.SysId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var status = menu != null ? $"{list.Count} chứng từ trong wcommand, {list.Count(v => withFile.Contains(v.SysId))} chứng từ có file Dir trong source."
+            : $"{list.Count} chứng từ trong source." + (IsWorkspace(source) ? " Không lấy được từ wcommand nên liệt kê theo file Dir." : "");
+        Js($"vc.onStatus({J(status)}, {J(list.Count == 0 ? "err" : "")})");
+        return list.Concat(others).ToList();
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        _loadCts.Cancel();   // đang đọc source: dừng, phần đã đọc vẫn được lưu vào cache
+        _preview?.Close();
+        base.OnFormClosed(e);
     }
 
     // ---- Bước 1 ---------------------------------------------------------------------------------------
@@ -131,12 +203,22 @@ public class VoucherCloneForm : WebDialogForm
         Js($"vc.onStatus({J("Đang quét chứng từ trong source...")}, '')");
         try
         {
-            lock (_cacheLock) { _vouchers = null; _entities = null; }
-            var list = await Task.Run(() => VoucherCloneService.ScanVouchers(source));
-            Js($"vc.onVouchers({J(list.Select(v => new { code = v.Code, sysId = v.SysId, table = v.Table, titleV = v.TitleV, titleE = v.TitleE, prefix = v.Prefix, tableNo = v.TableNo }))}, {J(source.Equals(_connections.Current?.SourcePath ?? "", StringComparison.OrdinalIgnoreCase))})");
-            Js($"vc.onStatus({J(VoucherCloneService.ControllersDir(source) == null ? "Không thấy App_Data\\Controllers trong thư mục source." : $"{list.Count} chứng từ trong source.")}, {J(list.Count == 0 ? "err" : "")})");
+            var data = await DataAsync(source, refresh: true);   // danh sách chứng từ hiện ngay khi đọc xong Dir, phần còn lại đọc tiếp ở nền
+            if (data.Tree.Controllers == null) Js($"vc.onStatus({J("Không thấy App_Data\\Controllers trong thư mục source.")}, 'err')");
         }
+        catch (OperationCanceledException) { /* bấm Quét lần nữa hoặc đóng form */ }
         catch (Exception ex) { Js($"vc.onStatus({J("Không quét được source: " + ex.Message)}, 'err')"); }
+    }
+
+    /// <summary>Khai báo duyệt / thông báo của chứng từ nguồn, hiện ngay khi chọn. Loại duyệt không khai trong file thì hỏi gndmloaiduyet.</summary>
+    private async Task ApprovalAsync(string source, string sysId, string code)
+    {
+        VoucherApproval? info = null;
+        try { info = await Task.Run(() => VoucherCloneService.ReadApproval(source, sysId)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* không đọc được file: để trống cho người dùng tự nhập */ }
+        var type = info?.Type;
+        if (type == null) try { type = await _sql.SourceApproveTypeAsync(code); } catch { /* không có DB */ }
+        Js($"vc.onApproval({J(sysId)}, {J(new { hasFile = info != null, type, controller = info?.Controller, notify = info?.Notify })})");
     }
 
     private async Task SuggestTableNoAsync()
@@ -151,57 +233,88 @@ public class VoucherCloneForm : WebDialogForm
     {
         try
         {
-            var (vouchers, _) = await Task.Run(() => Cache(source));
-            spec.OtherPrefixes = VoucherCloneService.OtherPrefixes(vouchers, spec.SrcPrefix);
-            var files = await Task.Run(() => VoucherCloneService.SourceFiles(source, spec.SrcPrefix, spec.OtherPrefixes));
+            // Hỏi database song song với đọc source.
+            var menusTask = _wcommand.FindByControllerAsync(spec.SrcSysId);
+            var data = await DataAsync(source);
+            spec.OtherPrefixes = VoucherCloneService.OtherPrefixes(data.Entities.Vouchers, spec.SrcPrefix);
+            var files = await Task.Run(() => VoucherCloneService.SourceFiles(data.Tree, spec.SrcPrefix, spec.OtherPrefixes));
 
             // Main *.aspx: theo link menu của chứng từ nguồn (wcommand) — file trong source\Main.
             var menus = new List<WCommandItem>();
-            try { menus = await _wcommand.FindByControllerAsync(spec.SrcSysId); } catch { /* không đọc được wcommand */ }
+            try { menus = await menusTask; } catch { /* không đọc được wcommand */ }
             foreach (var link in menus.Select(m => (m.Link ?? "").Split('?')[0].Trim()).Where(l => l.EndsWith(".aspx", StringComparison.OrdinalIgnoreCase)).Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 var rel = Path.Combine("Main", link.Replace('/', '\\'));
                 if (File.Exists(Path.Combine(source, rel)) && !files.Contains(rel, StringComparer.OrdinalIgnoreCase)) files.Add(rel);
             }
             // Include riêng của chứng từ nằm ngoài Controllers: tham chiếu sẽ đổi tên nên file cũng phải chép theo.
-            var specific = await Task.Run(() => VoucherCloneService.References(source, files, spec.SrcPrefix, spec.SrcCode, spec.OtherPrefixes)
+            await Task.Run(() => data.Tree.Preload(files));   // đọc song song 1 lần, các bước dưới dùng lại
+            var specific = await Task.Run(() => VoucherCloneService.References(data.Tree, files, spec.SrcPrefix, spec.SrcCode, spec.OtherPrefixes)
                 .Where(r => r.Specific && r.Exists && !r.Rel.StartsWith("..", StringComparison.Ordinal) && !files.Contains(r.Rel, StringComparer.OrdinalIgnoreCase)).Select(r => r.Rel).ToList());
             files.AddRange(specific);
-            var copied = files.Where(f => !VoucherCloneService.IsBackupName(Path.GetFileName(f))).ToList();
-            await Task.Run(() => Prepare(source, spec, copied));
+            var copied = files.Where(f => !VoucherCloneService.IsBackupOf(f, spec.SrcSysId)).ToList();
+            await Task.Run(() => Prepare(data, spec, copied));
 
-            var registry = await Task.Run(() => VoucherCloneService.RegistryEdits(source, spec, copied));
-            var refs = await Task.Run(() => VoucherCloneService.References(source, files, spec.SrcPrefix, spec.SrcCode, spec.OtherPrefixes)
+            var registry = await Task.Run(() => VoucherCloneService.RegistryEdits(data.Tree, spec, copied, data.Entities));
+            var refs = await Task.Run(() => VoucherCloneService.References(data.Tree, files, spec.SrcPrefix, spec.SrcCode, spec.OtherPrefixes)
                 .Where(r => !files.Contains(r.Rel, StringComparer.OrdinalIgnoreCase)).ToList());
-            var controllers = await Task.Run(() => VoucherCloneService.ReferencedControllers(source, files));
-            string? approve = null;
-            try { approve = await _sql.SourceApproveTypeAsync(spec.SrcCode); } catch { /* không có DB */ }
+            var controllers = await Task.Run(() => VoucherCloneService.ReferencedControllers(data.Tree, files));
 
             Js($"vc.onPlan({J(new
             {
-                files = files.Select(f => new { rel = f, target = VoucherCloneService.TargetPath(f, spec), text = VoucherCloneService.IsText(Path.Combine(source, f)), backup = VoucherCloneService.IsBackupName(Path.GetFileName(f)) }),
+                files = files.Select(f => new { rel = f, target = VoucherCloneService.TargetPath(f, spec), text = data.Tree.Text(f) != null, backup = VoucherCloneService.IsBackupOf(f, spec.SrcSysId) }),
                 kept = spec.KeepEntities.OrderBy(k => k, StringComparer.OrdinalIgnoreCase),
                 registry = registry.Select(r => new { rel = r.Rel, added = r.Added }),
                 refs = refs.Select(r => new { rel = r.Rel, exists = r.Exists, specific = r.Specific }),
                 controllers,
                 menus = menus.Select(m => new { id = m.WMenuId, parent = m.WMenuId0, bar = m.Bar, bar2 = m.Bar2, link = m.Link, menuId = m.MenuId }),
-                approve,
             })})");
         }
         catch (Exception ex) { Js($"vc.onStatus({J("Không lập được danh sách file: " + ex.Message)}, 'err')"); }
     }
 
-    private void Preview(string source, string rel, string kind, VoucherCloneSpec spec)
+    /// <summary>"Xem chứng từ": dựng màn hình Dir của chứng từ mới từ các file đang tick, chưa ghi gì xuống đĩa.</summary>
+    private async Task ViewVoucherAsync(JsonElement msg)
     {
         try
         {
-            var full = Path.Combine(source, rel);
-            if (!VoucherCloneService.IsText(full)) { Js($"vc.onPreview({J(rel)}, {J("(file nhị phân — chép nguyên)")})"); return; }
-            Prepare(source, spec);
-            var text = VoucherCloneService.ReadText(full, out _);
-            if (kind == "registry") VoucherCloneService.AddRegistryLines(source, rel, text, spec, out text);
-            else if (kind != "asis") text = VoucherCloneService.Transform(text, spec);
-            Js($"vc.onPreview({J(rel)}, {J(text)})");
+            var source = msg.GetProperty("source").GetString() ?? "";
+            var spec = ReadSpec(msg.GetProperty("spec"));
+            var files = msg.GetProperty("files").EnumerateArray().Select(x => (Rel: x.GetProperty("rel").GetString() ?? "", Target: x.GetProperty("target").GetString() ?? ""))
+                .Where(x => x.Rel.Length > 0 && x.Target.Length > 0).ToList();
+            var registry = msg.GetProperty("registry").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+            var dirs = files.Select(f => f.Target).Where(t => t.Contains(@"\Dir\", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(t => Path.GetFileNameWithoutExtension(t).Equals(spec.DstSysId, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .ThenBy(t => t, StringComparer.OrdinalIgnoreCase).ToList();
+            if (dirs.Count == 0) { Js($"vc.onStatus({J("Không có file Dir nào đang tick để xem.")}, 'err')"); return; }
+
+            var data = await DataAsync(source);
+            await Task.Run(() => Prepare(data, spec, files.Select(f => f.Rel)));
+            var overlay = new VoucherOverlay(data.Tree, spec, files, registry);
+            Js("vc.onStatus('', '')");
+            _preview?.Close();
+            _preview = new VoucherPreviewForm(overlay, dirs, $"Xem chứng từ — {spec.DstCode} {spec.DstSysId}");
+            _preview.FormClosed += (s, _) => { if (ReferenceEquals(s, _preview)) _preview = null; };
+            _preview.Show();
+        }
+        catch (Exception ex) { Js($"vc.onStatus({J("Không dựng được màn hình: " + ex.Message)}, 'err')"); }
+    }
+
+    private async Task PreviewAsync(string source, string rel, string kind, VoucherCloneSpec spec)
+    {
+        try
+        {
+            var data = await DataAsync(source);
+            // Chạy ngoài luồng giao diện: file chưa đọc lần nào thì phải qua mạng.
+            var result = await Task.Run(() =>
+            {
+                if (data.Tree.Text(rel) is not { } text) return "(file nhị phân — chép nguyên)";
+                Prepare(data, spec);
+                if (kind == "registry") VoucherCloneService.AddRegistryLines(source, rel, text, spec, out text);
+                else if (kind != "asis") text = VoucherCloneService.Transform(text, spec);
+                return text;
+            });
+            Js($"vc.onPreview({J(rel)}, {J(result)})");
         }
         catch (Exception ex) { Js($"vc.onPreview({J(rel)}, {J("Không đọc được: " + ex.Message)})"); }
     }
@@ -215,7 +328,8 @@ public class VoucherCloneForm : WebDialogForm
         try
         {
             var sourceRoot = S("source");
-            await Task.Run(() => Prepare(sourceRoot, spec));
+            var data = await DataAsync(sourceRoot);
+            await Task.Run(() => Prepare(data, spec));
             // freecolumns khai theo controller của chứng từ: {SysID}, {tiền tố}Detail / Tax / Charge / Deductible (như gói FCode).
             var controllers = new[] { spec.SrcPrefix + "Detail", spec.SrcSysId, spec.SrcPrefix + "Tax", spec.SrcPrefix + "Charge", spec.SrcPrefix + "Deductible" };
             var blocks = await _sql.ConfigBlocksAsync(spec, controllers, S("srcApprove"), S("dstApprove"));
@@ -289,7 +403,7 @@ public class VoucherCloneForm : WebDialogForm
 
     // ---- Bước 6: ghi gói ---------------------------------------------------------------------------------
 
-    private void Generate(JsonElement msg)
+    private void Generate(JsonElement msg, SourceData data)
     {
         string S(string n) => msg.TryGetProperty(n, out var p) && p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "") : "";
         var source = S("source").Trim();
@@ -325,7 +439,7 @@ public class VoucherCloneForm : WebDialogForm
         var webRoot = direct ? source : Path.Combine(output, "Web");
         try
         {
-            Prepare(source, spec, files.Select(f => f.Rel));
+            Prepare(data, spec, files.Select(f => f.Rel));
             var targets = files.Select(f => Path.Combine(webRoot, f.Target)).Concat(registry.Select(r => Path.Combine(webRoot, r)))
                 .Concat(direct ? Enumerable.Empty<string>() : copies.Select(r => Path.Combine(webRoot, r))).ToList();
             var existing = targets.Where(File.Exists).ToList();

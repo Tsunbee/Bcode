@@ -45,6 +45,8 @@ public class VoucherSqlScriptService
     {
         if (srcApprove is { Length: > 0 } && dstApprove is { Length: > 0 } && col.Equals("loai_duyet", StringComparison.OrdinalIgnoreCase)
             && value.Trim().Equals(srcApprove, StringComparison.OrdinalIgnoreCase)) return dstApprove;
+        if (s.DstNotify.Length > 0 && table.Equals("notifygroup", StringComparison.OrdinalIgnoreCase) && col.Equals("code", StringComparison.OrdinalIgnoreCase)
+            && value.Trim().Equals(s.SrcNotify, StringComparison.OrdinalIgnoreCase)) return s.DstNotify;
         if (value.Trim().Equals(s.SrcCode, StringComparison.OrdinalIgnoreCase)) return s.DstCode;
         // Tên chứng từ (dmct.ten_ct / ten_ct2 / tieu_de_ct viết HOA, freefunctions.description...): trùng tiêu đề nguồn → tiêu đề mới, giữ kiểu HOA.
         static bool IsUpper(string x) => x.Any(char.IsLetter) && x == x.ToUpperInvariant();
@@ -106,6 +108,8 @@ public class VoucherSqlScriptService
                                || table is "voucherinfo" or "notifygroup";
                 bool? home = inSys.Contains(table) && inApp.Contains(table) ? sysTable : inSys.Contains(table) ? true : inApp.Contains(table) ? false : null;
                 if (home != sys) continue;
+                // Không có mã thông báo mới: chứng từ mới dùng chung nhóm của nguồn, chép dòng sẽ trùng notifygroup.code.
+                if (table == "notifygroup" && (s.DstNotify.Length == 0 || s.DstNotify.Equals(s.SrcNotify, StringComparison.OrdinalIgnoreCase))) continue;
 
                 string[] srcKeys, dstKeys;
                 switch (kind)

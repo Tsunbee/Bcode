@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xem chứng từ</title>
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="viewer/dp.css" />
+<style>
+  /* "Xem chứng từ" (Forms/VoucherPreviewForm.cs): chạy nguyên dirpreview.js + entity.js của BcodeViewer qua shim.js của Screen Designer
+     (link vào viewer/ lúc build, xem Bcode.App.csproj). File đọc từ VoucherOverlay, chưa ghi gì xuống đĩa. */
+  :root { --bc-border: var(--border); --bc-panel: var(--panel); --bc-text: var(--text); --bc-text-muted: var(--text-muted); }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); }
+  body { display: flex; flex-direction: column; }
+  #top { flex: none; display: flex; align-items: center; gap: .6rem; padding: .4rem .6rem; border-bottom: 1px solid var(--border); }
+  #top[hidden] { display: none; }
+  #main { flex: 1; min-height: 0; display: flex; }
+  #dirPreviewPanel { width: 100% !important; flex: 1 1 auto; border-left: 0; }
+  #dpResizer, #dpClose { display: none; }
+  /* Chỉ xem: bỏ mọi thứ của kéo-thả (dirpreview.js dùng chung nên chặn ở đây, không sửa file đó). */
+  .dpPalette, .dpNewRow, .dpGrip { display: none !important; }
+  .dpTd[draggable="true"], .dpGridTbl th[draggable="true"], .dpLbl, .dpNote, .dpFC { cursor: default !important; }
+</style>
+</head>
+<body>
+<div id="top" hidden><label>Màn hình <select id="dirs"></select></label></div>
+<div id="main"></div>
+<script>
+(function () {
+  const pending = new Map();
+  let seq = 0;
+  const post = (msg) => window.chrome.webview.postMessage(JSON.stringify(msg));
+  window.bcodeHost = {
+    call(method, ...args) {
+      return new Promise((resolve, reject) => {
+        const id = ++seq;
+        pending.set(id, { resolve, reject });
+        post({ action: 'host', id, method, args: args.map(String) });
+      });
+    },
+  };
+  window.vv = {
+    onHost(id, ok, result) {
+      const p = pending.get(id);
+      if (!p) return;
+      pending.delete(id);
+      if (ok) p.resolve(result); else p.reject(new Error(result));
+    },
+    init(dirs) { window.vvStart(dirs); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+<script src="viewer/shim.js"></script>
+<script src="viewer/entity.js"></script>
+<script src="viewer/dirpreview.js"></script>
+<script>
+(function () {
+  const bcode = new FakeBcode();
+  bcode.editor.executeEdits = () => false;   // chỉ xem: không sửa gì
+  // Chặn ở pha capture của window, trước các handler kéo-thả / Ctrl+bấm chọn ô mà dirpreview.js gắn vào từng ô.
+  window.addEventListener('dragstart', (e) => { e.preventDefault(); e.stopImmediatePropagation(); }, true);
+  window.addEventListener('click', (e) => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  window.bcodeEntity = new BcodeEntity(bcode);
+  const preview = new BcodeDirPreview(bcode);
+  window.bcodeDirPreview = preview;
+  const select = document.getElementById('dirs');
+
+  async function show(path) {
+    try {
+      const text = String(await window.bcodeHost.call('BeginReadFile', path)).replace(/^﻿/, '');
+      bcode.setText(text, path);
+      preview.open = true;
+      preview.panel.style.display = 'flex';
+      await preview.render(true);
+    } catch (e) { preview.panel.style.display = 'flex'; preview.message('Không đọc được file: ' + e.message); }
+  }
+  window.vvStart = (dirs) => {
+    select.innerHTML = '';
+    for (const d of dirs) { const o = document.createElement('option'); o.value = d.path; o.textContent = d.name; select.append(o); }
+    document.getElementById('top').hidden = dirs.length < 2;
+    if (dirs.length) show(dirs[0].path);
+  };
+  select.onchange = () => show(select.value);
+})();
+</script>
+</body>
+</html>

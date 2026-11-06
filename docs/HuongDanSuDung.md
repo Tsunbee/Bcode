@@ -962,12 +962,12 @@ Khi tester / triển khai ghi chú hay ghi lỗi vào y/c trên QLYC (FSG), Bcod
 <a id="tao-chung-tu"></a>
 ## Tạo chứng từ
 
-Nhân bản một chứng từ có sẵn sang mã mới, gồm 6 bước. Nút **Tạo chứng từ** nằm trên thanh công cụ.
+Nhân bản một chứng từ có sẵn sang mã mới, gồm 6 bước. Mở từ menu **Tool mở rộng** → **Tạo chứng từ**, cần key bản quyền. Khung xem file và khung script tô màu XML, SQL giống BcodeViewer, theo theme đang dùng.
 
 | Bước | Việc cần làm |
 |---|---|
-| **General** | Chọn chứng từ nguồn; nhập mã, Title, SysID, tiền tố file mới (phải khác nguồn và chưa thuộc chứng từ nào). Chọn dùng chung bảng nguồn hoặc tạo bộ bảng mới. Bảng nguồn không theo dạng số (`hddc`, `phdm`...) thì chỉ dùng chung được. Source là đường mạng thì bấm **Quét source** để đọc danh sách chứng từ. |
-| **File Source** | Tick file cần tạo, sửa tên đích nếu muốn, bấm một dòng để xem nội dung sau khi đổi. File sao lưu (`... - Copy`, `_bk`) hiện nhưng không tick sẵn. File đích trùng file nguồn thì không tạo được. |
+| **General** | Chọn chứng từ nguồn; nhập mã, Title, SysID, tiền tố file mới (phải khác nguồn và chưa thuộc chứng từ nào). Chọn dùng chung bảng nguồn hoặc tạo bộ bảng mới. Bảng nguồn không theo dạng số (`hddc`, `phdm`...) thì chỉ dùng chung được. **Approve Type**, **Approve Controller**, **Notify Code** của nguồn đọc từ file Dir (`APVApprovalType`, `APVController`, `PostNotifyGroup`), không có file thì Approve Type lấy từ `gndmloaiduyet`. Bên đích, Approve Controller tự điền theo tiền tố mới; Notify Code để trống thì dùng chung nhóm thông báo của nguồn, nhập mã mới thì script chép thêm dòng `notifygroup`. Danh sách chứng từ lấy từ `wcommand`: các dòng có cả `sysid` và `syscode`. Source là đường mạng thì bấm **Quét source** để đọc danh sách. |
+| **File Source** | Tick file cần tạo, sửa tên đích nếu muốn, bấm một dòng để xem nội dung sau khi đổi. Nút **Xem chứng từ** dựng màn hình Dir của chứng từ mới như Xem trước Dir (Alt+P) của BcodeViewer, từ các file đang tick, chưa ghi gì xuống đĩa; chỉ để xem, không kéo-thả được. File sao lưu (`... - Copy`, `_bk`) hiện nhưng không tick sẵn. File đích trùng file nguồn thì không tạo được. |
 | **File Reference** | Xem các dòng sẽ thêm vào file dùng chung cho chứng từ mới, ngay sau dòng của chứng từ nguồn. Dòng ghi **Entity giữ tên nguồn** liệt kê entity không đổi tên: dùng chung với controller khác hoặc định nghĩa nhiều dòng. |
 | **Sql Declaration** | Xem và sửa `AppScript.sql`, `SysScript.sql`. Chỉ sinh script, không chạy. Approve Type đích phải khác nguồn; bỏ trống hoặc chọn **Not Approval** thì không chép khai báo duyệt. |
 | **Wcommand** | **Tạo menu…** mở form WCOMMAND điền sẵn, chỉ ghi khi bấm Save. |
@@ -975,6 +975,8 @@ Nhân bản một chứng từ có sẵn sang mã mới, gồm 6 bước. Nút *
 
 Lưu ý:
 - Lấy chứng từ từ dự án khác (**Save as from Other Project**) thì chỉ xuất gói được. Script và menu vẫn đọc từ database của workspace hiện tại, nên cần kiểm tra lại trước khi chạy.
+- Dòng trạng thái ghi số chứng từ trong `wcommand` và số chứng từ có file Dir trong source. Chứng từ không có file vẫn chọn được, nhưng bước **File Source** báo không có gì để chép. Không đọc được `wcommand`, hoặc lấy từ dự án khác, thì Bcode liệt kê theo file Dir. Chứng từ có file mà không có menu thì không hiện trong danh sách, nhưng mã và SysID của nó vẫn được tính khi kiểm tra trùng.
+- Lần đầu với một source, Bcode đọc toàn bộ `Controllers` ở nền (góc dưới hiện số file đã đọc); source trên đường mạng có thể mất vài phút. Kết quả lưu ở `%AppData%\Bcode\cache\voucher-clone`, các lần sau chỉ đọc file đã đổi. Đóng form giữa chừng thì phần đã đọc vẫn được giữ. Source là đường mạng thì việc đọc chỉ bắt đầu khi bấm **Quét source**.
 - Khối `<Encrypted>` trong file được giữ nguyên, không đổi tên. Mã bên trong vẫn là của chứng từ nguồn, cần kiểm tra lại khi chứng từ mới dùng bảng khác.
 
 <a id="tool-mo-rong"></a>
@@ -987,6 +989,7 @@ Lưu ý:
 | **Check Include** | So khai báo INCLUDE / IGNORE, options, wcommand của dự án với catalog tính năng từng phiên bản: chọn thư mục Dự án, tick "Kiểm tra DB (options / wcommand)" → **▶ Phân tích**. Tab Tính năng / File Include; trạng thái Đúng khai báo / Chưa bật / Một phần / Khác mặc định. Nút **Sửa → X** sửa file include (giữ bản .bak). |
 | **Tạo báo cáo** | Xem [Create RPT & XML, Excel → FRX, Tạo báo cáo](#create-rpt). Cần key. |
 | **Tạo nhanh danh mục** | Sinh bộ file danh mục từ một bảng: nhập Bảng (Enter để nạp cột), Controller, File Main, Key, Order, cột tên (Lookup), Title / Subtitle (v/e) + **Dịch**, bảng chi tiết (tuỳ chọn) → **Xem XML** → **Tạo file** (`Ctrl+Enter`) → **Mở Dir trong BcodeViewer** / **Tạo menu…**. Mẫu nằm ở `Templates\fileSource\CreateList` cạnh Bcode.exe (sửa mẫu không cần build). Gõ tên **bảng chưa có** = tạo bảng mới; **+ Thêm cột** để thêm trường — script ở tab **Script**, xem [bên dưới](#tao-nhanh-bang-moi). |
+| **Tạo chứng từ** | Nhân bản chứng từ có sẵn sang mã mới, xem [Tạo chứng từ](#tao-chung-tu). Cần key. |
 | **Note (New) nhiều dự án** | Mở **BcodeNote.exe** vào dự án đang chọn: Note (New) chuyển qua lại nhiều dự án, chọn menu để gợi ý Gen All / File Path / SQL Object / Table liên quan. Dùng chung dữ liệu với Note (New). Xem [BcodeNote](#bcodenote). |
 
 <a id="tao-nhanh-bang-moi"></a>
@@ -1142,7 +1145,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 <a id="key-ban-quyen"></a>
 ## Key bản quyền
 
-Các tính năng sau cần key bản quyền gắn theo máy: **Create RPT & XML**, **Excel → FRX**, **Tạo báo cáo**, **Báo cáo yêu cầu FSG** (kể cả chuột phải cây WCommand → Yêu cầu liên quan), **Thiết kế màn hình** (kể cả nút Design ở cây WCommand), **Khai báo API**, **Tạo cấu trúc API**, **Tạo nhanh danh mục** (kể cả 🤖 AI tạo danh mục) và **Clone danh mục**. Chưa có key thì mở các tính năng này sẽ hiện hộp nhập key.
+Các tính năng sau cần key bản quyền gắn theo máy: **Create RPT & XML**, **Excel → FRX**, **Tạo báo cáo**, **Tạo chứng từ**, **Báo cáo yêu cầu FSG** (kể cả chuột phải cây WCommand → Yêu cầu liên quan), **Thiết kế màn hình** (kể cả nút Design ở cây WCommand), **Khai báo API**, **Tạo cấu trúc API**, **Tạo nhanh danh mục** (kể cả 🤖 AI tạo danh mục) và **Clone danh mục**. Chưa có key thì mở các tính năng này sẽ hiện hộp nhập key.
 
 1. ⚙ Settings → **Key bản quyền...** (hoặc bấm vào tính năng bị khoá — hộp key tự mở).
 2. **Bước 1**: bấm **Copy mã máy** và gửi mã cho người cấp key. Mỗi máy có một mã riêng.

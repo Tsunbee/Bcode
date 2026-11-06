@@ -214,21 +214,25 @@ public partial class MonacoPreviewControl : UserControl
             var stamp = File.Exists(path) ? File.GetLastWriteTimeUtc(path) : default;
             var key = $"{dark}|{Hex(AppColors.Background)}|{Hex(AppColors.Text)}|{stamp.Ticks}";
             if (key == _themeKey) return;
-            if (stamp != default)
-            {
-                using var theme = JsonDocument.Parse(File.ReadAllText(path));
-                var viewerDark = !theme.RootElement.TryGetProperty("isDark", out var d) || d.ValueKind != JsonValueKind.False;
-                if (viewerDark == dark)
-                {
-                    _themeKey = key;
-                    Post(JsonSerializer.Serialize(new { type = "theme", theme = theme.RootElement }));
-                    return;
-                }
-            }
+            var json = ThemeJson(dark);
             _themeKey = key;
-            Post(JsonSerializer.Serialize(new { type = "theme", theme = BuiltInTheme(dark) }));
+            Post($"{{\"type\":\"theme\",\"theme\":{json}}}");
         }
         catch { /* half-written or unreadable — keep the current theme */ }
+    }
+
+    /// <summary>JSON theme Monaco theo sáng / tối của Bcode (quy tắc chọn ở <see cref="PushThemeIfChanged"/>), dùng chung cho các trang Monaco khác
+    /// (vd "Tạo chứng từ"). Ném lỗi nếu viewer-theme.json đang ghi dở — nơi gọi giữ theme hiện tại.</summary>
+    internal static string ThemeJson(bool dark)
+    {
+        var path = ThemeFilePath;
+        if (File.Exists(path))
+        {
+            using var theme = JsonDocument.Parse(File.ReadAllText(path));
+            var viewerDark = !theme.RootElement.TryGetProperty("isDark", out var d) || d.ValueKind != JsonValueKind.False;
+            if (viewerDark == dark) return theme.RootElement.GetRawText();
+        }
+        return JsonSerializer.Serialize(BuiltInTheme(dark));
     }
 
     /// <summary>Theme dạng viewer-theme.json dựng từ bảng màu Bcode: nền Monaco vs / vs-dark (tô màu XML / JS như Light+ / Dark+ của

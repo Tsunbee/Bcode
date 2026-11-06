@@ -1,5 +1,8 @@
+using System.Collections.Concurrent;
 using System.Globalization;
+using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 
@@ -13,6 +16,9 @@ public record VoucherInfo(string SysId, string Code, string Table, string TitleV
     /// <summary>"m48$000000" → "48": phần số / mã nhóm bảng (m48, d48, c48...).</summary>
     public string TableNo => VoucherCloneService.TableNoOf(Table);
 }
+
+/// <summary>Khai báo duyệt / thông báo trong file Dir của chứng từ: APVApprovalType, APVController, PostNotifyGroup. Null = không khai.</summary>
+public record VoucherApproval(string? Type, string? Controller, string? Notify);
 
 /// <summary>Thông số nhân bản: nguồn → đích.</summary>
 public class VoucherCloneSpec
@@ -30,6 +36,14 @@ public class VoucherCloneSpec
     /// <summary>true = tạo bộ bảng mới (m/d/c...{DstTableNo}), false = dùng chung bảng của chứng từ nguồn.</summary>
     public bool NewTables { get; set; }
     public string DstTableNo { get; set; } = "";
+    /// <summary>Loại duyệt nguồn / đích (APVApprovalType). Đích trống = giữ loại duyệt của nguồn.</summary>
+    public string SrcApprove { get; set; } = "";
+    public string DstApprove { get; set; } = "";
+    /// <summary>Controller duyệt đích (APVController). Trống = theo đổi tên thông thường.</summary>
+    public string DstApproveController { get; set; } = "";
+    /// <summary>Mã nhóm thông báo nguồn / đích (PostNotifyGroup, notifygroup.code). Đích trống = dùng chung mã nguồn.</summary>
+    public string SrcNotify { get; set; } = "";
+    public string DstNotify { get; set; } = "";
 
     public string SrcPrefix => VoucherCloneService.PrefixOf(SrcSysId);
 
@@ -80,11 +94,95 @@ public class VoucherCloneSpec
 /// <summary>1 dòng định nghĩa entity; <see cref="Line"/> = null khi không chép được theo dòng (nhiều dòng / nhiều định nghĩa trên 1 dòng).</summary>
 public record EntityDef(string Rel, string? Line);
 
-/// <summary>Toàn bộ entity trong Controllers: định nghĩa ở đâu, được file nào gọi. Dựng 1 lần cho mỗi thư mục source.</summary>
+/// <summary>1 file trong Controllers: đường dẫn tương đối so với gốc source, kích thước, thời gian sửa.</summary>
+public record SourceFile(string Rel, long Length, long Ticks);
+
+/// <summary>
+/// Ảnh chụp cây Controllers của 1 source: duyệt 1 lần (kích thước + thời gian lấy luôn lúc duyệt, không hỏi lại từng file — source thường
+/// nằm trên đường mạng, mỗi lần hỏi là 1 lượt đi về). Nội dung file đọc 1 lần rồi giữ lại.
+/// </summary>
+public class SourceTree
+{
+    private readonly HashSet<string> _rels;
+    private readonly ConcurrentDictionary<string, string?> _text = new(StringComparer.OrdinalIgnoreCase);
+
+    public string Root { get; }
+    public string? Controllers { get; }
+    public List<SourceFile> Files { get; }
+    /// <summary>Số file đọc đồng thời: đường mạng chủ yếu là chờ phản hồi nên đọc nhiều luồng hơn hẳn ổ local.</summary>
+    public int Parallelism { get; }
+
+    private SourceTree(string root, string? controllers, List<SourceFile> files)
+    {
+        Root = root;
+        Controllers = controllers;
+        Files = files;
+        Parallelism = VoucherCloneService.IsNetworkPath(root) ? 16 : 4;
+        _rels = new HashSet<string>(files.Select(f => f.Rel), StringComparer.OrdinalIgnoreCase);
+    }
+
+    public static SourceTree Load(string root, CancellationToken ct = default)
+    {
+        var controllers = VoucherCloneService.ControllersDir(root);
+        var files = new List<SourceFile>();
+        if (controllers != null)
+            foreach (var f in new DirectoryInfo(controllers).EnumerateFiles("*", SearchOption.AllDirectories))
+            {
+                ct.ThrowIfCancellationRequested();
+                files.Add(new SourceFile(Path.GetRelativePath(root, f.FullName), f.Length, f.LastWriteTimeUtc.Ticks));
+            }
+        return new SourceTree(root, controllers, files);
+    }
+
+    /// <summary>File có tồn tại không: trong Controllers tra danh sách đã duyệt, ngoài Controllers (Main) mới hỏi đĩa.</summary>
+    public bool Exists(string rel) => _rels.Contains(rel) || (!IsInControllers(rel) && File.Exists(Path.Combine(Root, rel)));
+
+    private bool IsInControllers(string rel) =>
+        Controllers != null && Path.GetFullPath(Path.Combine(Root, rel)).StartsWith(Controllers + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Nội dung file chữ, null = nhị phân / không đọc được. Đọc 1 lần rồi giữ lại.</summary>
+    public string? Text(string rel) => _text.GetOrAdd(rel, r =>
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(Path.Combine(Root, r));
+            return VoucherCloneService.LooksText(bytes, Math.Min(bytes.Length, 8192)) ? VoucherCloneService.Decode(bytes, out _) : null;
+        }
+        catch { return null; }
+    });
+
+    /// <summary>Đọc trước song song các file sắp dùng.</summary>
+    public void Preload(IEnumerable<string> rels) =>
+        Parallel.ForEach(rels, new ParallelOptions { MaxDegreeOfParallelism = Parallelism }, r => Text(r));
+}
+
+/// <summary>Thông tin chứng từ đọc từ 1 file Dir.</summary>
+public record VoucherFact(string Code, string Table, string TitleV, string TitleE);
+
+/// <summary>1 định nghĩa entity trong file: <see cref="Line"/> như <see cref="EntityDef"/>, <see cref="Target"/> = tên file SYSTEM trỏ tới.</summary>
+public record DefFact(string Name, string? Line, string? Target);
+
+/// <summary>Những gì rút ra từ 1 file. Lưu đĩa theo kích thước + thời gian sửa, file không đổi thì không đọc lại.</summary>
+public class FileFacts
+{
+    public string Rel { get; set; } = "";
+    public long Length { get; set; }
+    public long Ticks { get; set; }
+    public List<string> Uses { get; set; } = new();
+    public List<DefFact> Defs { get; set; } = new();
+    /// <summary>Chỉ file đăng ký: các từ trong file, để biết file nào nhắc tới 1 SysID mà không phải mở từng file.</summary>
+    public List<string> Words { get; set; } = new();
+    public VoucherFact? Voucher { get; set; }
+}
+
+/// <summary>Toàn bộ entity trong Controllers: định nghĩa ở đâu, được file nào gọi; cùng danh sách chứng từ và từ của file đăng ký.</summary>
 public class EntityIndex
 {
+    private const int CacheVersion = 1;
+    private const long MaxFileSize = 8_000_000;
     private static readonly Regex DefName = new(@"<!ENTITY\s+(?:%\s+)?([^\s""'%]+)\s", RegexOptions.CultureInvariant);
     private static readonly Regex WholeDef = new(@"^\s*<!ENTITY\s+(?:%\s+)?[^\s""'%]+\s+(?:SYSTEM\s+)?(?:""[^""]*""|'[^']*')\s*>\s*$", RegexOptions.CultureInvariant);
+    private static readonly Regex Word = new(@"[A-Za-z0-9_]{3,}", RegexOptions.CultureInvariant);
     internal static readonly Regex Use = new(@"[&%]([A-Za-z_][\w.\-]*);", RegexOptions.CultureInvariant);
     internal static readonly Regex SystemPath = new(@"\sSYSTEM\s+""([^""]+)""", RegexOptions.CultureInvariant);
 
@@ -94,41 +192,154 @@ public class EntityIndex
     /// <summary>Định nghĩa SYSTEM: (entity, file định nghĩa, tên file được trỏ tới).</summary>
     public List<(string Name, string DefRel, string Target)> SystemRefs { get; } = new();
 
+    /// <summary>Từ → các file đăng ký chứa từ đó.</summary>
+    public Dictionary<string, List<string>> WordFiles { get; } = new(StringComparer.Ordinal);
+
+    public List<VoucherInfo> Vouchers { get; internal set; } = new();
+
+    /// <summary>Số file phải đọc thật lần này (còn lại lấy từ cache).</summary>
+    public int FilesRead { get; private set; }
+
     /// <summary>Tên entity mà dòng này định nghĩa, nếu có.</summary>
     public static string? DefinedBy(string line) => DefName.Match(line) is { Success: true } m ? m.Groups[1].Value : null;
 
-    public static EntityIndex Build(string sourceRoot)
+    private static bool IsDirFile(string rel)
     {
-        var index = new EntityIndex();
-        if (VoucherCloneService.ControllersDir(sourceRoot) is not { } controllers) return index;
-        var templates = Path.Combine(controllers, "Templates") + Path.DirectorySeparatorChar;
-        foreach (var f in Directory.EnumerateFiles(controllers, "*", SearchOption.AllDirectories))
+        var parts = rel.Split(Path.DirectorySeparatorChar);
+        return parts.Length == 4 && parts[2].Equals("Dir", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static FileFacts Analyze(SourceFile file, byte[] bytes, bool registry)
+    {
+        var facts = new FileFacts { Rel = file.Rel, Length = file.Length, Ticks = file.Ticks };
+        if (!VoucherCloneService.LooksText(bytes, Math.Min(bytes.Length, 8192))) return facts;
+        var text = VoucherCloneService.Decode(bytes, out _);
+        facts.Uses = Use.Matches(text).Select(m => m.Groups[1].Value).Distinct(StringComparer.Ordinal).ToList();
+        if (registry) facts.Words = Word.Matches(text).Select(m => m.Value).Where(w => w.Any(char.IsAsciiLetterUpper)).Distinct(StringComparer.Ordinal).ToList();
+        if (IsDirFile(file.Rel)) facts.Voucher = VoucherCloneService.ParseVoucher(text);
+        if (!text.Contains("<!ENTITY", StringComparison.Ordinal)) return facts;
+        foreach (var line in text.Split('\n'))
         {
-            if (f.StartsWith(templates, StringComparison.OrdinalIgnoreCase) || new FileInfo(f).Length > 8_000_000 || !VoucherCloneService.IsText(f)) continue;
-            string text;
-            try { text = VoucherCloneService.ReadText(f, out _); } catch { continue; }
-            var rel = Path.GetRelativePath(sourceRoot, f);
-            foreach (Match m in Use.Matches(text))
+            var count = DefName.Matches(line).Count;
+            if (count == 0) continue;
+            var trimmed = line.TrimEnd('\r');
+            foreach (Match m in DefName.Matches(line))
             {
-                if (!index.Uses.TryGetValue(m.Groups[1].Value, out var users)) index.Uses[m.Groups[1].Value] = users = new(StringComparer.OrdinalIgnoreCase);
-                users.Add(rel);
-            }
-            if (!text.Contains("<!ENTITY", StringComparison.Ordinal)) continue;
-            foreach (var line in text.Split('\n'))
-            {
-                var count = DefName.Matches(line).Count;
-                if (count == 0) continue;
-                var trimmed = line.TrimEnd('\r');
-                foreach (Match m in DefName.Matches(line))
-                {
-                    if (!index.Defs.TryGetValue(m.Groups[1].Value, out var defs)) index.Defs[m.Groups[1].Value] = defs = new();
-                    defs.Add(new EntityDef(rel, count == 1 && WholeDef.IsMatch(trimmed) ? trimmed : null));
-                    if (count == 1 && SystemPath.Match(trimmed) is { Success: true } sys)
-                        index.SystemRefs.Add((m.Groups[1].Value, rel, Path.GetFileName(sys.Groups[1].Value.Replace('/', '\\'))));
-                }
+                var target = count == 1 && SystemPath.Match(trimmed) is { Success: true } sys ? Path.GetFileName(sys.Groups[1].Value.Replace('/', '\\')) : null;
+                facts.Defs.Add(new DefFact(m.Groups[1].Value, count == 1 && WholeDef.IsMatch(trimmed) ? trimmed : null, target));
             }
         }
+        return facts;
+    }
+
+    /// <summary>
+    /// Dựng chỉ mục: file có trong cache mà không đổi kích thước / thời gian sửa thì không mở lại; file còn lại đọc song song, mỗi file 1 lần.
+    /// Đọc thư mục Dir trước để <paramref name="vouchersReady"/> có danh sách chứng từ sớm. Bị huỷ giữa chừng vẫn lưu phần đã đọc.
+    /// </summary>
+    public static EntityIndex Load(SourceTree tree, string? cachePath, Action<int, int>? progress = null, Action<List<VoucherInfo>>? vouchersReady = null, CancellationToken ct = default)
+    {
+        var index = new EntityIndex();
+        if (tree.Controllers is not { } controllers) return index;
+        var templates = Path.Combine(controllers, "Templates") + Path.DirectorySeparatorChar;
+        var skip = Path.GetRelativePath(tree.Root, templates);
+        var wanted = tree.Files.Where(f => !f.Rel.StartsWith(skip, StringComparison.OrdinalIgnoreCase) && f.Length <= MaxFileSize).ToList();
+
+        var cached = ReadCache(cachePath);
+        var facts = new ConcurrentDictionary<string, FileFacts>(StringComparer.OrdinalIgnoreCase);
+        var todo = new List<SourceFile>();
+        foreach (var f in wanted)
+        {
+            if (cached.TryGetValue(f.Rel, out var c) && c.Length == f.Length && c.Ticks == f.Ticks) facts[f.Rel] = c;
+            else todo.Add(f);
+        }
+
+        var done = 0;
+        void Read(IEnumerable<SourceFile> files) => Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = tree.Parallelism, CancellationToken = ct }, f =>
+        {
+            try
+            {
+                var bytes = File.ReadAllBytes(Path.Combine(tree.Root, f.Rel));
+                var relToControllers = Path.GetRelativePath(controllers, Path.Combine(tree.Root, f.Rel));
+                facts[f.Rel] = Analyze(f, bytes, VoucherCloneService.IsRegistryFile(relToControllers));
+            }
+            catch (IOException) { /* file đang bị khoá: lần sau đọc lại */ }
+            catch (UnauthorizedAccessException) { }
+            var n = Interlocked.Increment(ref done);
+            if (n % 100 == 0) progress?.Invoke(n, todo.Count);
+        });
+
+        try
+        {
+            Read(todo.Where(f => IsDirFile(f.Rel)));
+            index.Vouchers = VoucherCloneService.VouchersFrom(wanted.Where(f => IsDirFile(f.Rel))
+                .Select(f => (Path.GetFileName(f.Rel), facts.TryGetValue(f.Rel, out var x) ? x.Voucher : null)));
+            vouchersReady?.Invoke(index.Vouchers);
+            Read(todo.Where(f => !IsDirFile(f.Rel)));
+        }
+        finally
+        {
+            if (todo.Count > 0 || cached.Count != facts.Count) WriteCache(cachePath, facts.Values);
+        }
+        progress?.Invoke(todo.Count, todo.Count);
+
+        index.FilesRead = done;
+        foreach (var f in wanted)
+            if (facts.TryGetValue(f.Rel, out var x)) index.Add(x);
         return index;
+    }
+
+    private void Add(FileFacts f)
+    {
+        foreach (var use in f.Uses)
+        {
+            if (!Uses.TryGetValue(use, out var users)) Uses[use] = users = new(StringComparer.OrdinalIgnoreCase);
+            users.Add(f.Rel);
+        }
+        foreach (var d in f.Defs)
+        {
+            if (!Defs.TryGetValue(d.Name, out var defs)) Defs[d.Name] = defs = new();
+            defs.Add(new EntityDef(f.Rel, d.Line));
+            if (d.Target != null) SystemRefs.Add((d.Name, f.Rel, d.Target));
+        }
+        foreach (var w in f.Words)
+        {
+            if (!WordFiles.TryGetValue(w, out var files)) WordFiles[w] = files = new();
+            files.Add(f.Rel);
+        }
+    }
+
+    private sealed class CacheFile
+    {
+        public int Version { get; set; }
+        public List<FileFacts> Files { get; set; } = new();
+    }
+
+    private static Dictionary<string, FileFacts> ReadCache(string? path)
+    {
+        var result = new Dictionary<string, FileFacts>(StringComparer.OrdinalIgnoreCase);
+        if (path == null || !File.Exists(path)) return result;
+        try
+        {
+            using var gz = new GZipStream(File.OpenRead(path), CompressionMode.Decompress);
+            if (JsonSerializer.Deserialize<CacheFile>(gz) is { Version: CacheVersion } cache)
+                foreach (var f in cache.Files) result[f.Rel] = f;
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or InvalidDataException) { result.Clear(); }   // cache hỏng: đọc lại từ đầu
+        return result;
+    }
+
+    private static void WriteCache(string? path, IEnumerable<FileFacts> files)
+    {
+        if (path == null) return;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var tmp = path + ".tmp";
+            using (var gz = new GZipStream(File.Create(tmp), CompressionLevel.Fastest))
+                JsonSerializer.Serialize(gz, new CacheFile { Version = CacheVersion, Files = files.ToList() });
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch (IOException) { /* không ghi được cache: lần sau đọc lại, không ảnh hưởng kết quả */ }
     }
 }
 
@@ -153,7 +364,8 @@ public class VoucherCloneService
     private static readonly UTF8Encoding Utf8Bom = new(encoderShouldEmitUTF8Identifier: true);
     private static readonly UTF8Encoding Utf8Strict = new(false, throwOnInvalidBytes: true);
     private static readonly string[] TextExt = { ".xml", ".txt", ".ent", ".aspx", ".js", ".css", ".sql", ".htm", ".html" };
-    private static readonly Regex Backup = new(@"( - Copy|_bk|\.bak$|\.old$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    // Tên controller không có dấu cách: "SVTran - Copy.xml", "SVTran - bk20250219.xml" là bản sao lưu; thêm _bk..., __SOTran, .bak, .old.
+    private static readonly Regex Backup = new(@"(\s|_bk|^_|\.bak$|\.old$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static string PrefixOf(string sysId) =>
         sysId.EndsWith("Tran", StringComparison.Ordinal) && sysId.Length > 4 ? sysId[..^4] : sysId;
@@ -166,6 +378,17 @@ public class VoucherCloneService
 
     /// <summary>File sao lưu (SVTran - Copy.xml, SOTran_bk_260625V.xml): liệt kê nhưng mặc định không chép.</summary>
     public static bool IsBackupName(string fileName) => Backup.IsMatch(fileName);
+
+    /// <summary>File sao lưu của chứng từ: theo tên, hoặc bản Dir khác của chính SysID này (SVTran_Dir.xml, SVTrandir.xml).</summary>
+    public static bool IsBackupOf(string rel, string sysId)
+    {
+        var name = Path.GetFileName(rel);
+        if (IsBackupName(name)) return true;
+        var parts = rel.Split(Path.DirectorySeparatorChar);
+        var stem = Path.GetFileNameWithoutExtension(name);
+        return parts.Length >= 2 && parts[^2].Equals("Dir", StringComparison.OrdinalIgnoreCase)
+               && stem.Length > sysId.Length && stem.StartsWith(sysId, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>Đường mạng (UNC hoặc ổ map) — không tự đọc khi mở form, chờ người dùng bấm Quét.</summary>
     public static bool IsNetworkPath(string path)
@@ -192,25 +415,136 @@ public class VoucherCloneService
     public static List<VoucherInfo> ScanVouchers(string sourceRoot)
     {
         var dir = ControllersDir(sourceRoot) is { } c ? Path.Combine(c, "Dir") : null;
-        var list = new List<VoucherInfo>();
-        if (dir == null || !Directory.Exists(dir)) return list;
-        // Dir\{SysID}.xml hoặc .f (dự án lưu XML với đuôi .f) — mỗi SysID lấy 1 file; bỏ file sao lưu.
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var f in Directory.EnumerateFiles(dir).Where(p => Path.GetExtension(p).ToLowerInvariant() is ".xml" or ".f" && !IsBackupName(Path.GetFileName(p)))
-                     .OrderBy(p => Path.GetExtension(p).Equals(".xml", StringComparison.OrdinalIgnoreCase) ? 0 : 1))
+        if (dir == null || !Directory.Exists(dir)) return new List<VoucherInfo>();
+        return VouchersFrom(Directory.EnumerateFiles(dir).Select(f =>
         {
-            if (!seen.Add(Path.GetFileNameWithoutExtension(f))) continue;
-            string text;
-            try { text = File.ReadAllText(f); } catch { continue; }
-            var root = VoucherRoot.Match(text);
-            if (!root.Success) continue;
-            var code = Attr(root.Value, "id");
-            if (code.Length == 0) continue;
-            var title = Regex.Match(text[root.Index..], @"<title\s+v=""([^""]*)""\s+e=""([^""]*)""");
-            list.Add(new VoucherInfo(Path.GetFileNameWithoutExtension(f), code, Attr(root.Value, "table"),
-                title.Success ? title.Groups[1].Value : "", title.Success ? title.Groups[2].Value : ""));
+            try { return (Path.GetFileName(f), ParseVoucher(File.ReadAllText(f))); }
+            catch (IOException) { return (Path.GetFileName(f), (VoucherFact?)null); }
+        }));
+    }
+
+    /// <summary>Thông tin chứng từ trong nội dung 1 file Dir, null nếu không phải chứng từ.</summary>
+    public static VoucherFact? ParseVoucher(string text)
+    {
+        var root = VoucherRoot.Match(text);
+        if (!root.Success) return null;
+        var code = Attr(root.Value, "id");
+        if (code.Length == 0) return null;
+        var title = Regex.Match(text[root.Index..], @"<title\s+v=""([^""]*)""\s+e=""([^""]*)""");
+        return new VoucherFact(code, Attr(root.Value, "table"), title.Success ? title.Groups[1].Value : "", title.Success ? title.Groups[2].Value : "");
+    }
+
+    /// <summary>Danh sách chứng từ từ các file Dir: {SysID}.xml hoặc .f (dự án lưu XML với đuôi .f), mỗi SysID lấy 1 file, bỏ file sao lưu.</summary>
+    public static List<VoucherInfo> VouchersFrom(IEnumerable<(string FileName, VoucherFact? Voucher)> dirFiles)
+    {
+        var list = new List<VoucherInfo>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, fact) in dirFiles.Where(f => Path.GetExtension(f.FileName).ToLowerInvariant() is ".xml" or ".f" && !IsBackupName(f.FileName))
+                     .OrderBy(f => Path.GetExtension(f.FileName).Equals(".xml", StringComparison.OrdinalIgnoreCase) ? 0 : 1))
+        {
+            if (!seen.Add(Path.GetFileNameWithoutExtension(name)) || fact == null) continue;
+            list.Add(new VoucherInfo(Path.GetFileNameWithoutExtension(name), fact.Code, fact.Table, fact.TitleV, fact.TitleE));
         }
-        return list.OrderBy(v => v.Code, StringComparer.OrdinalIgnoreCase).ToList();
+        // Bản sao đặt tên tuỳ ý (SVTran_Dir, SVTrandir, SVTran20250219): cùng mã, tên bắt đầu bằng SysID của chứng từ kia → bỏ.
+        // Chứng từ thật trùng mã nhưng tên khác hẳn (POTran / BIPOTran cùng PO1) vẫn giữ.
+        var real = list.Where(v => !list.Any(o => o != v && o.Code.Equals(v.Code, StringComparison.OrdinalIgnoreCase)
+                                                  && v.SysId.Length > o.SysId.Length && v.SysId.StartsWith(o.SysId, StringComparison.OrdinalIgnoreCase)));
+        return real.OrderBy(v => v.Code, StringComparer.OrdinalIgnoreCase).ThenBy(v => v.SysId, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// Danh sách chứng từ theo wcommand: dòng có cả sysid và syscode, mỗi cặp 1 lần. Tên lấy từ menu, bảng từ dmct.m_phdbf (PH48 → m48$000000);
+    /// có file Dir thì <see cref="MergeMenu"/> dùng thông tin trong file.
+    /// </summary>
+    public async Task<List<VoucherInfo>> MenuVouchersAsync()
+    {
+        var list = new List<VoucherInfo>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await using (var conn = _connections.CreateConnection(useSysDatabase: true))
+        {
+            await conn.OpenAsync();
+            await using var cmd = new SqlCommand("SELECT sysid, syscode, bar, bar2 FROM dbo.wcommand WHERE sysid <> '' AND syscode <> '' ORDER BY wmenu_id", conn);
+            await using var r = await cmd.ExecuteReaderAsync();
+            string S(int i) => r.IsDBNull(i) ? "" : (Convert.ToString(r.GetValue(i)) ?? "").Trim();
+            while (await r.ReadAsync())
+                if (seen.Add(S(1) + " " + S(0))) list.Add(new VoucherInfo(S(0), S(1), "", S(2), S(3)));
+        }
+        var tables = await VoucherTablesAsync();
+        return list.Select(v => v with { Table = tables.GetValueOrDefault(v.Code, "") }).ToList();
+    }
+
+    /// <summary>Mã chứng từ → bảng master trong dmct. dmct nằm ở App hay Sys tuỳ sản phẩm; không nơi nào có thì trả rỗng.</summary>
+    private async Task<Dictionary<string, string>> VoucherTablesAsync()
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var useSys in new[] { false, true })
+        {
+            try
+            {
+                await using var conn = _connections.CreateConnection(useSys);
+                await conn.OpenAsync();
+                await using var cmd = new SqlCommand("SELECT RTRIM(ma_ct), RTRIM(m_phdbf) FROM dbo.dmct WHERE m_phdbf IS NOT NULL", conn);
+                await using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                {
+                    var table = r.GetString(1);
+                    result[r.GetString(0)] = Regex.Match(table, @"^ph(\w+)$", RegexOptions.IgnoreCase) is { Success: true } m ? $"m{m.Groups[1].Value}$000000" : table;
+                }
+                if (result.Count > 0) break;
+            }
+            catch (SqlException) { /* DB này không có dmct: thử DB còn lại */ }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Ghép danh sách theo wcommand với chứng từ đọc từ file Dir. Có file thì lấy nguyên thông tin trong file: đổi mã và tiêu đề khi clone dựa vào nội dung file
+    /// (tên menu hay khác tiêu đề), SysID theo tên file (wcommand có chỗ gõ sai hoa thường: ISTRan). <c>Others</c> = chứng từ có file nhưng không có trong wcommand.
+    /// </summary>
+    public static (List<VoucherInfo> Menu, List<VoucherInfo> Others) MergeMenu(IEnumerable<VoucherInfo> menu, IReadOnlyCollection<VoucherInfo> dir)
+    {
+        var bySysId = dir.GroupBy(v => v.SysId, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var merged = menu.Select(m => bySysId.GetValueOrDefault(m.SysId, m)).Distinct()
+            .OrderBy(v => v.Code, StringComparer.OrdinalIgnoreCase).ThenBy(v => v.SysId, StringComparer.OrdinalIgnoreCase).ToList();
+        var listed = merged.Select(v => v.SysId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return (merged, dir.Where(v => !listed.Contains(v.SysId)).ToList());
+    }
+
+    private static readonly Regex ApproveControllerDef = new(@"(<!ENTITY\s+APVController\s+"")[^""]*""", RegexOptions.CultureInvariant);
+    private static readonly Regex ApproveTypeDef = new(@"(<!ENTITY\s+APVApprovalType\s+"")([^""]*)""", RegexOptions.CultureInvariant);
+    private static readonly Regex NotifyDef = new(@"(<!ENTITY\s+PostNotifyGroup\s+"")([^""]*)""", RegexOptions.CultureInvariant);
+
+    /// <summary>File .f có thể mã hoá giá trị entity: "FastBusiness.Encryption.Begin...End". Không giải mã được nên không dùng làm giá trị đọc ra.</summary>
+    private static bool IsEncryptedValue(string value) => value.StartsWith("FastBusiness.Encryption.Begin", StringComparison.Ordinal);
+
+    /// <summary>Đọc khai báo duyệt / thông báo trong file Dir của chứng từ, .xml trước .f, bỏ qua giá trị mã hoá. Đọc thẳng file, không chờ dựng chỉ mục cả source. Null = source không có file Dir này.</summary>
+    public static VoucherApproval? ReadApproval(string sourceRoot, string sysId)
+    {
+        if (ControllersDir(sourceRoot) is not { } c) return null;
+        var texts = new[] { ".xml", ".f" }.Select(e => Path.Combine(c, "Dir", sysId + e)).Where(File.Exists).Select(p => Decode(File.ReadAllBytes(p), out _)).ToList();
+        if (texts.Count == 0) return null;
+        string? Value(string name) => texts.Select(t => Regex.Match(t, @"<!ENTITY\s+" + name + @"\s+""([^""]*)""").Groups[1].Value)
+            .FirstOrDefault(v => v.Length > 0 && !IsEncryptedValue(v));
+        return new VoucherApproval(Value("APVApprovalType"), Value("APVController"), Value("PostNotifyGroup"));
+    }
+
+    /// <summary>
+    /// Đổi khai báo duyệt / thông báo. Loại duyệt còn được ghi thẳng trong file (Grid\SOApproval.f) nên đổi mọi giá trị trong nháy, như mã chứng từ;
+    /// mã thông báo quá ngắn ("05") nên chỉ đổi đúng dòng khai báo. Dòng khai báo mã hoá thì ghi đè bằng giá trị đích dạng thường.
+    /// </summary>
+    private static string ApplyApproval(string text, VoucherCloneSpec s)
+    {
+        var t = text;
+        if (s.SrcApprove.Length > 0 && s.DstApprove.Length > 0 && s.SrcApprove != s.DstApprove)
+        {
+            t = t.Replace($"\"{s.SrcApprove}\"", $"\"{s.DstApprove}\"").Replace($"'{s.SrcApprove}'", $"'{s.DstApprove}'");
+            t = ApproveTypeDef.Replace(t, m => IsEncryptedValue(m.Groups[2].Value) ? m.Groups[1].Value + s.DstApprove + "\"" : m.Value);
+        }
+        if (s.DstApproveController.Length > 0)
+            t = ApproveControllerDef.Replace(t, m => m.Groups[1].Value + s.DstApproveController + "\"");
+        if (s.SrcNotify.Length > 0 && s.DstNotify.Length > 0)
+            t = NotifyDef.Replace(t, m => m.Groups[2].Value == s.SrcNotify || IsEncryptedValue(m.Groups[2].Value) ? m.Groups[1].Value + s.DstNotify + "\"" : m.Value);
+        return t;
     }
 
     /// <summary>Tiền tố dài hơn của chứng từ khác bắt đầu bằng tiền tố này: HD → HDC; AS → ASA01, ASAsset.</summary>
@@ -267,30 +601,27 @@ public class VoucherCloneService
     /// File thuộc chứng từ (tương đối so với gốc source), ở mọi thư mục con của Controllers kể cả Include: tên có tiền tố đứng đầu 1 từ
     /// — Dir\CITran.f, Grid\CIDetail.f, Include\Extender.CITran, Include\XML\Config\Fields\CIGrid.ent / CIField.txt / CIView.txt.
     /// </summary>
-    public static List<string> SourceFiles(string sourceRoot, string prefix, IReadOnlyCollection<string>? others = null)
+    public static List<string> SourceFiles(SourceTree tree, string prefix, IReadOnlyCollection<string>? others = null)
     {
-        var controllers = ControllersDir(sourceRoot);
-        var result = new List<string>();
-        if (controllers == null || prefix.Length == 0) return result;
-        foreach (var f in Directory.EnumerateFiles(controllers, "*", SearchOption.AllDirectories))
-            if (IsOwnFileName(Path.GetFileName(f), prefix, others)) result.Add(Path.GetRelativePath(sourceRoot, f));
-        return result.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        if (prefix.Length == 0) return new List<string>();
+        return tree.Files.Select(f => f.Rel).Where(r => IsOwnFileName(Path.GetFileName(r), prefix, others))
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>
     /// Chuẩn bị spec theo danh sách file sẽ chép: <see cref="VoucherCloneSpec.OwnWords"/>, <see cref="VoucherCloneSpec.SharedNames"/>, rồi quyết định
     /// từng entity bị đổi tên (xem <see cref="PlanEntities"/>). Gọi trước mọi lần đổi nội dung để xem trước / SQL / ghi file ra cùng 1 kết quả.
     /// </summary>
-    public static void Prepare(string sourceRoot, VoucherCloneSpec s, IEnumerable<string> copiedRel, EntityIndex index)
+    public static void Prepare(SourceTree tree, VoucherCloneSpec s, IEnumerable<string> copiedRel, EntityIndex index)
     {
         var copied = copiedRel.ToList();
         s.OwnWords = new(copied.SelectMany(r => WordsOf(Path.GetFileName(r), s.SrcPrefix, s.OtherPrefixes)), StringComparer.OrdinalIgnoreCase);
         s.SharedNames = new(StringComparer.OrdinalIgnoreCase);
-        if (ControllersDir(sourceRoot) is { } controllers && s.SrcPrefix.Length > 0)
-            foreach (var f in Directory.EnumerateFiles(controllers, "*", SearchOption.AllDirectories))
-                foreach (var w in WordsOf(Path.GetFileName(f), s.SrcPrefix, s.OtherPrefixes))
+        if (s.SrcPrefix.Length > 0)
+            foreach (var f in tree.Files)
+                foreach (var w in WordsOf(Path.GetFileName(f.Rel), s.SrcPrefix, s.OtherPrefixes))
                     if (!s.OwnWords.Contains(w)) s.SharedNames.Add(w);
-        PlanEntities(sourceRoot, s, copied, index);
+        PlanEntities(s, copied, index);
     }
 
     /// <summary>
@@ -302,7 +633,7 @@ public class VoucherCloneService
     /// </list>
     /// Dòng được chép có thể gọi entity khác nên duyệt tiếp các tên trong dòng đó.
     /// </summary>
-    private static void PlanEntities(string sourceRoot, VoucherCloneSpec s, IReadOnlyCollection<string> copied, EntityIndex index)
+    private static void PlanEntities(VoucherCloneSpec s, IReadOnlyCollection<string> copied, EntityIndex index)
     {
         s.KeepEntities = new(StringComparer.Ordinal);
         s.CopyEntities = new(StringComparer.Ordinal);
@@ -372,31 +703,25 @@ public class VoucherCloneService
     /// Controller khác (Dir/Grid/Filter/Lookup) mà file của chứng từ nhắc tới đúng tên — vd showForm('tpblAddCustomer'), controller="tpbldmkhvat".
     /// Gói FCode chép kèm các file này (nguyên trạng) để mang chứng từ sang dự án khác; cùng dự án thì không cần.
     /// </summary>
-    public static List<string> ReferencedControllers(string sourceRoot, IEnumerable<string> ownFiles)
+    public static List<string> ReferencedControllers(SourceTree tree, IEnumerable<string> ownFiles)
     {
-        var result = new List<string>();
-        if (ControllersDir(sourceRoot) is not { } controllers) return result;
         var own = ownFiles.ToList();
         var ownNames = new HashSet<string>(own.Select(r => Path.GetFileNameWithoutExtension(r)), StringComparer.OrdinalIgnoreCase);
         var byName = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        foreach (var sub in new[] { "Dir", "Grid", "Filter", "Lookup" })
+        foreach (var f in tree.Files)
         {
-            var d = Path.Combine(controllers, sub);
-            if (!Directory.Exists(d)) continue;
-            foreach (var f in Directory.EnumerateFiles(d))
-            {
-                var n = Path.GetFileNameWithoutExtension(f);
-                if (ownNames.Contains(n)) continue;
-                if (!byName.TryGetValue(n, out var l)) byName[n] = l = new();
-                l.Add(Path.GetRelativePath(sourceRoot, f));
-            }
+            var parts = f.Rel.Split(Path.DirectorySeparatorChar);
+            if (parts.Length != 4 || parts[2] is not ("Dir" or "Grid" or "Filter" or "Lookup")) continue;
+            var n = Path.GetFileNameWithoutExtension(f.Rel);
+            if (ownNames.Contains(n)) continue;
+            if (!byName.TryGetValue(n, out var l)) byName[n] = l = new();
+            l.Add(f.Rel);
         }
         var hit = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var rel in own)
         {
-            var full = Path.Combine(sourceRoot, rel);
-            if (!File.Exists(full) || !IsText(full)) continue;
-            foreach (Match m in Regex.Matches(ReadText(full, out _), @"(?<=['""])[A-Za-z][A-Za-z0-9_]{2,}(?=['""])"))
+            if (tree.Text(rel) is not { } text) continue;
+            foreach (Match m in Regex.Matches(text, @"(?<=['""])[A-Za-z][A-Za-z0-9_]{2,}(?=['""])"))
                 if (byName.TryGetValue(m.Value, out var rels)) foreach (var r in rels) hit.Add(r);
         }
         return hit.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
@@ -405,7 +730,7 @@ public class VoucherCloneService
     // ---- File đăng ký dùng chung (Aggregation.v, Voucher.Controller.003, Filter\Config\Initialize.xml, Include\Extender.ent...) ----
 
     /// <summary>File cấu hình đăng ký chứng từ: trong thư mục Config (bất kỳ cấp) hoặc nằm thẳng trong Include — không đụng controller của chứng từ khác.</summary>
-    private static bool IsRegistryFile(string relToControllers)
+    internal static bool IsRegistryFile(string relToControllers)
     {
         var parts = relToControllers.Split(Path.DirectorySeparatorChar);
         return parts.Take(parts.Length - 1).Any(p => p.Equals("Config", StringComparison.OrdinalIgnoreCase))
@@ -416,19 +741,22 @@ public class VoucherCloneService
     /// File dùng chung sẽ thêm dòng cho chứng từ mới ngay sau dòng gốc: file đăng ký có SysID nguồn, và file định nghĩa entity trong
     /// <see cref="VoucherCloneSpec.CopyEntities"/>. Trả (file, các dòng sẽ thêm).
     /// </summary>
-    public static List<(string Rel, List<string> Added)> RegistryEdits(string sourceRoot, VoucherCloneSpec s, IEnumerable<string> ownFiles)
+    public static List<(string Rel, List<string> Added)> RegistryEdits(SourceTree tree, VoucherCloneSpec s, IEnumerable<string> ownFiles, EntityIndex index)
     {
         var result = new List<(string, List<string>)>();
-        if (ControllersDir(sourceRoot) is not { } controllers || s.SrcSysId.Length == 0) return result;
+        if (tree.Controllers is not { } controllers || s.SrcSysId.Length == 0) return result;
         var own = new HashSet<string>(ownFiles, StringComparer.OrdinalIgnoreCase);
-        var token = new Regex(@"(?<![A-Za-z0-9_])" + Regex.Escape(s.SrcSysId) + @"(?![A-Za-z0-9_])");
-        foreach (var f in Directory.EnumerateFiles(controllers, "*", SearchOption.AllDirectories))
+        // Chỉ mở file chắc chắn liên quan: chỉ mục đã biết file đăng ký nào có SysID nguồn.
+        var candidates = new HashSet<string>(s.EntityFiles, StringComparer.OrdinalIgnoreCase);
+        if (index.WordFiles.TryGetValue(s.SrcSysId, out var withSysId)) candidates.UnionWith(withSysId);
+        candidates.ExceptWith(own);
+        var sizes = tree.Files.Where(f => candidates.Contains(f.Rel)).ToDictionary(f => f.Rel, f => f.Length, StringComparer.OrdinalIgnoreCase);
+        candidates.RemoveWhere(r => sizes.GetValueOrDefault(r) > 4_000_000);
+        tree.Preload(candidates);
+        foreach (var rel in candidates)
         {
-            var rel = Path.GetRelativePath(sourceRoot, f);
-            var registry = IsRegistryFile(Path.GetRelativePath(controllers, f));
-            if ((!registry && !s.EntityFiles.Contains(rel)) || own.Contains(rel) || new FileInfo(f).Length > 4_000_000 || !IsText(f)) continue;
-            var text = ReadText(f, out _);
-            if (!s.EntityFiles.Contains(rel) && !token.IsMatch(text)) continue;
+            if (tree.Text(rel) is not { } text) continue;
+            var registry = IsRegistryFile(Path.GetRelativePath(controllers, Path.Combine(tree.Root, rel)));
             var added = AddRegistryLines(text, s, registry, out _);
             if (added.Count > 0) result.Add((rel, added));
         }
@@ -526,18 +854,25 @@ public class VoucherCloneService
         {
             using var fs = File.OpenRead(path);
             var buf = new byte[8192];
-            var n = fs.Read(buf, 0, buf.Length);
-            if (n >= 2 && ((buf[0] == 0xFF && buf[1] == 0xFE) || (buf[0] == 0xFE && buf[1] == 0xFF))) return true;   // UTF-16 có BOM
-            for (var i = 0; i < n; i++) if (buf[i] == 0) return false;
-            return true;
+            return LooksText(buf, fs.Read(buf, 0, buf.Length));
         }
         catch { return false; }
     }
 
-    /// <summary>Đọc chữ, nhận đúng bảng mã (UTF-8 có/không BOM, UTF-16) để ghi lại y như cũ. Không phải UTF-8 (ANSI): đọc từng byte (Latin1) để ghi lại không mất dữ liệu.</summary>
-    public static string ReadText(string path, out Encoding encoding)
+    /// <summary>n byte đầu của file có phải chữ không: có BOM UTF-16, hoặc không có byte 0.</summary>
+    public static bool LooksText(byte[] buf, int n)
     {
-        var bytes = File.ReadAllBytes(path);
+        if (n >= 2 && ((buf[0] == 0xFF && buf[1] == 0xFE) || (buf[0] == 0xFE && buf[1] == 0xFF))) return true;
+        for (var i = 0; i < n; i++) if (buf[i] == 0) return false;
+        return true;
+    }
+
+    /// <summary>Đọc chữ, nhận đúng bảng mã (UTF-8 có/không BOM, UTF-16) để ghi lại y như cũ. Không phải UTF-8 (ANSI): đọc từng byte (Latin1) để ghi lại không mất dữ liệu.</summary>
+    public static string ReadText(string path, out Encoding encoding) => Decode(File.ReadAllBytes(path), out encoding);
+
+    /// <summary>Giải mã nội dung file, xem <see cref="ReadText"/>.</summary>
+    public static string Decode(byte[] bytes, out Encoding encoding)
+    {
         if (bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE) { encoding = new UnicodeEncoding(false, true); return Encoding.Unicode.GetString(bytes, 2, bytes.Length - 2); }
         if (bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) { encoding = new UnicodeEncoding(true, true); return Encoding.BigEndianUnicode.GetString(bytes, 2, bytes.Length - 2); }
         if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) { encoding = Utf8Bom; return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3); }
@@ -557,26 +892,24 @@ public class VoucherCloneService
     // ---- Bước 3: file include / entity tham chiếu ------------------------------------------------------
 
     /// <summary>Các file mà file nguồn tham chiếu qua &lt;!ENTITY ... SYSTEM "..."&gt; (tương đối so với gốc source) + có tồn tại không.</summary>
-    public static List<(string Rel, bool Exists, bool Specific)> References(string sourceRoot, IEnumerable<string> files, string prefix, string code, IReadOnlyCollection<string>? others = null)
+    public static List<(string Rel, bool Exists, bool Specific)> References(SourceTree tree, IEnumerable<string> files, string prefix, string code, IReadOnlyCollection<string>? others = null)
     {
         var seen = new Dictionary<string, (bool, bool)>(StringComparer.OrdinalIgnoreCase);
         foreach (var rel in files)
         {
-            var full = Path.Combine(sourceRoot, rel);
-            if (!IsText(full) || !File.Exists(full)) continue;
-            string text;
-            try { text = File.ReadAllText(full); } catch { continue; }
+            if (tree.Text(rel) is not { } text) continue;
+            var full = Path.Combine(tree.Root, rel);
             foreach (Match m in Regex.Matches(text, @"SYSTEM\s+""([^""]+)"""))
             {
                 var target = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(full)!, m.Groups[1].Value.Replace('/', '\\')));
-                var r = Path.GetRelativePath(sourceRoot, target);
+                var r = Path.GetRelativePath(tree.Root, target);
                 if (seen.ContainsKey(r)) continue;
                 var name = Path.GetFileName(r);
                 // File include "riêng" của chứng từ: tên có tiền tố đứng đầu 1 từ (CIGrid.ent, CIDetail.ent, Extra.CIDetail) hoặc mã ct
                 // — các tham chiếu này bị đổi sang tên mới nên file cũng phải chép theo; include khác là dùng chung, không chép.
                 var specific = IsOwnFileName(name, prefix, others) ||
                                Regex.IsMatch(name, @"(?<![A-Za-z0-9])" + Regex.Escape(code) + @"(?![A-Za-z0-9])", RegexOptions.IgnoreCase);
-                seen[r] = (File.Exists(target), specific);
+                seen[r] = (tree.Exists(r), specific);
             }
         }
         return seen.Select(kv => (kv.Key, kv.Value.Item1, kv.Value.Item2)).OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase).ToList();
@@ -599,6 +932,7 @@ public class VoucherCloneService
                  .Replace($"'{s.SrcCode}'", $"'{s.DstCode}'")
                  .Replace($"\"{s.SrcCode}\"", $"\"{s.DstCode}\"");
         }
+        t = ApplyApproval(t, s);
         // Tiêu đề v/e của chứng từ (không phân biệt hoa thường: Dir ghi "đơn đặt hàng", Main ghi "Đơn đặt hàng") + description="..." ở file đăng ký.
         if (s.SrcTitleV.Length > 0 && s.DstTitleV.Length > 0)
             t = Regex.Replace(t, "\\bv=\"" + Regex.Escape(s.SrcTitleV) + "\"", "v=\"" + s.DstTitleV.Replace("$", "$$") + "\"", RegexOptions.IgnoreCase);
@@ -626,11 +960,9 @@ public class VoucherCloneService
             var src = Path.Combine(sourceRoot, rel);
             var dst = Path.Combine(outputRoot, targetRel);
             Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
-            if (IsText(src))
-            {
-                var text = Transform(ReadText(src, out var enc), s);
-                File.WriteAllText(dst, text, enc);
-            }
+            var bytes = File.ReadAllBytes(src);   // đọc 1 lần: vừa nhận biết file chữ, vừa lấy nội dung
+            if (LooksText(bytes, Math.Min(bytes.Length, 8192)))
+                File.WriteAllText(dst, Transform(Decode(bytes, out var enc), s), enc);
             else CopyWritable(src, dst);
             written.Add(dst);
         }

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Bcode.Core — LÕI dùng chung của bộ Bcode (mục 1 hướng Cây thế giới): code không phụ thuộc giao diện, được THAM CHIẾU (không chép/link)
+       bởi Bcode.App, BcodeViewer.App... Bắt đầu nhỏ: WatermarkService (thuỷ ấn truy nguồn) để BcodeViewer cũng có dấu bí mật như Bcode. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bcode.Core</RootNamespace>
+    <AssemblyName>Bcode.Core</AssemblyName>
+  </PropertyGroup>
+</Project>

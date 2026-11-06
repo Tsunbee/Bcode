@@ -10,12 +10,12 @@ internal sealed class CommandPalettePage : NativePage
 {
     private sealed class Item { public string Id = "", Kind = "", Title = "", Sub = "", Key = "", T = "", S = "", Grp = ""; }
 
-    private static readonly Dictionary<string, string> KindName = new() { ["tool"] = "Tool", ["cmd"] = "Lệnh", ["tab"] = "Tab", ["obj"] = "SQL", ["menu"] = "Menu", ["snip"] = "Snippet" };
-    private static readonly string[] Order = { "tab", "tool", "cmd", "snip", "menu", "obj" };
-    private static readonly Dictionary<string, string> Group = new() { ["tab"] = "Tab đang mở", ["tool"] = "Công cụ", ["cmd"] = "Lệnh", ["menu"] = "Menu WCommand", ["obj"] = "Object SQL", ["snip"] = "Snippet" };
+    private static readonly Dictionary<string, string> KindName = new() { ["tool"] = "Tool", ["cmd"] = "Lệnh", ["tab"] = "Tab", ["obj"] = "SQL", ["menu"] = "Menu", ["snip"] = "Snippet", ["file"] = "File" };
+    private static readonly string[] Order = { "tab", "tool", "cmd", "snip", "file", "menu", "obj" };
+    private static readonly Dictionary<string, string> Group = new() { ["tab"] = "Tab đang mở", ["tool"] = "Công cụ", ["cmd"] = "Lệnh", ["menu"] = "Menu WCommand", ["obj"] = "Object SQL", ["snip"] = "Snippet", ["file"] = "File source" };
     private const int MaxShow = 80;
 
-    private readonly TextBox _q = new() { BorderStyle = BorderStyle.None, PlaceholderText = "Gõ để tìm tool, tab, lệnh, menu, object SQL…  (> lệnh · # object · @ menu · $ snippet)" };
+    private readonly TextBox _q = new() { BorderStyle = BorderStyle.None, PlaceholderText = "Gõ để tìm tool, tab, lệnh, menu, object SQL…  (> lệnh · # object · @ menu · $ snippet · / file)" };
     private readonly Panel _qHost = new() { Dock = DockStyle.Top, Padding = new Padding(12, 10, 12, 8) };
     private readonly ListBox _list = new() { Dock = DockStyle.Fill, IntegralHeight = false, BorderStyle = BorderStyle.None, DrawMode = DrawMode.OwnerDrawVariable };
     private readonly Label _foot = new() { Dock = DockStyle.Bottom, AutoSize = false, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(12, 0, 12, 0) };
@@ -102,6 +102,7 @@ internal sealed class CommandPalettePage : NativePage
                 case '#': only = new[] { "obj" }; q = q[1..]; break;
                 case '@': only = new[] { "menu" }; q = q[1..]; break;
                 case '$': only = new[] { "snip" }; q = q[1..]; break;
+                case '/': only = new[] { "file" }; q = q[1..]; break;
             }
         }
         var tokens = Norm(q).Split(' ', StringSplitOptions.RemoveEmptyEntries);

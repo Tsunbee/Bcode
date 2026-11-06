@@ -22,6 +22,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private readonly GenUpdateService _genUpdate = new();
     private readonly DataScriptService _dataScript = new();
     private readonly FileLookupService _fileLookupService = new();
+    private readonly ProjectIndexService _projectIndex = new();   // chỉ mục file dùng chung (mục 2): Ctrl+P tìm file, Gen Update gợi ý tên
     private readonly ScriptFileService _scriptFileService = new();
     private readonly SnippetLibraryService _snippets;
     private readonly RawSqlService _rawSqlService;
@@ -289,6 +290,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX, Tạo nhanh danh mục…)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             // Decrypt SQL Object cấp key RIÊNG (bcrypt ghép khác key chung) — mục riêng, lưu riêng license-decrypt.key
             .Add(LicenseService.IsDecryptUnlocked ? "Key Decrypt SQL Object ✓ (đã kích hoạt)..." : "Key Decrypt SQL Object...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.Decrypt); f.ShowDialog(this); })))
+            .AddCaption("Cập nhật")
+            .Add(UpdateMenuLabel, () => BeginInvoke(new Action(CheckForUpdateInteractive)))
+            .Add("Thư mục phát hành bản mới...", () => BeginInvoke(new Action(ChooseReleaseFolder)))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,
@@ -343,6 +347,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
         _toolSpecs.Add(("help", "Trợ giúp", null, (_, _) => OpenHelpTab(HelpTopicForActiveTab())));
         _toolSpecs.Add(("fast_ask", "Hỏi Fast", "Ctrl+Shift+M", (_, _) => OpenFastAskTab()));
+        // Plugin "cành mọc thêm" (mục 4): tờ khai JSON trong Plugins\ / %AppData%\Bcode\plugins\ — mỗi plugin thành 1 mục "Tool mở rộng" + Ctrl+P, chạy chương trình ngoài / mở URL.
+        foreach (var p in Services.PluginService.Load())
+        {
+            var plugin = p;
+            var key = "plugin:" + plugin.Id;
+            _pluginToolKeys.Add(key);
+            _toolSpecs.Add((key, plugin.Name, plugin.Shortcut, (_, _) => Services.PluginService.Run(plugin, this)));
+        }
         // Đăng ký các nút công cụ vào danh sách phím tắt cấu hình được (phím mặc định = Ctrl+Shift+<chữ> như trước; SQL Profiler = Ctrl+3;
         // Trợ giúp = Ctrl+F1 — không lấy F1 vì F1 đang là "chi tiết dòng" của lưới Table, phím phạm vi App sẽ chặn mất).
         Bcode.App.UI.ShortcutRegistry.SetTools(_toolSpecs.Select(t => (t.key, t.label,
@@ -501,6 +513,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _spareTimer.Tick += (_, _) => PrepareSpareSql();
         Controls.Add(_spareHost);
         Shown += (_, _) => QueueSpareSql(2500);
+        Shown += (_, _) => InitUpdateCheck();   // Kiểm tra bản Bcode mới (thư mục phát hành) — MainForm.Update.cs
         Shown += (_, _) => InitFsgNotify();   // Thông báo y/c FSG (chuông 🔔): kéo nền định kỳ — MainForm.FsgNotify.cs
         Disposed += (_, _) => _spareTimer.Dispose();
 
@@ -762,8 +775,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _settings.LastWorkspace = ws.Name;
         _settings.RecentWorkspaces.Remove(ws.Name);
         _settings.RecentWorkspaces.Insert(0, ws.Name);
-        if (_settings.RecentWorkspaces.Count > 10) _settings.RecentWorkspaces.RemoveRange(10, _settings.RecentWorkspaces.Count - 10);
-        try { _settings.Save(); } catch { /* không lưu được thì chỉ mất "Last Access", không ảnh hưởng việc chọn */ }
+        var max = AppSettings.MaxRecentWorkspaces;
+        if (_settings.RecentWorkspaces.Count > max) _settings.RecentWorkspaces.RemoveRange(max, _settings.RecentWorkspaces.Count - max);
+        _settings.RecentOpenedAt ??= new();
+        _settings.RecentOpenedAt[ws.Name] = DateTime.Now;
+        foreach (var stale in _settings.RecentOpenedAt.Keys.Where(k => !_settings.RecentWorkspaces.Contains(k)).ToList()) _settings.RecentOpenedAt.Remove(stale);
+        try { _settings.Save(); } catch { /* không lưu được thì chỉ mất thứ tự "gần đây", không ảnh hưởng việc chọn */ }
     }
 
     /// <summary>Màn hình Projects: lọc / chọn nhanh project đã khai báo (mở lúc khởi động và qua Actions &gt; Projects).</summary>
@@ -1207,14 +1224,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
-    private static bool IsMenuTool(string key) => DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key) || TopBarToolKeys.Contains(key);
+    private readonly List<string> _pluginToolKeys = new();   // tool do plugin ngoài khai (mục 4) — nằm trong menu "Tool mở rộng", không ra thanh nút chính
+
+    private static bool IsMenuTool(string key) => key.StartsWith("plugin:", StringComparison.Ordinal) || DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key) || TopBarToolKeys.Contains(key);
 
     /// <summary>Khoá các nút mặc định của thanh công cụ (không gồm các công cụ trong menu Triển khai).</summary>
     private List<string> BarToolKeys() => _toolSpecs.Where(t => !IsMenuTool(t.key)).Select(t => t.key).ToList();
 
     private void ShowDeployMenu() => ShowToolMenu("Triển khai", DeployToolKeys);
 
-    private void ShowExtMenu() => ShowToolMenu("Tool mở rộng", ExtToolKeys);
+    private void ShowExtMenu() => ShowToolMenu("Tool mở rộng", ExtToolKeys.Concat(_pluginToolKeys).ToArray());
 
     private void ShowToolMenu(string caption, string[] keys)
     {
@@ -1242,6 +1261,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var items = new List<object>();
         var objects = new Dictionary<string, SqlObjectInfo>();
         var menus = new Dictionary<string, WCommandItem>();
+        var files = new Dictionary<string, string>();   // id -> đường dẫn file đầy đủ (Ctrl+P chọn file)
 
         for (var i = 0; i < _documentTabs.TabPages.Count; i++)
             items.Add(new { kind = "tab", id = "tab:" + i, title = _documentTabs.TabPages[i].Text.Trim(), sub = "", key = i < 9 ? Bcode.App.UI.ShortcutRegistry.Display("tab.goto" + (i + 1)) : "" });
@@ -1281,10 +1301,26 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             });
         }
 
+        // File source của dự án (chỉ mục dùng chung, mục 2) — tìm nhanh bất kỳ file .f/.xml/.ent... bằng Ctrl+P. Phục vụ từ cache ngay;
+        // cũ thì refresh nền rồi mở lại danh sách lần sau. Giới hạn số dòng để Ctrl+P không nặng khi dự án rất lớn.
+        var ws = _connections.Current;
+        if (ws is { } w && !string.IsNullOrWhiteSpace(w.SourcePath))
+        {
+            var proj = string.IsNullOrWhiteSpace(w.ProjectId) ? w.Name : w.ProjectId;
+            _projectIndex.EnsureFreshAsync(proj, w.SourcePath);   // nền, lần sau mới có; không chặn mở Ctrl+P
+            var root = w.SourcePath;
+            foreach (var f in _projectIndex.Files(proj).Take(8000))
+            {
+                var id = "file:" + f.Rel;
+                files[id] = f.FullPath(root);
+                items.Add(new { kind = "file", id, title = f.Name, sub = f.Rel, key = "" });
+            }
+        }
+
         var form = new CommandPaletteForm(System.Text.Json.JsonSerializer.Serialize(items), System.Text.Json.JsonSerializer.Serialize(_paletteRecent));
         _palette = form;
         form.FormClosed += (_, _) => { if (ReferenceEquals(_palette, form)) _palette = null; };
-        form.Chosen += (kind, id, secondary) => BeginInvoke(new Action(() => RunPaletteChoice(kind, id, secondary, objects, menus, snippets)));
+        form.Chosen += (kind, id, secondary) => BeginInvoke(new Action(() => RunPaletteChoice(kind, id, secondary, objects, menus, snippets, files)));
         form.Show(this);
     }
 
@@ -1293,7 +1329,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         try { return _sqlObjectService.LoadCache(sys)?.Items; } catch { return null; }
     }
 
-    private void RunPaletteChoice(string kind, string id, bool secondary, Dictionary<string, SqlObjectInfo> objects, Dictionary<string, WCommandItem> menus, Dictionary<string, string> snippets)
+    private void RunPaletteChoice(string kind, string id, bool secondary, Dictionary<string, SqlObjectInfo> objects, Dictionary<string, WCommandItem> menus, Dictionary<string, string> snippets, Dictionary<string, string> files)
     {
         _paletteRecent.Remove(id);
         _paletteRecent.Insert(0, id);
@@ -1332,6 +1368,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             case "obj":
                 if (!objects.TryGetValue(id, out var obj)) break;
                 if (secondary) OpenUsagesTab(obj); else _ = OpenObjectDefinitionAsync(obj);
+                break;
+            case "file":
+                if (files.TryGetValue(id, out var filePath))
+                {
+                    var lookup = OpenFileLookupTab(autoLoad: false);
+                    lookup?.PreviewExternalFile(filePath);
+                }
                 break;
         }
     }
@@ -2280,7 +2323,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return _genUpdatePackageControl;
         }
 
-        var control = new GenUpdatePackageControl(_fileLookupService, _sqlObjectService, ws, _genAllService) { MenuRoots = () => _wcommandTree.RootsAll };
+        var control = new GenUpdatePackageControl(_fileLookupService, _sqlObjectService, ws, _genAllService, _projectIndex) { MenuRoots = () => _wcommandTree.RootsAll };
         _genUpdatePackageTabPage = AddDocumentTab("Gen Update", control);
         _genUpdatePackageControl = control;
         return control;

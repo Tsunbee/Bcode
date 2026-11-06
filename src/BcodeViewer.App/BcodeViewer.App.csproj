@@ -29,9 +29,26 @@
     <Authors>PhongNT|HaoTN</Authors>
     <Company>PhongNT|HaoTN</Company>
     <Description>IDE FBO</Description>
-    <Copyright>© PhongNT|HaoTN</Copyright>
+    <Copyright>© PhongNT|HaoTN. Phần mềm độc quyền. Cấm sao chép, phân phối lại hoặc dịch ngược (decompile/reverse-engineer) khi chưa được phép bằng văn bản.</Copyright>
+    <Trademark>BcodeViewer™</Trademark>
     <Version>1.0.0</Version>
   </PropertyGroup>
+  <!-- Dấu tĩnh truy nguồn (tools/bcode-mark): GUID bộ Bcode nhúng cố định vào metadata assembly để nhận ra bản sao chép nhị phân. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BcodeMark</_Parameter1>
+      <_Parameter2>b3c0de00-0000-4bee-b3c0-deb3c0deb3c0 | BcodeMark v1</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <!-- Lõi dùng chung (mục 1): WatermarkService — để BcodeViewer cũng mang dấu bí mật như Bcode. Tham chiếu, không chép. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Bcode.Core\Bcode.Core.csproj" />
+  </ItemGroup>
+  <!-- Key gốc bản quyền ở Secrets/LocalSecrets.cs (gitignore) — chỉ dùng làm "muối" cho thuỷ ấn; thiếu file thì dùng bản rỗng (Viewer không có dấu bí mật). -->
+  <ItemGroup>
+    <Compile Include="..\Bcode.App\Secrets\LocalSecrets.cs" Link="Shared\LocalSecrets.cs" Condition="Exists('..\Bcode.App\Secrets\LocalSecrets.cs')" />
+    <Compile Include="..\Bcode.App\Secrets\LocalSecrets.Empty.cs" Link="Shared\LocalSecrets.cs" Condition="!Exists('..\Bcode.App\Secrets\LocalSecrets.cs')" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
     <!-- Code nhúng claude.ai / gemini.google.com dùng chung với Bcode.App (xem Shared/AiWebHelper.cs) — link, không chép. -->
@@ -40,6 +57,8 @@
     <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
     <!-- Alt+Tab quay lại thì trả focus / con trỏ về chỗ cũ (WebView2 không tự làm) — dùng chung với Bcode.App. -->
     <Compile Include="..\Shared\AppSwitchFocus.cs" Link="Shared\AppSwitchFocus.cs" />
+    <!-- Giao thức pipe liên-tiến-trình có phiên bản (Bcode ↔ BcodeViewer) — Shared/PipeProtocol.cs, link vào cả hai. -->
+    <Compile Include="..\Shared\PipeProtocol.cs" Link="Shared\PipeProtocol.cs" />
     <!-- SQL IntelliSense only (table/column names — see Host/SqlSchemaService). BcodeViewer
          reuses the workspace Bcode.App already stores in %AppData%\Bcode\settings.json
          rather than referencing Bcode.App, which would drag its whole WinForms/ClosedXML

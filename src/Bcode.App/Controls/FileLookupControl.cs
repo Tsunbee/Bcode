@@ -541,6 +541,13 @@ public partial class FileLookupControl : UserControl
 
     public void Reload() => _ = ReloadAsync();
 
+    /// <summary>Xem trước 1 file theo đường dẫn tuyệt đối (Ctrl+P chọn file từ chỉ mục dự án) — không cần node trong cây.</summary>
+    public void PreviewExternalFile(string fullPath)
+    {
+        if (!File.Exists(fullPath)) { MessageBox.Show(this, "Không thấy file:\n" + fullPath, "Bcode — File Lookup", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        PreviewFile(fullPath, null);
+    }
+
     /// <summary>Màu riêng của tab File Lookup (xanh dương như tab File Lookup của FCode).</summary>
     public static readonly Color TabColor = Color.FromArgb(0, 120, 212);
 

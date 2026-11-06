@@ -74,12 +74,15 @@ public class GenUpdatePackageControl : UserControl
 
     private readonly GenAllService? _genAll;
 
-    public GenUpdatePackageControl(FileLookupService fileLookupService, SqlObjectBrowserService sqlObjectService, Workspace? workspace, GenAllService? genAll = null)
+    private readonly ProjectIndexService? _projectIndex;   // chỉ mục file dùng chung (mục 2) — gợi ý tên lấy từ đây thay vì tự quét Controllers
+
+    public GenUpdatePackageControl(FileLookupService fileLookupService, SqlObjectBrowserService sqlObjectService, Workspace? workspace, GenAllService? genAll = null, ProjectIndexService? projectIndex = null)
     {
         _genAll = genAll;
         _fileLookupService = fileLookupService;
         _sqlObjectService = sqlObjectService;
         _workspace = workspace;
+        _projectIndex = projectIndex;
         if (workspace is not null && !string.IsNullOrWhiteSpace(workspace.SourcePath))
             _sourceRoot = workspace.SourcePath;
 
@@ -168,6 +171,22 @@ public class GenUpdatePackageControl : UserControl
     private async Task LoadNamesAsync()
     {
         if (_sourceRoot is null) return;
+        // Ưu tiên chỉ mục file dùng chung (mục 2): đã quét rồi thì lấy ngay, không phải duyệt lại cây Controllers qua mạng. Chưa có thì refresh nền
+        // rồi gửi lại gợi ý khi xong; đồng thời vẫn tự quét 1 lần làm dự phòng cho máy chưa dựng chỉ mục.
+        var proj = _workspace is { } w ? (string.IsNullOrWhiteSpace(w.ProjectId) ? w.Name : w.ProjectId) : null;
+        if (_projectIndex is not null && proj is not null)
+        {
+            void Push()
+            {
+                var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var f in _projectIndex.Files(proj)) { set.Add(f.Name); set.Add(Path.GetFileNameWithoutExtension(f.Name)); }
+                _names = set.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
+                if (!IsDisposed && _names.Count > 0) BeginInvoke(() => { if (!IsDisposed) Js($"genUpdate.onNames({J(_names)})"); });
+            }
+            if (_projectIndex.Files(proj).Count > 0) Push();
+            _projectIndex.EnsureFreshAsync(proj, _sourceRoot, Push);   // nền; xong thì cập nhật gợi ý
+            if (_projectIndex.Files(proj).Count > 0) return;           // đã có dữ liệu để hiện; khỏi tự quét
+        }
         var controllersRoot = Path.Combine(_sourceRoot, "App_Data", "Controllers");
         try
         {

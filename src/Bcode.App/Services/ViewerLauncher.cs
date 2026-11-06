@@ -15,7 +15,8 @@ internal static class ViewerLauncher
     internal static Func<AppSettings>? Settings;
     internal static Func<string?>? ProjectName;
 
-    public static void Open(IWin32Window? owner, string path)
+    /// <param name="line">&gt; 0 = BcodeViewer mở file rồi nhảy tới dòng này (qua --line; BcodeViewer đang mở sẵn thì tự chuyển tiếp tới cửa sổ đó — pipe có phiên bản).</param>
+    public static void Open(IWin32Window? owner, string path, int line = 0, int col = 1)
     {
         if (!File.Exists(path))
         {
@@ -39,6 +40,7 @@ internal static class ViewerLauncher
         {
             var projectName = ProjectName?.Invoke();
             var arguments = string.IsNullOrWhiteSpace(projectName) ? $"\"{path}\"" : $"\"{path}\" \"{projectName}\"";
+            if (line > 0) arguments += $" --line {line} --col {Math.Max(1, col)}";
             Process.Start(new ProcessStartInfo(settings.ViewerExePath, arguments) { UseShellExecute = true });
         }
         catch (Exception ex)

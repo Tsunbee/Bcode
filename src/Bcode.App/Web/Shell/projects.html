@@ -12,6 +12,8 @@
   .recent button.chip { padding: calc(.25rem * var(--dens)) .9rem; border-radius: 1rem; }
   .recent button.chip:first-of-type { border-color: var(--accent); }
   #wrap { flex: 1; min-height: 0; margin: 0 .8rem .6rem; }
+  table.tbl tbody tr.rc td:nth-child(2) { color: var(--accent); font-weight: 600; }
+  table.tbl td.last { color: var(--text-muted); white-space: nowrap; }
   table.tbl th { cursor: pointer; user-select: none; }
   table.tbl th .ar { color: var(--accent); margin-left: .3rem; }
   table.tbl td { max-width: 24rem; }
@@ -33,9 +35,9 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const COLS = [['id', 'ID'], ['sys', 'Sys Data'], ['app', 'App Data'], ['ver', 'Mã phiên bản'], ['wlogin', 'WLoginLink'], ['prog', 'Program Path'], ['src', 'Source Path']];
+  const COLS = [['rank', 'Mở gần nhất'], ['id', 'ID'], ['sys', 'Sys Data'], ['app', 'App Data'], ['ver', 'Mã phiên bản'], ['wlogin', 'WLoginLink'], ['prog', 'Program Path'], ['src', 'Source Path']];
   const CHUNK = 150;
-  let items = [], view = [], sel = -1 /* vị trí trong view */, sortCol = 'id', asc = true, shown = 0;
+  let items = [], view = [], sel = -1 /* vị trí trong view */, sortCol = 'rank', asc = true, shown = 0;
 
   const cur = () => (sel >= 0 && sel < view.length ? view[sel] : null);
 
@@ -43,7 +45,11 @@
     const tokens = $('filter').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     view = items.filter((it) => tokens.every((t) => it.hay.includes(t)));
     const dir = asc ? 1 : -1;
-    view.sort((a, b) => dir * String(a[sortCol] || '').localeCompare(String(b[sortCol] || ''), undefined, { sensitivity: 'base' }));
+    const byId = (a, b) => String(a.id || '').localeCompare(String(b.id || ''), undefined, { sensitivity: 'base' });
+    // Mặc định: dự án mở gần đây lên đầu (mới nhất trước), còn lại theo ID — bấm lại tiêu đề "Mở gần nhất" thì đảo chiều phần gần đây.
+    view.sort(sortCol === 'rank'
+      ? (a, b) => { const ra = a.rank, rb = b.rank, MAX = 2147483647; if (ra === MAX || rb === MAX) return ra === rb ? byId(a, b) : (ra === MAX ? 1 : -1); return dir * (ra - rb); }
+      : (a, b) => dir * String(a[sortCol] || '').localeCompare(String(b[sortCol] || ''), undefined, { sensitivity: 'base' }));
     const idx = keepI == null ? -1 : view.findIndex((v) => v.i === keepI);
     sel = idx >= 0 ? idx : (view.length ? 0 : -1);
     $('count').textContent = view.length + '/' + items.length + ' project';
@@ -54,7 +60,7 @@
   function more() {                       // dựng thêm từng đợt khi cuộn xuống — danh sách rất dài vẫn mở nhanh
     const end = Math.min(view.length, shown + CHUNK);
     let html = '';
-    for (let n = shown; n < end; n++) { const v = view[n]; html += '<tr data-n="' + n + '">' + COLS.map(([k]) => '<td title="' + esc(v[k]) + '">' + esc(v[k]) + '</td>').join('') + '</tr>'; }
+    for (let n = shown; n < end; n++) { const v = view[n]; html += '<tr data-n="' + n + '"' + (v.last ? ' class="rc"' : '') + '>' + COLS.map(([k]) => k === 'rank' ? '<td class="last">' + esc(v.last) + '</td>' : '<td title="' + esc(v[k]) + '">' + esc(v[k]) + '</td>').join('') + '</tr>'; }
     $('rows').insertAdjacentHTML('beforeend', html); shown = end;
     $('more').textContent = shown < view.length ? 'Cuộn xuống để xem thêm (' + (view.length - shown) + ')...' : '';
   }
@@ -64,6 +70,7 @@
     while (sel >= shown && shown < view.length) more();
     const r = $('rows').querySelector('tr[data-n="' + sel + '"]'); if (r) { r.classList.add('sel'); if (scroll) r.scrollIntoView({ block: 'nearest' }); }
   }
+
   function renderRecent(list) {
     $('recent').innerHTML = '<span class="lbl muted">Last Access</span>' + list.map((r) => '<button class="chip" data-i="' + r.i + '">' + esc(r.id) + '</button>').join('');
   }
@@ -74,6 +81,7 @@
   $('rows').addEventListener('click', (e) => { const tr = e.target.closest('tr'); if (!tr) return; sel = parseInt(tr.dataset.n, 10); paintSel(false); });
   $('rows').addEventListener('dblclick', (e) => { if (e.target.closest('tr') && cur()) post('pick', { i: cur().i }); });
   $('rows').addEventListener('contextmenu', (e) => { e.preventDefault(); const tr = e.target.closest('tr'); if (!tr) return; sel = parseInt(tr.dataset.n, 10); paintSel(false); post('ctx', { i: cur().i, kind: 'row' }); });
+
   $('recent').addEventListener('click', (e) => { const b = e.target.closest('button.chip'); if (b) post('pick', { i: parseInt(b.dataset.i, 10) }); });
   $('recent').addEventListener('contextmenu', (e) => { e.preventDefault(); const b = e.target.closest('button.chip'); if (b) post('ctx', { i: parseInt(b.dataset.i, 10), kind: 'chip' }); });
 
@@ -91,7 +99,7 @@
   });
 
   window.projects = {
-    init(d) { const c = cur(); items = d.items; renderRecent(d.recent); apply(c ? items.find((x) => x.id === c.id)?.i ?? null : null); $('filter').focus(); },
+    init(d) { const c = cur(); items = d.items; renderRecent(d.recent || []); apply(c ? items.find((x) => x.id === c.id)?.i ?? null : null); $('filter').focus(); },
     // C# gọi khi trang vừa nạp hoặc khi phím gõ bị rơi ra ngoài trang (xem ProjectPickerForm.FocusFilter): focus ô lọc + điền các ký tự đó.
     focusFilter(typed) {
       const f = $('filter'); f.focus();

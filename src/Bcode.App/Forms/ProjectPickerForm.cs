@@ -69,6 +69,7 @@ public class ProjectPickerForm : WebDialogForm, IProjectPicker
         var items = _list.Select((w, i) => new
         {
             i, id = IdOf(w), sys = w.SysDatabase, app = w.AppDatabase, ver = w.VersionCode, wlogin = w.LoginWLink, prog = w.ProgramPath, src = w.SourcePath, hay = Haystack(w),
+            rank = ProjectActions.RecentRank(_settings, w), last = ProjectActions.RecentText(_settings, w),
         });
         var recent = _settings.RecentWorkspaces.Take(10)
             .Select(name => _list.FindIndex(x => x.Name == name))
@@ -95,24 +96,25 @@ public class ProjectPickerForm : WebDialogForm, IProjectPicker
                 PushData();
                 break;
             case "removeRecent":
-                if (w is not null) { _settings.RecentWorkspaces.Remove(w.Name); _settings.Save(); PushData(); }
+                if (w is not null) { ProjectActions.ForgetRecent(_settings, w); PushData(); }
                 break;
             case "ctx":
-                if (w is not null) BeginInvoke(new Action(() => ShowContextMenu(w, msg.TryGetProperty("kind", out var kind) && kind.GetString() == "chip")));
+                if (w is not null) BeginInvoke(new Action(() => ShowContextMenu(w)));
                 break;
         }
         return Task.CompletedTask;
     }
 
-    /// <summary>Menu chuột phải của 1 project: dải Last Access (có thêm "Bỏ khỏi Last Access") hoặc bảng (có thêm Delete).</summary>
-    private void ShowContextMenu(Workspace w, bool chip)
+    /// <summary>Menu chuột phải của 1 project; dự án mở gần đây có thêm "Bỏ khỏi danh sách gần đây".</summary>
+    private void ShowContextMenu(Workspace w)
     {
         var menu = new WebMenu()
             .Add("Chọn project này", () => { Chosen = w; CloseWith(DialogResult.OK); })
             .Add("Edit project...", () => BeginInvoke(new Action(() => OpenEditor(select: w))))
             .Add("Copy Project Info", () => CopyInfo(w));
-        if (chip) menu.AddSeparator().Add("Bỏ khỏi Last Access", () => { _settings.RecentWorkspaces.Remove(w.Name); _settings.Save(); PushData(); });
-        else menu.AddSeparator().Add("Delete", () => BeginInvoke(new Action(() => DeleteProject(w))), danger: true);
+        menu.AddSeparator();
+        if (_settings.RecentWorkspaces.Contains(w.Name)) menu.Add("Bỏ khỏi danh sách gần đây", () => { ProjectActions.ForgetRecent(_settings, w); PushData(); });
+        menu.Add("Delete", () => BeginInvoke(new Action(() => DeleteProject(w))), danger: true);
         menu.Show(this, Cursor.Position);
     }
 

@@ -43,6 +43,14 @@ internal static class Program
         // which is indistinguishable from "the app didn't start" and leaves nothing to
         // investigate afterwards.
         InstallCrashHandlers();
+        // Thuỷ ấn truy nguồn (Bcode.Core): "muối" = key gốc bản quyền (Secrets/LocalSecrets.cs; bản rỗng = Viewer không có dấu bí mật). Ghi dấu vào log để truy nguồn.
+        Bcode.Core.WatermarkService.SaltProvider = () => Bcode.App.Secrets.LocalSecrets.LicenseKey;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(CrashLogPath)!);
+            File.AppendAllText(CrashLogPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  [info]  {Bcode.Core.WatermarkService.LogLine}\n");
+        }
+        catch { /* không ghi được thì bỏ qua */ }
         try { Settings.CompletionPromptConfig.EnsureFilesExist(); } catch { }
         // args[0] is the file Bcode.App (or the user, via a shortcut/"Open with") launched
         // this with — optional so BcodeViewer can still start with nothing open. args[1] is
@@ -57,8 +65,15 @@ internal static class Program
         // against Bcode.App's own configured workspaces (see WorkspaceConnection.
         // ResolveProjectName) before finally giving up on "#Other". A launcher that DOES pass
         // args[1] is unaffected — that value always wins first.
-        var initialFile = args.Length > 0 ? args[0] : null;
-        var explicitProjectName = args.Length > 1 && args[1].Length > 0 && !args[1].StartsWith("/") ? args[1] : null;
+        var initialFile = args.Length > 0 && !args[0].StartsWith("--") ? args[0] : null;
+        // Bcode "Mở trong BcodeViewer" tại vị trí con trỏ gửi kèm --line N [--col M] để nhảy tới đúng dòng.
+        int gotoLine = 0, gotoCol = 1;
+        for (var i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] == "--line" && int.TryParse(args[i + 1], out var l)) gotoLine = l;
+            else if (args[i] == "--col" && int.TryParse(args[i + 1], out var c)) gotoCol = c;
+        }
+        var explicitProjectName = args.Length > 1 && args[1].Length > 0 && !args[1].StartsWith("/") && !args[1].StartsWith("--") ? args[1] : null;
         var projectName = explicitProjectName
             ?? (initialFile is not null ? WorkspaceConnection.ResolveProjectName(initialFile) : null)
             ?? "#Other";
@@ -87,12 +102,12 @@ internal static class Program
         {
             if (!createdNew)
             {
-                if (initialFile is not null) TryHandOffToRunningInstance(initialFile, projectName);
+                if (initialFile is not null) TryHandOffToRunningInstance(initialFile, projectName, gotoLine, gotoCol);
                 return;
             }
 
             ApplicationConfiguration.Initialize();
-            Application.Run(new MainForm(initialFile, projectName));
+            Application.Run(new MainForm(initialFile, projectName, gotoLine, gotoCol));
         }
         finally
         {
@@ -105,19 +120,23 @@ internal static class Program
     /// instance is unresponsive (e.g. mid-shutdown — a narrow race between the mutex check
     /// above and the old instance actually tearing down its pipe server), falls back to
     /// opening a normal window rather than silently dropping the file the user asked for.</summary>
-    private static void TryHandOffToRunningInstance(string filePath, string projectName)
+    private static void TryHandOffToRunningInstance(string filePath, string projectName, int gotoLine = 0, int gotoCol = 1)
     {
         try
         {
             using var client = new NamedPipeClientStream(".", SingleInstancePipeName, PipeDirection.Out);
             client.Connect(2000);
             using var writer = new StreamWriter(client, Encoding.UTF8) { AutoFlush = true };
-            writer.WriteLine(filePath + "|" + projectName);
+            // Có dòng cần nhảy → gửi dạng có phiên bản "bcp1|open|..."; không thì giữ dạng cũ để không phụ thuộc bản.
+            if (gotoLine > 0)
+                writer.Write(Bcode.Shared.PipeProtocol.Encode("open", filePath, projectName, gotoLine.ToString(), gotoCol.ToString()));
+            else
+                writer.WriteLine(filePath + "|" + projectName);
         }
         catch
         {
             ApplicationConfiguration.Initialize();
-            Application.Run(new MainForm(filePath, projectName));
+            Application.Run(new MainForm(filePath, projectName, gotoLine, gotoCol));
         }
     }
 

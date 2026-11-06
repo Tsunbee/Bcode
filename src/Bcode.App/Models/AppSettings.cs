@@ -30,8 +30,16 @@ public class AppSettings
     /// <summary>Số giây giữa hai lần tự lưu phiên (tab + nội dung SQL) — chỉnh ở Settings.</summary>
     public int SessionSaveSeconds { get; set; } = 4;
 
-    /// <summary>Tên các Workspace đã chọn gần đây, mới nhất trước (tối đa 10) — dải "Last Access" của màn hình Projects.</summary>
+    /// <summary>Tên các Workspace đã chọn gần đây, mới nhất trước (tối đa <see cref="MaxRecentWorkspaces"/>) — màn hình Projects xếp các dự án này lên đầu.</summary>
     public List<string> RecentWorkspaces { get; set; } = new();
+
+    /// <summary>Lần mở gần nhất của từng Workspace trong <see cref="RecentWorkspaces"/> (cột "Mở gần nhất" của màn hình Projects).</summary>
+    public Dictionary<string, DateTime> RecentOpenedAt { get; set; } = new();
+
+    public const int MaxRecentWorkspaces = 100;
+
+    /// <summary>Thư mục phát hành bản Bcode mới (thư mục build có bcode-version.json, thường trên ổ mạng) — Bcode tự kiểm tra lúc mở; trống = không kiểm tra.</summary>
+    public string ReleaseFolder { get; set; } = "";
 
     /// <summary>Đường dẫn tới Config.xml của chính FCode (thường ở
     /// "...\FCode\Config\Config.xml") — Ctrl+F5 tra ở đây TRƯỚC để lấy đúng server thật của

@@ -13,7 +13,23 @@
          file, embedded as a resource — see UI/AppIcons.cs. -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>Assets\bee.ico</ApplicationIcon>
+    <!-- Bản quyền + điều khoản (hiện ở Properties của Bcode.exe, nhúng vào metadata assembly) — mức răn đe/pháp lý, không phải DRM. -->
+    <Company>Bee</Company>
+    <Product>Bcode</Product>
+    <Copyright>© Bee. Phần mềm độc quyền. Cấm sao chép, phân phối lại hoặc dịch ngược (decompile/reverse-engineer) khi chưa được phép bằng văn bản.</Copyright>
+    <Trademark>Bcode™ Bee</Trademark>
   </PropertyGroup>
+  <!-- Dấu tĩnh truy nguồn (tools/bcode-mark): GUID bộ Bcode nhúng cố định vào metadata assembly để nhận ra bản sao chép nhị phân. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BcodeMark</_Parameter1>
+      <_Parameter2>b3c0de00-0000-4bee-b3c0-deb3c0deb3c0 | BcodeMark v1</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+  <!-- Lõi dùng chung (mục 1): WatermarkService... — tham chiếu, không chép. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Bcode.Core\Bcode.Core.csproj" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="ClosedXML" Version="0.104.1" />
@@ -37,6 +53,8 @@
     <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
     <!-- Alt+Tab quay lại thì trả focus / con trỏ về chỗ cũ (WebView2 không tự làm) — dùng chung với BcodeViewer.App. -->
     <Compile Include="..\Shared\AppSwitchFocus.cs" Link="Shared\AppSwitchFocus.cs" />
+    <!-- Giao thức pipe liên-tiến-trình có phiên bản (Bcode ↔ BcodeViewer ↔ BcodeNote) — Shared/PipeProtocol.cs, link vào cả hai. -->
+    <Compile Include="..\Shared\PipeProtocol.cs" Link="Shared\PipeProtocol.cs" />
     <!-- SqlWatch (src/SqlWatch, app riêng theo dõi câu SQL qua DMV) — link mã để Ctrl+3 mở được trong tab Bcode (Controls/SqlWatchControl.cs);
          bỏ Program/SelfTest (điểm vào riêng của exe). Project SqlWatch vẫn build độc lập như cũ. -->
     <Compile Include="..\SqlWatch\*.cs" Exclude="..\SqlWatch\Program.cs;..\SqlWatch\SelfTest.cs" LinkBase="SqlWatch" />
@@ -177,6 +195,18 @@
     <!-- Giải mã file .f của Fast (khối <Encrypted>) cho Sơ đồ phụ thuộc: exe riêng src/Bcode.FDecrypt, chạy tiến trình tách (nạp fsystem.dll của FCode) — build kèm, chép ra FDecrypt\. -->
     <ProjectReference Include="..\Bcode.FDecrypt\Bcode.FDecrypt.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" />
   </ItemGroup>
+  <!-- Dấu phiên bản cho "Kiểm tra bản Bcode mới" (Services/UpdateCheckService.cs): thời điểm build (UTC) + commit git, ghi bcode-version.json cạnh Bcode.exe.
+       Thư mục phát hành có file này mới hơn bản đang chạy thì Bcode nhắc cập nhật. Không có git thì commit để trống. -->
+  <Target Name="WriteBuildStamp" AfterTargets="Build">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="BcodeCommit" />
+    </Exec>
+    <PropertyGroup>
+      <BcodeBuiltUtc>$([System.DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))</BcodeBuiltUtc>
+      <BcodeCommit Condition="$(BcodeCommit.Contains(' ')) Or $(BcodeCommit.Length) &gt; 12">unknown</BcodeCommit>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(OutDir)bcode-version.json" Lines="{ &quot;built&quot;: &quot;$(BcodeBuiltUtc)&quot;, &quot;commit&quot;: &quot;$(BcodeCommit)&quot;, &quot;config&quot;: &quot;$(Configuration)&quot; }" Overwrite="true" />
+  </Target>
   <Target Name="CopyFDecrypt" AfterTargets="Build">
     <ItemGroup>
       <FDecryptOutput Include="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*.pdb" />

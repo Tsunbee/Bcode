@@ -367,6 +367,9 @@ internal static class WebViewEnvironment
     private static void InstallGlobalShortcuts(Microsoft.Web.WebView2.Core.CoreWebView2 core)
     {
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(GlobalShortcutScript);
+        // Thuỷ ấn truy nguồn (Bcode.Core.WatermarkService): nhúng dấu vô hình vào DOM mọi trang — bản không có key thì chuỗi rỗng, không nhúng gì.
+        var stamp = Bcode.Core.WatermarkService.StampScript;
+        if (stamp.Length > 0) _ = core.AddScriptToExecuteOnDocumentCreatedAsync(stamp);
         core.WebMessageReceived += (_, e) =>
         {
             try

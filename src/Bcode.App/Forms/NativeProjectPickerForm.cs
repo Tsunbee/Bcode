@@ -13,8 +13,10 @@ namespace Bcode.App.Forms;
 /// </summary>
 public sealed class NativeProjectPickerForm : ThemedForm, IProjectPicker
 {
-    private static readonly (string Key, string Title, Func<Workspace, string> Get)[] Cols =
+    private (string Key, string Title, Func<Workspace, string> Get)[] Cols = null!;
+    private (string Key, string Title, Func<Workspace, string> Get)[] BuildCols() => new (string, string, Func<Workspace, string>)[]
     {
+        ("rank", "Mở gần nhất", w => ProjectActions.RecentText(_settings, w)),
         ("id", "ID", ProjectActions.IdOf), ("sys", "Sys Data", w => w.SysDatabase ?? ""), ("app", "App Data", w => w.AppDatabase ?? ""),
         ("ver", "Mã phiên bản", w => w.VersionCode ?? ""), ("wlogin", "WLoginLink", w => w.LoginWLink ?? ""),
         ("prog", "Program Path", w => w.ProgramPath ?? ""), ("src", "Source Path", w => w.SourcePath ?? ""),
@@ -37,6 +39,7 @@ public sealed class NativeProjectPickerForm : ThemedForm, IProjectPicker
     {
         _settings = settings;
         _connections = connections;
+        Cols = BuildCols();
         Text = "Projects";
         Width = 1120; Height = 640; MinimumSize = new Size(760, 420);
         StartPosition = FormStartPosition.CenterParent;
@@ -61,7 +64,7 @@ public sealed class NativeProjectPickerForm : ThemedForm, IProjectPicker
         _grid.RowHeadersVisible = false; _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect; _grid.MultiSelect = false;
         _grid.VirtualMode = true; _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None; _grid.BorderStyle = BorderStyle.None;
         _grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-        var widths = new[] { 150, 170, 170, 110, 260, 260, 260 };
+        var widths = new[] { 120, 150, 170, 170, 110, 260, 260, 260 };
         for (var i = 0; i < Cols.Length; i++)
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = Cols[i].Title, Width = widths[i], SortMode = DataGridViewColumnSortMode.Programmatic });
         _grid.CellValueNeeded += (_, e) => { if (e.RowIndex >= 0 && e.RowIndex < _view.Count) e.Value = Cols[e.ColumnIndex].Get(_view[e.RowIndex]); };
@@ -137,7 +140,14 @@ public sealed class NativeProjectPickerForm : ThemedForm, IProjectPicker
         var tokens = _filter.Text.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var get = Cols[_sortCol].Get;
         var q = _all.Where(x => tokens.All(t => x.Hay.Contains(t))).Select(x => x.W);
-        q = _asc ? q.OrderBy(get, StringComparer.OrdinalIgnoreCase) : q.OrderByDescending(get, StringComparer.OrdinalIgnoreCase);
+        if (Cols[_sortCol].Key == "rank")
+        {
+            // Mặc định: dự án mở gần đây lên đầu (mới nhất trước; bấm lại tiêu đề thì đảo phần gần đây), còn lại theo ID.
+            int Rank(Workspace w) => ProjectActions.RecentRank(_settings, w);
+            q = q.OrderBy(w => Rank(w) == int.MaxValue ? 1 : 0).ThenBy(w => Rank(w) == int.MaxValue ? 0 : (_asc ? Rank(w) : -Rank(w)))
+                 .ThenBy(ProjectActions.IdOf, StringComparer.OrdinalIgnoreCase);
+        }
+        else q = _asc ? q.OrderBy(get, StringComparer.OrdinalIgnoreCase) : q.OrderByDescending(get, StringComparer.OrdinalIgnoreCase);
         _view = q.ToList();
         _grid.RowCount = 0;
         _grid.RowCount = _view.Count;
@@ -176,7 +186,7 @@ public sealed class NativeProjectPickerForm : ThemedForm, IProjectPicker
             .Add("Chọn project này", () => { Chosen = w; DialogResult = DialogResult.OK; Close(); })
             .Add("Edit project...", () => Edit(w))
             .Add("Copy Project Info", () => ProjectActions.CopyInfo(w));
-        if (chip) menu.AddSeparator().Add("Bỏ khỏi Last Access", () => { _settings.RecentWorkspaces.Remove(w.Name); _settings.Save(); RebuildRecent(); });
+        if (chip) menu.AddSeparator().Add("Bỏ khỏi Last Access", () => { ProjectActions.ForgetRecent(_settings, w); RebuildRecent(); ApplyFilter(Current()); });
         else menu.AddSeparator().Add("Delete", () => BeginInvoke(new Action(() => Remove(w))), danger: true);
         menu.Show(this, Cursor.Position);
     }

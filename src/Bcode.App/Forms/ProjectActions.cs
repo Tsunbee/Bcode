@@ -14,6 +14,22 @@ internal static class ProjectActions
 {
     public static string IdOf(Workspace w) => string.IsNullOrWhiteSpace(w.ProjectId) ? w.Name : w.ProjectId;
 
+    /// <summary>Thứ tự trong danh sách dự án mở gần đây (0 = mới nhất); không có = int.MaxValue (xếp sau, theo ID).</summary>
+    public static int RecentRank(AppSettings s, Workspace w) { var i = s.RecentWorkspaces.IndexOf(w.Name); return i >= 0 ? i : int.MaxValue; }
+
+    /// <summary>Chữ cột "Mở gần nhất": dd/MM/yyyy HH:mm; dự án có trong danh sách gần đây nhưng chưa ghi giờ (bản cũ) = "gần đây".</summary>
+    public static string RecentText(AppSettings s, Workspace w) =>
+        s.RecentOpenedAt is { } d && d.TryGetValue(w.Name, out var t) ? t.ToString("dd/MM/yyyy HH:mm")
+        : s.RecentWorkspaces.Contains(w.Name) ? "gần đây" : "";
+
+    /// <summary>Bỏ 1 dự án khỏi danh sách mở gần đây.</summary>
+    public static void ForgetRecent(AppSettings s, Workspace w)
+    {
+        s.RecentWorkspaces.Remove(w.Name);
+        s.RecentOpenedAt?.Remove(w.Name);
+        s.Save();
+    }
+
     public static string Haystack(Workspace w) =>
         string.Join(' ', IdOf(w), w.Name, w.Server, w.SysDatabase, w.AppDatabase, w.VersionCode, w.DbAccess, w.LoginWLink, w.ProgramPath, w.SourcePath).ToLowerInvariant();
 

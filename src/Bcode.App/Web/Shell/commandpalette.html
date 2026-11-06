@@ -21,6 +21,7 @@
   .it .k.menu { background: color-mix(in srgb, #3fae5a 30%, transparent); color: var(--text); }
   .it .k.snip { background: color-mix(in srgb, #b25fd4 30%, transparent); color: var(--text); }
   .it .k.tab { background: color-mix(in srgb, #f5a623 22%, transparent); color: var(--text); }
+  .it .k.file { background: color-mix(in srgb, #11a5a5 28%, transparent); color: var(--text); }
   .it .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .it .t b { color: var(--accent); font-weight: 700; }
   .it .s { color: var(--text-muted); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
@@ -31,7 +32,7 @@
 </style>
 </head>
 <body data-area="editor">
-<input id="q" type="text" placeholder="Gõ để tìm tool, tab, lệnh, menu, object SQL…  (> lệnh · # object · @ menu · $ snippet)" spellcheck="false" autocomplete="off">
+<input id="q" type="text" placeholder="Gõ để tìm tool, tab, lệnh, menu, object SQL…  (> lệnh · # object · @ menu · $ snippet · / file)" spellcheck="false" autocomplete="off">
 <div id="list"></div>
 <div id="foot"><span><kbd>↑</kbd><kbd>↓</kbd> chọn</span><span><kbd>Enter</kbd> mở</span><span id="hint2"><kbd>Shift</kbd>+<kbd>Enter</kbd> object SQL: ai đang dùng?</span><span style="margin-left:auto" id="cnt"></span></div>
 <script>
@@ -40,9 +41,9 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const KIND = { tool: 'Tool', cmd: 'Lệnh', tab: 'Tab', obj: 'SQL', menu: 'Menu', snip: 'Snippet' };
-  const ORDER = ['tab', 'tool', 'cmd', 'snip', 'menu', 'obj'];
-  const GROUP = { tab: 'Tab đang mở', tool: 'Công cụ', cmd: 'Lệnh', menu: 'Menu WCommand', obj: 'Object SQL', snip: 'Snippet' };
+  const KIND = { tool: 'Tool', cmd: 'Lệnh', tab: 'Tab', obj: 'SQL', menu: 'Menu', snip: 'Snippet', file: 'File' };
+  const ORDER = ['tab', 'tool', 'cmd', 'snip', 'file', 'menu', 'obj'];
+  const GROUP = { tab: 'Tab đang mở', tool: 'Công cụ', cmd: 'Lệnh', menu: 'Menu WCommand', obj: 'Object SQL', snip: 'Snippet', file: 'File source' };
   const MAXSHOW = 80;
   let items = [], recent = [], shown = [], sel = 0;
 
@@ -87,7 +88,7 @@
 
   function compute() {
     let q = $('q').value, only = null;
-    if (q[0] === '>') { only = ['tool', 'cmd']; q = q.slice(1); } else if (q[0] === '#') { only = ['obj']; q = q.slice(1); } else if (q[0] === '@') { only = ['menu']; q = q.slice(1); } else if (q[0] === '$') { only = ['snip']; q = q.slice(1); }
+    if (q[0] === '>') { only = ['tool', 'cmd']; q = q.slice(1); } else if (q[0] === '#') { only = ['obj']; q = q.slice(1); } else if (q[0] === '@') { only = ['menu']; q = q.slice(1); } else if (q[0] === '$') { only = ['snip']; q = q.slice(1); } else if (q[0] === '/') { only = ['file']; q = q.slice(1); }
     const tokens = norm(q).split(/\s+/).filter(Boolean);
     const pool = only ? items.filter((i) => only.includes(i.kind)) : items;
     let out;

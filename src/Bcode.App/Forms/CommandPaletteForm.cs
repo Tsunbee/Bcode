@@ -54,6 +54,13 @@ public class CommandPaletteForm : ThemedForm
             Location = new Point(o.Left + (o.Width - w) / 2, o.Top + DpiScale.Px(this, 90));
         }
         Activate();
+        // Chế độ App: trang native báo Ready ngay khi dựng control (form chưa hiện) → palette.focus() lúc đó không có tác dụng, ô gõ mất focus.
+        // Gọi lại sau khi form đã hiện + kích hoạt (BeginInvoke: chờ Windows xử lý xong thông điệp kích hoạt rồi mới đặt focus).
+        if (_host is not null)
+        {
+            _host.Call("palette.focus()");
+            BeginInvoke(new Action(() => { if (!IsDisposed) _host.Call("palette.focus()"); }));
+        }
     }
 
     private void CloseOnce()

@@ -77,7 +77,8 @@ public class MainForm : DpiForm
     private EditorBridge? _bridge;
     private string? _activePath; // currently-open file — used to keep the tree's highlight on it across rebuilds
     private bool _pageReady; // true once the WebView2 page has finished its first navigation and window.bcodeViewer exists
-    private readonly Queue<(string Path, string ProjectName)> _pendingExternalOpens = new();
+    private readonly Queue<(string Path, string ProjectName, int Line, int Col)> _pendingExternalOpens = new();
+    private readonly int _initialLine, _initialCol;
     /// <summary>What to do once the page confirms it closed the document — see
     /// RemoveTreeNode/OnFileClosed. Null when the close wasn't requested by the host.</summary>
     private Action? _afterClose;
@@ -143,9 +144,10 @@ public class MainForm : DpiForm
         (int)(from.R + (to.R - from.R) * t), (int)(from.G + (to.G - from.G) * t), (int)(from.B + (to.B - from.B) * t));
 
 
-    public MainForm(string? initialFile, string projectName)
+    public MainForm(string? initialFile, string projectName, int initialLine = 0, int initialCol = 1)
     {
         _initialFile = initialFile;
+        _initialLine = initialLine; _initialCol = initialCol;
         _projectName = string.IsNullOrWhiteSpace(projectName) ? "#Other" : projectName;
         Host.WorkspaceConnection.Settings = _settings;
         Host.WorkspaceConnection.CurrentProject = _projectName;
@@ -970,6 +972,9 @@ public class MainForm : DpiForm
 
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);
+        // Thuỷ ấn truy nguồn (Bcode.Core.WatermarkService): nhúng dấu vô hình vào DOM trang soạn thảo — bản không có key thì rỗng, không nhúng gì.
+        var bcwm = Bcode.Core.WatermarkService.StampScript;
+        if (bcwm.Length > 0) try { await _webView.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(bcwm); } catch { /* không nhúng được thì bỏ qua */ }
         // Tắt phím tắt của trình duyệt (F5/Ctrl+R = tải lại trang...). Khi F5 lọt tới trình duyệt, cả trang nạp lại: cây dự án
         // bị dựng lại/xếp lại và file khởi động mở lại thay vì lưu file đang sửa. F5 giờ do editor.js xử lý (saveAndRunMenu).
         _webView.CoreWebView2.Settings.AreBrowserAcceleratorKeysEnabled = false;
@@ -1146,23 +1151,25 @@ public class MainForm : DpiForm
         ShowWebShell();
 
         if (_initialFile is not null && File.Exists(_initialFile))
-            await OpenFileInPageAsync(_initialFile); // triggers editor.js's own NotifyFileOpened
+            await OpenFileInPageAsync(_initialFile, _initialLine, _initialCol); // triggers editor.js's own NotifyFileOpened
         else
             RefreshProjectTree(); // still show prior history even with nothing to open now
 
         _pageReady = true;
         while (_pendingExternalOpens.Count > 0)
         {
-            var (path, project) = _pendingExternalOpens.Dequeue();
+            var (path, project, line, col) = _pendingExternalOpens.Dequeue();
             _projectName = project;
-            await OpenFileInPageAsync(path);
+            await OpenFileInPageAsync(path, line, col);
         }
     }
 
-    private async Task OpenFileInPageAsync(string path)
+    /// <param name="line">&gt; 0 = nhảy tới dòng này sau khi mở (Bcode "Mở trong BcodeViewer" tại vị trí con trỏ, qua pipe có phiên bản).</param>
+    private async Task OpenFileInPageAsync(string path, int line = 0, int col = 1)
     {
         var json = JsonSerializer.Serialize(path);
-        await _webView.ExecuteScriptAsync($"window.bcodeViewer && window.bcodeViewer.openFile({json});");
+        var opts = line > 0 ? $", {{ line: {line}, column: {Math.Max(1, col)} }}" : "";
+        await _webView.ExecuteScriptAsync($"window.bcodeViewer && window.bcodeViewer.openFile({json}{opts});");
     }
 
     /// <summary>Listens for hand-offs from a second BcodeViewer launch (see Program.cs's
@@ -1186,10 +1193,22 @@ public class MainForm : DpiForm
                     var line = await reader.ReadLineAsync();
                     if (line is null) continue;
 
-                    var parts = line.Split('|', 2);
-                    var path = parts[0];
-                    var project = parts.Length > 1 && parts[1].Length > 0 ? parts[1] : "#Other";
-                    if (File.Exists(path)) BeginInvoke(() => OpenExternalRequest(path, project));
+                    // Giao thức có phiên bản (Shared/PipeProtocol.cs): "bcp1|open|<path>|<project>|<line>|<col>" = mở + nhảy tới dòng (Bcode "Mở trong BcodeViewer" tại con trỏ).
+                    // Giữ nguyên dạng cũ "đường_dẫn|dự_án" để bản Bcode cũ vẫn gửi mở file được.
+                    var msg = Bcode.Shared.PipeProtocol.Parse(line);
+                    string path; string project; int gotoLine = 0, gotoCol = 1;
+                    if (msg.IsVersioned)
+                    {
+                        if (msg.Verb != "open") continue;   // verb lạ (bản sau) → bỏ qua, không vỡ
+                        path = msg.Arg(0); project = msg.Arg(1).Length > 0 ? msg.Arg(1) : "#Other";
+                        gotoLine = msg.ArgInt(2); gotoCol = msg.ArgInt(3, 1);
+                    }
+                    else
+                    {
+                        var parts = line.Split('|', 2);
+                        path = parts[0]; project = parts.Length > 1 && parts[1].Length > 0 ? parts[1] : "#Other";
+                    }
+                    if (File.Exists(path)) BeginInvoke(() => OpenExternalRequest(path, project, gotoLine, gotoCol));
                 }
                 catch
                 {
@@ -1203,7 +1222,7 @@ public class MainForm : DpiForm
     /// <summary>Brings this window to the foreground and opens <paramref name="path"/> in
     /// it, same as any other "open a file" trigger (F12, the left tree, Open File Config) —
     /// called from the pipe server above once a second launch hands its file off here.</summary>
-    private void OpenExternalRequest(string path, string projectName)
+    private void OpenExternalRequest(string path, string projectName, int line = 0, int col = 1)
     {
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
         // Plain Activate() often loses to Windows' foreground-lock (a background process
@@ -1215,9 +1234,9 @@ public class MainForm : DpiForm
         var resolvedProjectName = string.IsNullOrWhiteSpace(projectName) || projectName == "#Other"
             ? (Host.WorkspaceConnection.ResolveProjectName(path) ?? "#Other")
             : projectName;
-        if (!_pageReady) { _pendingExternalOpens.Enqueue((path, resolvedProjectName)); return; }
+        if (!_pageReady) { _pendingExternalOpens.Enqueue((path, resolvedProjectName, line, col)); return; }
         _projectName = resolvedProjectName;
-        _ = OpenFileInPageAsync(path);
+        _ = OpenFileInPageAsync(path, line, col);
     }
 
     /// <summary>Set once the unsaved-changes question at exit has been answered, so the

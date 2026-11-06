@@ -44,21 +44,27 @@ public sealed class ViewerControlServer : IDisposable
                 var line = await reader.ReadLineAsync(_cts.Token);
                 if (line is null) continue;
 
-                var parts = line.Split('|');
-                if (parts.Length >= 2 && parts[0] == "fsg" && parts[1].Length > 0)
-                    RunMenuRequested?.Invoke(parts[1], parts.Length > 2 ? parts[2] : "");
-                // "sql|<base64 script>|<base64 tiêu đề>": base64 vì script có xuống dòng và dấu |.
-                else if (parts.Length >= 2 && parts[0] == "sql")
+                // Giao thức có phiên bản (Shared/PipeProtocol.cs). Dạng MỚI "bcp1|verb|b64..." thì args đã giải base64; dạng CŨ giữ nguyên để
+                // BcodeViewer / BcodeNote bản cũ vẫn gửi được: fsg| (thô), sql| / sqlp| (base64 thủ công như trước).
+                var msg = Bcode.Shared.PipeProtocol.Parse(line);
+                string Decode(string s) => Encoding.UTF8.GetString(Convert.FromBase64String(s));
+                switch (msg.Verb)
                 {
-                    string Decode(string s) => Encoding.UTF8.GetString(Convert.FromBase64String(s));
-                    SqlScriptRequested?.Invoke(Decode(parts[1]), parts.Length > 2 ? Decode(parts[2]) : "");
-                }
-                // "sqlp|<b64 script>|<b64 tiêu đề>|<b64 tên dự án>|<0 = App, 1 = Sys>": BcodeNote.exe mở script của gói (Note (New) nhiều dự án) vào tab SQL Query.
-                else if (parts.Length >= 2 && parts[0] == "sqlp")
-                {
-                    string Decode(string s) => Encoding.UTF8.GetString(Convert.FromBase64String(s));
-                    SqlScriptForProjectRequested?.Invoke(Decode(parts[1]), parts.Length > 2 ? Decode(parts[2]) : "",
-                        parts.Length > 3 ? Decode(parts[3]) : "", parts.Length > 4 && parts[4] == "1");
+                    case "fsg" when msg.Arg(0).Length > 0:
+                        RunMenuRequested?.Invoke(msg.Arg(0), msg.Arg(1));   // fsg| gửi thô ở cả hai dạng (đường dẫn / tên dự án không có '|')
+                        break;
+                    case "sql":
+                        if (msg.IsVersioned) SqlScriptRequested?.Invoke(msg.Arg(0), msg.Arg(1));
+                        else SqlScriptRequested?.Invoke(Decode(msg.Arg(0)), msg.Args.Length > 1 ? Decode(msg.Arg(1)) : "");
+                        break;
+                    case "sqlp":
+                        if (msg.IsVersioned)
+                            SqlScriptForProjectRequested?.Invoke(msg.Arg(0), msg.Arg(1), msg.Arg(2), msg.Arg(3) == "1");
+                        else
+                            SqlScriptForProjectRequested?.Invoke(Decode(msg.Arg(0)), msg.Args.Length > 1 ? Decode(msg.Arg(1)) : "",
+                                msg.Args.Length > 2 ? Decode(msg.Arg(2)) : "", msg.Args.Length > 3 && msg.Arg(3) == "1");
+                        break;
+                    // verb lạ (bản sau) → bỏ qua, không vỡ.
                 }
             }
             catch (OperationCanceledException) { return; }

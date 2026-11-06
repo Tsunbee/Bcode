@@ -49,6 +49,17 @@ public static class ErrorLog
     /// <summary>(dự án, chức năng/tab) đang dùng — MainForm đăng ký. Hàm phải an toàn khi gọi từ luồng nền.</summary>
     public static Func<(string Project, string Feature)>? ContextProvider;
 
+    /// <summary>Ghi 1 dòng thông tin (không phải lỗi) vào log — vd dấu thuỷ ấn lúc khởi động.</summary>
+    public static void Note(string text)
+    {
+        try
+        {
+            Directory.CreateDirectory(Folder);
+            lock (Gate) File.AppendAllText(FilePath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  [info]  {text}{Environment.NewLine}", new UTF8Encoding(false));
+        }
+        catch { /* không ghi được thì bỏ qua */ }
+    }
+
     // ------------------------------------------------------------------ cài đặt (Program.Main)
 
     private static bool _installed;

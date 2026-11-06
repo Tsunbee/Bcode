@@ -27,6 +27,8 @@ internal interface ISqlTab
     Task<long> GetEditorVersionAsync();
     void SetScriptText(string text);
     Task SetScriptTextAsync(string text);
+    /// <summary>Thay cả nội dung nhưng giữ ngăn Ctrl+Z (1 bước về bản trước) — khác <see cref="SetScriptTextAsync"/> là nạp như tài liệu mới.</summary>
+    Task ReplaceScriptTextAsync(string text);
     Task OpenScriptAsync(string text);
     Task PrependDefinitionAsync(string definition);
     Task InsertSnippetAsync(string text);

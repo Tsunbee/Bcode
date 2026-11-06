@@ -292,7 +292,7 @@ Trên ảnh: **①** ▶ Execute · **②** ✦ Beauty · **③** Script ▾ (Wr
 | `Ctrl+/` | Bật / tắt chú thích dòng `--` cho dòng hiện tại hoặc các dòng đang chọn (như VS Code) |
 | `Ctrl+K` rồi `Ctrl+C` / `Ctrl+K` rồi `Ctrl+U` | **Comment** / **Uncomment** các dòng đang chọn (chuỗi phím như VS Code) |
 | `Alt+Shift+A` | Chú thích khối `/* ... */` quanh đoạn chọn (bấm lần nữa để gỡ) |
-| `F7` | **Beauty** — định dạng lại đoạn chọn / cả script |
+| `F7` | **Beauty** — định dạng lại đoạn chọn (đoạn mới vẫn được bôi đen) / cả script; `Ctrl+Z` quay về đúng bản trước khi Beauty (Default Type, nạp bản từ Lịch sử cũng vậy) |
 | `F12` | Xem nhanh (peek) object dưới con trỏ hoặc mọi tên trong đoạn chọn (tối đa 40): bảng → cấu trúc, procedure / function / view / trigger → code. Tìm database đang chọn trước, rồi database kia. (Chế độ App: mở sang tab mới.) Đứng trên **biến** `@x` thì khung peek hiện cả script, cuộn tới **chỗ khai báo** (tham số store hoặc `DECLARE`) trong lô hiện tại và tô xanh dòng đó. |
 | `Ctrl+F12` | Mở object dưới con trỏ sang tab SQL Query mới |
 | `Ctrl`+chuột phải lên tên procedure / function | Chèn định nghĩa của nó lên **đầu script** + `GO` (đã có thì nhảy tới); `Ctrl+Z` để bỏ |

@@ -1206,6 +1206,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _ = SetScriptTextAsync(text);
     }
 
+    /// <summary>Thay cả nội dung mà Ctrl+Z vẫn về được bản trước (1 bước) — Beauty, đổi hoa/thường, nạp bản từ Lịch sử...
+    /// Khác <see cref="SetScriptTextAsync"/> (nạp như tài liệu mới, xoá ngăn undo). Editor chưa sẵn sàng thì nạp như thường.</summary>
+    public async Task ReplaceScriptTextAsync(string text)
+    {
+        if (!_editorReady || !EdAlive) { await SetScriptTextAsync(text); return; }
+        await EdExec($"window.replaceAllText({System.Text.Json.JsonSerializer.Serialize(text)})");
+    }
+
     /// <summary>Chèn định nghĩa procedure/function lên đầu script đang gõ (kèm GO) và nhảy lên đó — dùng cho Ctrl + chuột phải.
     /// Đã có sẵn trong script thì chỉ nhảy tới, không chèn lặp (xem window.prependDefinition trong sqleditor.html).</summary>
     public async Task PrependDefinitionAsync(string definition)
@@ -2074,7 +2082,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             var script = await GetScriptTextAsync();
             await Task.Yield(); // thoát hẳn khỏi callback của WebView2 trước khi tạo WebView2 mới (nếu không: "Class not registered")
             var focus = Bcode.App.Services.SqlHistoryService.Detect(script).FirstOrDefault();
-            using var form = new SqlHistoryForm(_service, focus, UseSysDatabase, text => SetScriptTextAsync(text));
+            using var form = new SqlHistoryForm(_service, focus, UseSysDatabase, text => ReplaceScriptTextAsync(text));
             form.ShowDialog(this);
         }
         catch (Exception ex) { MessageBox.Show(this, "Không mở được lịch sử: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
@@ -2408,11 +2416,12 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         var toUpper = choice == 1;
         var script = await GetScriptTextAsync();
         var transformed = SqlSyntaxHighlighter.TransformKeywordCase(script, toUpper);
-        await SetScriptTextAsync(transformed);
+        await ReplaceScriptTextAsync(transformed);
     }
 
     // ---------------- Beauty Format ----------------
 
+    /// <summary>F7 / nút Beauty: có bôi đen thì chỉ định dạng đoạn đó (bôi đen lại đoạn mới), không thì cả script. Luôn là 1 bước Ctrl+Z.</summary>
     private async void BeautyFormat()
     {
         var selected = await GetSelectedTextAsync();
@@ -2421,14 +2430,14 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         if (!string.IsNullOrWhiteSpace(selected))
         {
             var formatted = formatter.Format(selected);
-            await InsertTextAtCaretAsync(formatted);
+            if (EdAlive) await EdExec($"window.replaceSelectionKeep({System.Text.Json.JsonSerializer.Serialize(formatted)})");
         }
         else
         {
             var all = await GetScriptTextAsync();
             if (string.IsNullOrWhiteSpace(all)) return;
             var formatted = formatter.Format(all);
-            await SetScriptTextAsync(formatted);
+            await ReplaceScriptTextAsync(formatted);
         }
         _statusLabel.ForeColor = Color.DarkGreen;
         _statusLabel.Text = "Đã format lại câu lệnh SQL.";

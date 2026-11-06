@@ -1370,8 +1370,35 @@
             return editor.getModel().getValueInRange(sel);
         };
 
+        // Nạp nội dung mới (mở file / mở object / tab mới) — setValue xoá luôn ngăn Ctrl+Z, đúng ý "tài liệu mới".
         window.setEditorText = function (text) {
             if (editor) editor.setValue(text);
+        };
+
+        // Đưa xuống dòng về đúng kiểu của model (chuỗi từ C# thường là \r\n, model có thể là \n) để không lẫn hai kiểu trong 1 file.
+        function toModelEol(text) {
+            return String(text == null ? '' : text).replace(/\r\n|\r|\n/g, editor.getModel().getEOL());
+        }
+
+        // Thay CẢ nội dung mà vẫn Ctrl+Z về được bản trước, đúng 1 bước (Beauty, đổi hoa/thường từ khoá, nạp bản từ Lịch sử...).
+        // Không dùng setValue vì nó xoá sạch ngăn undo. Giữ con trỏ ở dòng cũ (cột cắt theo dòng mới) và vị trí cuộn.
+        window.replaceAllText = function (text) {
+            if (!editor) return;
+            var model = editor.getModel();
+            text = toModelEol(text);
+            if (model.getValue() === text) return;
+            var pos = editor.getPosition() || { lineNumber: 1, column: 1 };
+            var top = editor.getScrollTop(), left = editor.getScrollLeft();
+            editor.pushUndoStop();
+            editor.executeEdits('bcode-replace-all', [{ range: model.getFullModelRange(), text: text }], function () {
+                var line = Math.min(pos.lineNumber, model.getLineCount());
+                var col = Math.min(pos.column, model.getLineMaxColumn(line));
+                return [new monaco.Selection(line, col, line, col)];
+            });
+            editor.pushUndoStop();
+            editor.setScrollTop(top);
+            editor.setScrollLeft(left);
+            editor.focus();
         };
 
         // Ctrl + chuột phải vào tên procedure/function: chèn định nghĩa của nó lên ĐẦU script đang gõ (kèm GO) rồi nhảy lên đó,
@@ -1414,7 +1441,7 @@
             if (!editor) return;
             var sel = editor.getSelection();
             editor.pushUndoStop();
-            editor.executeEdits('bcode-field', [{ range: sel, text: text, forceMoveMarkers: true }], function (inverse) {
+            editor.executeEdits('bcode-field', [{ range: sel, text: toModelEol(text), forceMoveMarkers: true }], function (inverse) {
                 var r = inverse[0].range;
                 return [new monaco.Selection(r.startLineNumber, r.startColumn, r.endLineNumber, r.endColumn)];
             });
@@ -1422,14 +1449,17 @@
             editor.focus();
         };
 
+        // Chèn / thay vùng chọn (snippet, dán, Lịch sử gợi ý AI...). Mốc undo trước và sau để Ctrl+Z gỡ đúng phần vừa chèn, không dính vào chữ gõ tay ngay trước đó.
         window.replaceSelection = function (text) {
             if (!editor) return;
             var sel = editor.getSelection();
+            editor.pushUndoStop();
             editor.executeEdits('bcode', [{
                 range: sel,
                 text: text,
                 forceMoveMarkers: true
             }]);
+            editor.pushUndoStop();
         };
 
         // Ctrl+R: ẩn/hiện khung kết quả của SQL Query (RawSqlControl.ToggleResultPanel); đồng thời chặn "tải lại trang" mặc định của WebView2.

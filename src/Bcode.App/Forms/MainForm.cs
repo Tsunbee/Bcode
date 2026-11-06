@@ -3530,7 +3530,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 if (existingPage.Controls.OfType<ISqlTab>().FirstOrDefault() is { } existingCtrl)
                 {
                     existingCtrl.SetDatabase(obj.FromSysDatabase);
-                    await existingCtrl.SetScriptTextAsync(definition);
+                    await existingCtrl.ReplaceScriptTextAsync(definition);   // nạp lại định nghĩa nhưng Ctrl+Z vẫn lấy lại được phần đang sửa dở trong tab
                     if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, existingCtrl, cached, Shape);
                     return existingCtrl;
                 }

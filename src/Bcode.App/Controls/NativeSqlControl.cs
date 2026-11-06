@@ -416,6 +416,31 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     }
 
     public Task SetScriptTextAsync(string text) { SetScriptText(text); return Task.CompletedTask; }
+
+    /// <summary>Thay cả nội dung thành 1 bước Ctrl+Z (Beauty, đổi hoa/thường, nạp bản từ Lịch sử...) — khác <see cref="SetScriptText"/> (nạp như tài liệu mới, xoá undo).
+    /// Giữ con trỏ ở dòng cũ và dòng đầu đang nhìn thấy.</summary>
+    public Task ReplaceScriptTextAsync(string text) { ReplaceAllUndoable(text ?? ""); return Task.CompletedTask; }
+
+    private void ReplaceAllUndoable(string text)
+    {
+        if ((_ed.Text ?? "") == text) return;
+        var line = _ed.CurrentLine;
+        var col = _ed.CurrentPosition - _ed.Lines[line].Position;
+        var firstVisible = _ed.FirstVisibleLine;
+        _ed.BeginUndoAction();
+        try
+        {
+            _ed.TargetStart = 0;
+            _ed.TargetEnd = _ed.TextLength;
+            _ed.ReplaceTarget(text);
+        }
+        finally { _ed.EndUndoAction(); }
+        line = Math.Min(line, Math.Max(0, _ed.Lines.Count - 1));
+        var newLine = _ed.Lines[line];
+        var bodyLen = newLine.Text.TrimEnd('\r', '\n').Length;
+        _ed.GotoPosition(newLine.Position + Math.Min(col, bodyLen));
+        _ed.FirstVisibleLine = firstVisible;
+    }
     public Task OpenScriptAsync(string text) => SetScriptTextAsync(text);
 
     public Task InsertSnippetAsync(string text) { _ed.ReplaceSelection(text); FocusEditor(); return Task.CompletedTask; }
@@ -1823,25 +1848,31 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     private void ApplyDefaultType(bool toUpper)
     {
         var sel = _ed.SelectedText;
-        if (!string.IsNullOrEmpty(sel)) _ed.ReplaceSelection(SqlSyntaxHighlighter.TransformKeywordCase(sel, toUpper));
-        else
-        {
-            var pos = _ed.CurrentPosition;
-            _ed.Text = SqlSyntaxHighlighter.TransformKeywordCase(_ed.Text ?? "", toUpper);
-            _ed.GotoPosition(Math.Min(pos, _ed.TextLength));
-        }
+        if (!string.IsNullOrEmpty(sel)) ReplaceSelectionKeep(SqlSyntaxHighlighter.TransformKeywordCase(sel, toUpper));
+        else ReplaceAllUndoable(SqlSyntaxHighlighter.TransformKeywordCase(_ed.Text ?? "", toUpper));
     }
 
+    /// <summary>Thay vùng chọn thành 1 bước Ctrl+Z rồi bôi đen lại đúng đoạn mới (để áp tiếp bước khác).</summary>
+    private void ReplaceSelectionKeep(string text)
+    {
+        var start = _ed.SelectionStart;
+        _ed.BeginUndoAction();
+        try { _ed.ReplaceSelection(text); }
+        finally { _ed.EndUndoAction(); }
+        _ed.SetSelection(_ed.CurrentPosition, start);
+    }
+
+    /// <summary>F7 / nút Beauty: có bôi đen thì chỉ định dạng đoạn đó (bôi đen lại đoạn mới), không thì cả script. Luôn là 1 bước Ctrl+Z.</summary>
     private void BeautyFormat()
     {
         var formatter = new SqlFormatterService();
         var sel = _ed.SelectedText;
-        if (!string.IsNullOrWhiteSpace(sel)) _ed.ReplaceSelection(formatter.Format(sel));
+        if (!string.IsNullOrWhiteSpace(sel)) ReplaceSelectionKeep(formatter.Format(sel));
         else
         {
             var all = _ed.Text ?? "";
             if (string.IsNullOrWhiteSpace(all)) return;
-            _ed.Text = formatter.Format(all);
+            ReplaceAllUndoable(formatter.Format(all));
         }
         SetStatus("Đã format lại câu lệnh SQL.", AppColors.Success);
     }
@@ -1859,7 +1890,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         try
         {
             var focus = SqlHistoryService.Detect(_ed.Text ?? "").FirstOrDefault();
-            using var form = new Forms.SqlHistoryForm(_service, focus, _useSys, text => SetScriptTextAsync(text));
+            using var form = new Forms.SqlHistoryForm(_service, focus, _useSys, text => ReplaceScriptTextAsync(text));
             form.ShowDialog(this);
         }
         catch (Exception ex) { MessageBox.Show(this, "Không mở được lịch sử: " + ex.Message, "Bcode", MessageBoxButtons.OK, MessageBoxIcon.Warning); }

@@ -428,7 +428,7 @@ Mở: 🕘 Lịch sử → **Lịch sử sửa procedure / function** (hoặc �
 - Bcode **tự ghi** mỗi lần bạn chạy CREATE / ALTER PROCEDURE, FUNCTION, VIEW, TRIGGER (kèm bản BASELINE trước lần sửa đầu).
 - Chọn dự án → lọc tên object → chọn phiên bản → so sánh với **Bản liền trước** / **Bản liền sau** / **Hiện tại (trong database)** (khung diff; `Alt+F5` / `Shift+Alt+F5` nhảy khác biệt).
 - **Copy bản này** · **Khôi phục bản này** (đưa vào editor, không tự chạy) · **Mở thư mục lịch sử**.
-- **Theo dõi ngoài Bcode**: cài DDL trigger + bảng log để ghi cả thay đổi làm bằng công cụ khác (SSMS…).
+- **Theo dõi ngoài Bcode**: cài DDL trigger + bảng log để ghi cả thay đổi làm bằng công cụ khác (SSMS…). **Cài / Cài lại / Cài cả hai / Gỡ** cần **Key Decrypt SQL Object** (xem [Key bản quyền](#key-ban-quyen)); chưa có key thì bấm nút sẽ hiện hộp nhập key, chỉ xem được trạng thái. Phần lịch sử sửa qua Bcode ở trên không cần key.
 
 Thư mục lưu lịch sử đặt ở Template → **Lịch sử SQL**.
 
@@ -1184,6 +1184,8 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 ## Key bản quyền
 
 Các tính năng sau cần key bản quyền gắn theo máy: **Create RPT & XML**, **Excel → FRX**, **Tạo báo cáo**, **Báo cáo yêu cầu FSG** (kể cả chuột phải cây WCommand → Yêu cầu liên quan), **Thiết kế màn hình** (kể cả nút Design ở cây WCommand), **Khai báo API**, **Tạo cấu trúc API**, **Tạo nhanh danh mục** (kể cả 🤖 AI tạo danh mục) và **Clone danh mục**. Chưa có key thì mở các tính năng này sẽ hiện hộp nhập key.
+
+**Key Decrypt SQL Object** là key riêng (⚙ Settings → **Key Decrypt SQL Object...**, lưu ở `%AppData%\Bcode\license-decrypt.key`; key chung ở trên không thay được): mở **Decrypt SQL Object** và **Cài / Gỡ** theo dõi ở [Lịch sử sửa → Theo dõi ngoài Bcode](#lich-su-sql). Cách xin và dán key giống các bước dưới.
 
 1. ⚙ Settings → **Key bản quyền...** (hoặc bấm vào tính năng bị khoá — hộp key tự mở).
 2. **Bước 1**: bấm **Copy mã máy** và gửi mã cho người cấp key. Mỗi máy có một mã riêng.

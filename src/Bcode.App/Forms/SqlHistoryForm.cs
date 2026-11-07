@@ -15,6 +15,7 @@ namespace Bcode.App.Forms;
 ///
 /// Ngoài các bản Bcode tự lưu, danh sách còn gộp thêm các thay đổi do công cụ khác (SSMS, tool deploy...) nếu dự án đã cài DDL trigger
 /// theo dõi (<see cref="DdlTrackingService"/>, nút "Theo dõi ngoài Bcode" — cài riêng cho từng database của từng dự án).
+/// Cài / Cài lại / Gỡ theo dõi cần key Decrypt SQL Object (như Decrypt SQL Object); không có key vẫn xem lịch sử và xem trạng thái được.
 /// </summary>
 public class SqlHistoryForm : ThemedForm
 {
@@ -93,9 +94,19 @@ public class SqlHistoryForm : ThemedForm
                     break;
                 case "copy": Clipboard.SetText(Str(data, "text")); break;
                 case "open-folder": OpenFolder(Ws, Str(data, "project"), Str(data, "db"), Str(data, "key")); break;
-                case "tracking-status": await PushTrackingAsync(); break;
-                case "tracking-install": await TrackingInstallAsync(Str(data, "which")); break;
-                case "tracking-remove": await TrackingRemoveAsync(Str(data, "which")); break;
+                case "tracking-status":
+                    if (Bool(data, "open") && !TrackingLicensed) await AskTrackingKeyAsync();   // mở hộp lần đầu khi chưa có key: hỏi key như Decrypt SQL Object
+                    await PushTrackingAsync();
+                    break;
+                case "tracking-key": await AskTrackingKeyAsync(); await PushTrackingAsync(); break;
+                case "tracking-install":
+                    if (!await AskTrackingKeyAsync()) { await PushTrackingAsync(); await Js($"window.setStatus({Json(TrackingLockedText)}, 'err')"); break; }
+                    await TrackingInstallAsync(Str(data, "which"));
+                    break;
+                case "tracking-remove":
+                    if (!await AskTrackingKeyAsync()) { await PushTrackingAsync(); await Js($"window.setStatus({Json(TrackingLockedText)}, 'err')"); break; }
+                    await TrackingRemoveAsync(Str(data, "which"));
+                    break;
                 case "close": Close(); break;
             }
         }
@@ -229,17 +240,38 @@ public class SqlHistoryForm : ThemedForm
 
     // ---------------------------------------------------------------- theo dõi ngoài Bcode (DDL trigger)
 
+    /// <summary>Cài / Cài lại / Gỡ theo dõi cần key riêng của Decrypt SQL Object (<see cref="LicenseService.Kind.Decrypt"/>). Không có key chỉ
+    /// xem được trạng thái; lịch sử sửa qua Bcode không cần key.</summary>
+    private const LicenseService.Kind TrackingKeyKind = LicenseService.Kind.Decrypt;
+
+    private static bool TrackingLicensed => LicenseService.IsUnlockedFor(TrackingKeyKind);
+
+    private static string TrackingLockedText =>
+        $"Cài / gỡ theo dõi ngoài Bcode cần {LicenseService.Describe(TrackingKeyKind).Title} (Settings → {LicenseService.Describe(TrackingKeyKind).Title}...).";
+
+    /// <summary>Hộp dán key (giống khi mở Decrypt SQL Object chưa có key); trả về đã có key chưa.</summary>
+    private async Task<bool> AskTrackingKeyAsync()
+    {
+        if (TrackingLicensed) return true;
+        await Task.Yield();   // thoát hẳn khỏi callback WebMessageReceived trước khi tạo WebView2 của hộp key (nếu không trang key trắng)
+        if (IsDisposed) return false;
+        using var f = new LicenseKeyForm($"Tính năng “Theo dõi ngoài Bcode” cần {LicenseService.Describe(TrackingKeyKind).Title.ToLowerInvariant()}. Dán key rồi bấm Xác nhận.", TrackingKeyKind);
+        f.ShowDialog(this);
+        return TrackingLicensed;
+    }
+
     private async Task PushTrackingAsync()
     {
         var ws = Ws;
-        if (ws is null) { await Js($"window.setTracking({{ project: '', items: [], note: {Json("Chưa chọn Workspace (WS).")} }})"); return; }
+        var licensed = TrackingLicensed;
+        if (ws is null) { await Js($"window.setTracking({{ project: '', items: [], licensed: {(licensed ? "true" : "false")}, note: {Json("Chưa chọn Workspace (WS).")} }})"); return; }
         var items = new List<object>();
         foreach (var (sys, db) in Databases(ws))
         {
             var st = await DdlTrackingService.GetStatusAsync(_service.Connections, sys);
             items.Add(new { which = sys ? "sys" : "app", label = sys ? "Sys Data" : "App Data", database = db, table = st.TableExists, trigger = st.TriggerExists, enabled = st.TriggerEnabled, rows = st.Rows, error = st.Error, canSee = st.CanSeeMetadata, found = st.TriggerFoundName });
         }
-        await Js($"window.setTracking({JsonSerializer.Serialize(new { project = SqlHistoryService.ProjectOf(ws), server = ws.Server, items }, Web)})");
+        await Js($"window.setTracking({JsonSerializer.Serialize(new { project = SqlHistoryService.ProjectOf(ws), server = ws.Server, items, licensed, lockText = licensed ? "" : TrackingLockedText }, Web)})");
     }
 
     private IEnumerable<(bool Sys, string Db, string Label)> Targets(string which)
@@ -310,6 +342,9 @@ public class SqlHistoryForm : ThemedForm
 
     private static string Str(JsonElement d, string name) =>
         d.ValueKind == JsonValueKind.Object && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+
+    private static bool Bool(JsonElement d, string name) =>
+        d.ValueKind == JsonValueKind.Object && d.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
 
     private static string Json(string s) => JsonSerializer.Serialize(s);
 

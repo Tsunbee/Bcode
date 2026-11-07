@@ -21,7 +21,7 @@ namespace Bcode.App.Services;
 public static class LicenseService
 {
     /// <summary>Hai loại key, cấp và lưu riêng: key chung (Excel → FRX, Create RPT &amp; XML, Tạo nhanh danh mục, Tạo báo cáo…) và key riêng cho
-    /// Decrypt SQL Object (công thức bcrypt ghép khác — <see cref="LicenseCodec.Kind"/>).</summary>
+    /// Decrypt SQL Object + Theo dõi ngoài Bcode (công thức bcrypt ghép khác — <see cref="LicenseCodec.Kind"/>).</summary>
     public enum Kind { General, Decrypt }
 
     private static readonly Dictionary<Kind, bool?> _unlocked = new() { [Kind.General] = null, [Kind.Decrypt] = null };
@@ -35,7 +35,7 @@ public static class LicenseService
 
     /// <summary>Tên hiển thị + các tính năng mở khoá của từng loại key (hộp thoại Key bản quyền).</summary>
     public static (string Title, string[] Features) Describe(Kind kind) => kind == Kind.Decrypt
-        ? ("Key Decrypt SQL Object", new[] { "Decrypt SQL Object (giải mã object WITH ENCRYPTION)" })
+        ? ("Key Decrypt SQL Object", new[] { "Decrypt SQL Object (giải mã object WITH ENCRYPTION)", "Theo dõi ngoài Bcode (cài / gỡ DDL trigger ghi thay đổi procedure / function do SSMS, tool khác)" })
         : ("Key bản quyền", new[]
         {
             "Create RPT & XML (Excel / Pivot Excel mẫu + header report XML)", "Excel → FRX / RPT (mẫu in Excel → FastReport / Crystal)",
@@ -183,7 +183,7 @@ public static class LicenseService
         }
         Changed?.Invoke();
         return (true, kind == Kind.Decrypt
-            ? "Đã kích hoạt: có thể dùng Decrypt SQL Object. Mã được nhớ lại, lần sau không cần dán lại."
+            ? "Đã kích hoạt: có thể dùng Decrypt SQL Object và Theo dõi ngoài Bcode. Mã được nhớ lại, lần sau không cần dán lại."
             : "Đã kích hoạt: có thể dùng Create RPT & XML, Excel → FRX, Tạo nhanh danh mục… Mã được nhớ lại, lần sau không cần dán lại.");
     }
 

@@ -208,8 +208,8 @@ internal sealed class SqlHistoryPage : DialogPage
     {
         _trk = new TrackingDialog((a, w) => Post(new { action = a, data = new { which = w } }));
         _trk.FormClosed += (_, _) => { var o = CurObj(); if (o is not null) Post(new { action = "versions", data = new { project = o.Project, db = o.Database, key = o.Key } }); _trk = null; };
-        Post(new { action = "tracking-status" });
         _trk.Show(FindForm());
+        Post(new { action = "tracking-status", data = new { open = true } });   // mới mở: chưa có key thì hỏi key (như Decrypt SQL Object)
     }
 
     public override void Dispatch(string path, IReadOnlyList<JsonElement> a)
@@ -248,6 +248,7 @@ internal sealed class SqlHistoryPage : DialogPage
         private readonly FlowLayoutPanel _list = new() { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(12) };
         private readonly Label _status = NK.Muted("", true);
         private readonly Action<string, string> _act;
+        private readonly Control _both;
 
         public TrackingDialog(Action<string, string> act)
         {
@@ -256,7 +257,8 @@ internal sealed class SqlHistoryPage : DialogPage
             var info = NK.Muted("Mặc định Bcode chỉ lưu lịch sử những lần sửa qua Bcode. Cài theo dõi để cả thay đổi do SSMS, tool deploy hay công cụ khác cũng được ghi lại (kèm login, tên máy, ứng dụng và IP). Bcode tạo trong database một bảng log và một DDL trigger (có TRY/CATCH, không bao giờ chặn câu lệnh của người khác). Cài riêng cho từng database của dự án; gỡ lúc nào cũng được, bảng log giữ nguyên.", true);
             info.Dock = DockStyle.Top; info.Padding = new Padding(12, 10, 12, 0);
             var foot = new BarFlow { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(10, 7, 10, 7), FlowDirection = FlowDirection.RightToLeft };
-            foot.Controls.Add(NK.Button("Đóng", Close, primary: true)); foot.Controls.Add(NK.Button("Cài cả hai", () => _act("tracking-install", "both"))); foot.Controls.Add(NK.Button("Làm mới", () => _act("tracking-status", "")));
+            _both = NK.Button("Cài cả hai", () => _act("tracking-install", "both"));
+            foot.Controls.Add(NK.Button("Đóng", Close, primary: true)); foot.Controls.Add(_both); foot.Controls.Add(NK.Button("Làm mới", () => _act("tracking-status", "")));
             foot.Controls.Add(_status);
             Controls.Add(_list); Controls.Add(info); Controls.Add(foot);
             Resize += (_, _) => info.MaximumSize = new Size(ClientSize.Width - 24, 0);
@@ -272,7 +274,19 @@ internal sealed class SqlHistoryPage : DialogPage
             if (st.ValueKind != JsonValueKind.Object) { _list.Controls.Add(NK.Muted("Đang kiểm tra...")); return; }
             string S(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
             bool B(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;
+            // không có key: ẩn Cài / Cài lại / Cài cả hai / Gỡ, chỉ xem trạng thái
+            var locked = st.TryGetProperty("licensed", out var lv) && lv.ValueKind == JsonValueKind.False;
+            _both.Visible = !locked;
             if (S(st, "note").Length > 0) { _list.Controls.Add(NK.Muted(S(st, "note"), true)); return; }
+            if (locked)
+            {
+                var lockText = S(st, "lockText");
+                var lc = new CardPanel("Chưa có key") { Width = Math.Max(300, _list.ClientSize.Width - 30) };
+                var ld = new Label { Text = (lockText.Length > 0 ? lockText : "Cài / gỡ theo dõi ngoài Bcode cần Key Decrypt SQL Object.") + " Không có key chỉ xem được trạng thái.", AutoSize = true, MaximumSize = new Size(lc.Width - 30, 0), ForeColor = AppColors.Danger, BackColor = Color.Transparent, Dock = DockStyle.Top };
+                var la = NK.Row(NK.Button("Nhập key...", () => _act("tracking-key", ""), primary: true)); la.Dock = DockStyle.Top;
+                lc.Body.Controls.Add(la); lc.Body.Controls.Add(ld);
+                _list.Controls.Add(lc);
+            }
             _list.Controls.Add(NK.Muted("Dự án: " + S(st, "project") + " — server " + S(st, "server")));
             if (!st.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array) return;
             foreach (var it in items.EnumerateArray())
@@ -289,8 +303,9 @@ internal sealed class SqlHistoryPage : DialogPage
                 else { stateText = "Chưa cài"; col = AppColors.Warning; }
                 var card = new CardPanel(S(it, "label") + " — " + S(it, "database")) { Width = Math.Max(300, _list.ClientSize.Width - 30) };
                 var d = new Label { Text = stateText, AutoSize = true, MaximumSize = new Size(card.Width - 30, 0), ForeColor = col, BackColor = Color.Transparent, Dock = DockStyle.Top };
-                var acts = NK.Row(NK.Button(trigger ? "Cài lại" : "Cài", () => _act("tracking-install", S(it, "which"))));
-                if (trigger) acts.Controls.Add(NK.Button("Gỡ", () => _act("tracking-remove", S(it, "which"))));
+                var acts = NK.Row();
+                if (!locked) acts.Controls.Add(NK.Button(trigger ? "Cài lại" : "Cài", () => _act("tracking-install", S(it, "which"))));
+                if (trigger && !locked) acts.Controls.Add(NK.Button("Gỡ", () => _act("tracking-remove", S(it, "which"))));
                 acts.Dock = DockStyle.Top;
                 card.Body.Controls.Add(acts); card.Body.Controls.Add(d);
                 _list.Controls.Add(card);

@@ -281,10 +281,21 @@
   $('btnRestore').onclick = async () => { const t = await selectedText(); if (t != null) post('restore', { text: t }); };
 
   // ---------------------------------------------------------------- theo dõi ngoài Bcode (DDL trigger)
-  function openTracking() { $('trkModal').classList.add('show'); $('trkList').innerHTML = '<div class="empty">Đang kiểm tra...</div>'; post('tracking-status'); }
+  // open: true = mới mở hộp — chưa có key thì C# hỏi key (như Decrypt SQL Object); Làm mới không hỏi lại.
+  function openTracking() { $('trkModal').classList.add('show'); $('trkList').innerHTML = '<div class="empty">Đang kiểm tra...</div>'; post('tracking-status', { open: true }); }
   window.setTracking = function (st) {
     const host = $('trkList'); host.innerHTML = '';
+    const locked = st.licensed === false;   // không có key: ẩn Cài / Cài lại / Cài cả hai / Gỡ, chỉ xem trạng thái
+    $('trkBoth').style.display = locked ? 'none' : '';
     if (st.note) { host.innerHTML = '<div class="empty"></div>'; host.firstChild.textContent = st.note; return; }
+    if (locked) {
+      const r = document.createElement('div'); r.className = 'trk';
+      r.innerHTML = '<div><div class="n">Chưa có key</div><div class="d er"></div></div><div class="acts"></div>';
+      r.querySelector('.d').textContent = (st.lockText || 'Cài / gỡ theo dõi ngoài Bcode cần Key Decrypt SQL Object.') + ' Không có key chỉ xem được trạng thái.';
+      const k = document.createElement('button'); k.className = 'btn btn-primary'; k.textContent = 'Nhập key...'; k.onclick = () => post('tracking-key');
+      r.querySelector('.acts').appendChild(k);
+      host.appendChild(r);
+    }
     const head = document.createElement('p'); head.textContent = 'Dự án: ' + st.project + ' — server ' + st.server; host.appendChild(head);
     st.items.forEach(it => {
       const r = document.createElement('div'); r.className = 'trk';
@@ -299,10 +310,12 @@
       r.querySelector('.n').textContent = it.label + ' — ' + it.database;
       const d = r.querySelector('.d'); d.textContent = stateText; d.classList.add(cls);
       const acts = r.querySelector('.acts');
-      const inst = document.createElement('button'); inst.className = 'btn btn-border'; inst.textContent = it.trigger ? 'Cài lại' : 'Cài';
-      inst.onclick = () => post('tracking-install', { which: it.which });
-      acts.appendChild(inst);
-      if (it.trigger) { const rm = document.createElement('button'); rm.className = 'btn btn-danger'; rm.textContent = 'Gỡ'; rm.onclick = () => post('tracking-remove', { which: it.which }); acts.appendChild(rm); }
+      if (!locked) {
+        const inst = document.createElement('button'); inst.className = 'btn btn-border'; inst.textContent = it.trigger ? 'Cài lại' : 'Cài';
+        inst.onclick = () => post('tracking-install', { which: it.which });
+        acts.appendChild(inst);
+      }
+      if (it.trigger && !locked) { const rm = document.createElement('button'); rm.className = 'btn btn-danger'; rm.textContent = 'Gỡ'; rm.onclick = () => post('tracking-remove', { which: it.which }); acts.appendChild(rm); }
       host.appendChild(r);
     });
   };

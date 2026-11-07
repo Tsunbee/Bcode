@@ -251,9 +251,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _topNative = new NativeTopBar();
             _statusNative = new NativeStatusBar();
             _railNative = new IconRailControl();
-            _railNative.AddItem("sql_object", Bcode.App.UI.IconGlyph.Table, "SQL Object");
-            _railNative.AddItem("wcommand", Bcode.App.UI.IconGlyph.Terminal, "WCommand");
-            _railNative.AddItem("mobile", Bcode.App.UI.IconGlyph.Phone, "Mobile");
+            _railNative.AddItem("sql_object", Bcode.App.UI.IconGlyph.Database, "SQL Object — procedure / function / view / bảng");
+            _railNative.AddItem("wcommand", Bcode.App.UI.IconGlyph.MenuTree, "Cây menu Fast (WCommand)");
+            _railNative.AddItem("mobile", Bcode.App.UI.IconGlyph.Phone, "Fast Mobile (dvcommand)");
             _railNative.SelectedKeyChanged += SelectLeftSection;
             _topNative.BarHeightChanged += UpdateHeaderHeight;
             _topNative.Action += a => OnTopBarCommand(a);
@@ -339,7 +339,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
         _toolSpecs.Add(("open_ssms", "Mở SSMS", null, (_, _) => _ = OpenSsmsAsync()));
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm(_settings.Workspaces, _connections.Current).ShowDialog(this); }));
-        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService).ShowDialog(this); }));
+        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, _connections.Current).ShowDialog(this); }));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
         _toolSpecs.Add(("bcode_note", "Note (New) nhiều dự án", null, (_, _) => _ = LaunchBcodeNoteAsync()));

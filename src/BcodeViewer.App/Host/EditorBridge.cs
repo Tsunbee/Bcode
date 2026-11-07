@@ -268,6 +268,7 @@ public class EditorBridge
         enableSqlCompletion = _settings.EnableSqlCompletion,
         enableFastGhost = _settings.EnableFastGhost,
         fastGhostLong = _settings.FastGhostLong,
+        autoViewOnFieldDeclare = _settings.AutoViewOnFieldDeclare,
         fastSourceVersionsPath = _settings.FastSourceVersionsPath,
         fastSourceStatus = Fast.Status,
         knowledgeDir = _settings.KnowledgeDir,
@@ -336,6 +337,7 @@ public class EditorBridge
             if (r.TryGetProperty("f5ReuseTab", out _)) _settings.F5ReuseTab = B("f5ReuseTab");
             if (r.TryGetProperty("f5Browser", out _)) _settings.F5Browser = S("f5Browser") is "chrome" or "edge" or "bcode" ? S("f5Browser") : "default";
             if (r.TryGetProperty("autoClearReadOnly", out _)) _settings.AutoClearReadOnly = B("autoClearReadOnly");
+            if (r.TryGetProperty("autoViewOnFieldDeclare", out _)) _settings.AutoViewOnFieldDeclare = B("autoViewOnFieldDeclare");
             if (r.TryGetProperty("autoFitMinFont", out var minFont) && minFont.TryGetInt32(out var mf)) _settings.AutoFitMinFont = Math.Clamp(mf, 6, 14);
             var fcodeStyle = S("fcodeThemeStyle") == "fcode" ? "fcode" : "bcode";
             var styleChanged = fcodeStyle != _settings.FcodeThemeStyle;
@@ -1197,6 +1199,14 @@ public class EditorBridge
     public void BeginSaveTranslateDict(string requestId, string json) =>
         _async.Begin(requestId, () => TranslateDictionary.Instance.Save(json));
 
+    /// <summary>Note thuộc tính field (<see cref="FieldNoteStore"/>): {path, builtin, user} — Web/fieldnotes.js nạp 1 lần, tra trong bộ nhớ.</summary>
+    public void BeginGetFieldNotes(string requestId) =>
+        _async.Begin(requestId, FieldNoteStore.GetJson);
+
+    /// <summary>Ghi đè note của người dùng (hộp Note thuộc tính field); trả về đường dẫn file đã ghi.</summary>
+    public void BeginSaveFieldNotes(string requestId, string json) =>
+        _async.Begin(requestId, () => FieldNoteStore.Save(json));
+
     /// <summary>Thêm/cập nhật cặp [{vi,en}] vào từ điển dịch → số cặp mới/đổi hoặc "Lỗi: ...".</summary>
     public void BeginAddTranslateDict(string requestId, string json) =>
         _async.Begin(requestId, () => TranslateDictionary.Instance.Add(json));
@@ -1401,6 +1411,7 @@ public class EditorBridge
         sqlCompletion = _settings.EnableSqlCompletion,
         fastGhost = _settings.EnableFastGhost,
         fastGhostLong = _settings.FastGhostLong,
+        autoViewField = _settings.AutoViewOnFieldDeclare,
         showMinimap = _settings.ShowMinimap,
         autoFitFont = _settings.AutoFitFont,
         autoFitMinFont = _settings.AutoFitMinFont,

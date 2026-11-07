@@ -74,6 +74,7 @@ const BCODE_COMMANDS = [
   ['Công cụ', 'tool.openWebConfig', 'Open Web.config (mở web.config của site)', '', () => window.bcodeShell && window.bcodeShell.cmd('openWebConfig')],
   ['Công cụ', 'tool.refreshWebConfig', 'Reset WebConfig', '', () => window.bcodeShell && window.bcodeShell.cmd('refreshWebConfig')],
   ['Công cụ', 'tool.translateDict', 'Từ điển dịch (Việt → Anh)', '', () => window.bcodeDialogs.showTranslateDictionary()],
+  ['Công cụ', 'tool.fieldNotes', 'Note thuộc tính field (mô tả + giá trị của allowNulls, readOnly…)', '', () => window.bcodeFieldNotes && window.bcodeFieldNotes.show()],
   ['Công cụ', 'tool.checkField', 'Check Field (đối chiếu <fields> với <views>)', '', () => window.bcodeCheckField && window.bcodeCheckField.toggle()],
   ['Công cụ', 'tool.checkFieldSql', 'Check SQL (chạy câu SQL, đối chiếu cột trả ra với <fields> của Grid)', '', () => window.bcodeCheckField && window.bcodeCheckField.checkSql()],
 

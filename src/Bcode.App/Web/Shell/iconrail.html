@@ -38,7 +38,7 @@
     background: var(--accent);
     border-radius: 2px;
   }
-  .rail-item .icon { width: 18px; height: 18px; }
+  .rail-item .icon { width: 20px; height: 20px; }
   /* Ngang (Template → Cửa sổ → Cột biểu tượng = Ngang): một hàng nằm trên cây, khung cao 40px (MainForm.FitShellBars). */
   body.horizontal {
     flex-direction: row;
@@ -58,9 +58,29 @@
 </style>
 </head>
 <body data-area="tree">
-  <div class="rail-item selected" data-key="sql_object" title="SQL Object"><span class="icon icon-table"><i></i><i></i></span></div>
-  <div class="rail-item" data-key="wcommand" title="WCommand"><span class="icon icon-terminal"><i></i><i></i></span></div>
-  <div class="rail-item" data-key="mobile" title="Mobile"><span class="icon icon-phone"></span></div>
+  <!-- Icon màu (SVG lưới 16x16, màu cố định — không theo currentColor; mục đang chọn nhận biết bằng nền + vạch cam).
+       Cùng hình / màu với Bcode.App.UI.IconGlyphs Database / MenuTree / Phone của chế độ App — sửa hình thì sửa cả hai. -->
+  <div class="rail-item selected" data-key="sql_object" title="SQL Object — procedure / function / view / bảng"><span class="icon icon-color"><svg viewBox="0 0 16 16">
+    <defs><linearGradient id="gDbBody" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#1d5bb8"/><stop offset=".45" stop-color="#4c94ea"/><stop offset="1" stop-color="#1a4f9e"/></linearGradient></defs>
+    <path d="M2.5 3.5v9a5.5 2 0 0 0 11 0v-9z" fill="url(#gDbBody)" stroke="#16437f" stroke-width=".6"/>
+    <path d="M2.5 6.5a5.5 2 0 0 0 11 0M2.5 9.5a5.5 2 0 0 0 11 0" fill="none" stroke="#cfe6ff" stroke-width=".7" stroke-opacity=".85"/>
+    <ellipse cx="8" cy="3.5" rx="5.5" ry="2" fill="#a6d4ff" stroke="#16437f" stroke-width=".6"/>
+  </svg></span></div>
+  <div class="rail-item" data-key="wcommand" title="Cây menu Fast (WCommand)"><span class="icon icon-color"><svg viewBox="0 0 16 16">
+    <path d="M3 7v6.5h2.6M3 10h2.6" fill="none" stroke="#8b929c" stroke-width="1"/>
+    <path d="M1 2.2a.7.7 0 0 1 .7-.7h2.4l1 1.1h3.2a.7.7 0 0 1 .7.7v3a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7z" fill="#d18b0f"/>
+    <path d="M1 3.6h8v2.7a.7.7 0 0 1-.7.7H1.7a.7.7 0 0 1-.7-.7z" fill="#ffc53d"/>
+    <rect x="6" y="8.5" width="9" height="3" rx=".7" fill="#2f80ed"/><path d="M7.4 10h5.2" stroke="#fff" stroke-width=".9" stroke-linecap="round"/>
+    <rect x="6" y="12" width="9" height="3" rx=".7" fill="#27a265"/><path d="M7.4 13.5h5.2" stroke="#fff" stroke-width=".9" stroke-linecap="round"/>
+  </svg></span></div>
+  <div class="rail-item" data-key="mobile" title="Fast Mobile (dvcommand)"><span class="icon icon-color"><svg viewBox="0 0 16 16">
+    <defs><linearGradient id="gPhScreen" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#5cc0ff"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs>
+    <rect x="3.8" y=".8" width="8.4" height="14.4" rx="1.8" fill="#2d3340" stroke="#8a93a3" stroke-width=".6"/>
+    <rect x="4.9" y="2.6" width="6.2" height="9.6" rx=".5" fill="url(#gPhScreen)"/>
+    <g fill="#fff" fill-opacity=".9"><rect x="5.7" y="3.5" width="1.9" height="1.9" rx=".35"/><rect x="8.4" y="3.5" width="1.9" height="1.9" rx=".35"/><rect x="5.7" y="6.2" width="1.9" height="1.9" rx=".35"/><rect x="8.4" y="6.2" width="1.9" height="1.9" rx=".35"/></g>
+    <path d="M7 1.75h2" stroke="#8a93a3" stroke-width=".5" stroke-linecap="round"/>
+    <circle cx="8" cy="13.7" r=".75" fill="#c9cfd8"/>
+  </svg></span></div>
 
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }

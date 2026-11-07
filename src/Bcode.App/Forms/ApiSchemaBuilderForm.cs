@@ -16,11 +16,18 @@ public partial class ApiSchemaBuilderForm : ThemedForm
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     private readonly SqlObjectBrowserService _sqlObjectService;
     private readonly TableDataService _tableDataService;
+    // Dự án đang mở: khoá file lưu các API đã tạo (ApiSchemaStore) + Source Path để tìm controller Dir / tên tiếng Việt của bảng.
+    private readonly string _wsKey;
+    private readonly string _sourcePath;
+    private bool _webReady, _savedOnClose;
 
-    public ApiSchemaBuilderForm(SqlObjectBrowserService sqlObjectService, TableDataService tableDataService)
+    public ApiSchemaBuilderForm(SqlObjectBrowserService sqlObjectService, TableDataService tableDataService, Workspace? workspace = null)
     {
         _sqlObjectService = sqlObjectService;
         _tableDataService = tableDataService;
+        _wsKey = workspace is null ? "" : (workspace.Name.Length > 0 ? workspace.Name : workspace.AppDatabase ?? "");
+        _sourcePath = workspace?.SourcePath ?? "";
+        if (_sourcePath.Length > 0) _ = Bcode.App.Services.SourceFieldIndex.GetAsync(_sourcePath);   // đọc sẵn controller Dir ở nền
 
         Text = "Tạo Cấu Trúc API & Đặc Tả Word";
         Width = 1050;
@@ -46,12 +53,45 @@ public partial class ApiSchemaBuilderForm : ThemedForm
 
             _web.CoreWebView2.NavigationCompleted += async (_, _) =>
             {
-                await _web.CoreWebView2.ExecuteScriptAsync("window.initFirstApi()");
+                // Mở lại: nạp các API đã tạo lần trước của dự án; chưa có thì 1 API trống.
+                var saved = Bcode.App.Services.Api.ApiSchemaStore.Load(_wsKey);
+                await _web.CoreWebView2.ExecuteScriptAsync(saved is null ? "window.initFirstApi()"
+                    : $"window.initApis({JsonSerializer.Serialize(saved, Bcode.App.Services.Api.ApiSchemaStore.Json)})");
+                _webReady = true;
                 // Danh sách bảng của cả App và Sys cho ô lọc / gợi ý bảng (tải song song, không chặn giao diện).
                 _ = LoadTablesAsync(false);
                 _ = LoadTablesAsync(true);
             };
         };
+
+        // Đóng form (nút Đóng, X, Esc): lấy trạng thái mới nhất từ trang rồi mới đóng — trang cũng tự lưu sau mỗi lần sửa.
+        FormClosing += async (_, e) =>
+        {
+            if (_savedOnClose || !_webReady || _web.CoreWebView2 is null) return;
+            e.Cancel = true;
+            _savedOnClose = true;
+            try
+            {
+                var raw = await _web.CoreWebView2.ExecuteScriptAsync("JSON.stringify(window.getState ? window.getState() : null)");
+                if (JsonSerializer.Deserialize<string>(raw) is { Length: > 4 } json) SaveState(json);
+            }
+            catch { /* không lưu được thì vẫn đóng */ }
+            BeginInvoke(new Action(Close));
+        };
+    }
+
+    /// <summary>Lưu trạng thái trang (JSON model của apischema.html) vào file của dự án. Lỗi ghi file chỉ báo ở thanh trạng thái trang.</summary>
+    private void SaveState(string json)
+    {
+        try
+        {
+            if (JsonSerializer.Deserialize<Bcode.App.Services.Api.ApiSchemaState>(json, Bcode.App.Services.Api.ApiSchemaStore.Json) is { Apis.Count: > 0 } st)
+                Bcode.App.Services.Api.ApiSchemaStore.Save(_wsKey, st);
+        }
+        catch (Exception ex)
+        {
+            if (_webReady && !IsDisposed) _ = _web.CoreWebView2.ExecuteScriptAsync($"window.setInfo && window.setInfo({JsonSerializer.Serialize("Không lưu được danh sách API: " + ex.Message)})");
+        }
     }
 
     private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -89,8 +129,11 @@ public partial class ApiSchemaBuilderForm : ThemedForm
                 case "export-word":
                     if (root.TryGetProperty("apis", out var apisProp))
                     {
-                        ExportWord(apisProp);
+                        ExportWord(apisProp, root.TryGetProperty("hideSource", out var hs) && hs.ValueKind == JsonValueKind.True);
                     }
+                    break;
+                case "save":
+                    if (root.TryGetProperty("state", out var stProp)) SaveState(stProp.GetRawText());
                     break;
                 case "close":
                     Close();
@@ -144,9 +187,11 @@ public partial class ApiSchemaBuilderForm : ThemedForm
         try
         {
             List<object> list;
+            List<string> names;
             try
             {
                 var desc = await _tableDataService.GetColumnDescriptionsAsync(isSys, schema, table);
+                names = desc.Select(c => c.Name).ToList();
                 list = desc.Select(c => (object)new
                 {
                     selected = true,
@@ -165,6 +210,7 @@ public partial class ApiSchemaBuilderForm : ThemedForm
                 // Không đọc được metadata đầy đủ (quyền / view lạ): lấy tên + kiểu như trước, khoá chính hỏi riêng.
                 var types = await _tableDataService.GetColumnTypesAsync(isSys, schema, table);
                 var pks = new HashSet<string>(await _tableDataService.GetPrimaryKeyColumnsAsync(isSys, schema, table), StringComparer.OrdinalIgnoreCase);
+                names = types.Select(kvp => kvp.Key).ToList();
                 list = types.Select(kvp => (object)new
                 {
                     selected = true, colName = kvp.Key, dataType = kvp.Value, isPk = pks.Contains(kvp.Key),
@@ -174,11 +220,19 @@ public partial class ApiSchemaBuilderForm : ThemedForm
 
             var json = JsonSerializer.Serialize(list);
             await _web.CoreWebView2.ExecuteScriptAsync($"window.setColumns({json}, {JsonSerializer.Serialize(key)})");
+
+            // Sau đó (source trên ổ mạng có thể chậm): controller Dir của bảng → tên hàm "Set<controller>", tên tiếng Việt từng cột.
+            var info = await Bcode.App.Services.Api.ApiSchemaStore.TableInfoAsync(_sourcePath, rawTable, names);
+            if (IsDisposed || _web.CoreWebView2 is null) return;
+            var payload = JsonSerializer.Serialize(new { controller = info.Controller, others = info.Others, vi = info.Vi, func = Bcode.App.Services.Api.ApiSchemaStore.FuncName(info.Controller.Length > 0 ? info.Controller : table) },
+                Bcode.App.Services.Api.ApiSchemaStore.Json);
+            await _web.CoreWebView2.ExecuteScriptAsync($"window.setTableInfo({JsonSerializer.Serialize(key)}, {payload})");
         }
         catch { }
     }
 
-    private void ExportWord(JsonElement apis)
+    /// <param name="hideSource">true = bản gửi đối tác: không có dòng "Bảng DB", cột Bảng nguồn / Cột CSDL — mỗi trường định nghĩa bằng tên tiếng Việt.</param>
+    private void ExportWord(JsonElement apis, bool hideSource = false)
     {
         using var sfd = new SaveFileDialog
         {
@@ -210,6 +264,7 @@ public partial class ApiSchemaBuilderForm : ThemedForm
         {
             var name = api.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
             var desc = api.TryGetProperty("desc", out var d) ? d.GetString() ?? "" : "";
+            var func = api.TryGetProperty("func", out var fn) && fn.ValueKind == JsonValueKind.String ? fn.GetString() ?? "" : "";
 
             var tableNames = new List<string>();
             if (api.TryGetProperty("tables", out var tbs) && tbs.ValueKind == JsonValueKind.Array)
@@ -221,11 +276,14 @@ public partial class ApiSchemaBuilderForm : ThemedForm
                 }
 
             sb.AppendLine($"<h2>{count++}. {H(name)}</h2>");
-            sb.AppendLine($"<p><b>Bảng DB:</b> {(tableNames.Count == 0 ? "—" : string.Join(" &nbsp;+&nbsp; ", tableNames.Select(x => "<code>" + H(x) + "</code>")))}</p>");
+            if (func.Length > 0) sb.AppendLine($"<p><b>Tên hàm API:</b> <code>{H(func)}</code></p>");
+            if (!hideSource) sb.AppendLine($"<p><b>Bảng DB:</b> {(tableNames.Count == 0 ? "—" : string.Join(" &nbsp;+&nbsp; ", tableNames.Select(x => "<code>" + H(x) + "</code>")))}</p>");
             sb.AppendLine($"<div class='desc-box'>{H(desc).Replace("\n", "<br/>")}</div>");
 
             sb.AppendLine("<table>");
-            sb.AppendLine("<thead><tr><th style='width:14%;'>Bảng nguồn</th><th style='width:16%;'>Cột CSDL</th><th style='width:12%;'>Kiểu dữ liệu</th><th style='width:7%;text-align:center;'>Khóa chính</th><th style='width:8%;text-align:center;'>Bắt buộc</th><th style='width:18%;'>Tên trường API</th><th>Quy tắc / Logic</th></tr></thead><tbody>");
+            sb.AppendLine(hideSource
+                ? "<thead><tr><th style='width:20%;'>Tên trường API</th><th style='width:24%;'>Tên trường (tiếng Việt)</th><th style='width:12%;'>Kiểu dữ liệu</th><th style='width:7%;text-align:center;'>Khóa chính</th><th style='width:8%;text-align:center;'>Bắt buộc</th><th>Quy tắc / Logic</th></tr></thead><tbody>"
+                : "<thead><tr><th style='width:12%;'>Bảng nguồn</th><th style='width:13%;'>Cột CSDL</th><th style='width:11%;'>Kiểu dữ liệu</th><th style='width:7%;text-align:center;'>Khóa chính</th><th style='width:8%;text-align:center;'>Bắt buộc</th><th style='width:16%;'>Tên trường API</th><th style='width:16%;'>Tên trường (tiếng Việt)</th><th>Quy tắc / Logic</th></tr></thead><tbody>");
 
             var sampleDict = new Dictionary<string, object>();
             var requiredFields = new List<string>();
@@ -242,12 +300,16 @@ public partial class ApiSchemaBuilderForm : ThemedForm
                     var dt = c.TryGetProperty("dataType", out var dtp) ? dtp.GetString() ?? "" : "";
                     var field = c.TryGetProperty("fieldDesc", out var fd) ? fd.GetString() ?? colName : colName;
                     var logic = c.TryGetProperty("logicDesc", out var ld) ? ld.GetString() ?? "" : "";
+                    var vi = c.TryGetProperty("viName", out var vn) && vn.ValueKind == JsonValueKind.String ? vn.GetString() ?? "" : "";
                     var isPk = c.TryGetProperty("isPk", out var pkp) && pkp.ValueKind == JsonValueKind.True;
                     var isReq = c.TryGetProperty("required", out var rqp) && rqp.ValueKind == JsonValueKind.True;
                     if (isPk) keyFields.Add(field);
                     if (isReq) requiredFields.Add(field);
 
-                    sb.AppendLine($"<tr><td>{H(src)}</td><td>{H(colName)}</td><td>{H(dt)}</td><td style='text-align:center;'>{(isPk ? "✔" : "")}</td><td style='text-align:center;'>{(isReq ? "✔" : "")}</td><td><b>{H(field)}</b></td><td>{H(logic)}</td></tr>");
+                    var pkCell = $"<td style='text-align:center;'>{(isPk ? "✔" : "")}</td><td style='text-align:center;'>{(isReq ? "✔" : "")}</td>";
+                    sb.AppendLine(hideSource
+                        ? $"<tr><td><b>{H(field)}</b></td><td>{H(vi)}</td><td>{H(dt)}</td>{pkCell}<td>{H(logic)}</td></tr>"
+                        : $"<tr><td>{H(src)}</td><td>{H(colName)}</td><td>{H(dt)}</td>{pkCell}<td><b>{H(field)}</b></td><td>{H(vi)}</td><td>{H(logic)}</td></tr>");
 
                     var lowerT = dt.ToLower();
                     if (lowerT.Contains("int") || lowerT.Contains("numeric") || lowerT.Contains("decimal")) sampleDict[field] = 0;

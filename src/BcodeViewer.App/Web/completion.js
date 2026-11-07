@@ -1340,6 +1340,15 @@ class BcodeCompletion {
     if (valueMatch) {
       const [, tag, attribute, typed] = valueMatch;
       const values = this.attributeValues(model, tag.toLowerCase(), attribute.toLowerCase(), facts);
+      // Giá trị trong Note thuộc tính field: giá trị đã có thì ghi thêm ý nghĩa, chưa có thì nối cuối danh sách.
+      const fieldNotes = window.bcodeFieldNotes;
+      const noted = fieldNotes ? fieldNotes.find(tag.toLowerCase(), attribute, fieldNotes.kindOf(model)) : null;
+      if (noted) {
+        for (const nv of noted.values || []) {
+          const hit = values.find((v) => v.value === nv.v);
+          if (hit) { if (nv.d) hit.detail = `${hit.detail} — ${nv.d}`; } else values.push({ value: nv.v, detail: nv.d || `${attribute} (note)` });
+        }
+      }
       if (!values.length) return { suggestions: [] };
 
       // Typing the name inside `<field name="|"/>` in a Grid/Lookup view: same list, but
@@ -1393,20 +1402,27 @@ class BcodeCompletion {
       // tham chiếu và chỉ nhận name; collectTagAttributes gom chung cả hai chỗ nên chính
       // tài liệu cũng dạy sai ở đây — bảng override phải được hỏi trước.
       const override = (SECTION_TAG_ATTRIBUTES[sectionAt(facts.sections, model.getOffsetAt(position))] || {})[tag];
+      // Note thuộc tính field (fieldnotes.js): thuộc tính đã có định nghĩa (Fast / của bạn) nối sau bộ hạt giống — thứ tự cũ giữ nguyên.
+      const notes = window.bcodeFieldNotes;
+      const noteKind = notes ? notes.kindOf(model) : null;
       const candidates = (override
         ? override.slice()
-        : unique([...(facts.tagAttributes[tag] || []), ...(((SEED_ATTRIBUTES_BY_ROOT[facts.rootKind] || {})[tag]) || SEED_ATTRIBUTES[tag] || [])])
+        : unique([...(facts.tagAttributes[tag] || []), ...(((SEED_ATTRIBUTES_BY_ROOT[facts.rootKind] || {})[tag]) || SEED_ATTRIBUTES[tag] || []),
+          ...(notes ? notes.attrsFor(tag, noteKind) : [])])
       ).filter((a) => !already.has(a.toLowerCase()));
       const range = wordRange(model, position);
       return {
         suggestions: candidates.map((a, i) => {
           const known = this.attributeValues(model, tag, a.toLowerCase(), facts);
-          const def = known.length ? snippetEscape(known[0].value) : '';
+          const note = notes ? notes.find(tag, a, noteKind) : null;
+          const def = known.length ? snippetEscape(known[0].value) : (note && note.values && note.values.length ? snippetEscape(note.values[0].v) : '');
+          const base = known.length ? `thuộc tính của <${tag}> — vd: ${known[0].value}` : `thuộc tính của <${tag}>`;
           return {
             label: a,
             sortText: String(i).padStart(3, '0'), // giữ thứ tự: hay dùng trong file trước, rồi bộ hạt giống theo loại file
             kind: monaco.languages.CompletionItemKind.Property,
-            detail: known.length ? `thuộc tính của <${tag}> — vd: ${known[0].value}` : `thuộc tính của <${tag}>`,
+            detail: note && note.desc ? `${base} · ${note.desc.length > 70 ? note.desc.slice(0, 68) + '…' : note.desc}` : base,
+            documentation: note ? notes.markdown(note) : undefined,
             insertText: `${a}="\${1:${def}}"`,
             insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
             range,

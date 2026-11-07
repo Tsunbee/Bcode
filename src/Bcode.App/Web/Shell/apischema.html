@@ -146,6 +146,13 @@
         <label>Tên API:</label>
         <input type="text" id="txtApiName" class="full" />
 
+        <label>Tên hàm API:</label>
+        <div class="full" style="display:flex; gap:8px; align-items:center;">
+          <input type="text" id="txtFunc" style="width:260px" spellcheck="false" placeholder="Set + controller của bảng" />
+          <button class="btn" id="btnFuncAuto" title="Đặt lại tên hàm = Set + controller (Dir) của bảng đầu tiên">↻ Tự đặt</button>
+          <span class="muted" id="funcInfo"></span>
+        </div>
+
         <label>Thêm bảng:</label>
         <div class="suggest-wrap full">
           <input type="text" id="txtTable" placeholder="Gõ để lọc bảng / view (vd dmkh, ctgs, SVTran) — chọn để THÊM vào API, có thể thêm nhiều bảng..." autocomplete="off" spellcheck="false" style="width:100%" />
@@ -180,7 +187,8 @@
               <th style="width: 11%;">Kiểu dữ liệu</th>
               <th class="c" style="width: 50px;" title="Khóa chính (lấy từ DB, tick sửa được)">🔑 PK</th>
               <th class="c" style="width: 64px;" title="Trường bắt buộc nhập — xuất ra Word">Bắt buộc</th>
-              <th style="width: 20%;">Tên trường API</th>
+              <th style="width: 16%;">Tên trường API</th>
+              <th style="width: 18%;" title="Tiêu đề tiếng Việt của field ở controller Dir của bảng (source dự án), không có thì lấy từ điển field FCode — sửa tay được">Tên tiếng Việt</th>
               <th>Quy tắc / Logic</th>
             </tr>
           </thead>
@@ -191,6 +199,9 @@
   </div>
 
   <div class="actions-bar">
+    <label style="display:flex; align-items:center; gap:6px; margin-right:auto;" title="Bản gửi đối tác: Word không có Bảng DB / Bảng nguồn / Cột CSDL — mỗi trường định nghĩa bằng Tên tiếng Việt">
+      <input type="checkbox" id="chkHideSource" /> Bỏ database nguồn khi xuất Word
+    </label>
     <button class="btn btn-primary" id="btnExportWord">📄 Xuất tất cả API ra Word (.doc)</button>
     <button class="btn" id="btnClose">Đóng</button>
   </div>
@@ -205,7 +216,27 @@
   var _systemCols = ["datetime0", "datetime2", "user_id0", "user_id2", "date0", "time0", "date2", "time2", "status", "sysorder"];
   var _allTables = { '0': [], '1': [] };   // db -> [tên bảng / view]
 
-  function newApi(n) { return { name: 'API ' + n, desc: '', tables: [], columns: [], view: '' }; }
+  function newApi(n) { return { name: 'API ' + n, desc: '', func: '', funcAuto: true, tables: [], columns: [], view: '' }; }
+  var _hideSource = false;
+
+  /// Tên hàm tự đặt = "Set" + controller Dir của bảng đầu tiên (chưa tìm được controller thì tạm theo tên bảng).
+  function funcFor(t) {
+    if (!t) return '';
+    var n = String(t.controller || t.table || '').replace(/^.*\./, '').replace(/[^A-Za-z0-9_]/g, '');
+    return n ? 'Set' + n : '';
+  }
+  function autoFunc(a) { if (a && a.funcAuto) a.func = funcFor(a.tables[0]); }
+  function renderFuncInfo(a) {
+    var t = a && a.tables[0];
+    $('funcInfo').textContent = !t ? 'Tự đặt khi thêm bảng: Set + controller của bảng.'
+      : (a.funcAuto ? 'Tự đặt' : 'Đã sửa tay') + ' · ' + (t.controller ? 'controller ' + t.controller + (t.others && t.others.length ? ' (bảng còn ở: ' + t.others.join(', ') + ')' : '')
+      : (t.infoDone ? 'không thấy controller Dir của ' + t.table + ' trong Source Path — dùng tên bảng' : 'đang tìm controller của ' + t.table + '…'));
+  }
+
+  // Tự lưu (ApiSchemaStore theo dự án) sau mỗi lần sửa — đóng form mở lại vẫn còn các API.
+  var _saveTimer = 0;
+  function queueSave() { clearTimeout(_saveTimer); _saveTimer = setTimeout(function () { post({ action: 'save', state: window.getState() }); }, 500); }
+  window.getState = function () { syncActiveApi(); return { hideSource: _hideSource, active: _activeIdx, apis: _apis }; };
   /// Các cột đang hiện: chỉ bảng đang chọn (view = "db|bảng"), hoặc tất cả khi view rỗng.
   function vis(a) { return a.columns.filter(function (c) { return !a.view || c.tkey === a.view; }); }
   var tkeyOf = function (db, t) { return db + '|' + t; };
@@ -215,6 +246,8 @@
     var a = _apis[_activeIdx]; if (!a) return;
     a.name = $('txtApiName').value;
     a.desc = $('txtDesc').value;
+    var fv = $('txtFunc').value.trim();
+    if (fv !== (a.func || '')) { a.func = fv; a.funcAuto = false; }
     document.querySelectorAll('#colTableBody tr').forEach(function (r) {
       var c = a.columns[+r.dataset.i]; if (!c) return;
       c.selected = r.querySelector('.chk-col').checked;
@@ -222,6 +255,8 @@
       c.required = r.querySelector('.chk-req').checked;
       c.fieldDesc = r.querySelector('.txt-field').value;
       c.logicDesc = r.querySelector('.txt-logic').value;
+      var vi = r.querySelector('.txt-vi').value;
+      if (vi !== (c.viName || '')) { c.viName = vi; c.viUser = true; }
     });
   }
 
@@ -235,6 +270,7 @@
       d.onclick = function () { syncActiveApi(); _activeIdx = i; renderList(); renderDetail(); };
       el.appendChild(d);
     });
+    queueSave();
   }
 
   function renderChips() {
@@ -256,7 +292,7 @@
       s.title = 'Bấm để chỉ hiện cột của bảng này';
       s.onclick = function () { pick(key); };
       var x = document.createElement('button'); x.textContent = '✕'; x.title = 'Bỏ bảng này (và các cột lấy từ nó)';
-      x.onclick = function (e) { e.stopPropagation(); syncActiveApi(); a.tables.splice(i, 1); a.columns = a.columns.filter(function (c) { return c.tkey !== key; }); if (a.view === key) a.view = ''; renderDetail(); };
+      x.onclick = function (e) { e.stopPropagation(); syncActiveApi(); a.tables.splice(i, 1); a.columns = a.columns.filter(function (c) { return c.tkey !== key; }); if (a.view === key) a.view = ''; autoFunc(a); renderDetail(); };
       s.appendChild(x); el.appendChild(s);
     });
   }
@@ -272,6 +308,8 @@
     if (!a) return;
     $('txtApiName').value = a.name;
     $('txtDesc').value = a.desc;
+    $('txtFunc').value = a.func || '';
+    renderFuncInfo(a);
     renderChips();
 
     var count = dupNames(a);
@@ -291,15 +329,25 @@
         '<td class="c"><input type="checkbox" class="chk-pk"' + (c.isPk ? ' checked' : '') + ' /></td>' +
         '<td class="c"><input type="checkbox" class="chk-req"' + (c.required ? ' checked' : '') + ' /></td>' +
         '<td' + (dup ? ' class="dup" title="Trùng tên trường API với cột khác — đổi tên để không đè nhau"' : '') + '><input type="text" class="txt-field" value="' + esc(c.fieldDesc) + '" /></td>' +
+        '<td><input type="text" class="txt-vi" value="' + esc(c.viName || '') + '" /></td>' +
         '<td><input type="text" class="txt-logic" value="' + esc(c.logicDesc) + '" /></td>';
       tbody.appendChild(tr);
     });
+    queueSave();
     var sel = a.columns.filter(function (c) { return c.selected; }).length;
     $('chkAll').checked = vis(a).length > 0 && vis(a).every(function (c) { return c.selected; });
     $('colInfo').textContent = a.columns.length ? ((a.view ? 'Đang hiện ' + vis(a).length + ' cột của bảng đã chọn · ' : '') + sel + '/' + a.columns.length + ' cột · ' + a.columns.filter(function (c) { return c.selected && c.isPk; }).length + ' khóa chính · ' + a.columns.filter(function (c) { return c.selected && c.required; }).length + ' bắt buộc' + (multi ? ' · ' + a.tables.length + ' bảng' : '')) : '';
   }
 
   $('colTableBody').addEventListener('change', function () { syncActiveApi(); renderDetail(); });
+  // Gõ dở trong ô (chưa rời ô) cũng lưu.
+  document.querySelector('.right-pane').addEventListener('input', function (e) { if (e.target.id !== 'txtTable') queueSave(); });
+  $('txtFunc').addEventListener('change', function () { syncActiveApi(); renderFuncInfo(_apis[_activeIdx]); });
+  $('btnFuncAuto').onclick = function () {
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    a.funcAuto = true; autoFunc(a); renderDetail();
+  };
 
   $('btnAddApi').onclick = function () {
     syncActiveApi();
@@ -359,8 +407,9 @@
     var a = _apis[_activeIdx]; if (!a || !x) return;
     syncActiveApi();
     if (a.tables.some(function (t) { return t.db === x.db && t.table.toLowerCase() === x.table.toLowerCase(); })) { $('colInfo').textContent = 'Bảng ' + x.table + ' đã có trong API này.'; return; }
-    a.tables.push({ db: x.db, table: x.table });
+    a.tables.push({ db: x.db, table: x.table, controller: '' });
     a.view = tkeyOf(x.db, x.table);
+    autoFunc(a);
     renderChips(); renderDetail();
     post({ action: 'load-columns', db: x.db, table: x.table });
     $('txtTable').value = ''; hideSuggest();
@@ -433,9 +482,11 @@
 
   $('btnExportWord').onclick = function () {
     syncActiveApi();
-    post({ action: 'export-word', apis: _apis });
+    post({ action: 'export-word', apis: _apis, hideSource: _hideSource });
   };
+  $('chkHideSource').onchange = function (e) { _hideSource = e.target.checked; queueSave(); };
   $('btnClose').onclick = function () { post({ action: 'close' }); };
+  window.setInfo = function (msg) { $('colInfo').textContent = msg; };
 
   // ---------------- nhận dữ liệu từ C# ----------------
   window.setTables = function (tables, db) {
@@ -452,7 +503,7 @@
     var used = {}; a.columns.forEach(function (c) { used[(c.fieldDesc || '').toLowerCase()] = 1; });
     var short = tname.replace(/^[^.]*\./, '').toLowerCase();
     (cols || []).forEach(function (c) {
-      c.tkey = key; c.tname = tname; c.tdb = db; c.required = false;
+      c.tkey = key; c.tname = tname; c.tdb = db; c.required = false; c.viName = c.viName || ''; c.viUser = false;
       if (used[String(c.fieldDesc).toLowerCase()]) c.fieldDesc = short + '_' + c.fieldDesc;
       used[String(c.fieldDesc).toLowerCase()] = 1;
       a.columns.push(c);
@@ -460,9 +511,41 @@
     renderDetail();
   };
 
+  /// Controller Dir của 1 bảng vừa thêm (C# tìm trong Source Path, có thể chậm): ghi vào mọi API có bảng đó, điền Tên tiếng Việt
+  /// cho cột chưa sửa tay, đặt lại tên hàm nếu bảng là bảng đầu tiên và tên hàm đang ở chế độ tự đặt.
+  window.setTableInfo = function (key, info) {
+    syncActiveApi();
+    info = info || {};
+    _apis.forEach(function (a) {
+      a.tables.forEach(function (t, i) {
+        if (tkeyOf(t.db, t.table) !== key) return;
+        t.controller = info.controller || ''; t.others = info.others || []; t.infoDone = true;
+        if (i === 0) autoFunc(a);
+      });
+      a.columns.forEach(function (c) {
+        if (c.tkey === key && !c.viUser && info.vi && info.vi[c.colName]) c.viName = info.vi[c.colName];
+      });
+    });
+    renderList(); renderDetail();
+  };
+
   window.initFirstApi = function () {
     _apis = [newApi(1)];
     _activeIdx = 0;
+    renderList(); renderDetail();
+  };
+
+  /// Mở lại form: các API đã lưu của dự án (ApiSchemaStore).
+  window.initApis = function (st) {
+    _apis = (st && st.apis && st.apis.length) ? st.apis : [newApi(1)];
+    _apis.forEach(function (a) {
+      a.tables = a.tables || []; a.columns = a.columns || []; a.view = a.view || '';
+      if (a.funcAuto === undefined) a.funcAuto = true;
+      a.tables.forEach(function (t) { t.infoDone = true; });
+    });
+    _activeIdx = Math.max(0, Math.min(_apis.length - 1, (st && st.active) || 0));
+    _hideSource = !!(st && st.hideSource);
+    $('chkHideSource').checked = _hideSource;
     renderList(); renderDetail();
   };
 </script>

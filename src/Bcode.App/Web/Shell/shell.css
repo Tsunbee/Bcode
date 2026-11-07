@@ -178,15 +178,9 @@ input[type="text"]:focus, input[type="search"]:focus, select:focus {
    class="icon icon-X"> wrapper, sized 16x16 by the base .icon rule; some need 1-2 <i></i>
    child elements for extra strokes (documented per icon below). */
 
-.icon-table { border: 1.5px solid currentColor; border-radius: 3px; }
-.icon-table i:nth-child(1) { position: absolute; left: 0; right: 0; top: 35%; height: 1.5px; background: currentColor; }
-.icon-table i:nth-child(2) { position: absolute; left: 50%; top: 35%; bottom: 0; width: 1.5px; background: currentColor; }
-
-.icon-terminal { border: 1.5px solid currentColor; border-radius: 3px; }
-.icon-terminal i:nth-child(1) { position: absolute; left: 3px; top: 4px; width: 6px; height: 1.6px; background: currentColor; transform-origin: left center; transform: rotate(35deg); }
-.icon-terminal i:nth-child(2) { position: absolute; left: 3px; top: 10px; width: 6px; height: 1.6px; background: currentColor; transform-origin: left center; transform: rotate(-35deg); }
-
-.icon-phone { border: 1.5px solid currentColor; border-radius: 4px; width: 10px; margin: 0 3px; }
+/* Icon màu vẽ bằng SVG nội tuyến (lưới 16x16, màu ghi sẵn trong SVG) — cột icon (iconrail.html): SQL Object (trụ
+   database), cây menu Fast (WCommand), Fast Mobile. Cùng hình với Bcode.App.UI.IconGlyphs (Database / MenuTree / Phone). */
+.icon-color > svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
 .icon-gear { border-radius: 50%; border: 3px dashed currentColor; }
 .icon-gear::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: currentColor; border-radius: 50%; }

@@ -300,6 +300,8 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
             await _web.EnsureCoreWebView2Async();
             Bcode.App.UI.UiScale.BindZoom(_web);
             _web.CoreWebView2.Settings.IsScriptEnabled = true;
+            // Rê chuột lên ô / cột / grid: tooltip tên field, tên bảng, file filter; Shift+click copy (như extension Chrome "Tiện ích FBO").
+            await FboFieldInspector.AttachAsync(_web.CoreWebView2);
             // Bắt phím DevTools ở tầng WebView2 (trước khi trình duyệt tự mở cửa sổ DevTools nổi). Phím tắt bị tắt trong Setting thì F12 như mặc định của WebView2.
             if (Bcode.App.UI.WebViewEnvironment.ControllerOf(_web) is { } controller)
             {

@@ -30,13 +30,13 @@ Bcode.App/
 │   ├── ErrorShotControl.cs  130
 │   ├── FastAskControl.cs  162
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1676
+│   ├── FileLookupControl.cs  1683
 │   ├── FileLookupControl.QuickGrant.cs  148
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  274
 │   ├── FsgRequirementReportControl.cs  351
-│   ├── GenUpdatePackageControl.cs  527
+│   ├── GenUpdatePackageControl.cs  546
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  155
@@ -45,7 +45,7 @@ Bcode.App/
 │   ├── ISqlTab.cs  63
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
-│   ├── MonacoPreviewControl.cs  273
+│   ├── MonacoPreviewControl.cs  284
 │   ├── MonacoPreviewControl.Native.cs  137
 │   ├── MultiResultView.cs  330
 │   ├── NativeAdvanceNoteControl.cs  1222
@@ -78,13 +78,13 @@ Bcode.App/
 │   ├── NativePages.IncludeCheck.cs  372
 │   ├── NativePages.MenuPicker.cs  166
 │   ├── NativePages.Note.cs  90
-│   ├── NativePages.Palette.cs  211
+│   ├── NativePages.Palette.cs  212
 │   ├── NativePages.PartitionCheck.cs  43
 │   ├── NativePages.Profiler.cs  108
 │   ├── NativePages.QuickAccess.cs  215
 │   ├── NativePages.Register.cs  52
 │   ├── NativePages.RptSchema.cs  186
-│   ├── NativePages.SqlHistory.cs  300
+│   ├── NativePages.SqlHistory.cs  315
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  346
 │   ├── NativeResultPane.cs  315
@@ -133,8 +133,8 @@ Bcode.App/
 │   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
 │   ├── ApiDeclarationForm.cs  416
-│   ├── ApiSchemaBuilderForm.cs  277
-│   ├── ApiSchemaBuilderForm.Native.cs  322
+│   ├── ApiSchemaBuilderForm.cs  339
+│   ├── ApiSchemaBuilderForm.Native.cs  419
 │   ├── AppCommandEditForm.cs  255
 │   ├── CatalogCloneForm.cs  146
 │   ├── CellEditForm.cs  133
@@ -142,7 +142,7 @@ Bcode.App/
 │   ├── ChangeOwnerForm.Native.cs  87
 │   ├── ChooseDebugTargetForm.cs  84
 │   ├── ColumnDesignForm.cs  60
-│   ├── CommandPaletteForm.cs  113
+│   ├── CommandPaletteForm.cs  120
 │   ├── CompareStructureForm.cs  64
 │   ├── CompareTextForm.cs  647
 │   ├── ConnectionSettingsForm.cs  342
@@ -152,6 +152,7 @@ Bcode.App/
 │   ├── EditProjectForm.cs  186
 │   ├── EntityMultiPeekForm.cs  167
 │   ├── EntityMultiPeekForm.Native.cs  153
+│   ├── FboFieldInspector.cs  125
 │   ├── FsgNotifyForm.cs  75
 │   ├── FsgRequirementCrawlerForm.cs  618
 │   ├── GotoColumnForm.cs  86
@@ -161,19 +162,20 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  131
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.cs  4467
+│   ├── MainForm.cs  4510
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
 │   ├── MainForm.ToolGroups.cs  101
+│   ├── MainForm.Update.cs  75
 │   ├── MenuPickerForm.cs  70
-│   ├── NativeProjectPickerForm.cs  183
+│   ├── NativeProjectPickerForm.cs  193
 │   ├── PartitionCheckForm.cs  58
-│   ├── ProjectActions.cs  52
-│   ├── ProjectPickerForm.cs  131
+│   ├── ProjectActions.cs  68
+│   ├── ProjectPickerForm.cs  133
 │   ├── QuickAccessForm.cs  165
-│   ├── QuickLaunchLoginForm.cs  687
+│   ├── QuickLaunchLoginForm.cs  689
 │   ├── QuickListForm.cs  764
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
@@ -183,7 +185,7 @@ Bcode.App/
 │   ├── SimplePromptForm.cs  78
 │   ├── SourceViewForm.cs  166
 │   ├── SqlAiEditForm.cs  108
-│   ├── SqlHistoryForm.cs  329
+│   ├── SqlHistoryForm.cs  364
 │   ├── StepParamsForm.cs  134
 │   ├── StringBeautyForm.cs  170
 │   ├── StubForm.cs  91
@@ -198,7 +200,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  422
+│   ├── AppSettings.cs  430
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -220,6 +222,7 @@ Bcode.App/
 │   │   ├── ApiColumnMappings.cs  204
 │   │   ├── ApiMappingWord.cs  961
 │   │   ├── ApiProjectStore.cs  171
+│   │   ├── ApiSchemaStore.cs  140
 │   │   ├── Lt3Templates.cs  93
 │   │   └── PostmanConverter.cs  349
 │   ├── Rpt/
@@ -270,7 +273,7 @@ Bcode.App/
 │   ├── DynamicSqlInspector.cs  120
 │   ├── EInvoiceSetupService.cs  371
 │   ├── EntityCheckService.cs  263
-│   ├── ErrorLog.cs  315
+│   ├── ErrorLog.cs  326
 │   ├── ErrorShotService.cs  425
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
@@ -310,7 +313,9 @@ Bcode.App/
 │   ├── ObjectCompareService.cs  209
 │   ├── OfflineExcelDesign.cs  242
 │   ├── PeriodTableQueryService.cs  167
+│   ├── PluginService.cs  84
 │   ├── ProfilerTemplateService.cs  222
+│   ├── ProjectIndexService.cs  154
 │   ├── QueryHistoryService.cs  322
 │   ├── QuickListConfigStore.cs  52
 │   ├── QuickListService.cs  828
@@ -324,7 +329,7 @@ Bcode.App/
 │   ├── SessionStore.cs  69
 │   ├── SnippetLibraryService.cs  67
 │   ├── SourceCopyRenamer.cs  171
-│   ├── SourceFieldIndex.cs  237
+│   ├── SourceFieldIndex.cs  278
 │   ├── SourceGrantService.cs  328
 │   ├── SourceIndexService.cs  289
 │   ├── SourceIndexService.Standard.cs  282
@@ -345,9 +350,10 @@ Bcode.App/
 │   ├── TableDataService.cs  652
 │   ├── TableMenuService.cs  194
 │   ├── TextLanguageDetector.cs  71
+│   ├── UpdateCheckService.cs  114
 │   ├── UsageSearchService.cs  116
-│   ├── ViewerControlServer.cs  70
-│   ├── ViewerLauncher.cs  49
+│   ├── ViewerControlServer.cs  76
+│   ├── ViewerLauncher.cs  51
 │   ├── WCommandService.cs  926
 │   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
@@ -365,7 +371,7 @@ Bcode.App/
 │   ├── FlatToolStripRenderer.cs  120
 │   ├── GridDisplayHelper.cs  255
 │   ├── GridDragScroll.cs  67
-│   ├── IconGlyphs.cs  249
+│   ├── IconGlyphs.cs  321
 │   ├── LineNumberGutter.cs  116
 │   ├── MousePointer.cs  55
 │   ├── NativeAppLauncher.cs  42
@@ -380,7 +386,7 @@ Bcode.App/
 │   ├── UiScale.cs  69
 │   ├── UiTemplate.cs  512
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  386
+│   └── WebViewEnvironment.cs  389
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
@@ -388,7 +394,7 @@ Bcode.App/
 │       ├── advnote.html  831
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  906
-│       ├── apischema.html  470
+│       ├── apischema.html  553
 │       ├── appcommandedit.html  158
 │       ├── autoscale.js  13
 │       ├── bbxn.html  460
@@ -397,7 +403,7 @@ Bcode.App/
 │       ├── changeowner.html  76
 │       ├── checkmail.html  218
 │       ├── columndesign.html  88
-│       ├── commandpalette.html  152
+│       ├── commandpalette.html  153
 │       ├── commandquery.html  69
 │       ├── comparebar.html  137
 │       ├── compareobjects.html  151
@@ -425,7 +431,7 @@ Bcode.App/
 │       ├── genupdate.html  636
 │       ├── grantsource.html  132
 │       ├── help.html  425
-│       ├── iconrail.html  92
+│       ├── iconrail.html  112
 │       ├── includecheck.html  328
 │       ├── library.html  168
 │       ├── licensekey.html  100
@@ -434,7 +440,7 @@ Bcode.App/
 │       ├── menupicker.html  186
 │       ├── note.html  51
 │       ├── partitioncheck.html  49
-│       ├── projects.html  107
+│       ├── projects.html  115
 │       ├── queryhistory.html  189
 │       ├── quickaccess.html  253
 │       ├── quicklist.html  1666
@@ -448,11 +454,11 @@ Bcode.App/
 │       ├── scriptviewbar.html  65
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  184
-│       ├── shell.css  255
+│       ├── shell.css  249
 │       ├── sqleditor.html  1675
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
-│       ├── sqlhistory.html  317
+│       ├── sqlhistory.html  330
 │       ├── sqlmessages.html  93
 │       ├── sqlobjectbar.html  75
 │       ├── sqlpivot.html  117
@@ -473,9 +479,9 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  186
+├── Bcode.App.csproj  216
 ├── BcodePaths.cs  48
-└── Program.cs  42
+└── Program.cs  45
 ```
 ```
 BcodeViewer.App/
@@ -483,6 +489,8 @@ BcodeViewer.App/
 │   ├── fastsource/
 │   │   ├── ask.json  1
 │   │   └── ghost.json  1
+│   ├── fieldnotes/
+│   │   └── fast-field-notes.json  1163
 │   ├── snippets/
 │   │   ├── csssnippet.xml  211
 │   │   ├── htmlsnippet.xml  374
@@ -507,7 +515,7 @@ BcodeViewer.App/
 │   ├── BrowserTabLauncher.cs  342
 │   ├── CaptionTranslator.cs  225
 │   ├── ClaudeChatService.cs  693
-│   ├── EditorBridge.cs  1599
+│   ├── EditorBridge.cs  1610
 │   ├── IncludeTree.cs  190
 │   ├── MenuLauncher.cs  115
 │   ├── SearchFileCache.cs  139
@@ -519,6 +527,7 @@ BcodeViewer.App/
 │   ├── CompletionPromptConfig.cs  150
 │   ├── FcodeFieldDictionary.cs  40
 │   ├── FcodeXmlSnippets.cs  141
+│   ├── FieldNoteStore.cs  102
 │   ├── FileTemplateStore.cs  151
 │   ├── HintSnippetStore.cs  422
 │   ├── LocalHistoryStore.cs  169
@@ -527,7 +536,7 @@ BcodeViewer.App/
 │   ├── SharedHistoryStore.cs  317
 │   ├── TemplatePickerForm.cs  79
 │   ├── TranslateDictionary.cs  370
-│   └── ViewerSettings.cs  235
+│   └── ViewerSettings.cs  239
 ├── UI/
 │   ├── AppTheme.cs  397
 │   ├── CodeHighlighter.cs  100
@@ -540,9 +549,10 @@ BcodeViewer.App/
 │   ├── fonts/
 │   │   ├── OFL.txt  93
 │   │   └── roboto.css  33
+│   ├── autoview.js  184
 │   ├── chat.js  83
-│   ├── checkfield.js  621
-│   ├── completion.js  2693
+│   ├── checkfield.js  641
+│   ├── completion.js  2709
 │   ├── contextmenu.js  1136
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
@@ -551,12 +561,13 @@ BcodeViewer.App/
 │   ├── entity.js  1476
 │   ├── fastask.js  356
 │   ├── fcode-language.js  451
+│   ├── fieldnotes.js  291
 │   ├── goto.js  296
 │   ├── hint-editor.html  74
 │   ├── history.js  489
 │   ├── hostcall.js  106
-│   ├── index.html  236
-│   ├── keys.js  225
+│   ├── index.html  241
+│   ├── keys.js  226
 │   ├── mailpreview.js  718
 │   ├── outline.js  239
 │   ├── perfwatch.js  110
@@ -564,8 +575,8 @@ BcodeViewer.App/
 │   ├── problems.js  1067
 │   ├── quickopen.js  184
 │   ├── search.js  335
-│   ├── settings.js  773
-│   ├── shell.js  868
+│   ├── settings.js  777
+│   ├── shell.js  869
 │   ├── sqlrun.js  635
 │   ├── style.css  1056
 │   ├── tabs.js  249
@@ -576,10 +587,10 @@ BcodeViewer.App/
 │   ├── ui.js  134
 │   └── zoombar.js  102
 ├── BcodePaths.cs  45
-├── BcodeViewer.App.csproj  68
+├── BcodeViewer.App.csproj  89
 ├── HintCodeForm.cs  520
-├── MainForm.cs  2857
-└── Program.cs  212
+├── MainForm.cs  2876
+└── Program.cs  231
 ```
 ```
 Bcode.ScreenDesigner/
@@ -638,5 +649,6 @@ Shared/
 ├── AiWebHelper.cs  373
 ├── AppSwitchFocus.cs  86
 ├── DpapiText.cs  134
-└── LicenseCodec.cs  103
+├── LicenseCodec.cs  103
+└── PipeProtocol.cs  44
 ```

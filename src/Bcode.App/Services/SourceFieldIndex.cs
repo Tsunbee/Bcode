@@ -62,13 +62,39 @@ public sealed class SourceFieldIndex
     /// <summary>Các cách dự án dùng field tên này (tiêu đề / tra cứu khác nhau), dùng nhiều nhất trước.</summary>
     public IReadOnlyList<Use> ByName(string name) => _byName.TryGetValue(name, out var l) ? l : Array.Empty<Use>();
 
+    /// <summary>1 file Dir khai báo &lt;dir table="…"&gt; đúng bảng: tên controller (tên file bỏ đuôi) + tiêu đề Việt của từng field trong &lt;fields&gt;.</summary>
+    public sealed record TableController(string Controller, IReadOnlyDictionary<string, string> HeadersV);
+
+    private readonly Dictionary<string, List<TableController>> _byTable = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Các controller Dir của bảng (bỏ schema "dbo."; không khớp đúng tên thì so phần trước "$" — bảng chứng từ m81$000000…).
+    /// Thứ tự: controller trùng tên bảng trước, rồi controller nhiều field hơn.</summary>
+    public IReadOnlyList<TableController> ForTable(string table)
+    {
+        var t = table.Replace("[", "").Replace("]", "");
+        if (t.LastIndexOf('.') is var dot and >= 0) t = t[(dot + 1)..];
+        if (!_byTable.TryGetValue(t, out var l) && t.IndexOf('$') is var d and > 0) _byTable.TryGetValue(t[..d], out l);
+        if (l is null) return Array.Empty<TableController>();
+        return l.OrderByDescending(c => c.Controller.Equals(t, StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(c => c.HeadersV.Count).ThenBy(c => c.Controller, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
     private SourceFieldIndex(string sourcePath, IReadOnlyDictionary<string, CacheFile> files)
     {
         SourcePath = sourcePath;
         FileCount = files.Count;
+        foreach (var (file, cf) in files)
+        {
+            if (cf.Tb.Length == 0) continue;
+            var heads = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in cf.F) heads.TryAdd(f.N, f.V);
+            var key = cf.Tb.IndexOf('$') is var d and > 0 ? cf.Tb[..d] : cf.Tb;
+            if (!_byTable.TryGetValue(key, out var tl)) _byTable[key] = tl = new();
+            tl.Add(new TableController(Path.GetFileNameWithoutExtension(file), heads));
+        }
         var agg = new Dictionary<(string N, string V, string C), (CacheField F, int Count, List<string> Files, string Table)>();
         foreach (var (file, cf) in files)
-            foreach (var f in cf.F.DistinctBy(x => (x.N.ToLowerInvariant(), x.V, x.C.ToLowerInvariant())))
+            foreach (var f in cf.F.Where(x => !x.Ent).DistinctBy(x => (x.N.ToLowerInvariant(), x.V, x.C.ToLowerInvariant())))
             {
                 var k = (f.N.ToLowerInvariant(), FastCatalogRules.Fold(f.V), f.C.ToLowerInvariant());
                 if (!agg.TryGetValue(k, out var a)) a = (f, 0, new List<string>(), cf.Tb);
@@ -149,12 +175,17 @@ public sealed class SourceFieldIndex
         {
             var a = Attrs(m.Groups["a"].Value);
             var name = a.GetValueOrDefault("name", "").Trim();
+            // name="&k;" (khoá danh mục khai bằng entity): chỉ dùng cho tra theo bảng (ForTable), không vào chỉ mục tên / tiêu đề.
+            var ent = false;
+            if (Regex.Match(name, @"^&(?<e>[A-Za-z_][\w.-]*);$") is { Success: true } nm
+                && Regex.Match(text, @"<!ENTITY\s+" + Regex.Escape(nm.Groups["e"].Value) + @"\s+""(?<v>[A-Za-z0-9_]+)""") is { Success: true } nv)
+            { name = nv.Groups["v"].Value; ent = true; }
             if (name.Length == 0 || name.IndexOfAny(new[] { '&', '%', '$', '#', ' ' }) >= 0 || Skip.Contains(name)) continue;
             var body = m.Groups["b"].Value;
             var h = HeaderRx.Match(body) is { Success: true } hm ? Attrs(hm.Groups["a"].Value) : new();
             var v = Decode(h.GetValueOrDefault("v", ""));
             if (v.Length == 0) continue;
-            var f = new CacheField { N = name, V = v, E = Decode(h.GetValueOrDefault("e", "")), Ty = a.GetValueOrDefault("type", "") };
+            var f = new CacheField { N = name, V = v, E = Decode(h.GetValueOrDefault("e", "")), Ty = a.GetValueOrDefault("type", ""), Ent = ent };
             if (ItemsRx.Match(body) is { Success: true } im && Attrs(im.Groups["a"].Value) is var it
                 && it.GetValueOrDefault("style", "").Equals("AutoComplete", StringComparison.OrdinalIgnoreCase) && it.GetValueOrDefault("controller", "").Length > 0)
             {
@@ -166,7 +197,11 @@ public sealed class SourceFieldIndex
             }
             list.Add(f);
         }
-        var tb = Regex.Match(text, @"<(dir|grid)\s[^>]*\btable=""(?<t>[A-Za-z0-9_$]+)""") is { Success: true } tm ? tm.Groups["t"].Value : "";
+        var tb = Regex.Match(text, @"<(dir|grid)\s[^>]*\btable=""(?<t>[^""]+)""") is { Success: true } tm ? tm.Groups["t"].Value.Trim() : "";
+        // table="&Tag;" (Customer.f…): lấy giá trị <!ENTITY Tag "dmkh"> ở DOCTYPE.
+        if (Regex.Match(tb, @"^&(?<e>[A-Za-z_][\w.-]*);$") is { Success: true } em)
+            tb = Regex.Match(text, @"<!ENTITY\s+" + Regex.Escape(em.Groups["e"].Value) + @"\s+""(?<v>[^""]*)""") is { Success: true } ev ? ev.Groups["v"].Value.Trim() : "";
+        if (!Regex.IsMatch(tb, @"^[A-Za-z0-9_$]+$")) tb = "";
         return (list, tb);
     }
 
@@ -200,10 +235,16 @@ public sealed class SourceFieldIndex
         public string K { get; set; } = "";
         public string Ch { get; set; } = "";
         public string I { get; set; } = "";
+        /// <summary>Tên field khai bằng entity (name="&amp;k;") — chỉ dùng cho ForTable.</summary>
+        public bool Ent { get; set; }
     }
+
+    /// <summary>Đổi cách đọc file (Parse) thì tăng số này — cache cũ bị bỏ, đọc lại hết.</summary>
+    private const int CacheVersion = 3;
 
     private sealed class CacheDoc
     {
+        public int Ver { get; set; }
         public string Source { get; set; } = "";
         public Dictionary<string, CacheFile> Files { get; set; } = new();
     }
@@ -218,7 +259,7 @@ public sealed class SourceFieldIndex
     {
         try
         {
-            if (File.Exists(path) && JsonSerializer.Deserialize<CacheDoc>(File.ReadAllText(path)) is { } doc)
+            if (File.Exists(path) && JsonSerializer.Deserialize<CacheDoc>(File.ReadAllText(path)) is { Ver: CacheVersion } doc)
                 return new(doc.Files, StringComparer.OrdinalIgnoreCase);
         }
         catch { /* cache hỏng: đọc lại từ đầu */ }
@@ -230,7 +271,7 @@ public sealed class SourceFieldIndex
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(new CacheDoc { Source = source, Files = new(files, StringComparer.OrdinalIgnoreCase) }));
+            File.WriteAllText(path, JsonSerializer.Serialize(new CacheDoc { Ver = CacheVersion, Source = source, Files = new(files, StringComparer.OrdinalIgnoreCase) }));
         }
         catch { /* chỉ là cache */ }
     }

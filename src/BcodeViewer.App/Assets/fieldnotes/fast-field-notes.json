@@ -1,0 +1,1163 @@
+{
+ "version": 1,
+ "source": "Soạn từ thống kê source Fast (Templates\\fileSource + FBO-FBI) + form khai field của FCode + forum Fast",
+ "notes": [
+  {
+   "tag": "field",
+   "attr": "name",
+   "scope": "",
+   "desc": "Tên field (cột dữ liệu / biến của form). Hậu tố %l = cột theo ngôn ngữ (ten_kh%l → ten_kh / ten_kh2). Trong <views> chỉ khai name để đặt field lên lưới / form.",
+   "values": [],
+   "example": "<field name=\"ma_kh\">",
+   "count": 57002
+  },
+  {
+   "tag": "field",
+   "attr": "type",
+   "scope": "",
+   "desc": "Kiểu dữ liệu của field. Không khai = String.",
+   "values": [
+    {
+     "v": "String",
+     "d": "chuỗi (mặc định — không khai type là String)"
+    },
+    {
+     "v": "Decimal",
+     "d": "số thập phân (tiền, số lượng, giá…)"
+    },
+    {
+     "v": "DateTime",
+     "d": "ngày / giờ"
+    },
+    {
+     "v": "Boolean",
+     "d": "đúng / sai (ô tick)"
+    },
+    {
+     "v": "Int32",
+     "d": "số nguyên"
+    },
+    {
+     "v": "Int16",
+     "d": "số nguyên nhỏ"
+    },
+    {
+     "v": "Byte",
+     "d": "số nguyên 0–255"
+    }
+   ],
+   "example": "type=\"Decimal\"",
+   "count": 34573
+  },
+  {
+   "tag": "field",
+   "attr": "width",
+   "scope": "",
+   "desc": "Bề rộng cột trên lưới (px). FCode mặc định 100, cột ten_ / dien_ / ghi_ 250. Cột ẩn / phụ hay để 0.",
+   "values": [
+    {
+     "v": "100",
+     "d": "mặc định của FCode"
+    },
+    {
+     "v": "80",
+     "d": ""
+    },
+    {
+     "v": "120",
+     "d": ""
+    },
+    {
+     "v": "250",
+     "d": "cột tên / diễn giải"
+    },
+    {
+     "v": "300",
+     "d": ""
+    },
+    {
+     "v": "0",
+     "d": "cột không hiện (thường đi với hidden / external)"
+    }
+   ],
+   "example": "width=\"100\"",
+   "count": 20938
+  },
+  {
+   "tag": "field",
+   "attr": "dataFormatString",
+   "scope": "",
+   "desc": "Định dạng nhập / hiển thị. \"@…Format\" = định dạng chuẩn theo tham số hệ thống; \"0, 1\" (danh sách) = các giá trị được phép nhập của ô mã (đi với footer giải thích từng giá trị); \"#0\", \"###0\" = mặt nạ số.",
+   "values": [
+    {
+     "v": "@datetimeFormat",
+     "d": "ngày"
+    },
+    {
+     "v": "@upperCaseFormat",
+     "d": "chữ HOA (mã, số chứng từ)"
+    },
+    {
+     "v": "@quantityInputFormat",
+     "d": "nhập số lượng"
+    },
+    {
+     "v": "@quantityViewFormat",
+     "d": "xem số lượng"
+    },
+    {
+     "v": "@baseCurrencyAmountInputFormat",
+     "d": "nhập tiền VND"
+    },
+    {
+     "v": "@baseCurrencyAmountViewFormat",
+     "d": "xem tiền VND"
+    },
+    {
+     "v": "@foreignCurrencyAmountInputFormat",
+     "d": "nhập tiền ngoại tệ"
+    },
+    {
+     "v": "@foreignCurrencyAmountViewFormat",
+     "d": "xem tiền ngoại tệ"
+    },
+    {
+     "v": "@baseCurrencyPriceInputFormat",
+     "d": "nhập giá VND"
+    },
+    {
+     "v": "@foreignCurrencyPriceInputFormat",
+     "d": "nhập giá ngoại tệ"
+    },
+    {
+     "v": "@exchangeRateInputFormat",
+     "d": "nhập tỷ giá"
+    },
+    {
+     "v": "0, 1",
+     "d": "chỉ nhận 0 hoặc 1"
+    },
+    {
+     "v": "#0",
+     "d": "số nguyên"
+    }
+   ],
+   "example": "dataFormatString=\"@datetimeFormat\"",
+   "count": 11063
+  },
+  {
+   "tag": "field",
+   "attr": "readOnly",
+   "scope": "",
+   "desc": "Chỉ xem, không cho sửa trên form / lưới (thường dùng cho cột tên lấy từ danh mục, cột tính toán).",
+   "values": [
+    {
+     "v": "true",
+     "d": "không cho sửa"
+    },
+    {
+     "v": "false",
+     "d": "cho sửa (như không khai)"
+    }
+   ],
+   "example": "readOnly=\"true\"",
+   "count": 9620
+  },
+  {
+   "tag": "field",
+   "attr": "allowFilter",
+   "scope": "",
+   "desc": "Cho lọc theo cột trên lưới. Hay khai bằng entity chung (&GridVoucherAllowFilter; …) để đổi một chỗ cho cả loại lưới.",
+   "values": [
+    {
+     "v": "true",
+     "d": "cho lọc"
+    },
+    {
+     "v": "false",
+     "d": "không cho lọc"
+    }
+   ],
+   "example": "allowFilter=\"true\"",
+   "count": 8506
+  },
+  {
+   "tag": "field",
+   "attr": "allowSorting",
+   "scope": "",
+   "desc": "Cho sắp xếp theo cột trên lưới (bấm tiêu đề cột). Hay khai bằng entity chung (&GridVoucherAllowSorting; …).",
+   "values": [
+    {
+     "v": "true",
+     "d": "cho sắp xếp"
+    },
+    {
+     "v": "false",
+     "d": "không cho sắp xếp"
+    }
+   ],
+   "example": "allowSorting=\"true\"",
+   "count": 7829
+  },
+  {
+   "tag": "field",
+   "attr": "aliasName",
+   "scope": "",
+   "desc": "Grid / Dir: tiền tố bảng hoặc biểu thức SQL của cột trong câu select (a = bảng chính, b / m… = bảng nối; hoặc case when …). Filter: tên gọi chuẩn của field cho xử lý chung (fromDate, toDate, Year, Period…).",
+   "values": [
+    {
+     "v": "a",
+     "d": "bảng chính"
+    },
+    {
+     "v": "b",
+     "d": "bảng nối thứ 2"
+    },
+    {
+     "v": "m",
+     "d": "bảng master"
+    }
+   ],
+   "example": "aliasName=\"b\"",
+   "count": 7026
+  },
+  {
+   "tag": "field",
+   "attr": "hidden",
+   "scope": "",
+   "desc": "Ẩn field khỏi form / lưới — vẫn có dữ liệu, script vẫn đọc / gán được.",
+   "values": [
+    {
+     "v": "true",
+     "d": "ẩn"
+    },
+    {
+     "v": "false",
+     "d": "hiện (như không khai)"
+    }
+   ],
+   "example": "hidden=\"true\"",
+   "count": 6969
+  },
+  {
+   "tag": "field",
+   "attr": "align",
+   "scope": "",
+   "desc": "Canh lề nội dung ô: right cho cột số / mã dạng số, left cho chữ.",
+   "values": [
+    {
+     "v": "right",
+     "d": "canh phải"
+    },
+    {
+     "v": "left",
+     "d": "canh trái"
+    },
+    {
+     "v": "center",
+     "d": "canh giữa"
+    }
+   ],
+   "example": "align=\"right\"",
+   "count": 6509
+  },
+  {
+   "tag": "field",
+   "attr": "external",
+   "scope": "",
+   "desc": "Field KHÔNG phải cột của bảng chính (table= của thẻ gốc): không ghi khi lưu, chỉ để hiển thị / tính toán / truyền giá trị (vd tên khách lấy từ danh mục, ô chọn \"chon\").",
+   "values": [
+    {
+     "v": "true",
+     "d": "không lưu vào bảng chính"
+    }
+   ],
+   "example": "external=\"true\"",
+   "count": 6205
+  },
+  {
+   "tag": "field",
+   "attr": "defaultValue",
+   "scope": "",
+   "desc": "Giá trị mặc định khi thêm mới. Dir / Grid: biểu thức SQL ('', 0, cast(0 as bit)…); Filter: biểu thức JavaScript (new Date()…).",
+   "values": [
+    {
+     "v": "''",
+     "d": "chuỗi rỗng"
+    },
+    {
+     "v": "0",
+     "d": "số 0"
+    },
+    {
+     "v": "1",
+     "d": "số 1"
+    },
+    {
+     "v": "cast(0 as bit)",
+     "d": "Boolean = false"
+    }
+   ],
+   "example": "defaultValue=\"''\"",
+   "count": 5781
+  },
+  {
+   "tag": "field",
+   "attr": "clientDefault",
+   "scope": "",
+   "desc": "Giá trị gán sẵn ở trình duyệt khi thêm mới / thêm dòng (vd 0 cho cột tiền, 1 cho status). FCode tự lấy giá trị đầu của footer \"0 - …, 1 - …\". Giá trị \"Default\": chưa rõ.",
+   "values": [
+    {
+     "v": "0",
+     "d": "số 0"
+    },
+    {
+     "v": "1",
+     "d": "số 1"
+    },
+    {
+     "v": "Default",
+     "d": "chưa rõ"
+    }
+   ],
+   "example": "clientDefault=\"0\"",
+   "count": 5127
+  },
+  {
+   "tag": "field",
+   "attr": "categoryIndex",
+   "scope": "",
+   "desc": "Tab (khối <category index=\"…\">) chứa field trên form Dir / Filter. -1 = không đặt vào tab nào (thường là field ẩn / phụ).",
+   "values": [
+    {
+     "v": "1",
+     "d": "tab 1"
+    },
+    {
+     "v": "-1",
+     "d": "không thuộc tab nào"
+    }
+   ],
+   "example": "categoryIndex=\"1\"",
+   "count": 4660
+  },
+  {
+   "tag": "field",
+   "attr": "allowNulls",
+   "scope": "",
+   "desc": "Có được để trống hay không. false = BẮT BUỘC NHẬP (để trống thì báo lỗi khi lưu / khi chạy lọc); true hoặc không khai = được để trống.",
+   "values": [
+    {
+     "v": "false",
+     "d": "bắt buộc nhập giá trị"
+    },
+    {
+     "v": "true",
+     "d": "được để trống (như không khai)"
+    }
+   ],
+   "example": "allowNulls=\"false\"",
+   "count": 3196
+  },
+  {
+   "tag": "field",
+   "attr": "inactivate",
+   "scope": "",
+   "desc": "Bấm Enter / Tab không dừng ở ô này (bỏ qua khi di chuyển bằng bàn phím) — vẫn bấm chuột vào nhập được (theo forum Fast).",
+   "values": [
+    {
+     "v": "true",
+     "d": "Enter / Tab bỏ qua ô"
+    }
+   ],
+   "example": "inactivate=\"true\"",
+   "count": 2651
+  },
+  {
+   "tag": "field",
+   "attr": "aggregate",
+   "scope": "",
+   "desc": "Tính tổng cột ở dòng tổng của lưới.",
+   "values": [
+    {
+     "v": "Sum",
+     "d": "cộng tổng"
+    }
+   ],
+   "example": "aggregate=\"Sum\"",
+   "count": 2029
+  },
+  {
+   "tag": "field",
+   "attr": "isPrimaryKey",
+   "scope": "",
+   "desc": "Field thuộc khoá chính — định danh dòng (stt_rec, line_nbr của chi tiết; mã danh mục).",
+   "values": [
+    {
+     "v": "true",
+     "d": "là khoá chính"
+    }
+   ],
+   "example": "isPrimaryKey=\"true\"",
+   "count": 1746
+  },
+  {
+   "tag": "field",
+   "attr": "filterSource",
+   "scope": "",
+   "desc": "Cách field tham gia điều kiện lọc / xử lý dữ liệu. Filter chứng từ: master / detail = lọc trên bảng master / chi tiết, voucherNumber = lọc khoảng số chứng từ. Các giá trị khác: chưa rõ.",
+   "values": [
+    {
+     "v": "master",
+     "d": "điều kiện trên bảng master"
+    },
+    {
+     "v": "detail",
+     "d": "điều kiện trên bảng chi tiết"
+    },
+    {
+     "v": "voucherNumber",
+     "d": "khoảng số chứng từ (so_ct1, so_ct2)"
+    },
+    {
+     "v": "Vacant",
+     "d": "chưa rõ"
+    },
+    {
+     "v": "Varcant",
+     "d": "chưa rõ (viết lệch của Vacant, có trong source Fast)"
+    },
+    {
+     "v": "Tidy",
+     "d": "chưa rõ"
+    },
+    {
+     "v": "Optional",
+     "d": "chưa rõ"
+    },
+    {
+     "v": "Infinite",
+     "d": "chưa rõ"
+    },
+    {
+     "v": "Ignore",
+     "d": "chưa rõ"
+    },
+    {
+     "v": "Plugin",
+     "d": "chưa rõ"
+    },
+    {
+     "v": "Tag",
+     "d": "Grid: cột chọn dòng (tag)"
+    },
+    {
+     "v": "Invariability",
+     "d": "chưa rõ"
+    }
+   ],
+   "example": "filterSource=\"master\"",
+   "count": 1484
+  },
+  {
+   "tag": "field",
+   "attr": "allowContain",
+   "scope": "",
+   "desc": "Check Field (kiểu FCodeViewer) có cột \"Allow Contain\". Hay khai cho stt_rec / ô chọn \"chon\". Nghĩa chính xác: chưa rõ.",
+   "values": [
+    {
+     "v": "true",
+     "d": "chưa rõ"
+    }
+   ],
+   "example": "allowContain=\"true\"",
+   "count": 1474
+  },
+  {
+   "tag": "field",
+   "attr": "maxLength",
+   "scope": "",
+   "desc": "Số ký tự tối đa được nhập. Số âm (-100 cho số chứng từ, -106 … -110): chưa rõ (có vẻ là mã độ dài theo quy ước của chương trình).",
+   "values": [
+    {
+     "v": "-100",
+     "d": "hay dùng cho so_ct (chưa rõ)"
+    },
+    {
+     "v": "32",
+     "d": ""
+    },
+    {
+     "v": "128",
+     "d": ""
+    },
+    {
+     "v": "4000",
+     "d": ""
+    }
+   ],
+   "example": "maxLength=\"-100\"",
+   "count": 627
+  },
+  {
+   "tag": "field",
+   "attr": "disabled",
+   "scope": "",
+   "desc": "Khoá ô, không cho nhập (forum Fast: bỏ disabled ở t_thue_nt / t_thue thì sửa được tiền thuế).",
+   "values": [
+    {
+     "v": "true",
+     "d": "khoá ô"
+    }
+   ],
+   "example": "disabled=\"true\"",
+   "count": 621
+  },
+  {
+   "tag": "field",
+   "attr": "operation",
+   "scope": "",
+   "desc": "Filter: số thứ tự của điều kiện (10, 20, 30…) — chuỗi điều kiện lọc lưu lại ghi theo số này (forum: \"#20…\" ứng với field operation=\"20\"). Mỗi field một số khác nhau.",
+   "values": [
+    {
+     "v": "10",
+     "d": ""
+    },
+    {
+     "v": "20",
+     "d": ""
+    },
+    {
+     "v": "30",
+     "d": ""
+    },
+    {
+     "v": "40",
+     "d": ""
+    }
+   ],
+   "example": "operation=\"10\"",
+   "count": 527
+  },
+  {
+   "tag": "field",
+   "attr": "hyperlinkFormatString",
+   "scope": "",
+   "desc": "Biến ô thành liên kết mở chứng từ / trang khác (Voucher.ashx theo ma_ct + stt_rec…).",
+   "values": [
+    {
+     "v": "~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}",
+     "d": "mở chứng từ của dòng"
+    }
+   ],
+   "example": "",
+   "count": 335
+  },
+  {
+   "tag": "field",
+   "attr": "rows",
+   "scope": "",
+   "desc": "Chiều cao của ô: field dạng lưới con (items style=\"Grid\") = số px (208, 218…); ô chữ nhiều dòng = số dòng (2). Chưa chắc hết.",
+   "values": [
+    {
+     "v": "2",
+     "d": "ô 2 dòng"
+    },
+    {
+     "v": "208",
+     "d": "lưới con cao 208 px"
+    }
+   ],
+   "example": "rows=\"208\"",
+   "count": 247
+  },
+  {
+   "tag": "field",
+   "attr": "onDemand",
+   "scope": "",
+   "desc": "chưa rõ (hay gặp ở field điều kiện của Filter).",
+   "values": [
+    {
+     "v": "true",
+     "d": "chưa rõ"
+    }
+   ],
+   "example": "onDemand=\"true\"",
+   "count": 241
+  },
+  {
+   "tag": "field",
+   "attr": "when",
+   "scope": "",
+   "desc": "chưa rõ (ít gặp, Grid).",
+   "values": [
+    {
+     "v": "true",
+     "d": "chưa rõ"
+    }
+   ],
+   "example": "",
+   "count": 22
+  },
+  {
+   "tag": "field",
+   "attr": "information",
+   "scope": "",
+   "desc": "chưa rõ (Filter, hay là &TableDetail;).",
+   "values": [],
+   "example": "",
+   "count": 8
+  },
+  {
+   "tag": "field",
+   "attr": "multiline",
+   "scope": "",
+   "desc": "Ô chữ nhiều dòng (có trong form khai field của FCode; source Fast hầu như không dùng).",
+   "values": [
+    {
+     "v": "true",
+     "d": "nhiều dòng"
+    }
+   ],
+   "example": "",
+   "count": 0
+  },
+  {
+   "tag": "field",
+   "attr": "defaultValue",
+   "scope": "filter",
+   "desc": "Giá trị mặc định của điều kiện lọc khi mở Filter — biểu thức JavaScript chạy ở trình duyệt.",
+   "values": [
+    {
+     "v": "new Date()",
+     "d": "ngày hôm nay"
+    },
+    {
+     "v": "''",
+     "d": "trống"
+    },
+    {
+     "v": "(new Date()).getFullYear()",
+     "d": "năm hiện tại"
+    },
+    {
+     "v": "(new Date()).getMonth() + 1",
+     "d": "tháng hiện tại"
+    },
+    {
+     "v": "0",
+     "d": "số 0"
+    }
+   ],
+   "example": "defaultValue=\"new Date()\"",
+   "count": 1955
+  },
+  {
+   "tag": "field",
+   "attr": "aliasName",
+   "scope": "filter",
+   "desc": "Tên gọi chuẩn của field điều kiện để chương trình xử lý chung (kỳ / năm / từ ngày – đến ngày).",
+   "values": [
+    {
+     "v": "fromDate",
+     "d": "từ ngày"
+    },
+    {
+     "v": "toDate",
+     "d": "đến ngày"
+    },
+    {
+     "v": "Year",
+     "d": "năm"
+    },
+    {
+     "v": "Period",
+     "d": "kỳ"
+    },
+    {
+     "v": "fromPeriod",
+     "d": "từ kỳ"
+    },
+    {
+     "v": "toPeriod",
+     "d": "đến kỳ"
+    }
+   ],
+   "example": "aliasName=\"fromDate\"",
+   "count": 926
+  },
+  {
+   "tag": "field",
+   "attr": "column",
+   "scope": "import",
+   "desc": "Cột Excel đọc giá trị (A, B, C…). None = không đọc từ Excel (giá trị lấy từ insertValue / updateValue).",
+   "values": [
+    {
+     "v": "A",
+     "d": "cột A"
+    },
+    {
+     "v": "None",
+     "d": "không đọc từ Excel"
+    }
+   ],
+   "example": "column=\"A\"",
+   "count": 84
+  },
+  {
+   "tag": "field",
+   "attr": "updateValue",
+   "scope": "import",
+   "desc": "Giá trị gán khi CẬP NHẬT dòng đã có. None = giữ nguyên, không cập nhật cột này.",
+   "values": [
+    {
+     "v": "None",
+     "d": "không cập nhật"
+    },
+    {
+     "v": "getdate()",
+     "d": "thời điểm nhập"
+    },
+    {
+     "v": "@@userID",
+     "d": "người đang nhập"
+    }
+   ],
+   "example": "",
+   "count": 59
+  },
+  {
+   "tag": "field",
+   "attr": "width",
+   "scope": "import",
+   "desc": "Trong <template><fields row>: bề rộng cột của file Excel mẫu.",
+   "values": [
+    {
+     "v": "16",
+     "d": "hay dùng"
+    },
+    {
+     "v": "32",
+     "d": "cột tên / diễn giải"
+    }
+   ],
+   "example": "",
+   "count": 54
+  },
+  {
+   "tag": "field",
+   "attr": "type",
+   "scope": "import",
+   "desc": "Kiểu dữ liệu của cột nhập.",
+   "values": [
+    {
+     "v": "Decimal",
+     "d": "số"
+    },
+    {
+     "v": "DateTime",
+     "d": "ngày"
+    },
+    {
+     "v": "Int",
+     "d": "số nguyên"
+    },
+    {
+     "v": "String",
+     "d": "chuỗi (mặc định — không khai type là String)"
+    }
+   ],
+   "example": "",
+   "count": 47
+  },
+  {
+   "tag": "field",
+   "attr": "insertValue",
+   "scope": "import",
+   "desc": "Giá trị gán khi THÊM MỚI dòng (biểu thức SQL / biến @@).",
+   "values": [
+    {
+     "v": "getdate()",
+     "d": "thời điểm nhập"
+    },
+    {
+     "v": "@@userID",
+     "d": "người đang nhập"
+    },
+    {
+     "v": "'1'",
+     "d": "hằng số"
+    }
+   ],
+   "example": "",
+   "count": 34
+  },
+  {
+   "tag": "field",
+   "attr": "upperCase",
+   "scope": "import",
+   "desc": "Đổi giá trị đọc được sang chữ HOA (mã).",
+   "values": [
+    {
+     "v": "true",
+     "d": "chữ hoa"
+    }
+   ],
+   "example": "",
+   "count": 30
+  },
+  {
+   "tag": "field",
+   "attr": "check",
+   "scope": "import",
+   "desc": "Điều kiện SQL phát hiện dòng LỖI (điều kiện đúng → báo lỗi errorCode tương ứng). Nhiều điều kiện nối bằng &And; (@@table = bảng tạm của dữ liệu nhập).",
+   "values": [],
+   "example": "check=\"ma_kh &lt;&gt; '' and ma_kh not in (select ma_kh from dmkh)\"",
+   "count": 28
+  },
+  {
+   "tag": "field",
+   "attr": "errorCode",
+   "scope": "import",
+   "desc": "Mã thông báo lỗi ứng với từng điều kiện check (nối bằng &And; theo đúng thứ tự check).",
+   "values": [
+    {
+     "v": "00001",
+     "d": ""
+    },
+    {
+     "v": "00002",
+     "d": ""
+    }
+   ],
+   "example": "",
+   "count": 28
+  },
+  {
+   "tag": "field",
+   "attr": "isPrimaryKey",
+   "scope": "import",
+   "desc": "Cột khoá để nhận ra dòng đã có (cập nhật thay vì thêm mới).",
+   "values": [
+    {
+     "v": "true",
+     "d": "cột khoá"
+    }
+   ],
+   "example": "",
+   "count": 25
+  },
+  {
+   "tag": "field",
+   "attr": "starColor",
+   "scope": "import",
+   "desc": "Trong <template>: màu dấu * đánh dấu cột bắt buộc của file Excel mẫu.",
+   "values": [
+    {
+     "v": "&EIT.StarColor.Require;",
+     "d": "cột bắt buộc"
+    },
+    {
+     "v": "&EIT.StarColor.Sub;",
+     "d": "cột phụ"
+    }
+   ],
+   "example": "",
+   "count": 18
+  },
+  {
+   "tag": "field",
+   "attr": "allowNulls",
+   "scope": "import",
+   "desc": "false = cột BẮT BUỘC có giá trị trong file Excel (dòng trống báo lỗi); cột Excel mẫu tô dấu * (starColor).",
+   "values": [
+    {
+     "v": "false",
+     "d": "bắt buộc nhập"
+    }
+   ],
+   "example": "allowNulls=\"false\"",
+   "count": 17
+  },
+  {
+   "tag": "field",
+   "attr": "textColor",
+   "scope": "import",
+   "desc": "Trong <template>: màu chữ tiêu đề cột Excel mẫu.",
+   "values": [
+    {
+     "v": "&EIT.TextColor.Sub;",
+     "d": "cột phụ"
+    }
+   ],
+   "example": "",
+   "count": 4
+  },
+  {
+   "tag": "field",
+   "attr": "afterField",
+   "scope": "import",
+   "desc": "chưa rõ (trong <template>, tên 1 field khác).",
+   "values": [],
+   "example": "",
+   "count": 4
+  },
+  {
+   "tag": "field",
+   "attr": "condition",
+   "scope": "import",
+   "desc": "chưa rõ (đoạn SQL mở đầu \"if … begin\", đi với tag).",
+   "values": [],
+   "example": "",
+   "count": 3
+  },
+  {
+   "tag": "field",
+   "attr": "tag",
+   "scope": "import",
+   "desc": "chưa rõ (đoạn SQL đóng \"end\", đi với condition).",
+   "values": [],
+   "example": "",
+   "count": 3
+  },
+  {
+   "tag": "field",
+   "attr": "defaultValue",
+   "scope": "import",
+   "desc": "Giá trị mặc định khi ô Excel trống.",
+   "values": [],
+   "example": "",
+   "count": 2
+  },
+  {
+   "tag": "field",
+   "attr": "resource",
+   "scope": "import",
+   "desc": "chưa rõ (vd \"master, general\").",
+   "values": [],
+   "example": "",
+   "count": 0
+  },
+  {
+   "tag": "field",
+   "attr": "reference",
+   "scope": "import",
+   "desc": "chưa rõ",
+   "values": [],
+   "example": "",
+   "count": 0
+  },
+  {
+   "tag": "field",
+   "attr": "category",
+   "scope": "import",
+   "desc": "chưa rõ",
+   "values": [],
+   "example": "",
+   "count": 0
+  },
+  {
+   "tag": "field",
+   "attr": "maxLength",
+   "scope": "import",
+   "desc": "Số ký tự tối đa của giá trị đọc từ Excel.",
+   "values": [],
+   "example": "",
+   "count": 0
+  },
+  {
+   "tag": "items",
+   "attr": "style",
+   "scope": "",
+   "desc": "Kiểu ô nhập của field.",
+   "values": [
+    {
+     "v": "AutoComplete",
+     "d": "ô mã có tra cứu danh mục (gõ là gợi ý) — đi với controller / reference / key / check"
+    },
+    {
+     "v": "Numeric",
+     "d": "ô số"
+    },
+    {
+     "v": "Mask",
+     "d": "ô nhập theo định dạng (ngày, số chứng từ, chữ hoa…)"
+    },
+    {
+     "v": "DropDownList",
+     "d": "chọn trong danh sách <item>"
+    },
+    {
+     "v": "CheckBox",
+     "d": "ô tick"
+    },
+    {
+     "v": "Grid",
+     "d": "lưới chi tiết con trong form (controller = Grid)"
+    },
+    {
+     "v": "Lookup",
+     "d": "tra cứu danh mục (khác AutoComplete: chưa rõ)"
+    }
+   ],
+   "example": "<items style=\"AutoComplete\" controller=\"Customer\" reference=\"ten_kh%l\" key=\"status = '1'\" check=\"1 = 1\"/>",
+   "count": 10462
+  },
+  {
+   "tag": "items",
+   "attr": "controller",
+   "scope": "",
+   "desc": "Controller danh mục để tra cứu (Lookup / Dir: Customer, Account, Item…); với style=\"Grid\" là controller Grid của lưới con.",
+   "values": [
+    {
+     "v": "Customer",
+     "d": "khách hàng"
+    },
+    {
+     "v": "Account",
+     "d": "tài khoản"
+    },
+    {
+     "v": "Item",
+     "d": "vật tư"
+    },
+    {
+     "v": "Unit",
+     "d": "đơn vị cơ sở"
+    },
+    {
+     "v": "Currency",
+     "d": "ngoại tệ"
+    }
+   ],
+   "example": "",
+   "count": 4160
+  },
+  {
+   "tag": "items",
+   "attr": "key",
+   "scope": "",
+   "desc": "Điều kiện SQL lọc danh sách khi tra cứu (chỉ hiện dòng thoả). Lấy giá trị field khác bằng {[$ma_dvcs]} / {$%c$%r.[ma_vt]}.",
+   "values": [
+    {
+     "v": "status = '1'",
+     "d": "chỉ mã đang dùng"
+    },
+    {
+     "v": "loai_tk = 1 and status = '1'",
+     "d": "tài khoản chi tiết đang dùng"
+    }
+   ],
+   "example": "",
+   "count": 3855
+  },
+  {
+   "tag": "items",
+   "attr": "check",
+   "scope": "",
+   "desc": "Điều kiện SQL kiểm tra mã nhập tay có hợp lệ (khi rời ô / khi lưu). 1 = 1 = không kiểm thêm.",
+   "values": [
+    {
+     "v": "1 = 1",
+     "d": "không thêm điều kiện"
+    },
+    {
+     "v": "loai_tk = 1",
+     "d": "chỉ tài khoản chi tiết"
+    }
+   ],
+   "example": "",
+   "count": 3661
+  },
+  {
+   "tag": "items",
+   "attr": "reference",
+   "scope": "",
+   "desc": "Field nhận TÊN tương ứng khi chọn mã (vd ten_kh%l) — FCode: \"Reference Name\".",
+   "values": [
+    {
+     "v": "ten_kh%l",
+     "d": "tên khách"
+    },
+    {
+     "v": "ten_tk%l",
+     "d": "tên tài khoản"
+    },
+    {
+     "v": "ten_vt%l",
+     "d": "tên vật tư"
+    }
+   ],
+   "example": "",
+   "count": 3347
+  },
+  {
+   "tag": "items",
+   "attr": "information",
+   "scope": "",
+   "desc": "Lấy thêm thông tin hiển thị: field$bảng.cột (vd ma_kh$dmkh.ten_kh%l = tên khách từ dmkh). FCode: chữ \"L\" = kiểu Lookup.",
+   "values": [
+    {
+     "v": "ma_kh$dmkh.ten_kh%l",
+     "d": "tên khách"
+    },
+    {
+     "v": "tk$dmtk.ten_tk%l",
+     "d": "tên tài khoản"
+    },
+    {
+     "v": "&TableDetail;",
+     "d": "Filter: entity chung"
+    }
+   ],
+   "example": "",
+   "count": 2066
+  },
+  {
+   "tag": "items",
+   "attr": "new",
+   "scope": "",
+   "desc": "Cho thêm mới danh mục ngay từ ô tra cứu. Default = dùng controller của chính danh mục; tên khác (Item, Customer…) = controller dùng để thêm mới.",
+   "values": [
+    {
+     "v": "Default",
+     "d": "theo controller tra cứu"
+    },
+    {
+     "v": "Item",
+     "d": "thêm mới bằng controller Item"
+    }
+   ],
+   "example": "",
+   "count": 637
+  },
+  {
+   "tag": "items",
+   "attr": "row",
+   "scope": "",
+   "desc": "chưa rõ (luôn là 1, hay đi với style Grid / DropDownList).",
+   "values": [
+    {
+     "v": "1",
+     "d": "chưa rõ"
+    }
+   ],
+   "example": "",
+   "count": 376
+  },
+  {
+   "tag": "items",
+   "attr": "normal",
+   "scope": "",
+   "desc": "chưa rõ",
+   "values": [
+    {
+     "v": "true",
+     "d": "chưa rõ"
+    }
+   ],
+   "example": "",
+   "count": 69
+  }
+ ]
+}

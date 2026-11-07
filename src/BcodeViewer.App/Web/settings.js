@@ -532,6 +532,9 @@ class BcodeSettingsDialog {
     const fastGhost = row('', check('Gợi ý theo cấu trúc Fast khi gõ (XML controller / JavaScript / ASPX)', s.enableFastGhost !== false));
     const fastLong = row('', check('Gợi ý Fast dài (gợi ý dài / nhiều chỗ hơn, đúng ≥ 60%; tắt = ngắn, đúng ≥ 90%) — Alt+Shift+\\ đổi nhanh', !!s.fastGhostLong));
     note('Chạy trên máy, không gọi mạng: học từ source Fast mẫu đi kèm, source của dự án đang mở (đọc ở nền lần đầu) và source Fast các phiên bản bên dưới. Tab để nhận.');
+    section('Khai field');
+    const autoView = row('', check('Khai field xong tự sinh dòng <field name="…"/> trong <views> (Grid / Lookup)', s.autoViewOnFieldDeclare === true));
+    note('Mặc định TẮT. Bật: gõ xong 1 <field name="X" …> trong <fields> (đóng thẻ, ngừng gõ ~0,7 giây) mà <views> chưa có X thì tự thêm <field name="X"/> vào <view> — đúng thứ tự khai báo, cùng thụt lề với các dòng view sẵn có. Ctrl+Z bỏ dòng vừa thêm. Đổi tên field vừa khai thì dòng view tự đổi theo. Dir / Filter (view dạng <item value="mặt nạ: [x]">) không tự thêm. Định nghĩa từng thuộc tính của field: Tool → Note thuộc tính field.');
     section('Kiến thức chung (cả nhóm)');
     const knowledgeDir = input(s.knowledgeDir || '');
     row('Thư mục kiến thức chung:', knowledgeDir, button('Browse...', async () => {
@@ -725,6 +728,7 @@ class BcodeSettingsDialog {
         showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,
         f5ReuseTab: f5Reuse.box.checked, f5Browser: f5Browser.value,
         autoClearReadOnly: autoClearRo.box.checked,
+        autoViewOnFieldDeclare: autoView.box.checked,
       };
       try {
         await window.bcodeHost.call('BeginSaveSettings', JSON.stringify(data));

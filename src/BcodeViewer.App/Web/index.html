@@ -157,6 +157,8 @@
   <script src="dirview.js"></script>
   <script src="dirpreview.js"></script>
   <script src="checkfield.js"></script>
+  <script src="fieldnotes.js"></script>
+  <script src="autoview.js"></script>
   <script src="fastask.js"></script>
   <script src="mailpreview.js"></script>
   <script src="goto.js"></script>
@@ -216,6 +218,9 @@
       window.bcodeDirPreview = new BcodeDirPreview(window.bcodeViewer);
       // Check Field (kiểu FCodeViewer): đối chiếu <fields> với <views> của Grid / Dir — thiếu, trùng, copy XML của view.
       window.bcodeCheckField = new BcodeCheckField(window.bcodeViewer);
+      // Note thuộc tính field (mô tả + giá trị khi gõ / rê chuột thuộc tính của <field>, hộp xem-sửa) và tự thêm dòng view khi khai field (Settings).
+      window.bcodeFieldNotes = new BcodeFieldNotes(window.bcodeViewer);
+      window.bcodeAutoView = new BcodeAutoView(window.bcodeViewer);
       // Xem trước mail mẫu (Message.xml...) — cùng phím Alt+P, tự chọn theo loại file đang mở.
       window.bcodeMailPreview = new BcodeMailPreview(window.bcodeViewer);
       // Ctrl+G — hộp "Go to" liệt kê tag/chi tiết của controller, nhấp đúp để nhảy tới.

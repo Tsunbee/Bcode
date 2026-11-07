@@ -158,6 +158,7 @@ class BcodeShell {
         { label: 'Refresh Web.config', shortcut: this.k('tool.refreshWebConfig'), run: () => this.cmd('refreshWebConfig') },
         { sep: true },
         { label: 'Từ điển dịch (Việt → Anh)...', shortcut: this.k('tool.translateDict'), run: () => window.bcodeDialogs.showTranslateDictionary() },
+        { label: 'Note thuộc tính field...', shortcut: this.k('tool.fieldNotes'), run: () => window.bcodeFieldNotes && window.bcodeFieldNotes.show() },
       ] },
       { title: 'Help', items: [
         { label: 'Giới thiệu...', run: () => this.showAbout() },

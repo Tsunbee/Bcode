@@ -79,6 +79,8 @@
     <None Include="Assets\snippets\*.xml" CopyToOutputDirectory="PreserveNewest" />
     <!-- Ma trận ghost text Fast + kho Hỏi Fast đi kèm (Host/FastSource) — rút từ Bcode.App\Templates\fileSource (công khai) bằng công cụ đo; kiến thức học từ source Fast / dự án nằm ở thư mục kiến thức, không ở đây. -->
     <None Include="Assets\fastsource\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Định nghĩa thuộc tính field của Fast (Note thuộc tính field — Settings/FieldNoteStore, Web/fieldnotes.js): soạn từ thống kê source Fast + form khai field của FCode. -->
+    <None Include="Assets\fieldnotes\*.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- Từ điển field FCode (gợi ý "f.ma_kh" + Enter — Settings/FcodeFieldDictionary) dùng chung với Bcode.App — link, không chép. -->
     <None Include="..\Bcode.App\Templates\fileSource\header.xml" Link="Assets\fields\header.xml" CopyToOutputDirectory="PreserveNewest" />
     <!-- Từ có sẵn của Từ điển dịch (Settings/TranslateDictionary) — cùng file HeaderTranslator của Bcode dùng; link, không chép. -->

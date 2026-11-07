@@ -4,9 +4,9 @@ namespace Bcode.App.UI;
 
 public enum IconGlyph
 {
-    Table,      // SQL Object — a data grid
-    Terminal,   // WCommand — a command prompt
-    Phone,      // Mobile
+    Database,   // SQL Object — hình trụ database (procedure / function / view / bảng)
+    MenuTree,   // Cây menu Fast (WCommand) — nút gốc + hai nhánh con
+    Phone,      // Fast Mobile (dvcommand) — điện thoại
     Gear,       // Settings / File & Actions
     Sun,        // Light theme
     Moon,       // Dark theme
@@ -48,9 +48,9 @@ public static class IconGlyphs
 
         switch (glyph)
         {
-            case IconGlyph.Table: DrawTable(g, pen, box); break;
-            case IconGlyph.Terminal: DrawTerminal(g, pen, box); break;
-            case IconGlyph.Phone: DrawPhone(g, pen, box); break;
+            case IconGlyph.Database: DrawDatabase(g, box); break;
+            case IconGlyph.MenuTree: DrawMenuTree(g, box); break;
+            case IconGlyph.Phone: DrawPhone(g, box); break;
             case IconGlyph.Gear: DrawGear(g, brush, pen, box); break;
             case IconGlyph.Sun: DrawSun(g, pen, brush, box); break;
             case IconGlyph.Moon: DrawMoon(g, brush, backColor, box); break;
@@ -65,37 +65,109 @@ public static class IconGlyphs
         g.SmoothingMode = oldSmoothing;
     }
 
-    private static void DrawTable(Graphics g, Pen pen, Rectangle box)
+    // Database / MenuTree / Phone: icon MÀU (màu cố định, không theo màu chữ — mục đang chọn của cột icon nhận biết bằng
+    // nền + vạch cam), vẽ theo lưới 16x16 trùng toạ độ / màu bản SVG của Web/Shell/iconrail.html — sửa hình thì sửa cả hai.
+    private static PointF P(Rectangle box, float x, float y) => new(box.X + x * box.Width / 16f, box.Y + y * box.Height / 16f);
+    private static RectangleF R(Rectangle box, float x, float y, float w, float h) =>
+        new(box.X + x * box.Width / 16f, box.Y + y * box.Height / 16f, w * box.Width / 16f, h * box.Height / 16f);
+    private static float U(Rectangle box, float v) => v * box.Width / 16f;
+    private static Color Hex(int rgb, int alpha = 255) => Color.FromArgb(alpha, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+
+    private static GraphicsPath RoundRectF(RectangleF r, float radius)
     {
-        using var path = FlatToolStripRenderer.RoundedRect(box, Math.Max(2, box.Width / 8));
-        g.DrawPath(pen, path);
-        var headerY = box.Y + box.Height / 3;
-        g.DrawLine(pen, box.X, headerY, box.Right, headerY);
-        var midX = box.X + box.Width / 2;
-        g.DrawLine(pen, midX, headerY, midX, box.Bottom);
+        var p = new GraphicsPath();
+        var d = Math.Min(radius * 2, Math.Min(r.Width, r.Height));
+        if (d <= 0.5f) { p.AddRectangle(r); return p; }
+        p.AddArc(r.X, r.Y, d, d, 180, 90);
+        p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+        p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+        p.CloseFigure();
+        return p;
     }
 
-    private static void DrawTerminal(Graphics g, Pen pen, Rectangle box)
+    private static void DrawDatabase(Graphics g, Rectangle box)
     {
-        using var path = FlatToolStripRenderer.RoundedRect(box, Math.Max(2, box.Width / 8));
-        g.DrawPath(pen, path);
-        var cx = box.X + box.Width * 0.28f;
-        var cy = box.Y + box.Height * 0.38f;
-        var cy2 = box.Y + box.Height * 0.62f;
-        g.DrawLine(pen, cx, cy, cx + box.Width * 0.18f, (cy + cy2) / 2);
-        g.DrawLine(pen, cx, cy2, cx + box.Width * 0.18f, (cy + cy2) / 2);
-        var lineY = box.Y + box.Height * 0.72f;
-        g.DrawLine(pen, box.X + box.Width * 0.52f, lineY, box.Right - box.Width * 0.14f, lineY);
+        // Trụ database xanh: thân đổ bóng trái-phải (sáng ở giữa), hai vạch đĩa sáng, nắp elip sáng có viền đậm.
+        var outline = Hex(0x16437f);
+        using var edge = new Pen(outline, Math.Max(1f, U(box, 0.6f)));
+        using (var body = new GraphicsPath())
+        {
+            body.AddLine(P(box, 2.5f, 3.5f), P(box, 2.5f, 12.5f));
+            body.AddArc(R(box, 2.5f, 10.5f, 11, 4), 180, -180);
+            body.AddLine(P(box, 13.5f, 12.5f), P(box, 13.5f, 3.5f));
+            body.CloseFigure();
+            var span = R(box, 2.5f, 0, 11, 16);
+            using var shade = new LinearGradientBrush(new RectangleF(span.X - 0.5f, span.Y, span.Width + 1f, span.Height), Hex(0x1d5bb8), Hex(0x1a4f9e), LinearGradientMode.Horizontal)
+            {
+                InterpolationColors = new ColorBlend { Colors = new[] { Hex(0x1d5bb8), Hex(0x4c94ea), Hex(0x1a4f9e) }, Positions = new[] { 0f, 0.45f, 1f } },
+            };
+            g.FillPath(shade, body);
+            g.DrawPath(edge, body);
+        }
+        using (var band = new Pen(Hex(0xcfe6ff, 217), Math.Max(1f, U(box, 0.7f))))
+        {
+            g.DrawArc(band, R(box, 2.5f, 4.5f, 11, 4), 0, 180);
+            g.DrawArc(band, R(box, 2.5f, 7.5f, 11, 4), 0, 180);
+        }
+        var lid = R(box, 2.5f, 1.5f, 11, 4);
+        using (var lidBrush = new SolidBrush(Hex(0xa6d4ff))) g.FillEllipse(lidBrush, lid);
+        g.DrawEllipse(edge, lid);
     }
 
-    private static void DrawPhone(Graphics g, Pen pen, Rectangle box)
+    private static void DrawMenuTree(Graphics g, Rectangle box)
     {
-        var phoneWidth = box.Width * 0.6f;
-        var rect = new RectangleF(box.X + (box.Width - phoneWidth) / 2, box.Y, phoneWidth, box.Height);
-        using var path = FlatToolStripRenderer.RoundedRect(Rectangle.Round(rect), Math.Max(2, (int)(phoneWidth / 4)));
-        g.DrawPath(pen, path);
-        var homeY = rect.Bottom - rect.Height * 0.12f;
-        g.DrawLine(pen, rect.X + rect.Width * 0.3f, homeY, rect.Right - rect.Width * 0.3f, homeY);
+        // Thư mục gốc vàng; thân nối xám rẽ hai nhánh sang hai mục menu (nút xanh dương / xanh lá có vạch nhãn trắng).
+        using (var line = new Pen(Hex(0x8b929c), Math.Max(1f, U(box, 1f))) { LineJoin = LineJoin.Miter })
+        {
+            g.DrawLines(line, new[] { P(box, 3, 7), P(box, 3, 13.5f), P(box, 5.6f, 13.5f) });
+            g.DrawLine(line, P(box, 3, 10), P(box, 5.6f, 10));
+        }
+        using (var back = new GraphicsPath())
+        {
+            back.AddLines(new[] { P(box, 1, 1.5f), P(box, 4.1f, 1.5f), P(box, 5.1f, 2.6f), P(box, 9, 2.6f), P(box, 9, 7), P(box, 1, 7) });
+            back.CloseFigure();
+            using var b = new SolidBrush(Hex(0xd18b0f));
+            g.FillPath(b, back);
+        }
+        using (var front = RoundRectF(R(box, 1, 3.6f, 8, 3.4f), U(box, 0.5f)))
+        using (var f = new SolidBrush(Hex(0xffc53d)))
+            g.FillPath(f, front);
+        using var label = new Pen(Color.White, Math.Max(1f, U(box, 0.9f))) { StartCap = LineCap.Round, EndCap = LineCap.Round };
+        foreach (var (y, rgb) in new[] { (8.5f, 0x2f80ed), (12f, 0x27a265) })
+        {
+            using var item = RoundRectF(R(box, 6, y, 9, 3), U(box, 0.7f));
+            using var ib = new SolidBrush(Hex(rgb));
+            g.FillPath(ib, item);
+            g.DrawLine(label, P(box, 7.4f, y + 1.5f), P(box, 12.6f, y + 1.5f));
+        }
+    }
+
+    private static void DrawPhone(Graphics g, Rectangle box)
+    {
+        // Điện thoại: thân xám đậm viền sáng, màn hình xanh chuyển sắc có 4 ô ứng dụng, khe loa và nút home.
+        using (var body = RoundRectF(R(box, 3.8f, 0.8f, 8.4f, 14.4f), U(box, 1.8f)))
+        using (var fill = new SolidBrush(Hex(0x2d3340)))
+        using (var edge = new Pen(Hex(0x8a93a3), Math.Max(1f, U(box, 0.6f))))
+        {
+            g.FillPath(fill, body);
+            g.DrawPath(edge, body);
+        }
+        var screen = R(box, 4.9f, 2.6f, 6.2f, 9.6f);
+        using (var sp = RoundRectF(screen, U(box, 0.5f)))
+        using (var sb = new LinearGradientBrush(RectangleF.Inflate(screen, 0, 0.5f), Hex(0x5cc0ff), Hex(0x2563eb), LinearGradientMode.Vertical))
+            g.FillPath(sb, sp);
+        using (var tile = new SolidBrush(Color.FromArgb(230, Color.White)))
+            foreach (var (x, y) in new[] { (5.7f, 3.5f), (8.4f, 3.5f), (5.7f, 6.2f), (8.4f, 6.2f) })
+            {
+                using var t = RoundRectF(R(box, x, y, 1.9f, 1.9f), U(box, 0.35f));
+                g.FillPath(tile, t);
+            }
+        using (var speaker = new Pen(Hex(0x8a93a3), Math.Max(1f, U(box, 0.5f))) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+            g.DrawLine(speaker, P(box, 7, 1.75f), P(box, 9, 1.75f));
+        var c = P(box, 8, 13.7f);
+        var hr = Math.Max(1f, U(box, 0.75f));
+        using (var home = new SolidBrush(Hex(0xc9cfd8))) g.FillEllipse(home, c.X - hr, c.Y - hr, hr * 2, hr * 2);
     }
 
     private static void DrawGear(Graphics g, Brush brush, Pen pen, Rectangle box)

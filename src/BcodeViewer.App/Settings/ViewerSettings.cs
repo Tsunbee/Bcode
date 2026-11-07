@@ -76,6 +76,10 @@ public class ViewerSettings
     /// <summary>Chế độ "Gợi ý Fast dài" (ngưỡng hiệu chỉnh cho đúng ≥ 60%, gợi ý dài / nhiều chỗ hơn); tắt = chế độ ngắn (đúng ≥ 90%). Alt+Shift+\ đổi nhanh.</summary>
     public bool FastGhostLong { get; set; } = false;
 
+    /// <summary>Khai xong 1 &lt;field name="X" …&gt; trong &lt;fields&gt; của Grid / Lookup thì tự thêm &lt;field name="X"/&gt; vào &lt;views&gt;
+    /// (Web/autoview.js; Ctrl+Z bỏ được). Mặc định TẮT — giữ hành vi cũ. Settings → Gợi ý &amp; Hỏi Fast.</summary>
+    public bool AutoViewOnFieldDeclare { get; set; } = false;
+
     /// <summary>Thư mục gốc chứa source Fast theo các phiên bản (FBOR1, FBOR2SP01 … FBOR2SP24.x — mỗi thư mục là 1 gói vá). Trống = không học.
     /// Học ở nền: lịch sử chỉnh sửa từng file (Hỏi Fast) + bản mới nhất của mọi file (ghost text, Hỏi Fast) → thư mục kiến thức.</summary>
     public string FastSourceVersionsPath { get; set; } = "";

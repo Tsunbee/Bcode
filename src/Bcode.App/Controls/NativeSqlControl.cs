@@ -1001,7 +1001,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _dbgNext = Btn("⤵ Step", "Chạy dòng kế (F10)", () => { _ = DebugCommandAsync("step"); FocusEditor(); }, primary: true);
         _dbgCont = Btn("▶ Continue", "Chạy tiếp tới breakpoint / hết (F5)", () => { _ = DebugCommandAsync("continue"); FocusEditor(); });
         _dbgCursor = Btn("⇥ To cursor", "Chạy tới dòng con trỏ (Ctrl+F10)", () => { _ = DebugCommandAsync("to-cursor", _ed.CurrentLine + 1); FocusEditor(); });
-        var stop = Btn("⏹ Stop", "Dừng debug (Shift+F5)", () => { StopStepDebug(); FocusEditor(); });
+        var stop = Btn("⏹ Stop", "Dừng debug (Shift+F5)", () => { StopDebugAskSave(); FocusEditor(); });
         _dbgBar.Controls.AddRange(new Control[] { _dbgNext, _dbgCont, _dbgCursor, stop });
     }
 
@@ -1037,7 +1037,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
     private void ToggleDebugStep()
     {
-        if (_debugStepOn || _plan is not null) { StopStepDebug(); return; }
+        if (_debugStepOn || _plan is not null) { StopDebugAskSave(); return; }
         _debugStepOn = true;
         _ = StartStepDebugAsync();
     }
@@ -1067,6 +1067,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
         _plan = plan;
         _planText = text;
+        _debugStartText = text;
         _planValues = values;
         _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
         _lastVars = null;
@@ -1109,6 +1110,26 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (next - 1 < first || next - 1 >= first + _ed.LinesOnScreen)
                 _ed.FirstVisibleLine = Math.Max(0, next - 1 - _ed.LinesOnScreen / 2);   // như revealLineInCenterIfOutsideViewport
         }
+    }
+
+    // Như RawSqlControl: debug chạy thân procedure rồi luôn ROLLBACK — sửa định nghĩa object trong lúc debug mà dừng thì hỏi chạy ALTER để lưu.
+    private string _debugStartText = "";
+    private static readonly System.Text.RegularExpressions.Regex ObjectDefinitionRe =
+        new(@"\b(?:ALTER|CREATE)\s+(?:PROC|PROCEDURE|FUNCTION|VIEW|TRIGGER)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private void StopDebugAskSave()
+    {
+        var wasActive = _plan is not null;
+        var text = wasActive ? _ed.Text : "";
+        StopStepDebug();
+        if (!wasActive || string.IsNullOrWhiteSpace(text) || text == _debugStartText || !ObjectDefinitionRe.IsMatch(text)) return;
+        var name = SqlStepPlanner.ParseHeader(text.Replace("\r\n", "\n").Replace("\r", "\n")).Item1 ?? "object";
+        var r = MessageBox.Show(FindForm(),
+            $"Bạn đã sửa {name} trong lúc debug.\n\nDebug từng bước luôn ROLLBACK nên phần sửa CHƯA được lưu vào database " +
+            "(đóng tab rồi mở lại sẽ thấy bản cũ).\n\nChạy script (ALTER) để lưu vào database ngay?",
+            "Bcode — Debug từng bước", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (r == DialogResult.Yes) { _ = RunAsync(); return; }
+        SetStatus($"⚠ {name}: phần sửa trong lúc debug CHƯA lưu vào database — bấm Execute để chạy ALTER khi muốn lưu.", AppColors.Warning);
     }
 
     private void StopStepDebug()
@@ -1294,6 +1315,25 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         else { SetStatus($"SQL động {v.Name}: cú pháp hợp lệ (đã mở tab). Lỗi còn lại nếu có là tên bảng / cột hoặc dữ liệu.", AppColors.Success); }
     }
 
+    /// <summary>Sau bước lỗi cột: chạy lại có chẩn đoán (rollback) → bảng "Phân tích lỗi cột" lên đầu lưới + tóm tắt ở tab Message, chỉ ra đúng cột / dòng.</summary>
+    private async Task AnalyzeColumnErrorAsync(StepPlan plan, int lastOk, int target, string error, List<DataTable> tables, string messages)
+    {
+        var baseText = _status.Text;
+        SetStatus(baseText + "  🔎 Đang phân tích cột gây lỗi...", AppColors.Danger);
+        try
+        {
+            var report = await InsertErrorAnalyzer.AnalyzeAsync(plan, lastOk, target, error, () => _service.CreateConnection(_useSys));
+            if (IsDisposed || !ReferenceEquals(plan, _plan) || _executedLine != target) return;   // đã sang bước khác
+            if (report is null) { SetStatus(baseText + "  (không tái hiện được lỗi để phân tích cột)", AppColors.Danger); return; }
+            if (report.Details.Rows.Count > 0) _results.SetTables(new List<DataTable> { report.Details }.Concat(tables).ToList());
+            _results.SetMessages($"LỖI: {error}\n\n🔎 PHÂN TÍCH: {report.Summary}", messages, tables.Count + (report.Details.Rows.Count > 0 ? 1 : 0));
+            SetStatus(report.Columns.Count > 0
+                ? $"🔎 Lỗi ở dòng {report.FromLine}{(report.ToLine > report.FromLine ? "–" + report.ToLine : "")} ({report.Target}): cột {string.Join(", ", report.Columns.Take(6))}{(report.Columns.Count > 6 ? ", …" : "")} — xem bảng \"Phân tích lỗi cột\" + tab Message."
+                : baseText + "  🔎 " + report.Summary.Split('\n')[0], AppColors.Danger);
+        }
+        catch (Exception ex) { if (!IsDisposed) SetStatus(baseText + "  (phân tích cột lỗi: " + ex.Message + ")", AppColors.Danger); }
+    }
+
     private async Task ExecuteStepAsync(int target)
     {
         if (_plan is null) return;
@@ -1342,6 +1382,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
                 var where = _errorFrom == target ? $"dòng {target}" : $"đoạn dòng {_errorFrom}–{target}";
                 SetStatus($"Lỗi ở {where} (tô đỏ; bước trước{(_lastOkLine > 0 ? $" tới dòng {_lastOkLine}" : "")} chạy được) — xem tab Message. ⤴ Back để xem lại, Shift+F5 dừng.", AppColors.Danger);
                 _results.SetMessages($"LỖI: {errorBatch.Error}", messages, tables.Count);
+                // Lỗi cột (vượt độ dài / lệch số cột / tràn số / sai kiểu / NULL…): tự chạy phân tích để chỉ ra đúng cột — InsertErrorAnalyzer.
+                if (InsertErrorAnalyzer.Recognizes(errorBatch.Error)) _ = AnalyzeColumnErrorAsync(_plan, _lastOkLine, target, errorBatch.Error!, tables, messages);
             }
             else
             {
@@ -1438,7 +1480,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("editor.debugStep")) { ToggleDebugStep(); return true; }
             if (combo == ShortcutRegistry.Get("debug.next")) { _ = DebugCommandAsync("step"); return true; }
             if (combo == ShortcutRegistry.Get("debug.cursor")) { _ = DebugCommandAsync("to-cursor", _ed.CurrentLine + 1); return true; }
-            if (combo == ShortcutRegistry.Get("debug.stop")) { StopStepDebug(); return true; }
+            if (combo == ShortcutRegistry.Get("debug.stop")) { StopDebugAskSave(); return true; }
             if (combo == ShortcutRegistry.Get("debug.back")) { _ = DebugCommandAsync("back"); return true; }
             if (combo == ShortcutRegistry.Get("debug.findError")) { _ = DebugFindErrorAsync(); return true; }
             if (combo == ShortcutRegistry.Get("debug.dynSql")) { _ = ShowDynamicSqlAsync(); return true; }

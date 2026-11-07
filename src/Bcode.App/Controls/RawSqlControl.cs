@@ -266,8 +266,15 @@ public class RawSqlControl : UserControl, ISqlTab
 
                 _editorWeb.CoreWebView2.WebMessageReceived += async (_, e) =>
                 {
-                    using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
-                    await OnEditorMessage(doc.RootElement);
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(e.TryGetWebMessageAsString());
+                        await OnEditorMessage(doc.RootElement);
+                    }
+                    catch (Exception ex) when (IsDisposed || _editorWeb.CoreWebView2 is null || ex is ObjectDisposedException)
+                    {
+                        /* tab đã đóng / ngủ đông giữa chừng — bỏ qua lặng lẽ */
+                    }
                 };
 
                 _editorWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("sqleditor.html"));
@@ -296,8 +303,12 @@ public class RawSqlControl : UserControl, ISqlTab
     private Control BarControl => _mergeBarEditor ? _host! : _barWeb;
     private int BarHeight => _mergeBarEditor ? _barHeightPx : _barWeb.Height;
 
-    private Task<string> EdExec(string js) => _mergeBarEditor ? _host!.EvalAsync(_edPage!, js) : _editorWeb.CoreWebView2.ExecuteScriptAsync(js);
-    private Task<string> BarExec(string js) => _mergeBarEditor ? _host!.EvalAsync(_barPage!, js) : _barWeb.CoreWebView2.ExecuteScriptAsync(js);
+    // Trang đã bị giải phóng (tab đóng / ngủ đông trong lúc việc nền — ghost Fast, AI… — còn chạy) thì bỏ qua như trang trả "null",
+    // không để NullReferenceException lọt ra thành hộp "Unhandled exception".
+    private Task<string> EdExec(string js) =>
+        IsDisposed || !EdAlive ? Task.FromResult("null") : _mergeBarEditor ? _host!.EvalAsync(_edPage!, js) : _editorWeb.CoreWebView2.ExecuteScriptAsync(js);
+    private Task<string> BarExec(string js) =>
+        IsDisposed || !BarAlive ? Task.FromResult("null") : _mergeBarEditor ? _host!.EvalAsync(_barPage!, js) : _barWeb.CoreWebView2.ExecuteScriptAsync(js);
 
     /// <summary>Chiều cao thật của thanh (px thiết bị) — theo UiScale/DPI và khi nội dung xuống dòng.</summary>
     private void SetBarHeight(int devicePx)
@@ -469,7 +480,7 @@ public class RawSqlControl : UserControl, ISqlTab
             case "debug-next": await DebugCommandAsync("step"); break;
             case "debug-continue": await DebugCommandAsync("continue"); break;
             case "debug-to-cursor": await DebugCommandAsync("to-cursor", root.TryGetProperty("line", out var dl) ? dl.GetInt32() : 0); break;
-            case "debug-stop": StopStepDebug(); break;
+            case "debug-stop": await StopDebugAskSaveAsync(); break;
             case "debug-back": await DebugCommandAsync("back"); break;
             case "debug-find-error": await DebugFindErrorAsync(); break;
             case "debug-dynsql": await ShowDynamicSqlAsync(); break;
@@ -479,7 +490,7 @@ public class RawSqlControl : UserControl, ISqlTab
                 {
                     _errorFrom = _errorLine = 0;
                     _statusLabel.ForeColor = Color.DarkOrange;
-                    _statusLabel.Text = "Script đã sửa — F10 / F5 / Tìm lỗi sẽ chạy lại từ đầu với code mới (giữ giá trị tham số).";
+                    _statusLabel.Text = "Script đã sửa — F10 / F5 / Tìm lỗi sẽ chạy lại từ đầu với code mới (giữ giá trị tham số). Lưu ý: debug luôn rollback, phần sửa CHƯA lưu vào database — dừng debug sẽ được hỏi lưu.";
                     PushDebugState();
                 }
                 break;
@@ -1477,7 +1488,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             case "result-tab": now = _resultTabOn = !_resultTabOn; break;
             case "debug-step":
                 now = _debugStepOn = !_debugStepOn;
-                if (!_debugStepOn) StopStepDebug();
+                if (!_debugStepOn) _ = StopDebugAskSaveAsync();
                 break;
             default: return;
         }
@@ -1568,6 +1579,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
         _plan = plan;
         _planText = text;
+        _debugStartText = text;
         _planValues = values;
         _executedLine = _lastOkLine = _errorFrom = _errorLine = 0;
         _lastVars = null;
@@ -1748,6 +1760,31 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             remaining = _plan is null ? 0 : _plan.SafeLines.Count(l => l > _executedLine),
         });
         _ = EdExec($"window.setDebugState && window.setDebugState({state})");
+    }
+
+    // Nội dung editor lúc BẮT ĐẦU phiên debug — khác lúc dừng + là định nghĩa procedure/function/view/trigger = đã sửa object mà chưa lưu.
+    private string _debugStartText = "";
+    private static readonly Regex ObjectDefinitionRe = new(@"\b(?:ALTER|CREATE)\s+(?:PROC|PROCEDURE|FUNCTION|VIEW|TRIGGER)\b", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Dừng debug (nút Stop / Shift+F5 / tắt "Debug từng bước"). Debug từng bước chạy THÂN procedure rồi luôn ROLLBACK — phần sửa trong lúc debug
+    /// không bao giờ được ALTER vào database (đóng tab mở lại vẫn thấy bản cũ — user báo). Đã sửa định nghĩa object → hỏi chạy ALTER để lưu ngay.
+    /// </summary>
+    private async Task StopDebugAskSaveAsync()
+    {
+        var wasActive = _plan is not null;
+        var text = wasActive ? await GetScriptTextAsync() : "";
+        StopStepDebug();
+        if (!wasActive || string.IsNullOrWhiteSpace(text) || text == _debugStartText || !ObjectDefinitionRe.IsMatch(text)) return;
+        var name = SqlStepPlanner.ParseHeader(text.Replace("\r\n", "\n").Replace("\r", "\n")).Item1 ?? "object";
+        await Task.Yield();
+        var r = MessageBox.Show(FindForm(),
+            $"Bạn đã sửa {name} trong lúc debug.\n\nDebug từng bước luôn ROLLBACK nên phần sửa CHƯA được lưu vào database " +
+            "(đóng tab rồi mở lại sẽ thấy bản cũ).\n\nChạy script (ALTER) để lưu vào database ngay?",
+            "Bcode — Debug từng bước", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (r == DialogResult.Yes) { await RunAsync(); return; }
+        _statusLabel.ForeColor = Color.DarkOrange;
+        _statusLabel.Text = $"⚠ {name}: phần sửa trong lúc debug CHƯA lưu vào database — bấm Execute để chạy ALTER khi muốn lưu.";
     }
 
     private void StopStepDebug()
@@ -1939,6 +1976,25 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         else { _statusLabel.ForeColor = AppColors.Success; _statusLabel.Text = $"SQL động {v.Name}: cú pháp hợp lệ (đã mở tab). Lỗi còn lại nếu có là tên bảng / cột hoặc dữ liệu."; }
     }
 
+    /// <summary>Sau bước lỗi cột: chạy lại có chẩn đoán (rollback) → bảng "Phân tích lỗi cột" lên đầu lưới + tóm tắt ở tab Message, chỉ ra đúng cột / dòng.</summary>
+    private async Task AnalyzeColumnErrorAsync(StepPlan plan, int lastOk, int target, string error, List<DataTable> tables, string messages)
+    {
+        var baseText = _statusLabel.Text;
+        _statusLabel.Text = baseText + "  🔎 Đang phân tích cột gây lỗi...";
+        try
+        {
+            var report = await InsertErrorAnalyzer.AnalyzeAsync(plan, lastOk, target, error, () => _service.CreateConnection(UseSysDatabase));
+            if (IsDisposed || !ReferenceEquals(plan, _plan) || _executedLine != target) return;   // đã sang bước khác
+            if (report is null) { _statusLabel.Text = baseText + "  (không tái hiện được lỗi để phân tích cột)"; return; }
+            if (report.Details.Rows.Count > 0) _resultView.SetTables(new List<DataTable> { report.Details }.Concat(tables).ToList());
+            _tabs.SetMessages($"LỖI: {error}\n\n🔎 PHÂN TÍCH: {report.Summary}", messages, tables.Count + (report.Details.Rows.Count > 0 ? 1 : 0));
+            _statusLabel.Text = report.Columns.Count > 0
+                ? $"🔎 Lỗi ở dòng {report.FromLine}{(report.ToLine > report.FromLine ? "–" + report.ToLine : "")} ({report.Target}): cột {string.Join(", ", report.Columns.Take(6))}{(report.Columns.Count > 6 ? ", …" : "")} — xem bảng \"Phân tích lỗi cột\" + tab Message."
+                : baseText + "  🔎 " + report.Summary.Split('\n')[0];
+        }
+        catch (Exception ex) { if (!IsDisposed) _statusLabel.Text = baseText + "  (phân tích cột lỗi: " + ex.Message + ")"; }
+    }
+
     private async Task ExecuteStepAsync(int target)
     {
         if (_plan is null) return;
@@ -1988,6 +2044,8 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 _statusLabel.ForeColor = Color.Firebrick;
                 _statusLabel.Text = $"Lỗi ở {where} (tô đỏ; bước trước{(_lastOkLine > 0 ? $" tới dòng {_lastOkLine}" : "")} chạy được) — xem tab Message. ⤴ Back để xem lại, Shift+F5 dừng.";
                 _tabs.SetMessages($"LỖI: {errorBatch.Error}", messages, tables.Count);
+                // Lỗi cột (vượt độ dài / lệch số cột / tràn số / sai kiểu / NULL…): tự chạy phân tích để chỉ ra đúng cột — InsertErrorAnalyzer.
+                if (InsertErrorAnalyzer.Recognizes(errorBatch.Error)) _ = AnalyzeColumnErrorAsync(_plan, _lastOkLine, target, errorBatch.Error!, tables, messages);
             }
             else
             {

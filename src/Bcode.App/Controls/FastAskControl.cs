@@ -3,8 +3,9 @@ using Bcode.App.Services;
 
 namespace Bcode.App.Controls;
 
-/// <summary>Tab "Hỏi Fast": chat tra kiến thức Fast không qua AI (<see cref="FastAskService"/>). Trang WebView2 Web/Shell/fastask.html (cả chế độ App,
-/// như Trợ giúp). Nút trên thẻ trả lời → MainForm chèn vào tab SQL Query đang dùng / mở tab mới / mở định nghĩa object / mở Tạo nhanh danh mục.</summary>
+/// <summary>Tab "Hỏi Fast": chat tra kiến thức Fast và chức năng Bcode không qua AI (<see cref="FastAskService"/>, <see cref="BcodeFeatureCatalog"/>). Trang WebView2
+/// Web/Shell/fastask.html (cả chế độ App, như Trợ giúp). Nút trên thẻ trả lời → MainForm chèn vào tab SQL Query đang dùng / mở tab mới / mở định nghĩa object /
+/// mở Tạo nhanh danh mục / mở chức năng Bcode (bcode-open).</summary>
 public class FastAskControl : UserControl
 {
     private readonly WebBarHost _web = new("fastask.html") { Dock = DockStyle.Fill };
@@ -50,6 +51,11 @@ public class FastAskControl : UserControl
                 return;
             }
             var file = dlg.FileName;
+            if (FastAskNotes.IsForum(Path.GetFileNameWithoutExtension(file)))
+            {
+                ToPage($"fa.fail({id}, {WebBarHost.Json("Kiến thức hỏi đáp từ forum không còn dùng trong Hỏi Fast — chỉ nạp bảng tra khác (vd mã lỗi HĐĐT).")})");
+                return;
+            }
             _ = Task.Run(() =>
             {
                 try
@@ -125,6 +131,7 @@ public class FastAskControl : UserControl
                     case "copy": try { Clipboard.SetText(arg); } catch { /* clipboard bận */ } break;
                     case "open-object": OpenObjectRequested?.Invoke(arg, arg2.StartsWith("sys"), arg2.Contains('|') ? arg2[(arg2.IndexOf('|') + 1)..] : "P"); break;
                     case "quicklist": QuickListRequested?.Invoke(arg, arg2); break;
+                    case "bcode-open": BcodeFeatureCatalog.Open(arg); break;   // ▶ Mở ngay / 📖 Xem hướng dẫn trên thẻ chức năng Bcode
                     case "ask": ToPage($"fa.ask({WebBarHost.Json(arg)}, {WebBarHost.Json(arg2)})"); break;   // arg2 = chữ hiện ở bong bóng người hỏi
                 }
                 break;

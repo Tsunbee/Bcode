@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  html { font-size: clamp(12px, calc(0.4vw + 7.5px), 16px); }
+  html, body { overflow: hidden; height: 100%; }
+  body { display: flex; flex-direction: column; background: var(--bg); font-size: 1rem; user-select: text; -webkit-user-select: text; margin: 0; }
+  button, input, select { font: inherit; color: var(--text); }
+  .top { display: flex; align-items: center; gap: .5rem; padding: .5rem .8rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .top h2 { font-size: 1.05rem; margin: 0 .4rem 0 0; }
+  .top .path { color: var(--text-muted); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46rem; }
+  .top .grow { flex: 1; }
+  #q { width: 16rem; padding: .25rem .5rem; background: var(--input); border: 1px solid var(--border); border-radius: 4px; }
+  .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .col { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); }
+  .col:last-child { border-right: none; }
+  .col h3 { margin: 0; padding: .45rem .8rem; font-size: .95rem; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; gap: .5rem; align-items: center; }
+  .col h3 .n { color: var(--text-muted); font-weight: normal; }
+  .list { flex: 1; overflow: auto; }
+  .item { padding: .45rem .8rem; border-bottom: 1px solid var(--border); cursor: default; }
+  .item:hover { background: var(--panel-alt); }
+  .item.sel { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .item .t { font-weight: 600; word-break: break-all; }
+  .item .s { color: var(--text-muted); font-size: .85rem; margin-top: .15rem; }
+  .owner { display: inline-block; padding: 0 .4rem; border-radius: .6rem; font-size: .8rem; background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  .done { color: #3fae5a; font-size: .8rem; }
+  .grp { padding: .35rem .8rem; font-size: .85rem; font-weight: 600; background: var(--panel-alt); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+  .det { border-top: 1px solid var(--border); max-height: 45%; overflow: auto; padding: .6rem .8rem; background: var(--panel); }
+  .det:empty { display: none; }
+  .det .k { color: var(--text-muted); font-size: .8rem; margin-top: .45rem; }
+  .det pre { margin: .15rem 0 0; white-space: pre-wrap; word-break: break-word; font-family: Consolas, monospace; font-size: .85rem; }
+  .det .acts { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .6rem; }
+  .empty { padding: 1.2rem .8rem; color: var(--text-muted); }
+  .link { color: var(--accent); cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h2>👥 Note &amp; update cả nhóm</h2>
+  <span class="path" id="path"></span>
+  <span class="grow"></span>
+  <input type="text" id="q" placeholder="Lọc theo tên, người, nội dung..." spellcheck="false" autocomplete="off" />
+  <button id="bOpen" title="Mở thư mục update trong Explorer">📂 Thư mục update</button>
+  <button id="bRefresh" class="primary">⟳ Tải lại</button>
+</div>
+<div class="main">
+  <div class="col">
+    <h3>Gói update trong thư mục update <span class="n" id="pkCount"></span></h3>
+    <div class="list" id="pk"></div>
+    <div class="det" id="pkDet"></div>
+  </div>
+  <div class="col">
+    <h3>Note của người khác <span class="n" id="ntCount"></span></h3>
+    <div class="list" id="nt"></div>
+    <div class="det" id="ntDet"></div>
+  </div>
+</div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fmt = (iso) => { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; const p = (n) => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); };
+  let S = { packages: [], others: [], folder: '', update: '' }, selPk = -1, selNt = null;
+
+  function match(text) {
+    const toks = $('q').value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const t = String(text || '').toLowerCase();
+    return toks.every((x) => t.includes(x));
+  }
+
+  function renderPk() {
+    const rows = S.packages.map((p, i) => ({ p, i })).filter(({ p }) => match([p.name, p.owner, p.description, p.note, p.usedBy].join(' ')));
+    $('pkCount').textContent = '(' + rows.length + (rows.length !== S.packages.length ? '/' + S.packages.length : '') + ')';
+    if (!S.packages.length) { $('pk').innerHTML = '<div class="empty">' + (S.update ? 'Chưa có gói update nào trong thư mục.' : 'Dự án chưa khai Working Path (thư mục update).') + '</div>'; $('pkDet').innerHTML = ''; return; }
+    $('pk').innerHTML = rows.map(({ p, i }) => '<div class="item' + (i === selPk ? ' sel' : '') + '" data-i="' + i + '">' +
+      '<div class="t">' + (p.isFolder ? '📁 ' : '🗜 ') + esc(p.name) + '</div>' +
+      '<div class="s">' + fmt(p.modified) + (p.owner ? ' · <span class="owner">' + esc(p.owner) + '</span>' : '') +
+      (p.description ? ' · ' + esc(p.description.split('\n')[0].slice(0, 120)) : '') + '</div></div>').join('');
+    renderPkDet();
+  }
+
+  function renderPkDet() {
+    const p = S.packages[selPk];
+    if (!p) { $('pkDet').innerHTML = ''; return; }
+    $('pkDet').innerHTML = '<div class="t" style="font-weight:600;word-break:break-all">' + esc(p.name) + '</div>' +
+      '<div class="k">Đường dẫn</div><pre>' + esc(p.path) + '</pre>' +
+      (p.owner ? '<div class="k">Người tạo (theo tên gói)</div><pre>' + esc(p.owner) + '</pre>' : '') +
+      (p.usedBy ? '<div class="k">Thuộc y/c</div><pre>' + esc(p.usedBy) + '</pre>' : '') +
+      (p.description ? '<div class="k">description.txt</div><pre>' + esc(p.description) + '</pre>' : '') +
+      (p.note ? '<div class="k">note.txt</div><pre>' + esc(p.note) + '</pre>' : '') +
+      '<div class="acts"><button data-a="open">📂 Mở</button><button data-a="copy">⧉ Copy đường dẫn</button></div>';
+  }
+
+  function renderNt() {
+    let total = 0, shown = 0, html = '';
+    for (const o of S.others) {
+      const reqs = o.requests.filter((r) => match([o.owner, r.name, r.content, r.note, r.genAll, r.filePaths, r.procedures, r.proceduresSys].join(' ')));
+      total += o.requests.length; shown += reqs.length;
+      if (!reqs.length) continue;
+      html += '<div class="grp">🖥 ' + esc(o.owner) + ' <span class="muted" style="font-weight:normal">· cập nhật ' + fmt(o.modified) + ' · ' + o.requests.length + ' y/c</span></div>';
+      html += reqs.map((r) => {
+        const key = o.owner + '|' + r.id;
+        return '<div class="item' + (selNt === key ? ' sel' : '') + '" data-k="' + esc(key) + '">' +
+          '<div class="t">' + esc(r.name) + (r.done ? ' <span class="done">✔ xong</span>' : '') + '</div>' +
+          '<div class="s">' + fmt(r.begin) + (r.updated ? ' → ' + fmt(r.updated) : '') + (r.content ? ' · ' + esc(r.content.split('\n')[0].slice(0, 110)) : '') + '</div></div>';
+      }).join('');
+    }
+    $('ntCount').textContent = '(' + shown + (shown !== total ? '/' + total : '') + ')';
+    $('nt').innerHTML = html || '<div class="empty">' + (S.local ? 'Note đang lưu trên máy này (dự án chưa khai Working Path / thư mục chung) — không có note của người khác.' : (S.others.length ? 'Không có y/c nào khớp bộ lọc.' : 'Chưa có note của người khác trong ' + esc(S.folder) + '.')) + '</div>';
+    renderNtDet();
+  }
+
+  function findNt(key) {
+    if (!key) return null;
+    const [owner, id] = key.split('|');
+    const o = S.others.find((x) => x.owner === owner);
+    const r = o && o.requests.find((x) => x.id === id);
+    return r ? { o, r } : null;
+  }
+
+  function renderNtDet() {
+    const f = findNt(selNt);
+    if (!f) { $('ntDet').innerHTML = ''; return; }
+    const r = f.r;
+    const block = (k, v) => (v && String(v).trim() ? '<div class="k">' + k + '</div><pre>' + esc(v) + '</pre>' : '');
+    const gens = (r.generations || []).map((g) => '<div><span class="link" data-gen="' + esc(g.path) + '">' + esc(g.path) + '</span> <span class="muted">' + fmt(g.time) + '</span></div>').join('');
+    $('ntDet').innerHTML = '<div class="t" style="font-weight:600">' + esc(r.name) + ' <span class="owner">' + esc(f.o.owner) + '</span></div>' +
+      block('Request Content', r.content) + block('Note', r.note) + block('Gen All', r.genAll) + block('File Path', r.filePaths) +
+      block('SQL Object (App)', r.procedures) + block('SQL Object (Sys)', r.proceduresSys) +
+      block('Top Script (App)', r.topScript) + block('Bottom Script (App)', r.bottomScript) +
+      block('Top Script (Sys)', r.topScriptSys) + block('Bottom Script (Sys)', r.bottomScriptSys) +
+      (gens ? '<div class="k">Đã Generate Update</div>' + gens : '') +
+      '<div class="acts"><button data-a="clone" class="primary" title="Chép y/c này vào Note (New) của bạn để sửa / gen lại">＋ Chép về note của tôi</button></div>';
+  }
+
+  $('pk').addEventListener('click', (e) => { const it = e.target.closest('.item'); if (!it) return; selPk = +it.dataset.i; renderPk(); });
+  $('pk').addEventListener('dblclick', (e) => { const it = e.target.closest('.item'); if (it) post('open', { path: S.packages[+it.dataset.i].path }); });
+  $('nt').addEventListener('click', (e) => { const it = e.target.closest('.item'); if (!it) return; selNt = it.dataset.k; renderNt(); });
+  $('pkDet').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); const p = S.packages[selPk]; if (!b || !p) return;
+    if (b.dataset.a === 'open') post('open', { path: p.path }); else if (b.dataset.a === 'copy') post('copy', { text: p.path });
+  });
+  $('ntDet').addEventListener('click', (e) => {
+    const g = e.target.closest('[data-gen]'); if (g) { post('open', { path: g.dataset.gen }); return; }
+    const b = e.target.closest('button'); const f = findNt(selNt); if (!b || !f) return;
+    if (b.dataset.a === 'clone') post('clone', { owner: f.o.owner, id: f.r.id });
+  });
+  $('q').addEventListener('input', () => { renderPk(); renderNt(); });
+  $('bRefresh').onclick = () => { $('bRefresh').disabled = true; $('bRefresh').textContent = 'Đang tải...'; post('refresh'); };
+  $('bOpen').onclick = () => post('open', { path: S.update });
+
+  window.team = {
+    init(d) {
+      S = d; $('bRefresh').disabled = false; $('bRefresh').textContent = '⟳ Tải lại';
+      $('path').textContent = (d.project ? d.project + ' · ' : '') + (d.update || '(chưa khai Working Path)') + (d.error ? '  — ' + d.error : '');
+      $('bOpen').disabled = !d.update;
+      if (selPk >= S.packages.length) selPk = -1;
+      renderPk(); renderNt();
+    },
+    toast(msg) { $('path').textContent = msg; setTimeout(() => window.team.init(S), 2500); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

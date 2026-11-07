@@ -282,6 +282,14 @@
     <div class="muted" style="font-size:11.5px" id="pFCodeNote">Thư mục cài FCode (chứa <code>fsystem.dll</code>) — Sơ đồ phụ thuộc dùng để GIẢI MÃ file controller <code>.f</code> mã hoá (khối <code>&lt;Encrypted&gt;</code>) và đọc tên store / procedure bên trong. Chỉ chạy được trên máy có <b>license Fast</b>; không có thì tự quay về dò kho source chuẩn.</div>
   </div>
   <div class="panel">
+    <h3>Advance Note (Note New) — lưu chung theo dự án</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Note của mỗi máy lưu thành <code>&lt;dự án&gt;@&lt;tên máy&gt;.json</code> trong thư mục này, nên mọi người cùng dự án <b>xem được note và các gói update của nhau</b> (nút 👥 trong tab Note (New)). Để trống = mặc định <code>{working}\AdvanceNotes</code> — tức thư mục <b>Working Path</b> của dự án (vd <code>\\172.168.5.14\CustomerUpdate\BMT_FBO\update</code>) thêm <code>\AdvanceNotes</code>. Ô giữ chỗ: <code>{working}</code> = Working Path, <code>{project}</code> = Project ID, <code>{ws}</code> = tên workspace — vd <code>\\172.168.5.14\CustomerUpdate\{project}\update\AdvanceNotes</code>. Dự án chưa khai Working Path thì lưu trên máy này như cũ. Note cũ trên máy được tự chép sang lần đầu mở.</div>
+    <div class="row"><label>Thư mục</label>
+      <div class="ctl"><input type="text" id="pAdvNotes" spellcheck="false" placeholder="(trống = {working}\AdvanceNotes)" />
+        <button class="btn btn-border" id="pAdvNotesDefault">Mặc định</button></div></div>
+    <div class="muted" style="font-size:11.5px" id="pAdvNotesNote"></div>
+  </div>
+  <div class="panel">
     <h3>Thư mục kiến thức (ghost text + Hỏi Fast)</h3>
     <div class="muted" style="font-size:12.5px;margin-bottom:10px">Nơi lưu ma trận gợi ý đã học của các dự án (<code>ghost\</code>), kiến thức Hỏi Fast và các xác nhận ✔ / ✘ / bản sửa (<code>fastask\</code>). Để trống = lưu trên máy này (<code>%AppData%\Bcode</code>). Khai <b>cùng 1 thư mục mạng</b> cho các máy dùng Bcode (vd <code>\\server\Bcode\knowledge</code>) để dùng chung: máy nào bấm Học dự án / chấm ✔ ✘ / sửa câu trả lời thì máy khác dùng được luôn. Đổi thư mục: kiến thức đang có được chép sang (không ghi đè file đã có, xác nhận thì gộp). Lịch sử chat Hỏi Fast vẫn lưu riêng từng máy. Thư mục không với tới được (mất mạng) thì tạm dùng thư mục trên máy.</div>
     <div class="row"><label>Thư mục</label>
@@ -861,8 +869,17 @@ $('swCopyX').onclick = () => sendSwCopy('');
     $('pSrcExtraNote').textContent = s.extra.length ? s.extra.map((e) => (e.ok ? '✔ ' : '✘ ') + e.path).join('\n') : 'Chưa có kho bổ sung.';
     if (s.fcode && document.activeElement !== $('pFCode')) $('pFCode').value = s.fcode.path;
     if (s.fcode) $('pFCodeNote').textContent = s.fcode.dir ? ('✔ Dùng fsystem.dll ở: ' + s.fcode.dir) : 'Chưa tìm thấy fsystem.dll (khai đường dẫn FCode) — file .f mã hoá sẽ dò theo kho source chuẩn.';
+    if (s.advnotes) {
+      if (document.activeElement !== $('pAdvNotes')) $('pAdvNotes').value = s.advnotes.path;
+      const a = s.advnotes;
+      $('pAdvNotesNote').textContent = !a.project ? 'Chưa mở dự án nào — mở 1 dự án để xem đường dẫn thật.'
+        : a.local ? ('Dự án ' + a.project + ': chưa có Working Path → lưu trên máy này (' + a.folder + ').')
+        : ((a.ok ? '✔ ' : '✘ Không vào được thư mục update — ') + 'Dự án ' + a.project + ' lưu tại: ' + a.folder);
+    }
   };
   $('pFCode').onchange = () => post('paths-set', { key: 'fcode', value: $('pFCode').value });
+  $('pAdvNotes').onchange = () => post('paths-set', { key: 'advnotes', value: $('pAdvNotes').value });
+  $('pAdvNotesDefault').onclick = () => { $('pAdvNotes').value = ''; post('paths-set', { key: 'advnotes', value: '' }); };
   $('pSrcMain').onchange = () => post('paths-set', { key: 'srcMain', value: $('pSrcMain').value });
   $('pSrcExtra').onchange = () => post('paths-set', { key: 'srcExtra', value: $('pSrcExtra').value });
   $('pSrcAdd').onclick = () => post('paths-browse', { key: 'srcAdd' });

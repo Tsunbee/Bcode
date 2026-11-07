@@ -10,7 +10,7 @@ public partial class ApiSchemaBuilderForm
 {
     private sealed class ApiCol
     {
-        public bool Selected = true, IsPk, Required, Nullable = true, Identity, ViUser;
+        public bool Selected = true, IsPk, Required, Nullable = true, Identity, ViUser, Manual;
         public string ColName = "", DataType = "", FieldDesc = "", LogicDesc = "", ViName = "", TKey = "", TName = "", TDb = "";
         public string? PrevField;
     }
@@ -23,6 +23,8 @@ public partial class ApiSchemaBuilderForm
         public List<ApiCol> Columns = new();
         /// <summary>TKey bảng → controller Dir tìm được ("" = không có); bảng chưa có khoá = đang tìm.</summary>
         public Dictionary<string, string> Controllers = new();
+        /// <summary>TKey bảng → menu ("wmenu_id tên") có sysid = controller; "" = controller lấy từ Dir.</summary>
+        public Dictionary<string, string> Menus = new();
     }
 
     private RoundedInput _nFunc = null!;
@@ -39,8 +41,10 @@ public partial class ApiSchemaBuilderForm
     {
         if (a.Tables.Count == 0) { _funcInfo.Text = "Tự đặt khi thêm bảng: Set + controller của bảng."; return; }
         var t = a.Tables[0];
-        var state = !a.Controllers.TryGetValue(TKey(t.Db, t.Table), out var c) ? $"đang tìm controller của {t.Table}…"
-            : c.Length > 0 ? "controller " + c : $"không thấy controller Dir của {t.Table} trong Source Path — dùng tên bảng";
+        var menu = a.Menus.GetValueOrDefault(TKey(t.Db, t.Table), "");
+        var state = !a.Controllers.TryGetValue(TKey(t.Db, t.Table), out var c) ? $"đang tìm menu của {t.Table}…"
+            : c.Length > 0 ? (menu.Length > 0 ? $"sysid {c} của menu {menu}" : $"controller Dir {c} (không thấy menu dùng bảng)")
+            : $"không thấy menu (sysid) / controller Dir nào dùng {t.Table} — dùng tên bảng";
         _funcInfo.Text = (a.FuncAuto ? "Tự đặt" : "Đã sửa tay") + " · " + state;
     }
 
@@ -51,12 +55,12 @@ public partial class ApiSchemaBuilderForm
         foreach (var x in st.Apis)
         {
             var a = new ApiModel { Name = x.Name, Desc = x.Desc, View = x.View, Func = x.Func, FuncAuto = x.FuncAuto };
-            foreach (var t in x.Tables) { a.Tables.Add((t.Db, t.Table)); a.Controllers[TKey(t.Db, t.Table)] = t.Controller; }
+            foreach (var t in x.Tables) { a.Tables.Add((t.Db, t.Table)); a.Controllers[TKey(t.Db, t.Table)] = t.Controller; a.Menus[TKey(t.Db, t.Table)] = t.Menu ?? ""; }
             foreach (var c in x.Columns)
                 a.Columns.Add(new ApiCol
                 {
                     Selected = c.Selected, ColName = c.ColName, DataType = c.DataType, IsPk = c.IsPk, Nullable = c.Nullable, Identity = c.Identity, Required = c.Required,
-                    FieldDesc = c.FieldDesc, LogicDesc = c.LogicDesc, ViName = c.ViName, ViUser = c.ViUser, TKey = c.Tkey, TName = c.Tname, TDb = c.Tdb, PrevField = c.PrevField,
+                    FieldDesc = c.FieldDesc, LogicDesc = c.LogicDesc, ViName = c.ViName, ViUser = c.ViUser, TKey = c.Tkey, TName = c.Tname, TDb = c.Tdb, PrevField = c.PrevField, Manual = c.Manual,
                 });
             _apis.Add(a);
         }
@@ -76,11 +80,11 @@ public partial class ApiSchemaBuilderForm
                 Apis = _apis.Select(a => new Bcode.App.Services.Api.ApiSchemaApi
                 {
                     Name = a.Name, Desc = a.Desc, View = a.View, Func = a.Func, FuncAuto = a.FuncAuto,
-                    Tables = a.Tables.Select(t => new Bcode.App.Services.Api.ApiSchemaTable { Db = t.Db, Table = t.Table, Controller = a.Controllers.GetValueOrDefault(TKey(t.Db, t.Table), "") }).ToList(),
+                    Tables = a.Tables.Select(t => new Bcode.App.Services.Api.ApiSchemaTable { Db = t.Db, Table = t.Table, Controller = a.Controllers.GetValueOrDefault(TKey(t.Db, t.Table), ""), Menu = a.Menus.GetValueOrDefault(TKey(t.Db, t.Table), "") }).ToList(),
                     Columns = a.Columns.Select(c => new Bcode.App.Services.Api.ApiSchemaColumn
                     {
                         Selected = c.Selected, ColName = c.ColName, DataType = c.DataType, IsPk = c.IsPk, Nullable = c.Nullable, Identity = c.Identity, Required = c.Required,
-                        FieldDesc = c.FieldDesc, LogicDesc = c.LogicDesc, ViName = c.ViName, ViUser = c.ViUser, Tkey = c.TKey, Tname = c.TName, Tdb = c.TDb, PrevField = c.PrevField,
+                        FieldDesc = c.FieldDesc, LogicDesc = c.LogicDesc, ViName = c.ViName, ViUser = c.ViUser, Tkey = c.TKey, Tname = c.TName, Tdb = c.TDb, PrevField = c.PrevField, Manual = c.Manual,
                     }).ToList(),
                 }).ToList(),
             };
@@ -125,8 +129,13 @@ public partial class ApiSchemaBuilderForm
         _nDesc = NK.Input("Mô tả nghiệp vụ / logic...");
         _nFunc = NK.Input("Set + controller của bảng"); _nFunc.Width = NativeSkin.S(260);
         _funcInfo = NK.Muted("");
-        var funcRow = NK.Row(_nFunc, NK.Button("↻ Tự đặt", () => { SyncCur(); var a = Cur; if (a is null) return; a.FuncAuto = true; AutoFunc(a); RenderDetail(); },
-            tip: "Đặt lại tên hàm = Set + controller (Dir) của bảng đầu tiên"), _funcInfo);
+        var funcRow = NK.Row(_nFunc, NK.Button("↻ Tự đặt", () =>
+            {
+                SyncCur(); var a = Cur; if (a is null) return; a.FuncAuto = true; AutoFunc(a); RenderDetail();
+                // Tra lại menu của bảng đầu (sysid) — xong thì tự đặt lại tên hàm.
+                if (a.Tables.Count > 0) { var t0 = a.Tables[0]; var k0 = TKey(t0.Db, t0.Table); _ = ApplyTableInfoAsync(a, k0, t0.Table, a.Columns.Where(c => c.TKey == k0).Select(c => c.ColName).ToList()); }
+            },
+            tip: "Đặt lại tên hàm = Set + sysid của menu dùng bảng đầu tiên (không có menu thì controller Dir)"), _funcInfo);
         _chips = new FlowLayoutPanel { AutoSize = true, WrapContents = true, BackColor = Color.Transparent, Margin = new Padding(0) };
         var head = NK.FormGrid(120, ("Tên API:", _nName), ("Tên hàm API:", funcRow), ("Thêm bảng:", _nTable), ("Bảng đã chọn:", _chips), ("Mô tả xử lý:", _nDesc));
         _nFunc.Inner.LostFocus += (_, _) => { if (_fillN || Cur is null) return; SyncCur(); RenderFuncInfo(Cur); SaveNativeState(); };
@@ -150,7 +159,8 @@ public partial class ApiSchemaBuilderForm
         _info = NK.Muted("");
         var tools = NK.Row(
             NK.Button("Bỏ cột hệ thống", FilterSys), NK.Button("Đổi sang camelCase", Camel), NK.Button("↩ Về tên cũ", UndoName, tip: "Trả tên trường API về tên trước khi bấm camelCase"),
-            NK.Button("☑ Tick bắt buộc (NOT NULL)", ReqDb, tip: "Tick cột Bắt buộc cho các cột NOT NULL của bảng (không tính cột identity)"), NK.Button("Bỏ tick bắt buộc", ReqClear), _info);
+            NK.Button("☑ Tick bắt buộc (NOT NULL)", ReqDb, tip: "Tick cột Bắt buộc cho các cột NOT NULL của bảng (không tính cột identity)"), NK.Button("Bỏ tick bắt buộc", ReqClear),
+            NK.Button("＋ Thêm cột", AddManualCol, tip: "Thêm 1 cột KHÔNG có trong bảng database (cột tự khai): sửa được mọi ô; chọn dòng rồi Delete để xoá. Lưu cùng API, xuất Word như cột thật.\nLưới: Ctrl+A / Ctrl+Click / Shift+Click / kéo chuột chọn nhiều dòng — Space tick / bỏ tick cả nhóm."), _info);
         _chkAll = NK.Check("Chọn tất cả cột"); _chkAll.Checked = true;
         _chkAll.Click += (_, _) => { SyncCur(); var a = Cur; if (a is null) return; foreach (var c in Vis(a)) c.Selected = _chkAll.Checked; RenderDetail(); };
 
@@ -159,9 +169,40 @@ public partial class ApiSchemaBuilderForm
         _grid.Columns.Insert(0, new DataGridViewCheckBoxColumn { Name = "sel", HeaderText = "✓", Width = NativeSkin.S(34) });
         _grid.Columns.Insert(4, new DataGridViewCheckBoxColumn { Name = "pk", HeaderText = "🔑 PK", Width = NativeSkin.S(56) });
         _grid.Columns.Insert(5, new DataGridViewCheckBoxColumn { Name = "req", HeaderText = "Bắt buộc", Width = NativeSkin.S(70) });
-        foreach (var n in new[] { "src", "col", "type" }) _grid.Columns[n]!.ReadOnly = true;
+        _grid.Columns["src"]!.ReadOnly = true;   // "col" / "type": khoá theo dòng (RenderDetail) — cột thêm tay sửa được
+        _grid.MultiSelect = true;                 // Ctrl+A / Ctrl+Click / Shift+Click / kéo chuột chọn nhiều dòng (sẵn của DataGridView)
+        _grid.KeyDown += (_, e) =>
+        {
+            if (_grid.IsCurrentCellInEditMode) return;
+            if (e.KeyCode == Keys.Space && !e.Control && !e.Alt && _grid.SelectedRows.Count > 0) { e.Handled = e.SuppressKeyPress = true; ToggleSelectedRows(); }
+            else if (e.KeyCode == Keys.Delete && _grid.SelectedRows.Count > 0) { e.Handled = e.SuppressKeyPress = true; DeleteManualRows(); }
+        };
+        // Bấm ô ✓ của 1 dòng thuộc nhóm đang chọn (nhiều dòng): đổi cả nhóm theo ô vừa bấm.
+        _grid.CellMouseDown += (_, e) =>
+        {
+            _pendingGroup = e.RowIndex >= 0 && e.ColumnIndex == _grid.Columns["sel"]!.Index && e.Button == MouseButtons.Left && ModifierKeys == Keys.None
+                && _grid.Rows[e.RowIndex].Selected && _grid.SelectedRows.Count > 1
+                ? _grid.SelectedRows.Cast<DataGridViewRow>().Select(x => x.Index).ToList() : null;
+        };
         _grid.CurrentCellDirtyStateChanged += (_, _) => { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
-        _grid.CellValueChanged += (_, e) => { if (_fillN || e.RowIndex < 0) return; SyncCur(); if (_grid.Columns[e.ColumnIndex].Name is "sel" or "field") RenderDetail(true); else UpdateInfo(); };
+        _grid.CellValueChanged += (_, e) =>
+        {
+            if (_fillN || e.RowIndex < 0) return;
+            var name = _grid.Columns[e.ColumnIndex].Name;
+            if (name == "sel" && _pendingGroup is { } grp)
+            {
+                _pendingGroup = null;
+                var on = _grid.Rows[e.RowIndex].Cells["sel"].Value is true;
+                _fillN = true;
+                foreach (var ri in grp) if (ri < _grid.Rows.Count) _grid.Rows[ri].Cells["sel"].Value = on;
+                _fillN = false;
+            }
+            // cột thêm tay: gõ tên cột mà Tên trường API còn trống thì điền theo
+            if (name == "col" && (_grid.Rows[e.RowIndex].Cells["field"].Value as string ?? "").Length == 0)
+            { _fillN = true; _grid.Rows[e.RowIndex].Cells["field"].Value = ((_grid.Rows[e.RowIndex].Cells["col"].Value as string) ?? "").ToLowerInvariant(); _fillN = false; }
+            SyncCur();
+            if (name is "sel" or "field" or "col") RenderDetail(true); else UpdateInfo();
+        };
 
         var right = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8) };
         var top = new Panel { Dock = DockStyle.Top, AutoSize = true };
@@ -183,10 +224,11 @@ public partial class ApiSchemaBuilderForm
         FormClosing += (_, _) => { try { _grid.EndEdit(); SyncCur(); } catch { } SaveNativeState(); };
         _fillN = true; LoadNativeState(); _fillN = false;
         RenderList(); RenderDetail();
+        if (_startInfo.Length > 0) _info.Text = _startInfo;
     }
 
     // ---- mô hình / hiển thị ----
-    private static IEnumerable<ApiCol> Vis(ApiModel a) => a.Columns.Where(c => a.View.Length == 0 || c.TKey == a.View);
+    private static IEnumerable<ApiCol> Vis(ApiModel a) => a.Columns.Where(c => a.View.Length == 0 || c.TKey == a.View || c.Manual);
     private static string TKey(string db, string t) => db + "|" + t;
 
     private void SyncCur()
@@ -199,6 +241,7 @@ public partial class ApiSchemaBuilderForm
         {
             var c = a.Columns[_shownCols[r]]; var row = _grid.Rows[r];
             c.Selected = row.Cells["sel"].Value is true; c.IsPk = row.Cells["pk"].Value is true; c.Required = row.Cells["req"].Value is true;
+            if (c.Manual) { c.ColName = (row.Cells["col"].Value as string) ?? ""; c.DataType = (row.Cells["type"].Value as string) ?? ""; }
             c.FieldDesc = (row.Cells["field"].Value as string) ?? ""; c.LogicDesc = (row.Cells["logic"].Value as string) ?? "";
             var vi = (row.Cells["vi"].Value as string) ?? "";
             if (vi != c.ViName) { c.ViName = vi; c.ViUser = true; }
@@ -227,9 +270,15 @@ public partial class ApiSchemaBuilderForm
         for (var i = 0; i < a.Columns.Count; i++)
         {
             var c = a.Columns[i];
-            if (a.View.Length > 0 && c.TKey != a.View) continue;
+            if (a.View.Length > 0 && c.TKey != a.View && !c.Manual) continue;
             _shownCols.Add(i);
             var r = _grid.Rows.Add(c.Selected, c.TName, c.ColName, c.DataType, c.IsPk, c.Required, c.FieldDesc, c.ViName, c.LogicDesc);
+            _grid.Rows[r].Cells["col"].ReadOnly = _grid.Rows[r].Cells["type"].ReadOnly = !c.Manual;
+            if (c.Manual)
+            {
+                _grid.Rows[r].Cells["src"].Style.Font = new Font(_grid.Font, FontStyle.Italic);
+                _grid.Rows[r].Cells["src"].ToolTipText = "Cột thêm tay — không có trong bảng database. Delete để xoá (khi không đang sửa ô).";
+            }
             if (c.Selected && count.TryGetValue(c.FieldDesc.ToLowerInvariant(), out var n) && n > 1)
             {
                 _grid.Rows[r].Cells["field"].Style.ForeColor = AppColors.Danger;
@@ -357,19 +406,30 @@ public partial class ApiSchemaBuilderForm
             }
             if (a == Cur) { BeginInvoke(() => RenderDetail()); }
 
-            // Controller Dir của bảng (source có thể chậm): tên hàm "Set<controller>" + tên tiếng Việt cho cột chưa sửa tay.
-            var info = await Bcode.App.Services.Api.ApiSchemaStore.TableInfoAsync(_sourcePath, rawTable, list.Select(c => c.ColName));
+            // Menu dùng bảng → sysid → tên hàm "Set<sysid>" + tên tiếng Việt cho cột chưa sửa tay (source có thể chậm).
+            await ApplyTableInfoAsync(a, key, rawTable, list.Select(c => c.ColName).ToList());
+        }
+        catch { /* không đọc được cột */ }
+    }
+
+    /// <summary>Controller của bảng (= sysid của menu dùng bảng, không có thì controller Dir) + tên tiếng Việt → model, tự đặt lại tên hàm nếu là bảng đầu.</summary>
+    private async Task ApplyTableInfoAsync(ApiModel a, string key, string rawTable, List<string> cols)
+    {
+        try
+        {
+            var info = await Bcode.App.Services.Api.ApiSchemaStore.TableInfoAsync(_sourcePath, rawTable, cols, _tableMenus);
             if (IsDisposed) return;
             BeginInvoke(() =>
             {
                 if (a == Cur) SyncCur();
                 a.Controllers[key] = info.Controller;
+                a.Menus[key] = info.Menu;
                 foreach (var c in a.Columns) if (c.TKey == key && !c.ViUser && info.Vi.TryGetValue(c.ColName, out var v)) c.ViName = v;
                 if (a.Tables.Count > 0 && TKey(a.Tables[0].Db, a.Tables[0].Table) == key) AutoFunc(a);
                 if (a == Cur) RenderDetail(true); else SaveNativeState();
             });
         }
-        catch { /* không đọc được cột */ }
+        catch { /* không tra được — giữ như cũ */ }
     }
 
     // ---- thao tác trên cột ----
@@ -401,6 +461,52 @@ public partial class ApiSchemaBuilderForm
         SyncCur(); var a = Cur; if (a is null) return;
         var n = 0; foreach (var c in Vis(a)) if (c.Selected && !c.Nullable && !c.Identity) { c.Required = true; n++; }
         RenderDetail(); UpdateInfo($"Đã tick bắt buộc {n} cột NOT NULL (cột identity và cột nullable không tick). Sửa tay được ở cột Bắt buộc.");
+    }
+
+    /// <summary>Dòng của nhóm đang chọn khi bấm ô ✓ của 1 dòng trong nhóm (đổi cả nhóm theo ô đó); null = bấm bình thường.</summary>
+    private List<int>? _pendingGroup;
+
+    /// <summary>Space trên lưới: các dòng đang chọn — đang tick hết thì bỏ hết, còn lại thì tick hết.</summary>
+    private void ToggleSelectedRows()
+    {
+        SyncCur(); var a = Cur; if (a is null) return;
+        var list = _grid.SelectedRows.Cast<DataGridViewRow>().Select(r => r.Index).Where(i => i < _shownCols.Count).Select(i => a.Columns[_shownCols[i]]).ToList();
+        if (list.Count == 0) return;
+        var allOn = list.All(c => c.Selected);
+        foreach (var c in list) c.Selected = !allOn;
+        var keep = _grid.SelectedRows.Cast<DataGridViewRow>().Select(r => r.Index).ToList();
+        RenderDetail(true);
+        foreach (var i in keep) if (i < _grid.Rows.Count) _grid.Rows[i].Selected = true;
+        UpdateInfo((allOn ? "Đã bỏ tick " : "Đã tick ") + list.Count + " cột đang chọn.");
+    }
+
+    /// <summary>"＋ Thêm cột": 1 cột không có trong database — Bảng nguồn "(thêm tay)", sửa được Cột DB / Kiểu và mọi ô khác.</summary>
+    private void AddManualCol()
+    {
+        SyncCur(); var a = Cur; if (a is null) return;
+        a.Columns.Add(new ApiCol { Manual = true, TName = "(thêm tay)", DataType = "nvarchar(255)", ViUser = true });
+        RenderDetail(true);
+        var r = _shownCols.IndexOf(a.Columns.Count - 1);
+        if (r >= 0)
+        {
+            _grid.ClearSelection();
+            _grid.CurrentCell = _grid.Rows[r].Cells["col"];
+            _grid.Rows[r].Selected = true;
+            _grid.BeginEdit(true);
+        }
+        UpdateInfo("Đã thêm 1 cột thêm tay — gõ tên cột, kiểu, tên trường API…; chọn dòng rồi Delete để xoá.");
+    }
+
+    /// <summary>Delete trên lưới: xoá các cột THÊM TAY đang chọn (cột lấy từ database thì không xoá — bỏ tick ✓ là đủ).</summary>
+    private void DeleteManualRows()
+    {
+        SyncCur(); var a = Cur; if (a is null) return;
+        var idx = _grid.SelectedRows.Cast<DataGridViewRow>().Select(r => r.Index).Where(i => i < _shownCols.Count).Select(i => _shownCols[i])
+            .Where(i => a.Columns[i].Manual).OrderByDescending(i => i).ToList();
+        if (idx.Count == 0) { UpdateInfo("Chỉ xoá được cột thêm tay — cột lấy từ database thì bỏ tick ✓."); return; }
+        foreach (var i in idx) a.Columns.RemoveAt(i);
+        RenderDetail(true);
+        UpdateInfo($"Đã xoá {idx.Count} cột thêm tay.");
     }
 
     private void ReqClear() { SyncCur(); var a = Cur; if (a is null) return; foreach (var c in Vis(a)) c.Required = false; RenderDetail(); }

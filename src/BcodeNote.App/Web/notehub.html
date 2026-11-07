@@ -229,6 +229,14 @@
       if (S.sel >= 0) selectMenu(S.sel); else $('pick').style.display = 'none';
       if (!d.note) setStatus('Đã tải ' + S.menus.length + ' menu của ' + d.project + '.', 'ok');
     },
+    // "Gen nhanh menu" từ Bcode: mở các nhánh cha, chọn + cuộn tới menu i (host mở hộp gợi ý ngay sau đó).
+    reveal(i) {
+      const m = S.menus[i]; if (!m) return;
+      if ($('menuFilter').value) $('menuFilter').value = '';
+      for (let p = m.p; p >= 0; p = S.menus[p].p) S.open.add(p);
+      renderTree(); selectMenu(i);
+      const el = $('tree').querySelector('.nd[data-i="' + i + '"]'); if (el) el.scrollIntoView({ block: 'center' });
+    },
     menuError(msg) { setStatus(msg, 'err'); if (!S.menus.length) $('tree').innerHTML = '<div class="empty">' + esc(msg) + '</div>'; },
     busy(msg) { $('busy').style.display = msg ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; },
     status(t, kind) { setStatus(t, kind); },

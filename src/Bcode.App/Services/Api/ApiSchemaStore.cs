@@ -31,8 +31,10 @@ public sealed class ApiSchemaTable
 {
     public string Db { get; set; } = "0";
     public string Table { get; set; } = "";
-    /// <summary>Controller Dir của bảng tìm được trong source dự án ("" = chưa tìm / không có).</summary>
+    /// <summary>Controller của bảng = sysid của menu wcommand dùng bảng (không thấy menu thì controller Dir trong source; "" = chưa tìm / không có).</summary>
     public string Controller { get; set; } = "";
+    /// <summary>Menu ứng với <see cref="Controller"/> ("wmenu_id tên menu"; "" = controller lấy từ Dir, không qua menu).</summary>
+    public string Menu { get; set; } = "";
 }
 
 public sealed class ApiSchemaColumn
@@ -54,6 +56,8 @@ public sealed class ApiSchemaColumn
     public string Tname { get; set; } = "";
     public string Tdb { get; set; } = "";
     public string? PrevField { get; set; }
+    /// <summary>Cột thêm tay ("＋ Thêm cột") — không có trong bảng database: Cột DB / Kiểu sửa được, Bảng nguồn = "(thêm tay)", xoá được.</summary>
+    public bool Manual { get; set; }
 }
 
 public static class ApiSchemaStore
@@ -106,13 +110,59 @@ public static class ApiSchemaStore
         return n.Length == 0 ? "" : "Set" + n;
     }
 
-    /// <summary>Controller Dir + tên tiếng Việt từng cột của 1 bảng: tiêu đề field ở controller của source dự án (Workspace.SourcePath),
-    /// cột không có trong controller thì lấy header.xml (từ điển field FCode). Source chưa khai / chưa đọc xong trong 20 giây → chỉ từ điển.</summary>
-    public static async Task<(string Controller, string[] Others, Dictionary<string, string> Vi)> TableInfoAsync(string? sourcePath, string table, IEnumerable<string> columns)
+    /// <summary>Menu (wcommand) dùng bảng: <paramref name="SysId"/> = controller của menu (cột sysid), <paramref name="Label"/> = "wmenu_id tên menu",
+    /// <paramref name="Others"/> = sysid các menu khác cũng dùng bảng.</summary>
+    public sealed record MenuHit(string SysId, string Label, string[] Others);
+
+    private static readonly System.Text.RegularExpressions.Regex VoucherTable = new(@"^([a-z])(\d+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Menu của bảng theo <see cref="TableMenuService"/> (dmct9 c$/m$/d$/i$ → trang của menu, rồi Dir master / Grid chi tiết của từng sysid trên cây).
+    /// Bảng chứng từ không khai trực tiếp (vd a91$000000) thì tra bảng cùng số (m91, d91, c91, i91). Ưu tiên: dmct9 → Dir master → Grid, rồi theo thứ tự
+    /// wmenu_id (menu nhập chứng từ thường đứng trước menu duyệt / đóng). Phải gọi trên luồng UI (TableMenuService đọc cây WCommand). null = không thấy.</summary>
+    public static async Task<MenuHit?> MenuForTableAsync(TableMenuService? menus, string table)
+    {
+        if (menus is null) return null;
+        static bool HasSysId(TableMenuService.Hit h) => !string.IsNullOrWhiteSpace(h.Menu?.SysId);
+        var hits = await menus.FindAsync(table);
+        // Bảng chứng từ (chữ + số): menu có Dir master là m<số> mới là menu "của" chứng từ — Grid d<số> còn được Dir chứng từ khác (vd đơn hàng
+        // kéo phiếu nhu cầu) trỏ tới, nên các menu đó xếp sau.
+        var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (VoucherTable.Match(TableMenuService.BaseName(table)) is { Success: true } m)
+        {
+            var masterName = "m" + m.Groups[2].Value;
+            var masterHits = masterName.Equals(TableMenuService.BaseName(table), StringComparison.OrdinalIgnoreCase) ? hits : await menus.FindAsync(masterName);
+            foreach (var h in masterHits.Where(h => HasSysId(h) && !h.Via.StartsWith("Grid", StringComparison.OrdinalIgnoreCase))) owners.Add(h.Menu!.SysId.Trim());
+            if (!hits.Any(HasSysId))
+            {
+                if (!ReferenceEquals(masterHits, hits)) hits.AddRange(masterHits);
+                foreach (var p in new[] { "d", "c", "i" }.Where(p => !p.Equals(m.Groups[1].Value, StringComparison.OrdinalIgnoreCase)))
+                    hits.AddRange(await menus.FindAsync(p + m.Groups[2].Value));
+            }
+        }
+        int Rank(TableMenuService.Hit h) => h.Via.StartsWith("dmct9", StringComparison.OrdinalIgnoreCase) ? 0
+            : h.Via.StartsWith("Dir", StringComparison.OrdinalIgnoreCase) || owners.Contains(h.Menu!.SysId.Trim()) ? 1 : 2;
+        var ordered = hits.Where(h => !string.IsNullOrWhiteSpace(h.Menu?.SysId))
+            .OrderBy(Rank).ThenBy(h => h.Menu!.WMenuId, StringComparer.OrdinalIgnoreCase).ToList();
+        if (ordered.Count == 0) return null;
+        var best = ordered[0].Menu!;
+        var others = ordered.Select(h => h.Menu!.SysId.Trim()).Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(s => !s.Equals(best.SysId.Trim(), StringComparison.OrdinalIgnoreCase)).ToArray();
+        return new MenuHit(best.SysId.Trim(), (best.WMenuId.Trim() + " " + (best.Bar ?? "").Trim()).Trim(), others);
+    }
+
+    /// <summary>Controller + tên tiếng Việt từng cột của 1 bảng. Controller = sysid của menu wcommand dùng bảng (<see cref="MenuForTableAsync"/>, khi có
+    /// <paramref name="menus"/>); không thấy menu thì controller Dir khai &lt;dir table="…"&gt; đúng bảng như cũ. Tên tiếng Việt: tiêu đề field ở controller của
+    /// source dự án (Workspace.SourcePath), cột không có trong controller thì lấy header.xml (từ điển field FCode). Source chưa đọc xong trong 20 giây → chỉ từ điển.</summary>
+    public static async Task<(string Controller, string[] Others, Dictionary<string, string> Vi, string Menu)> TableInfoAsync(string? sourcePath, string table, IEnumerable<string> columns, TableMenuService? menus = null)
     {
         var vi = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        string controller = ""; string[] others = Array.Empty<string>();
+        string controller = "", menu = ""; string[] others = Array.Empty<string>();
         IReadOnlyDictionary<string, string>? heads = null;
+        try
+        {
+            if (await MenuForTableAsync(menus, table) is { } hit) { controller = hit.SysId; menu = hit.Label; others = hit.Others; }
+        }
+        catch { /* không tra được menu — theo controller Dir */ }
         if (!string.IsNullOrWhiteSpace(sourcePath))
         {
             try
@@ -121,7 +171,9 @@ public static class ApiSchemaStore
                 if (await Task.WhenAny(load, Task.Delay(TimeSpan.FromSeconds(20))) == load)
                 {
                     var list = load.Result.ForTable(table);
-                    if (list.Count > 0)
+                    if (controller.Length > 0)
+                        heads = list.FirstOrDefault(c => c.Controller.Equals(controller, StringComparison.OrdinalIgnoreCase))?.HeadersV;
+                    else if (list.Count > 0)
                     {
                         controller = list[0].Controller; heads = list[0].HeadersV;
                         others = list.Skip(1).Select(c => c.Controller).ToArray();
@@ -129,12 +181,23 @@ public static class ApiSchemaStore
                 }
             }
             catch { /* source không đọc được — dùng từ điển */ }
+            if (heads is null && menu.Length > 0)
+            {
+                // Bảng không khai ở Dir của menu (a91 của menu PRTran…): lấy tiêu đề field ở chính Dir của sysid.
+                var text = await Task.Run(() =>
+                {
+                    foreach (var ext in new[] { ".f", ".xml" })
+                        try { var p = Path.Combine(sourcePath, "App_Data", "Controllers", "Dir", controller + ext); if (File.Exists(p)) return File.ReadAllText(p); } catch { }
+                    return "";
+                });
+                if (text.Length > 0) heads = ApiMenuSchema.ParseFields(text).Values.Where(f => f.HeaderV.Length > 0).ToDictionary(f => f.Name, f => f.HeaderV, StringComparer.OrdinalIgnoreCase);
+            }
         }
         foreach (var col in columns)
         {
             if (heads is not null && heads.TryGetValue(col, out var v) && v.Length > 0) vi[col] = v;
             else if (FieldDictionaryService.Instance.Header(col) is { V.Length: > 0 } h) vi[col] = h.V;
         }
-        return (controller, others, vi);
+        return (controller, others, vi, menu);
     }
 }

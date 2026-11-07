@@ -797,6 +797,18 @@ const FIELD_TEMPLATES = [
   // Nhóm: không có field tên phụ (reference/information để trống), lọc theo loai_nh.
   ...[1, 2, 3].map((n) => ({ name: 'nh_kh' + n, vi: 'Nhóm khách hàng ' + n, en: 'Customer Group ' + n, controller: 'CustomerGroup', key: `status = '1' and loai_nh = ${n}`, check: `loai_nh = ${n}` })),
   ...[1, 2, 3].map((n) => ({ name: 'nh_vt' + n, vi: 'Nhóm vật tư ' + n, en: 'Item Group ' + n, controller: 'ItemGroup', key: `loai_nh = ${n} and status = '1'`, check: `loai_nh = ${n}` })),
+  // Đối tượng quản trị (trường tự do) 1–3: bảng dmdtqtN, controller ManagementObjectN — như các field ma_td1/2/3 trong source FBO.
+  ...[1, 2, 3].map((n) => ({
+    name: 'ma_td' + n, vi: 'Đối tượng quản trị ' + n, en: ['1st', '2nd', '3rd'][n - 1] + ' Management Object',
+    controller: 'ManagementObject' + n, reference: `ten_td${n}%l`, key: "status = '1'", check: '1=1', info: `ma_dtqt$dmdtqt${n}.ten_dtqt%l`,
+  })),
+  // Khách hàng lọc theo loại trong dmkh: kh_yn = khách hàng, cc_yn = nhà cung cấp, nv_yn = nhân viên. Gõ "f.ma_khkh" / "f.ma_khncc" /
+  // "f.ma_khnv" (alias) → field vẫn tên ma_kh, chỉ khác điều kiện key/check.
+  ...[['ma_khkh', 'Khách hàng', 'Customer', 'kh_yn'], ['ma_khncc', 'Nhà cung cấp', 'Supplier', 'cc_yn'], ['ma_khnv', 'Nhân viên', 'Employee', 'nv_yn']]
+    .map(([alias, vi, en, flag]) => ({
+      alias, name: 'ma_kh', vi, en, controller: 'Customer', reference: 'ten_kh%l',
+      key: `status = '1' and ${flag} = 1`, check: `${flag} = 1`, info: 'ma_kh$dmkh.ten_kh%l',
+    })),
 ];
 
 // Format kiểu danh sách giá trị ("0, 1", "1, 2, *") → ô Mask; còn lại (@datetimeFormat, ###0…) chỉ là dataFormatString.
@@ -1063,7 +1075,7 @@ class BcodeCompletion {
   /// header.xml ('1'). Dựng sẵn text/documentation 1 lần — provider chạy mỗi phím gõ, không dựng lại ~2.900 khối.
   fieldTemplateEntries() {
     if (this._fieldEntries) return this._fieldEntries;
-    const keyOf = (t) => [t.name, t.controller || '', t.key || ''].join('|').replace(/\s+/g, '').toLowerCase();
+    const keyOf = (t) => [t.alias || t.name, t.controller || '', t.key || ''].join('|').replace(/\s+/g, '').toLowerCase();
     const seen = new Set();
     const entries = [];
     const add = (t, rank) => {
@@ -1075,7 +1087,7 @@ class BcodeCompletion {
         insert: snippetEscape(text) + '${0}',
         doc: { value: ['```xml', text, '```'].join('\n') },
         // Thứ tự trong file giữ nguyên giữa các biến thể cùng tên (ma_bp: Department trước hrDepartment).
-        sort: rank + t.name + '|' + String(entries.length).padStart(5, '0'),
+        sort: rank + (t.alias || t.name) + '|' + String(entries.length).padStart(5, '0'),
       });
     };
     FIELD_TEMPLATES.forEach((t) => add(t, '0'));
@@ -1104,13 +1116,14 @@ class BcodeCompletion {
     };
     const rules = monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
     const suggestions = this.fieldTemplateEntries().map((e) => ({
-      label: { label: lead + 'f.' + e.t.name, description: e.t.controller || e.t.vi || '' },
+      // alias: tên gõ tắt khác tên field (f.ma_khncc → <field name="ma_kh"> lọc cc_yn = 1)
+      label: { label: lead + 'f.' + (e.t.alias || e.t.name), description: e.t.controller || e.t.vi || '' },
       kind: monaco.languages.CompletionItemKind.Snippet,
-      detail: (e.t.vi ? e.t.vi + ' · ' : '') + 'Field ' + e.t.name + (e.t.reference ? ' + ' + e.t.reference : ''),
+      detail: (e.t.vi ? e.t.vi + ' · ' : '') + 'Field ' + e.t.name + (e.t.reference ? ' + ' + e.t.reference : '') + (e.t.alias && e.t.key ? ' · ' + e.t.key : ''),
       documentation: e.doc,
       insertText: e.insert,
       insertTextRules: rules,
-      filterText: lead + 'f.' + e.t.name,
+      filterText: lead + 'f.' + (e.t.alias || e.t.name),
       range,
       sortText: e.sort,
     }));
@@ -1134,7 +1147,7 @@ class BcodeCompletion {
     const typed = mm[2];
     const lower = typed.toLowerCase();
     if (typed && !'clientscript'.startsWith(lower)
-      && !this.fieldTemplateEntries().some((e) => e.t.name.toLowerCase().startsWith(lower))) {
+      && !this.fieldTemplateEntries().some((e) => (e.t.alias || e.t.name).toLowerCase().startsWith(lower))) {
       const text = `<field name="${typed}">\n\t<header v="" e=""></header>\n</field>`;
       suggestions.push({
         label: { label: lead + 'f.' + typed, description: 'text' },

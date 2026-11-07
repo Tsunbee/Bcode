@@ -39,11 +39,18 @@ public sealed class ApiDeclarationForm : WebDialogForm
     }
     private WordImport? _wi;
 
-    public ApiDeclarationForm(IEnumerable<Workspace>? workspaces = null, Workspace? current = null)
+    /// <summary>Form dựng sẵn từ menu / file controller ("Tạo cấu trúc API…" ở chuột phải — <see cref="ApiMenuSchema"/>): mở form là tự thêm vào dự án API
+    /// của Project đang mở (chưa có thì dự án mới), đứng trước danh mục để Kiểm tra / Tài liệu form / Sinh JSON dùng được.</summary>
+    private readonly Lt3Templates.FormDoc? _incoming;
+    private readonly string _incomingNote;
+
+    public ApiDeclarationForm(IEnumerable<Workspace>? workspaces = null, Workspace? current = null, Lt3Templates.FormDoc? incoming = null, string incomingNote = "")
         : base("Khai báo & quản lý API (chuẩn LT3)", "apideclaration.html", 1200, 780, 760, 480)
     {
         _workspaces = workspaces?.ToList() ?? new();
         _current = current;
+        _incoming = incoming;
+        _incomingNote = incomingNote ?? "";
     }
 
     protected override void OnReady() => _ = ReadyAsync();
@@ -52,6 +59,39 @@ public sealed class ApiDeclarationForm : WebDialogForm
     {
         try { await UseMappingAsync("", push: false); } catch { /* mạng lỗi: dùng chuẩn LT3 */ }
         PushInit();
+        if (_incoming is not null)
+        {
+            try { await ApplyIncomingAsync(_incoming); }
+            catch (Exception ex) { Status("Không thêm được form " + _incoming.Form + ": " + ex.Message, "err"); }
+        }
+    }
+
+    /// <summary>Danh mục form: form dựng từ menu (nếu có) đứng trước, thắng form cùng tên của mapping / chuẩn LT3.</summary>
+    private List<Lt3Templates.FormDoc> WithIncoming(List<Lt3Templates.FormDoc> list) =>
+        _incoming is null ? list : list.Where(f => !string.Equals(f.Form, _incoming.Form, StringComparison.OrdinalIgnoreCase)).Prepend(_incoming).ToList();
+
+    /// <summary>Mở dự án API của Project đang mở (khớp Mã dự án / tên) rồi thêm form dựng từ menu; form cùng tên đã có thì thay (chưa lưu — đóng không
+    /// Lưu là giữ bản cũ). Không có dự án nào khớp → dự án mới (chưa lưu) chỉ có form này.</summary>
+    private async Task ApplyIncomingAsync(Lt3Templates.FormDoc doc)
+    {
+        var wsId = _current is null ? "" : string.IsNullOrWhiteSpace(_current.ProjectId) ? _current.Name : _current.ProjectId;
+        bool Eq(string? a) => wsId.Length > 0 && string.Equals(a?.Trim(), wsId.Trim(), StringComparison.OrdinalIgnoreCase);
+        ApiProject? p = null;
+        foreach (var name in ApiProjectStore.List())
+        {
+            var cand = ApiProjectStore.Load(name);
+            if (cand is not null && (Eq(cand.ProjectId) || Eq(cand.Name))) { p = cand; break; }
+        }
+        var isNew = p is null;
+        p ??= Lt3Templates.Create(wsId.Length > 0 ? wsId + " API" : "", wsId, "", Array.Empty<string>(), _catalog);
+        try { await UseMappingAsync(p.ProjectId); }
+        catch { _catalog = WithIncoming(_catalog); }   // không đọc được mapping (mạng): vẫn có form vừa dựng trong danh mục
+        var replaced = p.Forms.RemoveAll(f => string.Equals(f.Name, doc.Form, StringComparison.OrdinalIgnoreCase)) > 0;
+        PushProject(p, dirty: true);
+        Js($"api.addForms({P(new[] { Lt3Templates.ToForm(doc) })})");
+        Status((isNew ? $"Chưa có dự án API của {(wsId.Length > 0 ? wsId : "Project này")} — đã tạo dự án mới (nhập địa chỉ, tài khoản rồi Lưu). " : $"Dự án \"{p.Name}\": ")
+               + (replaced ? $"đã THAY form {doc.Form} bằng cấu trúc vừa dựng (chưa lưu — đóng không Lưu là giữ bản cũ). " : $"đã thêm form {doc.Form} ({doc.Kind}) — chưa lưu. ")
+               + _incomingNote, _incomingNote.Contains('⚠') ? "warn" : "ok");
     }
 
     private void PushInit() => Js($"window.api && api.init({J(new
@@ -89,7 +129,7 @@ public sealed class ApiDeclarationForm : WebDialogForm
             : await ApiColumnMappings.LoadAsync(ws);
         var key = map.File + "|" + map.Error + "|" + map.Forms.Count + "|" + System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(map.Forms);
         _map = map;
-        _catalog = ApiColumnMappings.Merge(map);
+        _catalog = WithIncoming(ApiColumnMappings.Merge(map));
         if (push && key != _mapKey) Js($"api.catalog({J(new { catalog = CatalogView(), mapping = MappingView() })})");
         _mapKey = key;
     }
@@ -183,7 +223,7 @@ public sealed class ApiDeclarationForm : WebDialogForm
                 {
                     var f = new ApiForm { Name = Str(msg, "name"), Body = Str(msg, "body") };
                     var issues = ApiClient.Validate(f, f.Body, Find, out var used);
-                    Js($"api.issues({J(issues)}, {J(used is null ? "" : used.Source == ApiColumnMappings.Source ? "ColumnMappings.xml của dự án" : "bảng trường chuẩn LT3")})");
+                    Js($"api.issues({J(issues)}, {J(used is null ? "" : ReferenceEquals(used, _incoming) ? "cấu trúc dựng từ menu " + used.Form : used.Source == ApiColumnMappings.Source ? "ColumnMappings.xml của dự án" : "bảng trường chuẩn LT3")})");
                     break;
                 }
                 case "form-doc": Js($"api.formDoc({J(Find(Str(msg, "form")))})"); break;

@@ -381,6 +381,14 @@ public class UiTemplateForm : ThemedForm
         if (key == "viewer") _settings.ViewerExePath = value;
         else if (key == "designer") _settings.ScreenDesignerExePath = value;
         else if (key == "fcode") { _settings.FCodePath = value; AppSettings.Update(s => s.FCodePath = value); PushSourceStatus(); return; }
+        else if (key == "advnotes")   // Advance Note (Note New): nơi lưu note dùng chung — xem AdvanceNoteService.ResolveFolder
+        {
+            value = value.Trim().Trim('"');
+            _settings.AdvanceNotesPath = value;
+            AppSettings.Update(s => s.AdvanceNotesPath = value);
+            PushSourceStatus();
+            return;
+        }
         else if (key is "errSheet" or "errPost" or "errForum")   // Báo lỗi: lưu ngay vào error-report.json (không nằm trong settings.json)
         {
             if (value.Length > 0 && !(Uri.TryCreate(value, UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttps || u.Scheme == Uri.UriSchemeHttp)))
@@ -528,11 +536,18 @@ public class UiTemplateForm : ThemedForm
         var main = _settings.SourceCollectionPath ?? "";
         var extra = (_settings.SourceCollectionExtraPaths ?? new()).ToList();
         var fcodePath = _settings.FCodePath ?? "";
+        var advTpl = _settings.AdvanceNotesPath ?? "";
+        var advWs = _settings.Workspaces.FirstOrDefault(w => w.Name == _settings.LastWorkspace);
         _ = Task.Run(() =>
         {
             bool Ok(string p) { try { return !string.IsNullOrWhiteSpace(p) && Directory.Exists(p); } catch { return false; } }
             var fcode = new { path = fcodePath, dir = _settings.FCodeDir ?? "" };
-            var state = new { main = new { path = main, ok = Ok(main) }, extra = extra.Select(p => new { path = p, ok = Ok(p) }).ToList(), fcode };
+            // Advance Note: đường dẫn thật của dự án đang mở (sau khi thay {working}/{project}/{ws}) + thư mục update đó có vào được không.
+            var advFolder = Services.AdvanceNoteService.ResolveFolder(advWs, _settings);
+            var advUpdate = Services.AdvanceNoteService.UpdateFolder(advWs, _settings);
+            var advnotes = new { path = advTpl, project = advWs?.Name ?? "", folder = advFolder, ok = Ok(advUpdate ?? ""),
+                local = string.Equals(advFolder, Services.AdvanceNoteService.LocalFolder, StringComparison.OrdinalIgnoreCase) };
+            var state = new { main = new { path = main, ok = Ok(main) }, extra = extra.Select(p => new { path = p, ok = Ok(p) }).ToList(), fcode, advnotes };
             try { BeginInvoke(new Action(() => Js($"window.setSourcePaths({JsonSerializer.Serialize(state)})"))); } catch { /* form đã đóng */ }
         });
     }

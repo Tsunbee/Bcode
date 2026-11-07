@@ -97,6 +97,8 @@ public sealed class NativeAdvanceNoteControl : UserControl
             tip: "Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)"));
         _toolbar.Controls.Add(NK.Button("🗂 Nhiều dự án", () => { Flush(); NoteHubRequested?.Invoke(); },
             tip: "Mở BcodeNote — Note (New) cho nhiều dự án, chọn menu để gợi ý các ô — vào sẵn dự án đang chọn (dùng chung dữ liệu với tab này)"));
+        _toolbar.Controls.Add(NK.Button("👥 Cả nhóm", () => { Flush(); TeamRequested?.Invoke(); },
+            tip: "Xem note của người khác cùng dự án và các gói update trong thư mục update của dự án (chỉ đọc; chép được y/c về note của bạn)"));
         _toolbar.Controls.Add(_status);
         _syncProg.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Flush(); _ = SyncAsync(); } };
 
@@ -326,7 +328,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private void EnsureLoaded()
     {
         if (_loadedFor == WorkspaceName) return;   // workspace đổi giữa chừng (Choose Server) → nạp lại danh sách của workspace mới
-        _requests = _store.Load(WorkspaceName);
+        _requests = _store.Load(_workspace(), _settings);
         _loadedFor = WorkspaceName;
     }
 
@@ -505,7 +507,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         EnsureLoaded();
         var r = new AdvanceRequest { Name = AdvanceNoteService.SuggestName(_requests) };
         _requests.Add(r);
-        _store.Save(WorkspaceName, _requests);
+        _store.Save(_workspace(), _settings, _requests);
         RenderList();
         Select(r.Id);
     }
@@ -528,7 +530,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
             _requests.Remove(_cur);
             _checked.Remove(_cur.Id);
         }
-        _store.Save(WorkspaceName, _requests);
+        _store.Save(_workspace(), _settings, _requests);
         _cur = null;
         RenderList();
         Select(_requests.OrderByDescending(r => r.Begin).FirstOrDefault()?.Id);
@@ -625,7 +627,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     {
         _saveTimer.Stop();
         if (ReadEditor() is null) return;
-        _store.Save(WorkspaceName, _requests);
+        _store.Save(_workspace(), _settings, _requests);
         // cập nhật dòng đang chọn trong danh sách (tên / Mobile / Done) mà không dựng lại cả lưới
         foreach (DataGridViewRow row in _list.Rows)
             if (row.Tag is string id && id == _cur!.Id) { _loading = true; row.Cells["name"].Value = _cur.Name; row.Cells["mobile"].Value = _cur.Mobile ? "☑" : "☐"; row.Cells["done"].Value = _cur.Done ? "☑" : "☐"; _loading = false; }
@@ -666,7 +668,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         try
         {
             if (!AdvanceNoteService.DeletePackage(_requests, path)) { SetStatus("Đường dẫn không có trong lịch sử gen — không xoá.", true); return; }
-            _store.Save(WorkspaceName, _requests);
+            _store.Save(_workspace(), _settings, _requests);
             if (_lastGenPath == path) { ClearPreview(); _lastGenPath = null; }
             RenderHistory();
             SetStatus("Đã xoá gói: " + path, ok: true);
@@ -954,7 +956,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
                 req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });   // nhớ link gói vừa tạo cho từng y/c đã tick
                 if (req.Generations.Count > AdvanceRequest.MaxGenerations) req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
             }
-            _store.Save(WorkspaceName, _requests);
+            _store.Save(_workspace(), _settings, _requests);
             ShowResult(true, $"Đã tạo {count} mục tại:", dest, extra);
             _defaultFolder = Regex.Replace(_defaultFolder, @"\d{14}$", "") + DateTime.Now.ToString("yyyyMMddHHmmss");
             _folderTouched = false; RefreshFolder();
@@ -1026,7 +1028,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         try
         {
             var (ok, message, changed) = await AdvancePackageBuilder.SyncAsync(_requests, _workspace(), programmer);
-            if (changed) _store.Save(WorkspaceName, _requests);
+            if (changed) _store.Save(_workspace(), _settings, _requests);
             RenderList();
             Select(_cur?.Id);
             SetStatus(message, !ok, ok);
@@ -1040,6 +1042,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
 
     /// <summary>Nút "🗂 Nhiều dự án": MainForm mở BcodeNote.exe vào dự án đang chọn.</summary>
     public event Action? NoteHubRequested;
+
+    /// <summary>Nút "👥 Cả nhóm": mở tab xem note của người khác + gói update của dự án (TeamNotesControl).</summary>
+    public event Action? TeamRequested;
+
+    /// <summary>Nạp lại danh sách từ file (vd vừa chép 1 y/c của người khác về tab Cả nhóm).</summary>
+    public void ReloadFromStore() { _loadedFor = ""; Init(); }
 
     /// <summary>Nút "AI tạo danh mục" / phím tắt note.aiCatalog: lưu y/c đang sửa rồi gửi tên + nội dung (như trang advnote.html).</summary>
     public void RequestAiCatalog()

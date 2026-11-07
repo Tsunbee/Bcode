@@ -199,6 +199,24 @@ public sealed class WebMenu
 
     public bool IsEmpty => _entries.Count == 0;
 
+    /// <summary>Các mục bấm được (kể cả menu con): đường dẫn "Tiêu đề nhóm → Menu con → Nhãn", phím tắt, hành động — để Hỏi Fast biết menu có gì
+    /// và mở thẳng mục đó (Services/BcodeFeatureCatalog).</summary>
+    public IEnumerable<(string Path, string? Shortcut, Action OnClick)> Items()
+    {
+        IEnumerable<(string, string?, Action)> Walk(List<MenuEntry> entries, string prefix)
+        {
+            var caption = "";
+            foreach (var e in entries)
+            {
+                if (e.Kind == "caption") { caption = e.Label; continue; }
+                var head = prefix + (caption.Length > 0 ? caption + " → " : "");
+                if (e.Kind == "sub" && e.Children is { } kids) { foreach (var x in Walk(kids, head + e.Label + " → ")) yield return x; continue; }
+                if (e.Kind == "item" && e.OnClick is { } click) yield return (head + e.Label, e.Shortcut, click);
+            }
+        }
+        return Walk(_entries, "").ToList();
+    }
+
     /// <summary>Hiển thị menu ngay lập tức tại tọa độ màn hình.</summary>
     public void Show(Control owner, Point screenPoint)
     {

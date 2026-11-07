@@ -180,7 +180,15 @@ public class SqlRunnerService
                     if (c == '(') depth++;
                     else if (c == ')') { if (depth > 0) depth--; }
                     else if (depth == 0 && c == ',') { more = true; i++; break; }
-                    else if (depth == 0 && c is ';' or '\n') break;
+                    else if (depth == 0 && c == ';') break;
+                    else if (depth == 0 && c == '\n')
+                    {
+                        // Kiểu "dấu phẩy đầu dòng": dòng sau bắt đầu bằng ", @x …" vẫn thuộc DECLARE này.
+                        var j = i;
+                        while (j < stripped.Length && char.IsWhiteSpace(stripped[j])) j++;
+                        if (j < stripped.Length && stripped[j] == ',') { more = true; i = j + 1; }
+                        break;
+                    }
                 }
                 if (!more) break;
             }

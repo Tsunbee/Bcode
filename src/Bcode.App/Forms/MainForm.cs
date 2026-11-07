@@ -339,10 +339,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
         _toolSpecs.Add(("open_ssms", "Mở SSMS", null, (_, _) => _ = OpenSsmsAsync()));
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm(_settings.Workspaces, _connections.Current).ShowDialog(this); }));
-        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, _connections.Current).ShowDialog(this); }));
+        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, _connections.Current, _tableMenu).ShowDialog(this); }));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
         _toolSpecs.Add(("bcode_note", "Note (New) nhiều dự án", null, (_, _) => _ = LaunchBcodeNoteAsync()));
+        _toolSpecs.Add(("team_notes", "Note & update cả nhóm", null, (_, _) => OpenTeamNotesTab()));
         _toolSpecs.Add(("claude_web", "Claude", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Claude, null)));
         _toolSpecs.Add(("gemini_web", "Gemini", null, (_, _) => OpenAi(Bcode.Shared.AiSite.Gemini, null)));
         _toolSpecs.Add(("help", "Trợ giúp", null, (_, _) => OpenHelpTab(HelpTopicForActiveTab())));
@@ -361,6 +362,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             // 1 ký tự ("Q") = Ctrl+Shift+Q; đã ghi đủ tổ hợp ("Ctrl+4" của FSG FBO) thì giữ nguyên — trước đây thành Ctrl+Shift+4, trùng Note (New).
             t.shortcut is not null ? (t.shortcut.Contains('+') ? t.shortcut : $"Ctrl+Shift+{t.shortcut}") : t.key == "sql_profiler" ? "Ctrl+3" : t.key == "help" ? "Ctrl+F1" : (string?)null)));
         RebuildToolsBar();
+        InitBcodeFeatureCatalog();   // Hỏi Fast biết các nút / menu / phím thật của Bcode (Forms/MainForm.BcodeFeatures.cs)
         void OnTemplateChanged()
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -402,6 +404,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.RequirementsRequested += menu => OpenFsgRequirementReportTab(menu);
         wcommandTree.RunInFboRequested += item => _ = RunMenuInFboAsync(item);
         wcommandTree.DependencyRequested += item => OpenDependencyTab(DepService().MenuNodeOf(item));
+        wcommandTree.ApiSchemaRequested += item => _ = OpenApiFromStructureAsync(item, null, declare: false);
+        wcommandTree.ApiDeclareRequested += item => _ = OpenApiFromStructureAsync(item, null, declare: true);
+        wcommandTree.QuickGenRequested += item => _ = LaunchBcodeNoteAsync(item);
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,
@@ -1220,7 +1225,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "bcode_note", "open_ssms" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "bcode_note", "team_notes", "open_ssms" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
@@ -1924,7 +1929,39 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var page = AddFormTab("FSG FBO · " + ws.Name + (string.IsNullOrWhiteSpace(menuTitle) ? "" : " · " + menuTitle.Trim()), form);
         page.Disposed += (_, _) => _quickLaunchForms.Remove(form);
         form.NewWindowTab = () => ShowFboPopupTab(ws);
+        form.ControllerCandidates = u => FboControllerCandidates(ws, u);
         return form;
+    }
+
+    /// <summary>"🎲 Điền mẫu": URL trang FBO đang mở → menu WCommand có cùng link + tham số → tên controller Dir có thể (sysid, tên trang trong link).
+    /// Không tra file ở đây (gọi trên luồng giao diện) — FboFormLookups.Load thử lần lượt.</summary>
+    private IReadOnlyList<string> FboControllerCandidates(Workspace ws, string url)
+    {
+        if (string.IsNullOrWhiteSpace(ws.LoginWLink) || _connections.Current?.Name != ws.Name) return Array.Empty<string>();
+        static string Norm(string u)
+        {
+            u = (u ?? "").Trim().ToLowerInvariant().Replace('\\', '/');
+            var i = u.IndexOf("/main/", StringComparison.Ordinal);
+            if (i >= 0) u = u[(i + 6)..];
+            var q = u.IndexOf('?');
+            var path = q >= 0 ? u[..q] : u;
+            var prm = q >= 0 ? u[(q + 1)..].Split('&', StringSplitOptions.RemoveEmptyEntries).OrderBy(x => x, StringComparer.Ordinal) : Enumerable.Empty<string>();
+            return path + "?" + string.Join("&", prm);
+        }
+        var target = Norm(url);
+        var res = new List<string>();
+        try
+        {
+            foreach (var (item, _) in _wcommandTree.FlatLeaves())
+            {
+                if (BuildMenuUrl(ws.LoginWLink, item) is not { } mu || Norm(mu) != target) continue;
+                if (!string.IsNullOrWhiteSpace(item.SysId)) res.Add(item.SysId.Trim());
+                var page = Path.GetFileNameWithoutExtension((item.Link ?? "").Split('?')[0].Replace('/', '\\'));
+                if (page.Length > 0) res.Add(page);
+            }
+        }
+        catch { /* cây menu chưa nạp */ }
+        return res.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     /// <summary>Trang trong tab FSG FBO mở cửa sổ mới (chuột phải "Open link in new window", window.open, link target=_blank): mở thành tab FSG FBO
@@ -1936,6 +1973,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var page = AddFormTab("FSG FBO · " + ws.Name + " · cửa sổ mới", form);
         page.Disposed += (_, _) => _quickLaunchForms.Remove(form);
         form.NewWindowTab = () => ShowFboPopupTab(ws);
+        form.ControllerCandidates = u => FboControllerCandidates(ws, u);
         return form;
     }
 
@@ -2192,6 +2230,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
+        control.ApiSchemaRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: false);
+        control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         control.MenuForPage = MenuForLookupPage;
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
@@ -2255,7 +2295,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>"Note (New) nhiều dự án" (menu Tool mở rộng, nút ở thanh Note (New)): mở BcodeNote.exe vào đúng dự án đang chọn.
     /// Ghi nốt phần đang gõ ở tab Note (New) trước để BcodeNote đọc file request mới nhất.</summary>
-    private async Task LaunchBcodeNoteAsync()
+    /// <param name="menu">"Gen nhanh menu" (chuột phải cây WCommand): truyền thêm --menu &lt;wmenu_id&gt; (+ --sysid) — BcodeNote chọn sẵn menu đó và tự mở
+    /// hộp gợi ý Gen All / File Path / SQL Object / Table như bấm đôi menu trong Note (New) nhiều dự án.</param>
+    private async Task LaunchBcodeNoteAsync(WCommandItem? menu = null)
     {
         var exe = FindBcodeNoteExe();
         if (exe is null)
@@ -2266,8 +2308,60 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (_advanceNoteTab is not null && FindDescendant<AdvanceNoteControl>(_advanceNoteTab) is { } note) await note.FlushAsync();
         var psi = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! };
         if (_connections.Current is { } ws) { psi.ArgumentList.Add("--project"); psi.ArgumentList.Add(ws.Name); }
-        try { Process.Start(psi); }
+        if (menu is not null && _connections.Current is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(menu.WMenuId)) { psi.ArgumentList.Add("--menu"); psi.ArgumentList.Add(menu.WMenuId.Trim()); }
+            if (!string.IsNullOrWhiteSpace(menu.SysId)) { psi.ArgumentList.Add("--sysid"); psi.ArgumentList.Add(menu.SysId.Trim()); }
+        }
+        try
+        {
+            Process.Start(psi);
+            if (menu is not null) PushStatus($"Gen nhanh menu: đang mở Note (New) nhiều dự án ở menu “{(string.IsNullOrWhiteSpace(menu.Bar) ? menu.WMenuId : menu.Bar.Trim())}”…");
+        }
         catch (Exception ex) { MessageBox.Show(this, "Không mở được BcodeNote:\n" + ex.Message, "Bcode"); }
+    }
+
+    /// <summary>Chuột phải menu WCommand (<paramref name="menu"/>) hoặc file Dir / Grid của File Lookup (<paramref name="file"/>): dựng cấu trúc API (bảng + cột +
+    /// tên hàm Set&lt;sysid&gt; — <see cref="Bcode.App.Services.Api.ApiMenuSchema"/>), thêm vào danh sách "Tạo cấu trúc API" của dự án (không đè API cùng tên hàm,
+    /// chỉ chọn nó) rồi: <paramref name="declare"/> = false ("Tạo cấu trúc API…") mở màn Tạo cấu trúc API đang chọn đúng API đó; true ("Tạo khai báo API…")
+    /// mở Khai báo API với form đó đã thêm sẵn vào dự án API của Project đang mở.</summary>
+    private async Task OpenApiFromStructureAsync(WCommandItem? menu, string? file, bool declare)
+    {
+        var title = declare ? "Tạo khai báo API" : "Tạo cấu trúc API";
+        if (!RequireLicense(declare ? "Khai báo API" : "Tạo cấu trúc API")) return;
+        if (_connections.Current is not { } ws) { MessageBox.Show(this, "Chưa mở Project nào.", "Bcode — " + title); return; }
+        var label = menu is not null ? (string.IsNullOrWhiteSpace(menu.Bar) ? menu.SysId : menu.Bar.Trim()) : Path.GetFileName(file ?? "");
+        PushStatus($"{title}: đang đọc controller + cột database của “{label}”…");
+        Bcode.App.Services.Api.ApiMenuSchema.Result r;
+        UseWaitCursor = true;
+        try
+        {
+            r = menu is not null
+                ? await Bcode.App.Services.Api.ApiMenuSchema.ForMenuAsync(ws, _tableDataService, _sqlObjectService, menu.SysId, label)
+                : await Bcode.App.Services.Api.ApiMenuSchema.ForFileAsync(_tableDataService, _sqlObjectService, file!, _tableMenu);
+        }
+        catch (Exception ex)
+        {
+            PushStatus(title + " lỗi: " + ex.Message);
+            MessageBox.Show(this, "Không dựng được cấu trúc API:\n" + ex.Message, "Bcode — " + title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        finally { UseWaitCursor = false; }
+        if (IsDisposed) return;
+        if (menu is not null && r.Schema.Tables.Count > 0) r.Schema.Tables[0].Menu = (menu.WMenuId.Trim() + " " + label).Trim();
+
+        var notes = new List<string>(r.Notes);
+        try
+        {
+            if (!Bcode.App.Services.Api.ApiMenuSchema.AddToSchemaStore(Bcode.App.Services.Api.ApiMenuSchema.SchemaKey(ws), r.Schema))
+                notes.Add($"“Tạo cấu trúc API” đã có API {r.Schema.Func} — giữ bản đã lưu (muốn dựng lại thì xoá API đó rồi chuột phải lại).");
+        }
+        catch (Exception ex) { notes.Add("Không lưu được vào “Tạo cấu trúc API”: " + ex.Message); }
+        var cols = r.Schema.Columns.Count;
+        PushStatus($"{title}: {r.Schema.Func} — {r.Schema.Tables.Count} bảng, {cols} cột.");
+        var note = $"{r.Schema.Func}: {r.Schema.Tables.Count} bảng · {cols} cột" + (notes.Count > 0 ? " ⚠ " + string.Join(" ", notes) : "");
+        if (declare) new ApiDeclarationForm(_settings.Workspaces, ws, r.Form, note).ShowDialog(this);
+        else new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, ws, _tableMenu, note).ShowDialog(this);
     }
 
     private TabPage? _includeCheckTabPage;
@@ -2898,6 +2992,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             nc.AiCatalogRequested += OpenQuickListWithAi;
             nc.CatalogAssistRequested += OpenQuickListWithAssist;
             nc.NoteHubRequested += () => _ = LaunchBcodeNoteAsync();
+            nc.TeamRequested += OpenTeamNotesTab;
             control = nc;
         }
         else
@@ -2907,10 +3002,34 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             wc.AiCatalogRequested += OpenQuickListWithAi;
             wc.CatalogAssistRequested += OpenQuickListWithAssist;
             wc.NoteHubRequested += () => _ = LaunchBcodeNoteAsync();
+            wc.TeamRequested += OpenTeamNotesTab;
             control = wc;
         }
         _advanceNoteTab = AddDocumentTab("Note (New)", control);
         _advanceNoteTab.Disposed += (_, _) => _advanceNoteTab = null;
+    }
+
+    private TabPage? _teamNotesTab;
+
+    /// <summary>"👥 Note &amp; update cả nhóm": note của người khác cùng dự án + gói update trong thư mục update (chỉ đọc) — Controls/TeamNotesControl.cs.
+    /// Đã mở thì chuyển tới và tải lại. Chép 1 y/c về thì tab Note (New) đang mở nạp lại ngay.</summary>
+    private void OpenTeamNotesTab()
+    {
+        if (_teamNotesTab is not null && _documentTabs.TabPages.Contains(_teamNotesTab))
+        {
+            _documentTabs.SelectedTab = _teamNotesTab;
+            FindDescendant<TeamNotesControl>(_teamNotesTab)?.Reload();
+            return;
+        }
+        var control = new TeamNotesControl(_advanceNoteService, () => _connections.Current, _settings);
+        control.NotesChanged += () =>
+        {
+            if (_advanceNoteTab is null) return;
+            FindDescendant<AdvanceNoteControl>(_advanceNoteTab)?.ReloadIfChanged();
+            FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab)?.ReloadFromStore();
+        };
+        _teamNotesTab = AddDocumentTab("Note cả nhóm", control);
+        _teamNotesTab.Disposed += (_, _) => _teamNotesTab = null;
     }
 
     private void OpenNoteTab(string noteName)
@@ -3555,6 +3674,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
+        control.ApiSchemaRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: false);
+        control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         FileLookupControl.MarkTab(AddDocumentTab(title, control));
         return control;

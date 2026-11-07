@@ -16,7 +16,18 @@ public static class CommandTableService
     private static readonly Regex StyleGridRegex = new(@"\bstyle\s*=\s*""Grid""", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex ControllerRegex = new(@"\bcontroller\s*=\s*""([A-Za-z0-9_]+)""", RegexOptions.Compiled);
 
-    public sealed record Result(string Master, List<string> Details, string Note);
+    public sealed record Result(string Master, List<string> Details, string Note)
+    {
+        /// <summary>File Dir đã đọc (null = không thấy).</summary>
+        public string? DirFile { get; init; }
+        /// <summary>Từng Grid có khai table (cùng thứ tự <see cref="Details"/>): controller + file — để đọc field / tiêu đề (Tạo cấu trúc API từ menu).</summary>
+        public List<(string Controller, string File, string Table)> Grids { get; init; } = new();
+    }
+
+    /// <summary>Bảng khai ở thẻ gốc &lt;dir table="…"&gt; / &lt;grid table="…"&gt; của nội dung controller ("" = không khai).</summary>
+    public static string TableOf(string text) =>
+        DirTableRegex.Match(text) is { Success: true } d ? d.Groups[1].Value
+        : GridTableRegex.Match(text) is { Success: true } g ? g.Groups[1].Value : "";
 
     /// <summary>Chạy đồng bộ (đọc file qua UNC có thể chậm) — gọi từ Task.Run.</summary>
     public static Result Resolve(string? sourcePath, string? sysId)
@@ -38,6 +49,7 @@ public static class CommandTableService
         var master = dirText is null ? "" : DirTableRegex.Match(dirText) is { Success: true } m ? m.Groups[1].Value : "";
 
         var details = new List<string>();
+        var grids = new List<(string Controller, string File, string Table)>();
         if (dirText is not null)
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -51,10 +63,13 @@ public static class CommandTableService
                 var gridText = gridFile is null ? null : Read(gridFile);
                 if (gridText is not null && GridTableRegex.Match(gridText) is { Success: true } g
                     && !details.Contains(g.Groups[1].Value, StringComparer.OrdinalIgnoreCase))
+                {
                     details.Add(g.Groups[1].Value);
+                    grids.Add((c.Groups[1].Value, gridFile!, g.Groups[1].Value));
+                }
             }
         }
-        return new Result(master, details, master.Length == 0 && details.Count == 0 ? "File Dir không khai báo table." : "");
+        return new Result(master, details, master.Length == 0 && details.Count == 0 ? "File Dir không khai báo table." : "") { DirFile = dirFile, Grids = grids };
     }
 
     private static string? FindFile(string folder, string name)

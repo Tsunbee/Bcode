@@ -43,6 +43,8 @@ internal sealed class NoteHubForm : ThemedForm
     private readonly HubPrefs _prefs = HubPrefs.Load();
     private readonly Dictionary<string, QuickListForm> _quickLists = new(StringComparer.OrdinalIgnoreCase);
     private readonly string? _startProject;
+    /// <summary>"Gen nhanh menu" từ Bcode (--menu / --sysid): menu cần chọn sẵn + mở gợi ý khi cây menu của <see cref="_startProject"/> nạp xong (dùng 1 lần).</summary>
+    private string? _startMenu, _startSysId;
     private AppSettings _settings;
     private ProjectContext? _ctx;
     private AdvanceNoteControl? _note;
@@ -51,9 +53,11 @@ internal sealed class NoteHubForm : ThemedForm
     /// <summary>Bố cục tự dàn bằng Dock (như MainForm của Bcode) — không nhân thêm theo UiScale.</summary>
     protected override bool ScaleLayoutWithUiScale => false;
 
-    public NoteHubForm(string? startProject)
+    public NoteHubForm(string? startProject, string? startMenu = null, string? startSysId = null)
     {
         _startProject = startProject;
+        _startMenu = startMenu;
+        _startSysId = startSysId;
         _settings = AppSettings.Load();
         UiScale.SetMode(_settings.UiScale, this);
         // Cùng tuỳ chọn dò file với Bcode (Gen All / gợi ý theo menu dùng chung FileLookupService).
@@ -111,8 +115,19 @@ internal sealed class NoteHubForm : ThemedForm
     /// <summary>Số y/c đã lưu của từng dự án (đọc các file AdvanceNotes ở luồng nền).</summary>
     private async Task PushCountsAsync()
     {
-        var names = _settings.Workspaces.Select(w => w.Name).ToList();
-        var counts = await Task.Run(() => names.ToDictionary(n => n, n => _store.Load(n).Count(r => !r.Done)));
+        // Note giờ nằm ở thư mục update của từng dự án (thường trên mạng): đếm song song, chỉ đọc dự án có file note của máy này.
+        var settings = _settings;
+        var workspaces = settings.Workspaces.ToList();
+        var counts = await Task.Run(() =>
+        {
+            var dict = new System.Collections.Concurrent.ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            Parallel.ForEach(workspaces, new ParallelOptions { MaxDegreeOfParallelism = 16 }, w =>
+            {
+                try { dict[w.Name] = _store.Stamp(w, settings).Length == 0 && !File.Exists(Path.Combine(AdvanceNoteService.LocalFolder, w.Name + ".json")) ? 0 : _store.Load(w, settings).Count(r => !r.Done); }
+                catch { dict[w.Name] = 0; }
+            });
+            return workspaces.ToDictionary(w => w.Name, w => dict.TryGetValue(w.Name, out var c) ? c : 0);
+        });
         if (!IsDisposed) _hub.Call($"hub.setCounts({J(counts)})");
     }
 
@@ -158,18 +173,40 @@ internal sealed class NoteHubForm : ThemedForm
     private async Task LoadMenusAsync(ProjectContext ctx, bool force)
     {
         var cached = force ? null : ctx.WCommand.LoadCachedFlat();
-        if (cached is { Count: > 0 }) PushMenus(ctx, ctx.WCommand.TreeFromFlat(cached), "bản lưu");
+        if (cached is { Count: > 0 }) { PushMenus(ctx, ctx.WCommand.TreeFromFlat(cached), "bản lưu"); OpenStartMenu(ctx, final: false); }
         else _hub.Call("hub.menusLoading()");
         try
         {
-            if (cached is { Count: > 0 } && await ctx.WCommand.IsCacheCurrentAsync()) return;
+            if (cached is { Count: > 0 } && await ctx.WCommand.IsCacheCurrentAsync()) { OpenStartMenu(ctx, final: true); return; }
             var tree = await ctx.WCommand.LoadTreeAsync();
-            if (ctx == _ctx) PushMenus(ctx, tree, "");
+            if (ctx == _ctx) { PushMenus(ctx, tree, ""); OpenStartMenu(ctx, final: true); }
         }
         catch (Exception ex)
         {
             if (ctx == _ctx) _hub.Call($"hub.menuError({J((cached is { Count: > 0 } ? "Đang dùng bản lưu — " : "") + "không đọc được wcommand: " + ex.Message)})");
+            OpenStartMenu(ctx, final: true);
         }
+    }
+
+    /// <summary>"Gen nhanh menu": tìm menu truyền từ Bcode (wmenu_id, không có thì sysid) trong cây vừa nạp → chọn + cuộn tới + mở gợi ý như bấm đôi.
+    /// Bản lưu (cache) chưa có menu đó thì chờ lần nạp mới; <paramref name="final"/> mà vẫn không thấy thì báo.</summary>
+    private void OpenStartMenu(ProjectContext ctx, bool final)
+    {
+        if ((_startMenu is null && _startSysId is null) || ctx != _ctx || IsDisposed) return;
+        if (!string.Equals(ctx.Ws.Name, _startProject, StringComparison.OrdinalIgnoreCase)) { _startMenu = _startSysId = null; return; }
+        var i = _startMenu is null ? -1 : ctx.Menus.FindIndex(m => string.Equals(m.WMenuId?.Trim(), _startMenu, StringComparison.OrdinalIgnoreCase));
+        if (i < 0 && _startSysId is not null)
+            i = ctx.Menus.FindIndex(m => m.Children.Count == 0 && string.Equals(m.SysId?.Trim(), _startSysId, StringComparison.OrdinalIgnoreCase));
+        if (i < 0)
+        {
+            if (!final) return;
+            _hub.Call($"hub.status({J("Gen nhanh menu: không thấy menu " + (_startMenu ?? _startSysId) + " trong cây wcommand của " + ctx.Ws.Name + " — bấm ⟳ tải lại cây rồi chọn tay.")}, 'err')");
+            _startMenu = _startSysId = null;
+            return;
+        }
+        _startMenu = _startSysId = null;
+        _hub.Call($"hub.reveal({i})");
+        _ = SuggestAsync(i);
     }
 
     /// <summary>Đẩy cây menu xuống trang dạng phẳng: i = chỉ số (để hỏi gợi ý), p = chỉ số menu cha (-1 = gốc), giữ đúng thứ tự cây của WCommandService.</summary>

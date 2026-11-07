@@ -127,6 +127,14 @@
   td.c, th.c { text-align: center; }
   td.src { color: var(--accent); font-size: 12px; white-space: nowrap; }
   td.dup input.txt-field { outline: 1px solid #e5484d; }
+  /* Chọn nhiều dòng (Ctrl+A / Ctrl+Click / Shift+Click / kéo) → Space tick / bỏ tick cả nhóm */
+  #colTableBody tr.rsel td { background: var(--selection); }
+  #colTableBody tr.rsel td:first-child { box-shadow: 3px 0 0 var(--accent) inset; }
+  .table-container:focus { outline: none; }
+  .table-container.dragging { user-select: none; }
+  tr.manual td.src { font-style: italic; }
+  tr.manual .del-col { margin-left: 4px; padding: 0 5px; font-size: 11px; line-height: 16px; cursor: pointer; background: transparent; color: var(--text-muted); border: 1px solid var(--border); border-radius: 3px; }
+  tr.manual .del-col:hover { color: #e5484d; border-color: #e5484d; }
   .muted { color: var(--text-muted); font-size: 12px; }
 </style>
 </head>
@@ -172,16 +180,17 @@
         <button class="btn" id="btnUndoName" title="Trả tên trường API về tên trước khi bấm camelCase">↩ Về tên cũ</button>
         <button class="btn" id="btnReqDb" title="Tick cột Bắt buộc cho các cột NOT NULL của bảng (không tính cột identity)">☑ Tick bắt buộc (NOT NULL)</button>
         <button class="btn" id="btnReqClear">Bỏ tick bắt buộc</button>
+        <button class="btn" id="btnAddCol" title="Thêm 1 cột KHÔNG có trong bảng database (cột tự khai): sửa được mọi ô, ✕ để xoá; lưu cùng API và xuất ra Word như cột thật">＋ Thêm cột</button>
         <button class="btn" id="btnGenProc">⚡ Gen Store OPENJSON</button>
         <button class="btn" id="btnMockData">🎲 Tạo Mock Data (Top 5 DB)</button>
         <span class="muted" id="colInfo"></span>
       </div>
 
-      <div class="table-container">
+      <div class="table-container" tabindex="0">
         <table>
           <thead>
             <tr>
-              <th style="width: 36px; text-align: center;"><input type="checkbox" id="chkAll" checked title="Chọn / bỏ chọn tất cả cột" /></th>
+              <th style="width: 36px; text-align: center;"><input type="checkbox" id="chkAll" checked title="Chọn / bỏ chọn tất cả cột&#10;Trong lưới: Ctrl+A chọn mọi dòng · Ctrl+Click / Shift+Click / kéo chuột chọn nhiều dòng · Space tick / bỏ tick các dòng đang chọn" /></th>
               <th style="width: 13%;">Bảng nguồn</th>
               <th style="width: 15%;">Cột DB</th>
               <th style="width: 11%;">Kiểu dữ liệu</th>
@@ -229,8 +238,9 @@
   function renderFuncInfo(a) {
     var t = a && a.tables[0];
     $('funcInfo').textContent = !t ? 'Tự đặt khi thêm bảng: Set + controller của bảng.'
-      : (a.funcAuto ? 'Tự đặt' : 'Đã sửa tay') + ' · ' + (t.controller ? 'controller ' + t.controller + (t.others && t.others.length ? ' (bảng còn ở: ' + t.others.join(', ') + ')' : '')
-      : (t.infoDone ? 'không thấy controller Dir của ' + t.table + ' trong Source Path — dùng tên bảng' : 'đang tìm controller của ' + t.table + '…'));
+      : (a.funcAuto ? 'Tự đặt' : 'Đã sửa tay') + ' · ' + (t.controller ? (t.menu ? 'sysid ' + t.controller + ' của menu ' + t.menu : 'controller Dir ' + t.controller + ' (không thấy menu dùng bảng)')
+          + (t.others && t.others.length ? ' · menu khác cùng bảng: ' + t.others.join(', ') : '')
+      : (t.infoDone ? 'không thấy menu (sysid) / controller Dir nào dùng ' + t.table + ' — dùng tên bảng' : 'đang tìm menu của ' + t.table + '…'));
   }
 
   // Tự lưu (ApiSchemaStore theo dự án) sau mỗi lần sửa — đóng form mở lại vẫn còn các API.
@@ -238,7 +248,7 @@
   function queueSave() { clearTimeout(_saveTimer); _saveTimer = setTimeout(function () { post({ action: 'save', state: window.getState() }); }, 500); }
   window.getState = function () { syncActiveApi(); return { hideSource: _hideSource, active: _activeIdx, apis: _apis }; };
   /// Các cột đang hiện: chỉ bảng đang chọn (view = "db|bảng"), hoặc tất cả khi view rỗng.
-  function vis(a) { return a.columns.filter(function (c) { return !a.view || c.tkey === a.view; }); }
+  function vis(a) { return a.columns.filter(function (c) { return !a.view || c.tkey === a.view || c.manual; }); }
   var tkeyOf = function (db, t) { return db + '|' + t; };
 
   /// Ghi các ô đang sửa trên màn hình vào model (hàng nào cũng có data-i = chỉ số cột trong API).
@@ -251,6 +261,7 @@
     document.querySelectorAll('#colTableBody tr').forEach(function (r) {
       var c = a.columns[+r.dataset.i]; if (!c) return;
       c.selected = r.querySelector('.chk-col').checked;
+      if (c.manual) { c.colName = r.querySelector('.txt-col').value; c.dataType = r.querySelector('.txt-type').value; }
       c.isPk = r.querySelector('.chk-pk').checked;
       c.required = r.querySelector('.chk-req').checked;
       c.fieldDesc = r.querySelector('.txt-field').value;
@@ -292,7 +303,7 @@
       s.title = 'Bấm để chỉ hiện cột của bảng này';
       s.onclick = function () { pick(key); };
       var x = document.createElement('button'); x.textContent = '✕'; x.title = 'Bỏ bảng này (và các cột lấy từ nó)';
-      x.onclick = function (e) { e.stopPropagation(); syncActiveApi(); a.tables.splice(i, 1); a.columns = a.columns.filter(function (c) { return c.tkey !== key; }); if (a.view === key) a.view = ''; autoFunc(a); renderDetail(); };
+      x.onclick = function (e) { e.stopPropagation(); syncActiveApi(); a.tables.splice(i, 1); a.columns = a.columns.filter(function (c) { return c.tkey !== key; }); _rsel = new Set(); if (a.view === key) a.view = ''; autoFunc(a); renderDetail(); };
       s.appendChild(x); el.appendChild(s);
     });
   }
@@ -316,16 +327,23 @@
     var tbody = $('colTableBody');
     tbody.innerHTML = '';
     var multi = a.tables.length > 1;
+    if (_selApi !== _activeIdx) { _rsel = new Set(); _anchor = -1; _selApi = _activeIdx; }
     a.columns.forEach(function (c, i) {
-      if (a.view && c.tkey !== a.view) return;
+      if (a.view && c.tkey !== a.view && !c.manual) return;
       var tr = document.createElement('tr');
       tr.dataset.i = i;
+      if (_rsel.has(i)) tr.className = 'rsel';
+      if (c.manual) tr.className += ' manual';
       var dup = c.selected && count[(c.fieldDesc || '').toLowerCase()] > 1;
       tr.innerHTML =
         '<td class="c"><input type="checkbox" class="chk-col"' + (c.selected ? ' checked' : '') + ' /></td>' +
-        '<td class="src" title="' + esc(c.tname || '') + '">' + esc(c.tname || '') + '</td>' +
-        '<td>' + esc(c.colName) + '</td>' +
-        '<td>' + esc(c.dataType) + '</td>' +
+        (c.manual
+          ? '<td class="src" title="Cột thêm tay — không có trong bảng database">' + esc(c.tname || '(thêm tay)') + '<button class="del-col" title="Xoá cột thêm tay này">✕</button></td>' +
+            '<td><input type="text" class="txt-col" placeholder="tên cột" value="' + esc(c.colName) + '" /></td>' +
+            '<td><input type="text" class="txt-type" placeholder="nvarchar(255)" value="' + esc(c.dataType) + '" /></td>'
+          : '<td class="src" title="' + esc(c.tname || '') + '">' + esc(c.tname || '') + '</td>' +
+            '<td>' + esc(c.colName) + '</td>' +
+            '<td>' + esc(c.dataType) + '</td>') +
         '<td class="c"><input type="checkbox" class="chk-pk"' + (c.isPk ? ' checked' : '') + ' /></td>' +
         '<td class="c"><input type="checkbox" class="chk-req"' + (c.required ? ' checked' : '') + ' /></td>' +
         '<td' + (dup ? ' class="dup" title="Trùng tên trường API với cột khác — đổi tên để không đè nhau"' : '') + '><input type="text" class="txt-field" value="' + esc(c.fieldDesc) + '" /></td>' +
@@ -339,7 +357,104 @@
     $('colInfo').textContent = a.columns.length ? ((a.view ? 'Đang hiện ' + vis(a).length + ' cột của bảng đã chọn · ' : '') + sel + '/' + a.columns.length + ' cột · ' + a.columns.filter(function (c) { return c.selected && c.isPk; }).length + ' khóa chính · ' + a.columns.filter(function (c) { return c.selected && c.required; }).length + ' bắt buộc' + (multi ? ' · ' + a.tables.length + ' bảng' : '')) : '';
   }
 
-  $('colTableBody').addEventListener('change', function () { syncActiveApi(); renderDetail(); });
+  // ---- Chọn nhiều dòng của lưới cột: Ctrl+A (khi không gõ trong ô chữ) / Ctrl+Click / Shift+Click / kéo chuột → Space hoặc bấm ô ✓ của 1 dòng
+  //      đang chọn = tick / bỏ tick cả nhóm. _rsel = chỉ số cột trong a.columns (đổi API thì bỏ chọn).
+  var _rsel = new Set(), _anchor = -1, _dragging = false, _selApi = -1;
+  var grid = document.querySelector('.table-container');
+  function rows() { return Array.prototype.slice.call(document.querySelectorAll('#colTableBody tr')); }
+  function paintSel() { rows().forEach(function (r) { r.classList.toggle('rsel', _rsel.has(+r.dataset.i)); }); }
+  function rangeSel(from, to) {
+    var idx = rows().map(function (r) { return +r.dataset.i; });
+    var x = idx.indexOf(from), y = idx.indexOf(to);
+    if (x < 0 || y < 0) return;
+    _rsel = new Set(idx.slice(Math.min(x, y), Math.max(x, y) + 1));
+  }
+  function focusGrid() { try { grid.focus({ preventScroll: true }); } catch (e) { grid.focus(); } }
+  /// Space: đảo cả nhóm — đang tick hết thì bỏ hết, còn lại thì tick hết.
+  function toggleSel() {
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    var list = []; _rsel.forEach(function (i) { if (a.columns[i]) list.push(a.columns[i]); });
+    if (!list.length) return;
+    var allOn = list.every(function (c) { return c.selected; });
+    list.forEach(function (c) { c.selected = !allOn; });
+    renderDetail();
+    $('colInfo').textContent = (allOn ? 'Đã bỏ tick ' : 'Đã tick ') + list.length + ' cột đang chọn.';
+  }
+  $('colTableBody').addEventListener('mousedown', function (e) {
+    var tr = e.target.closest('tr'); if (!tr || e.button !== 0) return;
+    if (e.target.closest('.del-col')) return;
+    var i = +tr.dataset.i;
+    var onChk = e.target.matches('input[type="checkbox"]');
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (_rsel.has(i)) _rsel.delete(i); else _rsel.add(i);
+      _anchor = i; paintSel(); focusGrid(); return;
+    }
+    if (e.shiftKey && _anchor >= 0) { e.preventDefault(); rangeSel(_anchor, i); paintSel(); focusGrid(); return; }
+    if (e.target.matches('input[type="text"]')) return;              // bấm vào ô chữ = sửa chữ, giữ nguyên vùng chọn
+    if (onChk && _rsel.has(i) && _rsel.size > 1) return;              // bấm ✓ của 1 dòng trong nhóm đang chọn = đổi cả nhóm (xem 'change')
+    _rsel = new Set([i]); _anchor = i; _dragging = true; grid.classList.add('dragging'); paintSel();
+    if (!onChk) { e.preventDefault(); focusGrid(); }
+  });
+  $('colTableBody').addEventListener('mouseover', function (e) {
+    if (!_dragging) return;
+    var tr = e.target.closest('tr'); if (!tr) return;
+    rangeSel(_anchor, +tr.dataset.i); paintSel();
+  });
+  document.addEventListener('mouseup', function () { _dragging = false; grid.classList.remove('dragging'); });
+  document.addEventListener('keydown', function (e) {
+    var ae = document.activeElement;
+    var typing = ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || (ae.tagName === 'INPUT' && ae.type !== 'checkbox'));
+    if (typing) return;                                               // Ctrl+A / Space trong ô chữ giữ nguyên nghĩa thường
+    var inGrid = !ae || ae === document.body || (ae.closest && ae.closest('.table-container'));
+    if (!inGrid) return;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'a' || e.key === 'A')) {
+      e.preventDefault();
+      var idx = rows().map(function (r) { return +r.dataset.i; });
+      _rsel = new Set(idx); _anchor = idx.length ? idx[0] : -1; paintSel(); focusGrid();
+      $('colInfo').textContent = 'Đã chọn ' + idx.length + ' dòng — Space để tick / bỏ tick cả nhóm.';
+    } else if (e.key === ' ' && !e.ctrlKey && !e.altKey && _rsel.size) {
+      e.preventDefault();
+      toggleSel();
+    }
+  });
+  $('colTableBody').addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.classList.contains('chk-col')) {
+      var i = +t.closest('tr').dataset.i;
+      if (_rsel.has(i) && _rsel.size > 1)
+        rows().forEach(function (r) { if (_rsel.has(+r.dataset.i)) r.querySelector('.chk-col').checked = t.checked; });
+    }
+    syncActiveApi(); renderDetail();
+  });
+  $('colTableBody').addEventListener('click', function (e) {
+    var del = e.target.closest('.del-col'); if (!del) return;
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    a.columns.splice(+del.closest('tr').dataset.i, 1);
+    _rsel = new Set(); _anchor = -1;
+    renderDetail();
+  });
+  // Cột thêm tay: gõ tên cột mà Tên trường API còn trống / đang theo tên cột cũ thì điền theo.
+  $('colTableBody').addEventListener('input', function (e) {
+    if (!e.target.classList.contains('txt-col')) return;
+    var f = e.target.closest('tr').querySelector('.txt-field');
+    var prev = e.target.dataset.prev || '';
+    if (!f.value || f.value === prev.toLowerCase()) f.value = e.target.value.toLowerCase();
+    e.target.dataset.prev = e.target.value;
+  });
+  $('btnAddCol').onclick = function () {
+    syncActiveApi();
+    var a = _apis[_activeIdx]; if (!a) return;
+    a.columns.push({ selected: true, colName: '', dataType: 'nvarchar(255)', isPk: false, nullable: true, identity: false, required: false,
+      fieldDesc: '', logicDesc: '', viName: '', viUser: true, tkey: '', tname: '(thêm tay)', tdb: '', manual: true });
+    _rsel = new Set([a.columns.length - 1]); _anchor = a.columns.length - 1;
+    renderDetail();
+    var tr = document.querySelector('#colTableBody tr[data-i="' + (a.columns.length - 1) + '"]');
+    if (tr) { tr.scrollIntoView({ block: 'nearest' }); tr.querySelector('.txt-col').focus(); }
+    $('colInfo').textContent = 'Đã thêm 1 cột thêm tay — gõ tên cột, kiểu, tên trường API…; ✕ ở cột Bảng nguồn để xoá.';
+  };
   // Gõ dở trong ô (chưa rời ô) cũng lưu.
   document.querySelector('.right-pane').addEventListener('input', function (e) { if (e.target.id !== 'txtTable') queueSave(); });
   $('txtFunc').addEventListener('change', function () { syncActiveApi(); renderFuncInfo(_apis[_activeIdx]); });
@@ -347,6 +462,13 @@
     syncActiveApi();
     var a = _apis[_activeIdx]; if (!a) return;
     a.funcAuto = true; autoFunc(a); renderDetail();
+    // Tra lại menu của bảng đầu (sysid có thể đổi / lần trước chưa tra theo menu) — kết quả về qua setTableInfo, tự đặt lại tên hàm.
+    var t = a.tables[0];
+    if (t) {
+      var key = tkeyOf(t.db, t.table);
+      t.infoDone = false; renderFuncInfo(a);
+      post({ action: 'table-info', db: t.db, table: t.table, cols: a.columns.filter(function (c) { return c.tkey === key; }).map(function (c) { return c.colName; }) });
+    }
   };
 
   $('btnAddApi').onclick = function () {
@@ -500,6 +622,7 @@
     var parts = String(key || '|').split('|'), db = parts[0], tname = parts.slice(1).join('|');
     if (!a.tables.some(function (t) { return t.db === db && t.table === tname; })) return;     // bảng đã bị bỏ trong lúc chờ
     a.columns = a.columns.filter(function (c) { return c.tkey !== key; });
+    _rsel = new Set();
     var used = {}; a.columns.forEach(function (c) { used[(c.fieldDesc || '').toLowerCase()] = 1; });
     var short = tname.replace(/^[^.]*\./, '').toLowerCase();
     (cols || []).forEach(function (c) {
@@ -519,7 +642,7 @@
     _apis.forEach(function (a) {
       a.tables.forEach(function (t, i) {
         if (tkeyOf(t.db, t.table) !== key) return;
-        t.controller = info.controller || ''; t.others = info.others || []; t.infoDone = true;
+        t.controller = info.controller || ''; t.menu = info.menu || ''; t.others = info.others || []; t.infoDone = true;
         if (i === 0) autoFunc(a);
       });
       a.columns.forEach(function (c) {

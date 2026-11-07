@@ -46,6 +46,8 @@ public sealed class StepPlan
         var closers = SqlStepPlanner.Closers(code);
         if (closers.Length > 0) sb.Append('\n').Append(closers);
         sb.Append(";\n");
+        // Store tự có TRY…CATCH nuốt lỗi đổi kiểu → transaction "doomed": rollback ngay để hết batch không báo 3998 "Uncommittable transaction" (chạy thật không có lỗi này).
+        sb.Append("IF XACT_STATE() = -1 ROLLBACK TRAN;\n");
 
         var (scalars, tableVars) = SqlStepPlanner.DeclaredVariables(code, Params);
         var watchNames = new List<string>();
@@ -70,7 +72,8 @@ public static class SqlStepPlanner
         @"\b(CREATE|ALTER)\s+(?:OR\s+ALTER\s+)?(PROC|PROCEDURE|FUNCTION)\s+([\w\.\[\]#$]+)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    private static readonly Regex WordRegex = new(@"\b[A-Za-z_@#$][\w@#$]*\b", RegexOptions.Compiled);
+    // Không dùng \b ở đầu: "@end" / "@begin" / "@case" phải là 1 từ (biến), không bị tách thành END / BEGIN / CASE.
+    private static readonly Regex WordRegex = new(@"(?<![\w@#$])[A-Za-z_@#$][\w@#$]*", RegexOptions.Compiled);
     private static readonly Regex StatementWord = new(
         @"\b(BEGIN|SELECT|SET|EXEC|EXECUTE|PRINT|INSERT|UPDATE|DELETE|MERGE|RETURN|BREAK|CONTINUE|RAISERROR|THROW|DECLARE|TRUNCATE|WAITFOR|GOTO)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -116,19 +119,31 @@ public static class SqlStepPlanner
     /// <summary>Phần còn dang dở cuối đoạn <paramref name="code"/> (BEGIN chưa END, TRY chưa đóng...) → câu lệnh đóng lại cho batch hợp lệ.</summary>
     public static string Closers(string code)
     {
-        var words = WordRegex.Matches(code).Select(m => m.Value.ToUpperInvariant()).ToList();
+        var matches = WordRegex.Matches(code);
+        var words = matches.Select(m => m.Value.ToUpperInvariant()).ToList();
+        // Độ sâu ngoặc trước mỗi từ — để biết BEGIN có phải thân của WHILE (điều kiện WHILE có thể chứa (SELECT …)).
+        var depthAt = new int[words.Count];
+        for (int i = 0, depth = 0, last = 0; i < words.Count; i++)
+        {
+            for (var p = last; p < matches[i].Index; p++) depth += code[p] == '(' ? 1 : code[p] == ')' ? -1 : 0;
+            depthAt[i] = depth; last = matches[i].Index;
+        }
         var stack = new Stack<char>();
+        var whileDepth = -1; // đang ở điều kiện WHILE (độ sâu ngoặc của WHILE), -1 = không
         for (var i = 0; i < words.Count; i++)
         {
             var w = words[i];
             var next = i + 1 < words.Count ? words[i + 1] : "";
+            if (whileDepth >= 0 && depthAt[i] <= whileDepth && w != "BEGIN" && StatementWord.IsMatch(w)) whileDepth = -1; // thân WHILE 1 câu, không BEGIN
             switch (w)
             {
+                case "WHILE": whileDepth = depthAt[i]; break;
                 case "BEGIN":
                     if (next is "TRAN" or "TRANSACTION" or "DISTRIBUTED") break;
                     if (next == "TRY") { stack.Push('T'); i++; }
                     else if (next == "CATCH") { stack.Push('K'); i++; }
-                    else stack.Push('B');
+                    else stack.Push(whileDepth >= 0 && depthAt[i] <= whileDepth ? 'W' : 'B');
+                    whileDepth = -1;
                     break;
                 case "CASE": stack.Push('C'); break;
                 case "END":
@@ -139,13 +154,27 @@ public static class SqlStepPlanner
             }
         }
         var parts = new List<string>();
+        var k = 0;
         foreach (var open in stack) // từ trong ra ngoài
+        {
+            k++;
             parts.Add(open switch
             {
-                'T' => "END TRY BEGIN CATCH SELECT ERROR_NUMBER() AS error_number, ERROR_LINE() AS error_line, ERROR_MESSAGE() AS error_message END CATCH",
+                // Dừng giữa khối TRY: CATCH tự thêm vẫn hiện lỗi như cũ, rồi rollback nếu transaction đã hỏng (không thì hết batch báo 3998 "Uncommittable
+                // transaction" thay cho lỗi thật) và NÉM LẠI lỗi kèm số lỗi gốc ("Msg 8152: …") để bước debug thấy lỗi + phân tích lỗi cột chạy được.
+                'T' => $"END TRY BEGIN CATCH SELECT ERROR_NUMBER() AS error_number, ERROR_LINE() AS error_line, ERROR_MESSAGE() AS error_message; " +
+                       $"DECLARE @__bcen{k} int, @__bcem{k} nvarchar(4000); SELECT @__bcen{k} = ERROR_NUMBER(), @__bcem{k} = ERROR_MESSAGE(); " +
+                       $"IF XACT_STATE() = -1 ROLLBACK TRAN; RAISERROR(N'Msg %d: %s', 16, 1, @__bcen{k}, @__bcem{k}); END CATCH",
                 'K' => "END CATCH",
+                // Dừng giữa thân WHILE: phần sau điểm dừng (thường có SET @i = @i + 1 / FETCH NEXT) bị cắt → vòng lặp chạy mãi tới timeout.
+                // Vẫn cho lặp (lỗi có thể chỉ xảy ra ở vòng thứ 2+), nhưng tự thoát sau 1000 vòng / 10 giây. DECLARE không giá trị đầu
+                // trong vòng lặp KHÔNG khởi tạo lại biến nên đếm được qua các vòng.
+                'W' => $"DECLARE @__bcwn{k} int, @__bcwt{k} datetime; SET @__bcwn{k} = ISNULL(@__bcwn{k}, 0) + 1; IF @__bcwt{k} IS NULL SET @__bcwt{k} = GETDATE(); " +
+                       $"IF @__bcwn{k} >= 1000 OR DATEDIFF(second, @__bcwt{k}, GETDATE()) >= 10 BEGIN " +
+                       $"PRINT N'Bcode: thoát vòng WHILE sau ' + CAST(@__bcwn{k} AS nvarchar(10)) + N' vòng — điểm dừng nằm trong thân vòng lặp nên phần sau điểm dừng (tăng biến đếm / FETCH NEXT) không chạy.'; BREAK END END",
                 _ => "END",
             });
+        }
         return string.Join("\n", parts);
     }
 
@@ -204,7 +233,15 @@ public static class SqlStepPlanner
             else if (depth == 0 && (c == 'A' || c == 'a') && i + 1 < code.Length && (code[i + 1] == 'S' || code[i + 1] == 's')
                      && (i == 0 || !(char.IsLetterOrDigit(code[i - 1]) || code[i - 1] == '_' || code[i - 1] == '@' || code[i - 1] == '#' || code[i - 1] == '$'))
                      && (i + 2 >= code.Length || !(char.IsLetterOrDigit(code[i + 2]) || code[i + 2] == '_' || code[i + 2] == '@' || code[i + 2] == '#' || code[i + 2] == '$')))
-            { asIndex = i; break; }
+            {
+                // "@tham_so AS kiểu" — AS của khai báo tham số, chưa phải AS kết thúc header.
+                var j = i - 1;
+                while (j > 0 && char.IsWhiteSpace(code[j])) j--;
+                var k = j;
+                while (k >= 0 && (char.IsLetterOrDigit(code[k]) || code[k] is '_' or '#' or '$' or '@')) k--;
+                if (k + 1 <= j && code[k + 1] == '@') continue;
+                asIndex = i; break;
+            }
         }
         if (asIndex < 0) return (null, new List<StepParam>(), 0);
 

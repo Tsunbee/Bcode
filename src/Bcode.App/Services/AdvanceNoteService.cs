@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Bcode.App.Models;
 
 namespace Bcode.App.Services;
 
@@ -126,47 +127,239 @@ public class AdvanceNoteService
         return true;
     }
 
-    private static string FilePath(string workspaceName)
+    private static string Safe(string s)
     {
-        var safe = string.IsNullOrWhiteSpace(workspaceName) ? "_no_workspace" : workspaceName;
+        var safe = string.IsNullOrWhiteSpace(s) ? "_no_workspace" : s.Trim();
         foreach (var c in Path.GetInvalidFileNameChars()) safe = safe.Replace(c, '_');
-        return Path.Combine(BcodePaths.AppData, "Bcode", "AdvanceNotes", safe + ".json");
+        return safe;
     }
 
-    public List<AdvanceRequest> Load(string workspaceName)
+    /// <summary>Thư mục cũ (trước khi chuyển lên đường dẫn update của dự án) — dùng để chuyển dữ liệu cũ sang và làm chỗ dự phòng.</summary>
+    public static string LocalFolder => Path.Combine(BcodePaths.AppData, "Bcode", "AdvanceNotes");
+
+    /// <summary>Tên máy ghi trong tên file — mỗi người / máy 1 file nên không ghi đè note của nhau (cùng kiểu NoteX_&lt;dự án&gt;@&lt;máy&gt;.xml).</summary>
+    public static string Owner => Environment.MachineName;
+
+    /// <summary>Thư mục lưu Advance Note của dự án: setting AdvanceNotesPath (có {working} / {project} / {ws}); trống = "{working}\AdvanceNotes";
+    /// dự án chưa khai Working Path = thư mục cục bộ cũ.</summary>
+    public static string ResolveFolder(Workspace? ws, Bcode.App.Models.AppSettings? settings)
     {
-        var path = FilePath(workspaceName);
+        var working = (ws?.WorkingPath ?? "").Trim().TrimEnd('\\', '/');
+        var tpl = (settings?.AdvanceNotesPath ?? "").Trim();
+        if (tpl.Length == 0) tpl = working.Length > 0 ? "{working}\\AdvanceNotes" : "";
+        if (tpl.Length == 0 || (tpl.Contains("{working}", StringComparison.OrdinalIgnoreCase) && working.Length == 0)) return LocalFolder;
+        var project = ws is null ? "" : (string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId);
+        return tpl.Replace("{working}", working, StringComparison.OrdinalIgnoreCase)
+                  .Replace("{project}", Safe(project), StringComparison.OrdinalIgnoreCase)
+                  .Replace("{ws}", Safe(ws?.Name ?? ""), StringComparison.OrdinalIgnoreCase)
+                  .TrimEnd('\\', '/');
+    }
+
+    /// <summary>File note của CHÍNH máy này: &lt;thư mục&gt;\&lt;workspace&gt;@&lt;máy&gt;.json (thư mục cục bộ cũ thì giữ tên cũ &lt;workspace&gt;.json).</summary>
+    public static string OwnFile(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var folder = ResolveFolder(ws, settings);
+        var name = Safe(ws?.Name ?? "");
+        return string.Equals(folder, LocalFolder, StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine(folder, name + ".json")
+            : Path.Combine(folder, $"{name}@{Safe(Owner)}.json");
+    }
+
+    private static List<AdvanceRequest> Read(string path)
+    {
         try
         {
             if (!File.Exists(path)) return new List<AdvanceRequest>();
             return JsonSerializer.Deserialize<List<AdvanceRequest>>(File.ReadAllText(path), JsonOptions) ?? new List<AdvanceRequest>();
         }
+        catch { return new List<AdvanceRequest>(); }   // file hỏng — bắt đầu lại thay vì không mở được tab
+    }
+
+    /// <summary>Lỗi lần ghi gần nhất (vd không vào được server → đã lưu vào thư mục ban đầu trên máy); null = ghi bình thường lên thư mục update.</summary>
+    public string? LastSaveWarning { get; private set; }
+
+    /// <summary>File ở thư mục BAN ĐẦU (trước khi chuyển lên thư mục update): %AppData%\Bcode\AdvanceNotes\&lt;ws&gt;.json —
+    /// nơi lưu khi không vào được server, và nguồn chép sang lần đầu.</summary>
+    public static string LocalFile(Workspace? ws) => Path.Combine(LocalFolder, Safe(ws?.Name ?? "") + ".json");
+
+    // ---- server có vào được không: kiểm tra có hạn giờ + nhớ kết quả, để tự lưu (0,7 giây / lần) KHÔNG phải chờ UNC timeout mỗi lần khi server chết ----
+    private static readonly TimeSpan ReachTimeout = TimeSpan.FromSeconds(2.5);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (bool Ok, DateTime At)> Reach = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Thư mục update (cha của thư mục AdvanceNotes) có vào được không. Nhớ "vào được" 5 phút, "không vào được" 30 giây rồi thử lại.</summary>
+    public static bool IsReachable(string folder)
+    {
+        var root = Path.GetDirectoryName(folder.TrimEnd('\\', '/')) ?? folder;
+        var has = Reach.TryGetValue(root, out var c);
+        if (has && DateTime.UtcNow - c.At < (c.Ok ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(30))) return c.Ok;
+        Task<bool> Probe() => Task.Run(() =>
+        {
+            bool ok; try { ok = Directory.Exists(root); } catch { ok = false; }
+            Reach[root] = (ok, DateTime.UtcNow);
+            return ok;
+        });
+        if (has && !c.Ok)
+        {
+            // Đã biết là không vào được: thử lại NỀN, lần này vẫn trả "không" ngay — tự lưu lúc đang gõ không bị khựng 2,5 giây mỗi 30 giây.
+            Reach[root] = (false, DateTime.UtcNow);
+            _ = Probe();
+            return false;
+        }
+        var probe = Probe();
+        if (probe.Wait(ReachTimeout)) return probe.Result;
+        Reach[root] = (false, DateTime.UtcNow);   // quá giờ = coi như không vào được (luồng kiểm tra chạy nốt ở nền, xong thì tự ghi kết quả)
+        return false;
+    }
+
+    private static void MarkUnreachable(string folder) => Reach[Path.GetDirectoryName(folder.TrimEnd('\\', '/')) ?? folder] = (false, DateTime.UtcNow);
+
+    /// <summary>File đang dùng thật: thư mục update nếu vào được server, không thì file ở thư mục ban đầu trên máy.</summary>
+    public static string EffectiveFile(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var own = OwnFile(ws, settings);
+        var local = LocalFile(ws);
+        if (string.Equals(own, local, StringComparison.OrdinalIgnoreCase)) return own;
+        return IsReachable(ResolveFolder(ws, settings)) ? own : local;
+    }
+
+    public List<AdvanceRequest> Load(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var own = OwnFile(ws, settings);
+        var local = LocalFile(ws);
+        if (string.Equals(own, local, StringComparison.OrdinalIgnoreCase)) return Read(local);
+        if (!IsReachable(ResolveFolder(ws, settings))) return Read(local);   // không vào được server: dùng thư mục ban đầu
+        try
+        {
+            // Đưa bản trên máy lên thư mục update khi: (1) lần đầu (trên mạng chưa có), hoặc (2) bản trên máy MỚI HƠN — tức là đã sửa lúc
+            // không vào được server. File này chỉ máy này ghi (<ws>@<máy>.json) nên đẩy lên không đè sửa của ai khác.
+            if (File.Exists(local))
+            {
+                var ownExists = File.Exists(own);
+                if (!ownExists || File.GetLastWriteTimeUtc(local) > File.GetLastWriteTimeUtc(own).AddSeconds(2))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(own)!);
+                    File.Copy(local, own, overwrite: true);
+                }
+            }
+            return Read(own);
+        }
         catch
         {
-            return new List<AdvanceRequest>(); // file hỏng — bắt đầu lại thay vì không mở được tab
+            MarkUnreachable(ResolveFolder(ws, settings));
+            return Read(local);
         }
     }
 
-    /// <summary>Dấu phiên bản file danh sách (giờ ghi + kích thước) — đổi khi tiến trình khác (BcodeNote.exe / Bcode khác) vừa ghi file của workspace này.
-    /// "" = chưa có file.</summary>
-    public string Stamp(string workspaceName)
+    /// <summary>Dấu phiên bản file đang dùng (giờ ghi + kích thước) — đổi khi BcodeNote / Bcode khác vừa ghi, hoặc khi chuyển giữa server ↔ máy. "" = chưa có file.</summary>
+    public string Stamp(Workspace? ws, Bcode.App.Models.AppSettings? settings)
     {
         try
         {
-            var fi = new FileInfo(FilePath(workspaceName));
-            return fi.Exists ? fi.LastWriteTimeUtc.Ticks + ":" + fi.Length : "";
+            var path = EffectiveFile(ws, settings);
+            var fi = new FileInfo(path);
+            return fi.Exists ? path.Length + ":" + fi.LastWriteTimeUtc.Ticks + ":" + fi.Length : "";
         }
         catch { return ""; }
     }
 
-    public void Save(string workspaceName, List<AdvanceRequest> requests)
+    public void Save(Workspace? ws, Bcode.App.Models.AppSettings? settings, List<AdvanceRequest> requests)
     {
-        var path = FilePath(workspaceName);
+        LastSaveWarning = null;
+        var json = JsonSerializer.Serialize(requests, JsonOptions);
+        var own = OwnFile(ws, settings);
+        var local = LocalFile(ws);
+        if (!string.Equals(own, local, StringComparison.OrdinalIgnoreCase) && IsReachable(ResolveFolder(ws, settings)))
+        {
+            try { WriteAtomic(own, json); return; }
+            catch (Exception ex)
+            {
+                MarkUnreachable(ResolveFolder(ws, settings));
+                LastSaveWarning = "Không ghi được lên thư mục update (" + ex.Message + ") — đã lưu vào thư mục ban đầu trên máy, vào lại được server sẽ tự đưa lên.";
+            }
+        }
+        else if (!string.Equals(own, local, StringComparison.OrdinalIgnoreCase))
+            LastSaveWarning = "Không vào được server — đã lưu vào thư mục ban đầu trên máy (" + LocalFolder + "), vào lại được sẽ tự đưa lên.";
+        // Không vào được server (hoặc dự án chưa có Working Path): lưu vào thư mục ban đầu.
+        WriteAtomic(local, json);
+    }
+
+    private static void WriteAtomic(string path, string json)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         // Ghi ra file tạm rồi thay thế: mất điện/đóng app giữa chừng không làm hỏng danh sách đang có.
-        var tmp = path + ".tmp";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(requests, JsonOptions));
+        var tmp = path + "." + Environment.ProcessId + ".tmp";
+        File.WriteAllText(tmp, json);
         File.Move(tmp, path, overwrite: true);
+    }
+
+    /// <summary>Note của người dùng KHÁC cùng dự án (các file &lt;workspace&gt;@&lt;máy&gt;.json khác trong thư mục) — chỉ đọc.</summary>
+    public record OtherNotes(string Owner, string File, DateTime Modified, List<AdvanceRequest> Requests);
+
+    public List<OtherNotes> LoadOthers(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var list = new List<OtherNotes>();
+        var folder = ResolveFolder(ws, settings);
+        if (string.Equals(folder, LocalFolder, StringComparison.OrdinalIgnoreCase)) return list;   // thư mục cục bộ: không có người khác
+        if (!IsReachable(folder)) return list;   // không vào được server: không chờ UNC timeout
+        var own = OwnFile(ws, settings);
+        var prefix = Safe(ws?.Name ?? "") + "@";
+        try
+        {
+            if (!Directory.Exists(folder)) return list;
+            foreach (var f in Directory.EnumerateFiles(folder, "*.json"))
+            {
+                var name = Path.GetFileNameWithoutExtension(f);
+                if (string.Equals(f, own, StringComparison.OrdinalIgnoreCase) || !name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                list.Add(new OtherNotes(name[prefix.Length..], f, File.GetLastWriteTime(f), Read(f)));
+            }
+        }
+        catch { /* mất mạng — trả những gì đã đọc được */ }
+        return list.OrderByDescending(o => o.Modified).ToList();
+    }
+
+    private static readonly HashSet<string> NotPackages = new(StringComparer.OrdinalIgnoreCase) { "App_Data", "Main", "SQL", "Script", "Web", "Bin", "AdvanceNotes" };
+
+    /// <summary>1 gói update có trong thư mục update của dự án (do bất kỳ ai gen / kéo về).</summary>
+    public record PackageEntry(string Name, string Path, DateTime Modified, bool IsFolder, string? Description, string? Note);
+
+    /// <summary>Thư mục update của dự án = cha của thư mục AdvanceNotes (vd \\...\BMT_FBO\update); không xác định được = Working Path.</summary>
+    public static string? UpdateFolder(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var folder = ResolveFolder(ws, settings);
+        if (!string.Equals(folder, LocalFolder, StringComparison.OrdinalIgnoreCase)) return Path.GetDirectoryName(folder);
+        var working = (ws?.WorkingPath ?? "").Trim();
+        return working.Length > 0 ? working : null;
+    }
+
+    /// <summary>Các gói update trong thư mục update của dự án (thư mục con + file .zip / .rar), mới nhất trước — kèm description.txt / note.txt nếu có.</summary>
+    public List<PackageEntry> ListPackages(Workspace? ws, Bcode.App.Models.AppSettings? settings, int max = 300)
+    {
+        var list = new List<PackageEntry>();
+        var root = UpdateFolder(ws, settings);
+        if (root is null) return list;
+        var advance = ResolveFolder(ws, settings);
+        if (!string.Equals(advance, LocalFolder, StringComparison.OrdinalIgnoreCase) && !IsReachable(advance)) return list;   // không vào được server
+        try
+        {
+            if (!Directory.Exists(root)) return list;
+            foreach (var d in Directory.EnumerateDirectories(root))
+            {
+                if (string.Equals(d.TrimEnd('\\'), advance, StringComparison.OrdinalIgnoreCase)) continue;
+                // Thư mục cấu trúc bị giải nén thẳng vào update (không phải 1 gói) — bỏ qua.
+                if (Path.GetFileName(d) is var n && NotPackages.Contains(n)) continue;
+                static string? Txt(string p) { try { return File.Exists(p) ? File.ReadAllText(p).Trim() : null; } catch { return null; } }
+                list.Add(new PackageEntry(Path.GetFileName(d), d, Directory.GetLastWriteTime(d), true,
+                    Txt(Path.Combine(d, "description.txt")), Txt(Path.Combine(d, "note.txt"))));
+            }
+            foreach (var f in Directory.EnumerateFiles(root))
+            {
+                var ext = Path.GetExtension(f).ToLowerInvariant();
+                if (ext is ".zip" or ".rar" or ".7z")
+                    list.Add(new PackageEntry(Path.GetFileName(f), f, File.GetLastWriteTime(f), false, null, null));
+            }
+        }
+        catch { /* mất mạng */ }
+        return list.OrderByDescending(p => p.Modified).Take(max).ToList();
     }
 
     /// <summary>Tên y/c mới chưa dùng: "Request 1", "Request 2", ...</summary>

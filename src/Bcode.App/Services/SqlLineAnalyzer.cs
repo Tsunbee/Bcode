@@ -60,6 +60,171 @@ public static class SqlLineAnalyzer
     public static HashSet<int> FindSafeLines(string text)
     {
         var normalized = text.Replace("\r\n", "\n").Replace("\r", "\n");
+        var safe = FindSafeLinesByParens(normalized);
+        // Lọc thêm: dòng mà câu lệnh còn DỞ ở cuối dòng (INSERT chưa có SELECT/VALUES/EXEC, UPDATE chưa có SET, CTE chưa có câu chính,
+        // CURSOR FOR chưa có SELECT, UNION/EXCEPT chờ SELECT, IF/WHILE/ELSE chưa có câu thân, BEGIN/END TRY, BEGIN CATCH, MERGE chưa có ;)
+        // — cắt batch ở đó là lỗi cú pháp (đo trên 8.536 store thật: phần lớn bước hỏng rơi vào các dạng này).
+        var incomplete = IncompleteLineEnds(normalized);
+        incomplete.UnionWith(LinesEndingInsideStringOrComment(normalized));
+        safe.RemoveWhere(l => incomplete.Contains(l));
+        return safe;
+    }
+
+    // Mọi token (tên, số, dấu nháy của chuỗi đã mask, toán tử…) — để "từ cuối dòng" đúng: "ON 1 = 0" kết thúc bằng 0, không phải ON.
+    private static readonly Regex Token = new(@"(?<![\w@#$])[A-Za-z_@#$][\w@#$]*|\d[\w.]*|[^\s\w]", RegexOptions.Compiled);
+
+    /// <summary>Dòng (1-based) mà cuối dòng còn nằm trong chuỗi '…' hoặc comment /* … */ chưa đóng — đọc tuần tự (chuỗi chứa "--" / "/*" không làm lệch).</summary>
+    private static HashSet<int> LinesEndingInsideStringOrComment(string text)
+    {
+        var res = new HashSet<int>();
+        bool inStr = false, inBlock = false, inLine = false;
+        var line = 1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            var n = i + 1 < text.Length ? text[i + 1] : '\0';
+            if (c == '\n') { if (inStr || inBlock) res.Add(line); inLine = false; line++; continue; }
+            if (inLine) continue;
+            if (inBlock) { if (c == '*' && n == '/') { inBlock = false; i++; } continue; }
+            if (inStr) { if (c == '\'') { if (n == '\'') i++; else inStr = false; } continue; }
+            if (c == '\'') inStr = true;
+            else if (c == '-' && n == '-') inLine = true;
+            else if (c == '/' && n == '*') { inBlock = true; i++; }
+        }
+        return res;
+    }
+    private static readonly HashSet<string> StatementKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SELECT", "INSERT", "UPDATE", "DELETE", "MERGE", "SET", "DECLARE", "IF", "WHILE", "EXEC", "EXECUTE", "CREATE", "ALTER", "DROP", "TRUNCATE",
+        "PRINT", "RAISERROR", "THROW", "RETURN", "BEGIN", "WAITFOR", "GOTO", "OPEN", "FETCH", "CLOSE", "DEALLOCATE", "COMMIT", "ROLLBACK", "BREAK", "CONTINUE", "WITH",
+    };
+
+    /// <summary>Số dòng (1-based) mà tại cuối dòng câu lệnh đang dở — không được dừng ở đó dù dòng sau mở đầu bằng từ khoá câu mới.</summary>
+    private static HashSet<int> IncompleteLineEnds(string text)
+    {
+        var m = SqlStepPlanner.MaskedCode(text);   // comment + chuỗi → khoảng trắng, đọc tuần tự (đúng cả khi "--" nằm trong chuỗi)
+        var lineEnds = new List<int>();
+        for (var i = 0; i < m.Length; i++) if (m[i] == '\n') lineEnds.Add(i);
+        lineEnds.Add(m.Length);
+
+        var result = new HashSet<int>();
+        string? pending = null;   // INSERT | UPDATE | CTE | CURSOR | SETOP | COND | MERGE
+        var depth = 0;
+        var caseDepth = 0;        // CASE … END ở mức ngoặc 0 (ELSE / END bên trong không phải câu lệnh)
+        var cursorDecl = false;   // đã gặp CURSOR, chờ FOR
+        var curStmt = "";         // từ khoá mở câu lệnh hiện tại (SET NOCOUNT ON: ON cuối dòng không phải JOIN … ON dở)
+        string prev = "", prev2 = "";
+        var li = 0;
+        var tokens = Token.Matches(m).Cast<Match>().ToList();
+        for (var ti = 0; ti <= tokens.Count; ti++)
+        {
+            var pos = ti < tokens.Count ? tokens[ti].Index : int.MaxValue;
+            // Hết các dòng nằm trước token này: ghi trạng thái cuối dòng.
+            while (li < lineEnds.Count && lineEnds[li] < pos)
+            {
+                var up = prev.ToUpperInvariant(); var up2 = prev2.ToUpperInvariant();
+                var dangling = up is "ELSE" or "UNION" or "EXCEPT" or "INTERSECT" or "AND" or "OR" or "NOT" or "THEN" or "WHEN" or "AS" or "FOR"
+                               || (up == "ON" && !curStmt.Equals("SET", StringComparison.OrdinalIgnoreCase))
+                               || (up == "ALL" && up2 == "UNION") || (up == "TRY" && up2 is "BEGIN" or "END");   // khối CATCH rỗng hợp lệ, TRY rỗng thì không
+                if (pending is not null || dangling || depth > 0 || caseDepth > 0) result.Add(li + 1);   // giữa CASE … END: cắt ở đây là thiếu ELSE / phần sau của câu
+                li++;
+            }
+            if (ti == tokens.Count) break;
+
+            var t = tokens[ti].Value;
+            if (t == "(") { depth++; prev2 = prev; prev = t; continue; }
+            if (t == ")") { if (depth > 0) depth--; prev2 = prev; prev = t; continue; }
+            if (depth > 0) continue;
+            if (t == ";") { pending = null; prev2 = prev; prev = t; continue; }
+            var w = t.ToUpperInvariant();
+            var next = ti + 1 < tokens.Count ? tokens[ti + 1].Value : "";
+            if (w == "CASE") { caseDepth++; prev2 = prev; prev = t; continue; }
+            if (w == "END" && caseDepth > 0) { caseDepth--; prev2 = prev; prev = t; continue; }
+            if (caseDepth > 0) { prev2 = prev; prev = t; continue; }   // WHEN / THEN / ELSE của CASE
+            var isStmt = StatementKeywords.Contains(w) && !(w == "UPDATE" && next == "(") && !(w == "INSERT" && prev.Equals("BULK", StringComparison.OrdinalIgnoreCase))
+                         && !(w == "WITH" && next == "(");   // WITH (ROWLOCK) / WITH (NOLOCK): gợi ý bảng, không phải câu mới
+            if (isStmt) curStmt = w;
+            var handled = false;
+            // 1) Câu đang dở chờ phần tiếp theo; gặp câu lệnh khác (không phải phần tiếp) thì coi như câu cũ đã xong.
+            switch (pending)
+            {
+                case "INSERT":
+                    if (w is "SELECT" or "VALUES" or "EXEC" or "EXECUTE" or "DEFAULT") { pending = null; handled = true; }
+                    else if (isStmt && w != "WITH") pending = null;
+                    break;
+                case "UPDATE":
+                    if (w == "SET") { pending = null; handled = true; }
+                    else if (isStmt) pending = null;
+                    break;
+                case "CTE":
+                    if (w is "SELECT" or "DELETE") { pending = null; handled = true; }
+                    else if (w is "INSERT" or "UPDATE" or "MERGE") { pending = w; handled = true; }
+                    else if (isStmt && w != "WITH") pending = null;
+                    break;
+                case "CURSOR": case "SETOP":
+                    if (w == "SELECT") { pending = null; handled = true; }
+                    else if (isStmt) pending = null;
+                    break;
+                case "COND":
+                    if (w == "BEGIN") { pending = null; handled = true; }        // IF … BEGIN: thân là khối (dòng kết thúc bằng BEGIN loại riêng)
+                    else if (w is "IF" or "WHILE") handled = true;              // ELSE IF …: vẫn chờ câu thân
+                    else if (isStmt) pending = null;                             // câu thân bắt đầu — xử lý tiếp như câu mới bên dưới
+                    else handled = true;                                         // còn trong điều kiện
+                    break;
+                case "MERGE":
+                    handled = true;                                              // MERGE chỉ hết ở dấu ;
+                    break;
+                case "ALTERTABLE":                                               // ALTER TABLE #x ⏎ ALTER COLUMN / ADD / DROP …
+                    if (w is "ADD" or "ALTER" or "DROP" or "WITH" or "CHECK" or "NOCHECK" or "ENABLE" or "DISABLE" or "SWITCH" or "SET" or "REBUILD")
+                    { pending = null; handled = true; }
+                    else if (isStmt) pending = null;
+                    break;
+            }
+            // 2) Câu mới bắt đầu.
+            if (!handled)
+                switch (w)
+                {
+                    case "INSERT":
+                        if (isStmt) pending = "INSERT";
+                        break;
+                    case "UPDATE":
+                        if (isStmt && !prev.Equals("FOR", StringComparison.OrdinalIgnoreCase)) pending = "UPDATE";
+                        break;
+                    case "MERGE":
+                        pending = "MERGE";
+                        break;
+                    case "ALTER":
+                        if (next.Equals("TABLE", StringComparison.OrdinalIgnoreCase)) pending = "ALTERTABLE";
+                        break;
+                    case "WITH":
+                        // WITH (NOLOCK) / WITH TIES / WITH ROLLUP… không phải CTE; CTE = WITH tên … AS (
+                        if (next != "(" && Regex.IsMatch(next, @"^[A-Za-z_\[#]") &&
+                            !Regex.IsMatch(next, @"^(TIES|ROLLUP|CUBE|NOWAIT|LOG|RECOMPILE|ENCRYPTION|EXECUTE|SCHEMABINDING|CHECK|NOCHECK|VALUES|ROWLOCK|NOLOCK|TABLOCK|XLOCK|UPDLOCK|RESULT)$", RegexOptions.IgnoreCase))
+                            pending = "CTE";
+                        break;
+                    case "DECLARE":
+                        cursorDecl = false;
+                        break;
+                    case "CURSOR":
+                        cursorDecl = true;                                       // DECLARE c CURSOR … FOR SELECT; DECLARE @c CURSOR thì không có FOR
+                        break;
+                    case "FOR":
+                        if (cursorDecl) { pending = "CURSOR"; cursorDecl = false; }
+                        break;
+                    case "UNION": case "EXCEPT": case "INTERSECT":
+                        pending = "SETOP";
+                        break;
+                    case "IF": case "WHILE": case "ELSE":
+                        pending = "COND";
+                        break;
+                }
+            prev2 = prev; prev = t;
+        }
+        return result;
+    }
+
+    private static HashSet<int> FindSafeLinesByParens(string normalized)
+    {
         var commentMask = MaskComments(normalized);
         var fullMask = MaskCommentsAndStrings(normalized, commentMask);
         var lines = normalized.Split('\n');

@@ -71,6 +71,18 @@ public partial class FileLookupControl : UserControl
     /// <summary>Chuột phải file controller → "Sơ đồ phụ thuộc…" (full path).</summary>
     public event Action<string>? DependencyRequested;
 
+    /// <summary>Chuột phải file Grid / Dir (.f / .xml trong Controllers\Grid|Dir) → "Tạo cấu trúc API…" (full path): MainForm dựng cấu trúc rồi mở màn Tạo cấu trúc API.</summary>
+    public event Action<string>? ApiSchemaRequested;
+
+    /// <summary>Như <see cref="ApiSchemaRequested"/> nhưng "Tạo khai báo API…": đưa cấu trúc thành form trong Khai báo API.</summary>
+    public event Action<string>? ApiDeclareRequested;
+
+    /// <summary>File controller Grid / Dir (thư mục cha tên Grid hoặc Dir, đuôi .f / .xml) — dựng được cấu trúc API từ table="…" của nó.</summary>
+    internal static bool IsApiSchemaSource(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".f" or ".xml"
+        && Path.GetFileName(Path.GetDirectoryName(path) ?? "") is var dir
+        && (dir.Equals("Grid", StringComparison.OrdinalIgnoreCase) || dir.Equals("Dir", StringComparison.OrdinalIgnoreCase));
+
     public FileLookupControl(FileLookupService service, ScriptFileService scriptFileService, AppSettings settings)
     {
         _service = service;
@@ -190,6 +202,11 @@ public partial class FileLookupControl : UserControl
             _fileContextMenu.Items.Add(new ToolStripSeparator());
             if (_tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } depFile)
                 _fileContextMenu.Items.Add("Sơ đồ phụ thuộc…", null, (_, _) => DependencyRequested?.Invoke(depFile.FullPath));
+            if (_tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } apiFile && IsApiSchemaSource(apiFile.FullPath))
+            {
+                if (ApiSchemaRequested is not null) _fileContextMenu.Items.Add("Tạo cấu trúc API…", null, (_, _) => ApiSchemaRequested?.Invoke(apiFile.FullPath));
+                if (ApiDeclareRequested is not null) _fileContextMenu.Items.Add("Tạo khai báo API…", null, (_, _) => ApiDeclareRequested?.Invoke(apiFile.FullPath));
+            }
             _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
             _fileContextMenu.Items.Add("Cấp source (tự động theo phiên bản)...", null, (_, _) => BeginInvoke(new Action(ShowGrantSourceDialog)));

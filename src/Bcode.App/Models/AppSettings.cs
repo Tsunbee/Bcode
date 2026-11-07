@@ -41,6 +41,14 @@ public class AppSettings
     /// <summary>Thư mục phát hành bản Bcode mới (thư mục build có bcode-version.json, thường trên ổ mạng) — Bcode tự kiểm tra lúc mở; trống = không kiểm tra.</summary>
     public string ReleaseFolder { get; set; } = "";
 
+    /// <summary>Nơi lưu Advance Note (Note New) — để nhiều người cùng thấy note/update của nhau. Nhận ô giữ chỗ: {working} = Working Path của dự án,
+    /// {project} = Project ID (hoặc tên), {ws} = tên workspace. Trống = mặc định "{working}\AdvanceNotes"; dự án chưa khai Working Path thì về %AppData%\Bcode\AdvanceNotes.
+    /// Khai lại trong Settings → Giao diện (Template). Ví dụ: <c>\\172.168.5.14\CustomerUpdate\{project}\update\AdvanceNotes</c>.</summary>
+    public string AdvanceNotesPath { get; set; } = "";
+
+    /// <summary>Tab FSG FBO (Ctrl+4): đang bật "🏷 Tên field" (nhãn tên field trên mọi ô / cột) — nhớ cho lần mở sau.</summary>
+    public bool FboShowFieldNames { get; set; }
+
     /// <summary>Đường dẫn tới Config.xml của chính FCode (thường ở
     /// "...\FCode\Config\Config.xml") — Ctrl+F5 tra ở đây TRƯỚC để lấy đúng server thật của
     /// từng dự án (SQL2008/2014/2016/... khác nhau tuỳ dự án, không phải lúc nào cũng giống

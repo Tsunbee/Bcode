@@ -114,6 +114,7 @@
     <button id="btnAiAnalyze" title="AI đọc y/c đang chọn và viết lại theo mẫu luật Fast (danh mục, các trường, lookup, bắt buộc nhập…) — bạn sửa / xác nhận ở Tạo nhanh danh mục rồi luật Fast mới tạo. Cần API key — Ctrl+Alt+Shift+I">🔎 AI phân tích</button>
     <button id="btnAiCatalog" title="Bản thử: AI đọc nội dung y/c đang chọn, nếu là y/c tạo danh mục mới thì mở Tạo nhanh danh mục điền sẵn để duyệt (không tự ghi file / chạy SQL)">🤖 AI tạo danh mục</button>
     <button id="btnNoteHub" style="display:none" title="Mở BcodeNote — Note (New) cho nhiều dự án, chọn menu để gợi ý các ô — vào sẵn dự án đang chọn (dùng chung dữ liệu với tab này)">🗂 Nhiều dự án</button>
+    <button id="btnTeam" style="display:none" title="Xem note của người khác cùng dự án và các gói update trong thư mục update của dự án (chỉ đọc; chép được y/c về note của bạn)">👥 Cả nhóm</button>
     <span class="grow"></span>
     <span id="status"></span>
   </div>
@@ -694,6 +695,7 @@
   }
   $('btnBrowse').onclick = () => post('browseFiles');
   $('btnNoteHub').onclick = () => { flushSave(); post('noteHub'); };
+  $('btnTeam').onclick = () => { flushSave(); post('team'); };
 
   // ---- Host gọi vào -------------------------------------------------------------------------------
   window.advNote = {
@@ -705,6 +707,7 @@
       const pkg = state.pkg || {};
       S.machine = pkg.machine || ''; $('gZip').checked = !!pkg.zip; $('gNet').checked = !!pkg.net; $('gNetRoot').value = pkg.netRoot || ''; showNetRow();
       $('btnNoteHub').style.display = state.noteHub ? '' : 'none';
+      $('btnTeam').style.display = state.team ? '' : 'none';
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
       select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
     },

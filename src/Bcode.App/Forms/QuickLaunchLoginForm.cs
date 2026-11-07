@@ -29,7 +29,7 @@ namespace Bcode.App.Forms;
 /// đăng nhập khác dạng, auto-fill sẽ không tìm thấy ô nhập và form báo "Không tìm thấy khung
 /// đăng nhập chuẩn" thay vì tự đoán sai, để Bee tự đăng nhập tay ngay trên cửa sổ này.
 /// </summary>
-public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
+public partial class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
 {
     private readonly Workspace _ws;
     private readonly AppSettings _settings;
@@ -44,6 +44,10 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
     private readonly Bcode.App.Controls.PillButton _btnLogin = Bcode.App.Controls.PillButton.Flat("▶ Đăng nhập", primary: true);
 
     private readonly Bcode.App.Controls.PillButton _btnCapture = Bcode.App.Controls.PillButton.Flat("Lưu HTML form");
+    private Bcode.App.Controls.PillButton _btnFields = null!;
+    private Action<bool> _setLoginBar = _ => { };
+    // Đăng nhập xong thì tự ẩn hàng đăng nhập 1 lần (người dùng bấm hiện lại thì giữ); quay về trang đăng nhập (hết phiên) thì tự hiện lại.
+    private bool _loginBarAutoHidden;
 
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     // F12 (phím fbo.devtools trong Setting → Phím tắt): DevTools gắn bên phải trang như Chrome, thay cho cửa sổ nổi mặc định của WebView2.
@@ -234,24 +238,52 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         var btnBack = Pill("◀", "Quay lại (Alt+←)");
         var btnForward = Pill("▶", "Tiến tới (Alt+→)");
         var btnReload = Pill("⟳", "Tải lại (F5)");
-        var btnToggleLogin = Pill("▲ Ẩn đăng nhập", "Ẩn / hiện hàng đăng nhập để trang web rộng hơn");
+        var btnToggleLogin = Pill("▲ Ẩn đăng nhập", "Ẩn / hiện hàng đăng nhập để trang web rộng hơn (đăng nhập xong tự ẩn)");
         btnToggleLogin.Margin = new Padding(6, 0, 0, 0);
+        // Hiện tên MỌI field (nhãn vàng trên từng ô / tiêu đề cột, kể cả trong dialog / iframe) — không cần rê chuột. Nhớ trạng thái.
+        _btnFields = Pill(_settings.FboShowFieldNames ? "🏷 Tên field ✓" : "🏷 Tên field", "Bật / tắt nhãn tên field trên mọi ô nhập và tiêu đề cột của trang (rê chuột vẫn xem được như cũ)");
+        _btnFields.Margin = new Padding(6, 0, 0, 0);
+        _btnFields.Click += async (_, _) =>
+        {
+            _settings.FboShowFieldNames = !_settings.FboShowFieldNames;
+            AppSettings.Update(s => s.FboShowFieldNames = _settings.FboShowFieldNames);
+            _btnFields.Text = _settings.FboShowFieldNames ? "🏷 Tên field ✓" : "🏷 Tên field";
+            await PushShowFieldsAsync();
+        };
+        // Điền dữ liệu mẫu vào các ô TRỐNG của form đang mở, lấy từ dữ liệu có thật trong database của dự án (chỉ đọc) — không tự lưu.
+        var btnSample = Pill("🎲 Điền mẫu", "Điền các ô đang TRỐNG của chứng từ / danh mục đang mở bằng dữ liệu có sẵn trong database của dự án: mã lấy từ danh mục tương ứng (dmkh, dmvt, dmtk…), ngày = hôm nay, số / chữ lấy giá trị đã có. Chỉ đọc database, không tự bấm Lưu.");
+        btnSample.Click += async (_, _) => await FillSampleAsync();
+        _setLoginBar = visible =>
+        {
+            topBar.Visible = visible;
+            btnToggleLogin.Text = visible ? "▲ Ẩn đăng nhập" : "▼ Hiện đăng nhập";
+        };
         _txtUrl.Margin = Mid(_txtUrl, 0, 0);
         _txtUrl.Dock = DockStyle.Fill;
         var navBar = new TableLayoutPanel
         {
-            Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 5, RowCount = 1,
+            Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 7, RowCount = 1,
             Padding = new Padding(8, 3, 8, 5), BackColor = Bcode.App.UI.AppColors.PanelAlt,
         };
         for (var i = 0; i < 3; i++) navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         navBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        for (var i = 0; i < 3; i++) navBar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         navBar.RowStyles.Add(new RowStyle(SizeType.Absolute, rowH));
         navBar.Controls.Add(btnBack, 0, 0);
         navBar.Controls.Add(btnForward, 1, 0);
         navBar.Controls.Add(btnReload, 2, 0);
         navBar.Controls.Add(_txtUrl, 3, 0);
-        navBar.Controls.Add(btnToggleLogin, 4, 0);
+        navBar.Controls.Add(_btnFields, 4, 0);
+        // "▾" cạnh Điền mẫu: mẫu điền có tên (lưu nhiều mẫu / form, dùng chung cả nhóm) — xem QuickLaunchLoginForm.Templates.cs
+        var btnSampleMenu = Pill("▾", "Mẫu điền đã lưu của form đang mở: điền theo mẫu (vd \"Hóa đơn bán – chiết khấu\"), lưu form hiện tại thành mẫu, đổi tên / xoá. Mẫu lưu chung cho cả nhóm theo dự án.");
+        btnSampleMenu.Margin = new Padding(2, 0, 0, 0);
+        btnSampleMenu.Click += async (_, _) => await ShowTemplateMenuAsync(btnSampleMenu);
+        var sampleBox = new FlowLayoutPanel { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = false, Margin = btnSample.Margin, Padding = Padding.Empty, BackColor = Color.Transparent };
+        btnSample.Margin = Padding.Empty;
+        sampleBox.Controls.Add(btnSample);
+        sampleBox.Controls.Add(btnSampleMenu);
+        navBar.Controls.Add(sampleBox, 5, 0);
+        navBar.Controls.Add(btnToggleLogin, 6, 0);
         // ThemeManager đặt lại màu nền cho control khi đổi theme / khi form vào tab: giữ nền thanh = màu thanh công cụ.
         void KeepBarColor() { navBar.BackColor = Bcode.App.UI.AppColors.PanelAlt; }
         navBar.HandleCreated += (_, _) => BeginInvoke(new Action(KeepBarColor));
@@ -261,11 +293,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         btnBack.Click += (_, _) => { if (_web.CoreWebView2?.CanGoBack == true) _web.CoreWebView2.GoBack(); };
         btnForward.Click += (_, _) => { if (_web.CoreWebView2?.CanGoForward == true) _web.CoreWebView2.GoForward(); };
         btnReload.Click += (_, _) => _web.CoreWebView2?.Reload();
-        btnToggleLogin.Click += (_, _) =>
-        {
-            topBar.Visible = !topBar.Visible;
-            btnToggleLogin.Text = topBar.Visible ? "▲ Ẩn đăng nhập" : "▼ Hiện đăng nhập";
-        };
+        btnToggleLogin.Click += (_, _) => _setLoginBar(!topBar.Visible);
         _txtUrl.KeyDown += (_, e) =>
         {
             if (e.KeyCode != Keys.Enter) return;
@@ -301,7 +329,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
             Bcode.App.UI.UiScale.BindZoom(_web);
             _web.CoreWebView2.Settings.IsScriptEnabled = true;
             // Rê chuột lên ô / cột / grid: tooltip tên field, tên bảng, file filter; Shift+click copy (như extension Chrome "Tiện ích FBO").
-            await FboFieldInspector.AttachAsync(_web.CoreWebView2);
+            await FboFieldInspector.AttachAsync(_web.CoreWebView2, OnFboFormSaved);   // bấm Lưu trên form FBO → giữ mẫu "Lần lưu gần nhất"
             // Bắt phím DevTools ở tầng WebView2 (trước khi trình duyệt tự mở cửa sổ DevTools nổi). Phím tắt bị tắt trong Setting thì F12 như mặc định của WebView2.
             if (Bcode.App.UI.WebViewEnvironment.ControllerOf(_web) is { } controller)
             {
@@ -321,6 +349,8 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
                 if (!_txtUrl.Focused) _txtUrl.Text = _web.CoreWebView2.Source;
             };
             _web.CoreWebView2.NavigationCompleted += async (_, _) => await CheckMenuPageAsync();
+            // Mọi lần nạp trang: đồng bộ nhãn tên field; nhận ra đã đăng nhập (kể cả đăng nhập tay) → tự ẩn hàng đăng nhập.
+            _web.CoreWebView2.NavigationCompleted += async (_, e) => { if (e.IsSuccess) { await PushShowFieldsAsync(); await DetectLoginStateAsync(); } };
             _web.CoreWebView2.NewWindowRequested += OnNewWindowRequested;
 
             if (_popup)
@@ -432,6 +462,42 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
 
     private bool _menuNavigatedOnce;
 
+    /// <summary>Đăng nhập xong thì ẩn hàng đăng nhập — chỉ tự ẩn 1 lần mỗi phiên đăng nhập, người dùng bấm "▼ Hiện đăng nhập" thì giữ hiện.</summary>
+    private void AutoHideLoginBar()
+    {
+        if (_loginBarAutoHidden || IsDisposed) return;
+        _loginBarAutoHidden = true;
+        if (InvokeRequired) BeginInvoke(() => _setLoginBar(false)); else _setLoginBar(false);
+    }
+
+    /// <summary>Sau mỗi lần nạp trang: đang ở trang trong site (…/Main/…, không phải Login.aspx, không có khung đăng nhập) = đã đăng nhập → tự ẩn hàng đăng nhập;
+    /// bị đưa về trang đăng nhập (hết phiên / đăng xuất) → hiện lại để gõ User / Pass.</summary>
+    private async Task DetectLoginStateAsync()
+    {
+        if (_loggingIn || _web.CoreWebView2 is null) return;
+        try
+        {
+            var src = _web.CoreWebView2.Source ?? "";
+            if (!src.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return;
+            var hasLoginBox = await _web.ExecuteScriptAsync("!!document.getElementById('LoginExtender_txtUserName')") == "true";
+            if (hasLoginBox || src.Contains("login.aspx", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_loginBarAutoHidden) { _loginBarAutoHidden = false; _setLoginBar(true); }
+                return;
+            }
+            if (src.Contains("/Main/", StringComparison.OrdinalIgnoreCase)) { _loggedIn = true; AutoHideLoginBar(); }
+        }
+        catch { /* trang đang chuyển — bỏ qua lần này */ }
+    }
+
+    /// <summary>Đồng bộ nhãn "🏷 Tên field" cho trang vừa nạp (mọi frame) theo trạng thái nút.</summary>
+    private async Task PushShowFieldsAsync()
+    {
+        if (_web.CoreWebView2 is null) return;
+        try { await _web.ExecuteScriptAsync($"window.__bcodeShowFields && window.__bcodeShowFields({(_settings.FboShowFieldNames ? "true" : "false")})"); }
+        catch { /* trang đang chuyển */ }
+    }
+
     /// <summary>Sau khi đi tới URL menu: vào được trang menu = phiên còn (đánh dấu đã đăng nhập); bị đẩy về trang đăng nhập = phiên hết hạn
     /// → tự đăng nhập lại (có sẵn User/Pass) rồi quay lại menu. Chỉ thử lại 1 lần cho tới khi vào được menu, tránh lặp khi sai mật khẩu.</summary>
     private async Task CheckMenuPageAsync()
@@ -449,6 +515,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
         {
             _loggedIn = true;
             _reloginTried = false;
+            AutoHideLoginBar();
             return;
         }
 
@@ -602,6 +669,7 @@ public class QuickLaunchLoginForm : Bcode.App.UI.DpiForm
             _loggedIn = true;
             _loggingIn = false;
             SetStatus("Đã đăng nhập.");
+            AutoHideLoginBar();
             await GoToPendingMenuAsync();
         }
         catch (Exception ex)

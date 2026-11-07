@@ -359,7 +359,10 @@ public class RawSqlService
                 catch (SqlException ex)
                 {
                     var errorLines = new List<string>();
-                    foreach (SqlError err in ex.Errors)
+                    // ex.Errors có cả thông điệp PRINT / mức ≤ 10 đi kèm (vd "__BCODE_WATCH__") — đó không phải lỗi, đã có trong tab Message.
+                    var realErrors = ex.Errors.Cast<SqlError>().Where(e => e.Class > 10).ToList();
+                    if (realErrors.Count == 0) realErrors = ex.Errors.Cast<SqlError>().ToList();
+                    foreach (var err in realErrors)
                     {
                         errorLines.Add(DescribeError(err, batch, startLine, batchNo, batches.Count, batches));
                     }

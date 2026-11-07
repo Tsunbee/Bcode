@@ -43,9 +43,9 @@ public class AdvanceNoteControl : UserControl
     /// (BcodeNote.exe / cửa sổ Bcode khác cùng sửa Note (New) của dự án này). Trả true nếu vừa nạp lại.</summary>
     private bool EnsureLoaded()
     {
-        var stamp = _store.Stamp(WorkspaceName);
+        var stamp = _store.Stamp(_workspace(), _settings);
         if (_loadedFor == WorkspaceName && _requests is not null && stamp == _loadedStamp) return false;
-        _requests = _store.Load(WorkspaceName);
+        _requests = _store.Load(_workspace(), _settings);
         _loadedFor = WorkspaceName;
         _loadedStamp = stamp;
         return true;
@@ -53,8 +53,8 @@ public class AdvanceNoteControl : UserControl
 
     private void SaveList()
     {
-        _store.Save(WorkspaceName, _requests);
-        _loadedStamp = _store.Stamp(WorkspaceName);
+        _store.Save(_workspace(), _settings, _requests);
+        _loadedStamp = _store.Stamp(_workspace(), _settings);
     }
 
     private static string J(object? o) => JsonSerializer.Serialize(o, AdvanceNoteService.Json);
@@ -75,6 +75,7 @@ public class AdvanceNoteControl : UserControl
             pkg = new { zip = opts.Zip, net = opts.Network, netRoot = opts.NetworkRoot, machine = Environment.MachineName },
             programmer = _settings?.NoteProgrammer ?? "",
             noteHub = NoteHubRequested is not null,   // nút "🗂 Nhiều dự án" chỉ hiện ở Bcode (BcodeNote.exe không nối event này)
+            team = TeamRequested is not null,         // nút "👥 Cả nhóm": note người khác + gói update trong thư mục update của dự án
             requests = _requests,
         })})");
         _ = PushTableNamesAsync();
@@ -257,6 +258,10 @@ public class AdvanceNoteControl : UserControl
                     NoteHubRequested?.Invoke();
                     break;
 
+                case "team":
+                    TeamRequested?.Invoke();
+                    break;
+
                 case "browseFiles":
                     BrowseFiles();
                     break;
@@ -312,6 +317,12 @@ public class AdvanceNoteControl : UserControl
 
     /// <summary>Nút "🗂 Nhiều dự án": MainForm mở BcodeNote.exe vào dự án đang chọn (trang đã lưu phần đang gõ trước khi gửi).</summary>
     public event Action? NoteHubRequested;
+
+    /// <summary>Nút "👥 Cả nhóm": mở tab xem note của người khác + gói update của dự án (TeamNotesControl).</summary>
+    public event Action? TeamRequested;
+
+    /// <summary>Nạp lại danh sách từ file (vd vừa chép 1 y/c của người khác về) — chỉ khi file đã đổi.</summary>
+    public void ReloadIfChanged() { if (EnsureLoaded()) SendInit(); }
 
     /// <summary>Phím tắt note.aiCatalog: bấm nút "AI tạo danh mục" của trang (trang tự lưu + lấy y/c đang chọn).</summary>
     public void RequestAiCatalog() => Js("window.advNote && advNote.aiCatalog && advNote.aiCatalog()");

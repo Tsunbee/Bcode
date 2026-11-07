@@ -45,6 +45,15 @@ public class WCommandTreeControl : UserControl
     /// <summary>Menu "Sơ đồ phụ thuộc…": mở tab sơ đồ từ menu đang chọn (menu con, file controller, procedure / bảng trong các file đó).</summary>
     public event Action<WCommandItem>? DependencyRequested;
 
+    /// <summary>Menu "Tạo cấu trúc API…": dựng cấu trúc API (bảng Dir + Grid chi tiết của menu) rồi mở màn Tạo cấu trúc API đang chọn đúng API đó.</summary>
+    public event Action<WCommandItem>? ApiSchemaRequested;
+
+    /// <summary>Menu "Tạo khai báo API…": dựng cấu trúc như trên rồi đưa thẳng thành form trong Khai báo API.</summary>
+    public event Action<WCommandItem>? ApiDeclareRequested;
+
+    /// <summary>Menu "Gen nhanh menu": mở Note (New) nhiều dự án (BcodeNote.exe) ở đúng dự án + menu này, tự hiện gợi ý Gen All / File / SQL Object / Table.</summary>
+    public event Action<WCommandItem>? QuickGenRequested;
+
     private void RequestRequirements()
     {
         if (IsMenuTable || _tree.SelectedNode is not { Tag: WCommandItem item } node) return;
@@ -197,6 +206,9 @@ public class WCommandTreeControl : UserControl
                 .AddSeparator()
                 .Add("Yêu cầu liên quan (QLYC)…", RequestRequirements, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.requirements"), enabled: hasSelection && RequirementsRequested is not null)
                 .Add("Sơ đồ phụ thuộc…", () => { if (SelectedItem is { } it) DependencyRequested?.Invoke(it); }, enabled: hasSelection && DependencyRequested is not null)
+                .Add("Tạo cấu trúc API…", () => { if (SelectedItem is { SysId.Length: > 0 } it) ApiSchemaRequested?.Invoke(it); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 } && ApiSchemaRequested is not null)
+                .Add("Tạo khai báo API…", () => { if (SelectedItem is { SysId.Length: > 0 } it) ApiDeclareRequested?.Invoke(it); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 } && ApiDeclareRequested is not null)
+                .Add("Gen nhanh menu", () => { if (SelectedItem is { } it) QuickGenRequested?.Invoke(it); }, enabled: _tree.SelectedNode?.Tag is WCommandItem qg && (!string.IsNullOrWhiteSpace(qg.SysId) || !string.IsNullOrWhiteSpace(qg.Link)) &&QuickGenRequested is not null)
                 .AddSeparator()
                 .Add("Check WCommand", async () => await CheckWCommandAsync())
                 .Add("Gen Script Menu", async () => await GenScriptMenuAsync(), shortcut: "F12", enabled: hasSelection)

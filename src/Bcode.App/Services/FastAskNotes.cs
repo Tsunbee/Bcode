@@ -16,6 +16,13 @@ public static class FastAskNotes
 
     public static string Dir => Path.Combine(KnowledgePaths.Root, "fastask", "notes");
 
+    /// <summary>Kiến thức hỏi đáp lấy từ forum (forum FRD / TK2 Help…) KHÔNG dùng nữa: file / nhóm có tên forum, diễn đàn, FRD bị bỏ khi nạp — giữ các bảng tra
+    /// khác (vd mã lỗi HĐĐT). File forum cũ vẫn nằm trong thư mục notes (không tự xoá), chỉ là Hỏi Fast không đọc.</summary>
+    public static bool IsForum(string s) => Regex.IsMatch(FastAskService.Fold(s ?? ""), @"\b(forum|frd|dien dan|tk2[ _]?help)\b");
+
+    /// <summary>Mục kèm link bài forum gốc (…/forum/…, …frd…, TK2_HELP).</summary>
+    private static bool IsForumLink(string s) => Regex.IsMatch(s ?? "", @"https?://\S*(forum|frd|tk2_?help)", RegexOptions.IgnoreCase);
+
     private static (string Key, List<Note> Notes)? _cache;
 
     /// <summary>Dấu thay đổi của thư mục (để kho tìm kiếm dựng lại khi nạp file mới).</summary>
@@ -45,16 +52,23 @@ public static class FastAskNotes
                 if (Directory.Exists(Dir))
                     foreach (var f in Directory.GetFiles(Dir, "*.json"))
                     {
-                        using var doc = JsonDocument.Parse(File.ReadAllText(f));
-                        var r = doc.RootElement;
-                        var topic = r.TryGetProperty("topic", out var t) ? t.GetString() ?? "" : Path.GetFileNameWithoutExtension(f);
-                        var source = r.TryGetProperty("source", out var s) ? s.GetString() ?? "" : Path.GetFileName(f);
-                        var i = 0;
-                        foreach (var n in r.GetProperty("notes").EnumerateArray())
+                        try
                         {
-                            string P(string name) => n.TryGetProperty(name, out var v) ? v.GetString() ?? "" : "";
-                            res.Add(new Note($"{Path.GetFileNameWithoutExtension(f)}#{i++}", topic, P("group"), P("code"), P("title"), P("detail"), source));
+                            using var doc = JsonDocument.Parse(File.ReadAllText(f));
+                            var r = doc.RootElement;
+                            var topic = r.TryGetProperty("topic", out var t) ? t.GetString() ?? "" : Path.GetFileNameWithoutExtension(f);
+                            var source = r.TryGetProperty("source", out var s) ? s.GetString() ?? "" : Path.GetFileName(f);
+                            if (IsForum(Path.GetFileNameWithoutExtension(f) + " " + topic + " " + source)) continue;   // cả file là bài forum → bỏ
+                            var i = 0;
+                            foreach (var n in r.GetProperty("notes").EnumerateArray())
+                            {
+                                string P(string name) => n.TryGetProperty(name, out var v) ? v.GetString() ?? "" : "";
+                                var note = new Note($"{Path.GetFileNameWithoutExtension(f)}#{i++}", topic, P("group"), P("code"), P("title"), P("detail"), source);
+                                if (IsForum(note.Group) || IsForumLink(P("url") + " " + P("link") + " " + note.Detail)) continue;   // mục lấy từ forum nằm lẫn trong file khác
+                                res.Add(note);
+                            }
                         }
+                        catch { /* 1 file hỏng → bỏ file đó, đọc tiếp file khác */ }
                     }
             }
             catch { /* file hỏng → bỏ qua phần còn lại */ }

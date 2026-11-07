@@ -19,10 +19,17 @@ public partial class ApiSchemaBuilderForm : ThemedForm
     // Dự án đang mở: khoá file lưu các API đã tạo (ApiSchemaStore) + Source Path để tìm controller Dir / tên tiếng Việt của bảng.
     private readonly string _wsKey;
     private readonly string _sourcePath;
+    // Tra bảng → menu wcommand (sysid = controller của tên hàm "Set<sysid>"); null = chỉ theo controller Dir trong source.
+    private readonly TableMenuService? _tableMenus;
     private bool _webReady, _savedOnClose;
 
-    public ApiSchemaBuilderForm(SqlObjectBrowserService sqlObjectService, TableDataService tableDataService, Workspace? workspace = null)
+    /// <summary>Dòng thông báo hiện khi mở (chuột phải menu / file → "Tạo cấu trúc API…": API vừa dựng, ghi chú).</summary>
+    private readonly string _startInfo;
+
+    public ApiSchemaBuilderForm(SqlObjectBrowserService sqlObjectService, TableDataService tableDataService, Workspace? workspace = null, TableMenuService? tableMenus = null, string? startInfo = null)
     {
+        _tableMenus = tableMenus;
+        _startInfo = startInfo ?? "";
         _sqlObjectService = sqlObjectService;
         _tableDataService = tableDataService;
         _wsKey = workspace is null ? "" : (workspace.Name.Length > 0 ? workspace.Name : workspace.AppDatabase ?? "");
@@ -58,6 +65,7 @@ public partial class ApiSchemaBuilderForm : ThemedForm
                 await _web.CoreWebView2.ExecuteScriptAsync(saved is null ? "window.initFirstApi()"
                     : $"window.initApis({JsonSerializer.Serialize(saved, Bcode.App.Services.Api.ApiSchemaStore.Json)})");
                 _webReady = true;
+                if (_startInfo.Length > 0) await _web.CoreWebView2.ExecuteScriptAsync($"window.setInfo && window.setInfo({JsonSerializer.Serialize(_startInfo)})");
                 // Danh sách bảng của cả App và Sys cho ô lọc / gợi ý bảng (tải song song, không chặn giao diện).
                 _ = LoadTablesAsync(false);
                 _ = LoadTablesAsync(true);
@@ -132,6 +140,15 @@ public partial class ApiSchemaBuilderForm : ThemedForm
                         ExportWord(apisProp, root.TryGetProperty("hideSource", out var hs) && hs.ValueKind == JsonValueKind.True);
                     }
                     break;
+                case "table-info":
+                {
+                    // Nút ↻ Tự đặt: tra lại menu / controller của bảng (không nạp lại cột — giữ phần đã sửa).
+                    var isSysInfo = GetBooleanDb(root, "db");
+                    var tbl = root.TryGetProperty("table", out var tiProp) ? tiProp.GetString() ?? "" : "";
+                    var colNames = root.TryGetProperty("cols", out var cnProp) && cnProp.ValueKind == JsonValueKind.Array ? cnProp.EnumerateArray().Select(x => x.GetString() ?? "").ToList() : new List<string>();
+                    if (tbl.Length > 0) await PushTableInfoAsync((isSysInfo ? "1" : "0") + "|" + tbl, tbl, colNames);
+                    break;
+                }
                 case "save":
                     if (root.TryGetProperty("state", out var stProp)) SaveState(stProp.GetRawText());
                     break;
@@ -221,14 +238,22 @@ public partial class ApiSchemaBuilderForm : ThemedForm
             var json = JsonSerializer.Serialize(list);
             await _web.CoreWebView2.ExecuteScriptAsync($"window.setColumns({json}, {JsonSerializer.Serialize(key)})");
 
-            // Sau đó (source trên ổ mạng có thể chậm): controller Dir của bảng → tên hàm "Set<controller>", tên tiếng Việt từng cột.
-            var info = await Bcode.App.Services.Api.ApiSchemaStore.TableInfoAsync(_sourcePath, rawTable, names);
-            if (IsDisposed || _web.CoreWebView2 is null) return;
-            var payload = JsonSerializer.Serialize(new { controller = info.Controller, others = info.Others, vi = info.Vi, func = Bcode.App.Services.Api.ApiSchemaStore.FuncName(info.Controller.Length > 0 ? info.Controller : table) },
-                Bcode.App.Services.Api.ApiSchemaStore.Json);
-            await _web.CoreWebView2.ExecuteScriptAsync($"window.setTableInfo({JsonSerializer.Serialize(key)}, {payload})");
+            // Sau đó (source trên ổ mạng có thể chậm): menu dùng bảng → sysid → tên hàm "Set<sysid>", tên tiếng Việt từng cột.
+            await PushTableInfoAsync(key, rawTable, names);
         }
         catch { }
+    }
+
+    /// <summary>Controller của bảng (= sysid của menu dùng bảng, không có thì controller Dir) + tên tiếng Việt → trang (window.setTableInfo).</summary>
+    private async Task PushTableInfoAsync(string key, string rawTable, IEnumerable<string> names)
+    {
+        var table = rawTable.Replace("[", "").Replace("]", "");
+        if (table.LastIndexOf('.') is var dot and >= 0) table = table[(dot + 1)..];
+        var info = await Bcode.App.Services.Api.ApiSchemaStore.TableInfoAsync(_sourcePath, rawTable, names, _tableMenus);
+        if (IsDisposed || _web.CoreWebView2 is null) return;
+        var payload = JsonSerializer.Serialize(new { controller = info.Controller, others = info.Others, vi = info.Vi, menu = info.Menu, func = Bcode.App.Services.Api.ApiSchemaStore.FuncName(info.Controller.Length > 0 ? info.Controller : table) },
+            Bcode.App.Services.Api.ApiSchemaStore.Json);
+        await _web.CoreWebView2.ExecuteScriptAsync($"window.setTableInfo({JsonSerializer.Serialize(key)}, {payload})");
     }
 
     /// <param name="hideSource">true = bản gửi đối tác: không có dòng "Bảng DB", cột Bảng nguồn / Cột CSDL — mỗi trường định nghĩa bằng tên tiếng Việt.</param>

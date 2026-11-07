@@ -124,7 +124,9 @@ class BcodeAutoView {
     const blocks = /<fields\b[^>]*>([\s\S]*?)<\/fields>/g;
     let b;
     while ((b = blocks.exec(masked))) {
-      const base = b.index + b[0].length - b[1].length;
+      // Nội dung khối bắt đầu ngay sau thẻ mở <fields …> (b[1] KHÔNG nằm cuối b[0] — sau nó còn "</fields>", lệch 9 ký tự thì
+      // thẻ <field> của field khai trước bị coi là chưa đóng mãi: f.ma_kho chỉ sinh view cho ten_kho%l).
+      const base = b.index + b[0].indexOf('>') + 1;
       re.lastIndex = 0;
       const m = re.exec(b[1]);
       if (!m) continue;

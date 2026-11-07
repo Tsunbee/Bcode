@@ -18,6 +18,7 @@ namespace Bcode.App.Services;
 /// <item>Từ điển field Fast (header.xml — <see cref="FieldDictionaryService"/>, field dùng trong source dự án — <see cref="SourceFieldIndex"/>).</item>
 /// <item>Luật danh mục (Tạo nhanh danh mục "Theo luật Fast").</item>
 /// <item>Quy ước khi viết / chạy store Fast (%Partition, %[ ]%, #report sysorder, @Key, SET NOCOUNT…).</item>
+/// <item>Chức năng của chính Bcode (<see cref="BcodeFeatureCatalog"/>): nút / menu / phím thật + Trợ giúp — "menu X ở đâu", "muốn làm Y thì mở gì".</item>
 /// </list>
 /// Trạng thái hội thoại (đang ở bước nào của "tạo báo cáo"…) do trang giữ và gửi kèm mỗi câu — dịch vụ không nhớ gì giữa các lần hỏi.
 /// </summary>
@@ -100,6 +101,7 @@ public sealed class FastAskService
     {
         new("Tạo báo cáo", "tạo báo cáo"), new("Tạo danh mục", "tạo danh mục"), new("Viết store / function", "viết store"),
         new("Cấu trúc bảng / JOIN", "cấu trúc bảng"), new("Tra trường (field)", "tra trường"), new("Quy ước Fast", "quy ước fast"),
+        new("Chức năng Bcode", "bcode có những chức năng gì"),
     };
 
     // ---------------------------------------------------------------- 8. quy ước Fast
@@ -364,8 +366,8 @@ public sealed class FastAskService
 
     private static (string Stamp, FastAskIndex Index)? _noteIndex;
 
-    /// <summary>Kho tìm kiếm riêng của bảng tra nạp thêm (lỗi HĐĐT, forum…) — tách khỏi kho chính: hàng nghìn bài forum dài chứa "kho", "thẻ kho"…
-    /// sẽ làm lệch trọng số từ (IDF) khi xếp báo cáo / menu. Dựng lại khi thư mục notes đổi.</summary>
+    /// <summary>Kho tìm kiếm riêng của bảng tra nạp thêm (lỗi HĐĐT…) — tách khỏi kho chính để diễn giải dài không làm lệch trọng số từ (IDF)
+    /// khi xếp báo cáo / menu. Dựng lại khi thư mục notes đổi. Bài hỏi đáp forum đã bỏ (xem <see cref="FastAskNotes.IsForum"/>).</summary>
     private static FastAskIndex NoteIndex()
     {
         var stamp = FastAskNotes.Stamp;
@@ -389,7 +391,7 @@ public sealed class FastAskService
     {
         var all = FastAskNotes.Merged;
         if (all.Count == 0) return null;
-        var errorish = Regex.IsMatch(f, @"\b(loi|ma loi|error|hddt|hoa don dien tu|chung thu|ky so|token|hsm|may tinh tien|cqt|tct|co quan thue|tong cuc thue|phat hanh|cap ma|to khai|cap nhat|thong tu|nghi dinh|huong dan|forum|frd|bao loi|sua loi)\b");
+        var errorish = Regex.IsMatch(f, @"\b(loi|ma loi|error|hddt|hoa don dien tu|chung thu|ky so|token|hsm|may tinh tien|cqt|tct|co quan thue|tong cuc thue|phat hanh|cap ma|to khai|cap nhat|thong tu|nghi dinh|huong dan|bao loi|sua loi)\b");
         var codes = Regex.Matches(text, @"\b\d{3,6}\b").Select(m => m.Value).ToHashSet();
         var byCode = all.Where(n => codes.Contains(n.Code)).ToList();
         if (byCode.Count > 0 && (errorish || Regex.IsMatch(f, @"^\s*\d{3,6}\s*$")))
@@ -404,8 +406,8 @@ public sealed class FastAskService
         var hits = await Task.Run(() => NoteIndex().Search(text, 8));
         if (hits.Count == 0) return null;
         // chỉ nhận khi bài khớp đủ: tiêu đề + nội dung chứa ≥ 50% từ của câu (bỏ từ chung) — "hướng dẫn tạo báo cáo" không bị bảng tra giành;
-        // tiêu đề cũng phải chứa ≥ 30% — bài forum dài (nội dung + trả lời) dễ chứa đủ từ của tên báo cáo ("tờ khai thuế TNDN tạm tính")
-        var qt = FastAskIndex.Terms(text).Where(t => !t.Contains('_') && !Regex.IsMatch(t, "^(loi|ma|hddt|cap|nhat|huong|dan|bao|sua|forum|frd)$")).Distinct().ToList();
+        // tiêu đề cũng phải chứa ≥ 30% — diễn giải dài dễ chứa đủ từ của tên báo cáo ("tờ khai thuế TNDN tạm tính")
+        var qt = FastAskIndex.Terms(text).Where(t => !t.Contains('_') && !Regex.IsMatch(t, "^(loi|ma|hddt|cap|nhat|huong|dan|bao|sua)$")).Distinct().ToList();
         var best = all.FirstOrDefault(n => n.Id == hits[0].Doc.Key);
         if (best is null) return null;
         if (qt.Count > 0 && (qt.Count(FastAskIndex.Terms(best.Title + " " + best.Detail + " " + best.Group).ToHashSet().Contains) < 0.5 * qt.Count
@@ -534,11 +536,17 @@ public sealed class FastAskService
         }
 
         if (f.Length == 0 || Regex.IsMatch(f, @"^(xin chao|chao|hello|hi|help|tro giup|\?)$"))
-            return Reply("Mình tra kiến thức Fast có sẵn trong Bcode (mẫu code, ma trận ghost text, store / bảng của database đang kết nối, từ điển field, luật danh mục, quy ước Fast) — không gọi AI. Bạn cần gì?",
+            return Reply("Mình tra kiến thức Fast có sẵn trong Bcode (mẫu code, ma trận ghost text, store / bảng của database đang kết nối, từ điển field, luật danh mục, quy ước Fast) "
+                         + "và chức năng của chính Bcode (\"menu tra ảnh lỗi ở đâu\", \"muốn chuyển excel sang frx\") — không gọi AI. Bạn cần gì?",
                 choices: StartChoices);
 
         _ = IndexAsync(useSys);   // dựng kho tìm kiếm ở nền ngay lượt đầu
         _ = Task.Run(NoteIndex);
+        // hỏi về chính Bcode: "menu tra ảnh lỗi ở đâu", "muốn chuyển excel sang frx", "xem procedure được dùng ở đâu", "so sánh object" → chức năng + chỗ nằm + nút mở.
+        // Câu muốn TẠO báo cáo / danh mục ("tạo báo cáo …") vẫn vào luồng Fast (thẻ chức năng Bcode thêm ở cuối — AskAsync); câu có tên store / hàm Fast thì để Fast tra.
+        var fastCreate = Regex.IsMatch(f, @"^\s*(tao|lam|viet|dung|xay dung|them|can|muon)\b.*\b(bao cao|report|danh muc|catalog|store|function|ham)\b")
+                         || Regex.IsMatch(text, @"\b([A-Za-z_]\w*\$[A-Za-z][\w$]*|z?rs_\w+|f[sf]_\w+)\b");
+        if (await Task.Run(() => BcodeFeatureCatalog.Answer(text, allowImplicit: !fastCreate)) is { } bcodeReply) return bcodeReply;
         // câu hỏi đếm / liệt kê / thông tin dự án ("có bao nhiêu danh mục trên chương trình", "liệt kê các báo cáo", "dự án này dùng database nào")
         if (await StatsAsync(f, useSys) is { } stats) return stats;
         // mã lỗi / nội dung lỗi trong bảng tra đã nạp (vd lỗi hoá đơn điện tử)
@@ -720,6 +728,10 @@ public sealed class FastAskService
         // vừa bấm ✘ → câu tiếp theo là nội dung sửa
         if (state.GetValueOrDefault("flow") == "fix" && !string.IsNullOrWhiteSpace(text)) return SaveCorrection(text.Trim(), state);
         var r = await AskCoreAsync(text, state, useSys, ct);
+        // câu tự do (không đang trả lời 1 bước hỏi lại) khớp khá rõ 1 chức năng Bcode mà trả lời Fast chưa có → thêm thẻ chức năng đó ở cuối (vd "tạo báo cáo")
+        if (!state.ContainsKey("flow") && !text.Contains(':') && r.Cards.All(c => c.Source != BcodeFeatureCatalog.Source)
+            && await Task.Run(() => BcodeFeatureCatalog.Suggest(text)) is { } bcodeCard)
+            r = r with { Cards = r.Cards.Append(bcodeCard).ToList() };
         return ApplyFeedback(r, r.Sig.Length > 0 ? r.Sig : SigOf(text));
     }
 
@@ -1580,7 +1592,7 @@ public sealed class FastAskService
         // thêm từ tiếng Anh tương ứng (Glossary) để khớp tên store không có menu
         var ix = await IndexAsync(useSys);
         var query = text + " " + string.Join(" ", Stems(f));
-        // bảng tra nạp thêm (lỗi HĐĐT, bài forum) xếp chung nhưng nhẹ hơn (x0,7): tiêu đề bài forum dễ trùng tên báo cáo / menu
+        // bảng tra nạp thêm (lỗi HĐĐT) xếp chung nhưng nhẹ hơn (x0,7): tiêu đề mục tra dễ trùng tên báo cáo / menu
         var hits = ix.Search(query, 12, d => d.Kind != "field")
             .Concat(NoteIndex().Search(query, 4).Select(h => (h.Doc, Score: h.Score * 0.7)))
             .OrderByDescending(h => h.Item2).Take(12).ToList();
@@ -1600,6 +1612,7 @@ public sealed class FastAskService
                 if (IndexCard(d, useSys) is { } c && cards.All(x => x.Title != c.Title)) cards.Add(c);
             cards = cards.Take(6).ToList();
         }
+        if (cards.Count == 0 && BcodeFeatureCatalog.Fallback(text) is { } bcodeHelp) return bcodeHelp;   // không có kiến thức Fast → chức năng / Trợ giúp Bcode
         if (cards.Count == 0)
             return Reply("Mình chưa tìm thấy kiến thức khớp câu này. Thử hỏi theo các nhóm dưới, hoặc gõ tên bảng / tên store / tên hàm Fast.", choices: StartChoices);
         var reportish = Regex.IsMatch(f, @"\b(so chi tiet|so cai|bang ke|nhat ky|tong hop|so du|the kho|ton kho|cong no|doanh thu)\b");

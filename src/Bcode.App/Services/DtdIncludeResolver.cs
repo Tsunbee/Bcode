@@ -58,6 +58,33 @@ internal sealed class DtdIncludeResolver
         return new Result(texts, values);
     }
 
+    /// <summary>Như <see cref="Result.Texts"/> nhưng phần tử [0] (cả DTD có hiệu lực) được thay bằng giá trị của những &lt;!ENTITY X "..."&gt; thường mà
+    /// file THỰC SỰ dùng: &amp;X; xuất hiện trong thân / file include nạp vào thân, hoặc trong giá trị của entity khác đã được dùng (lần tiếp tới khi hết).
+    /// .ent dùng chung khai sẵn script cho nhiều chứng từ — Include\CompactMode.ent (gần như mọi Filter/Grid đều gọi %CompactMode;) có
+    /// &lt;!ENTITY ScriptGridShowFlowSRDetail "... g.showForm('SRInvoiceFilter') ... 'SRBillFilter' ..."&gt; mà chỉ Grid\SRDetail dùng; dò cả DTD thì
+    /// menu nào gọi CompactMode.ent cũng kéo theo SRInvoice/SRIssue/SRPhysical/SRBill (KOG, menu rptTrialBalance). FCode chỉ thay entity được gọi.</summary>
+    public static List<string> UsedTexts(Result res)
+    {
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        var pending = new Stack<string>();
+        void Scan(string text)
+        {
+            foreach (Match m in GeneralRefRegex.Matches(text))
+                if (res.Values.ContainsKey(m.Groups[1].Value) && used.Add(m.Groups[1].Value)) pending.Push(m.Groups[1].Value);
+        }
+        for (var i = 1; i < res.Texts.Count; i++) Scan(res.Texts[i]);
+        var literals = new StringBuilder();
+        while (pending.Count > 0)
+        {
+            var value = res.Values[pending.Pop()];
+            literals.Append(value).Append('\n');
+            Scan(value);
+        }
+        var texts = new List<string>(res.Texts.Count) { literals.ToString() };
+        texts.AddRange(res.Texts.Skip(1));
+        return texts;
+    }
+
     private string? ReadFile(string path)
     {
         if (_fileCache.TryGetValue(path, out var t)) return t;

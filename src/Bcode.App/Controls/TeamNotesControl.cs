@@ -100,7 +100,10 @@ public sealed class TeamNotesControl : UserControl
             {
                 project = ws?.Name ?? "", folder, update = update ?? "", local, error,
                 packages,
-                others = others.Select(o => new { o.Owner, o.Modified, Requests = o.Requests.OrderBy(r => r.Done).ThenByDescending(r => r.Updated ?? r.Begin) }),
+                // Note của chính máy này đứng đầu (mine = true) — để thấy cả y/c của mình cạnh note người khác; các nút ở trang khác đi cho nhóm này.
+                others = (mine.Count > 0 ? new[] { new NoteGroup(AdvanceNoteService.Owner, ModifiedOf(AdvanceNoteService.EffectiveFile(ws, _settings)), true, mine) } : Array.Empty<NoteGroup>())
+                    .Concat(others.Select(o => new NoteGroup(o.Owner, o.Modified, false, o.Requests)))
+                    .Select(o => new { o.Owner, o.Modified, o.Mine, Requests = o.Requests.OrderBy(r => r.Done).ThenByDescending(r => r.Updated ?? r.Begin) }),
             });
         });
         if (v != _version || IsDisposed) return;
@@ -144,6 +147,10 @@ public sealed class TeamNotesControl : UserControl
         catch (Exception ex) { Js($"team.toast({JsonSerializer.Serialize("Lỗi: " + ex.Message)})"); }
     }
 
+    private sealed record NoteGroup(string Owner, DateTime Modified, bool Mine, List<AdvanceRequest> Requests);
+
+    private static DateTime ModifiedOf(string path) { try { return File.GetLastWriteTime(path); } catch { return DateTime.MinValue; } }
+
     public void Toast(string message) => Js($"team.toast({JsonSerializer.Serialize(message)})");
 
     /// <summary>Dán y/c (owner, id) vào note của máy này để sửa rồi gen: đã có bản dán trước (tên "&lt;tên&gt; (từ &lt;owner&gt;)…", chưa Done) thì dùng lại bản đó
@@ -151,6 +158,13 @@ public sealed class TeamNotesControl : UserControl
     /// File note của người kia không bị đụng tới.</summary>
     public (string? Id, string Message) CopyForEdit(string owner, string id)
     {
+        if (string.Equals(owner, AdvanceNoteService.Owner, StringComparison.OrdinalIgnoreCase))
+        {
+            // Y/c của chính mình (nhóm "tôi"): không chép — mở thẳng y/c đó ở Note (New).
+            var own = _store.Load(_workspace(), _settings).FirstOrDefault(r => r.Id == id);
+            return own is null ? (null, "Không tìm thấy y/c (đã bị sửa / xoá?) — bấm Tải lại.")
+                : (own.Id, $"Mở \"{own.Name}\" — xem gói, bổ sung chỗ còn thiếu rồi bấm ⚙ Generate Update.");
+        }
         var src = _others.FirstOrDefault(o => o.Owner == owner)?.Requests.FirstOrDefault(r => r.Id == id);
         if (src is null) return (null, "Không tìm thấy y/c (đã bị sửa / xoá?) — bấm Tải lại.");
         var ws = _workspace();

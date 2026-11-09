@@ -63,7 +63,7 @@
     <div class="det" id="pkDet"></div>
   </div>
   <div class="col">
-    <h3>Note của người khác <span class="n" id="ntCount"></span>
+    <h3>Note cả nhóm <span class="n" id="ntCount"></span>
       <span class="tools">
         <select id="prog" title="Chỉ hiện y/c của lập trình này (dòng &quot;Lập trình: …&quot; trong nội dung y/c do Sync yêu cầu ghi; y/c không có dòng đó tính theo lập trình chính của file note)"><option value="">Lập trình: (tất cả)</option></select>
         <button id="bExpand" title="Bung tất cả người">⊞ Bung</button>
@@ -121,14 +121,16 @@
       o.requests.forEach((r) => { if (!r._prog) r._prog = o._progs[0] || ''; });
     }
   }
+  // Y/c tạo tay (không Sync từ QLYC) trong file không có dòng "Lập trình:" nào → không biết lập trình: gom vào mục NO_PROG để vẫn lọc / thấy được.
+  // Không nhớ lựa chọn lọc giữa các lần mở tab — lọc cũ còn đó từng làm cả file note toàn y/c tạo tay bị ẩn mà không biết.
+  const NO_PROG = '\u0001';
   function fillProgs() {
     const cnt = {};
-    S.others.forEach((o) => o.requests.forEach((r) => { if (r._prog) cnt[r._prog] = (cnt[r._prog] || 0) + 1; }));
-    // Lần đầu mở tab: chọn lại lập trình đã lọc lần trước (nếu còn trong dữ liệu).
-    let cur = $('prog').value;
-    if (!fillProgs.done) { fillProgs.done = true; try { cur = localStorage.getItem('teamProg') || ''; } catch (e) { } }
+    S.others.forEach((o) => o.requests.forEach((r) => { const k = r._prog || NO_PROG; cnt[k] = (cnt[k] || 0) + 1; }));
+    const cur = $('prog').value;
     $('prog').innerHTML = '<option value="">Lập trình: (tất cả)</option>' +
-      Object.keys(cnt).sort().map((p) => '<option value="' + esc(p) + '">' + esc(p) + ' (' + cnt[p] + ')</option>').join('');
+      Object.keys(cnt).filter((p) => p !== NO_PROG).sort().map((p) => '<option value="' + esc(p) + '">' + esc(p) + ' (' + cnt[p] + ')</option>').join('') +
+      (cnt[NO_PROG] ? '<option value="' + NO_PROG + '">(chưa rõ lập trình — y/c tạo tay) (' + cnt[NO_PROG] + ')</option>' : '');
     $('prog').value = cnt[cur] ? cur : '';
   }
 
@@ -148,7 +150,7 @@
     const prog = $('prog').value;
     const filtering = !!(prog || $('q').value.trim());
     for (const o of S.others) {
-      const reqs = o.requests.filter((r) => (!prog || r._prog === prog) &&
+      const reqs = o.requests.filter((r) => (!prog || (r._prog || NO_PROG) === prog) &&
         match([o.owner, r._prog, r.name, r.content, r.note, r.genAll, r.filePaths, r.procedures, r.proceduresSys].join(' ')));
       total += o.requests.length; shown += reqs.length;
       if (!reqs.length) continue;
@@ -156,7 +158,7 @@
       const open = filtering || isOpen(o);
       const pending = o.requests.filter((r) => !r.done).length;
       html += '<div class="grp" data-o="' + esc(o.owner) + '" title="Bấm để ' + (open ? 'thu gọn' : 'bung') + (filtering ? ' (đang lọc: luôn bung người có kết quả)' : '') + '">' +
-        '<span class="tw">' + (open ? '▾' : '▸') + '</span>🖥 ' + esc(o.owner) +
+        '<span class="tw">' + (open ? '▾' : '▸') + '</span>🖥 ' + esc(o.owner) + (o.mine ? ' <span class="owner">tôi</span>' : '') +
         (o._progs.length ? ' <span class="prog" title="Lập trình (theo dòng &quot;Lập trình:&quot; trong nội dung y/c)">👤 ' + esc(o._progs.slice(0, 3).join(', ')) + (o._progs.length > 3 ? '…' : '') + '</span>' : '') +
         ' <span class="muted" style="font-weight:normal">· cập nhật ' + fmt(o.modified) + ' · ' + (reqs.length !== o.requests.length ? reqs.length + '/' : '') + o.requests.length + ' y/c' +
         (pending ? ' · ' + pending + ' chưa xong' : '') + '</span></div>';
@@ -196,10 +198,12 @@
     };
     const gens = (r.generations || []).map((g) => '<div><span class="link" data-gen="' + esc(g.path) + '">' + esc(g.path) + '</span> <span class="muted">' + fmt(g.time) + '</span></div>').join('');
     $('ntDet').innerHTML = '<div class="t" style="font-weight:600">' + esc(r.name) + ' <span class="owner">' + esc(f.o.owner) + '</span>' + (r._prog ? ' <span class="prog">👤 ' + esc(r._prog) + '</span>' : '') + '</div>' +
-      '<div class="acts" style="margin-top:.35rem">' +
+      '<div class="acts" style="margin-top:.35rem">' + (f.o.mine
+        // Note của chính mình: không cần chép / xem chỉ đọc — mở thẳng y/c ở Note (New) + Xem trước gói.
+        ? '<button data-a="gen" class="primary" title="Mở y/c này ở Note (New) của bạn và tự Xem trước gói — bổ sung chỗ còn thiếu rồi bấm ⚙ Generate Update ở đó">⚙ Tạo gói update…</button></div>' :
       '<button data-a="gen" class="primary" title="KHÔNG tạo gói ngay: dán y/c này (Gen All, File Path, SQL Object, script, table…) vào Note (New) của bạn thành y/c &quot;' + esc(r.name) + ' (từ ' + esc(f.o.owner) + ')&quot;, mở ra và tự Xem trước gói — bạn xem còn thiếu gì, bổ sung, rồi bấm ⚙ Generate Update ở Note (New). Đã dán trước đó thì mở lại bản đã dán. Note của ' + esc(f.o.owner) + ' không bị sửa.">⚙ Tạo gói update…</button>' +
       '<button data-a="note" title="Mở note của ' + esc(f.o.owner) + ' ở tab Note (New) (chỉ đọc), chọn sẵn y/c này — chỉ để xem; muốn bổ sung rồi gen thì dùng ⚙ Tạo gói update…">📝 Xem ở Note (New)</button>' +
-      '<button data-a="clone" title="Chép y/c này vào Note (New) của bạn để sửa / gen lại">＋ Chép về note của tôi</button></div>' +
+      '<button data-a="clone" title="Chép y/c này vào Note (New) của bạn để sửa / gen lại">＋ Chép về note của tôi</button></div>') +
       block('Request Content', r.content) + block('Note', r.note) + block('Gen All', r.genAll) + block('File Path', r.filePaths) +
       block('SQL Object (App)', r.procedures) + block('SQL Object (Sys)', r.proceduresSys) +
       block('Top Script (App)', r.topScript) + block('Bottom Script (App)', r.bottomScript) +
@@ -221,7 +225,8 @@
     if (selNt !== it.dataset.k) openBlocks = new Set();
     selNt = it.dataset.k; renderNt();
   });
-  $('prog').addEventListener('change', () => { try { localStorage.setItem('teamProg', $('prog').value); } catch (e) { } renderNt(); });
+  $('prog').addEventListener('change', () => renderNt());
+  try { localStorage.removeItem('teamProg'); } catch (e) { }   // bản trước có nhớ lọc lập trình — bỏ
   $('bExpand').onclick = () => { expanded = new Set(S.others.map((o) => o.owner)); saveExpanded(); renderNt(); };
   $('bCollapse').onclick = () => { expanded = new Set(); saveExpanded(); renderNt(); };
   $('pkDet').addEventListener('click', (e) => {

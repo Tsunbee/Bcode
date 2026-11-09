@@ -83,7 +83,9 @@ internal sealed class FileParseCache
     // 8: "tpl" thay entity nằm giữa tên (reportFile="GLTranReport_01&Conditional.GLTranReport.ApprovedBy;" → GLTranReport_01, GLTranReport_01_a)
     //    + kind mới "rptctl" (form Report khai controller="GLTranReport" → Report\GLTranReport.xml).
     // 9: ShowFormRegex / form=X nhận tên có "$" (g.showForm('zduyetSMBC$Create')) — kết quả "rel" cũ thiếu các form đó.
-    private const int SchemaVersion = 9;
+    // 10: "rel"/"lkp"/"rptctl" chỉ dò giá trị <!ENTITY X "..."> mà file thật sự gọi &X; (DtdIncludeResolver.UsedTexts) thay vì cả DTD — kết quả cũ
+    //     thừa SRInvoice/SRIssue/SRPhysical/SRBill ở mọi menu gọi %CompactMode; (khai ScriptGridShowFlowSRDetail mà chỉ Grid\SRDetail dùng).
+    private const int SchemaVersion = 10;
     private const int MaxEntries = 100_000;
     public const int PruneDays = 60;
     private static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(3);

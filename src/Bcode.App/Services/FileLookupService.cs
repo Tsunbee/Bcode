@@ -818,7 +818,7 @@ public class FileLookupService
     {
         var found = new List<string>();
         if (!ScannableExtensions.Contains(Path.GetExtension(filePath)) || read(filePath) is not { } content) return found;
-        var (texts, entities) = DtdIncludeResolver.Resolve(filePath, content, read);
+        var (texts, entities) = ResolveUsed(filePath, content, read);
         foreach (var text in texts)
         {
             foreach (Match m in ControllerAttrRegex.Matches(text))
@@ -829,6 +829,14 @@ public class FileLookupService
         return found;
     }
 
+    /// <summary>DtdIncludeResolver.Resolve nhưng phần DTD chỉ còn giá trị entity được gọi tới (<see cref="DtdIncludeResolver.UsedTexts"/>):
+    /// khai báo nằm sẵn trong .ent dùng chung mà file không gọi thì không tính là "file này mở form / dùng controller đó".</summary>
+    private static (List<string> Texts, Dictionary<string, string> Values) ResolveUsed(string filePath, string content, Func<string, string?> read)
+    {
+        var res = DtdIncludeResolver.Resolve(filePath, content, read);
+        return (DtdIncludeResolver.UsedTexts(res), res.Values);
+    }
+
     private static List<string> ExtractRelatedControllerNames(string filePath, Func<string, string?> read)
     {
         var found = new List<string>();
@@ -837,10 +845,11 @@ public class FileLookupService
         // unreadable/locked — just skip discovering related controllers from it
         if (read(filePath) is not { } content) return found;
 
-        var (texts, entities) = DtdIncludeResolver.Resolve(filePath, content, read);
+        var (texts, entities) = ResolveUsed(filePath, content, read);
         for (var t = 0; t < texts.Count; t++)
         {
-            // texts[0] = phần DTD có hiệu lực, texts[1] = thân chính file này, sau đó là file include (xem DtdIncludeResolver.Resolve).
+            // texts[0] = giá trị các entity thường file này thật sự gọi (KHÔNG phải cả DTD — xem DtdIncludeResolver.UsedTexts), texts[1] = thân chính file này,
+            // sau đó là file include (xem DtdIncludeResolver.Resolve).
             var text = t <= 1 && texts[t].Contains("]]>&", StringComparison.Ordinal)
                 ? CdataEntityRegex.Replace(texts[t], m => entities.TryGetValue(m.Groups[1].Value, out var v) ? ExpandEntities(v, entities) : m.Value)
                 : texts[t];
@@ -1131,7 +1140,7 @@ public class FileLookupService
     {
         var found = new List<string>();
         if (!ScannableExtensions.Contains(Path.GetExtension(reportFilePath)) || read(reportFilePath) is not { } content) return found;
-        var (texts, entities) = DtdIncludeResolver.Resolve(reportFilePath, content, read);
+        var (texts, entities) = ResolveUsed(reportFilePath, content, read);
         foreach (var text in texts)
             foreach (Match tag in ReportFormTagRegex.Matches(text))
                 if (ControllerAttrRegex.Match(tag.Value) is { Success: true } m && ExpandName(m.Groups[1].Value, entities) is { } name)

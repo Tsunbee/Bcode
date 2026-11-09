@@ -121,7 +121,7 @@ Bcode.App/
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
 │   ├── TableEditControl.cs  2346
-│   ├── TeamNotesControl.cs  182
+│   ├── TeamNotesControl.cs  196
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
 │   ├── WCommandTreeControl.cs  958
@@ -277,7 +277,7 @@ Bcode.App/
 │   ├── DependencyGraphService.cs  803
 │   ├── DesignFieldsGenerator.cs  125
 │   ├── DiffService.cs  295
-│   ├── DtdIncludeResolver.cs  196
+│   ├── DtdIncludeResolver.cs  223
 │   ├── DynamicSqlInspector.cs  120
 │   ├── EInvoiceSetupService.cs  371
 │   ├── EntityCheckService.cs  263
@@ -299,8 +299,8 @@ Bcode.App/
 │   ├── FboSampleTemplateService.cs  136
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FileLookupService.cs  1521
-│   ├── FileParseCache.cs  406
+│   ├── FileLookupService.cs  1530
+│   ├── FileParseCache.cs  408
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  662
 │   ├── FsgProjectLookupService.cs  679
@@ -485,7 +485,7 @@ Bcode.App/
 │       ├── stringbeauty.html  189
 │       ├── tablebar.html  326
 │       ├── tablestruct.html  139
-│       ├── teamnotes.html  270
+│       ├── teamnotes.html  275
 │       ├── topbar.html  203
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33

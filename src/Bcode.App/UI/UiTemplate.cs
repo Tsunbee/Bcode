@@ -333,9 +333,71 @@ public sealed class UiTemplate
     {
         var key = (family, size, bold);
         if (!_fonts.TryGetValue(key, out var f))
-            _fonts[key] = f = new Font(family, size, bold ? FontStyle.Bold : FontStyle.Regular);
+            _fonts[key] = f = new Font(UnicodeFamily(family), size, bold ? FontStyle.Bold : FontStyle.Regular);
         return f;
     }
+
+    // ---- Font tiếng Việt mã cũ (TCVN3 ".VnArial", ".VnTime"…; VNI "VNI-Times"…) ----
+    // Các font này đặt chữ Việt mã cũ vào đúng ô của ký tự Latin-1 (U+0080–U+00FF): vẽ chữ Unicode bằng chúng thì "·" (U+00B7) thành "ã",
+    // "×" thành "ì", "à/á/ú/ô…" thành chữ khác — tên tab "FSG FBO · WS" hiện "FSG FBO ã WS". Chữ ngoài Latin-1 (ử, ổ, ớ) vẫn đúng chỉ vì
+    // font không có nên Windows/Chrome mượn font khác. Không sửa được bằng GdiCharSet (lỗi nằm ở bảng mã của chính font) → vẽ bằng
+    // font Unicode cùng dáng (.VnArial → Arial, .VnTime → Times New Roman…). Lựa chọn trong Template giữ nguyên, chỉ lúc dùng mới đổi.
+    private static readonly Dictionary<string, string> _unicodeFamily = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Tên font dùng thật để vẽ chữ Unicode: font tiếng Việt mã cũ (TCVN3/VNI) → font Unicode cùng dáng; font khác giữ nguyên.</summary>
+    public static string UnicodeFamily(string family)
+    {
+        if (string.IsNullOrWhiteSpace(family)) return family;
+        lock (_unicodeFamily)
+        {
+            if (_unicodeFamily.TryGetValue(family, out var cached)) return cached;
+            var result = IsLegacyVietnameseFont(family) ? LegacyLookAlike(family) : family;
+            _unicodeFamily[family] = result;
+            return result;
+        }
+    }
+
+    // Tên kiểu ".Vn…" / "VNI-…" / "VN…" VÀ font không có chữ Việt Unicode (ơ, ạ) — font Unicode tên "VN…" (có đủ chữ Việt) không bị đổi.
+    private static bool IsLegacyVietnameseFont(string family)
+    {
+        var name = family.Trim();
+        if (!(name.StartsWith(".vn", StringComparison.OrdinalIgnoreCase) || name.StartsWith("vn", StringComparison.OrdinalIgnoreCase))) return false;
+        try
+        {
+            using var f = new Font(name, 10f);
+            var hdc = CreateCompatibleDC(IntPtr.Zero);
+            if (hdc == IntPtr.Zero) return true;
+            var hfont = f.ToHfont();
+            try
+            {
+                var old = SelectObject(hdc, hfont);
+                var glyphs = new ushort[2];
+                var ok = GetGlyphIndicesW(hdc, "ơạ", 2, glyphs, 1 /* GGI_MARK_NONEXISTING_GLYPHS */) != -1;
+                SelectObject(hdc, old);
+                return !ok || glyphs[0] == 0xFFFF || glyphs[1] == 0xFFFF;
+            }
+            finally { DeleteObject(hfont); DeleteDC(hdc); }
+        }
+        catch { return true; }
+    }
+
+    private static string LegacyLookAlike(string family)
+    {
+        var n = family.ToLowerInvariant();
+        if (n.Contains("arial") || n.Contains("helve") || n.Contains("univer") || n.Contains("swiss")) return "Arial";
+        if (n.Contains("time") || n.Contains("roman") || n.Contains("dutch")) return "Times New Roman";
+        if (n.Contains("cour")) return "Courier New";
+        if (n.Contains("tahoma")) return "Tahoma";
+        if (n.Contains("verdana")) return "Verdana";
+        return DefaultFontFamily;
+    }
+
+    [System.Runtime.InteropServices.DllImport("gdi32.dll")] private static extern IntPtr CreateCompatibleDC(IntPtr hdc);
+    [System.Runtime.InteropServices.DllImport("gdi32.dll")] private static extern bool DeleteDC(IntPtr hdc);
+    [System.Runtime.InteropServices.DllImport("gdi32.dll")] private static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
+    [System.Runtime.InteropServices.DllImport("gdi32.dll")] private static extern bool DeleteObject(IntPtr obj);
+    [System.Runtime.InteropServices.DllImport("gdi32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int GetGlyphIndicesW(IntPtr hdc, string text, int count, ushort[] glyphs, int flags);
 
     public static string? KindOf(Control c) => c switch
     {
@@ -390,7 +452,7 @@ public sealed class UiTemplate
         var v = new Dictionary<string, string>();
         var t = Current;
         if (!t.FontFamily.Equals(DefaultFontFamily, StringComparison.OrdinalIgnoreCase))
-            v["--ui-font"] = $"\"{t.FontFamily}\", \"Segoe UI\", sans-serif";
+            v["--ui-font"] = $"\"{UnicodeFamily(t.FontFamily)}\", \"Segoe UI\", sans-serif";
         if (Math.Abs(t.FontSize - DefaultFontSize) > 0.01f) v["--ui-font-size"] = Px(t.FontSize);
 
         void Add(string kind, string prefix, bool bg, bool weight)
@@ -427,7 +489,7 @@ public sealed class UiTemplate
     {
         var css = new Dictionary<string, string>();
         if (s is null) return css;
-        if (!string.IsNullOrWhiteSpace(s.FontFamily)) css["fontFamily"] = $"\"{s.FontFamily}\", \"Segoe UI\", sans-serif";
+        if (!string.IsNullOrWhiteSpace(s.FontFamily)) css["fontFamily"] = $"\"{UnicodeFamily(s.FontFamily)}\", \"Segoe UI\", sans-serif";
         if (s.FontSize is { } sz) css["fontSize"] = Px(sz);
         if (s.Bold is { } b) css["fontWeight"] = b ? "700" : "400";
         if (ParseColor(s.ForeColor) is { } fg) css["color"] = ColorTranslator.ToHtml(fg);

@@ -193,6 +193,8 @@ Bcode.App/
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
 │   ├── UiTemplateForm.cs  813
+│   ├── VoucherCloneForm.cs  541
+│   ├── VoucherPreviewForm.cs  64
 │   ├── WCommandDuplicateForm.cs  29
 │   ├── WCommandEditForm.cs  375
 │   ├── WCommandScriptForm.cs  133
@@ -354,6 +356,9 @@ Bcode.App/
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  76
 │   ├── ViewerLauncher.cs  51
+│   ├── VoucherCloneService.cs  1306
+│   ├── VoucherOverlay.cs  62
+│   ├── VoucherSqlScriptService.cs  356
 │   ├── WCommandService.cs  926
 │   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
@@ -475,6 +480,8 @@ Bcode.App/
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1266
 │       ├── usages.html  133
+│       ├── vouchercopy.html  836
+│       ├── voucherview.html  88
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193

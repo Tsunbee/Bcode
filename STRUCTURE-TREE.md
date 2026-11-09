@@ -17,7 +17,7 @@ Bcode.App/
 │   ├── ssms/
 │   └── README.md  17
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  755
+│   ├── AdvanceNoteControl.cs  809
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -48,14 +48,14 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  288
 │   ├── MonacoPreviewControl.Native.cs  137
 │   ├── MultiResultView.cs  330
-│   ├── NativeAdvanceNoteControl.cs  1468
+│   ├── NativeAdvanceNoteControl.cs  1524
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  279
 │   ├── NativeFindBar.cs  65
 │   ├── NativeInputs.cs  304
 │   ├── NativeKit.cs  515
-│   ├── NativeLookupControl.cs  295
+│   ├── NativeLookupControl.cs  384
 │   ├── NativePage.cs  274
 │   ├── NativePages.Api.cs  1066
 │   ├── NativePages.Bars.cs  31
@@ -70,7 +70,7 @@ Bcode.App/
 │   ├── NativePages.Dialogs2.cs  191
 │   ├── NativePages.Dialogs3.cs  199
 │   ├── NativePages.Dialogs4.cs  393
-│   ├── NativePages.EInvoice.cs  180
+│   ├── NativePages.EInvoice.cs  195
 │   ├── NativePages.FileLookup.cs  177
 │   ├── NativePages.FileTools.cs  76
 │   ├── NativePages.GenUpdate.cs  401
@@ -105,7 +105,7 @@ Bcode.App/
 │   ├── SafeTreeView.cs  40
 │   ├── ScriptEditorControl.cs  1132
 │   ├── ScriptEditorControl.EntityIndex.cs  178
-│   ├── SetupEInvoiceControl.cs  164
+│   ├── SetupEInvoiceControl.cs  200
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
 │   ├── SqlObjectTreeControl.cs  649
@@ -245,7 +245,7 @@ Bcode.App/
 │   │   ├── RptXmlBuilder.cs  103
 │   │   └── XsdSchemaWriter.cs  110
 │   ├── AdvanceNoteService.cs  437
-│   ├── AdvancePackageBuilder.cs  179
+│   ├── AdvancePackageBuilder.cs  198
 │   ├── AiCatalogService.cs  581
 │   ├── AiChatService.cs  79
 │   ├── AiHistoryStore.cs  76
@@ -279,7 +279,7 @@ Bcode.App/
 │   ├── DiffService.cs  295
 │   ├── DtdIncludeResolver.cs  223
 │   ├── DynamicSqlInspector.cs  120
-│   ├── EInvoiceSetupService.cs  371
+│   ├── EInvoiceSetupService.cs  375
 │   ├── EntityCheckService.cs  263
 │   ├── ErrorLog.cs  340
 │   ├── ErrorShotService.cs  425
@@ -407,7 +407,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  994
+│       ├── advnote.html  1018
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  906
 │       ├── apischema.html  676
@@ -452,7 +452,7 @@ Bcode.App/
 │       ├── library.html  168
 │       ├── licensekey.html  100
 │       ├── listeditor.html  79
-│       ├── lookup.html  157
+│       ├── lookup.html  252
 │       ├── menupicker.html  191
 │       ├── note.html  51
 │       ├── partitioncheck.html  49
@@ -469,7 +469,7 @@ Bcode.App/
 │       ├── scriptpopup.html  101
 │       ├── scriptviewbar.html  71
 │       ├── searchbox.html  187
-│       ├── setupeinvoice.html  184
+│       ├── setupeinvoice.html  193
 │       ├── shell.css  249
 │       ├── sqleditor.html  1688
 │       ├── sqlhints-help.html  109
@@ -576,8 +576,8 @@ BcodeViewer.App/
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
 │   ├── dock.js  162
-│   ├── editor.js  1886
-│   ├── entity.js  1973
+│   ├── editor.js  1977
+│   ├── entity.js  1979
 │   ├── fastask.js  356
 │   ├── fcode-language.js  451
 │   ├── fieldnotes.js  291
@@ -591,7 +591,7 @@ BcodeViewer.App/
 │   ├── outline.js  239
 │   ├── perfwatch.js  110
 │   ├── problems-worker.js  101
-│   ├── problems.js  1067
+│   ├── problems.js  1070
 │   ├── quickopen.js  184
 │   ├── search.js  335
 │   ├── settings.js  777

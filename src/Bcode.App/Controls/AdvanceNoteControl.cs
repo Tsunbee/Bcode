@@ -421,6 +421,10 @@ public class AdvanceNoteControl : UserControl
                     BrowseFiles();
                     break;
 
+                case "genPaths":
+                    await GeneratePathsAsync(root);
+                    break;
+
                 case "pasteFiles":
                     // File đã Ctrl+C ở Explorer: trên clipboard là danh sách file (CF_HDROP), không có chữ → đọc đường dẫn ở đây rồi chèn vào ô File Path.
                     try
@@ -675,6 +679,56 @@ public class AdvanceNoteControl : UserControl
         Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings),
             network = extra.NetworkPath, webLink = extra.WebLink, errors = extra.Errors })})");
         SendList(null); // làm mới cột Updated
+    }
+
+    /// <summary>
+    /// ⚙ Gen update tất cả / dòng đang chọn ở thẻ File Path: gói CHỈ gồm các đường dẫn trang gửi lên (không Gen All, SQL Object, table, script),
+    /// cùng Save At Path / Folder Name / tuỳ chọn mạng như Generate Update. Ghi link gói vào lịch sử gen của y/c đang mở nhưng KHÔNG đánh Done / Updated
+    /// (gói chưa đủ phần của y/c); đang xem note người khác thì không ghi gì.
+    /// </summary>
+    private async Task GeneratePathsAsync(JsonElement root)
+    {
+        var ws = _workspace();
+        if (ws is null) { Js("advNote.onError('Chưa chọn workspace.')"); return; }
+        var paths = root.TryGetProperty("paths", out var pEl) && pEl.ValueKind == JsonValueKind.Array
+            ? pEl.EnumerateArray().Select(e => e.GetString() ?? "").ToList() : new List<string>();
+        var savePath = root.GetProperty("savePath").GetString()?.Trim() ?? "";
+        var folder = root.GetProperty("folder").GetString()?.Trim() ?? "";
+        var description = root.TryGetProperty("description", out var d) ? d.GetString() : "";
+        var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+        if (GenAllService.SplitLines(string.Join("\n", paths)).Count == 0) { Js("advNote.onError('Ô File Path chưa có đường dẫn nào để gen.')"); return; }
+        if (savePath.Length == 0) { Js("advNote.onError('Chưa nhập Save At Path.')"); return; }
+        if (folder.Length == 0) { Js("advNote.onError('Chưa nhập Folder Name.')"); return; }
+
+        Js("advNote.setBusy(true, 'Đang tạo gói update từ File Path...')");
+        var res = await AdvancePackageBuilder.BuildFilePathsAsync(_genAll, ws, paths);
+        if (res.Items.Count == 0)
+        {
+            Js($"advNote.onGenerated({J(new { ok = false, message = "Không có file nào để đưa vào gói update (đường dẫn không tồn tại?).", warnings = res.Warnings })})");
+            return;
+        }
+        var dest = Path.Combine(savePath, folder);
+        var count = await Task.Run(() => GenAllService.CreatePackage(dest, res.Items, description, null));
+        _previewItems = OrderForRun(res.Items);
+        var opts = ReadPackageOptions(root);
+        GenAllService.SavePackageOptions(opts.Zip, opts.Network, opts.NetworkRoot);
+        if (opts.Network) Js("advNote.setBusy(true, " + J("Đang chép gói lên đường dẫn mạng...") + ")");
+        var extra = opts.Network ? await GenAllService.DeliverPackageAsync(dest, opts.Zip, opts.NetworkRoot) : new PackageDelivery();
+
+        var now = DateTime.Now;
+        var req = _viewOwner is null ? _requests.FirstOrDefault(r => r.Id == id) : null;
+        if (req is not null)
+        {
+            req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });
+            if (req.Generations.Count > AdvanceRequest.MaxGenerations)
+                req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
+            SaveList();
+        }
+        var n = GenAllService.SplitLines(string.Join("\n", paths)).Count;
+        Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = res.Warnings, updated = now, items = ToView(_previewItems, res.Warnings),
+            network = extra.NetworkPath, webLink = extra.WebLink, errors = extra.Errors, readOnly = _viewOwner is not null,
+            label = $"Đã tạo gói update từ {n} đường dẫn ở File Path (chỉ file, không script)." })})");
+        if (req is not null) SendList(null);   // làm mới lịch sử gen
     }
 
     /// <summary>Gom script/file của các y/c đã chọn thành 1 gói (1 y/c: phẳng; nhiều y/c: mỗi y/c 1 thư mục con) — dùng chung cho Xem trước gói và Generate Update.</summary>

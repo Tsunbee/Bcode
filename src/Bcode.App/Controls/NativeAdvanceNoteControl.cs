@@ -208,7 +208,10 @@ public sealed class NativeAdvanceNoteControl : UserControl
         NK.Stack(cGen.Body, NK.Muted("Gen toàn bộ file liên quan (Main\\*.aspx, file cùng tên trong Controllers, controller đi cặp, file include/entity được tham chiếu), procedure gọi trong controller Filter, và script sysmenu (wcommand, command).", true), NK.Spacer(6), _fGenAll);
         var cFile = new CardPanel("File Path", "đường dẫn file muốn gen update");
         _fFilePaths.Dock = DockStyle.Top;
-        var browseRow = NK.Row(NK.Button("Chọn file…", BrowseFiles), NK.Muted("mỗi dòng 1 đường dẫn (thư mục = lấy mọi file bên trong)")); browseRow.Dock = DockStyle.Top;
+        var browseRow = NK.Row(NK.Button("Chọn file…", BrowseFiles),
+            NK.Button("⚙ Gen update tất cả", () => { Flush(); _ = GeneratePathsAsync(true); }, tip: "Tạo gói update CHỈ gồm mọi đường dẫn trong ô File Path (không Gen All / SQL Object / table / script) — dùng Save At Path, Folder Name và tuỳ chọn mạng ở thẻ Generate Update. Không đánh Done y/c."),
+            NK.Button("⚙ Gen update dòng đang chọn", () => { Flush(); _ = GeneratePathsAsync(false); }, tip: "Tạo gói update CHỈ gồm đường dẫn ở dòng đang đặt con trỏ (bôi đen nhiều dòng = các dòng đó) — dùng Save At Path, Folder Name và tuỳ chọn mạng ở thẻ Generate Update."),
+            NK.Muted("mỗi dòng 1 đường dẫn (thư mục = lấy mọi file bên trong)")); browseRow.Dock = DockStyle.Top;
         cFile.Body.Controls.Add(browseRow); cFile.Body.Controls.Add(_fFilePaths);
         var two1 = Two(cGen, cFile);
 
@@ -1206,7 +1209,60 @@ public sealed class NativeAdvanceNoteControl : UserControl
         finally { SetBusy(false); }
     }
 
-    private void SavePkgOpts() => GenAllService.SavePackageOptions(_gZip.Checked, _gNet.Checked, _gNetRoot.Text);
+    /// <summary>
+    /// ⚙ Gen update tất cả / dòng đang chọn (thẻ File Path) — như trang web (AdvanceNoteControl.GeneratePathsAsync): gói CHỈ gồm các đường dẫn đó,
+    /// cùng Save At Path / Folder Name / tuỳ chọn mạng; ghi link vào lịch sử gen của y/c đang mở, KHÔNG đánh Done / Updated; xem note người khác thì không ghi.
+    /// </summary>
+    private async Task GeneratePathsAsync(bool all)
+    {
+        var ws = _workspace();
+        if (ws is null) { SetStatus("Chưa chọn workspace.", true); return; }
+        if (_cur is null) { SetStatus("Chọn 1 y/c trước.", true); return; }
+        var tb = _fFilePaths.Inner;
+        var paths = all ? GenAllService.SplitLines(tb.Text) : AdvancePackageBuilder.LinesAt(tb.Text, tb.SelectionStart, tb.SelectionStart + tb.SelectionLength);
+        if (paths.Count == 0) { SetStatus(all ? "Ô File Path chưa có đường dẫn nào." : "Đặt con trỏ vào dòng đường dẫn cần gen (hoặc bôi đen các dòng) rồi bấm lại.", true); return; }
+        var savePath = _gSave.Text.Trim(); var folder = _gFolder.Text.Trim();
+        if (savePath.Length == 0) { SetStatus("Chưa nhập Save At Path.", true); return; }
+        if (folder.Length == 0) { SetStatus("Chưa nhập Folder Name.", true); return; }
+        var req = _cur;
+        var description = req.Name + (req.Content.Length > 0 ? "\n" + req.Content : "");
+        if (BusyGuard()) return;
+        try
+        {
+            SetBusy(true, "Đang tạo gói update từ File Path...");
+            var res = await AdvancePackageBuilder.BuildFilePathsAsync(_genAll, ws, paths);
+            if (res.Items.Count == 0)
+            {
+                ShowResult(false, "Không có file nào để đưa vào gói update (đường dẫn không tồn tại?).", "");
+                _preview = new(); ShowPreview(res.Warnings, "");
+                return;
+            }
+            var dest = Path.Combine(savePath, folder);
+            var count = await Task.Run(() => GenAllService.CreatePackage(dest, res.Items, description, null));
+            _preview = AdvancePackageBuilder.OrderForRun(res.Items);
+            SavePkgOpts();
+            if (_gNet.Checked) SetBusy(true, "Đang chép gói lên đường dẫn mạng...");
+            var extra = _gNet.Checked ? await GenAllService.DeliverPackageAsync(dest, _gZip.Checked, _gNetRoot.Text) : new PackageDelivery();
+            if (_viewOwner is null)
+            {
+                req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = DateTime.Now });   // nhớ link gói, không Done / Updated
+                if (req.Generations.Count > AdvanceRequest.MaxGenerations) req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
+                _store.Save(_workspace(), _settings, _requests);
+            }
+            ShowResult(true, $"Đã tạo {count} mục tại:", dest, extra);
+            _defaultFolder = Regex.Replace(_defaultFolder, @"\d{14}$", "") + DateTime.Now.ToString("yyyyMMddHHmmss");
+            _folderTouched = false; RefreshFolder();
+            ShowPreview(res.Warnings, "gói vừa tạo — bấm đôi file để mở vào tab Query");
+            _previewSummary.Text = "Gói vừa tạo — bấm 1 dòng để xem nội dung:";
+            RenderHistory();
+            if (extra.Errors.Count > 0) SetStatus("Đã tạo gói update nhưng: " + string.Join(" | ", extra.Errors), true);
+            else SetStatus($"Đã tạo gói update từ {paths.Count} đường dẫn ở File Path (chỉ file, không script).", ok: true);
+        }
+        catch (Exception ex) { SetStatus(ex.Message, true); }
+        finally { SetBusy(false); }
+    }
+
+    private void SavePkgOpts() =>GenAllService.SavePackageOptions(_gZip.Checked, _gNet.Checked, _gNetRoot.Text);
 
     private void ShowNetRow()
     {

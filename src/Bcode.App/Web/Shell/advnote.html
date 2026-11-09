@@ -180,7 +180,10 @@
             <div class="title">File Path <span class="hint">đường dẫn file muốn gen update</span></div>
             <div class="body">
               <textarea id="fFilePaths" rows="11" placeholder="\\server\...\App_Data\Controllers\Dir\SVTran.f" spellcheck="false"></textarea>
-              <div class="row2"><button id="btnBrowse">Chọn file…</button><span class="muted">mỗi dòng 1 đường dẫn (thư mục = lấy mọi file bên trong)</span></div>
+              <div class="row2"><button id="btnBrowse">Chọn file…</button>
+                <button id="btnGenPathsAll" title="Tạo gói update CHỈ gồm mọi đường dẫn trong ô File Path (không Gen All / SQL Object / table / script) — dùng Save At Path, Folder Name và tuỳ chọn mạng ở thẻ Generate Update. Không đánh Done y/c.">⚙ Gen update tất cả</button>
+                <button id="btnGenPathsLine" title="Tạo gói update CHỈ gồm đường dẫn ở dòng đang đặt con trỏ (bôi đen nhiều dòng = các dòng đó) — dùng Save At Path, Folder Name và tuỳ chọn mạng ở thẻ Generate Update.">⚙ Gen update dòng đang chọn</button>
+                <span class="muted">mỗi dòng 1 đường dẫn (thư mục = lấy mọi file bên trong)</span></div>
             </div>
           </div>
         </div>
@@ -679,6 +682,27 @@
     const description = picked.map((r) => r.name + (r.content ? '\n' + r.content : '')).join('\n\n');
     post('generate', Object.assign({ ids, savePath: $('gSave').value, folder: $('gFolder').value, description, split: $('gSplit').checked, done: $('gDone').checked }, pkgOpts()));
   };
+  // ⚙ Gen update tất cả / dòng đang chọn (thẻ File Path): gói chỉ gồm các đường dẫn đó — C# genPaths, kết quả hiện như Generate Update.
+  function linesAtCaret(el) {
+    const t = el.value; let a = el.selectionStart || 0, b = Math.max(el.selectionEnd || 0, a);
+    if (b > a && t[b - 1] === '\n') b--;   // bôi đen tới hết dòng thì không lấy dòng kế
+    const from = a === 0 ? 0 : t.lastIndexOf('\n', a - 1) + 1; let to = t.indexOf('\n', b); if (to < 0) to = t.length;
+    return t.slice(from, to).split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  }
+  function genPaths(all) {
+    const r = cur(); if (!r) { setStatus('Chọn 1 y/c trước.', 'err'); return; }
+    const el = $('fFilePaths');
+    const paths = all ? el.value.split(/\r?\n/).map((s) => s.trim()).filter(Boolean) : linesAtCaret(el);
+    // Báo lỗi TRƯỚC khi lưu — lưu xong host trả "Đã lưu." sẽ đè mất câu báo.
+    if (!paths.length) { setStatus(all ? 'Ô File Path chưa có đường dẫn nào.' : 'Đặt con trỏ vào dòng đường dẫn cần gen (hoặc bôi đen các dòng) rồi bấm lại.', 'err'); return; }
+    flushSave();
+    const description = r.name + (r.content ? '\n' + r.content : '');
+    post('genPaths', Object.assign({ id: r.id, paths, savePath: $('gSave').value, folder: $('gFolder').value, description }, pkgOpts()));
+  }
+  $('btnGenPathsAll').onclick = () => genPaths(true);
+  // mousedown giữ focus ở ô File Path để không mất vị trí con trỏ / vùng bôi đen trước khi đọc.
+  $('btnGenPathsLine').addEventListener('mousedown', (e) => e.preventDefault());
+  $('btnGenPathsLine').onclick = () => genPaths(false);
   $('btnNew').onclick = () => { flushSave(); post('newRequest'); };
   // ---- Khung nội dung phóng to: sửa trực tiếp, đồng bộ 2 chiều với ô Request Content (tự lưu như khi gõ ở ô nhỏ) ----
   // Khung dùng chung cho Note (nút 📝 Note → note.txt của gói): S.cField = ô ẩn đang sửa; Note chỉ sửa chữ thuần (không có Xem đẹp).
@@ -844,7 +868,7 @@
       $('previewSummary').textContent = 'Gói vừa tạo — bấm 1 dòng để xem nội dung:';
       $('previewBox').style.display = gi.length ? 'block' : 'none'; renderItems(gi); renderTree(gi, 'gói vừa tạo — bấm đôi file để mở vào tab Query');
       if (res.errors && res.errors.length) setStatus('Đã tạo gói update nhưng: ' + res.errors.join(' | '), 'err');
-      else setStatus(res.readOnly ? 'Đã tạo gói update từ note của ' + S.ro + ' (note của họ không bị ghi lịch sử gen).' : 'Đã tạo gói update.', 'ok');
+      else setStatus(res.label ? res.label : res.readOnly ? 'Đã tạo gói update từ note của ' + S.ro + ' (note của họ không bị ghi lịch sử gen).' : 'Đã tạo gói update.', 'ok');
     },
     onItemText(i, text) {
       const tr = $('previewRows').querySelector('.itRow[data-i="' + i + '"]');

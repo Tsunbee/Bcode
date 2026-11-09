@@ -30,6 +30,25 @@ public static class AdvancePackageBuilder
         return s.Length == 0 ? "request" : s;
     }
 
+    /// <summary>
+    /// Gói CHỈ gồm file của ô File Path (nút ⚙ Gen update tất cả / dòng đang chọn): không Gen All, SQL Object, table, Top/Bottom Script.
+    /// Mỗi đường dẫn xử lý như lúc Generate (thư mục = mọi file bên trong, đường dẫn không tồn tại → cảnh báo).
+    /// </summary>
+    public static Task<GenAllResult> BuildFilePathsAsync(GenAllService genAll, Workspace ws, IEnumerable<string> paths) =>
+        genAll.ResolveAsync(ws, new AdvanceRequest { FilePaths = string.Join("\r\n", paths) });
+
+    /// <summary>Đường dẫn của các dòng mà vùng chọn [selStart, selEnd) chạm tới trong ô File Path (chỉ đặt con trỏ = dòng đang đứng; bôi đen nhiều dòng = các dòng đó).</summary>
+    public static List<string> LinesAt(string text, int selStart, int selEnd)
+    {
+        text ??= "";
+        selStart = Math.Clamp(selStart, 0, text.Length); selEnd = Math.Clamp(Math.Max(selEnd, selStart), 0, text.Length);
+        // Bôi đen tới hết dòng (con trỏ cuối nằm đầu dòng kế) thì không tính dòng kế.
+        if (selEnd > selStart && text[selEnd - 1] == '\n') selEnd--;
+        var from = selStart == 0 ? 0 : text.LastIndexOf('\n', selStart - 1) + 1;
+        var to = text.IndexOf('\n', selEnd); if (to < 0) to = text.Length;
+        return GenAllService.SplitLines(text[from..to]);
+    }
+
     /// <summary>Gom script/file của các y/c đã chọn thành 1 gói (1 y/c: phẳng; nhiều y/c: mỗi y/c 1 thư mục con) — dùng chung cho Xem trước gói và Generate Update.</summary>
     public static async Task<GenAllResult> BuildAsync(GenAllService genAll, Workspace ws, List<AdvanceRequest> picked, bool split = true)
     {

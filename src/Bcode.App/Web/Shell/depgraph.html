@@ -93,6 +93,7 @@
   <span class="sp"></span>
   <span id="status"></span>
   <input id="flt" type="text" placeholder="Lọc tên trong sơ đồ…" spellcheck="false" autocomplete="off">
+  <button id="bCopyPaths" title="Chép đường dẫn đầy đủ của mọi FILE đang hiện trong sơ đồ (cả 2 cột + nút ở giữa, theo ô lọc), mỗi dòng 1 đường dẫn. Procedure / function / bảng / menu không có đường dẫn nên bỏ qua." disabled>Chép đường dẫn</button>
   <button id="bImpact" class="primary" title="Dò ngược nhiều tầng từ nút đang xem tới tận menu: những gì bị ảnh hưởng nếu sửa nó">Phân tích ảnh hưởng</button>
   <button id="bRe" title="Tra lại (bỏ kết quả đã nhớ)">Làm mới</button>
 </header>
@@ -126,6 +127,7 @@
   let pos = -1;            // nút đang xem trong trail; phía sau pos là các nút để "Tới →"
   let data = null;         // { center, up, down, warnings }
   let byKey = {};
+  let loading = false;     // đang tra nút mới (data vẫn là của nút cũ) — nút Chép đường dẫn tắt
 
   const dbTag = (n) => (['menu', 'file'].includes(n.kind) ? '' : `<span class="db">${n.sys ? 'Sys' : 'App'}</span>`);
   const nodeHtml = (n, side) => `<div class="node" data-key="${esc(n.key)}" data-side="${side}" title="${esc(n.label + (n.path ? '\n' + n.path : '') + (n.note ? '\n' + n.note : ''))}">`
@@ -177,8 +179,34 @@
     renderList(data.up, $('lUp'), $('nUp'), 'up');
     renderList(data.down, $('lDown'), $('nDown'), 'down');
     $('warn').innerHTML = (data.warnings || []).map((w) => '⚠ ' + esc(w)).join('<br>');
+    updateCopyPaths();
     requestAnimationFrame(drawWires);
   }
+
+  // ---- Chép đường dẫn: đường dẫn (cùng dạng "Chép đường dẫn" ở menu chuột phải = n.path) của mọi file đang hiện — nút giữa + 2 cột theo ô lọc, bỏ trùng ----
+  function visiblePaths() {
+    if (!data || loading) return [];
+    const seen = new Set(), out = [];
+    [data.center].concat(data.up.filter(match), data.down.filter(match)).forEach((n) => {
+      if (n.kind !== 'file' || !n.path) return;
+      const k = n.path.toLowerCase();
+      if (!seen.has(k)) { seen.add(k); out.push(n.path); }
+    });
+    return out;
+  }
+  function updateCopyPaths() { $('bCopyPaths').disabled = !visiblePaths().length; }
+  let statusTimer = null, statusKeep = '', statusToast = '';
+  $('bCopyPaths').addEventListener('click', () => {
+    const p = visiblePaths();
+    if (!p.length) return;
+    post('copy', { text: p.join('\r\n') });
+    // nhớ dòng trạng thái gốc (bấm liền 2 lần thì không nhớ nhầm câu "Đã chép…" của lần trước)
+    if (!statusToast || $('status').textContent !== statusToast) statusKeep = $('status').textContent;
+    statusToast = `Đã chép ${p.length} đường dẫn file` + (q() ? ' (theo ô lọc)' : '') + '.';
+    $('status').textContent = statusToast;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => { if ($('status').textContent === statusToast) $('status').textContent = statusKeep; statusToast = ''; }, 3000);
+  });
 
   // Đường nối: từ mép phải các nút "được dùng bởi" / mép trái các nút "dùng tới" tới thẻ ở giữa
   function drawWires(hotKey) {
@@ -313,6 +341,7 @@
       $('nUp').textContent = $('nDown').textContent = '…';
       $('warn').innerHTML = ''; $('wires').innerHTML = '';
       $('impact').classList.remove('on');
+      loading = true; $('bCopyPaths').disabled = true;   // đang tra: chưa có danh sách của nút mới
     },
     onProgress(m) { $('status').textContent = m; },
     // tiến độ dựng chỉ mục source chuẩn: thay đúng dòng báo "Đang dựng…" (sơ đồ tự tải lại khi xong)
@@ -325,7 +354,7 @@
       $('warn').innerHTML = w.map((x) => '⚠ ' + esc(x)).join('<br>');
     },
     onData(d) {
-      data = d;
+      data = d; loading = false;
       $('status').textContent = `${d.up.length} được dùng bởi · ${d.down.length} dùng tới · ${(d.ms / 1000).toFixed(1)} giây`;
       render();
     },

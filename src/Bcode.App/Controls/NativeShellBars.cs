@@ -116,7 +116,11 @@ public sealed class NativeTopBar : Panel
         _theme = Btn("", "Đổi giao diện sáng/tối", () => Action?.Invoke("theme"), icon: AppColors.IsDark ? IconGlyph.Moon : IconGlyph.Sun, width: 30);
         _bell = Btn("", BellTip, () => Action?.Invoke("notify"), icon: IconGlyph.Bell, width: 30);
         var quick = Btn("Quick Access", "Chọn tính năng hiển thị trên toolbar", () => Action?.Invoke("quickaccess"), icon: IconGlyph.Star, primary: true, pill: true);
-        foreach (var c in new Control[] { new MutedLabel { Text = "WS:", AutoSize = true, Margin = new Padding(0, 8, 2, 0), BackColor = Color.Transparent }, _ws, refresh, _sys, _app, _dbName, _theme, _bell, quick })
+        // Nhãn phiên bản góc phải (Beta v1.9) — như #verBadge của topbar.html; số ở <Version> trong Bcode.App.csproj.
+        var ver = new VersionBadge { Text = Bcode.App.Services.ErrorLog.VersionLabel, Margin = new Padding(3, 0, 0, 0), Visible = Bcode.App.Services.ErrorLog.VersionLabel.Length > 0 };
+        ver.Height = NativeSkin.Dens(ver, 26);
+        NK.Tip(ver, VersionTip);
+        foreach (var c in new Control[] { new MutedLabel { Text = "WS:", AutoSize = true, Margin = new Padding(0, 8, 2, 0), BackColor = Color.Transparent }, _ws, refresh, _sys, _app, _dbName, _theme, _bell, quick, ver })
             _right.Controls.Add(c);
 
         Controls.Add(_left);
@@ -178,6 +182,48 @@ public sealed class NativeTopBar : Panel
     }
 
     private const string BellTip = "Thông báo y/c FSG: ghi chú mới, đổi trạng thái / hạn, y/c mới giao cho bạn";
+
+    /// <summary>Tooltip nhãn phiên bản góc phải — dùng chung cho topbar.html (MainForm đẩy qua window.setVersion).</summary>
+    public static string VersionTip => "Phiên bản Bcode đang chạy: " + Bcode.App.Services.ErrorLog.Version;
+
+    /// <summary>Nhãn phiên bản dạng viên thuốc viền mảnh, chữ nhỏ màu phụ (như #verBadge của topbar.html). Tự vẽ chữ bằng font nhỏ hơn font chung
+    /// (ThemeManager.Apply đặt lại Font của mọi control nên không dựa vào Font gán sẵn).</summary>
+    private sealed class VersionBadge : Control
+    {
+        public VersionBadge()
+        {
+            SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+            SetStyle(ControlStyles.Selectable, false);
+            TabStop = false;
+        }
+
+        private Font SmallFont() => new(Font.FontFamily, Math.Max(6f, Font.Size * 0.85f), FontStyle.Regular, Font.Unit);
+
+        private void FitWidth()
+        {
+            using var f = SmallFont();
+            var w = TextRenderer.MeasureText(Text.Length == 0 ? " " : Text, f, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix).Width + NativeSkin.Px(this, 16);
+            if (Width != w) Width = w;
+        }
+
+        protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); FitWidth(); Invalidate(); }
+        protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); FitWidth(); Invalidate(); }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            using (var bg = new SolidBrush(AppColors.PanelAlt)) g.FillRectangle(bg, ClientRectangle);
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var f = SmallFont();
+            var th = TextRenderer.MeasureText("Ag", f, Size.Empty, TextFormatFlags.NoPadding).Height;
+            var pillH = Math.Min(Height - 1, th + NativeSkin.Px(this, 6));
+            var r = new Rectangle(0, (Height - pillH) / 2, Width - 1, pillH);
+            using (var path = FlatToolStripRenderer.RoundedRect(r, pillH / 2))
+            using (var pen = new Pen(AppColors.Border))
+                g.DrawPath(pen, path);
+            TextRenderer.DrawText(g, Text, f, r, AppColors.TextMuted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
+        }
+    }
 
     /// <summary>Số thông báo y/c FSG chưa xem: &gt; 0 thì chuông thành nút nhấn (màu nhấn) kèm số.</summary>
     public void SetNotifyCount(int n)

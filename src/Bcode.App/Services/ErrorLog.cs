@@ -230,6 +230,20 @@ public static class ErrorLog
         catch { return ""; }
     }
 
+    /// <summary>Nhãn phiên bản hiện ở góc phải thanh trên: "1.9-beta" → "Beta v1.9", "2.0" → "v2.0". Số lấy từ &lt;Version&gt; trong Bcode.App.csproj.</summary>
+    public static string VersionLabel
+    {
+        get
+        {
+            var v = Version;
+            if (v.Length == 0) return "";
+            var dash = v.IndexOf('-');
+            if (dash <= 0) return "v" + v;
+            var tag = v[(dash + 1)..];
+            return (tag.Length > 0 ? char.ToUpperInvariant(tag[0]) + tag[1..] + " " : "") + "v" + v[..dash];
+        }
+    }
+
     // ------------------------------------------------------------------ che dữ liệu nhạy cảm
 
     private static readonly Regex SecretRx = new(@"(?i)\b(password|pwd|passwd|mật khẩu|apikey|api[_-]?key|token)\s*[=:]\s*(""[^""]*""|'[^']*'|[^;,\s'""]+)", RegexOptions.Compiled);

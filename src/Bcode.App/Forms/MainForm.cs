@@ -583,6 +583,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     PushWorkspacesToTopBar();
                     PushThemeToShell();
                     PushNotifyCount();
+                    // Nhãn phiên bản góc phải (Beta v1.9) — số ở <Version> trong Bcode.App.csproj; bản App: NativeTopBar tự đọc.
+                    _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync("window.setVersion && window.setVersion("
+                        + System.Text.Json.JsonSerializer.Serialize(Bcode.App.Services.ErrorLog.VersionLabel) + ", "
+                        + System.Text.Json.JsonSerializer.Serialize(Bcode.App.Controls.NativeTopBar.VersionTip) + ")");
                 };
                 _iconRailWeb.CoreWebView2.NavigationCompleted += (_, _) => { PushThemeToShell(); PushIconRailLayout(); };
                 _statusBarWeb.CoreWebView2.WebMessageReceived += (_, e) =>
@@ -2252,6 +2256,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
         control.MenuForPage = MenuForLookupPage;
+        control.MenuViewChanged += () => UpdateLookupTabTitle(control);
         _fileLookupTabPage = AddDocumentTab("File Lookup", control);
         FileLookupControl.MarkTab(_fileLookupTabPage);
         _fileLookupControl = control;
@@ -3639,11 +3644,30 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
+        // Menu này đã có tab File Lookup riêng (mở bằng F4) thì chuyển về tab đó thay vì nạp lại vào tab File Lookup chính.
+        if (_connections.Current is { } cur && !string.IsNullOrWhiteSpace(cur.SourcePath)
+            && SelectMenuLookupTab(cur.Name, cur.SourcePath, item.Link, item.SysId)) return;
+
         var control = OpenFileLookupTab(autoLoad: false);
         if (control is null) return;
 
         var ws = _connections.Current!;
         control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
+    }
+
+    /// <summary>Tab File Lookup phụ (mở bằng F4 / nhân bản — không tính tab File Lookup chính và tab Mobile dùng lại) đang xem đúng menu
+    /// (gốc source + Link + SysId) của project <paramref name="project"/>: chọn tab đó, trả true. Không có thì false.</summary>
+    private bool SelectMenuLookupTab(string project, string sourceRoot, string link, string sysId)
+    {
+        var existing = _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p =>
+            FindDescendant<FileLookupControl>(p) is { IsDisposed: false } c
+            && c != _fileLookupControl && c != _mobileLookup
+            && string.Equals(c.ProjectName, project, StringComparison.OrdinalIgnoreCase)
+            && c.IsShowingMenu(sourceRoot, link, sysId));
+        if (existing is null) return false;
+        _documentTabs.SelectedTab = existing;
+        existing.Focus();
+        return true;
     }
 
     /// <summary>F4 ở cây menu: bung thêm 1 tab File Lookup MỚI (không dùng lại tab chính) cho menu đang chọn, để đặt cạnh nhau so sánh nhiều menu.
@@ -3662,17 +3686,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
-        var existing = _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p =>
-            FindDescendant<FileLookupControl>(p) is { IsDisposed: false } c
-            && c != _fileLookupControl && c != _mobileLookup
-            && string.Equals(c.ProjectName, ws.Name, StringComparison.OrdinalIgnoreCase)
-            && c.IsShowingMenu(ws.SourcePath, item.Link, item.SysId));
-        if (existing is not null)
-        {
-            _documentTabs.SelectedTab = existing;
-            existing.Focus();
-            return;
-        }
+        if (SelectMenuLookupTab(ws.Name, ws.SourcePath, item.Link, item.SysId)) return;
 
         var label = !string.IsNullOrWhiteSpace(item.SysId) ? item.SysId : item.Bar;
         var control = CreateExtraLookupTab(ws, $"File Lookup · {label}");
@@ -3734,16 +3748,32 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ApiSchemaRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: false);
         control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
+        control.MenuViewChanged += () => UpdateLookupTabTitle(control);
         FileLookupControl.MarkTab(AddDocumentTab(title, control));
         return control;
     }
 
-    /// <summary>F4 trên cây file: mở thêm tab File Lookup giữ nguyên menu / thư mục của tab đang bấm.</summary>
+    /// <summary>Tên tab File Lookup theo menu đang xem: "File Lookup · {sysid}" (không có sysid thì tên trang .aspx), tab Mobile "File Lookup · Mobile · {sysid}";
+    /// đang duyệt thư mục / tìm nội dung thì "File Lookup" (Mobile: "File Lookup · Mobile"). Áp cho cả tab File Lookup chính lẫn tab F4.</summary>
+    private void UpdateLookupTabTitle(FileLookupControl control)
+    {
+        if (control.Parent is not TabPage page) return;
+        var prefix = control == _mobileLookup || page.Text.StartsWith("File Lookup · Mobile", StringComparison.Ordinal) ? "File Lookup · Mobile" : "File Lookup";
+        var label = control.CurrentMenu is { } m ? (!string.IsNullOrWhiteSpace(m.SysId) ? m.SysId.Trim() : TableMenuService.PageOf(m.Link)) : "";
+        var title = string.IsNullOrWhiteSpace(label) ? prefix : prefix + " · " + label;
+        if (page.Text != title) page.Text = title;
+    }
+
+    /// <summary>F4 trên cây file: mở thêm tab File Lookup giữ nguyên menu / thư mục của tab đang bấm.
+    /// Đang xem cây của 1 menu: menu đó đã có tab riêng (tab F4 — kể cả chính tab đang bấm) thì chuyển về / ở lại tab đó, không tách tab trùng;
+    /// chưa có (đang ở tab File Lookup chính / Mobile) thì mở tab riêng "File Lookup · {sysid}" (tên tab theo menu: <see cref="UpdateLookupTabTitle"/>).</summary>
     private void OpenLookupCloneOf(FileLookupControl src)
     {
         if (_connections.Current is not { } ws) return;
         var title = _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p => p.Controls.Contains(src))?.Text ?? "File Lookup";
-        var control = CreateExtraLookupTab(ws, title.StartsWith("File Lookup") ? title : "File Lookup");
+        if (!title.StartsWith("File Lookup")) title = "File Lookup";
+        if (src.CurrentMenu is { } menu && SelectMenuLookupTab(src.ProjectName, menu.SourceRoot, menu.Link, menu.SysId)) return;
+        var control = CreateExtraLookupTab(ws, title);
         control.CloneViewFrom(src);
     }
 

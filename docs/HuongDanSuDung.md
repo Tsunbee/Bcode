@@ -166,6 +166,7 @@ Trên ảnh: **①** ⚙ Settings · **②** Actions · **③** giỏ script: Ad
 | ☀/☾ | Đổi giao diện sáng / tối — Bcode nhớ lựa chọn, lần mở sau (cả chế độ App lẫn Web) vẫn đúng sáng / tối đã chọn; chưa chọn bao giờ thì mặc định tối |
 | 🔔 (chuông) | **Thông báo y/c FSG**: số đỏ = số thông báo chưa xem; bấm để mở khung Thông báo (xem [Thông báo y/c FSG](#fsg-thong-bao)) |
 | ★ **Quick Access** | Chọn nút nào hiện trên thanh công cụ |
+| **Beta v1.9** (góc phải) | Phiên bản Bcode đang chạy (rê chuột xem số đầy đủ) — báo lỗi / hỏi hỗ trợ thì kèm số này |
 
 > **Lưu ý:** trong Actions có vài mục giữ chỗ chưa làm gì: SQL SMS, Refresh, Database, Document, Create Source, Get Key Data/Value.
 
@@ -629,7 +630,7 @@ Trên ảnh: **①** ô lọc theo tên / ID / link · **②** ô (C) chỉ menu
 
 | Thao tác | Cách làm |
 |---|---|
-| Xem source của menu | **Double-click** menu lá → mở / dùng lại tab **File Lookup** của menu đó. Nếu tab đang chọn là **Gen Update** thì file của menu được nạp vào Gen Update. |
+| Xem source của menu | **Double-click** menu lá → mở / dùng lại tab **File Lookup** của menu đó (tên tab đổi theo menu đang xem: "File Lookup · {sysid}"). Menu đã có tab riêng "File Lookup · {sysid}" (mở bằng `F4`) thì chuyển về tab đó. Nếu tab đang chọn là **Gen Update** thì file của menu được nạp vào Gen Update. |
 | Mở File Lookup thêm (đặt cạnh nhau so sánh) | `F4` hoặc chuột phải → **Mở File Lookup mới** → tab "File Lookup · {sysid}" riêng cho menu đó. Menu đã có tab mở bằng `F4` (cùng dự án) thì chuyển về tab đó, không mở trùng; tab đã đóng hoặc đổi dự án thì mở tab mới |
 | Thêm menu | `Insert` hoặc chuột phải → **New** (điền sẵn mọi thông tin của menu đang chọn + tự gợi ý WMenu Id / Menu Id còn trống) |
 | Sửa / xoá | `F3` **Edit** · `F8` **Delete** (hỏi xác nhận) |
@@ -729,7 +730,7 @@ Nhập **Search in** (thư mục) + **String search**, tuỳ chọn File Type / 
 
 Go to File/Folder · **Copy to...** (file đã tick) · Chuyển sang .frx (Excel → FRX / Crystal → FRX) · Copy path · Get Hash Source · **Cấp source (tự động theo phiên bản)...** · Cấp source thủ công (Add Source)... · **Clone files...** (đặt tên mới, có thể clone kèm file cùng tên, không ghi đè) · **Rename...** (`F2`, đổi tên file — xem dưới) · **Delete file** (có tick thì xoá mọi file đã tick — xem dưới) · **Khôi phục file vừa xoá** · **Offline Design Excel File** (bật / tắt — xem dưới) · Refresh (`F5`).
 
-Phím trong cây file: `F2` đổi tên file đang chọn, `F5` quét lại (giữ cache), `F4` nhân bản tab File Lookup hiện tại, `Ctrl+C` copy đường dẫn.
+Phím trong cây file: `F2` đổi tên file đang chọn, `F5` quét lại (giữ cache), `F4` nhân bản tab File Lookup hiện tại (đang xem cây 1 menu: menu đó đã có tab riêng — kể cả chính tab đang bấm — thì chuyển về / ở lại tab đó, không tách tab trùng; chưa có thì mở tab riêng "File Lookup · {sysid}"), `Ctrl+C` copy đường dẫn.
 
 **Màu / chữ đậm của cây file**: chỉnh ở Template → **Màu cây** → khung "Cây File Lookup". Mặc định: `.f` cam, `.xml` xanh dương, thư mục và file khác theo màu chữ của theme, không in đậm. Muốn khác: chọn **Tự tô màu** rồi chọn màu từng dòng; tick **Đậm** cho loại cần nổi bật (vd thư mục, `.aspx`). Loại chưa có dòng: gõ đuôi (vd `.xlsx`) → **Thêm loại**; đuôi không khai báo theo dòng "File khác". **Trả về mặc định** bỏ hết màu tự chọn, chữ đậm và loại đã thêm. Bấm **Áp dụng** / **Lưu** — cây đang mở đổi ngay, áp cho cả chế độ App và Web. (Font / màu của khu vực **Thanh tab** ở tab Bố cục & font chỉ đổi chữ trên dải tab, không làm cây file hay nội dung tab đậm / đổi màu theo.)
 

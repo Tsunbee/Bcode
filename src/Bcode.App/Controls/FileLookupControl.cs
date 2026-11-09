@@ -371,6 +371,7 @@ public partial class FileLookupControl : UserControl
                     case "load":
                         _menuMode = _menuBeforeSearch = false;
                         _pathText = root.GetProperty("path").GetString() ?? "";
+                        MenuViewChanged?.Invoke();
                         _service.InvalidateCache();
                         _service.ResetParseCache(_pathText);
                         Reload();
@@ -453,6 +454,7 @@ public partial class FileLookupControl : UserControl
         _menuMode = _menuBeforeSearch = false;
         _pathText = path;
         PushPathToBar();
+        MenuViewChanged?.Invoke();
         if (!load)
         {
             _reloadWhenVisible = false;
@@ -553,8 +555,13 @@ public partial class FileLookupControl : UserControl
         _menuSysId = sysId;
         _pathText = sourceRootPath;
         PushPathToBar();
+        MenuViewChanged?.Invoke();
         Reload();
     }
+
+    /// <summary>Bắn khi menu đang xem đổi (<see cref="CurrentMenu"/>: vào cây 1 menu / sang menu khác / về duyệt thư mục) — MainForm đặt lại tên tab
+    /// "File Lookup · {sysid}" theo menu đang xem.</summary>
+    public event Action? MenuViewChanged;
 
     /// <summary>Tab này đang xem cây của đúng menu đó (cùng gốc source + Link + SysId; kể cả đang gõ ô Search từ cây menu đó) —
     /// F4 ở cây menu dùng để chuyển về tab đã mở thay vì bung thêm tab trùng.</summary>
@@ -563,6 +570,10 @@ public partial class FileLookupControl : UserControl
         && string.Equals(_pathText.TrimEnd('\\', '/'), (sourceRootPath ?? "").TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)
         && string.Equals(_menuLink.Trim(), (link ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
         && string.Equals(_menuSysId.Trim(), (sysId ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Menu tab này đang xem (gốc source, Link, SysId — kể cả đang gõ ô Search từ cây menu đó); null = đang duyệt thư mục.</summary>
+    public (string SourceRoot, string Link, string SysId)? CurrentMenu =>
+        _menuMode || _menuBeforeSearch ? (_pathText, _menuLink, _menuSysId) : null;
 
     public void Reload() => _ = ReloadAsync();
 
@@ -811,6 +822,7 @@ public partial class FileLookupControl : UserControl
         }
 
         _menuMode = _menuBeforeSearch = false;
+        MenuViewChanged?.Invoke();
         var version = ++_loadVersion;
         // A content search reads every file — unlike a tree build it's worth actually
         // stopping the previous one rather than just ignoring its result.

@@ -18,6 +18,9 @@
     <Product>Bcode</Product>
     <Copyright>© Bee. Phần mềm độc quyền. Cấm sao chép, phân phối lại hoặc dịch ngược (decompile/reverse-engineer) khi chưa được phép bằng văn bản.</Copyright>
     <Trademark>Bcode™ Bee</Trademark>
+    <!-- PHIÊN BẢN Bcode — chỗ DUY NHẤT cần sửa khi lên bản mới. Dạng "số-nhãn" (1.9-beta) → hiện "Beta v1.9" ở góc phải thanh trên
+         (topbar.html #verBadge / NativeTopBar) và ghi vào log lỗi (ErrorLog.Version / ErrorLog.VersionLabel). Bỏ "-beta" khi ra bản chính thức → "v2.0". -->
+    <Version>1.9-beta</Version>
   </PropertyGroup>
   <!-- Dấu tĩnh truy nguồn (tools/bcode-mark): GUID bộ Bcode nhúng cố định vào metadata assembly để nhận ra bản sao chép nhị phân. -->
   <ItemGroup>

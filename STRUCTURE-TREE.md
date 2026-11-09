@@ -30,8 +30,8 @@ Bcode.App/
 │   ├── ErrorShotControl.cs  130
 │   ├── FastAskControl.cs  169
 │   ├── FcodeLexer.cs  465
-│   ├── FileLookupControl.cs  1700
-│   ├── FileLookupControl.QuickGrant.cs  148
+│   ├── FileLookupControl.cs  1720
+│   ├── FileLookupControl.QuickGrant.cs  149
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  274
@@ -88,8 +88,8 @@ Bcode.App/
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  346
 │   ├── NativeResultPane.cs  315
-│   ├── NativeShellBars.cs  314
-│   ├── NativeSqlControl.cs  2270
+│   ├── NativeShellBars.cs  360
+│   ├── NativeSqlControl.cs  2296
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -99,7 +99,7 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  533
-│   ├── RawSqlControl.cs  2886
+│   ├── RawSqlControl.cs  2900
 │   ├── ResultExport.cs  146
 │   ├── ResultGridMenu.cs  627
 │   ├── SafeTreeView.cs  40
@@ -164,7 +164,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  4679
+│   ├── MainForm.cs  4722
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
@@ -281,7 +281,7 @@ Bcode.App/
 │   ├── DynamicSqlInspector.cs  120
 │   ├── EInvoiceSetupService.cs  371
 │   ├── EntityCheckService.cs  263
-│   ├── ErrorLog.cs  326
+│   ├── ErrorLog.cs  340
 │   ├── ErrorShotService.cs  425
 │   ├── FastAskIndex.cs  73
 │   ├── FastAskKnowledge.cs  417
@@ -377,6 +377,7 @@ Bcode.App/
 ├── Templates/  (3320 file — không liệt kê)
 ├── UI/
 │   ├── AppIcons.cs  146
+│   ├── ClipboardText.cs  67
 │   ├── ColorPalette.cs  140
 │   ├── ControlPerf.cs  18
 │   ├── DevToolsDock.cs  190
@@ -399,7 +400,7 @@ Bcode.App/
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
 │   ├── UiScale.cs  69
-│   ├── UiTemplate.cs  512
+│   ├── UiTemplate.cs  574
 │   ├── UiThemes.cs  341
 │   └── WebViewEnvironment.cs  389
 ├── Web/
@@ -470,7 +471,7 @@ Bcode.App/
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  184
 │       ├── shell.css  249
-│       ├── sqleditor.html  1675
+│       ├── sqleditor.html  1687
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  330
@@ -486,7 +487,7 @@ Bcode.App/
 │       ├── tablebar.html  326
 │       ├── tablestruct.html  139
 │       ├── teamnotes.html  275
-│       ├── topbar.html  203
+│       ├── topbar.html  213
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1283
@@ -497,7 +498,7 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  216
+├── Bcode.App.csproj  219
 ├── BcodePaths.cs  48
 └── Program.cs  45
 ```

@@ -104,9 +104,7 @@ public partial class MainForm
             Bcode.App.UI.ThemeManager.Apply(page);
             if (!string.IsNullOrEmpty(t.Key))
             {
-                var key = t.Key;
-                _objectTabs[key] = page;
-                page.Disposed += (_, _) => _objectTabs.Remove(key);
+                MapObjectTab(t.Key, page);
             }
         }
         else if (t.Kind == "table" && !string.IsNullOrEmpty(t.Key))

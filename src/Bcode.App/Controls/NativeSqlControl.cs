@@ -419,11 +419,20 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
     /// <summary>Thay cả nội dung thành 1 bước Ctrl+Z (Beauty, đổi hoa/thường, nạp bản từ Lịch sử...) — khác <see cref="SetScriptText"/> (nạp như tài liệu mới, xoá undo).
     /// Giữ con trỏ ở dòng cũ và dòng đầu đang nhìn thấy.</summary>
-    public Task ReplaceScriptTextAsync(string text) { ReplaceAllUndoable(text ?? ""); return Task.CompletedTask; }
+    public Task ReplaceScriptTextAsync(string text, bool caretToTop = false) { ReplaceAllUndoable(text ?? "", caretToTop); return Task.CompletedTask; }
 
-    private void ReplaceAllUndoable(string text)
+    private void ReplaceAllUndoable(string text, bool caretToTop = false)
     {
-        if ((_ed.Text ?? "") == text) return;
+        if ((_ed.Text ?? "") == text) { if (caretToTop) { _ed.GotoPosition(0); _ed.FirstVisibleLine = 0; } return; }
+        if (caretToTop)
+        {
+            _ed.BeginUndoAction();
+            try { _ed.TargetStart = 0; _ed.TargetEnd = _ed.TextLength; _ed.ReplaceTarget(text); }
+            finally { _ed.EndUndoAction(); }
+            _ed.GotoPosition(0);
+            _ed.FirstVisibleLine = 0;
+            return;
+        }
         var line = _ed.CurrentLine;
         var col = _ed.CurrentPosition - _ed.Lines[line].Position;
         var firstVisible = _ed.FirstVisibleLine;

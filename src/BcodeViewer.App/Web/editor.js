@@ -704,6 +704,55 @@ class BcodeEditor {
     this.refreshSplitPicker();
   }
 
+  /// Mở file thành tab NGẦM — không chuyển tab đang xem (khung peek field sửa khai báo nằm trong file include, entity.js _fieldTarget):
+  /// có tab thì có dấu chưa lưu, hỏi lưu khi đóng app. Đã mở rồi thì thôi. Trả doc hoặc null (không đọc được).
+  async openFileInBackground(path) {
+    if (this.docs.has(path)) return this.docs.get(path);
+    let content;
+    try { content = await window.bcodeHost.call('BeginReadFile', path); }
+    catch (e) { this.showToast('Không đọc được file: ' + path + ' — ' + ((e && e.message) || e), 5000); return null; }
+    let writeTime = null;
+    try { writeTime = await window.bcodeHost.call('BeginGetFileWriteTimeUtc', path); } catch { /* như openFile */ }
+    if (this.docs.has(path)) return this.docs.get(path);
+    const model = monaco.editor.createModel(content == null ? '' : String(content), detectLanguage(path, content || ''));
+    const doc = {
+      model, dirty: false, savedVersionId: model.getAlternativeVersionId(), bookmarks: new Set(), bookmarkDecorations: [],
+      viewState: null, loadedWriteTimeUtc: writeTime, dismissedWriteTimeUtc: null,
+    };
+    this.docs.set(path, doc);
+    if (window.bcodeTabs) window.bcodeTabs.render();
+    this.refreshSplitPicker();
+    return doc;
+  }
+
+  /// Lưu 1 tab đang mở theo đường dẫn — tab đang xem thì như saveActive; tab khác (file include đang sửa trong khung peek field) thì lưu file đó
+  /// mà không chuyển tab: cùng đường lưu (lịch sử, hỏi bỏ Chỉ đọc), bỏ cache entity nếu là file include.
+  async saveDocAt(path) {
+    if (path === this.activePath) return this.saveActive();
+    const doc = this.docs.get(path);
+    if (!doc || doc.untitled || doc.readOnly) return;
+    if (this._saving) { this.showToast('Đang lưu file...', 1500); return; }
+    this._saving = true;
+    try {
+      const savedVersion = doc.model.getAlternativeVersionId();
+      const text = doc.model.getValue();
+      const saveRes = await this.saveToHost(path, text);
+      if (saveRes === SAVE_DECLINED) { this.showToast('Chưa lưu — file đang để Chỉ đọc (Read-only).', 3000); return; }
+      this.markClean(path, savedVersion);
+      this.showToast(`Đã lưu file thành công: ${fileNameOf(path)}`, 2500);
+      this.reportSharedHistory(saveRes, '');
+      if (window.bcodeEntity) {
+        if (window.bcodeEntity.isCachedFile(path)) window.bcodeEntity.invalidate();
+        window.bcodeEntity.refreshIncludeIndex(path, text);
+      }
+      window.bcodeHost.call('BeginGetFileWriteTimeUtc', path).then((t) => { doc.loadedWriteTimeUtc = t; }).catch(() => {});
+    } catch (e) {
+      alert('Không ghi được file:\n' + path + '\n' + e);
+    } finally {
+      this._saving = false;
+    }
+  }
+
   /// Tab mới CHƯA ĐẶT TÊN (như file mới của FCode): New from Template → "Tạo file" mở ngay nội dung template để gõ tiếp, không hỏi nơi lưu trước;
   /// Ctrl+S / Save / F5 mới hỏi nơi lưu (saveActiveAs). <paramref>suggestedName</paramref> = tên gợi ý cho hộp lưu (đuôi file quyết định
   /// ngôn ngữ tô màu), <paramref>dir</paramref> = thư mục gợi ý. Lịch sử, file đổi ngoài, F12 tới file include... bỏ qua cho tới khi lưu.
@@ -1304,7 +1353,98 @@ class BcodeEditor {
     // Nothing happens when the word under the caret names no entity anywhere in that
     // chain, or names a file that isn't on disk — same as before, and the missing file is
     // already reported by the Problems panel rather than by a silent F12.
+    if (await this.jumpToRequestAction(mode)) return;
     if (window.bcodeEntity) await window.bcodeEntity.goToOrPeek(mode);
+  }
+
+  /// Tên action trong lời gọi request trên dòng con trỏ: f.request('Action', 'Context', […]) / g.request(o, 'Context', 'Action', […]).
+  /// Con trỏ đứng trong 1 trong 2 chuỗi đầu (hoặc trên chữ "request") → [chuỗi dưới con trỏ, chuỗi còn lại] (Problems cũng khớp
+  /// <action id> theo cả 2); không đứng ở đó → null.
+  requestNamesAtCaret() {
+    const model = this.editor.getModel();
+    const pos = this.editor.getPosition();
+    if (!model || !pos) return null;
+    const line = model.getLineContent(pos.lineNumber);
+    const caret = pos.column - 1;
+    const re = /\.(request)\s*\(\s*(?:[A-Za-z_$][\w$.]*\s*,\s*)?(['"])([^'"\r\n]*)\2(?:\s*,\s*(['"])([^'"\r\n]*)\4)?/g;
+    let m;
+    while ((m = re.exec(line))) {
+      const kw = m.index + 1;
+      const s1 = m.index + m[0].indexOf(m[2] + m[3] + m[2]) + 1;
+      const args = [{ name: m[3], start: s1, end: s1 + m[3].length }];
+      if (m[5] !== undefined) {
+        const s2 = m.index + m[0].lastIndexOf(m[4] + m[5] + m[4]) + 1;
+        args.push({ name: m[5], start: s2, end: s2 + m[5].length });
+      }
+      const onKw = caret >= kw && caret <= kw + m[1].length;
+      const hit = args.find((a) => caret >= a.start && caret <= a.end);
+      if (!onKw && !hit) continue;
+      const names = [];
+      for (const a of hit ? [hit, ...args] : args) if (a.name.trim() && !names.includes(a.name.trim())) names.push(a.name.trim());
+      return names.length ? names : null;
+    }
+    return null;
+  }
+
+  /// F12 / Ctrl+F12 trên tên action trong f.request('GetUserID', …): xem trước / tới <action id="GetUserID"> trong <response> — file này trước,
+  /// không có thì các file include (ENTITY SYSTEM, Host/IncludeTree.cs). Trước đây F12 coi chữ đó là tên &entity; nên báo không tìm thấy.
+  /// false = con trỏ không ở lời gọi request (để F12 xét entity / file / field như cũ).
+  async jumpToRequestAction(mode) {
+    const names = this.requestNamesAtCaret();
+    if (!names) return false;
+    const path = this.activePath;
+    const text = this.editor.getModel().getValue();
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const find = (t) => {
+      for (const n of names) {
+        const m = new RegExp(`<action\\b[^>]*?\\bid\\s*=\\s*["']${esc(n)}["']`, 'i').exec(t);
+        if (m) return { name: n, offset: m.index };
+      }
+      return null;
+    };
+    let hit = find(text), hitPath = path, hitText = text, files = 0;
+    if (!hit) {
+      let tree = {};
+      try { tree = JSON.parse(await window.bcodeHost.call('BeginReadIncludeTree', path, text)) || {}; }
+      catch { tree = {}; }
+      if (this.activePath !== path) return true; // người dùng đã đổi tab trong lúc chờ đọc include
+      const others = Object.keys(tree).filter((p) => tree[p] && p.toLowerCase() !== path.toLowerCase()).sort();
+      files = others.length;
+      for (const p of others) {
+        const h = find(tree[p]);
+        if (h) { hit = h; hitPath = p; hitText = tree[p]; break; }
+      }
+    }
+    if (!hit) {
+      this.showToast(`Không thấy <action id="${names[0]}"> trong file này${files ? ` và ${files} file include` : ''}.`, 5000);
+      return true;
+    }
+
+    const pos = offsetToPosition(hitText, hit.offset);
+    const sameFile = hitPath === path;
+    const go = async () => {
+      if (window.bcodeEntity && window.bcodeEntity.closePeek) window.bcodeEntity.closePeek();
+      if (sameFile) this.revealPosition(pos.line, pos.col);
+      else await this.openFile(hitPath, { line: pos.line, column: pos.col });
+    };
+    if (mode === 'go' || !window.bcodeEntity || !window.bcodeEntity.showPeekContent) { await go(); return true; }
+
+    const close = hitText.toLowerCase().indexOf('</action>', hit.offset);
+    const block = close >= 0 ? hitText.slice(hit.offset, close + '</action>'.length) : hitText.slice(hit.offset).split('\n').slice(0, 40).join('\n');
+    const short = hitPath.substring(hitPath.lastIndexOf('\\') + 1);
+    window.bcodeEntity.showPeekContent({
+      title: `<action id="${hit.name}">`,
+      subtitle: `Khai báo ${sameFile ? 'trong file này' : 'tại ' + short} · dòng ${pos.line} · ${block.split('\n').length} dòng`,
+      subtitleTitle: hitPath,
+      text: block,
+      language: window.bcodeFcodeLanguageReady ? window.FCODE_LANGUAGE_ID : 'xml',
+      openLabel: 'Tới nơi khai báo (Ctrl+F12)',
+      ctxPath: hitPath, ctxText: hitText,
+      onOpen: go,
+      hint: 'Chỉ xem — bấm "Tới nơi khai báo" (hoặc Ctrl+F12 ở editor) để chuyển tới đó.',
+      copyLabel: 'Copy code',
+    });
+    return true;
   }
 
   /// Jumps to the first occurrence of a tag, used for "Goto Command"/"Goto Response Tag" —

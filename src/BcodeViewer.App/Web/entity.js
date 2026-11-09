@@ -96,6 +96,70 @@ function replaceEntityRefs(text, fn) {
   return parts.join('');
 }
 
+// ---- F12 trên field trong <views> (peek khai báo field, sửa được) ------------------------------------
+
+/// Thay comment <!-- --> và CDATA bằng dấu cách (giữ xuống dòng → offset / số dòng không đổi): <field name="x"> trong comment hay
+/// trong clientScript / query không phải khai báo / dòng view thật.
+function fieldPeekMask(text) {
+  return text.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g, (s) => s.replace(/[^\r\n]/g, ' '));
+}
+
+/// Offset có nằm trong 1 khối <tag …>…</tag> (thẻ chưa đóng = tới hết file) không.
+function fieldPeekInBlock(text, tag, offset) {
+  const re = new RegExp('<' + tag + '\\b[^>]*>', 'g');
+  let m;
+  while ((m = re.exec(text))) {
+    if (m.index > offset) return false;
+    const close = text.indexOf('</' + tag + '>', m.index);
+    if (close < 0 || offset <= close) return true;
+  }
+  return false;
+}
+
+/// Thẻ mở <field …> (giá trị thuộc tính có thể chứa '>'), bắt đầu đúng tại lastIndex (cờ y) / tìm tiếp (cờ g).
+const FIELD_OPEN_TAG_SRC = '<field\\b(?:[^>"]|"[^"]*")*>';
+
+/// Khối của thẻ mở <field> `t` (kết quả regex): thẻ tự đóng = hết thẻ, còn lại tới hết "</field>" kế tiếp (không quá `limit`).
+/// { start, end, nameAt } hoặc null khi thẻ không có name.
+function fieldTagRange(masked, t, limit) {
+  const n = /\sname\s*=\s*"([^"]*)"/.exec(t[0]);
+  if (!n) return null;
+  let stop = t.index + t[0].length;
+  if (!/\/\s*>$/.test(t[0])) {
+    const c = masked.indexOf('</field>', stop);
+    if (c >= 0 && c < limit) stop = c + '</field>'.length;
+  }
+  return { start: t.index, end: stop, nameAt: t.index + n.index + n[0].indexOf('"') + 1, name: n[1].trim() };
+}
+
+/// Thẻ <field name="name"> đầu tiên trong [from, to): trùng đúng hoa thường (exact: true) trước, không có thì không phân biệt hoa thường.
+function fieldTagScan(masked, name, from, to) {
+  const re = new RegExp(FIELD_OPEN_TAG_SRC, 'g');
+  re.lastIndex = from;
+  let t, loose = null;
+  while ((t = re.exec(masked)) && t.index < to) {
+    const r = fieldTagRange(masked, t, to);
+    if (!r) continue;
+    if (r.name === name) return { ...r, exact: true };
+    if (!loose && r.name.toLowerCase() === name.toLowerCase()) loose = { ...r, exact: false };
+  }
+  return loose;
+}
+
+/// Thẻ <field name="name"> (cả file) gần offset `near` nhất — tìm lại khai báo trên model đang sửa (offset đọc lúc trước có thể đã lệch).
+function fieldTagNearest(masked, name, near) {
+  const re = new RegExp(FIELD_OPEN_TAG_SRC, 'g');
+  let t, best = null, bestLoose = null;
+  while ((t = re.exec(masked))) {
+    const r = fieldTagRange(masked, t, masked.length);
+    if (!r) continue;
+    const d = Math.abs(r.start - near);
+    if (r.name === name) { if (!best || d < best.d) best = { ...r, d }; }
+    else if (r.name.toLowerCase() === name.toLowerCase()) { if (!bestLoose || d < bestLoose.d) bestLoose = { ...r, d }; }
+  }
+  return best || bestLoose;
+}
+
 class BcodeEntity {
   constructor(bcode) {
     this.bcode = bcode;
@@ -900,6 +964,22 @@ class BcodeEntity {
       const names = this.entityNamesInSelection();
       if (names.length >= 2) { await this.showMultiPeek(names); return true; }
     }
+    // Đứng trên 1 field trong <views> (Grid / Lookup: <field name="x" …>, Dir / Filter: [x]) → F12 = khung peek SỬA ĐƯỢC đúng khai báo
+    // <field name="x"> ở <fields> phía trên (sửa ăn thẳng vào file, có gợi ý / ghost như editor chính); Ctrl+F12 = nhảy tới khai báo đó.
+    const vf = this.viewFieldAtCaret();
+    if (vf) {
+      if (vf.decl) {
+        if (go) this.goToFieldDeclaration(vf.decl.nameAt);
+        else this.showFieldPeek(vf);
+        return true;
+      }
+      // Không viết thẳng trong <fields>: khai trong &entity; đặt ở <fields> (vd &ddFields; → ddFields.txt) — peek / tới đúng file đó.
+      const loc = await this.locateFieldInController(vf.name);
+      if (!loc) { this.bcode.showToast(`Không tìm thấy khai báo field "${vf.name}" trong <fields> của file này (kể cả các &entity; / file include đặt trong <fields>).`, 6000); return false; }
+      if (go) await this.goToFieldLoc(vf.name, loc);
+      else await this.showFieldPeekAt(vf.name, loc);
+      return true;
+    }
     const quotedPath = this.quotedPathAtCaret();
     if (quotedPath && this.bcode.activePath) {
       const normalized = quotedPath.replace(/\//g, '\\');
@@ -1206,14 +1286,413 @@ class BcodeEntity {
     });
   }
 
-  /// Khung peek dùng chung: entity có giá trị (showPeek) và file include (showPeekFile).
+  // ---- F12 trên field trong <views>: peek khai báo field, SỬA ĐƯỢC ----------------------------------------
+  //
+  // Khung peek này KHÔNG chép đoạn khai báo ra model riêng: nó là 1 editor nữa trên CHÍNH model của file đang mở, ẩn mọi dòng ngoài khối
+  // <field name="x">…</field> (setHiddenAreas). Nhờ vậy sửa là ăn thẳng vào file (dirty, Problems, lưu như thường), Ctrl+Z dùng chung ngăn
+  // undo của file, và mọi gợi ý gắn theo ngôn ngữ (Hint Code, thuộc tính field, note, Gợi ý Fast, AI ghost, hover) tự chạy như editor chính —
+  // completion.js typingEditor() chỉ đổi đích các nhịp trigger chạy sau khi host trả kết quả. Con trỏ / vùng chọn bị kẹp trong khối, các phím
+  // có thể sửa lan ra dòng bị ẩn (Backspace đầu khối, Delete cuối khối, Alt+↑/↓ ở mép, Tìm / Thay) bị chặn.
+
+  /// Field dưới con trỏ editor chính khi con trỏ nằm trong <views>: trong thẻ <field …> (Grid / Lookup) — trừ khi đứng trên 1 &entity; của
+  /// thẻ (F12 entity như cũ) — hoặc trên [x] (mặt nạ item của Dir / Filter). { name, decl } (decl: fieldDeclRange, null = không khai ở file này); null = không phải.
+  viewFieldAtCaret() {
+    const model = this.bcode.currentModel, pos = this.bcode.editor.getPosition();
+    if (!model || !pos || !this.bcode.activePath) return null;
+    const text = model.getValue();
+    if (text.indexOf('<views') < 0) return null;
+    const masked = fieldPeekMask(text);
+    const offset = model.getOffsetAt(pos);
+    if (!fieldPeekInBlock(masked, 'views', offset)) return null;
+    const name = this.fieldRefAt(model, pos, masked);
+    return name ? { name, decl: this.fieldDeclRange(masked, name) } : null;
+  }
+
+  /// Tên field mà vị trí `pos` của model đang chỉ: [x] trên dòng (mặt nạ Dir / Filter) hoặc trong thẻ <field … name="x" …> — trừ khi đứng trên
+  /// 1 &entity; / %entity; của thẻ (để F12 entity như cũ). `masked` = fieldPeekMask(model.getValue()). null = không phải.
+  fieldRefAt(model, pos, masked) {
+    const offset = model.getOffsetAt(pos);
+    const lineStart = offset - (pos.column - 1);
+    const line = masked.slice(lineStart, lineStart + model.getLineLength(pos.lineNumber));
+    const col = pos.column - 1;
+    for (const m of line.matchAll(/\[([A-Za-z_][\w%$.]*)\]/g)) {
+      if (col >= m.index && col <= m.index + m[0].length) return m[1];
+    }
+    const lt = masked.lastIndexOf('<', offset);
+    if (lt < 0) return null;
+    const re = new RegExp(FIELD_OPEN_TAG_SRC, 'y');
+    re.lastIndex = lt;
+    const t = re.exec(masked);
+    if (!t || offset > lt + t[0].length) return null;
+    for (const r of t[0].matchAll(/[&%][A-Za-z_][\w.:$-]*;/g)) {
+      if (offset >= lt + r.index && offset <= lt + r.index + r[0].length) return null;
+    }
+    const n = /\sname\s*=\s*"([^"]*)"/.exec(t[0]);
+    return n && n[1].trim() ? n[1].trim() : null;
+  }
+
+  /// Khối khai báo field `name` trong các <fields> của văn bản đã che (fieldPeekMask): từ "<field" tới hết "</field>" (thẻ tự đóng: hết thẻ).
+  /// Trùng đúng hoa thường trước, không có thì không phân biệt hoa thường. { start, end, nameAt } (offset; nameAt = đầu giá trị name) hoặc null.
+  fieldDeclRange(masked, name) {
+    let loose = null;
+    const blocks = /<fields\b[^>]*>/g;
+    let b;
+    while ((b = blocks.exec(masked))) {
+      if (/\/\s*>$/.test(b[0])) continue;
+      const close = masked.indexOf('</fields>', b.index);
+      const hit = fieldTagScan(masked, name, b.index + b[0].length, close < 0 ? masked.length : close);
+      if (hit && hit.exact) return hit;
+      if (hit && !loose) loose = hit;
+    }
+    return loose;
+  }
+
+  /// Khai báo field `name` của controller `rootPath` (văn bản `rootText`): theo THỨ TỰ trong các khối <fields> — thẻ <field name> viết thẳng, hoặc
+  /// nằm trong &Entity; đặt ở đó (entity file include → trong file đó, vd &ddFields; → ddFields.txt; entity giá trị → trong giá trị, ở file khai báo
+  /// entity), lồng tối đa 4 cấp; entity tra theo chuỗi include của controller. { path, start, exact } (start = offset trong văn bản của path) hoặc null.
+  async locateFieldDecl(name, rootPath, rootText) {
+    const seen = new Set();
+    const scan = async (path, masked, from, to, depth) => {
+      const re = new RegExp(FIELD_OPEN_TAG_SRC + '|&([A-Za-z_][\\w.:$-]*);', 'g');
+      re.lastIndex = from;
+      let t, loose = null;
+      while ((t = re.exec(masked)) && t.index < to) {
+        let hit = null;
+        if (t[1] === undefined) {
+          const n = /\sname\s*=\s*"([^"]*)"/.exec(t[0]);
+          const v = n ? n[1].trim() : '';
+          if (v === name) hit = { path, start: t.index, exact: true };
+          else if (v && v.toLowerCase() === name.toLowerCase()) hit = { path, start: t.index, exact: false };
+        } else {
+          const ent = t[1];
+          if (depth >= 4 || XML_BUILTIN_ENTITIES.has(ent) || seen.has(ent)) continue;
+          seen.add(ent);
+          const found = await this.resolveTop(ent, rootPath, rootText);
+          if (!found) continue;
+          if (found.decl.kind === 'system') {
+            const target = resolvePath(dirNameOf(found.path), found.decl.systemPath.replace(/\//g, '\\'));
+            const open = this._docEntry(target);
+            const text = open ? open.doc.model.getValue() : await this.readFile(target);
+            if (!text) continue;
+            const m2 = fieldPeekMask(text);
+            hit = await scan(target, m2, 0, m2.length, depth + 1);
+          } else if (typeof found.decl.value === 'string' && found.text) {
+            const m2 = fieldPeekMask(found.text);
+            const v0 = found.decl.valueOffset;
+            hit = await scan(found.path, m2, v0, v0 + found.decl.value.length, depth + 1);
+          }
+        }
+        if (hit && hit.exact) return hit;
+        if (hit && !loose) loose = hit;
+      }
+      return loose;
+    };
+    const masked = fieldPeekMask(rootText);
+    let loose = null;
+    const blocks = /<fields\b[^>]*>/g;
+    let b;
+    while ((b = blocks.exec(masked))) {
+      if (/\/\s*>$/.test(b[0])) continue;
+      const close = masked.indexOf('</fields>', b.index);
+      const hit = await scan(rootPath, masked, b.index + b[0].length, close < 0 ? masked.length : close, 0);
+      if (hit && hit.exact) return hit;
+      if (hit && !loose) loose = hit;
+    }
+    return loose;
+  }
+
+  /// locateFieldDecl cho controller đang mở ở editor chính; file đang mở là mảnh include (không có <fields>) thì thử các file cha đã dẫn tới nó.
+  async locateFieldInController(name) {
+    const bcode = this.bcode;
+    if (!bcode.activePath || !bcode.currentModel) return null;
+    const roots = [[bcode.activePath, bcode.currentModel.getValue()]];
+    let cur = bcode.activePath;
+    const seen = new Set();
+    while (cur && roots.length < 5) {
+      const parent = this.includedFrom.get(cur.toLowerCase());
+      if (!parent || seen.has(parent.toLowerCase())) break;
+      seen.add(parent.toLowerCase());
+      const open = this._docEntry(parent);
+      const text = open ? open.doc.model.getValue() : await this.readFile(parent);
+      if (text) roots.push([parent, text]);
+      cur = parent;
+    }
+    for (const [p, t] of roots) {
+      if (!/<fields\b/i.test(t)) continue;
+      const loc = await this.locateFieldDecl(name, p, t);
+      if (loc) return loc;
+    }
+    return null;
+  }
+
+  /// Tab đang mở của `path` (không phân biệt hoa thường): { path: khoá trong docs, doc } hoặc null.
+  _docEntry(path) {
+    if (!path || !this.bcode.docs) return null;
+    const k = path.toLowerCase();
+    for (const [p, doc] of this.bcode.docs) if (p.toLowerCase() === k) return { path: p, doc };
+    return null;
+  }
+
+  /// Model để sửa khai báo field ở `loc` (locateFieldDecl): file đang xem → model của nó; file khác (file include / file .ent) → tab của file đó
+  /// (chưa mở thì mở NGẦM thành tab, không chuyển tab — để có dấu chưa lưu, hỏi lưu khi đóng). Khối tìm lại trên chính model (có thể đang sửa dở,
+  /// lệch với bản đã đọc) = thẻ cùng tên gần offset cũ nhất. { path, model, r } hoặc null.
+  async _fieldTarget(name, loc) {
+    const active = this.bcode.activePath;
+    let path = loc.path, model;
+    if (active && path.toLowerCase() === active.toLowerCase()) { path = active; model = this.bcode.currentModel; }
+    else {
+      let d = this._docEntry(path);
+      if (!d) {
+        if (!this.bcode.openFileInBackground) return null;
+        await this.bcode.openFileInBackground(path);
+        d = this._docEntry(path);
+        if (!d) return null;
+        this._rememberIncluder(d.path, active);
+      }
+      path = d.path; model = d.doc.model;
+    }
+    const r = fieldTagNearest(fieldPeekMask(model.getValue()), name, loc.start);
+    return r ? { path, model, r } : null;
+  }
+
+  async showFieldPeekAt(name, loc) {
+    const t = await this._fieldTarget(name, loc);
+    if (!t) { this.bcode.showToast(`Không mở được khai báo của field "${name}" (${fileNameOf(loc.path)}).`, 5000); return; }
+    this.showFieldPeek({ name, decl: t.r }, t.model, t.path);
+  }
+
+  /// Ctrl+F12 tới khai báo field ở `loc`: file đang xem → nhảy trong editor chính; file include → chuyển sang tab của file đó tại khai báo.
+  async goToFieldLoc(name, loc) {
+    const t = await this._fieldTarget(name, loc);
+    if (!t) return;
+    if (t.path === this.bcode.activePath) { this.goToFieldDeclaration(t.r.nameAt); return; }
+    const p = t.model.getPositionAt(t.r.nameAt);
+    this.closePeek();
+    await this.openIncluded(t.path);
+    this.bcode.editor.setPosition(p);
+    this.bcode.editor.revealPositionInCenter(p);
+    this.bcode.editor.focus();
+  }
+
+  /// Ctrl+F12 trên field trong <views> / nút "Tới nơi khai báo": đóng peek, đặt con trỏ editor chính tại offset đó.
+  goToFieldDeclaration(offset) {
+    const model = this.bcode.currentModel, ed = this.bcode.editor;
+    if (!model || !ed) return;
+    const p = model.getPositionAt(offset);
+    this.closePeek();
+    ed.setPosition(p);
+    ed.revealPositionInCenter(p);
+    ed.focus();
+  }
+
+  /// Peek sửa được trên khối khai báo `vf.decl` ({start, end, nameAt}) của `model` — mặc định file đang xem; file include (path khác tab đang xem)
+  /// thì sửa vào tab của file đó, Ctrl+S trong khung lưu file đó.
+  showFieldPeek(vf, model = this.bcode.currentModel, path = this.bcode.activePath) {
+    const a = model.getPositionAt(vf.decl.start), b = model.getPositionAt(vf.decl.end);
+    const other = path !== this.bcode.activePath;
+    this.showPeekContent({
+      title: `<field name="${vf.name}">`,
+      subtitle: '',
+      subtitleTitle: path,
+      text: '',
+      language: model.getLanguageId(),
+      editable: { model, path, startLine: a.lineNumber, endLine: b.lineNumber, caret: model.getPositionAt(vf.decl.nameAt) },
+      openLabel: other ? 'Mở file tại khai báo (Ctrl+F12)' : 'Tới nơi khai báo (Ctrl+F12)',
+      ctxPath: path, ctxText: model.getValue(),
+      onOpen: () => this._fieldPeekGo(),
+      hint: other
+        ? `Sửa trực tiếp vào ${fileNameOf(path)} (đã mở ngầm thành tab), gợi ý / ghost như editor chính — Ctrl+S lưu ${fileNameOf(path)}, Ctrl+Z hoàn tác, Esc đóng.`
+        : 'Sửa trực tiếp vào file, gợi ý / ghost như editor chính — Ctrl+Z hoàn tác, Ctrl+S lưu, F12 xem &entity;, Esc đóng.',
+      copyLabel: 'Copy code',
+    });
+  }
+
+  /// Nhớ "file nào dẫn tới file include này" (dùng cho F12 trong mảnh include — xem includedFrom).
+  _rememberIncluder(target, from) {
+    if (!from || !target || from.toLowerCase() === target.toLowerCase()) return;
+    const k = target.toLowerCase();
+    this.includedFrom.delete(k); this.includedFrom.set(k, from); // đẩy xuống cuối = mới dùng gần nhất
+    while (this.includedFrom.size > 300) this.includedFrom.delete(this.includedFrom.keys().next().value);
+    try { localStorage.setItem("bcodeIncludedFrom", JSON.stringify([...this.includedFrom])); } catch { /* bỏ qua */ }
+  }
+
+  /// Khung peek field đang mở (sửa được) — completion.js / autoview.js dùng để biết người dùng đang gõ ở đâu. null = không có.
+  editablePeekEditor() {
+    return this.peekEditable && this.peekEditor ? this.peekEditor : null;
+  }
+
+  _fieldBlockRange(ed) {
+    const n = ed.model.getLineCount();
+    const end = Math.max(1, Math.min(ed.endLine, n)), start = Math.max(1, Math.min(ed.startLine, end));
+    return new monaco.Range(start, 1, end, ed.model.getLineMaxColumn(end));
+  }
+
+  _fieldBlockText(ed) { return ed.model.getValueInRange(this._fieldBlockRange(ed)); }
+
+  /// Tới đúng chỗ con trỏ trong khung peek field, ở editor chính.
+  _fieldPeekGo() {
+    const pe = this.peekEditor, ed = this.peekCurrent && this.peekCurrent.editable;
+    if (!pe || !ed) return;
+    const offset = ed.model.getOffsetAt(pe.getPosition());
+    if (!ed.path || ed.path === this.bcode.activePath) { this.goToFieldDeclaration(offset); return; }
+    // Khai báo ở file include: chuyển sang tab của file đó, đúng chỗ con trỏ trong khung.
+    const p = ed.model.getPositionAt(offset), path = ed.path;
+    this.closePeek();
+    this.openIncluded(path).then(() => {
+      const e2 = this.bcode.editor;
+      e2.setPosition(p); e2.revealPositionInCenter(p); e2.focus();
+    });
+  }
+
+  /// Hiện tạm 1 thông báo ở dòng gợi ý của khung peek.
+  _peekFlash(msg) {
+    const h = this.peekHint;
+    if (!h) return;
+    if (h.dataset.base === undefined) h.dataset.base = h.textContent;
+    h.textContent = msg;
+    clearTimeout(this._peekFlashTimer);
+    this._peekFlashTimer = setTimeout(() => { if (h.dataset.base !== undefined) { h.textContent = h.dataset.base; delete h.dataset.base; } }, 2500);
+  }
+
+  /// Dropdown gợi ý / chữ mờ / gợi ý tham số đang hiện trong khung peek → Esc để Monaco đóng nó trước, chưa đóng khung.
+  _peekWidgetOpen() {
+    const n = this.peekEditor && this.peekEditor.getDomNode();
+    return !!n && !!n.querySelector('.suggest-widget.visible, .parameter-hints-widget.visible, .ghost-text-decoration, .ghost-text-decoration-preview, .ghost-text');
+  }
+
+  /// Gắn phần "sửa được" cho khung peek field: ẩn dòng ngoài khối, bám khối khi sửa, kẹp con trỏ, chặn phím lan ra ngoài, Ctrl+Z không lùi
+  /// quá lúc mở khung, Ctrl+S / Gợi ý Fast dài-ngắn chạy như editor chính.
+  _setupEditablePeek(o, box, body, subtitle) {
+    const ed = o.editable, pe = this.peekEditor, model = ed.model;
+    const other = !!ed.path && ed.path !== this.bcode.activePath;   // khai báo ở file include, không phải tab đang xem
+    if (ed.baseAlt === undefined) ed.baseAlt = model.getAlternativeVersionId();
+    const deco = pe.createDecorationsCollection([{
+      range: this._fieldBlockRange(ed),
+      options: { description: 'bcode-field-peek', stickiness: monaco.editor.TrackedRangeStickiness.AlwaysGrowsWhenTypingAtEdges },
+    }]);
+    this._fieldPeekDeco = deco;
+
+    let shownLines = -1;
+    const sync = () => {
+      const r = deco.getRange(0);
+      if (r) { ed.startLine = r.startLineNumber; ed.endLine = r.endLineNumber; }
+      const n = model.getLineCount(), hidden = [];
+      if (ed.startLine > 1) hidden.push(new monaco.Range(1, 1, ed.startLine - 1, model.getLineMaxColumn(ed.startLine - 1)));
+      if (ed.endLine < n) hidden.push(new monaco.Range(ed.endLine + 1, 1, n, model.getLineMaxColumn(n)));
+      pe.setHiddenAreas(hidden, 'bcode.fieldPeek');
+      subtitle.textContent = `Khai báo ${other ? 'tại ' + fileNameOf(ed.path) : 'trong file này'} · dòng ${ed.startLine}${ed.endLine > ed.startLine ? '–' + ed.endLine : ''} · sửa ở đây là sửa thẳng vào file`;
+      const count = ed.endLine - ed.startLine + 1;
+      if (count !== shownLines) { shownLines = count; this.fitPeekBox(box, body, [this._fieldBlockText(ed)]); }
+    };
+    sync();
+    pe.onDidChangeModelContent((e) => {
+      // File nạp lại từ đĩa (đổi ngoài Viewer) trong lúc mở khung: khối cũ không còn ý nghĩa.
+      if (e.isFlush) { setTimeout(() => this.closePeek(), 0); return; }
+      sync();
+      // File include (không phải tab đang xem): editor chính không nghe model này → tự cập nhật dấu chưa lưu của tab đó.
+      if (other) this.bcode.updateDirty(ed.path);
+    });
+
+    // Con trỏ / vùng chọn chỉ trong khối (Ctrl+A, Ctrl+Home/End, chọn mọi chỗ giống, nhảy kết quả tìm… không được chạm dòng bị ẩn).
+    // Kẹp ở microtask sau: đặt vùng chọn ngay trong sự kiện thì lệnh đang chạy (Ctrl+A...) ghi đè lại.
+    let clamping = false, queued = false;
+    pe.onDidChangeCursorSelection(() => {
+      if (clamping || queued) return;
+      queued = true;
+      queueMicrotask(() => { queued = false; if (this.peekEditor === pe) clamp(); });
+    });
+    const clamp = () => {
+      const r = this._fieldBlockRange(ed);
+      const sels = pe.getSelections() || [];
+      const out = [];
+      let changed = false;
+      for (const s of sels) {
+        const i = monaco.Range.intersectRanges(r, s);
+        if (!i) { changed = true; continue; }
+        if (monaco.Range.equalsRange(i, s)) { out.push(s); continue; }
+        changed = true;
+        out.push(s.getDirection() === monaco.SelectionDirection.RTL
+          ? new monaco.Selection(i.endLineNumber, i.endColumn, i.startLineNumber, i.startColumn)
+          : new monaco.Selection(i.startLineNumber, i.startColumn, i.endLineNumber, i.endColumn));
+      }
+      if (!changed) return;
+      if (!out.length) {
+        const s = sels[0];
+        const p = s && s.getStartPosition().isBefore(r.getStartPosition()) ? r.getStartPosition() : r.getEndPosition();
+        out.push(new monaco.Selection(p.lineNumber, p.column, p.lineNumber, p.column));
+      }
+      clamping = true;
+      try { pe.setSelections(out); } finally { clamping = false; }
+    };
+
+    pe.onKeyDown((e) => {
+      const KC = monaco.KeyCode, k = e.keyCode;
+      const r = this._fieldBlockRange(ed);
+      const sels = pe.getSelections() || [];
+      const allEmpty = sels.every((s) => s.isEmpty());
+      const stop = (msg) => { e.preventDefault(); e.stopPropagation(); if (msg) this._peekFlash(msg); };
+      if (k === KC.Backspace && allEmpty && sels.some((s) => s.getPosition().equals(r.getStartPosition()))) { stop(); return; }
+      if (k === KC.Delete && allEmpty && sels.some((s) => s.getPosition().equals(r.getEndPosition()))) { stop(); return; }
+      if (e.altKey && !e.shiftKey && !e.ctrlKey &&
+        ((k === KC.UpArrow && sels.some((s) => s.startLineNumber <= r.startLineNumber)) ||
+         (k === KC.DownArrow && sels.some((s) => s.endLineNumber >= r.endLineNumber)))) { stop('Không chuyển dòng ra ngoài khai báo field.'); return; }
+      if (e.ctrlKey && !e.altKey && (k === KC.KeyF || k === KC.KeyH)) { stop('Tìm / Thay không dùng trong khung peek field (Thay có thể sửa cả phần bị ẩn) — đóng khung (Esc) rồi tìm ở editor chính.'); return; }
+      // Phím của Viewer cần chạy cả trong khung (keys.js bỏ qua phím bấm trong .peekOverlay): Lưu, đổi Gợi ý Fast dài ⇄ ngắn.
+      const keys = window.bcodeKeys;
+      if (!keys || !keys.map) return;
+      const combo = keys.comboOf(e.browserEvent);
+      const id = combo && keys.map.get(combo);
+      if (id === 'file.save' || id === 'edit.fastLong') {
+        stop();
+        try {
+          // Khai báo ở file include: Lưu = lưu file đó (tab đang xem không đổi).
+          if (id === 'file.save' && other && this.bcode.saveDocAt) this.bcode.saveDocAt(ed.path);
+          else keys.find(id).run(this.bcode, e.browserEvent);
+        } catch (err) { this._peekFlash('Lỗi: ' + err); }
+      }
+    });
+
+    // Ctrl+Z: chỉ lùi phần đã sửa từ lúc mở khung — lùi tiếp sẽ đổi các dòng đang bị ẩn mà người dùng không thấy.
+    pe.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ, () => {
+      if (model.getAlternativeVersionId() === ed.baseAlt) { this._peekFlash('Đã hoàn tác hết phần sửa trong khung này (muốn lùi tiếp: Esc đóng khung rồi Ctrl+Z ở editor chính).'); return; }
+      // Gọi thẳng model.undo(): lệnh 'undo' của Monaco đi theo editor đang có focus — khi khung peek sửa file include (model khác tab đang xem)
+      // mà focus chưa nằm ở khung, nó rơi sang editor chính (đo được: alternativeVersionId của file include đứng yên).
+      model.undo();
+    });
+    // Làm lại (Ctrl+Y / Ctrl+Shift+Z) cũng nhắm đúng model của khung, cùng lý do.
+    const redo = () => model.redo();
+    pe.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyY, redo);
+    pe.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ, redo);
+
+    if (window.bcodeCompletion && window.bcodeCompletion.watchSuggestForFast) window.bcodeCompletion.watchSuggestForFast(pe);
+
+    const r = this._fieldBlockRange(ed);
+    const c = ed.caret && monaco.Range.containsPosition(r, ed.caret) ? ed.caret : r.getStartPosition();
+    pe.setPosition(c);
+    pe.setScrollTop(0);
+  }
+
+  /// Ctrl+F12 trong khung peek field: trên &entity; / %entity; → đi tới entity (như khung peek thường), còn lại → tới chỗ con trỏ ở editor chính.
+  _fieldPeekCtrlF12() {
+    const pe = this.peekEditor;
+    if (!pe) return;
+    const pos = pe.getPosition(), line = pe.getModel().getLineContent(pos.lineNumber), col = pos.column - 1;
+    for (const m of line.matchAll(/[&%][A-Za-z_][\w.:$-]*;/g)) {
+      if (col >= m.index && col <= m.index + m[0].length) { this.peekNavigate('go'); return; }
+    }
+    this._fieldPeekGo();
+  }
+
+  /// Khung peek dùng chung: entity có giá trị (showPeek) và file include (showPeekFile); o.editable = peek field sửa được (showFieldPeek).
   showPeekContent(o) {
     // Lịch sử các khung đã xem (F12 tiếp trong khung peek) — giữ khi đang chuyển tiếp / quay lại, xoá khi mở peek mới từ editor chính.
     const keep = this._keepHistory; this._keepHistory = null;
     this._disposePeek();
     this.peekHistory = keep || [];
     this.peekCurrent = o;
-    const lines = o.text.split('\n').length;
+    const ed = o.editable || null;
+    const textNow = () => (ed ? this._fieldBlockText(ed) : o.text);
+    const lines = textNow().split('\n').length;
 
     const overlay = document.createElement('div');
     overlay.className = 'peekOverlay';
@@ -1254,13 +1733,13 @@ class BcodeEntity {
     copyBtn.className = 'dlgButton';
     copyBtn.textContent = o.copyLabel;
     copyBtn.onclick = () => {
-      navigator.clipboard.writeText(o.text);
+      navigator.clipboard.writeText(textNow());
       copyBtn.textContent = 'Đã copy';
       setTimeout(() => { copyBtn.textContent = o.copyLabel; }, 1200);
     };
     const hint = document.createElement('span');
     hint.className = 'peekHint';
-    hint.textContent = o.hint + (o.ctxPath ? ' F12 trong khung này xem tiếp entity khác, Alt+← quay lại.' : '');
+    hint.textContent = o.hint + (o.ctxPath && !ed ? ' F12 trong khung này xem tiếp entity khác, Alt+← quay lại.' : '');
     this.peekHint = hint;
     footer.append(hint);
     if (this.peekHistory.length) {
@@ -1276,27 +1755,31 @@ class BcodeEntity {
     overlay.appendChild(box);
     document.body.appendChild(overlay);
 
-    this.peekEditor = monaco.editor.create(body, {
-      value: o.text,
-      language: o.language,
+    const common = {
       theme: window.bcodeTheme ? window.bcodeTheme.monacoThemeName : 'vs-dark',
-      readOnly: true,
       automaticLayout: true,
       fontFamily: window.bcodeTheme ? window.bcodeTheme.fontFamily : "'Roboto', Consolas, monospace",
       fontSize: 15,
-      minimap: { enabled: lines > 80 },
       scrollBeyondLastLine: false,
-    });
+    };
+    // Peek field: CHÍNH model của file + tuỳ chọn của editor chính (gợi ý, ghost, ngắt từ, tô cặp ngoặc...) — xem _setupEditablePeek.
+    // fixedOverflowWidgets: dropdown gợi ý không bị khung peek (overflow: hidden) cắt khi khai báo field chỉ vài dòng.
+    this.peekEditable = !!ed;
+    this.peekEditor = monaco.editor.create(body, ed
+      ? { ...this.bcode.editor.getRawOptions(), ...common, model: ed.model, minimap: { enabled: false }, glyphMargin: false, fixedOverflowWidgets: true }
+      : { ...common, value: o.text, language: o.language, readOnly: true, minimap: { enabled: lines > 80 } });
     if (o.ctxPath) {
       // Trong khung peek: F12 xem tiếp entity / file dưới con trỏ (tính theo file của khung này), Ctrl+F12 đi tới, Alt+← quay lại khung trước.
       this.peekEditor.addCommand(monaco.KeyCode.F12, () => this.peekNavigate('peek'));
-      this.peekEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => this.peekNavigate('go'));
+      this.peekEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => (ed ? this._fieldPeekCtrlF12() : this.peekNavigate('go')));
       this.peekEditor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow, () => this.peekBack());
     }
-    this.fitPeekBox(box, body, [o.text]);
+    if (ed) this._setupEditablePeek(o, box, body, subtitle);
+    else this.fitPeekBox(box, body, [o.text]);
     this.peekEditor.focus();
 
-    this.escHandler = (e) => { if (e.key === 'Escape') this.closePeek(); };
+    // Peek field: Esc đóng dropdown gợi ý / chữ mờ trước (như editor chính), lần sau mới đóng khung.
+    this.escHandler = (e) => { if (e.key === 'Escape' && !(ed && this._peekWidgetOpen())) this.closePeek(); };
     document.addEventListener('keydown', this.escHandler, true);
     this.overlay = overlay;
   }
@@ -1339,6 +1822,19 @@ class BcodeEntity {
     const showNested = (fn) => { this._keepHistory = [...(this.peekHistory || []), cur]; return fn(); };
     const exists = async (p) => { const t = performance.now(); try { return JSON.parse(await window.bcodeHost.call('BeginPathsExist', JSON.stringify([p])))[0]; } catch { return false; } finally { if (this._tm) this._tm.exists = (this._tm.exists || 0) + Math.round(performance.now() - t); } };
 
+    // F12 trên field (thẻ <field name="x"> / [x]) trong khung peek chỉ đọc — vd &ddViews; chỉ có các dòng view: tìm khai báo field đó ở
+    // <fields> của controller đang mở (kể cả trong &entity; đặt ở <fields>, vd &ddFields; → ddFields.txt) rồi mở peek SỬA ĐƯỢC ngay trên khai báo
+    // (Alt+← quay lại khung này). Không thấy thì xét tiếp như entity / đường dẫn như cũ.
+    if (!cur.editable) {
+      const fname = this.fieldRefAt(model, pos, fieldPeekMask(model.getValue()));
+      const loc = fname ? await this.locateFieldInController(fname) : null;
+      if (loc) {
+        if (go) await this.goToFieldLoc(fname, loc);
+        else await showNested(() => this.showFieldPeekAt(fname, loc));
+        return;
+      }
+    }
+
     const quoted = this.quotedPathAt(model, pos);
     if (quoted) {
       const normalized = quoted.replace(/\//g, '\\');
@@ -1370,9 +1866,11 @@ class BcodeEntity {
   }
 
   closePeek() {
+    const wasEditable = this.peekEditable;
     this.peekHistory = [];
     this._keepHistory = null;
     this._disposePeek();
+    if (wasEditable && this.bcode.editor) this.bcode.editor.focus();   // peek field: quay về đúng chỗ đang đứng ở <views>
   }
 
   /// Co dãn khung peek theo nội dung: cao theo số dòng, rộng theo dòng dài nhất (tab tính theo tabSize). Kẹp trong
@@ -1418,11 +1916,16 @@ class BcodeEntity {
 
   _disposePeek() {
     if (this.peekEditor) {
-
-      this.peekEditor.getModel()?.dispose();
+      if (this.peekEditable) {
+        // Peek field dùng CHÍNH model của file đang mở: không dispose model, chỉ gỡ decoration bám khối; nhớ con trỏ cho lúc quay lại (Alt+←).
+        const cur = this.peekCurrent && this.peekCurrent.editable;
+        if (cur) cur.caret = this.peekEditor.getPosition();
+        if (this._fieldPeekDeco) { this._fieldPeekDeco.clear(); this._fieldPeekDeco = null; }
+      } else this.peekEditor.getModel()?.dispose();
       this.peekEditor.dispose();
       this.peekEditor = null;
     }
+    this.peekEditable = false;
     if (this.escHandler) {
       document.removeEventListener('keydown', this.escHandler, true);
       this.escHandler = null;

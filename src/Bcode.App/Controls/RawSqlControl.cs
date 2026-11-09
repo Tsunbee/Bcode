@@ -1224,10 +1224,10 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
     /// <summary>Thay cả nội dung mà Ctrl+Z vẫn về được bản trước (1 bước) — Beauty, đổi hoa/thường, nạp bản từ Lịch sử...
     /// Khác <see cref="SetScriptTextAsync"/> (nạp như tài liệu mới, xoá ngăn undo). Editor chưa sẵn sàng thì nạp như thường.</summary>
-    public async Task ReplaceScriptTextAsync(string text)
+    public async Task ReplaceScriptTextAsync(string text, bool caretToTop = false)
     {
         if (!_editorReady || !EdAlive) { await SetScriptTextAsync(text); return; }
-        await EdExec($"window.replaceAllText({System.Text.Json.JsonSerializer.Serialize(text)})");
+        await EdExec($"window.replaceAllText({System.Text.Json.JsonSerializer.Serialize(text)}{(caretToTop ? ", true" : "")})");
     }
 
     /// <summary>Chèn định nghĩa procedure/function lên đầu script đang gõ (kèm GO) và nhảy lên đó — dùng cho Ctrl + chuột phải.

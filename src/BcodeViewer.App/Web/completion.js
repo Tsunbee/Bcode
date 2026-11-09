@@ -937,6 +937,14 @@ class BcodeCompletion {
     return window.chrome.webview.hostObjects.host;
   }
 
+  /// Editor người dùng đang gõ: khung peek field SỬA ĐƯỢC (F12 trên tên field trong <views>, entity.js) khi nó đang mở —
+  /// dùng chung model với editor chính nên provider tự chạy, chỉ các nhịp trigger / đọc con trỏ / dropdown sau khi host trả
+  /// kết quả phải nhắm đúng khung đó (không thì chữ mờ Fast / AI về muộn chỉ hiện ở editor chính phía sau). Còn lại: editor chính.
+  typingEditor() {
+    const p = window.bcodeEntity && window.bcodeEntity.editablePeekEditor && window.bcodeEntity.editablePeekEditor();
+    return p || this.editor;
+  }
+
   /// Which language the caret is actually sitting in. For a real .sql or .js file that is
   /// simply the model's language; for an FCode .xml it is the embedded region (see
   /// buildRegions), because one document holds all three.
@@ -2287,7 +2295,7 @@ class BcodeCompletion {
     const version = model.getVersionId();
     this._fastTimer = setTimeout(async () => {
       this._fastPendingKey = null;
-      if (this.editor.getModel() !== model || model.getVersionId() !== version) return;
+      if (this.typingEditor().getModel() !== model || model.getVersionId() !== version) return;
       let text = '';
       try {
         const raw = await window.bcodeHost.call('BeginFastGhost', before, after, this.bcode.activePath,
@@ -2298,19 +2306,21 @@ class BcodeCompletion {
       } catch { return; } // lượt mới hơn đã thay lượt này
       if (this.fastCache.size > 400) this.fastCache.clear();
       this.fastCache.set(key, text);
-      if (!text || this.editor.getModel() !== model || model.getVersionId() !== version) return;
+      if (!text || this.typingEditor().getModel() !== model || model.getVersionId() !== version) return;
       // Lớp dưới (structuralGhost) có thể đã hiện gợi ý ở đúng chỗ này trong lúc chờ host; trigger không thay gợi ý đang hiện
       // (đo trong Viewer: gõ <items trong field so_luong vẫn giữ mẫu AutoComplete viết tay) → ẩn trước rồi gọi lại.
-      try { this.editor.trigger('fast', 'editor.action.inlineSuggest.hide', {}); } catch { /* editor đang đóng */ }
+      const ed = this.typingEditor();
+      try { ed.trigger('fast', 'editor.action.inlineSuggest.hide', {}); } catch { /* editor đang đóng */ }
       // Dropdown thuộc tính tự bật sau dấu cách (trước khi kết quả về) che chữ mờ → đóng nó, chỉ khi con trỏ đứng ở ranh giới thuộc tính
       // (vừa gõ dấu cách) — đang gõ dở 1 từ thì giữ dropdown. Ctrl+Space mở lại được.
       const lineToCaret = model.getLineContent(position.lineNumber).substring(0, position.column - 1);
-      if (/\s$/.test(lineToCaret) && /<[A-Za-z][\w-]*\s(?:[^<>"]|"[^"]*")*$/.test(lineToCaret)) {
-        try { this.editor.trigger('fast', 'hideSuggestWidget', {}); } catch { /* không có dropdown */ }
+      if (this.suggestTouched()) { /* người dùng đang tự chọn trong dropdown → giữ nó */ }
+      else if (/\s$/.test(lineToCaret) && /<[A-Za-z][\w-]*\s(?:[^<>"]|"[^"]*")*$/.test(lineToCaret)) {
+        try { ed.trigger('fast', 'hideSuggestWidget', {}); } catch { /* không có dropdown */ }
       } else this.yieldSuggestToFast(lineToCaret, text);
       const fire = () => {
-        if (this.editor.getModel() !== model || model.getVersionId() !== version) return;
-        try { this.editor.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }
+        if (this.typingEditor().getModel() !== model || model.getVersionId() !== version) return;
+        try { ed.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }
       };
       fire();
       setTimeout(fire, 0);
@@ -2324,36 +2334,61 @@ class BcodeCompletion {
   /// được gọi mà chưa có hàm (SourceGhost.AddWord) → luôn nhường cho chữ mờ.
   yieldSuggestToFast(lineToCaret, text) {
     const word = /[A-Za-z_$][\w$]*$/.exec(lineToCaret);
-    if (!word || !/^[\w$]/.test(text)) return;
+    if (!word || !/^[\w$]/.test(text) || this.suggestTouched()) return;
     const label = this.focusedSuggestLabel();
     if (!label) return;
     const decl = /(?:^|[^\w$.])function\s+[\w$]*$/.test(lineToCaret);
     if (!decl && label !== word[0] + /^[\w$]*/.exec(text)[0]) return;
-    try { this.editor.trigger('fast', 'hideSuggestWidget', {}); } catch { /* không có dropdown */ }
+    try { this.typingEditor().trigger('fast', 'hideSuggestWidget', {}); } catch { /* không có dropdown */ }
   }
 
   /// Dropdown hiện / đổi mục đang chọn khi gợi ý Fast cho chỗ con trỏ đã có sẵn (gõ tiếp đúng gợi ý, hoặc lấy từ bộ nhớ) → yieldSuggestToFast.
   /// Kết quả Fast về sau khi dropdown đã mở thì scheduleFastFetch gọi nó.
-  watchSuggestForFast() {
+  /// <paramref>ed</paramref>: editor có dropdown cần theo dõi — mặc định editor chính; khung peek field sửa được (entity.js showPeekContent) gọi cho chính nó.
+  watchSuggestForFast(ed = this.editor) {
     let w;
-    try { w = this.editor.getContribution('editor.contrib.suggestController')?.widget?.value; } catch { return; }
+    try { w = ed.getContribution('editor.contrib.suggestController')?.widget?.value; } catch { return; }
     if (!w || !w.onDidShow || !w.onDidFocus) return;
     const check = () => setTimeout(() => {
-      const model = this.editor.getModel(), position = this.editor.getPosition();
+      const model = ed.getModel(), position = ed.getPosition();
       if (!model || !position) return;
       const text = this.fastGhost(model, position)?.items?.[0]?.insertText;   // chỉ chữ mờ sẽ hiện thật (cuối dòng / trước dấu đóng)
       if (text) this.yieldSuggestToFast(model.getLineContent(position.lineNumber).substring(0, position.column - 1), text);
     }, 0);
-    w.onDidShow(check);
+    // Người dùng tự đổi mục chọn (↑/↓/PageUp/PageDown, cuộn / bấm chuột trên dropdown) → dropdown là của họ: không đóng để nhường chữ mờ Fast
+    // nữa tới khi nó đóng (lỗi cũ: gõ f.re, ↓ tới "request" — trùng tên Fast đoán — là dropdown tắt, không Enter chèn được).
+    const touch = () => { if (this.suggestVisible(ed)) w._bcodeTouched = true; };
+    w.onDidShow(() => { w._bcodeTouched = false; check(); });
+    if (w.onDidHide) w.onDidHide(() => { w._bcodeTouched = false; });
     w.onDidFocus(check);
+    ed.onKeyDown(e => {
+      const K = monaco.KeyCode;
+      if ((e.keyCode === K.UpArrow || e.keyCode === K.DownArrow || e.keyCode === K.PageUp || e.keyCode === K.PageDown)
+          && this.suggestVisible(ed)) w._bcodeTouched = true;
+    });
+    const node = w.element && w.element.domNode;
+    if (node) { node.addEventListener('mousedown', touch, true); node.addEventListener('wheel', touch, { capture: true, passive: true }); }
+  }
+
+  /// Dropdown gợi ý của <paramref>ed</paramref> đang hiện.
+  suggestVisible(ed) {
+    const node = ed.getDomNode()?.querySelector('.suggest-widget');
+    return !!node && node.classList.contains('visible');
+  }
+
+  /// Người dùng đã tự chọn mục trong dropdown đang mở của editor đang gõ (watchSuggestForFast) — khi đó không đóng dropdown để nhường chữ mờ.
+  suggestTouched() {
+    try { return !!this.typingEditor().getContribution('editor.contrib.suggestController')?.widget?.value?._bcodeTouched; }
+    catch { return false; }
   }
 
   /// Nhãn mục đang chọn trong dropdown gợi ý (null = dropdown đóng / không đọc được).
   focusedSuggestLabel() {
     try {
-      const sc = this.editor.getContribution('editor.contrib.suggestController');
+      const ed = this.typingEditor();
+      const sc = ed.getContribution('editor.contrib.suggestController');
       const w = sc && sc.widget && sc.widget.value;
-      const node = this.editor.getDomNode()?.querySelector('.suggest-widget');
+      const node = ed.getDomNode()?.querySelector('.suggest-widget');
       if (!w || !node || !node.classList.contains('visible')) return null;
       const label = w.getFocusedItem()?.item?.completion?.label;
       return typeof label === 'string' ? label : label?.label ?? null;
@@ -2366,8 +2401,9 @@ class BcodeCompletion {
   checkFastFeedback() {
     const fb = this._fastFb;
     if (!fb) return;
-    const model = this.editor.getModel();
-    const position = this.editor.getPosition();
+    const ed = this.typingEditor();
+    const model = ed.getModel();
+    const position = ed.getPosition();
     if (!model || !position) return;
     const { before } = this.fastContext(model, position);
     if (!before.startsWith(fb.before)) { this._fastFb = null; return; }
@@ -2394,7 +2430,7 @@ class BcodeCompletion {
     this.fastCache.clear();
     this._fastPrev = null;
     if (this.bcode.showToast) this.bcode.showToast(this.config.fastGhostLong ? 'Gợi ý Fast: DÀI (đúng ≥ 60%)' : 'Gợi ý Fast: NGẮN (đúng ≥ 90%)', 1800);
-    try { this.editor.trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* không có editor */ }
+    try { this.typingEditor().trigger('fast', 'editor.action.inlineSuggest.trigger', {}); } catch { /* không có editor */ }
   }
 
   // ---- Layer 4: AI ghost text --------------------------------------------------------
@@ -2602,7 +2638,7 @@ class BcodeCompletion {
     const versionAtSchedule = model.getVersionId();
     this._aiTimer = setTimeout(async () => {
       this._aiPendingKey = null;
-      if (this.editor.getModel() !== model) return;      // đã chuyển tab
+      if (this.typingEditor().getModel() !== model) return;      // đã chuyển tab
       if (model.getVersionId() !== versionAtSchedule) return;
 
       // Tính ở đây chứ không phải lúc hẹn: regionAt phải quét lại cả tài liệu, và làm việc
@@ -2616,7 +2652,7 @@ class BcodeCompletion {
       // Sau await này tài liệu có thể đã đổi (columnsFor gọi xuống host), nên kiểm lại.
       let projectFacts = '';
       try { projectFacts = await this.buildProjectFacts(model); } catch { /* thiếu facts vẫn gợi ý được */ }
-      if (this.editor.getModel() !== model) return;
+      if (this.typingEditor().getModel() !== model) return;
       if (model.getVersionId() !== versionAtSchedule) return;
 
       let text = '';
@@ -2655,7 +2691,7 @@ class BcodeCompletion {
       if (!text) return;
 
       // Gõ tiếp trong lúc chờ mạng thì thôi — cache vẫn giữ, lần sau quay lại vẫn dùng được.
-      if (this.editor.getModel() !== model) return;
+      if (this.typingEditor().getModel() !== model) return;
       if (model.getVersionId() !== versionAtSchedule) return;
 
       // Câu trả lời chỉ nằm trong cache; nó lên màn hình được hay không hoàn toàn phụ thuộc
@@ -2664,9 +2700,9 @@ class BcodeCompletion {
       // gợi ý đã trả tiền rồi nằm im trong cache không ai thấy. Lần thứ hai trúng cache một
       // cách đồng bộ nên không tốn thêm gì.
       const fire = () => {
-        if (this.editor.getModel() !== model) return;
+        if (this.typingEditor().getModel() !== model) return;
         if (model.getVersionId() !== versionAtSchedule) return;
-        try { this.editor.trigger('ai', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }
+        try { this.typingEditor().trigger('ai', 'editor.action.inlineSuggest.trigger', {}); } catch { /* editor đang đóng */ }
       };
       fire();
       setTimeout(fire, 0);

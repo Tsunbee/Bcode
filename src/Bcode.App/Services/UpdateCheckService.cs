@@ -24,6 +24,43 @@ public static class UpdateCheckService
 
     public static string ExeDir => AppContext.BaseDirectory;
 
+    /// <summary>Giá trị khai trong Settings nghĩa là "tắt kiểm tra" (khác với trống = dùng thư mục mặc định).</summary>
+    public const string OffMarker = "-";
+
+    /// <summary>Thư mục phát hành mặc định — &lt;BcodeReleaseFolder&gt; trong Bcode.App.csproj (nhúng vào metadata assembly). "" = không có.</summary>
+    public static string DefaultReleaseFolder { get; } = ReadDefaultFolder();
+
+    private static string ReadDefaultFolder()
+    {
+        try
+        {
+            return System.Reflection.CustomAttributeExtensions.GetCustomAttributes<System.Reflection.AssemblyMetadataAttribute>(typeof(UpdateCheckService).Assembly)
+                .FirstOrDefault(a => a.Key == "BcodeReleaseFolder")?.Value?.Trim() ?? "";
+        }
+        catch { return ""; }
+    }
+
+    /// <summary>Thư mục phát hành dùng thật: khai trong Settings; trống → mặc định; "-" → "" (tắt).</summary>
+    public static string EffectiveFolder(string? setting)
+    {
+        var s = (setting ?? "").Trim().Trim('"');
+        if (s == OffMarker) return "";
+        return s.Length > 0 ? s : DefaultReleaseFolder;
+    }
+
+    /// <summary>Chữ người dùng gõ → giá trị lưu Settings: trùng mặc định thì lưu trống (lên bản đổi mặc định thì theo luôn), trống / "-" = tắt.</summary>
+    public static string ToSetting(string? typed)
+    {
+        var s = (typed ?? "").Trim().Trim('"');
+        if (s.Length == 0 || s == OffMarker) return DefaultReleaseFolder.Length > 0 ? OffMarker : "";
+        return string.Equals(s.TrimEnd('\\'), DefaultReleaseFolder.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase) ? "" : s;
+    }
+
+    /// <summary>Chú thích ô nhập thư mục phát hành (hộp Settings → Thư mục phát hành bản mới và Template → Đường dẫn).</summary>
+    public static string FolderPromptHint =>
+        "Thư mục chứa bản build Bcode mới (có file bcode-version.json) — Bcode tự kiểm tra lúc mở. Để trống hoặc gõ - = không kiểm tra"
+        + (DefaultReleaseFolder.Length > 0 ? ". Mặc định: " + DefaultReleaseFolder : "");
+
     /// <summary>Dấu của bản đang chạy; thiếu file (build cũ) thì lấy giờ sửa Bcode.exe.</summary>
     public static BuildStamp Local => Read(Path.Combine(ExeDir, StampFileName))
         ?? new BuildStamp(File.GetLastWriteTimeUtc(Environment.ProcessPath ?? Path.Combine(ExeDir, "Bcode.exe")), "", "");

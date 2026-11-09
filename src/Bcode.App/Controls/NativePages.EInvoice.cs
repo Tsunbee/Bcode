@@ -29,6 +29,7 @@ internal sealed class SetupEInvoicePage : NativePage
         _f["dbProxy"].PlaceholderText = "Tên database Proxy (chỉ cần khi nhóm dịch vụ riêng)";
         _f["unit"].PlaceholderText = "vd 05";
         _own.CheckedChanged += (_, _) => SyncProxy();
+        _f["project"].Inner.TextChanged += (_, _) => FollowProject();
         var show = NK.Button("Hiện", () => { }); show.Dock = DockStyle.Right;
         show.Click += (_, _) => { var on = !_f["password"].Inner.UseSystemPasswordChar; _f["password"].Inner.UseSystemPasswordChar = on; show.Text = on ? "Hiện" : "Ẩn"; };
         var pw = new Panel { Height = NativeSkin.RowHeight(this, 28) }; _f["password"].Dock = DockStyle.Fill; pw.Controls.Add(_f["password"]); pw.Controls.Add(show);
@@ -91,6 +92,18 @@ internal sealed class SetupEInvoicePage : NativePage
         else { if (p.Enabled && p.Text != Services.EInvoiceSetupService.FastProxyCode) _ownCode = p.Text; p.Enabled = false; p.Text = Services.EInvoiceSetupService.FastProxyCode; }
     }
 
+    /// <summary>CSDL Proxy theo Mã dự án ({mã}_eInv): đổi mã dự án thì ô CSDL đổi theo — trừ khi ô đó đã là giá trị khác (tự gõ / lấy từ DB Access).
+    /// _lastProject = null khi đang nạp init (không tự đổi).</summary>
+    private string? _lastProject = "";
+    private void FollowProject()
+    {
+        if (_lastProject is null) return;
+        var p = _f["project"].Text; var db = _f["dbProxy"].Text.Trim();
+        if (db.Length == 0 || db.Equals(Services.EInvoiceSetupService.DefaultProxyDatabase(_lastProject), StringComparison.OrdinalIgnoreCase))
+            _f["dbProxy"].Text = Services.EInvoiceSetupService.DefaultProxyDatabase(p);
+        _lastProject = p;
+    }
+
     /// <summary>Step 2 và Cập nhật / Update Key đều GHI xuống database → xác nhận ngay trong trang; _pending = action gửi khi bấm nút đỏ.</summary>
     private void AskConfirm(string action)
     {
@@ -140,7 +153,9 @@ internal sealed class SetupEInvoicePage : NativePage
             case "setupEInvoice.init":
             {
                 var o = Arg(a, 0);
+                _lastProject = null;   // nạp nguyên bộ: không cho ô CSDL tự đổi theo giữa chừng
                 foreach (var k in Keys) _f[k].Text = P(o, k);
+                _lastProject = _f["project"].Text;
                 _hsm.Checked = PB(o, "hsm");
                 _ownCode = ""; _f["proxyCode"].Enabled = true; _own.Checked = PB(o, "ownProxy"); SyncProxy();
                 break;

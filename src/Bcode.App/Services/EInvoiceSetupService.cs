@@ -26,7 +26,10 @@ public class EInvoiceSetupService
     public const string FastProxyCode = "005500";
 
     /// <summary>Link API mặc định (urlService của bản VB + "UpdateProxy").</summary>
-    public const string DefaultMiddleLink = "http://dev.fast.com.vn/Fast-EInvoice-Crypto/Fast-Api.asmx/UpdateProxy";
+    public const string DefaultMiddleLink = "https://dev.fast.com.vn/Fast-EInvoice-Crypto/Fast-Api.asmx/UpdateProxy";
+
+    /// <summary>CSDL Proxy mặc định theo mã dự án: {mã_dự_án}_eInv (vd VIAGS_FE → VIAGS_FE_eInv); mã dự án trống thì rỗng.</summary>
+    public static string DefaultProxyDatabase(string? project) => string.IsNullOrWhiteSpace(project) ? "" : project.Trim() + "_eInv";
 
     public const string DefaultPortalLink = "https://tportal.fast.com.vn/AppService/FastEInvoice.PortalService.asmx";
 
@@ -295,11 +298,12 @@ update options set val = {(i.Hsm ? 0 : 1)} where rtrim(name) = 'm_ky_hddt'";   /
     }
 
     /// <summary>Link API thực gọi: bản VB ghép urlService + "UpdateProxy". Link cũ lưu trong einvoice.json kết thúc bằng /UpdateKey (API không có trong bản VB)
-    /// hoặc chỉ tới .asmx thì đổi / thêm thành /UpdateProxy; link khác giữ nguyên.</summary>
+    /// hoặc chỉ tới .asmx thì đổi / thêm thành /UpdateProxy; link http:// cũ tới dev.fast.com.vn đổi sang https://; link khác giữ nguyên.</summary>
     public static string NormalizeMiddleLink(string link)
     {
         var s = link.Trim().TrimEnd('/', '\\');
         if (s.Length == 0) return DefaultMiddleLink;
+        if (s.StartsWith("http://dev.fast.com.vn/", StringComparison.OrdinalIgnoreCase)) s = "https://" + s["http://".Length..];
         if (s.EndsWith("/UpdateKey", StringComparison.OrdinalIgnoreCase)) return s[..^"UpdateKey".Length] + "UpdateProxy";
         if (s.EndsWith(".asmx", StringComparison.OrdinalIgnoreCase)) return s + "/UpdateProxy";
         return s;

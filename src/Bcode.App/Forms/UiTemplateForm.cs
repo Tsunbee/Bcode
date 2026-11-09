@@ -401,6 +401,12 @@ public class UiTemplateForm : ThemedForm
                 : "Đã lưu.");
             return;
         }
+        else if (key == "release")   // Cập nhật Bcode: thư mục phát hành (trùng mặc định → lưu trống; trống / "-" → tắt) — xem UpdateCheckService.EffectiveFolder
+        {
+            _settings.ReleaseFolder = Services.UpdateCheckService.ToSetting(value);
+            try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+            return;   // paths-set gọi PushPaths → PushRelease đọc lại
+        }
         else if (key == "srcMain") _settings.SourceCollectionPath = value;
         else if (key == "srcExtra") _settings.SourceCollectionExtraPaths = value.Split(new[] { (char)10, (char)13 }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         else if (key == "knowledge")
@@ -480,6 +486,24 @@ public class UiTemplateForm : ThemedForm
         PushSourceStatus();
         PushKnowledgeStatus();
         PushErrorReport(null);
+        PushRelease();
+    }
+
+    /// <summary>Ô Cập nhật Bcode (tab Đường dẫn): thư mục phát hành đang dùng + đọc thử bcode-version.json ở đó (có hạn giờ, luồng nền) để báo có bản mới không.</summary>
+    private async void PushRelease()
+    {
+        var folder = Services.UpdateCheckService.EffectiveFolder(_settings.ReleaseFolder);
+        var local = Services.UpdateCheckService.Local;
+        object State(bool checking, string? remote, bool newer, string? error) => new
+        {
+            path = folder, def = Services.UpdateCheckService.DefaultReleaseFolder, off = folder.Length == 0, version = Services.ErrorLog.VersionLabel,
+            local = local.Label, checking, remote, newer, error,
+        };
+        Js($"window.setRelease && window.setRelease({JsonSerializer.Serialize(State(folder.Length > 0, null, false, null))})");
+        if (folder.Length == 0) return;
+        var (stamp, err) = await Services.UpdateCheckService.CheckAsync(folder);
+        if (IsDisposed || folder != Services.UpdateCheckService.EffectiveFolder(_settings.ReleaseFolder)) return;   // đã đổi thư mục trong lúc đọc
+        Js($"window.setRelease && window.setRelease({JsonSerializer.Serialize(State(false, stamp?.Label, stamp is not null && Services.UpdateCheckService.IsNewer(stamp, local), err))})");
     }
 
     /// <summary>Ô Báo lỗi (tab Đường dẫn): link sheet, URL Apps Script, phím gửi lỗi hiện hành, đường dẫn error.log. <paramref name="note"/> null = giữ dòng ghi chú.</summary>

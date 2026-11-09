@@ -297,6 +297,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add("Tỉ lệ giao diện...", ChooseUiScale)
             .Add("Khôi phục các tab khi mở lại Bcode", ToggleRestoreSession, shortcut: Bcode.App.UI.ShortcutRegistry.Display("app.restoreSession"), @checked: _settings.RestoreSession)
             .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
+            .Add("Cây SQL / Object: bấm 1 lần nạp vào tab đang dùng (tắt = mỗi object 1 tab)", ToggleSqlObjectOpenInCurrentTab, @checked: _settings.SqlObjectOpenInCurrentTab)
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .AddSub("Kiểu giao diện (bo góc, mật độ)", sub => { foreach (var pr in Bcode.App.UI.NativeSkin.Presets) { var id = pr.Id; sub.Add(pr.Label, () => Bcode.App.UI.NativeSkin.ApplyPreset(id), @checked: Bcode.App.UI.NativeSkin.IsPreset(id)); } })
@@ -411,6 +412,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         var sqlObjectTree = new SqlObjectTreeControl(_sqlObjectService) { Dock = DockStyle.Fill };
         sqlObjectTree.ObjectActivated += async (obj, dropCreate) => await OpenObjectDefinitionAsync(obj, dropCreate);
+        sqlObjectTree.OpenInCurrentTab = () => _settings.SqlObjectOpenInCurrentTab;
+        sqlObjectTree.ObjectPreviewRequested += async (obj, dropCreate) => await OpenObjectDefinitionAsync(obj, dropCreate, ObjectTabTarget.ReuseCurrent);
+        sqlObjectTree.ObjectOpenInNewTabRequested += async obj => await OpenObjectDefinitionAsync(obj, false, ObjectTabTarget.AlwaysNew);
         sqlObjectTree.UsagesRequested += obj => OpenUsagesTab(obj);
         sqlObjectTree.DependencyRequested += obj => OpenDependencyTab(DependencyGraphService.ObjectNode(obj));
         _sqlObjectTree = sqlObjectTree;
@@ -612,7 +616,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 {
                     PushThemeToShell();
                     PushProjectInfo();
-                    if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
+                    if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN| PhongNT | Tester: ThinhBM| KhanhNN");
                     if (Bcode.App.UI.WebViewEnvironment.TempProfileNote is { } wvNote) PushStatus(wvNote);   // báo lúc tạo môi trường thì thanh trạng thái chưa nạp xong
                 };
 
@@ -739,7 +743,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         PushDbNamesToTopBar(ws);
         // Mật khẩu mã hoá DPAPI bằng tài khoản / máy khác (settings.json chép sang) → báo ngay, khỏi phải đoán lỗi "Login failed".
         var pwNote = ws.PasswordUnreadable ? "  |  ⚠ Mật khẩu đã lưu được mã hoá trên máy / tài khoản Windows khác — nhập lại ở Edit Project hoặc Ctrl+F5 đồng bộ lại" : "";
-        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN{pwNote}");
+        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN| PhongNT | Tester: ThinhBM| KhanhNN{pwNote}");
 
         var swSwitch = System.Diagnostics.Stopwatch.StartNew();
         var syncBefore = swSwitch.ElapsedMilliseconds;
@@ -1531,7 +1535,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             switch (n.Kind)
             {
                 // bản .xml trong kho source chuẩn (thay cho .f mã hoá): chỉ xem, không mở để sửa vào kho
-                case "file" when n.StdVersion is { } sv && n.Path is { } stdPath: SourceViewForm.Open(stdPath, "Source chuẩn " + sv + " — file .f trong chương trình bị mã hoá", this); break;
+                case "file" when n.StdVersion is { } sv && n.Path is { } stdPath: SourceViewForm.Open(stdPath, "(source chuẩn — file .f trong chương trình bị mã hoá)", this, sourceVersion: sv); break;
                 case "file": if (n.Path is { } p) OpenFileFromLookup(p); break;
                 case "menu":
                     var id = n.Key["menu:".Length..];
@@ -1614,6 +1618,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void ToggleRestoreSession()
     {
         _settings.RestoreSession = !_settings.RestoreSession;
+        try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+    }
+
+    private void ToggleSqlObjectOpenInCurrentTab()
+    {
+        _settings.SqlObjectOpenInCurrentTab = !_settings.SqlObjectOpenInCurrentTab;
         try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
     }
 
@@ -3847,27 +3857,114 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     /// <param name="dropCreate">true (double-click trên cây SQL Object): procedure / function / view / trigger mở dạng IF EXISTS → DROP → GO → CREATE;
     /// false: dạng ALTER như trước. Table luôn là CREATE TABLE kèm khối IF EXISTS / DROP TABLE để trong comment.</param>
-    private async Task<ISqlTab?> OpenObjectDefinitionAsync(SqlObjectInfo obj, bool dropCreate = false)
+    /// <summary>Mở object vào tab nào: <see cref="Default"/> = tab riêng của object (đã có thì chuyển sang, chưa có thì tab mới) — cách cũ, mọi chỗ khác gọi;
+    /// <see cref="ReuseCurrent"/> = bấm trên cây SQL / Object (Setting bật): object đã có tab thì chuyển sang, không thì nạp vào tab SQL Query đang dùng
+    /// (<see cref="FindReusableSqlPageAsync"/>), không có tab nạp được mới mở tab mới; <see cref="AlwaysNew"/> = "Mở ở SQL Query mới", luôn tab mới.</summary>
+    private enum ObjectTabTarget { Default, ReuseCurrent, AlwaysNew }
+
+    /// <summary>Tab object → đúng nội dung Bcode nạp vào lần cuối (đã đổi dạng). Còn y nguyên = bạn chưa sửa gì → bấm object khác trên cây được nạp đè vào tab này.</summary>
+    private readonly Dictionary<TabPage, string> _objectTabShown = new();
+    private readonly HashSet<TabPage> _objectTabHooked = new();
+    /// <summary>Lần bấm object gần nhất trên cây (chế độ nạp vào tab đang dùng): bấm nhanh A rồi B mà A lấy từ database chậm hơn thì bỏ A, không đè B.</summary>
+    private int _objectPreviewSeq;
+
+    /// <summary>Gắn tab với object <paramref name="key"/> (app:/sys: + tên). Mỗi tab chỉ một object: tab được nạp object khác thì bỏ khoá cũ.
+    /// Đóng tab thì chỉ gỡ các khoá còn trỏ đúng tab này (khoá đã chuyển sang tab khác giữ nguyên).</summary>
+    private void MapObjectTab(string key, TabPage page)
+    {
+        foreach (var old in _objectTabs.Where(kv => ReferenceEquals(kv.Value, page) && !kv.Key.StartsWith("usages:", StringComparison.Ordinal)).Select(kv => kv.Key).ToList())
+            _objectTabs.Remove(old);
+        _objectTabs[key] = page;
+        if (!_objectTabHooked.Add(page)) return;
+        page.Disposed += (_, _) =>
+        {
+            _objectTabHooked.Remove(page);
+            _objectTabShown.Remove(page);
+            foreach (var k in _objectTabs.Where(kv => ReferenceEquals(kv.Value, page)).Select(kv => kv.Key).ToList()) _objectTabs.Remove(k);
+        };
+    }
+
+    private static string NormEol(string s) => s.Replace("\r\n", "\n").TrimEnd();
+
+    /// <summary>Tab SQL Query được nạp đè object khác không: tab object mà nội dung còn đúng như Bcode nạp (chưa sửa), hoặc tab trống. Tab bạn tự gõ / đã sửa → không.</summary>
+    private async Task<bool> IsReusableSqlPageAsync(TabPage page)
+    {
+        if (page.IsDisposed || _closingPages.Contains(page)) return false;
+        string? text;
+        if (page.Tag is LazySql lazy) text = lazy.Text;   // tab chờ / đang ngủ: nội dung lưu sẵn
+        else if (page.Controls.OfType<ISqlTab>().FirstOrDefault() is { IsDisposed: false } c)
+            text = c.IsReady ? await c.GetScriptTextAsync() : null;   // chưa sẵn sàng: nội dung là cái Bcode vừa nạp
+        else return false;
+        if (_objectTabShown.TryGetValue(page, out var shown)) return text is null || NormEol(text) == NormEol(shown);
+        return text is not null && string.IsNullOrWhiteSpace(text);
+    }
+
+    /// <summary>Tab SQL Query để nạp object: tab đang chọn nếu nạp đè được; không thì tab SQL Query nạp đè được xem gần nhất. null = mở tab mới.</summary>
+    private async Task<TabPage?> FindReusableSqlPageAsync()
+    {
+        static bool IsSqlPage(TabPage p) => p.Tag is LazySql || p.Controls.OfType<ISqlTab>().Any();
+        var selected = _documentTabs.SelectedTab;
+        var candidates = new List<TabPage>();
+        if (selected is not null && IsSqlPage(selected)) candidates.Add(selected);
+        candidates.AddRange(_documentTabs.TabPages.Cast<TabPage>()
+            .Where(p => !ReferenceEquals(p, selected) && IsSqlPage(p))
+            .OrderByDescending(p => _tabLastActive.TryGetValue(p, out var t) ? t : 0));
+        foreach (var p in candidates)
+            if (await IsReusableSqlPageAsync(p)) return p;
+        return null;
+    }
+
+    private async Task<ISqlTab?> OpenObjectDefinitionAsync(SqlObjectInfo obj, bool dropCreate = false, ObjectTabTarget target = ObjectTabTarget.Default)
     {
         try
         {
+            var seq = target == ObjectTabTarget.ReuseCurrent ? ++_objectPreviewSeq : 0;
             var key = (obj.FromSysDatabase ? "sys:" : "app:") + obj.QualifiedName;
             string Shape(string text) => dropCreate ? SqlObjectBrowserService.ToDropCreateScript(obj, text)
                 : obj.Kind == SqlObjectKind.Table ? SqlObjectBrowserService.WithCommentedTableDrop(obj, text) : text;
             // Có bản lưu trên máy thì hiện ngay, kiểm tra database ngầm; chưa có thì lấy từ database (rồi lưu cho lần sau).
             var cached = _sqlObjectService.TryGetCachedDefinition(obj);
             var definition = Shape(cached?.Text ?? await _sqlObjectService.GetDefinitionAndCacheAsync(obj));
-    
+            if (seq != 0 && seq != _objectPreviewSeq) return null;   // đã bấm object khác trong lúc chờ database
+
             // 1. Nếu Procedure/Bảng này đã có tab đang mở -> Chuyển focus đến tab đó
-            if (_objectTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
+            if (target != ObjectTabTarget.AlwaysNew && _objectTabs.TryGetValue(key, out var existingPage) && _documentTabs.TabPages.Contains(existingPage))
             {
                 _documentTabs.SelectedTab = existingPage;
                 if (existingPage.Controls.OfType<ISqlTab>().FirstOrDefault() is { } existingCtrl)
                 {
+                    // Bấm trên cây mà tab của object này bạn đã sửa: chỉ chuyển sang, giữ nguyên phần đang sửa.
+                    if (target == ObjectTabTarget.ReuseCurrent && !await IsReusableSqlPageAsync(existingPage))
+                    {
+                        PushStatus($"{obj.QualifiedName}: tab đã có phần bạn sửa nên giữ nguyên — chuột phải → \"Mở ở SQL Query mới\" để mở bản trên database.");
+                        return existingCtrl;
+                    }
                     existingCtrl.SetDatabase(obj.FromSysDatabase);
                     await existingCtrl.ReplaceScriptTextAsync(definition);   // nạp lại định nghĩa nhưng Ctrl+Z vẫn lấy lại được phần đang sửa dở trong tab
+                    MapObjectTab(key, existingPage);
+                    _objectTabShown[existingPage] = definition;
                     if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, existingCtrl, cached, Shape);
                     return existingCtrl;
+                }
+            }
+
+            // 1b. Bấm trên cây SQL / Object: nạp vào tab SQL Query đang dùng (tab trống / tab object chưa sửa) thay vì mở thêm tab.
+            if (target == ObjectTabTarget.ReuseCurrent && await FindReusableSqlPageAsync() is { } reuse)
+            {
+                if (seq != _objectPreviewSeq) return null;
+                if (!ReferenceEquals(_documentTabs.SelectedTab, reuse)) _documentTabs.SelectedTab = reuse;   // chọn tab → tab chờ / đang ngủ được dựng lại
+                MaterializeLazy(reuse);
+                if (reuse.Controls.OfType<ISqlTab>().FirstOrDefault() is { } reuseCtrl)
+                {
+                    reuseCtrl.SetDatabase(obj.FromSysDatabase);
+                    await reuseCtrl.ReplaceScriptTextAsync(definition, caretToTop: true);   // Ctrl+Z lấy lại object trước
+                    reuse.Text = obj.QualifiedName;
+                    reuse.ToolTipText = obj.QualifiedName;
+                    OnTabTitleChanged();
+                    MapObjectTab(key, reuse);
+                    _objectTabShown[reuse] = definition;
+                    if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, reuseCtrl, cached, Shape);
+                    return reuseCtrl;
                 }
             }
 
@@ -3878,8 +3975,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
             // 3. Đặt tiêu đề tab theo tên QualifiedName (ví dụ: dbo.rs_Transfer$AfterSynchronize)
             var page = AddDocumentTab(obj.QualifiedName, control.AsControl());
-            _objectTabs[key] = page;
-            page.Disposed += (_, _) => _objectTabs.Remove(key);
+            MapObjectTab(key, page);
+            _objectTabShown[page] = definition;
             if (cached is not null) _ = RefreshCachedDefinitionAsync(obj, control, cached, Shape);
 
             return control;
@@ -3902,6 +3999,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             if (current == shown)
             {
                 await control.SetScriptTextAsync(shape(text));
+                if (_documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p => p.Controls.Contains(control.AsControl())) is { } pg && _objectTabShown.ContainsKey(pg))
+                    _objectTabShown[pg] = shape(text);   // vẫn tính là "chưa sửa" → bấm object khác được nạp đè
                 PushStatus($"{obj.QualifiedName}: trên database đã có bản mới hơn — tab đã được cập nhật.");
             }
             else PushStatus($"{obj.QualifiedName}: trên database đã có bản mới hơn nhưng bạn đã sửa trong tab nên giữ nguyên — đóng tab rồi mở lại để lấy bản mới.");
@@ -4228,7 +4327,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         PushStatus("Đang tạo menu...");
         var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
         if (_connections.Current is { } cur)
-            PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN|PhongNT | Tester: ThinhBM| KhanhNN");
+            PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN| PhongNT | Tester: ThinhBM| KhanhNN");
         if (!ok) MessageBox.Show(this, message, "Create Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 

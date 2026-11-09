@@ -64,7 +64,9 @@ class BcodeAutoView {
     st.pending = false;
     if (!['grid', 'lookup'].includes(rootKindOf(masked0))) { st.names = new Set(names); return; }
 
-    const caret = model.getOffsetAt(this.editor.getPosition());
+    // Đang sửa trong khung peek field (F12 trên tên field ở <views>, entity.js): con trỏ thật nằm ở khung đó, không ở editor chính.
+    const typing = (window.bcodeEntity && window.bcodeEntity.editablePeekEditor && window.bcodeEntity.editablePeekEditor()) || this.editor;
+    const caret = model.getOffsetAt(typing.getPosition());
     const fresh = [];
     for (const n of names) {
       if (st.names.has(n)) continue;

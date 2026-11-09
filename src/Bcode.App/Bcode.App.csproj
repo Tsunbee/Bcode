@@ -20,13 +20,20 @@
     <Trademark>Bcode™ Bee</Trademark>
     <!-- PHIÊN BẢN Bcode — chỗ DUY NHẤT cần sửa khi lên bản mới. Dạng "số-nhãn" (1.9-beta) → hiện "Beta v1.9" ở góc phải thanh trên
          (topbar.html #verBadge / NativeTopBar) và ghi vào log lỗi (ErrorLog.Version / ErrorLog.VersionLabel). Bỏ "-beta" khi ra bản chính thức → "v2.0". -->
-    <Version>1.9-beta</Version>
+    <Version>2.0-beta</Version>
+    <!-- Thư mục phát hành MẶC ĐỊNH cho "Kiểm tra bản Bcode mới" (Services/UpdateCheckService.cs): máy chưa khai Settings → Thư mục phát hành bản mới
+         thì dùng thư mục này (thư mục build có bcode-version.json). Người dùng vẫn khai đè được; gõ "-" = tắt kiểm tra. Để trống = không có mặc định. -->
+    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN</BcodeReleaseFolder>
   </PropertyGroup>
   <!-- Dấu tĩnh truy nguồn (tools/bcode-mark): GUID bộ Bcode nhúng cố định vào metadata assembly để nhận ra bản sao chép nhị phân. -->
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>BcodeMark</_Parameter1>
       <_Parameter2>b3c0de00-0000-4bee-b3c0-deb3c0deb3c0 | BcodeMark v1</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BcodeReleaseFolder</_Parameter1>
+      <_Parameter2>$(BcodeReleaseFolder)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
   <!-- Lõi dùng chung (mục 1): WatermarkService... — tham chiếu, không chép. -->

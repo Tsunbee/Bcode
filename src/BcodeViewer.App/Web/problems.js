@@ -857,6 +857,7 @@ class BcodeProblems {
     // Only the top-level form's <fields>; a file without one (a Grid/Filter fragment) skips field checks.
     const checkFields = fields.size > 0;
     const isField = (n) => !checkFields || fields.has(n.toLowerCase());
+    const isGridFile = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE[\s\S]*?\]>\s*)?<grid\b/i.test(text) || /<grid\b[^>]*\btable\s*=/i.test(text);
 
     // ---- requests ↔ actions ----
     for (const r of requests) {
@@ -877,7 +878,10 @@ class BcodeProblems {
       if (unused.length) {
         warn(r.index, len, `f.request('${r.actionId}') gửi ${unused.join(', ')} nhưng <action id="${action.id}"> không dùng.`);
       }
-      if (checkFields) {
+      // Grid: f / w / parentForm là form CHA (Dir) — field trơn ('name') gửi lên là field của form đó, không khai ở <fields> của grid (như f.getItem dưới).
+      // <fields> có ENTITY chưa đọc được: field có thể nằm trong đó — không đoán.
+      const owner = /([\w$\])]+)\s*$/.exec(text.slice(0, r.index - 1));
+      if (checkFields && !fieldsIncomplete && !(isGridFile && owner && /^(f|w|parentForm)$/.test(owner[1]))) {
         const notFields = r.fields.filter((f) => f.type === null && !isField(f.name)).map((f) => f.name);
         if (notFields.length) {
           warn(r.index, len, `f.request('${r.actionId}') gửi ${notFields.map((n) => `'${n}'`).join(', ')} nhưng form không có field này — giá trị tự đặt phải viết dạng ['ten', 'Kiểu', giá_trị].`);
@@ -953,7 +957,6 @@ class BcodeProblems {
     }
 
     // ---- f.getItem('x') and friends in JS ----
-    const isGridFile = /^\s*(?:<\?xml[^>]*\?>\s*)?(?:<!DOCTYPE[\s\S]*?\]>\s*)?<grid\b/i.test(text) || /<grid\b[^>]*\btable\s*=/i.test(text);
     const jsRef = /([\w$\])]+)\.(getItem|getItemValue|setItemValue|setReferenceKeyFilter|setItemValues|validFields)\(\s*'([^']+)'/g;
     for (const m of text.matchAll(jsRef)) {
       if (/_controlBehavior$|\$a$/.test(m[1])) continue; // grid behaviours have their own columns

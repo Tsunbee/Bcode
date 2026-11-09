@@ -110,7 +110,7 @@ public class AddSourceForm : ThemedForm
                 case "copy": await CopyAsync(data); break;
                 case "view": // "View source": xem file trong kho sắp được cấp (chỉ đọc, không khoá hộp thoại này)
                     if (File.Exists(Str(data, "path")))
-                        SourceViewForm.Open(Str(data, "path"), "Version " + Str(data, "version") + " → " + Path.Combine(Str(data, "subpath"), Path.GetFileName(Str(data, "path"))), this);
+                        SourceViewForm.Open(Str(data, "path"), null, this, sourceVersion: Str(data, "version"));   // không lộ đường dẫn kho
                     break;
                 case "close": Close(); break;
             }

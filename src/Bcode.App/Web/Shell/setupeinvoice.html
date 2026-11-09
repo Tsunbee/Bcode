@@ -62,7 +62,7 @@
     <div style="display:flex;flex-direction:column;gap:.9rem">
       <div class="card"><div class="ct">Kết nối</div><div class="cb">
         <div class="f"><label>Link trung gian<small>API UpdateProxy</small></label><input type="text" id="middleLink" spellcheck="false"></div>
-        <div class="f"><label>CSDL<small>Database Proxy</small></label><input type="text" id="dbProxy" spellcheck="false" placeholder="Tên database Proxy (chỉ cần khi nhóm dịch vụ riêng)" title="Tự lấy database …_eInv khai trong DB Access của project đang chọn; sửa tay được"></div>
+        <div class="f"><label>CSDL<small>Database Proxy</small></label><input type="text" id="dbProxy" spellcheck="false" placeholder="Tên database Proxy (chỉ cần khi nhóm dịch vụ riêng)" title="Mặc định {Mã dự án}_eInv, tự đổi theo ô Mã dự án; project có khai database …_eInv trong DB Access thì lấy database đó; sửa tay được"></div>
       </div></div>
       <div class="card"><div class="ct">Dự án / Doanh nghiệp</div><div class="cb">
         <div class="f"><label>Mã dự án<small>Project</small></label><input type="text" id="project" spellcheck="false"></div>
@@ -115,6 +115,15 @@
     else { if (!p.disabled && p.value !== FAST_PROXY) ownCode = p.value; p.disabled = true; p.value = FAST_PROXY; }
   }
   $('ownProxy').onchange = syncProxy;
+  /* CSDL Proxy theo Mã dự án: {mã}_eInv. Gõ / đổi mã dự án thì ô CSDL đổi theo — trừ khi ô đó đã là giá trị khác (người dùng tự gõ, hoặc database lấy từ DB Access). */
+  let lastProject = '';
+  const autoDb = (p) => (p.trim() ? p.trim() + '_eInv' : '');
+  function followProject() {
+    const p = $('project').value, db = $('dbProxy').value.trim();
+    if (!db || db.toLowerCase() === autoDb(lastProject).toLowerCase()) $('dbProxy').value = autoDb(p);
+    lastProject = p;
+  }
+  $('project').addEventListener('input', followProject);
   function setBusy(b) { busy = b; ['bStep1', 'bStep2', 'bWipe', 'bUpdate', 'bGo'].forEach((id) => { $(id).disabled = b; }); $('state').textContent = b ? 'Đang chạy...' : $('state').textContent; $('state').className = b ? 'run' : $('state').className; }
   function line(text, kind) { const d = document.createElement('div'); d.className = kind || 'info'; d.textContent = text; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; plain += (plain ? '\n' : '') + text; $('bCopy').disabled = false; }
   function clear() { $('log').innerHTML = ''; plain = ''; $('bCopy').disabled = true; $('state').textContent = ''; $('state').className = ''; }
@@ -157,7 +166,7 @@
   window.setupEInvoice = {
     init(o) {
       TEXT.forEach((k) => { $(k).value = o[k] == null ? '' : o[k]; }); $('hsm').checked = !!o.hsm; $('ownProxy').checked = !!o.ownProxy;
-      ownCode = ''; $('proxyCode').disabled = false; syncProxy();
+      ownCode = ''; $('proxyCode').disabled = false; syncProxy(); lastProject = $('project').value;
     },
     /* Gợi ý ô Đơn vị = dmdvcs của App Data đang chọn ([{code, name}]); vẫn gõ tay được mã không có trong danh sách. */
     setUnits(list) {
@@ -166,7 +175,7 @@
       $('unit').title = $('unit').title.replace(/ \(\d+ đơn vị có sẵn\)$/, '') + (list && list.length ? ' (' + list.length + ' đơn vị có sẵn)' : '');
     },
     setDbProxy(db) { $('dbProxy').value = db || ''; },
-    setProject(id) { $('project').value = id || ''; },   // đổi project ở ô WS: Mã dự án = ID project   // đổi project ở ô WS: database eInv khai trong DB Access của project
+    setProject(id) { $('project').value = id || ''; followProject(); },   // Mã dự án = ID project (CSDL đổi theo như khi gõ tay)
     onBusy(b) { setBusy(b); },
     onClear: clear,
     onLog(text, kind) { line(text, kind); if (kind === 'err') { $('state').textContent = 'Có lỗi'; $('state').className = 'err'; } },

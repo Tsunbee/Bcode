@@ -27,6 +27,10 @@ public class AppSettings
     /// <summary>true = mở lại Bcode có phiên cũ thì HỎI muốn khôi phục kiểu nào (hay không khôi phục); false = tự khôi phục theo <see cref="SessionMode"/>.</summary>
     public bool SessionAsk { get; set; } = true;
 
+    /// <summary>Cây SQL / Object: true = bấm 1 lần nạp object vào tab SQL Query đang dùng (bấm đúp = DROP / CREATE, cũng vào tab đó; chỉ đè tab trống hoặc tab
+    /// object chưa sửa); false = cách cũ, mỗi object một tab riêng, bấm đúp mới mở. Đổi ở Settings.</summary>
+    public bool SqlObjectOpenInCurrentTab { get; set; } = true;
+
     /// <summary>Số giây giữa hai lần tự lưu phiên (tab + nội dung SQL) — chỉnh ở Settings.</summary>
     public int SessionSaveSeconds { get; set; } = 4;
 

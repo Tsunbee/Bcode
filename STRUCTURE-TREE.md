@@ -31,7 +31,7 @@ Bcode.App/
 │   ├── FastAskControl.cs  169
 │   ├── FcodeLexer.cs  465
 │   ├── FileLookupControl.cs  1720
-│   ├── FileLookupControl.QuickGrant.cs  149
+│   ├── FileLookupControl.QuickGrant.cs  151
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  274
@@ -42,7 +42,7 @@ Bcode.App/
 │   ├── HintPopup.cs  155
 │   ├── IconRailControl.cs  218
 │   ├── IncludeCheckControl.cs  200
-│   ├── ISqlTab.cs  63
+│   ├── ISqlTab.cs  64
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  288
@@ -89,7 +89,7 @@ Bcode.App/
 │   ├── NativeQueryHistoryControl.cs  346
 │   ├── NativeResultPane.cs  315
 │   ├── NativeShellBars.cs  360
-│   ├── NativeSqlControl.cs  2296
+│   ├── NativeSqlControl.cs  2305
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -108,7 +108,7 @@ Bcode.App/
 │   ├── SetupEInvoiceControl.cs  164
 │   ├── SnippetSession.cs  202
 │   ├── SqlHintsHelpControl.cs  17
-│   ├── SqlObjectTreeControl.cs  602
+│   ├── SqlObjectTreeControl.cs  649
 │   ├── SqlPeekPanel.cs  128
 │   ├── SqlProfilerControl.cs  1938
 │   ├── SqlQueryControl.cs  355
@@ -164,13 +164,13 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  4722
+│   ├── MainForm.cs  4821
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
-│   ├── MainForm.Session.cs  374
+│   ├── MainForm.Session.cs  372
 │   ├── MainForm.ToolGroups.cs  101
-│   ├── MainForm.Update.cs  75
+│   ├── MainForm.Update.cs  78
 │   ├── MenuPickerForm.cs  95
 │   ├── NativeProjectPickerForm.cs  193
 │   ├── PartitionCheckForm.cs  58
@@ -187,7 +187,7 @@ Bcode.App/
 │   ├── ScriptPopupForm.cs  179
 │   ├── SetupEInvoiceForm.cs  166
 │   ├── SimplePromptForm.cs  78
-│   ├── SourceViewForm.cs  166
+│   ├── SourceViewForm.cs  193
 │   ├── SqlAiEditForm.cs  108
 │   ├── SqlHistoryForm.cs  364
 │   ├── StepParamsForm.cs  134
@@ -196,7 +196,7 @@ Bcode.App/
 │   ├── TabSwitcherForm.cs  191
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
-│   ├── UiTemplateForm.cs  828
+│   ├── UiTemplateForm.cs  852
 │   ├── VoucherCloneForm.cs  541
 │   ├── VoucherPreviewForm.cs  64
 │   ├── WCommandDuplicateForm.cs  29
@@ -206,7 +206,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  440
+│   ├── AppSettings.cs  444
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -362,7 +362,7 @@ Bcode.App/
 │   ├── TableDataService.cs  652
 │   ├── TableMenuService.cs  194
 │   ├── TextLanguageDetector.cs  71
-│   ├── UpdateCheckService.cs  114
+│   ├── UpdateCheckService.cs  151
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  76
 │   ├── ViewerLauncher.cs  51
@@ -471,7 +471,7 @@ Bcode.App/
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  184
 │       ├── shell.css  249
-│       ├── sqleditor.html  1687
+│       ├── sqleditor.html  1688
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  609
 │       ├── sqlhistory.html  330
@@ -490,7 +490,7 @@ Bcode.App/
 │       ├── topbar.html  213
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
-│       ├── uitemplate.html  1283
+│       ├── uitemplate.html  1308
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836
 │       ├── voucherview.html  88
@@ -498,7 +498,7 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  219
+├── Bcode.App.csproj  226
 ├── BcodePaths.cs  48
 └── Program.cs  45
 ```
@@ -568,16 +568,16 @@ BcodeViewer.App/
 │   ├── fonts/
 │   │   ├── OFL.txt  93
 │   │   └── roboto.css  33
-│   ├── autoview.js  186
+│   ├── autoview.js  188
 │   ├── chat.js  83
 │   ├── checkfield.js  641
-│   ├── completion.js  2722
-│   ├── contextmenu.js  1136
+│   ├── completion.js  2758
+│   ├── contextmenu.js  1139
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
 │   ├── dock.js  162
-│   ├── editor.js  1837
-│   ├── entity.js  1476
+│   ├── editor.js  1886
+│   ├── entity.js  1973
 │   ├── fastask.js  356
 │   ├── fcode-language.js  451
 │   ├── fieldnotes.js  291

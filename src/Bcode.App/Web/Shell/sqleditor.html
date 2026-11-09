@@ -1382,13 +1382,14 @@
 
         // Thay CẢ nội dung mà vẫn Ctrl+Z về được bản trước, đúng 1 bước (Beauty, đổi hoa/thường từ khoá, nạp bản từ Lịch sử...).
         // Không dùng setValue vì nó xoá sạch ngăn undo. Giữ con trỏ ở dòng cũ (cột cắt theo dòng mới) và vị trí cuộn.
-        window.replaceAllText = function (text) {
+        // toTop = true: nạp object khác vào tab (cây SQL / Object) → con trỏ + cuộn về đầu; không thì giữ dòng / chỗ cuộn cũ.
+        window.replaceAllText = function (text, toTop) {
             if (!editor) return;
             var model = editor.getModel();
             text = toModelEol(text);
-            if (model.getValue() === text) return;
-            var pos = editor.getPosition() || { lineNumber: 1, column: 1 };
-            var top = editor.getScrollTop(), left = editor.getScrollLeft();
+            if (model.getValue() === text) { if (toTop) { editor.setPosition({ lineNumber: 1, column: 1 }); editor.setScrollTop(0); editor.setScrollLeft(0); } return; }
+            var pos = toTop ? { lineNumber: 1, column: 1 } : (editor.getPosition() || { lineNumber: 1, column: 1 });
+            var top = toTop ? 0 : editor.getScrollTop(), left = toTop ? 0 : editor.getScrollLeft();
             editor.pushUndoStop();
             editor.executeEdits('bcode-replace-all', [{ range: model.getFullModelRange(), text: text }], function () {
                 var line = Math.min(pos.lineNumber, model.getLineCount());

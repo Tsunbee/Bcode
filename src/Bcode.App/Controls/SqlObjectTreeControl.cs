@@ -27,6 +27,19 @@ public class SqlObjectTreeControl : UserControl
     /// <summary>Mở object: tham số 2 = true khi double-click (procedure / function / view / trigger mở dạng IF EXISTS → DROP → CREATE), false = dạng ALTER
     /// (menu chuột phải). Table luôn CREATE TABLE kèm khối IF EXISTS / DROP trong comment.</summary>
     public event Action<SqlObjectInfo, bool>? ObjectActivated;
+    /// <summary>Chế độ "nạp vào tab đang dùng" (Setting, <see cref="OpenInCurrentTab"/>): bấm 1 lần / Enter (false = ALTER, table = CREATE TABLE) hoặc bấm đúp
+    /// (true = IF EXISTS → DROP → CREATE) — MainForm nạp vào tab SQL Query đang dùng thay vì mở tab mới cho mỗi object.</summary>
+    public event Action<SqlObjectInfo, bool>? ObjectPreviewRequested;
+    /// <summary>Chuột phải → "Mở ở SQL Query mới": luôn mở tab mới (dạng ALTER).</summary>
+    public event Action<SqlObjectInfo>? ObjectOpenInNewTabRequested;
+    /// <summary>true = bấm 1 lần nạp object vào tab đang dùng (mặc định); false = cách cũ, mỗi object một tab, chỉ mở khi bấm đúp / menu.</summary>
+    public Func<bool>? OpenInCurrentTab { get; set; }
+    private bool PreviewMode => OpenInCurrentTab?.Invoke() ?? false;
+
+    // Bấm 1 lần chờ hết thời gian double-click của Windows rồi mới nạp — bấm đúp thì huỷ, chỉ nạp 1 lần dạng DROP / CREATE (không nạp ALTER rồi đè).
+    private readonly System.Windows.Forms.Timer _clickTimer = new();
+    private SqlObjectInfo? _pendingClick;
+    private long _ignoreClickUntil;
     /// <summary>Chuột phải → "Ai đang dùng object này…".</summary>
     public event Action<SqlObjectInfo>? UsagesRequested;
     /// <summary>Chuột phải → "Sơ đồ phụ thuộc…".</summary>
@@ -44,9 +57,39 @@ public class SqlObjectTreeControl : UserControl
         // Vẽ qua bộ đệm (TVS_EX_DOUBLEBUFFER) ngay khi có handle — ThemeManager chỉ bật được nếu handle đã có lúc áp theme; thiếu nó thì mỗi lần
         // dựng lại cây (gõ lọc) thấy nền xoá trắng rồi từng dòng hiện dần.
         _tree.HandleCreated += (_, _) => SendMessage(_tree.Handle, 0x112C /* TVM_SETEXTENDEDSTYLE */, (IntPtr)0x4, (IntPtr)0x4);
+        _clickTimer.Tick += (_, _) =>
+        {
+            _clickTimer.Stop();
+            var obj = _pendingClick; _pendingClick = null;
+            if (obj is not null) ObjectPreviewRequested?.Invoke(obj, false);
+        };
+        Disposed += (_, _) => _clickTimer.Dispose();
+        _tree.NodeMouseClick += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Left || e.Node?.Tag is not SqlObjectInfo obj || !PreviewMode) return;
+            if (Environment.TickCount64 < _ignoreClickUntil) return;   // cú bấm thứ 2 của double-click
+            var hit = _tree.HitTest(e.Location);
+            if (hit.Node != e.Node || hit.Location is TreeViewHitTestLocations.PlusMinus or TreeViewHitTestLocations.StateImage) return;
+            _pendingClick = obj;
+            _clickTimer.Stop();
+            _clickTimer.Interval = Math.Max(100, SystemInformation.DoubleClickTime);
+            _clickTimer.Start();
+        };
         _tree.NodeMouseDoubleClick += (_, e) =>
         {
-            if (e.Node?.Tag is SqlObjectInfo obj) ObjectActivated?.Invoke(obj, true);
+            if (e.Node?.Tag is not SqlObjectInfo obj) return;
+            if (!PreviewMode) { ObjectActivated?.Invoke(obj, true); return; }
+            _clickTimer.Stop(); _pendingClick = null;
+            _ignoreClickUntil = Environment.TickCount64 + SystemInformation.DoubleClickTime;
+            ObjectPreviewRequested?.Invoke(obj, true);
+        };
+        // Phím mũi tên chỉ di chuyển; Enter nạp object đang chọn như bấm 1 lần. Đánh dấu Enter là phím của cây để không bị lớp cha / phím tắt cửa sổ lấy mất.
+        _tree.PreviewKeyDown += (_, e) => { if (e.KeyData == Keys.Enter && _tree.SelectedNode?.Tag is SqlObjectInfo) e.IsInputKey = true; };
+        _tree.KeyDown += (_, e) =>
+        {
+            if (e.KeyCode != Keys.Enter || e.Modifiers != Keys.None || _tree.SelectedNode?.Tag is not SqlObjectInfo obj) return;
+            e.Handled = e.SuppressKeyPress = true;
+            if (PreviewMode) ObjectPreviewRequested?.Invoke(obj, false); else ObjectActivated?.Invoke(obj, false);
         };
 
         // Chuột phải: chọn đúng node bấm trúng rồi hiện menu (mở / ai đang dùng) — cùng kiểu menu HTML với cây WCommand.
@@ -58,7 +101,11 @@ public class SqlObjectTreeControl : UserControl
         {
             if (_tree.SelectedNode?.Tag is not SqlObjectInfo picked) return null;
             return new WebMenu()
-                .Add(picked.Kind == SqlObjectKind.Table ? "Mở định nghĩa" : "Mở dạng ALTER", () => ObjectActivated?.Invoke(picked, false))
+                .Add(picked.Kind == SqlObjectKind.Table ? "Mở định nghĩa" : "Mở dạng ALTER", () =>
+                {
+                    if (PreviewMode) ObjectPreviewRequested?.Invoke(picked, false); else ObjectActivated?.Invoke(picked, false);
+                })
+                .Add("Mở ở SQL Query mới", () => ObjectOpenInNewTabRequested?.Invoke(picked))
                 .Add("Ai đang dùng object này…", () => UsagesRequested?.Invoke(picked))
                 .Add("Sơ đồ phụ thuộc…", () => DependencyRequested?.Invoke(picked))
                 .Add("Chép tên", () => { try { Clipboard.SetText(picked.QualifiedName); } catch { /* clipboard bận */ } });

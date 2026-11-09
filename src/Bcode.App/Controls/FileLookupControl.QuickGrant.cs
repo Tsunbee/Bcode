@@ -39,7 +39,7 @@ public partial class FileLookupControl
             return;
         }
         // Nhãn ngắn (phiên bản + thư mục); diễn giải đầy đủ để ở tooltip.
-        PushSource(new { version = "", text = "Đang tìm source...", kind = "no", tip = string.Join("\n", roots), can = false });
+        PushSource(new { version = "", text = "Đang tìm source...", kind = "no", tip = "Đang tìm trong kho source", can = false });
 
         var dest = split.Root;
         var versionCode = WorkspaceForProject(dest)?.VersionCode;
@@ -57,7 +57,8 @@ public partial class FileLookupControl
                     row = SourceGrantService.ResolveNearestLower(roots, chosen, versions, path, dest);
                     var destNote = row.DestExists ? "đích đã có (sẽ hỏi ghi đè)" : "đích chưa có";
                     var tip = (row.FromFallback ? $"{chosen} không có file — lấy phiên bản thấp hơn gần nhất {row.FromVersion}\n" : "")
-                              + $"Phiên bản dự án: {chosen} ({note})\nNguồn: {row.SourcePath ?? "(không có)"}\nĐích: {row.DestPath} — {destNote}";
+                              // Nguồn: chỉ phiên bản + đường dẫn trong phiên bản — không lộ đường dẫn kho source (ổ mạng).
+                              + $"Phiên bản dự án: {chosen} ({note})\nNguồn: {(row.SourcePath is null ? "(không có)" : row.FromVersion + " · " + row.RelativeSource)}\nĐích: {row.DestPath} — {destNote}";
                     if (row.SourcePath is null)
                         state = new { version = "", text = "Không có source", kind = "no", tip = $"Không có {Path.GetFileName(row.RelativeSource)} ở {chosen} và các phiên bản thấp hơn\n" + tip, can = false };
                     else
@@ -109,7 +110,8 @@ public partial class FileLookupControl
     private void ViewQuickGrantSource()
     {
         if (_quickGrantRow is not { SourcePath: { } src } r) return;
-        SourceViewForm.Open(src, "Phiên bản " + r.FromVersion + (r.FromFallback ? " (thấp hơn gần nhất)" : "") + " → " + r.RelativeSource, FindForm());
+        // sourceVersion: cửa sổ xem chỉ hiện "View source <phiên bản> · <đường dẫn trong phiên bản>", không lộ đường dẫn kho.
+        SourceViewForm.Open(src, r.FromFallback ? "(thấp hơn gần nhất)" : null, FindForm(), sourceVersion: r.FromVersion);
     }
 
     /// <summary>Nút "Cấp source" ở thanh xem trước: cấp file source đã tìm cho file .f đang chọn — luôn hỏi xác nhận (nói rõ khi sẽ ghi đè).</summary>
@@ -117,7 +119,7 @@ public partial class FileLookupControl
     {
         if (_quickGrantRow is not { SourcePath: { } src, DestPath: { } dest } row) return;
         var exists = File.Exists(dest);
-        var msg = $"Cấp source cho {Path.GetFileName(row.ProjectFile)}?\n\nTừ (phiên bản {row.FromVersion}{(row.FromFallback ? " — thấp hơn gần nhất có file" : "")}):\n{src}\n\nVào:\n{dest}"
+        var msg = $"Cấp source cho {Path.GetFileName(row.ProjectFile)}?\n\nTừ (phiên bản {row.FromVersion}{(row.FromFallback ? " — thấp hơn gần nhất có file" : "")}):\n{row.RelativeSource}\n\nVào:\n{dest}"
                   + (exists ? "\n\nFile đích ĐÃ CÓ — sẽ bị GHI ĐÈ." : "");
         if (MessageBox.Show(this, msg, "Bcode — Cấp source", MessageBoxButtons.YesNo, exists ? MessageBoxIcon.Warning : MessageBoxIcon.Question,
                 exists ? MessageBoxDefaultButton.Button2 : MessageBoxDefaultButton.Button1) != DialogResult.Yes) return;

@@ -122,12 +122,12 @@ class BcodeContextMenu {
       // Same key F12 already uses, listed here because a value entity has no visible
       // declaration to click through to — until you look, there is nothing on screen to
       // suggest &Name; leads anywhere at all.
-      { label: 'Xem trước ENTITY / file', shortcut: 'F12', run: () => editorInstance.jumpToEntityAtCaret('peek'),
+      { label: 'Xem trước ENTITY / file / field', shortcut: 'F12', run: () => editorInstance.jumpToEntityAtCaret('peek'),
         enabled: () => hasFile && this.entityAtCaret(editorInstance, docText),
-        disabledHint: 'Con trỏ không đứng trên một &Entity; hay đường dẫn file nào' },
-      { label: 'Đi tới ENTITY / file', shortcut: 'Ctrl+F12', run: () => editorInstance.jumpToEntityAtCaret('go'),
+        disabledHint: 'Con trỏ không đứng trên một &Entity;, đường dẫn file hay field (trong <views>) nào' },
+      { label: 'Đi tới ENTITY / file / field', shortcut: 'Ctrl+F12', run: () => editorInstance.jumpToEntityAtCaret('go'),
         enabled: () => hasFile && this.entityAtCaret(editorInstance, docText),
-        disabledHint: 'Con trỏ không đứng trên một &Entity; hay đường dẫn file nào' },
+        disabledHint: 'Con trỏ không đứng trên một &Entity;, đường dẫn file hay field (trong <views>) nào' },
       { label: 'Xem XML đầy đủ', shortcut: 'Ctrl+Shift+F12', run: () => editorInstance.openFullXml(),
         enabled: () => hasFile && !isUntitledPath(editorInstance.activePath),
         disabledHint: 'Chỉ dùng cho file đã lưu trên đĩa' },
@@ -442,6 +442,9 @@ class BcodeContextMenu {
 
     try {
       if (entity.quotedPathAtCaret()) return true;
+      // Tên field trong <views> đã khai ở <fields> của file: F12 = peek khai báo field (sửa được), Ctrl+F12 = tới đó.
+      const vf = entity.viewFieldAtCaret && entity.viewFieldAtCaret();
+      if (vf) return true;   // khai thẳng trong <fields> hoặc trong &entity; đặt ở <fields> (tra bất đồng bộ lúc bấm)
 
       const name = entity.nameAtCaret();
       if (!name) return false;

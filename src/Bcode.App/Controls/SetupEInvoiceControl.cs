@@ -20,11 +20,16 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
     private readonly DbConnectionService _connections;
     private bool _busy;
 
-    // Giá trị mặc định giống form cũ; nhóm dịch vụ / Portal Key / link API theo tool Setup HDDT (VB).
-    private static EInvoiceInputs Defaults => new("KOG", "FBO", "05", "007986", EInvoiceSetupService.FastProxyCode, EInvoiceSetupService.FastPortalPublicKey,
-        EInvoiceSetupService.DefaultPortalLink, "hddt@namkimcorp.vn", "", EInvoiceSetupService.DefaultMiddleLink, "", true, false);
+    // Dự án chưa cài lần nào: chỉ điền hằng số chung của Fast (sản phẩm FBO, Portal Key, Link Portal, link API) + CSDL {mã_dự_án}_eInv; các ô riêng của khách
+    // (đơn vị, mã DN, nhóm dịch vụ, tài khoản portal) để trống để khỏi cài nhầm số của dự án khác. "Nhóm dịch vụ riêng" tick sẵn, ProxyCode trống.
+    private static EInvoiceInputs Defaults(string project) => new(project, "FBO", "", "", "", EInvoiceSetupService.FastPortalPublicKey,
+        EInvoiceSetupService.DefaultPortalLink, "", "", EInvoiceSetupService.DefaultMiddleLink, EInvoiceSetupService.DefaultProxyDatabase(project), true, true);
 
+    /// <summary>%AppData%\Bcode\einvoice.json — {"projects": {"&lt;mã dự án&gt;": {...các ô...}}}: nhớ riêng từng dự án (bản cũ 1 bộ dùng chung → chuyển thành của dự án đã lưu).</summary>
     private static string ConfigPath => Path.Combine(BcodePaths.AppData, "Bcode", "einvoice.json");
+
+    /// <summary>Mã dự án đã nạp lên trang lần gần nhất — đổi workspace sang dự án khác mới nạp lại cả trang (cùng dự án thì giữ các ô đang gõ).</summary>
+    private string? _shownProject;
 
     public SetupEInvoiceControl(DbConnectionService connections)
     {
@@ -46,10 +51,11 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
     /// <summary>ID (ProjectId) của project đang vào; null khi chưa chọn / chưa khai ID.</summary>
     private string? ProjectIdOf() => _connections.Current?.ProjectId is { Length: > 0 } id ? id.Trim() : null;
 
-    /// <summary>Đổi project ở ô WS → Mã dự án = ID project mới, ô CSDL Proxy lấy database eInv của project mới (nếu project có khai trong DB Access).</summary>
+    /// <summary>Đổi project ở ô WS sang dự án khác → nạp lại cả trang theo dự án mới (giá trị đã lưu của dự án đó, chưa có thì để trống — không mang số của dự án cũ sang).
+    /// Cùng dự án: chỉ cập nhật ô CSDL Proxy (nếu project có khai database eInv trong DB Access) và gợi ý Đơn vị.</summary>
     private void OnWorkspaceChanged()
     {
-        if (ProjectIdOf() is { } id) Js($"setupEInvoice.setProject({J(id)})");
+        if (!string.Equals(ProjectIdOf() ?? "", _shownProject ?? "", StringComparison.OrdinalIgnoreCase)) { SendInit(); return; }
         if (EInvoiceSetupService.ProxyDatabaseOf(_connections.Current) is { } db) Js($"setupEInvoice.setDbProxy({J(db)})");
         _ = SendUnitsAsync();
     }
@@ -72,25 +78,55 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
 
     private void SendInit()
     {
-        EInvoiceInputs inputs;
-        try { inputs = File.Exists(ConfigPath) ? JsonSerializer.Deserialize<EInvoiceInputs>(File.ReadAllText(ConfigPath), JsonOpts) ?? Defaults : Defaults; }
-        catch { inputs = Defaults; }
-        // einvoice.json cũ: link .../UpdateKey → .../UpdateProxy; chưa có Portal Key thì điền khoá Portal Fast.
-        // CSDL Proxy: project đang chọn có khai database eInv trong DB Access thì lấy luôn (einvoice.json dùng chung mọi project nên giá trị cũ dễ là của project khác).
-        inputs = inputs with { Password = "", MiddleLink = EInvoiceSetupService.NormalizeMiddleLink(inputs.MiddleLink ?? ""),
+        // Mã dự án = ID project đang vào (Edit Project). Project chưa khai ID: để trống cả trang (không đoán dự án — dễ cài nhầm số của khách khác).
+        var project = ProjectIdOf() ?? "";
+        _shownProject = project;
+        var inputs = project.Length > 0 && LoadStore().TryGetValue(project, out var saved) ? saved : Defaults(project);
+        // Giá trị lưu cũ: link .../UpdateKey → .../UpdateProxy, http://dev.fast.com.vn → https; ô hằng số trống thì điền lại mặc định của Fast.
+        // CSDL Proxy: ưu tiên database eInv khai trong DB Access của project, rồi giá trị đã lưu của chính dự án này, cuối cùng {mã_dự_án}_eInv.
+        inputs = inputs with { Password = "", Project = project, MiddleLink = EInvoiceSetupService.NormalizeMiddleLink(inputs.MiddleLink ?? ""),
             PortalKey = string.IsNullOrWhiteSpace(inputs.PortalKey) ? EInvoiceSetupService.FastPortalPublicKey : inputs.PortalKey,
-            DbProxy = EInvoiceSetupService.ProxyDatabaseOf(_connections.Current) ?? inputs.DbProxy ?? "",
-            Project = ProjectIdOf() ?? inputs.Project ?? "" };   // Mã dự án = ID project đang vào (Edit Project); project chưa khai ID thì giữ giá trị lần trước
+            PortalLink = string.IsNullOrWhiteSpace(inputs.PortalLink) ? EInvoiceSetupService.DefaultPortalLink : inputs.PortalLink,
+            Product = string.IsNullOrWhiteSpace(inputs.Product) ? "FBO" : inputs.Product,
+            DbProxy = EInvoiceSetupService.ProxyDatabaseOf(_connections.Current)
+                ?? (string.IsNullOrWhiteSpace(inputs.DbProxy) ? EInvoiceSetupService.DefaultProxyDatabase(project) : inputs.DbProxy) };
         Js($"setupEInvoice.init({J(inputs)})");
         _ = SendUnitsAsync();
     }
 
-    private static void Save(EInvoiceInputs i)
+    /// <summary>Các ô đã lưu theo mã dự án (không phân biệt hoa thường). einvoice.json bản cũ (1 bộ dùng chung) → coi là của dự án ghi trong đó.</summary>
+    private static Dictionary<string, EInvoiceInputs> LoadStore()
     {
+        var map = new Dictionary<string, EInvoiceInputs>(StringComparer.OrdinalIgnoreCase);
         try
         {
+            if (!File.Exists(ConfigPath)) return map;
+            using var doc = JsonDocument.Parse(File.ReadAllText(ConfigPath));
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return map;
+            if (root.TryGetProperty("projects", out var ps))
+            {
+                if (ps.ValueKind == JsonValueKind.Object)
+                    foreach (var p in ps.EnumerateObject())
+                        if (p.Value.ValueKind == JsonValueKind.Object && p.Value.Deserialize<EInvoiceInputs>(JsonOpts) is { } i) map[p.Name.Trim()] = i;
+            }
+            else if (root.Deserialize<EInvoiceInputs>(JsonOpts) is { Project: { Length: > 0 } old } legacy) map[old.Trim()] = legacy;
+        }
+        catch { /* file hỏng: coi như chưa lưu gì */ }
+        return map;
+    }
+
+    /// <summary>Nhớ các ô của dự án này (theo ô Mã dự án; trống thì không lưu). KHÔNG ghi mật khẩu ra đĩa.</summary>
+    private static void Save(EInvoiceInputs i)
+    {
+        var key = i.Project?.Trim() ?? "";
+        if (key.Length == 0) return;
+        try
+        {
+            var map = LoadStore();
+            map[key] = i with { Password = "" };
             Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
-            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(i with { Password = "" }, JsonOpts));   // không ghi mật khẩu ra đĩa
+            File.WriteAllText(ConfigPath, JsonSerializer.Serialize(new { projects = map }, JsonOpts));
         }
         catch { /* không lưu được thì lần sau nhập lại */ }
     }
@@ -112,7 +148,7 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
                 case "clear":
                 {
                     if (_busy) return;
-                    var inputs = root.GetProperty("inputs").Deserialize<EInvoiceInputs>(JsonOpts) ?? Defaults;
+                    var inputs = root.GetProperty("inputs").Deserialize<EInvoiceInputs>(JsonOpts) ?? Defaults("");
                     Save(inputs);
                     _busy = true; Js("setupEInvoice.onBusy(true)");
                     try { await RunAsync(action!, inputs); }

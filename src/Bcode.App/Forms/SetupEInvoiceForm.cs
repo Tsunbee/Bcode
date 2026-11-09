@@ -11,15 +11,15 @@ public class SetupEInvoiceForm : ThemedForm
 
     private readonly TextBox _middleLinkBox = new() { Text = EInvoiceSetupService.DefaultMiddleLink };
     private readonly TextBox _dbProxyBox = new();
-    private readonly TextBox _projectBox = new() { Text = "KOG" };
+    private readonly TextBox _projectBox = new();
     private readonly TextBox _productBox = new() { Text = "FBO" };
-    private readonly TextBox _unitBox = new() { Text = "05" };
-    private readonly TextBox _clientCodeBox = new() { Text = "007986" };
+    private readonly TextBox _unitBox = new();
+    private readonly TextBox _clientCodeBox = new();
     private readonly TextBox _proxyCodeBox = new() { Text = EInvoiceSetupService.FastProxyCode, Enabled = false };
     private readonly CheckBox _ownProxyCheck = new() { Text = "Nhóm dịch vụ riêng", AutoSize = true };
     private readonly TextBox _portalKeyBox = new() { Multiline = true, Height = 80, ScrollBars = ScrollBars.Vertical, Text = EInvoiceSetupService.FastPortalPublicKey };
     private readonly TextBox _linkPortalBox = new() { Text = EInvoiceSetupService.DefaultPortalLink };
-    private readonly TextBox _usernameBox = new() { Text = "hddt@namkimcorp.vn" };
+    private readonly TextBox _usernameBox = new();
     private readonly TextBox _passwordBox = new() { UseSystemPasswordChar = true };
     private readonly CheckBox _hsmCheck = new() { Text = "Ký HSM", AutoSize = true, Checked = true };
     private readonly RichTextBox _resultBox = new() { Dock = DockStyle.Fill, Font = ThemeManager.MonoFont, ReadOnly = true };

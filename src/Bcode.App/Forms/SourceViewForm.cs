@@ -18,14 +18,19 @@ public sealed class SourceViewForm : ThemedForm
     private readonly Label _info = new() { Dock = DockStyle.Top, AutoSize = false, Height = 26, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 8, 0), AutoEllipsis = true };
     private readonly ToolTip _tip = new();
     private readonly string? _note;
+    private readonly string? _sourceVersion;   // xem file trong kho source (SourceCollection) của phiên bản này → giấu đường dẫn kho
     private readonly Action<List<EntityPreviewItem>>? _multiPeek;
     private string? _basePath;   // file đang xem (hoặc file khai báo entity đang xem)
 
-    /// <param name="note">Ghi chú hiện trước đường dẫn ở dòng trên cùng (vd phiên bản lấy source).</param>
+    /// <param name="note">Ghi chú hiện trước đường dẫn ở dòng trên cùng (vd phiên bản lấy source). Có <paramref name="sourceVersion"/> thì là
+    /// phần chú thích thêm sau "View source &lt;phiên bản&gt;" (vd "(thấp hơn gần nhất)").</param>
+    /// <param name="sourceVersion">File nằm trong kho source của phiên bản này: KHÔNG hiện đường dẫn kho (ổ mạng nội bộ) ở dòng trên cùng / tooltip —
+    /// chỉ "View source &lt;phiên bản&gt; · &lt;đường dẫn tính từ thư mục phiên bản&gt;".</param>
     /// <param name="multiPeek">F12 khi bôi đen nhiều entity (cửa sổ xem lần lượt — cần cài đặt của nơi gọi); null = bỏ qua.</param>
-    private SourceViewForm(string? note, Action<List<EntityPreviewItem>>? multiPeek)
+    private SourceViewForm(string? note, Action<List<EntityPreviewItem>>? multiPeek, string? sourceVersion = null)
     {
         _note = note;
+        _sourceVersion = string.IsNullOrWhiteSpace(sourceVersion) ? null : sourceVersion;
         _multiPeek = multiPeek;
         Width = 1000;
         Height = 700;
@@ -44,8 +49,11 @@ public sealed class SourceViewForm : ThemedForm
         {
             if (!File.Exists(p)) return;
             // Đang xem file ngoài Program Path (kho source) mà F12 phải lấy bản trong Program Path → ghi rõ.
-            var note = _basePath is not null && !ScriptEditorControl.IsInProgram(_basePath) && ScriptEditorControl.IsInProgram(p) ? "Program Path của dự án đang chọn (không có trong source)" : _note;
-            Open(p, note, this, cascade: true, _multiPeek);
+            var toProgram = _basePath is not null && !ScriptEditorControl.IsInProgram(_basePath) && ScriptEditorControl.IsInProgram(p);
+            // Đang xem kho source: file F12 tới vẫn trong kho (cùng thư mục phiên bản) thì tiếp tục giấu đường dẫn; ra Program Path dự án thì hiện như cũ.
+            var version = _sourceVersion is not null && !toProgram && RelativeToVersion(p, _sourceVersion) is not null ? _sourceVersion : null;
+            var note = toProgram ? "Program Path của dự án đang chọn (không có trong source)" : version is not null ? null : _note;
+            Open(p, note, this, cascade: true, _multiPeek, version);
         }));
         _view.EntityValuePeekRequested += (name, value, declaringPath) => BeginInvoke(new Action(() => OpenSnippet(name, value, declaringPath, this, cascade: true, _multiPeek)));
         _view.EntityMultiPeekRequested += items => { if (_multiPeek is { } mp) BeginInvoke(new Action(() => mp(items))); };
@@ -56,9 +64,10 @@ public sealed class SourceViewForm : ThemedForm
 
     /// <summary>Mở cửa sổ xem file <paramref name="path"/> — KHÔNG gắn owner (cửa sổ độc lập, Alt+Tab được); đặt giữa <paramref name="near"/>,
     /// hoặc lệch xuống 30px so với nó (<paramref name="cascade"/>: mở từ F12 trong 1 cửa sổ xem khác).</summary>
-    public static SourceViewForm Open(string path, string? note, Form? near, bool cascade = false, Action<List<EntityPreviewItem>>? multiPeek = null)
+    /// <param name="sourceVersion">Xem file trong kho source của phiên bản này — giấu đường dẫn kho (xem constructor).</param>
+    public static SourceViewForm Open(string path, string? note, Form? near, bool cascade = false, Action<List<EntityPreviewItem>>? multiPeek = null, string? sourceVersion = null)
     {
-        var f = new SourceViewForm(note, multiPeek);
+        var f = new SourceViewForm(note, multiPeek, sourceVersion);
         f.ShowNear(near, cascade);
         f.LoadFile(path);   // sau khi hiện (đã có handle) — đọc file ở nền rồi BeginInvoke về
         return f;
@@ -137,8 +146,18 @@ public sealed class SourceViewForm : ThemedForm
         Text = Path.GetFileName(path);
         string modified = "";
         try { modified = " · sửa " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm"); } catch { }
-        _info.Text = (string.IsNullOrEmpty(_note) ? "" : _note + " · ") + path + modified;
-        _tip.SetToolTip(_info, path);
+        if (_sourceVersion is { } ver)
+        {
+            // Kho source: không lộ đường dẫn ổ mạng — chỉ phiên bản + đường dẫn tính từ thư mục phiên bản.
+            var rel = RelativeToVersion(path, ver) ?? Path.GetFileName(path);
+            _info.Text = "View source " + ver + (string.IsNullOrEmpty(_note) ? "" : " " + _note) + " · " + rel + modified;
+            _tip.SetToolTip(_info, "View source " + ver + " · " + rel);
+        }
+        else
+        {
+            _info.Text = (string.IsNullOrEmpty(_note) ? "" : _note + " · ") + path + modified;
+            _tip.SetToolTip(_info, path);
+        }
         _view.LoadContent(null, "Đang tải...");
         // Đọc file ở nền (ổ mạng chậm thì cửa sổ vẫn hiện ngay).
         Task.Run(() =>
@@ -156,6 +175,14 @@ public sealed class SourceViewForm : ThemedForm
             }
             catch (InvalidOperationException) { /* cửa sổ đã đóng / chưa có handle */ }
         });
+    }
+
+    /// <summary>Phần đường dẫn sau thư mục phiên bản <paramref name="version"/> (vd "App_Data\Controllers\Filter\X.xml"); null = không nằm dưới thư mục đó.</summary>
+    private static string? RelativeToVersion(string path, string version)
+    {
+        var marker = "\\" + version.Trim('\\', '/') + "\\";
+        var i = path.Replace('/', '\\').LastIndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        return i < 0 ? null : path[(i + marker.Length)..];
     }
 
     protected override void OnLoad(EventArgs e)

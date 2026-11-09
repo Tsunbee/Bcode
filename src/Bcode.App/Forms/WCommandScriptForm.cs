@@ -93,6 +93,10 @@ public class WCommandScriptForm : ThemedForm
         Controls.Add(_box);
         Controls.Add(_toolbar);
 
+        // Esc đóng cửa sổ khi focus ở khung script / thanh native; focus trong thanh WebView2 thì trang scriptviewbar.html tự gửi "close".
+        KeyPreview = true;
+        KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) { e.Handled = e.SuppressKeyPress = true; Close(); } };
+
         if (!chunkedHighlight) Load += (_, _) => SqlSyntaxHighlighter.Apply(_box);
     }
 

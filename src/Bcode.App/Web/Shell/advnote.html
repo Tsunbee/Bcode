@@ -99,10 +99,25 @@
   #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 10; }
   #busy div { background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 14px 22px; }
   #noSel { margin: auto; color: var(--text-muted); }
+  /* 👤 Note của: chọn người dùng khác cùng dự án để xem (chỉ đọc) / gen thay */
+  #ownerWrap { position: relative; }
+  #btnOwner b { color: var(--accent); }
+  #ownerPop { position: absolute; left: 0; top: 100%; z-index: 40; margin-top: 3px; min-width: 460px; max-width: 80vw; max-height: 60vh; overflow: auto; background: var(--panel); border: 1px solid var(--accent); border-radius: 5px; box-shadow: 0 8px 24px rgba(0,0,0,.45); display: none; }
+  #ownerPop .oh { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel-alt); border-bottom: 1px solid var(--border); font-size: 12px; }
+  #ownerPop .oh .t { flex: 1; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #ownerPop tr.orow { cursor: pointer; }
+  #ownerPop tr.orow:hover td { background: var(--selection); }
+  #ownerPop tr.orow.on td { font-weight: 600; color: var(--accent); }
+  #ownerPop .omsg { padding: 10px 12px; color: var(--text-muted); }
+  #ownerPop .omsg.err { color: var(--danger); white-space: normal; }
+  #roBar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; padding: 5px 10px; background: rgba(230,170,40,.16); border-bottom: 1px solid var(--warning, #c90); color: var(--text); flex: none; font-size: 12.5px; }
+  #roBar b { color: var(--warning, #c90); }
+  body.ro #editor textarea, body.ro #editor input[type=text]:not(#tblAddName) { opacity: .85; }
 </style>
 </head>
 <body>
   <div id="toolbar">
+    <span id="ownerWrap"><button id="btnOwner" title="Chọn xem note của người khác cùng dự án (file &lt;dự án&gt;@&lt;máy&gt;.json trong thư mục AdvanceNotes) — CHỈ ĐỌC, vẫn Xem trước gói / Generate Update được (vd người kia nghỉ, bạn gen thay). Mặc định là note của bạn.">👤 Note của: <b id="ownerName">tôi</b> ▾</button><div id="ownerPop"></div></span>
     <button id="btnNew" title="Tạo y/c mới">＋ New Request</button>
     <button id="btnDelete" class="danger" title="Xoá y/c đang chọn">🗑 Xoá</button>
     <span class="sep"></span>
@@ -117,6 +132,10 @@
     <button id="btnTeam" style="display:none" title="Xem note của người khác cùng dự án và các gói update trong thư mục update của dự án (chỉ đọc; chép được y/c về note của bạn)">👥 Cả nhóm</button>
     <span class="grow"></span>
     <span id="status"></span>
+  </div>
+  <div id="roBar"><span id="roText"></span>
+    <button id="btnCopyMine" title="Chép các y/c đã tick (không tick = y/c đang chọn) về note của bạn để sửa tiếp — file note của người kia không bị đụng tới">📥 Chép về note của tôi</button>
+    <button id="btnBackMine" title="Quay về note của bạn">↩ Về note của tôi</button>
   </div>
 
   <div id="main">
@@ -396,7 +415,8 @@
       const bc = document.createElement('button'); bc.textContent = 'Copy link'; bc.onclick = () => { post('copy', { text: g.path }); setStatus('Đã copy link.', 'ok'); };
       const bo = document.createElement('button'); bo.textContent = 'Mở thư mục'; bo.onclick = () => post('open', { path: g.path });
       const bd = document.createElement('button'); bd.textContent = '🗑 Xoá'; bd.title = 'Xoá thư mục gói này để gen lại'; bd.onclick = () => deletePackage(g.path);
-      row.append(t, c, bc, bo, bd);
+      row.append(t, c, bc, bo);
+      if (!S.ro) row.append(bd);   // note của người khác: không xoá gói / sửa lịch sử của họ
       box.appendChild(row);
     });
   }
@@ -472,9 +492,10 @@
     // r.tables được cập nhật trực tiếp khi tick (collectTables) nên ở đây giữ nguyên.
     return r;
   }
-  function scheduleSave() { clearTimeout(S.saveTimer); S.saveTimer = setTimeout(flushSave, 700); }
+  function scheduleSave() { if (S.ro) return; clearTimeout(S.saveTimer); S.saveTimer = setTimeout(flushSave, 700); }
   function flushSave() {
     clearTimeout(S.saveTimer); S.saveTimer = null;
+    if (S.ro) return;   // đang xem note người khác: không bao giờ gửi lưu
     const r = readEditor(); if (!r) return;
     post('save', { request: r });
     renderList();
@@ -483,7 +504,7 @@
     $(id).addEventListener('input', scheduleSave);
     $(id).addEventListener('change', scheduleSave);
   });
-  document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); flushSave(); setStatus('Đã lưu.', 'ok'); } });
+  document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); if (S.ro) { setStatus('Đang xem note của ' + S.ro + ' (chỉ đọc) — không lưu.', 'err'); return; } flushSave(); setStatus('Đã lưu.', 'ok'); } });
 
   // ---- Table liên quan ------------------------------------------------------------------------------
   S.tblList = [];   // danh sách vừa tải từ host (khác với r.tables = các table đã CHỌN, lưu cùng y/c)
@@ -508,6 +529,7 @@
         '<td class="c"><input type="checkbox" class="tda"' + (c.data && !t.isView ? ' checked' : '') + (missing || t.isView ? ' disabled' : '') + '></td>' +
         '<td><input type="text" class="twh" value="' + esc(c.where || '') + '" placeholder="vd ma_maubc = \'bcnsky\'" spellcheck="false"' + (c.data && !t.isView ? '' : ' disabled') + '></td></tr>';
     }).join('');
+    if (S.ro) $('tblRows').querySelectorAll('input, select').forEach((el) => { el.disabled = true; });
     $('tblInfo').textContent = S.tblList.length
       ? S.tblList.length + ' table liên quan' + (chosen.size ? ' — đã chọn ' + chosen.size : '') + '. Cấu trúc = script tạo table; Dữ liệu = xoá rồi nạp lại dòng (lọc bằng Where, trống = cả bảng; quá 50.000 dòng cần Where).'
       : (chosen.size ? 'Đã chọn ' + chosen.size + ' table (bấm “Tải table” để xem lại danh sách đầy đủ).' : 'Nhập controller ở Gen All (hoặc bấm “Tải table”) để liệt kê các table liên quan.');
@@ -708,18 +730,23 @@
       S.machine = pkg.machine || ''; $('gZip').checked = !!pkg.zip; $('gNet').checked = !!pkg.net; $('gNetRoot').value = pkg.netRoot || ''; showNetRow();
       $('btnNoteHub').style.display = state.noteHub ? '' : 'none';
       $('btnTeam').style.display = state.team ? '' : 'none';
+      S.me = state.me || ''; applyView(state.view);
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
       select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
     },
-    onList(list, selectId) {
+    onList(list, selectId, view) {
+      const viewChanged = applyView(view);
       S.requests = list || [];
       S.checked = new Set([...S.checked].filter((id) => S.requests.some((r) => r.id === id)));
-      const keep = selectId || (S.requests.some((r) => r.id === S.currentId) ? S.currentId : null);
+      const newest = () => S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null;
+      const keep = selectId || (S.requests.some((r) => r.id === S.currentId) ? S.currentId : (viewChanged ? newest() : null));
+      if (viewChanged) { S.currentId = null; S.tblList = []; folderTouched = false; }   // đổi người xem: mở y/c mới nhất của danh sách mới
       select(keep);
       setBusy(false);
       if (S.pendingSuggest && cur()) { const p = S.pendingSuggest; S.pendingSuggest = null; applySuggest(p, true); }
     },
     applySuggest(p) { applySuggest(p, false); },
+    preview() { if (cur()) { S.afterSave = $('status').textContent; $('btnPreview').click(); } },   // giữ câu báo của host (onSaved hiện lại thay cho "Đã lưu.")   // host gọi sau khi dán y/c từ note người khác (tab Cả nhóm → ⚙ Tạo gói update…)
     flush() { if (S.saveTimer) flushSave(); post('flushed'); },
     onSaved() { setStatus(S.afterSave || 'Đã lưu.', 'ok'); S.afterSave = null; },
     onTableNames(list) { S.tblNames = list || []; },
@@ -754,6 +781,7 @@
       $('rCopy').onclick = () => post('copy', { text: res.webLink || res.path });
       $('rOpen').onclick = () => post('open', { path: res.path });
       $('rDel').onclick = () => deletePackage(res.path);
+      if (res.readOnly) $('rDel').style.display = 'none';   // gen từ note người khác: gói không ghi vào lịch sử nên không xoá qua đây
       S.lastGenPath = res.path;
       S.defaultFolder = S.defaultFolder.replace(/\d{14}$/, '') + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
       folderTouched = false; refreshFolder();
@@ -761,7 +789,7 @@
       $('previewSummary').textContent = 'Gói vừa tạo — bấm 1 dòng để xem nội dung:';
       $('previewBox').style.display = gi.length ? 'block' : 'none'; renderItems(gi); renderTree(gi, 'gói vừa tạo — bấm đôi file để mở vào tab Query');
       if (res.errors && res.errors.length) setStatus('Đã tạo gói update nhưng: ' + res.errors.join(' | '), 'err');
-      else setStatus('Đã tạo gói update.', 'ok');
+      else setStatus(res.readOnly ? 'Đã tạo gói update từ note của ' + S.ro + ' (note của họ không bị ghi lịch sử gen).' : 'Đã tạo gói update.', 'ok');
     },
     onItemText(i, text) {
       const tr = $('previewRows').querySelector('.itRow[data-i="' + i + '"]');
@@ -774,6 +802,9 @@
       setStatus('Đã xoá gói: ' + path, 'ok');
     },
     onError(msg) { setBusy(false); setStatus(msg, 'err'); },
+    onOwners(res) { renderOwners(res); },
+    onViewChanged(res) { setBusy(false); setStatus(res.message, res.ok ? 'ok' : 'err'); },
+    onCopied(res) { setStatus(res.message, res.ok ? 'ok' : 'err'); },
     onSynced(res) { setBusy(false); setStatus(res.message, res.ok ? 'ok' : 'err'); },
     setBusy(b, msg) { setBusy(b, msg); },
     addPaths(paths) {
@@ -782,6 +813,79 @@
     },
   };
   function setBusy(b, msg) { $('busy').style.display = b ? 'flex' : 'none'; if (msg) $('busyMsg').textContent = msg; }
+
+  // ---- 👤 Note của: xem note của người dùng KHÁC cùng dự án (chỉ đọc) — vd người kia nghỉ, bạn mở note của họ để Generate Update thay ----
+  S.ro = null;   // null = note của mình; chuỗi = tên (máy) người có note đang xem
+  const RO_TEXT = ['fName', 'fContent', 'fNote', 'fGenAll', 'fFilePaths', 'fProcedures', 'fTopScript', 'fBottomScript', 'cText'];
+  const RO_OFF = ['fMobile', 'fDone', 'btnNew', 'btnDelete', 'btnSync', 'syncProg', 'btnBrowse', 'btnAddTbl', 'tblAddName'];
+  // Trả true nếu vừa đổi người đang xem.
+  function applyView(view) {
+    const owner = view && view.owner ? view.owner : null;
+    const changed = owner !== S.ro;
+    S.ro = owner;
+    document.body.classList.toggle('ro', !!owner);
+    RO_TEXT.forEach((id) => { $(id).readOnly = !!owner; });
+    RO_OFF.forEach((id) => { $(id).disabled = !!owner; });
+    $('ownerName').textContent = owner || 'tôi';
+    $('roBar').style.display = owner ? 'flex' : 'none';
+    if (owner) $('roText').innerHTML = '👁 Đang xem note của <b>' + esc(owner) + '</b>' + (view.modified ? ' (sửa lần cuối ' + esc(fmt(view.modified)) + ')' : '') +
+      ' — <b>CHỈ ĐỌC</b>: không sửa / xoá được. Xem trước gói và ⚙ Generate Update vẫn dùng được (không ghi lịch sử gen vào note của họ).';
+    if (changed && S.saveTimer) { clearTimeout(S.saveTimer); S.saveTimer = null; }
+    return changed;
+  }
+  function closeOwners() { $('ownerPop').style.display = 'none'; }
+  $('btnOwner').onclick = () => {
+    const pop = $('ownerPop');
+    if (pop.style.display === 'block') { closeOwners(); return; }
+    flushSave();
+    pop.innerHTML = '<div class="omsg">Đang đọc danh sách note của dự án…</div>';
+    pop.style.display = 'block';
+    post('owners');
+  };
+  function renderOwners(res) {
+    const pop = $('ownerPop');
+    if (pop.style.display !== 'block') return;
+    const owners = res.owners || [];
+    const row = (o, mine) => '<tr class="orow' + ((mine ? !S.ro : S.ro === o.owner) ? ' on' : '') + '" data-o="' + (mine ? '' : esc(o.owner)) + '" data-f="' + (mine ? '' : esc(fold(o.owner + ' ' + (o.programmers || '')))) + '">' +
+      '<td>' + (mine ? '👤 Tôi' + (res.me ? ' (' + esc(res.me) + ')' : '') : esc(o.owner)) + '</td>' +
+      '<td>' + (mine ? '' : esc(o.programmers || '')) + '</td>' +
+      '<td class="date">' + (mine ? '' : esc(fmt(o.modified))) + '</td>' +
+      '<td class="c">' + (mine ? '' : o.count) + '</td><td class="c">' + (mine ? '' : o.pending) + '</td></tr>';
+    pop.innerHTML = '<div class="oh"><span class="t" title="' + esc(res.folder || '') + '">' + esc(res.folder || '') + '</span><button id="ownReload" title="Đọc lại thư mục">⟳</button></div>' +
+      (owners.length > 1 ? '<div class="oh"><input type="text" id="ownFilter" placeholder="Lọc theo máy / tên lập trình…" spellcheck="false" autocomplete="off" /></div>' : '') +
+      '<table><thead><tr><th>Người (máy)</th><th title="Lập trình theo dòng &quot;Lập trình:&quot; trong nội dung y/c (Sync yêu cầu)">Lập trình</th><th>Sửa lần cuối</th><th class="c">Số y/c</th><th class="c">Chưa xong</th></tr></thead><tbody>' +
+      row({}, true) + owners.map((o) => row(o, false)).join('') + '</tbody></table>' +
+      (res.error ? '<div class="omsg err">⚠ ' + esc(res.error) + '</div>' : (!owners.length ? '<div class="omsg">Chưa có note của người khác trong dự án này.</div>' : ''));
+    $('ownReload').onclick = (e) => { e.stopPropagation(); pop.innerHTML = '<div class="omsg">Đang đọc lại…</div>'; post('owners'); };
+    const of = $('ownFilter');
+    if (of) {
+      of.oninput = () => { const t = fold(of.value).split(/[\s,;]+/).filter(Boolean); pop.querySelectorAll('tr.orow[data-o]').forEach((tr) => { if (tr.dataset.o) tr.style.display = !t.length || t.some((x) => tr.dataset.f.includes(x)) ? '' : 'none'; }); };
+      of.onkeydown = (e) => { if (e.key === 'Enter') { const tr = [...pop.querySelectorAll('tr.orow')].find((x) => x.dataset.o && x.style.display !== 'none'); if (tr) tr.click(); } };
+      of.focus();
+    }
+    pop.querySelectorAll('tr.orow').forEach((tr) => {
+      tr.onclick = () => {
+        closeOwners();
+        const o = tr.dataset.o || '';
+        if (!o && !S.ro) return;   // đang ở note của mình rồi
+        flushSave();
+        post('viewOwner', { owner: o });   // chọn lại đúng người đang xem = đọc lại file của họ
+      };
+    });
+  }
+  document.addEventListener('mousedown', (e) => { if (!e.target.closest('#ownerWrap')) closeOwners(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeOwners(); });
+  $('btnBackMine').onclick = () => post('viewOwner', { owner: '' });
+  $('btnCopyMine').onclick = () => {
+    if (!S.ro) return;
+    const ids = S.checked.size ? [...S.checked] : (S.currentId ? [S.currentId] : []);
+    const picked = S.requests.filter((r) => ids.includes(r.id));
+    if (!picked.length) { setStatus('Tick y/c cần chép (hoặc chọn 1 y/c) trước.', 'err'); return; }
+    const sample = picked.slice(0, 5).map((r) => r.name).join(', ') + (picked.length > 5 ? ', ...' : '');
+    if (!confirm('Chép ' + picked.length + ' y/c của ' + S.ro + ' về note của bạn?\n\n' + sample +
+      '\n\nMỗi y/c thành 1 y/c mới tên "<tên> (từ ' + S.ro + ')" trong note của bạn (chưa Done, không kèm lịch sử gen). Note của ' + S.ro + ' KHÔNG bị sửa.')) return;
+    post('copyToMine', { ids: picked.map((r) => r.id) });
+  };
 
   // ---- Gợi ý theo menu (BcodeNote.exe): thêm các dòng CHƯA có vào ô của y/c đang mở, không xoá gì người dùng đã nhập ----
   // p = { menu, newName, genAll[], filePaths[], procedures[], proceduresSys[], tables[{name, sys, structure, data, where}], tblList[] }
@@ -793,6 +897,7 @@
   }
   function applySuggest(p, fresh) {
     if (!p) return;
+    if (S.ro) { setStatus('Đang xem note của ' + S.ro + ' (chỉ đọc) — về note của bạn (👤 Note của) rồi điền gợi ý.', 'err'); return; }
     if (!cur()) { S.pendingSuggest = p; post('newRequest'); return; }   // chưa mở y/c nào → tạo y/c mới rồi điền (onList)
     const r = readEditor();
     if (fresh && p.newName && /^Request \d+$/.test(r.name || '')) r.name = p.newName;   // y/c vừa tạo cho gợi ý: đặt tên theo menu (sửa lại được)

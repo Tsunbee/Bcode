@@ -3040,6 +3040,32 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
         var control = new TeamNotesControl(_advanceNoteService, () => _connections.Current, _settings);
+        // "⚙ Tạo gói update…": không gen ngay — lưu phần đang gõ ở Note (New), dán y/c vào note của mình, mở ra + Xem trước gói để bổ sung rồi mới Generate.
+        control.EditInNoteRequested += async (owner, id) =>
+        {
+            try
+            {
+                OpenAdvanceNoteTab();
+                if (_advanceNoteTab is null) return;
+                var wc = FindDescendant<AdvanceNoteControl>(_advanceNoteTab);
+                var nc = FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab);
+                if (wc is not null) await wc.FlushAsync();
+                nc?.FlushPending();
+                var (newId, message) = control.CopyForEdit(owner, id);
+                if (newId is null) { control.Toast(message); return; }
+                wc?.OpenMineRequest(newId, message);
+                nc?.OpenMineRequest(newId, message);
+            }
+            catch (Exception ex) { control.Toast("Lỗi: " + ex.Message); }
+        };
+        // "📝 Mở ở Note (New)": mở / chuyển tới tab Note (New), xem note của người đó (chỉ đọc), chọn sẵn y/c.
+        control.OpenInNoteRequested += (owner, id) =>
+        {
+            OpenAdvanceNoteTab();
+            if (_advanceNoteTab is null) return;
+            FindDescendant<AdvanceNoteControl>(_advanceNoteTab)?.ShowOwnerRequest(owner, id);
+            FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab)?.ShowOwnerRequest(owner, id);
+        };
         control.NotesChanged += () =>
         {
             if (_advanceNoteTab is null) return;

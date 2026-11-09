@@ -26,6 +26,13 @@ public sealed class TeamNotesControl : UserControl
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
+    /// <summary>"📝 Xem ở Note (New)": mở note của người (owner) ở tab Note (New) chỉ đọc, chọn sẵn y/c (id).</summary>
+    public event Action<string, string>? OpenInNoteRequested;
+
+    /// <summary>"⚙ Tạo gói update…" (owner, id): MainForm lưu phần đang gõ ở Note (New), gọi <see cref="CopyForEdit"/> rồi mở y/c vừa dán ở Note (New) của mình
+    /// (sửa được) + Xem trước gói — người dùng xem / bổ sung chỗ thiếu rồi mới Generate. Không tạo gói ở đây.</summary>
+    public event Action<string, string>? EditInNoteRequested;
+
     public TeamNotesControl(AdvanceNoteService store, Func<Workspace?> workspace, AppSettings settings)
     {
         _store = store; _workspace = workspace; _settings = settings;
@@ -125,9 +132,37 @@ public sealed class TeamNotesControl : UserControl
                 case "clone":
                     Clone(root.GetProperty("owner").GetString() ?? "", root.GetProperty("id").GetString() ?? "");
                     break;
+                case "openInNote":
+                    OpenInNoteRequested?.Invoke(root.GetProperty("owner").GetString() ?? "", root.GetProperty("id").GetString() ?? "");
+                    break;
+                // ⚙ Tạo gói update…: KHÔNG gen ngay — dán y/c vào Note (New) của mình (MainForm làm: lưu phần đang gõ ở Note (New), CopyForEdit, mở y/c + Xem trước gói).
+                case "editInNote":
+                    EditInNoteRequested?.Invoke(root.GetProperty("owner").GetString() ?? "", root.GetProperty("id").GetString() ?? "");
+                    break;
             }
         }
         catch (Exception ex) { Js($"team.toast({JsonSerializer.Serialize("Lỗi: " + ex.Message)})"); }
+    }
+
+    public void Toast(string message) => Js($"team.toast({JsonSerializer.Serialize(message)})");
+
+    /// <summary>Dán y/c (owner, id) vào note của máy này để sửa rồi gen: đã có bản dán trước (tên "&lt;tên&gt; (từ &lt;owner&gt;)…", chưa Done) thì dùng lại bản đó
+    /// — giữ phần bạn đã bổ sung; chưa có thì chép mới (<see cref="AdvanceNoteService.CloneForMine"/>). Trả Id y/c trong note của mình (null = lỗi) + câu báo.
+    /// File note của người kia không bị đụng tới.</summary>
+    public (string? Id, string Message) CopyForEdit(string owner, string id)
+    {
+        var src = _others.FirstOrDefault(o => o.Owner == owner)?.Requests.FirstOrDefault(r => r.Id == id);
+        if (src is null) return (null, "Không tìm thấy y/c (đã bị sửa / xoá?) — bấm Tải lại.");
+        var ws = _workspace();
+        var mine = _store.Load(ws, _settings);
+        var baseName = $"{src.Name} (từ {owner})";
+        var old = mine.Where(r => !r.Done && r.Name.StartsWith(baseName, StringComparison.OrdinalIgnoreCase)).OrderByDescending(r => r.Begin).FirstOrDefault();
+        if (old is not null)
+            return (old.Id, $"Mở lại \"{old.Name}\" đã dán từ trước ({old.Begin:dd/MM HH:mm}) — xem / bổ sung rồi bấm ⚙ Generate Update. Muốn lấy bản mới nhất của {owner} thì xoá bản này rồi bấm lại.");
+        var copy = AdvanceNoteService.CloneForMine(src, owner, mine);
+        mine.Insert(0, copy);
+        _store.Save(ws, _settings, mine);
+        return (copy.Id, $"Đã dán \"{copy.Name}\" vào note của bạn — xem gói bên dưới, bổ sung chỗ còn thiếu rồi bấm ⚙ Generate Update." + (_store.LastSaveWarning is { } w ? " " + w : ""));
     }
 
     /// <summary>Chép 1 y/c của người khác vào note của máy này (Id mới, chưa xong, bỏ lịch sử gen) — file của người kia không bị đụng tới.</summary>
@@ -136,17 +171,9 @@ public sealed class TeamNotesControl : UserControl
         var src = _others.FirstOrDefault(o => o.Owner == owner)?.Requests.FirstOrDefault(r => r.Id == id);
         if (src is null) { Js("team.toast('Không tìm thấy y/c (đã bị sửa / xoá?) — bấm Tải lại.')"); return; }
         var ws = _workspace();
-        var copy = JsonSerializer.Deserialize<AdvanceRequest>(JsonSerializer.Serialize(src, AdvanceNoteService.Json), AdvanceNoteService.Json)!;
-        copy.Id = Guid.NewGuid().ToString("N");
-        copy.Done = false;
-        copy.Generations = new();
-        copy.Begin = DateTime.Now;
-        copy.Updated = null;
         var mine = _store.Load(ws, _settings);
-        var names = new HashSet<string>(mine.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
-        var name = $"{src.Name} (từ {owner})";
-        for (var i = 2; names.Contains(name); i++) name = $"{src.Name} (từ {owner}) {i}";
-        copy.Name = name;
+        var copy = AdvanceNoteService.CloneForMine(src, owner, mine);
+        var name = copy.Name;
         mine.Insert(0, copy);
         _store.Save(ws, _settings, mine);
         NotesChanged?.Invoke();

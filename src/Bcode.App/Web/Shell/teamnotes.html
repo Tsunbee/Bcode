@@ -17,7 +17,10 @@
   .main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .col { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); }
   .col:last-child { border-right: none; }
-  .col h3 { margin: 0; padding: .45rem .8rem; font-size: .95rem; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; gap: .5rem; align-items: center; }
+  body.nopk .main { grid-template-columns: minmax(0, 1fr); }
+  body.nopk #colPk { display: none; }
+  #bPk.on { border-color: var(--accent); color: var(--accent); }
+  .det .more { color: var(--accent); cursor: pointer; font-size: .8rem; margin-top: .1rem; display: inline-block; }  .col h3 { margin: 0; padding: .45rem .8rem; font-size: .95rem; background: var(--panel); border-bottom: 1px solid var(--border); display: flex; gap: .5rem; align-items: center; }
   .col h3 .n { color: var(--text-muted); font-weight: normal; }
   .list { flex: 1; overflow: auto; }
   .item { padding: .45rem .8rem; border-bottom: 1px solid var(--border); cursor: default; }
@@ -27,7 +30,13 @@
   .item .s { color: var(--text-muted); font-size: .85rem; margin-top: .15rem; }
   .owner { display: inline-block; padding: 0 .4rem; border-radius: .6rem; font-size: .8rem; background: color-mix(in srgb, var(--accent) 25%, transparent); }
   .done { color: #3fae5a; font-size: .8rem; }
-  .grp { padding: .35rem .8rem; font-size: .85rem; font-weight: 600; background: var(--panel-alt); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+  .grp { padding: .35rem .8rem; font-size: .85rem; font-weight: 600; background: var(--panel-alt); border-bottom: 1px solid var(--border); position: sticky; top: 0; cursor: pointer; user-select: none; -webkit-user-select: none; }
+  .grp:hover { background: color-mix(in srgb, var(--accent) 10%, var(--panel-alt)); }
+  .grp .tw { display: inline-block; width: 1em; color: var(--text-muted); }
+  .prog { display: inline-block; padding: 0 .4rem; border-radius: .6rem; font-size: .8rem; font-weight: normal; background: color-mix(in srgb, #3fae5a 22%, transparent); }
+  .col h3 .tools { margin-left: auto; display: flex; gap: .35rem; align-items: center; font-weight: normal; font-size: .85rem; }
+  .col h3 select { padding: .1rem .3rem; background: var(--input); border: 1px solid var(--border); border-radius: 4px; max-width: 14rem; }
+  .col h3 button { padding: .05rem .45rem; }
   .det { border-top: 1px solid var(--border); max-height: 45%; overflow: auto; padding: .6rem .8rem; background: var(--panel); }
   .det:empty { display: none; }
   .det .k { color: var(--text-muted); font-size: .8rem; margin-top: .45rem; }
@@ -43,17 +52,23 @@
   <span class="path" id="path"></span>
   <span class="grow"></span>
   <input type="text" id="q" placeholder="Lọc theo tên, người, nội dung..." spellcheck="false" autocomplete="off" />
+  <button id="bPk" title="Hiện / ẩn cột các gói update đang có trong thư mục update của dự án">📦 Gói update</button>
   <button id="bOpen" title="Mở thư mục update trong Explorer">📂 Thư mục update</button>
   <button id="bRefresh" class="primary">⟳ Tải lại</button>
 </div>
 <div class="main">
-  <div class="col">
+  <div class="col" id="colPk">
     <h3>Gói update trong thư mục update <span class="n" id="pkCount"></span></h3>
     <div class="list" id="pk"></div>
     <div class="det" id="pkDet"></div>
   </div>
   <div class="col">
-    <h3>Note của người khác <span class="n" id="ntCount"></span></h3>
+    <h3>Note của người khác <span class="n" id="ntCount"></span>
+      <span class="tools">
+        <select id="prog" title="Chỉ hiện y/c của lập trình này (dòng &quot;Lập trình: …&quot; trong nội dung y/c do Sync yêu cầu ghi; y/c không có dòng đó tính theo lập trình chính của file note)"><option value="">Lập trình: (tất cả)</option></select>
+        <button id="bExpand" title="Bung tất cả người">⊞ Bung</button>
+        <button id="bCollapse" title="Thu gọn tất cả người (chỉ còn dòng tên)">⊟ Thu gọn</button>
+      </span></h3>
     <div class="list" id="nt"></div>
     <div class="det" id="ntDet"></div>
   </div>
@@ -95,13 +110,57 @@
       '<div class="acts"><button data-a="open">📂 Mở</button><button data-a="copy">⧉ Copy đường dẫn</button></div>';
   }
 
+  // ---- Lập trình của y/c: dòng "Lập trình: X" do Sync yêu cầu ghi vào Request Content; không có thì lấy lập trình chính (nhiều y/c nhất) của file note ----
+  const progRx = /Lập trình:\s*([^|\r\n]+)/;
+  const progOfContent = (r) => { const m = progRx.exec(r.content || ''); return m ? m[1].trim().toUpperCase() : ''; };
+  function indexProgs() {
+    for (const o of S.others) {
+      const cnt = {};
+      o.requests.forEach((r) => { r._prog = progOfContent(r); if (r._prog) cnt[r._prog] = (cnt[r._prog] || 0) + 1; });
+      o._progs = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]);
+      o.requests.forEach((r) => { if (!r._prog) r._prog = o._progs[0] || ''; });
+    }
+  }
+  function fillProgs() {
+    const cnt = {};
+    S.others.forEach((o) => o.requests.forEach((r) => { if (r._prog) cnt[r._prog] = (cnt[r._prog] || 0) + 1; }));
+    // Lần đầu mở tab: chọn lại lập trình đã lọc lần trước (nếu còn trong dữ liệu).
+    let cur = $('prog').value;
+    if (!fillProgs.done) { fillProgs.done = true; try { cur = localStorage.getItem('teamProg') || ''; } catch (e) { } }
+    $('prog').innerHTML = '<option value="">Lập trình: (tất cả)</option>' +
+      Object.keys(cnt).sort().map((p) => '<option value="' + esc(p) + '">' + esc(p) + ' (' + cnt[p] + ')</option>').join('');
+    $('prog').value = cnt[cur] ? cur : '';
+  }
+
+  // ---- Thu gọn / bung theo người: nhớ người đang BUNG (localStorage); mặc định nhiều người thì thu gọn hết, 1 người thì bung ----
+  let expanded = null;
+  try { const v = JSON.parse(localStorage.getItem('teamExpanded') || 'null'); if (Array.isArray(v)) expanded = new Set(v); } catch (e) { }
+  const saveExpanded = () => { try { localStorage.setItem('teamExpanded', JSON.stringify([...expanded])); } catch (e) { } };
+  const isOpen = (o) => (expanded ? expanded.has(o.owner) : S.others.length <= 1);
+  function setOpen(owner, open) {
+    if (!expanded) expanded = new Set(S.others.filter(isOpen).map((o) => o.owner));
+    if (open) expanded.add(owner); else expanded.delete(owner);
+    saveExpanded();
+  }
+
   function renderNt() {
     let total = 0, shown = 0, html = '';
+    const prog = $('prog').value;
+    const filtering = !!(prog || $('q').value.trim());
     for (const o of S.others) {
-      const reqs = o.requests.filter((r) => match([o.owner, r.name, r.content, r.note, r.genAll, r.filePaths, r.procedures, r.proceduresSys].join(' ')));
+      const reqs = o.requests.filter((r) => (!prog || r._prog === prog) &&
+        match([o.owner, r._prog, r.name, r.content, r.note, r.genAll, r.filePaths, r.procedures, r.proceduresSys].join(' ')));
       total += o.requests.length; shown += reqs.length;
       if (!reqs.length) continue;
-      html += '<div class="grp">🖥 ' + esc(o.owner) + ' <span class="muted" style="font-weight:normal">· cập nhật ' + fmt(o.modified) + ' · ' + o.requests.length + ' y/c</span></div>';
+      // Đang lọc (ô tìm / chọn lập trình) thì bung các người có kết quả; không lọc thì theo trạng thái thu gọn / bung đã chọn.
+      const open = filtering || isOpen(o);
+      const pending = o.requests.filter((r) => !r.done).length;
+      html += '<div class="grp" data-o="' + esc(o.owner) + '" title="Bấm để ' + (open ? 'thu gọn' : 'bung') + (filtering ? ' (đang lọc: luôn bung người có kết quả)' : '') + '">' +
+        '<span class="tw">' + (open ? '▾' : '▸') + '</span>🖥 ' + esc(o.owner) +
+        (o._progs.length ? ' <span class="prog" title="Lập trình (theo dòng &quot;Lập trình:&quot; trong nội dung y/c)">👤 ' + esc(o._progs.slice(0, 3).join(', ')) + (o._progs.length > 3 ? '…' : '') + '</span>' : '') +
+        ' <span class="muted" style="font-weight:normal">· cập nhật ' + fmt(o.modified) + ' · ' + (reqs.length !== o.requests.length ? reqs.length + '/' : '') + o.requests.length + ' y/c' +
+        (pending ? ' · ' + pending + ' chưa xong' : '') + '</span></div>';
+      if (!open) continue;
       html += reqs.map((r) => {
         const key = o.owner + '|' + r.id;
         return '<div class="item' + (selNt === key ? ' sel' : '') + '" data-k="' + esc(key) + '">' +
@@ -126,28 +185,59 @@
     const f = findNt(selNt);
     if (!f) { $('ntDet').innerHTML = ''; return; }
     const r = f.r;
-    const block = (k, v) => (v && String(v).trim() ? '<div class="k">' + k + '</div><pre>' + esc(v) + '</pre>' : '');
+    // Khối dài (vd 40 dòng File Path) chỉ hiện 8 dòng đầu — bấm "xem đủ" để bung (nhớ theo khối cho tới khi chọn y/c khác).
+    const MAXL = 8;
+    const block = (k, v) => {
+      if (!(v && String(v).trim())) return '';
+      const lines = String(v).replace(/\s+$/, '').split(/\r?\n/);
+      const long = lines.length > MAXL + 2, open = openBlocks.has(k);
+      return '<div class="k">' + k + (long ? ' (' + lines.length + ' dòng)' : '') + '</div><pre>' + esc(long && !open ? lines.slice(0, MAXL).join('\n') : lines.join('\n')) + '</pre>' +
+        (long ? '<span class="more" data-blk="' + esc(k) + '">' + (open ? '▴ thu gọn' : '▾ xem đủ ' + lines.length + ' dòng') + '</span>' : '');
+    };
     const gens = (r.generations || []).map((g) => '<div><span class="link" data-gen="' + esc(g.path) + '">' + esc(g.path) + '</span> <span class="muted">' + fmt(g.time) + '</span></div>').join('');
-    $('ntDet').innerHTML = '<div class="t" style="font-weight:600">' + esc(r.name) + ' <span class="owner">' + esc(f.o.owner) + '</span></div>' +
+    $('ntDet').innerHTML = '<div class="t" style="font-weight:600">' + esc(r.name) + ' <span class="owner">' + esc(f.o.owner) + '</span>' + (r._prog ? ' <span class="prog">👤 ' + esc(r._prog) + '</span>' : '') + '</div>' +
+      '<div class="acts" style="margin-top:.35rem">' +
+      '<button data-a="gen" class="primary" title="KHÔNG tạo gói ngay: dán y/c này (Gen All, File Path, SQL Object, script, table…) vào Note (New) của bạn thành y/c &quot;' + esc(r.name) + ' (từ ' + esc(f.o.owner) + ')&quot;, mở ra và tự Xem trước gói — bạn xem còn thiếu gì, bổ sung, rồi bấm ⚙ Generate Update ở Note (New). Đã dán trước đó thì mở lại bản đã dán. Note của ' + esc(f.o.owner) + ' không bị sửa.">⚙ Tạo gói update…</button>' +
+      '<button data-a="note" title="Mở note của ' + esc(f.o.owner) + ' ở tab Note (New) (chỉ đọc), chọn sẵn y/c này — chỉ để xem; muốn bổ sung rồi gen thì dùng ⚙ Tạo gói update…">📝 Xem ở Note (New)</button>' +
+      '<button data-a="clone" title="Chép y/c này vào Note (New) của bạn để sửa / gen lại">＋ Chép về note của tôi</button></div>' +
       block('Request Content', r.content) + block('Note', r.note) + block('Gen All', r.genAll) + block('File Path', r.filePaths) +
       block('SQL Object (App)', r.procedures) + block('SQL Object (Sys)', r.proceduresSys) +
       block('Top Script (App)', r.topScript) + block('Bottom Script (App)', r.bottomScript) +
       block('Top Script (Sys)', r.topScriptSys) + block('Bottom Script (Sys)', r.bottomScriptSys) +
-      (gens ? '<div class="k">Đã Generate Update</div>' + gens : '') +
-      '<div class="acts"><button data-a="clone" class="primary" title="Chép y/c này vào Note (New) của bạn để sửa / gen lại">＋ Chép về note của tôi</button></div>';
+      (gens ? '<div class="k">Đã Generate Update (của ' + esc(f.o.owner) + ')</div>' + gens : '');
   }
+  let openBlocks = new Set();
 
   $('pk').addEventListener('click', (e) => { const it = e.target.closest('.item'); if (!it) return; selPk = +it.dataset.i; renderPk(); });
   $('pk').addEventListener('dblclick', (e) => { const it = e.target.closest('.item'); if (it) post('open', { path: S.packages[+it.dataset.i].path }); });
-  $('nt').addEventListener('click', (e) => { const it = e.target.closest('.item'); if (!it) return; selNt = it.dataset.k; renderNt(); });
+  $('nt').addEventListener('click', (e) => {
+    const g = e.target.closest('.grp');
+    if (g) {
+      if ($('prog').value || $('q').value.trim()) return;   // đang lọc: nhóm có kết quả luôn bung
+      const o = S.others.find((x) => x.owner === g.dataset.o); if (!o) return;
+      setOpen(o.owner, !isOpen(o)); renderNt(); return;
+    }
+    const it = e.target.closest('.item'); if (!it) return;
+    if (selNt !== it.dataset.k) openBlocks = new Set();
+    selNt = it.dataset.k; renderNt();
+  });
+  $('prog').addEventListener('change', () => { try { localStorage.setItem('teamProg', $('prog').value); } catch (e) { } renderNt(); });
+  $('bExpand').onclick = () => { expanded = new Set(S.others.map((o) => o.owner)); saveExpanded(); renderNt(); };
+  $('bCollapse').onclick = () => { expanded = new Set(); saveExpanded(); renderNt(); };
   $('pkDet').addEventListener('click', (e) => {
     const b = e.target.closest('button'); const p = S.packages[selPk]; if (!b || !p) return;
     if (b.dataset.a === 'open') post('open', { path: p.path }); else if (b.dataset.a === 'copy') post('copy', { text: p.path });
   });
   $('ntDet').addEventListener('click', (e) => {
     const g = e.target.closest('[data-gen]'); if (g) { post('open', { path: g.dataset.gen }); return; }
+    const cp = e.target.closest('[data-copy]'); if (cp) { post('copy', { text: cp.dataset.copy }); return; }
+    const m = e.target.closest('[data-blk]');
+    if (m) { const k = m.dataset.blk; if (openBlocks.has(k)) openBlocks.delete(k); else openBlocks.add(k); const st = $('ntDet').scrollTop; renderNtDet(); $('ntDet').scrollTop = st; return; }
     const b = e.target.closest('button'); const f = findNt(selNt); if (!b || !f) return;
     if (b.dataset.a === 'clone') post('clone', { owner: f.o.owner, id: f.r.id });
+    else if (b.dataset.a === 'note') post('openInNote', { owner: f.o.owner, id: f.r.id });
+    // Tạo gói: không gen ngay — dán y/c sang Note (New) của mình để xem / bổ sung rồi mới Generate ở đó.
+    else if (b.dataset.a === 'gen') post('editInNote', { owner: f.o.owner, id: f.r.id });
   });
   $('q').addEventListener('input', () => { renderPk(); renderNt(); });
   $('bRefresh').onclick = () => { $('bRefresh').disabled = true; $('bRefresh').textContent = 'Đang tải...'; post('refresh'); };
@@ -159,10 +249,19 @@
       $('path').textContent = (d.project ? d.project + ' · ' : '') + (d.update || '(chưa khai Working Path)') + (d.error ? '  — ' + d.error : '');
       $('bOpen').disabled = !d.update;
       if (selPk >= S.packages.length) selPk = -1;
+      S.others = S.others || [];
+      indexProgs();
+      fillProgs();
       renderPk(); renderNt();
     },
     toast(msg) { $('path').textContent = msg; setTimeout(() => window.team.init(S), 2500); },
   };
+  // Cột "Gói update": ẩn mặc định (chỉ cần xem note của người khác) — nút 📦 bật lại, nhớ lựa chọn.
+  let showPk = false;
+  try { showPk = localStorage.getItem('teamShowPk') === '1'; } catch (e) { }
+  const applyPk = () => { document.body.classList.toggle('nopk', !showPk); $('bPk').classList.toggle('on', showPk); $('bPk').title = (showPk ? 'Ẩn' : 'Hiện') + ' cột các gói update đang có trong thư mục update của dự án'; };
+  applyPk();
+  $('bPk').onclick = () => { showPk = !showPk; try { localStorage.setItem('teamShowPk', showPk ? '1' : '0'); } catch (e) { } applyPk(); };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   post('ready');
 })();

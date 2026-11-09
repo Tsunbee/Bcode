@@ -88,6 +88,12 @@
       if (pendingText !== null) { setText(pendingText); pendingText = null; }
       // Ctrl+S → báo host (CellEditForm = Lưu vào ô; ScriptPopupForm bỏ qua tin này).
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => post({ action: 'save-key' }));
+      // Esc → báo host (ScriptPopupForm đóng cửa sổ; CellEditForm bỏ qua tin này). Monaco luôn chặn lan Esc nên không nghe ở window được —
+      // gắn lệnh Esc chỉ khi Monaco không cần Esc cho việc khác (ô tìm / gợi ý / vùng chọn / nhiều con trỏ...): những lúc đó Esc dọn trước, bấm lần nữa mới đóng.
+      editor.addCommand(monaco.KeyCode.Escape, () => post({ action: 'escape' }),
+        '!findWidgetVisible && !suggestWidgetVisible && !parameterHintsVisible && !renameInputVisible && !editorHasSelection'
+        + ' && !editorHasMultipleSelections && !inSnippetMode && !referenceSearchVisible && !markersNavigationVisible'
+        + ' && !inlineSuggestionVisible && !editorHoverVisible');
       post({ action: 'ready' });
     });
   </script>

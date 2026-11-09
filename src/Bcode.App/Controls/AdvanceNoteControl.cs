@@ -43,6 +43,13 @@ public class AdvanceNoteControl : UserControl
     /// (BcodeNote.exe / cửa sổ Bcode khác cùng sửa Note (New) của dự án này). Trả true nếu vừa nạp lại.</summary>
     private bool EnsureLoaded()
     {
+        if (_viewOwner is not null)
+        {
+            // Đang xem note của người khác (chỉ đọc): không so / nạp file của mình. Đổi dự án giữa chừng thì quay về note của mình.
+            if (_loadedFor == WorkspaceName) return false;
+            _viewOwner = null; _viewModified = null;
+            _loadedStamp = "\0";
+        }
         var stamp = _store.Stamp(_workspace(), _settings);
         if (_loadedFor == WorkspaceName && _requests is not null && stamp == _loadedStamp) return false;
         _requests = _store.Load(_workspace(), _settings);
@@ -51,8 +58,114 @@ public class AdvanceNoteControl : UserControl
         return true;
     }
 
+    // ---- Xem note của người dùng KHÁC cùng dự án (A nghỉ, B mở note của A để gen thay) — CHỈ ĐỌC: file của A không bao giờ bị ghi ----
+    /// <summary>null = đang xem note của mình (mặc định); khác null = tên (máy) người có note đang xem, _requests là note của họ (chỉ đọc).</summary>
+    private string? _viewOwner;
+    private DateTime? _viewModified;
+    private int _viewVersion;
+
+    private object? ViewState() => _viewOwner is null ? null : new { owner = _viewOwner, modified = _viewModified, readOnly = true };
+
+    private bool ReadOnlyGuard()
+    {
+        if (_viewOwner is null) return false;
+        Js($"advNote.onError({J($"Đang xem note của {_viewOwner} (chỉ đọc) — không sửa / xoá được. Chọn \"Tôi\" ở nút 👤 để về note của bạn, hoặc 📥 Chép về note của tôi.")})");
+        return true;
+    }
+
+    /// <summary>Danh sách người khác có note của dự án (đọc thư mục mạng ở luồng nền).</summary>
+    private async Task SendOwnersAsync()
+    {
+        var ws = _workspace();
+        var (owners, error) = await Task.Run(() => _store.ListOwners(ws, _settings));
+        if (IsDisposed) return;
+        Js($"advNote.onOwners({J(new { me = AdvanceNoteService.Owner, viewing = _viewOwner, owners, error, folder = AdvanceNoteService.ResolveFolder(ws, _settings) })})");
+    }
+
+    /// <summary>Chuyển sang xem note của <paramref name="owner"/> ("" = note của mình). Đọc file ở luồng nền; lỗi (mất mạng / file hỏng) thì giữ nguyên đang xem và báo.</summary>
+    private (string Owner, string? Id)? _pendingView;
+
+    /// <summary>Mở note của <paramref name="owner"/> (chỉ đọc) và chọn sẵn y/c <paramref name="id"/> — từ "📝 Mở ở Note (New)" của tab Cả nhóm.
+    /// Trang chưa nạp xong thì làm sau khi trang gửi "ready".</summary>
+    public void ShowOwnerRequest(string owner, string? id)
+    {
+        if (!_web.IsReady) { _pendingView = (owner, id); return; }
+        _ = ViewOwnerAsync(owner, id);
+    }
+
+    private (string Id, string Message)? _pendingMine;
+
+    /// <summary>Về note của MÌNH, nạp lại file, chọn y/c <paramref name="id"/> (vừa dán từ note người khác — "⚙ Tạo gói update…" ở tab Cả nhóm)
+    /// rồi tự bấm 🔍 Xem trước gói để người dùng thấy gói sẽ có gì, bổ sung chỗ thiếu rồi mới Generate. Trang chưa nạp xong thì làm sau "ready".</summary>
+    public void OpenMineRequest(string id, string message)
+    {
+        if (!_web.IsReady) { _pendingMine = (id, message); return; }
+        ++_viewVersion;   // bỏ kết quả đọc note người khác còn đang chạy (nếu có)
+        _viewOwner = null; _viewModified = null; _loadedStamp = "\0";
+        EnsureLoaded();
+        _previewItems = new();
+        SendList(_requests.Any(r => r.Id == id) ? id : null);
+        Js($"advNote.onViewChanged({J(new { ok = true, message })}); window.advNote && advNote.preview && advNote.preview()");
+    }
+
+    private async Task ViewOwnerAsync(string owner, string? selectId = null)
+    {
+        var v = ++_viewVersion;
+        if (owner.Length == 0 || string.Equals(owner, AdvanceNoteService.Owner, StringComparison.OrdinalIgnoreCase))
+        {
+            _viewOwner = null; _viewModified = null; _loadedStamp = "\0";
+            EnsureLoaded();
+            _previewItems = new();
+            SendList(null);
+            Js($"advNote.onViewChanged({J(new { ok = true, message = "Đang xem note của bạn." })})");
+            return;
+        }
+        var ws = _workspace();
+        var path = AdvanceNoteService.OtherFile(ws, _settings, owner);
+        if (path is null) { Js("advNote.setBusy(false); advNote.onError('Không xác định được file note của người này (dự án chưa có Working Path?).')"); return; }
+        Js($"advNote.setBusy(true, {J($"Đang đọc note của {owner}...")})");
+        try
+        {
+            var (list, modified) = await Task.Run(() => AdvanceNoteService.ReadOther(path));
+            if (v != _viewVersion || IsDisposed) return;
+            _viewOwner = owner; _viewModified = modified;
+            _requests = list;
+            _loadedFor = WorkspaceName;
+            _previewItems = new();
+            SendList(selectId is not null && list.Any(r => r.Id == selectId) ? selectId : null);
+            Js($"advNote.onViewChanged({J(new { ok = true, message = $"Đang xem note của {owner} ({list.Count} y/c, sửa lần cuối {modified:dd/MM/yy HH:mm}) — chỉ đọc." })})");
+        }
+        catch (Exception ex)
+        {
+            if (v != _viewVersion || IsDisposed) return;
+            Js($"advNote.setBusy(false); advNote.onError({J($"Không đọc được note của {owner}: {ex.Message}")})");
+        }
+    }
+
+    /// <summary>📥 Chép các y/c (đang xem của người khác) về note của mình — file của người kia không bị đụng tới. Trang đã hỏi xác nhận.</summary>
+    private void CopyToMine(JsonElement root)
+    {
+        if (_viewOwner is null) { Js("advNote.onError('Đang xem note của bạn — không cần chép.')"); return; }
+        var ids = root.TryGetProperty("ids", out var idsEl) && idsEl.ValueKind == JsonValueKind.Array
+            ? idsEl.EnumerateArray().Select(e => e.GetString()).Where(x => x is not null).ToHashSet() : new HashSet<string?>();
+        var picked = _requests.Where(r => ids.Contains(r.Id)).ToList();
+        if (picked.Count == 0) { Js("advNote.onError('Chưa chọn y/c nào để chép (tick ở danh sách, hoặc chọn 1 y/c).')"); return; }
+        var ws = _workspace();
+        var mine = _store.Load(ws, _settings);
+        var names = new List<string>();
+        foreach (var src in picked)
+        {
+            var copy = AdvanceNoteService.CloneForMine(src, _viewOwner, mine);
+            mine.Insert(0, copy);
+            names.Add(copy.Name);
+        }
+        _store.Save(ws, _settings, mine);
+        Js($"advNote.onCopied({J(new { ok = true, message = $"Đã chép {picked.Count} y/c về note của bạn: " + string.Join(", ", names.Take(5)) + (names.Count > 5 ? ", ..." : "") + (_store.LastSaveWarning is { } w ? " " + w : "") })})");
+    }
+
     private void SaveList()
     {
+        if (_viewOwner is not null) return;   // note của người khác: KHÔNG ghi (chốt chặn cuối — các thao tác sửa đã bị chặn ở HandleAsync)
         _store.Save(_workspace(), _settings, _requests);
         _loadedStamp = _store.Stamp(_workspace(), _settings);
     }
@@ -76,9 +189,13 @@ public class AdvanceNoteControl : UserControl
             programmer = _settings?.NoteProgrammer ?? "",
             noteHub = NoteHubRequested is not null,   // nút "🗂 Nhiều dự án" chỉ hiện ở Bcode (BcodeNote.exe không nối event này)
             team = TeamRequested is not null,         // nút "👥 Cả nhóm": note người khác + gói update trong thư mục update của dự án
+            me = AdvanceNoteService.Owner,
+            view = ViewState(),                       // null = note của mình; khác null = đang xem note người khác (chỉ đọc)
             requests = _requests,
         })})");
         _ = PushTableNamesAsync();
+        if (_pendingView is { } pv) { _pendingView = null; _ = ViewOwnerAsync(pv.Owner, pv.Id); }
+        if (_pendingMine is { } pm) { _pendingMine = null; OpenMineRequest(pm.Id, pm.Message); }
     }
 
     private List<string>? _tableNames;
@@ -91,7 +208,7 @@ public class AdvanceNoteControl : UserControl
         if (!IsDisposed && _tableNames.Count > 0) Js($"advNote.onTableNames({J(_tableNames)})");
     }
 
-    private void SendList(string? selectId) => Js($"advNote.onList({J(_requests)}, {J(selectId)})");
+    private void SendList(string? selectId) => Js($"advNote.onList({J(_requests)}, {J(selectId)}, {J(ViewState())})");
 
     private async Task HandleAsync(string rawJson)
     {
@@ -100,12 +217,38 @@ public class AdvanceNoteControl : UserControl
             using var doc = JsonDocument.Parse(rawJson);
             var root = doc.RootElement;
             var action = root.GetProperty("action").GetString();
+            var wasViewing = _viewOwner is not null;
             var reloaded = EnsureLoaded();
+            if (wasViewing && _viewOwner is null && action is not ("ready" or "refresh" or "flushed"))
+            {
+                // Dự án vừa đổi trong lúc xem note người khác: đã về note của mình — báo trang, KHÔNG làm thao tác (vd lưu) lên danh sách mới.
+                SendList(null);
+                Js("advNote.onError('Dự án đã đổi — đã quay về note của bạn.')");
+                return;
+            }
+            // Đang xem note người khác: chặn mọi thao tác ghi vào danh sách / file note.
+            if (_viewOwner is not null && action is "newRequest" or "save" or "delete" or "deletePackage" or "sync")
+            {
+                if (action != "save") ReadOnlyGuard();   // "save" do trang tự gửi — bỏ qua lặng lẽ (trang đã khoá ô sửa)
+                return;
+            }
 
             switch (action)
             {
                 case "ready":
                     SendInit();
+                    break;
+
+                case "owners":
+                    await SendOwnersAsync();
+                    break;
+
+                case "viewOwner":
+                    await ViewOwnerAsync(root.TryGetProperty("owner", out var ow) ? ow.GetString() ?? "" : "");
+                    break;
+
+                case "copyToMine":
+                    CopyToMine(root);
                     break;
 
                 // Trang vừa được focus lại: file danh sách đổi do tiến trình khác ghi (BcodeNote.exe / Bcode khác) thì đẩy danh sách mới xuống.
@@ -497,6 +640,13 @@ public class AdvanceNoteControl : UserControl
         var extra = opts.Network ? await GenAllService.DeliverPackageAsync(dest, opts.Zip, opts.NetworkRoot) : new PackageDelivery();
 
         var now = DateTime.Now;
+        if (_viewOwner is not null)
+        {
+            // Gen từ note của người khác: chỉ tạo gói — KHÔNG ghi lịch sử Generate / cột Updated vào note của họ.
+            Js($"advNote.onGenerated({J(new { ok = true, path = dest, count, warnings = merged.Warnings, updated = now, items = ToView(_previewItems, merged.Warnings),
+                network = extra.NetworkPath, webLink = extra.WebLink, errors = extra.Errors, readOnly = true })})");
+            return;
+        }
         foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
         {
             req.Updated = now;

@@ -317,7 +317,71 @@ public class AdvanceNoteService
         return list.OrderByDescending(o => o.Modified).ToList();
     }
 
-    private static readonly HashSet<string> NotPackages = new(StringComparer.OrdinalIgnoreCase) { "App_Data", "Main", "SQL", "Script", "Web", "Bin", "AdvanceNotes" };
+    /// <summary>1 người dùng khác có note trong thư mục AdvanceNotes của dự án — để chọn xem trong Note (New): tên (máy), giờ sửa file, số y/c, số y/c chưa Done.</summary>
+    public record OwnerEntry(string Owner, DateTime Modified, int Count, int Pending, string Programmers = "");
+
+    private static readonly System.Text.RegularExpressions.Regex ProgrammerRx = new(@"Lập trình:\s*([^|\r\n]+)", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Lập trình (ma_lt1) của y/c: dòng "Lập trình: X" do Sync yêu cầu ghi vào Request Content; "" nếu không có.</summary>
+    public static string ProgrammerOf(AdvanceRequest r)
+    {
+        var m = ProgrammerRx.Match(r.Content ?? "");
+        return m.Success ? m.Groups[1].Value.Trim().ToUpperInvariant() : "";
+    }
+
+    /// <summary>Các lập trình trong 1 file note, nhiều y/c nhất trước (tối đa 3), cách nhau dấu phẩy.</summary>
+    public static string ProgrammersOf(IEnumerable<AdvanceRequest> reqs) =>
+        string.Join(", ", reqs.Select(ProgrammerOf).Where(p => p.Length > 0).GroupBy(p => p).OrderByDescending(g => g.Count()).Select(g => g.Key).Take(3));
+
+    /// <summary>Danh sách người dùng KHÁC có note của dự án (đọc thư mục mạng — gọi ở luồng nền). error ≠ null = không đọc được (chưa có Working Path / mất mạng).</summary>
+    public (List<OwnerEntry> Owners, string? Error) ListOwners(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var folder = ResolveFolder(ws, settings);
+        if (string.Equals(folder, LocalFolder, StringComparison.OrdinalIgnoreCase))
+            return (new(), "Dự án chưa có Working Path — note chỉ lưu trên máy này, không có note của người khác.");
+        if (!IsReachable(folder)) return (new(), "Không vào được thư mục note của dự án: " + folder);
+        var list = LoadOthers(ws, settings).Select(o => new OwnerEntry(o.Owner, o.Modified, o.Requests.Count, o.Requests.Count(r => !r.Done), ProgrammersOf(o.Requests))).ToList();
+        return (list, null);
+    }
+
+    /// <summary>File note của người dùng <paramref name="owner"/> (tên máy, như trong <see cref="ListOwners"/>): &lt;thư mục&gt;\&lt;ws&gt;@&lt;owner&gt;.json. null = tên không hợp lệ.</summary>
+    public static string? OtherFile(Workspace? ws, Bcode.App.Models.AppSettings? settings, string owner)
+    {
+        owner = (owner ?? "").Trim();
+        if (owner.Length == 0 || owner.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || owner.Contains("..")) return null;
+        var folder = ResolveFolder(ws, settings);
+        if (string.Equals(folder, LocalFolder, StringComparison.OrdinalIgnoreCase)) return null;
+        return Path.Combine(folder, $"{Safe(ws?.Name ?? "")}@{owner}.json");
+    }
+
+    /// <summary>Đọc note của người khác để XEM (chỉ đọc — không bao giờ ghi file này). Khác <see cref="Read"/>: lỗi thì ném ra (báo rõ cho người dùng) thay vì trả danh sách rỗng.</summary>
+    public static (List<AdvanceRequest> Requests, DateTime Modified) ReadOther(string path)
+    {
+        var folder = Path.GetDirectoryName(path) ?? path;
+        if (!IsReachable(folder)) throw new IOException("Không vào được thư mục note của dự án: " + folder);
+        if (!File.Exists(path)) throw new FileNotFoundException("Không còn file note: " + path);
+        var text = File.ReadAllText(path);
+        var list = JsonSerializer.Deserialize<List<AdvanceRequest>>(text, JsonOptions) ?? new List<AdvanceRequest>();
+        return (list, File.GetLastWriteTime(path));
+    }
+
+    /// <summary>Bản sao 1 y/c của người khác để đưa vào note của mình: Id mới, chưa xong, bỏ lịch sử gen, tên "&lt;tên&gt; (từ &lt;owner&gt;)" không trùng tên y/c đã có.</summary>
+    public static AdvanceRequest CloneForMine(AdvanceRequest src, string owner, IEnumerable<AdvanceRequest> mine)
+    {
+        var copy = JsonSerializer.Deserialize<AdvanceRequest>(JsonSerializer.Serialize(src, JsonOptions), JsonOptions)!;
+        copy.Id = Guid.NewGuid().ToString("N");
+        copy.Done = false;
+        copy.Generations = new();
+        copy.Begin = DateTime.Now;
+        copy.Updated = null;
+        var names = new HashSet<string>(mine.Select(r => r.Name), StringComparer.OrdinalIgnoreCase);
+        var name = $"{src.Name} (từ {owner})";
+        for (var i = 2; names.Contains(name); i++) name = $"{src.Name} (từ {owner}) {i}";
+        copy.Name = name;
+        return copy;
+    }
+
+    private static readonly HashSet<string> NotPackages =new(StringComparer.OrdinalIgnoreCase) { "App_Data", "Main", "SQL", "Script", "Web", "Bin", "AdvanceNotes" };
 
     /// <summary>1 gói update có trong thư mục update của dự án (do bất kỳ ai gen / kéo về).</summary>
     public record PackageEntry(string Name, string Path, DateTime Modified, bool IsFolder, string? Description, string? Note);

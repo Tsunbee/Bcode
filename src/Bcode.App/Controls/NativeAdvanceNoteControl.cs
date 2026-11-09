@@ -72,6 +72,16 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private readonly FlowLayoutPanel _history = new() { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent };
     private bool _busy;
 
+    // ---- 👤 Note của: xem note của người dùng KHÁC cùng dự án (chỉ đọc) — như advnote.html ----
+    /// <summary>null = note của mình; khác null = tên (máy) người có note đang xem — _requests là note của họ, KHÔNG bao giờ ghi file đó.</summary>
+    private string? _viewOwner;
+    private DateTime? _viewModified;
+    private int _viewVersion;
+    private readonly PillButton _btnOwner;
+    private readonly FlowLayoutPanel _roBar = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Visible = false, Padding = new Padding(8, 3, 8, 3) };
+    private readonly Label _roText = new() { AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 7, 10, 0) };
+    private readonly List<Control> _roOff = new();   // nút / ô bị khoá khi đang xem note người khác
+
     /// <summary>Yêu cầu mở script (theo thứ tự chạy) vào các tab SQL Query — MainForm tạo tab.</summary>
     public event Action<IReadOnlyList<(string Title, bool Sys, string Text)>>? OpenScriptsRequested;
 
@@ -81,12 +91,22 @@ public sealed class NativeAdvanceNoteControl : UserControl
         Dock = DockStyle.Fill;
 
         // ---- thanh công cụ ----
-        _toolbar.Controls.Add(NK.Button("＋ New Request", () => { Flush(); NewRequest(); }, tip: "Tạo y/c mới"));
+        _btnOwner = NK.Button("👤 Note của: tôi ▾", () => _ = ShowOwnersAsync(),
+            tip: "Chọn xem note của người khác cùng dự án (file <dự án>@<máy>.json trong thư mục AdvanceNotes) — CHỈ ĐỌC, vẫn Xem trước gói / Generate Update được (vd người kia nghỉ, bạn gen thay). Mặc định là note của bạn.");
+        _toolbar.Controls.Add(_btnOwner);
+        var btnNew = NK.Button("＋ New Request", () => { Flush(); NewRequest(); }, tip: "Tạo y/c mới");
+        _toolbar.Controls.Add(btnNew);
         _btnDelete = NK.Button("🗑 Xoá", DeleteClick, tip: "Xoá y/c đang chọn khỏi Request List (không đụng database)");
         _toolbar.Controls.Add(_btnDelete);
         _syncProg.Margin = new Padding(8, 0, 6, 0);
         _toolbar.Controls.Add(_syncProg);
-        _toolbar.Controls.Add(NK.Button("⟳ Sync yêu cầu", () => { Flush(); _ = SyncAsync(); }, tip: "Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có"));
+        var btnSync = NK.Button("⟳ Sync yêu cầu", () => { Flush(); _ = SyncAsync(); }, tip: "Kéo các yêu cầu của lập trình này trong project đang vào từ quản lý yêu cầu, tạo y/c mới cho mã chưa có");
+        _toolbar.Controls.Add(btnSync);
+        _roOff.AddRange(new Control[] { btnNew, _btnDelete, _syncProg, btnSync });
+        _roBar.BackColor = AppColors.PanelAlt; _roText.ForeColor = AppColors.Warning;
+        _roBar.Controls.Add(_roText);
+        _roBar.Controls.Add(NK.Button("📥 Chép về note của tôi", CopyToMine, tip: "Chép các y/c đã tick (không tick = y/c đang chọn) về note của bạn để sửa tiếp — file note của người kia không bị đụng tới"));
+        _roBar.Controls.Add(NK.Button("↩ Về note của tôi", () => _ = ViewOwnerAsync(""), tip: "Quay về note của bạn"));
         _toolbar.Controls.Add(NK.Button("📄 Request Content", OpenContent, tip: "Xem / sửa nội dung y/c & những gì đã sửa — Ctrl+Shift+4"));
         _toolbar.Controls.Add(_noteButton = NK.Button("📝 Note", OpenNote, tip: "Lưu ý cho người triển khai — Generate Update ghi vào note.txt trong thư mục gói update"));
         _toolbar.Controls.Add(NK.Button("⚙ Theo luật Fast", () => RequestCatalogAssist("rules"),
@@ -276,7 +296,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         right.Controls.Add(_stack); right.Controls.Add(_noSel);
         var split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1, SplitterWidth = 6 };
         split.Panel1.Controls.Add(left); split.Panel2.Controls.Add(right);
-        Controls.Add(split); Controls.Add(_toolbar);
+        Controls.Add(split); Controls.Add(_roBar); Controls.Add(_toolbar);
         HandleCreated += (_, _) => BeginInvoke(new Action(() => { try { split.SplitterDistance = Math.Min(Math.Max(NativeSkin.S(430), (int)(Width * 0.3)), Width / 2); /* như #left 430px của trang web (nhân tỉ lệ) */ } catch { } Init(); }));
 
         foreach (var m in new[] { _fName, _fGenAll, _fFilePaths, _fProcedures, _fTop, _fBottom }) m.TextChanged += (_, _) => Dirty();
@@ -330,6 +350,155 @@ public sealed class NativeAdvanceNoteControl : UserControl
         if (_loadedFor == WorkspaceName) return;   // workspace đổi giữa chừng (Choose Server) → nạp lại danh sách của workspace mới
         _requests = _store.Load(_workspace(), _settings);
         _loadedFor = WorkspaceName;
+        if (_viewOwner is not null) { _viewOwner = null; _viewModified = null; ApplyView(); }   // nạp lại từ file = về note của mình
+    }
+
+    // =====================================================================  xem note của người khác (chỉ đọc)
+
+    private bool ReadOnlyGuard()
+    {
+        if (_viewOwner is null) return false;
+        SetStatus($"Đang xem note của {_viewOwner} (chỉ đọc) — không sửa / xoá được. Chọn \"Tôi\" ở nút 👤 để về note của bạn, hoặc 📥 Chép về note của tôi.", true);
+        return true;
+    }
+
+    /// <summary>Khoá / mở các ô sửa và hiện dải "đang xem note của …" theo <see cref="_viewOwner"/>.</summary>
+    private void ApplyView()
+    {
+        var ro = _viewOwner is not null;
+        foreach (var t in new[] { _fName, _fGenAll, _fFilePaths, _fProcedures, _fTop, _fBottom, _tblAddName }) t.ReadOnly = ro;
+        _fMobile.Enabled = _fDone.Enabled = !ro;
+        foreach (var c in _roOff) c.Enabled = !ro;
+        _btnOwner.Text = "👤 Note của: " + (_viewOwner ?? "tôi") + " ▾"; _btnOwner.Invalidate();
+        _roText.Text = ro ? $"👁 Đang xem note của {_viewOwner}" + (_viewModified is { } m ? $" (sửa lần cuối {Fmt(m)})" : "") +
+            " — CHỈ ĐỌC: không sửa / xoá được. Xem trước gói và ⚙ Generate Update vẫn dùng được (không ghi lịch sử gen vào note của họ)." : "";
+        _roBar.Visible = ro;
+    }
+
+    /// <summary>Nút 👤: đọc danh sách người có note của dự án (luồng nền) rồi hiện menu chọn.</summary>
+    private async Task ShowOwnersAsync()
+    {
+        Flush();
+        var ws = _workspace();
+        SetStatus("⏳ Đang đọc danh sách note của dự án...");
+        var (owners, error) = await Task.Run(() => _store.ListOwners(ws, _settings));
+        if (IsDisposed) return;
+        SetStatus(error ?? $"{owners.Count} người khác có note trong dự án.", error is not null);
+        var menu = new ContextMenuStrip { ShowCheckMargin = true, ShowImageMargin = false };
+        var me = new ToolStripMenuItem($"👤 Tôi ({AdvanceNoteService.Owner})") { Checked = _viewOwner is null };
+        me.Click += (_, _) => { if (_viewOwner is not null) _ = ViewOwnerAsync(""); };
+        menu.Items.Add(me);
+        menu.Items.Add(new ToolStripSeparator());
+        foreach (var o in owners)
+        {
+            var owner = o.Owner;
+            var it = new ToolStripMenuItem($"{owner}{(o.Programmers.Length > 0 ? "  · 👤 " + o.Programmers : "")}   —   {o.Count} y/c, {o.Pending} chưa xong · sửa {Fmt(o.Modified)}") { Checked = _viewOwner == owner };
+            it.Click += (_, _) => _ = ViewOwnerAsync(owner);   // chọn lại đúng người đang xem = đọc lại file của họ
+            menu.Items.Add(it);
+        }
+        if (error is not null) menu.Items.Add(new ToolStripMenuItem("⚠ " + error) { Enabled = false });
+        else if (owners.Count == 0) menu.Items.Add(new ToolStripMenuItem("Chưa có note của người khác trong dự án này.") { Enabled = false });
+        menu.Closed += (_, _) => BeginInvoke(new Action(menu.Dispose));
+        menu.Show(_btnOwner, new Point(0, _btnOwner.Height));
+    }
+
+    private bool _inited;
+    private (string Owner, string? Id)? _pendingView;
+    private (string Id, string Message)? _pendingMine;
+
+    /// <summary>Ghi ngay phần đang gõ (trước khi tiến trình khác ghi file note của mình — vd tab Cả nhóm dán y/c vào).</summary>
+    public void FlushPending() { if (_inited) Flush(); }
+
+    /// <summary>Về note của MÌNH, nạp lại file, chọn y/c <paramref name="id"/> (vừa dán từ note người khác — "⚙ Tạo gói update…" ở tab Cả nhóm)
+    /// rồi tự Xem trước gói. Control chưa Init thì làm sau Init.</summary>
+    public void OpenMineRequest(string id, string message)
+    {
+        if (!_inited) { _pendingMine = (id, message); return; }
+        ++_viewVersion;
+        _saveTimer.Stop();
+        _loadedFor = ""; _cur = null; _checked.Clear(); _tblList = new();
+        EnsureLoaded();   // nạp lại file; đang xem note người khác thì tự về note của mình
+        ClearPreview();
+        RenderList();
+        Select(_requests.Any(r => r.Id == id) ? id : _requests.OrderByDescending(r => r.Begin).FirstOrDefault()?.Id);
+        _ = PreviewThenSayAsync(message);
+    }
+
+    private async Task PreviewThenSayAsync(string message)
+    {
+        await PreviewAsync();
+        if (!IsDisposed) SetStatus(message + (_preview.Count > 0 ? $" (gói có {_preview.Count} mục)" : ""), ok: true);
+    }
+
+    /// <summary>Mở note của <paramref name="owner"/> (chỉ đọc) và chọn sẵn y/c <paramref name="id"/> — từ "📝 Mở ở Note (New)" của tab Cả nhóm.
+    /// Control chưa Init (vừa tạo tab) thì làm sau Init.</summary>
+    public void ShowOwnerRequest(string owner, string? id)
+    {
+        if (!_inited) { _pendingView = (owner, id); return; }
+        _ = ViewOwnerAsync(owner, id);
+    }
+
+    /// <summary>Chuyển sang xem note của <paramref name="owner"/> ("" = của mình). Đọc ở luồng nền; lỗi thì giữ nguyên và báo.</summary>
+    private async Task ViewOwnerAsync(string owner, string? selectId = null)
+    {
+        var v = ++_viewVersion;
+        _saveTimer.Stop();
+        if (owner.Length == 0 || string.Equals(owner, AdvanceNoteService.Owner, StringComparison.OrdinalIgnoreCase))
+        {
+            _loadedFor = ""; _checked.Clear(); _cur = null;
+            Init();   // EnsureLoaded nạp lại note của mình + bỏ chế độ chỉ đọc
+            SetStatus("Đang xem note của bạn.", ok: true);
+            return;
+        }
+        var ws = _workspace();
+        var path = AdvanceNoteService.OtherFile(ws, _settings, owner);
+        if (path is null) { SetStatus("Không xác định được file note của người này (dự án chưa có Working Path?).", true); return; }
+        if (BusyGuard()) return;
+        SetBusy(true, $"Đang đọc note của {owner}...");
+        try
+        {
+            var (list, modified) = await Task.Run(() => AdvanceNoteService.ReadOther(path));
+            if (v != _viewVersion || IsDisposed) return;
+            Flush();   // phần đang gõ của note mình (nếu đang xem note mình) — trước khi thay danh sách
+            _viewOwner = owner; _viewModified = modified;
+            _requests = list; _loadedFor = WorkspaceName;
+            _checked.Clear(); _cur = null; _tblList = new();
+            ApplyView();
+            ClearPreview();
+            RenderList();
+            Select(selectId is not null && _requests.Any(r => r.Id == selectId) ? selectId : _requests.OrderByDescending(r => r.Begin).FirstOrDefault()?.Id);
+            SetStatus($"Đang xem note của {owner} ({list.Count} y/c, sửa lần cuối {Fmt(modified)}) — chỉ đọc.", ok: true);
+        }
+        catch (Exception ex)
+        {
+            if (v == _viewVersion && !IsDisposed) SetStatus($"Không đọc được note của {owner}: {ex.Message}", true);
+        }
+        finally { SetBusy(false); }
+    }
+
+    /// <summary>📥 Chép các y/c đã tick (không tick = y/c đang chọn) của người đang xem về note của mình — file của người kia không bị đụng tới.</summary>
+    private void CopyToMine()
+    {
+        if (_viewOwner is null) return;
+        var picked = PickedForPreview();
+        if (picked.Count == 0) { SetStatus("Tick y/c cần chép (hoặc chọn 1 y/c) trước.", true); return; }
+        var sample = string.Join(", ", picked.Take(5).Select(r => r.Name)) + (picked.Count > 5 ? ", ..." : "");
+        if (!NK.Confirm(this, $"Chép {picked.Count} y/c của {_viewOwner} về note của bạn?\n\n{sample}\n\nMỗi y/c thành 1 y/c mới tên \"<tên> (từ {_viewOwner})\" trong note của bạn (chưa Done, không kèm lịch sử gen). Note của {_viewOwner} KHÔNG bị sửa.")) return;
+        try
+        {
+            var ws = _workspace();
+            var mine = _store.Load(ws, _settings);
+            var names = new List<string>();
+            foreach (var src in picked)
+            {
+                var copy = AdvanceNoteService.CloneForMine(src, _viewOwner, mine);
+                mine.Insert(0, copy);
+                names.Add(copy.Name);
+            }
+            _store.Save(ws, _settings, mine);
+            SetStatus($"Đã chép {picked.Count} y/c về note của bạn: " + string.Join(", ", names.Take(5)) + (names.Count > 5 ? ", ..." : "") + (_store.LastSaveWarning is { } w ? " " + w : ""), ok: true);
+        }
+        catch (Exception ex) { SetStatus("Không chép được: " + ex.Message, true); }
     }
 
     private void Init()
@@ -347,6 +516,9 @@ public sealed class NativeAdvanceNoteControl : UserControl
         var first = _requests.OrderByDescending(r => r.Begin).FirstOrDefault();
         Select(first?.Id);
         _ = LoadTableNamesAsync();
+        _inited = true;
+        if (_pendingView is { } pv) { _pendingView = null; _ = ViewOwnerAsync(pv.Owner, pv.Id); }
+        if (_pendingMine is { } pm) { _pendingMine = null; OpenMineRequest(pm.Id, pm.Message); }
     }
 
     private void SetStatus(string text, bool error = false, bool ok = false)
@@ -504,6 +676,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
 
     private void NewRequest()
     {
+        if (ReadOnlyGuard()) return;
         EnsureLoaded();
         var r = new AdvanceRequest { Name = AdvanceNoteService.SuggestName(_requests) };
         _requests.Add(r);
@@ -514,6 +687,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
 
     private void DeleteClick()
     {
+        if (ReadOnlyGuard()) return;
         var ticked = _requests.Where(r => _checked.Contains(r.Id)).ToList();
         if (ticked.Count > 0)
         {
@@ -621,11 +795,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
         return r;
     }
 
-    private void Dirty() { if (_loading || _cur is null) return; _saveTimer.Stop(); _saveTimer.Start(); }
+    private void Dirty() { if (_loading || _cur is null || _viewOwner is not null) return; _saveTimer.Stop(); _saveTimer.Start(); }
 
     private void Flush()
     {
         _saveTimer.Stop();
+        if (_viewOwner is not null) return;   // note của người khác: không bao giờ ghi
         if (ReadEditor() is null) return;
         _store.Save(_workspace(), _settings, _requests);
         // cập nhật dòng đang chọn trong danh sách (tên / Mobile / Done) mà không dựng lại cả lưới
@@ -637,7 +812,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
-        if (keyData == (Keys.Control | Keys.S)) { Flush(); return true; }
+        if (keyData == (Keys.Control | Keys.S)) { if (!ReadOnlyGuard()) Flush(); return true; }
         if (keyData == (Keys.Control | Keys.Shift | Keys.D4)) { OpenContent(); return true; }
         return base.ProcessCmdKey(ref msg, keyData);
     }
@@ -655,8 +830,8 @@ public sealed class NativeAdvanceNoteControl : UserControl
             var path = g.Path;
             var row = NK.Row(new MutedLabel { Text = Fmt(g.Time), AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0) },
                 new Label { Text = path, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0), Font = ThemeManager.MonoFont },
-                NK.Button("Copy link", () => { NK.CopyText(path); SetStatus("Đã copy link.", ok: true); }), NK.Button("Mở thư mục", () => NK.OpenFolder(path)),
-                NK.Button("🗑 Xoá", () => DeletePackage(path), tip: "Xoá thư mục gói này để gen lại"));
+                NK.Button("Copy link", () => { NK.CopyText(path); SetStatus("Đã copy link.", ok: true); }), NK.Button("Mở thư mục", () => NK.OpenFolder(path)));
+            if (_viewOwner is null) row.Controls.Add(NK.Button("🗑 Xoá", () => DeletePackage(path), tip: "Xoá thư mục gói này để gen lại"));   // note người khác: không sửa lịch sử của họ
             _history.Controls.Add(row);
         }
     }
@@ -664,6 +839,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     /// <summary>Xoá thư mục gói đã gen (ở Save At Path) để gen lại; bỏ luôn link khỏi lịch sử. Bản đã chép lên đường dẫn mạng không bị xoá.</summary>
     private void DeletePackage(string path)
     {
+        if (ReadOnlyGuard()) return;
         if (!NK.Confirm(this, $"Xoá thư mục gói update này để gen lại?\n\n{path}\n\nXoá hẳn thư mục trên ổ đĩa (không vào Recycle Bin). Bản đã chép lên đường dẫn mạng (nếu có) KHÔNG bị xoá.")) return;
         try
         {
@@ -704,6 +880,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
             if (name == "db") BeginInvoke(new Action(RenderTables));   // đổi DB → hiện lại số dòng của DB đó
         };
         g.DataError += (_, e) => e.ThrowException = false;
+        g.CellBeginEdit += (_, e) => { if (_viewOwner is not null) e.Cancel = true; };   // đang xem note người khác: không tick / sửa table
         // Ô Where trống: chữ gợi ý mờ như placeholder của trang web; ô bị khoá (chưa tick Dữ liệu) tô nền dịu để thấy rõ là không sửa được.
         g.CellPainting += (_, e) =>
         {
@@ -950,13 +1127,17 @@ public sealed class NativeAdvanceNoteControl : UserControl
             if (_gNet.Checked) SetBusy(true, "Đang chép gói lên đường dẫn mạng...");
             var extra = _gNet.Checked ? await GenAllService.DeliverPackageAsync(dest, _gZip.Checked, _gNetRoot.Text) : new PackageDelivery();
             var now = DateTime.Now;
-            foreach (var req in picked)
+            var viewing = _viewOwner;   // gen từ note người khác: chỉ tạo gói — KHÔNG ghi lịch sử Generate / cột Updated vào note của họ
+            if (viewing is null)
             {
-                req.Updated = now;
-                req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });   // nhớ link gói vừa tạo cho từng y/c đã tick
-                if (req.Generations.Count > AdvanceRequest.MaxGenerations) req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
+                foreach (var req in picked)
+                {
+                    req.Updated = now;
+                    req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });   // nhớ link gói vừa tạo cho từng y/c đã tick
+                    if (req.Generations.Count > AdvanceRequest.MaxGenerations) req.Generations.RemoveRange(AdvanceRequest.MaxGenerations, req.Generations.Count - AdvanceRequest.MaxGenerations);
+                }
+                _store.Save(_workspace(), _settings, _requests);
             }
-            _store.Save(_workspace(), _settings, _requests);
             ShowResult(true, $"Đã tạo {count} mục tại:", dest, extra);
             _defaultFolder = Regex.Replace(_defaultFolder, @"\d{14}$", "") + DateTime.Now.ToString("yyyyMMddHHmmss");
             _folderTouched = false; RefreshFolder();
@@ -964,7 +1145,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
             _previewSummary.Text = "Gói vừa tạo — bấm 1 dòng để xem nội dung:";
             RenderList(); RenderHistory();
             if (extra.Errors.Count > 0) SetStatus("Đã tạo gói update nhưng: " + string.Join(" | ", extra.Errors), true);
-            else SetStatus("Đã tạo gói update.", ok: true);
+            else SetStatus(viewing is null ? "Đã tạo gói update." : $"Đã tạo gói update từ note của {viewing} (note của họ không bị ghi lịch sử gen).", ok: true);
         }
         catch (Exception ex) { SetStatus(ex.Message, true); }
         finally { SetBusy(false); }
@@ -988,7 +1169,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         {
             _result.Controls.Add(new Label { Text = path, AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(0, 6, 8, 0), Font = ThemeManager.MonoFont });
             _result.Controls.Add(NK.Button("Copy link", () => NK.CopyText(path))); _result.Controls.Add(NK.Button("Mở thư mục", () => NK.OpenFolder(path)));
-            _result.Controls.Add(NK.Button("🗑 Xoá", () => DeletePackage(path), tip: "Xoá thư mục gói vừa tạo để gen lại"));
+            if (_viewOwner is null) _result.Controls.Add(NK.Button("🗑 Xoá", () => DeletePackage(path), tip: "Xoá thư mục gói vừa tạo để gen lại"));
             _lastGenPath = path;
         }
         if (extra is not null)
@@ -1016,6 +1197,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
 
     private async Task SyncAsync()
     {
+        if (ReadOnlyGuard()) return;
         EnsureLoaded();
         if (BusyGuard()) return;
         var programmer = _syncProg.Text.Trim();
@@ -1047,7 +1229,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     public event Action? TeamRequested;
 
     /// <summary>Nạp lại danh sách từ file (vd vừa chép 1 y/c của người khác về tab Cả nhóm).</summary>
-    public void ReloadFromStore() { _loadedFor = ""; Init(); }
+    public void ReloadFromStore() { if (_viewOwner is not null) return; /* đang xem note người khác: về note mình sẽ tự nạp lại */ _loadedFor = ""; Init(); }
 
     /// <summary>Nút "AI tạo danh mục" / phím tắt note.aiCatalog: lưu y/c đang sửa rồi gửi tên + nội dung (như trang advnote.html).</summary>
     public void RequestAiCatalog()
@@ -1076,12 +1258,13 @@ public sealed class NativeAdvanceNoteControl : UserControl
         using var dlg = new OpenFileDialog { Multiselect = true, Title = "Chọn file đưa vào gói update", CheckFileExists = true };
         var ws = _workspace();
         if (!string.IsNullOrWhiteSpace(ws?.SourcePath) && Directory.Exists(ws.SourcePath)) dlg.InitialDirectory = ws.SourcePath;
-        if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
+        if (ReadOnlyGuard() || dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
         AddPaths(dlg.FileNames);
     }
 
     private void AddPaths(IEnumerable<string> paths)
     {
+        if (ReadOnlyGuard()) return;
         var cur = _fFilePaths.Text.TrimEnd();
         _fFilePaths.Text = (cur.Length > 0 ? cur + "\r\n" : "") + string.Join("\r\n", paths);
     }
@@ -1091,7 +1274,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         if (_cur is null) return;
         using var dlg = new RequestContentDialog(_cur.Name, _cur.Content);
         dlg.ShowDialog(FindForm());
-        if (dlg.Text.Length >= 0 && dlg.ResultText != _cur.Content) { _cur.Content = dlg.ResultText; Dirty(); Flush(); }
+        if (_viewOwner is null && dlg.Text.Length >= 0 && dlg.ResultText != _cur.Content) { _cur.Content = dlg.ResultText; Dirty(); Flush(); }
     }
 
     private PillButton? _noteButton;
@@ -1101,7 +1284,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         if (_cur is null) return;
         using var dlg = new RequestContentDialog(_cur.Name, _cur.Note ?? "", plain: true);
         dlg.ShowDialog(FindForm());
-        if (dlg.ResultText != (_cur.Note ?? "")) { _cur.Note = dlg.ResultText; Dirty(); Flush(); }
+        if (_viewOwner is null && dlg.ResultText != (_cur.Note ?? "")) { _cur.Note = dlg.ResultText; Dirty(); Flush(); }
         PaintNoteButton();
     }
 

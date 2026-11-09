@@ -109,6 +109,10 @@ public class ScriptPopupForm : ThemedForm
                         Post(new { type = "load", text = _pendingText });
                         _pendingText = "";
                         break;
+                    case "escape":
+                        // Esc trong Monaco mà Monaco không dùng (scriptpopup.html) — KeyPreview của form không thấy phím khi focus ở WebView2.
+                        BeginInvoke(new Action(Close));
+                        break;
                     case "find-status":
                         _toolbar.Call($"window.setFindStatus && window.setFindStatus({WebBarHost.Json(text)})");
                         break;

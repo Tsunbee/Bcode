@@ -51,6 +51,12 @@
   document.getElementById('findBox').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') post({ action: 'find', value: findText() });
   });
+  // Esc khi focus ở thanh này (WebView2 — KeyPreview của form không thấy phím) → đóng cửa sổ. Ô Find còn chữ thì Esc xoá chữ trước (mặc định ô search).
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    if (e.target && e.target.id === 'findBox' && e.target.value) return;
+    post({ action: 'close' });
+  });
 
   // ---- Called from C# (WCommandScriptForm) ----
   window.setFindStatus = function (text) {

@@ -83,7 +83,7 @@
     lbl.className = s ? (s.kind || '') : '';
     lbl.title = s ? (s.tip || '') : '';
     if (s) {
-      if (s.version) { var b = document.createElement('b'); b.textContent = s.version; lbl.append('Source ', b, ' '); }
+      if (s.version) { var b = document.createElement('b'); b.textContent = s.version; lbl.append('View source ', b, s.text ? ' ' : ''); }
       lbl.append(s.text || '');
     }
     btn.style.display = s ? '' : 'none';   // .btn của shell.css đặt display nên thuộc tính hidden không ẩn được

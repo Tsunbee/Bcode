@@ -850,6 +850,31 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _ed.AnnotationVisible = ScintillaNET.Annotation.Standard;
     }
 
+    private bool _pastePending;
+
+    /// <summary>Dán (Ctrl+V / Shift+Insert / menu Paste): dán kiểu Scintilla như cũ; nếu không chèn được gì mà clipboard có chữ
+    /// (clipboard đang bị app khác giữ — copy từ máy remote qua RDP/UltraViewer, đoạn dài đang được kéo về) thì chờ đọc lại bằng
+    /// <see cref="ClipboardText"/> ở luồng nền rồi chèn vào vùng chọn.</summary>
+    private async Task PasteAsync()
+    {
+        if (_pastePending || _ed.ReadOnly) return;   // đang chờ lần dán trước — bấm thêm không dán 2 lần
+        var inserted = false;
+        void OnInsert(object? s, ModificationEventArgs e) => inserted = true;
+        _ed.Insert += OnInsert;
+        try { _ed.Paste(); }
+        finally { _ed.Insert -= OnInsert; }
+        if (inserted || !ClipboardText.HasText()) return;
+        _pastePending = true;
+        try
+        {
+            var text = await ClipboardText.ReadAsync();
+            if (string.IsNullOrEmpty(text) || _ed.IsDisposed || _ed.ReadOnly) return;
+            _ed.ReplaceSelection(text.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", _ed.EolMode == Eol.CrLf ? "\r\n" : _ed.EolMode == Eol.Cr ? "\r" : "\n"));
+            _ed.ScrollCaret();
+        }
+        finally { _pastePending = false; }
+    }
+
     private bool AcceptGhost()
     {
         if (_ghostText is not { } text) return false;
@@ -1441,6 +1466,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (keyData == Keys.Tab && AcceptGhost()) return true;   // Tab = nhận gợi ý AI (ghost-text)
             if (keyData == Keys.Escape) { ClearGhost(); return true; }
         }
+        if (_ed.Focused && (keyData == (Keys.Control | Keys.V) || keyData == (Keys.Shift | Keys.Insert))) { _ = PasteAsync(); return true; }
         var combo = ShortcutRegistry.FromKeys(keyData);
         if (combo is not null)
         {
@@ -1820,7 +1846,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             .AddSeparator()
             .Add("Cut", () => _ed.Cut(), shortcut: "Ctrl+X", enabled: hasSel)
             .Add("Copy", () => _ed.Copy(), shortcut: "Ctrl+C", enabled: hasSel)
-            .Add("Paste", () => _ed.Paste(), shortcut: "Ctrl+V")
+            .Add("Paste", () => _ = PasteAsync(), shortcut: "Ctrl+V")
             .Add("Select All", () => _ed.SelectAll(), shortcut: "Ctrl+A")
             .AddSeparator()
             .Add("Comment", () => ToggleComment(true))

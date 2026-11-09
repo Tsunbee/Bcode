@@ -161,7 +161,7 @@ internal sealed class FileLookupPreviewBarPage : NativePage
             var s = Arg(a, 0);
             var on = s.ValueKind == JsonValueKind.Object;
             var kind = on ? P(s, "kind") : "";
-            _src.Text = !on ? "" : (P(s, "version").Length > 0 ? "Source " + P(s, "version") + " " : "") + P(s, "text");
+            _src.Text = (!on ? "" : (P(s, "version").Length > 0 ? "View source " + P(s, "version") + " " : "") + P(s, "text")).TrimEnd();
             // 1 dòng: rộng theo chữ, tối đa ~620px (dài hơn thì "…", đường dẫn đủ ở tooltip).
             _src.Size = new Size(Math.Min(TextRenderer.MeasureText(_src.Text, _src.Font).Width + 4, NativeSkin.S(620)), _mod.PreferredHeight);
             _src.ForeColor = kind switch { "ok" => AppColors.Success, "fb" => AppColors.Warning, _ => AppColors.TextMuted };

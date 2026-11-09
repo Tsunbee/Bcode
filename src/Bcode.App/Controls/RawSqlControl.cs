@@ -450,6 +450,11 @@ public class RawSqlControl : UserControl, ISqlTab
                 _ = LoadTablesForEditorAsync();
                 break;
 
+            // Ctrl+V mà trình duyệt đọc clipboard ra rỗng (copy từ máy remote, dữ liệu dài còn đang kéo về) — chờ đọc lại rồi chèn (xem sqleditor.html).
+            case "paste-host":
+                await PasteFromClipboardAsync();
+                break;
+
             case "run":
                 await RunAsync();
                 break;
@@ -1233,6 +1238,22 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         var json = System.Text.Json.JsonSerializer.Serialize(definition);
         await EdExec($"window.prependDefinition({json})");
         FocusEditor();
+    }
+
+    private bool _pastePending;
+
+    /// <summary>Dán chữ trong clipboard vào chỗ con trỏ — chờ được khi clipboard đang bận (copy từ máy remote qua RDP / UltraViewer, đoạn dài).
+    /// Dùng cho menu Paste và khi Ctrl+V của Monaco đọc ra rỗng (tin "paste-host"). Đang chờ thì lần bấm sau bỏ qua (không dán 2 lần).</summary>
+    private async Task PasteFromClipboardAsync()
+    {
+        if (_pastePending) return;
+        _pastePending = true;
+        try
+        {
+            var text = await ClipboardText.ReadAsync();
+            if (!string.IsNullOrEmpty(text)) await InsertTextAtCaretAsync(text);
+        }
+        finally { _pastePending = false; }
     }
 
     private async Task InsertTextAtCaretAsync(string text)
@@ -2736,14 +2757,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
                 _ = EdExec("document.execCommand('copy')");
         }, enabled: hasSelection);
 
-        menu.Add("Paste", async () =>
-        {
-            if (Clipboard.ContainsText())
-            {
-                var text = Clipboard.GetText();
-                await InsertTextAtCaretAsync(text);
-            }
-        }, enabled: Clipboard.ContainsText());
+        menu.Add("Paste", () => _ = PasteFromClipboardAsync(), enabled: ClipboardText.HasText());
 
         menu.AddSeparator();
         menu.Add("Beauty Format", BeautyFormat);

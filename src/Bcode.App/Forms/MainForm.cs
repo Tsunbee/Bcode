@@ -3646,7 +3646,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ShowForMenuItem(ws.SourcePath, item.Link, item.SysId);
     }
 
-    /// <summary>F4 ở cây menu: bung thêm 1 tab File Lookup MỚI (không dùng lại tab cũ) cho menu đang chọn, để đặt cạnh nhau so sánh nhiều menu.
+    /// <summary>F4 ở cây menu: bung thêm 1 tab File Lookup MỚI (không dùng lại tab chính) cho menu đang chọn, để đặt cạnh nhau so sánh nhiều menu.
+    /// Đã có tab F4 (tab phụ, không tính tab File Lookup chính / Mobile) đang xem đúng menu đó của project hiện tại thì chuyển về tab đó, không mở trùng.
     /// Tab thêm này không được theo dõi như tab File Lookup chính (đổi project không tự đổi gốc của nó).</summary>
     private void OpenWCommandItemInNewLookup(WCommandItem item)
     {
@@ -3658,6 +3659,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
         {
             MessageBox.Show(this, "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm.", "Bcode");
+            return;
+        }
+
+        var existing = _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p =>
+            FindDescendant<FileLookupControl>(p) is { IsDisposed: false } c
+            && c != _fileLookupControl && c != _mobileLookup
+            && string.Equals(c.ProjectName, ws.Name, StringComparison.OrdinalIgnoreCase)
+            && c.IsShowingMenu(ws.SourcePath, item.Link, item.SysId));
+        if (existing is not null)
+        {
+            _documentTabs.SelectedTab = existing;
+            existing.Focus();
             return;
         }
 

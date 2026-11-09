@@ -556,6 +556,14 @@ public partial class FileLookupControl : UserControl
         Reload();
     }
 
+    /// <summary>Tab này đang xem cây của đúng menu đó (cùng gốc source + Link + SysId; kể cả đang gõ ô Search từ cây menu đó) —
+    /// F4 ở cây menu dùng để chuyển về tab đã mở thay vì bung thêm tab trùng.</summary>
+    public bool IsShowingMenu(string sourceRootPath, string link, string sysId) =>
+        (_menuMode || _menuBeforeSearch)
+        && string.Equals(_pathText.TrimEnd('\\', '/'), (sourceRootPath ?? "").TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(_menuLink.Trim(), (link ?? "").Trim(), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(_menuSysId.Trim(), (sysId ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+
     public void Reload() => _ = ReloadAsync();
 
     /// <summary>Xem trước 1 file theo đường dẫn tuyệt đối (Ctrl+P chọn file từ chỉ mục dự án) — không cần node trong cây.</summary>

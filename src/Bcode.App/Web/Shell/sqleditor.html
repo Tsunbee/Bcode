@@ -1470,6 +1470,18 @@
           }
         }, true);
 
+        // Dán chữ copy từ máy remote (RDP / UltraViewer…): dữ liệu được kéo về trễ, đoạn dài thì clipboard bận vài giây → trình duyệt báo
+        // có 'text/plain' nhưng getData trả rỗng, Monaco không dán gì. Lúc đó nhờ C# chờ đọc lại clipboard (UI.ClipboardText) rồi chèn qua replaceSelection.
+        // Gắn ở window (capture) vì Monaco chặn sự kiện paste trước khi tới khung editor; có chữ bình thường thì để Monaco dán như cũ.
+        window.addEventListener('paste', function (e) {
+          var dom = editor && editor.getDomNode();
+          if (!dom || !dom.contains(e.target) || editor.getOption(monaco.editor.EditorOption.readOnly)) return;
+          var cd = e.clipboardData;
+          if (!cd || Array.prototype.indexOf.call(cd.types || [], 'text/plain') < 0 || cd.getData('text/plain')) return;
+          e.preventDefault(); e.stopPropagation();
+          window.chrome.webview.postMessage(JSON.stringify({ action: 'paste-host' }));
+        }, true);
+
         // Bảng màu người dùng chọn (Bcode.App.UI.UiThemes) — null = dùng vs / vs-dark mặc định của Monaco.
         window.__palette = null;
         window.setPalette = function (p, isDark) { window.__palette = p; window.setTheme(isDark); };

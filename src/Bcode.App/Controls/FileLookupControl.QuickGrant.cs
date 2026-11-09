@@ -62,8 +62,9 @@ public partial class FileLookupControl
                         state = new { version = "", text = "Không có source", kind = "no", tip = $"Không có {Path.GetFileName(row.RelativeSource)} ở {chosen} và các phiên bản thấp hơn\n" + tip, can = false };
                     else
                     {
-                        // Lùi phiên bản: chỉ mũi tên ↓ + màu cam, diễn giải nằm ở tooltip.
-                        var text = (row.FromFallback ? "↓ · " : "· ") +(Path.GetDirectoryName(row.SourcePath) ?? "") + (row.DestExists ? " · đã có" : "");
+                        // Nhãn gọn "View source <phiên bản>" (thanh xem trước tự thêm tiền tố); lùi phiên bản: thêm mũi tên ↓ + màu cam.
+                        // Đường dẫn nguồn / đích, "đích đã có" nằm ở tooltip.
+                        var text = row.FromFallback ? "↓" : "";
                         state = new { version = row.FromVersion, text, kind = row.FromFallback ? "fb" : "ok", tip, can = true };
                     }
                 }

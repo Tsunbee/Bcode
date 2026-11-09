@@ -190,6 +190,7 @@ public class AdvanceNoteControl : UserControl
             noteHub = NoteHubRequested is not null,   // nút "🗂 Nhiều dự án" chỉ hiện ở Bcode (BcodeNote.exe không nối event này)
             team = TeamRequested is not null,         // nút "👥 Cả nhóm": note người khác + gói update trong thư mục update của dự án
             me = AdvanceNoteService.Owner,
+            doneAfterGen = _settings?.NoteDoneAfterGen ?? true,   // ô "Done sau khi gen"
             view = ViewState(),                       // null = note của mình; khác null = đang xem note người khác (chỉ đọc)
             requests = _requests,
         })})");
@@ -357,6 +358,17 @@ public class AdvanceNoteControl : UserControl
                 case "generate":
                     await GenerateAsync(root);
                     break;
+
+                case "doneAfterGen":
+                {
+                    var on = root.TryGetProperty("on", out var onEl) && onEl.ValueKind == JsonValueKind.True;
+                    if (_settings is not null && _settings.NoteDoneAfterGen != on)
+                    {
+                        _settings.NoteDoneAfterGen = on;
+                        try { _settings.Save(); } catch { /* không lưu được thì lần sau về mặc định */ }
+                    }
+                    break;
+                }
 
                 case "pkgOpts":
                 {
@@ -647,8 +659,11 @@ public class AdvanceNoteControl : UserControl
                 network = extra.NetworkPath, webLink = extra.WebLink, errors = extra.Errors, readOnly = true })})");
             return;
         }
+        // Ô "Done sau khi gen" (trang cũ không gửi → theo settings): gen xong tự đánh dấu Done.
+        var markDone = root.TryGetProperty("done", out var dnEl) ? dnEl.ValueKind == JsonValueKind.True : _settings?.NoteDoneAfterGen ?? true;
         foreach (var req in _requests.Where(r => ids.Contains(r.Id)))
         {
+            if (markDone) req.Done = true;
             req.Updated = now;
             // Nhớ link gói vừa tạo cho từng y/c đã tick — mở lại y/c sau này vẫn thấy.
             req.Generations.Insert(0, new GenerationRecord { Path = dest, Time = now });

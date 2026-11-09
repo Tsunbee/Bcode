@@ -65,6 +65,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private readonly FlowLayoutPanel _warnings = new() { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent };
     private readonly RoundedInput _gSave = NK.Input("", mono: true), _gFolder = NK.Input("", mono: true);
     private readonly CheckBox _gSplit = NK.Check("Tách theo từng y/c");
+    private readonly CheckBox _gDone = NK.Check("Done sau khi gen");   // Generate xong tự đánh dấu Done (AppSettings.NoteDoneAfterGen)
     private readonly CheckBox _gZip = NK.Check("Nén .zip khi gen lên mạng"), _gNet = NK.Check("Gen vào đường dẫn mạng");
     private readonly RoundedInput _gNetRoot = NK.Input("", mono: true);
     private readonly Label _gNetHint = NK.Muted("");
@@ -138,6 +139,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _list.ScrollBars = ScrollBars.Vertical;
         _list.SizeChanged += (_, _) => FitListColumns();
         _list.CurrentCellDirtyStateChanged += (_, _) => { if (_list.IsCurrentCellDirty) _list.CommitEdit(DataGridViewDataErrorContexts.Commit); };
+        // Bấm ô Done ở Request List: đánh dấu / bỏ Done ngay (như trang web), không cần mở y/c.
+        _list.CellClick += (_, e) =>
+        {
+            if (_loading || e.RowIndex < 0 || e.ColumnIndex < 0 || _list.Columns[e.ColumnIndex].Name != "done" || _list.Rows[e.RowIndex].Tag is not string did) return;
+            ToggleDone(did);
+        };
         _list.CellValueChanged += (_, e) =>
         {
             if (_loading || e.ColumnIndex != 0 || e.RowIndex < 0 || _list.Rows[e.RowIndex].Tag is not string id) return;
@@ -279,7 +286,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _gSave.Dock = DockStyle.Fill; _gFolder.Dock = DockStyle.Fill; _gSave.Margin = new Padding(0, 0, 8, 6); _gFolder.Margin = new Padding(0, 0, 0, 6);
         saveRow.Controls.Add(NK.Muted("Save At Path"), 0, 0); saveRow.Controls.Add(NK.Muted("Folder Name"), 1, 0);
         saveRow.Controls.Add(_gSave, 0, 1); saveRow.Controls.Add(_gFolder, 1, 1);
-        var genRow = NK.Row(_gSplit, NK.Button("⚙ Generate Update", () => { Flush(); _ = GenerateAsync(); }, primary: true));
+        var genRow = NK.Row(_gSplit, _gDone, NK.Button("⚙ Generate Update", () => { Flush(); _ = GenerateAsync(); }, primary: true));
         genRow.Dock = DockStyle.Top;
         NK.Tip(_gSplit, "Tick nhiều y/c: bật = mỗi y/c 1 thư mục con riêng (1585\\, 1586\\...); tắt = gộp tất cả vào 1 gói chung (1 file APP_Script.sql).");
         // Nén zip / Gen vào đường dẫn mạng: lưu vào settings.json ngay khi đổi (dùng chung với Gen Update và BcodeNote.exe).
@@ -327,6 +334,15 @@ public sealed class NativeAdvanceNoteControl : UserControl
         {
             if (_settings is null || _settings.NoteSplit == _gSplit.Checked) return;
             _settings.NoteSplit = _gSplit.Checked;
+            try { _settings.Save(); } catch { /* không lưu được thì lần sau về mặc định */ }
+        };
+        // "Done sau khi gen": nhớ chung settings.json với trang web / BcodeNote.
+        _gDone.Checked = _settings?.NoteDoneAfterGen ?? true;
+        NK.Tip(_gDone, "Generate Update xong thì tự đánh dấu Done các y/c vừa gen (bỏ tick nếu muốn tự đánh dấu). Không áp khi đang xem note của người khác.");
+        _gDone.CheckedChanged += (_, _) =>
+        {
+            if (_settings is null || _settings.NoteDoneAfterGen == _gDone.Checked) return;
+            _settings.NoteDoneAfterGen = _gDone.Checked;
             try { _settings.Save(); } catch { /* không lưu được thì lần sau về mặc định */ }
         };
         var pkg = GenAllService.LoadPackageOptions();
@@ -801,6 +817,20 @@ public sealed class NativeAdvanceNoteControl : UserControl
         return r;
     }
 
+    /// <summary>Bấm ô Done ở Request List: đảo Done của y/c đó rồi lưu (y/c đang mở thì cập nhật cả ô Done trong khung Request).</summary>
+    private void ToggleDone(string id)
+    {
+        if (ReadOnlyGuard()) return;
+        Flush();   // cất phần đang gõ trước
+        var r = _requests.FirstOrDefault(x => x.Id == id);
+        if (r is null) return;
+        r.Done = !r.Done;
+        if (r == _cur) { _loading = true; _fDone.Checked = r.Done; _loading = false; }
+        _store.Save(_workspace(), _settings, _requests);
+        BeginInvoke(new Action(RenderList));   // đang trong sự kiện của lưới — dựng lại sau
+        SetStatus(r.Done ? $"Đã đánh dấu Done: {r.Name}" : $"Đã bỏ Done: {r.Name}", ok: true);
+    }
+
     private void Dirty() { if (_loading || _cur is null || _viewOwner is not null) return; _saveTimer.Stop(); _saveTimer.Start(); }
 
     private void Flush()
@@ -1152,6 +1182,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
             var extra = _gNet.Checked ? await GenAllService.DeliverPackageAsync(dest, _gZip.Checked, _gNetRoot.Text) : new PackageDelivery();
             var now = DateTime.Now;
             var viewing = _viewOwner;   // gen từ note người khác: chỉ tạo gói — KHÔNG ghi lịch sử Generate / cột Updated vào note của họ
+            if (viewing is null && _gDone.Checked) foreach (var req in picked) req.Done = true;   // ô "Done sau khi gen"
             if (viewing is null)
             {
                 foreach (var req in picked)

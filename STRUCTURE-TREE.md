@@ -17,7 +17,7 @@ Bcode.App/
 │   ├── ssms/
 │   └── README.md  17
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  740
+│   ├── AdvanceNoteControl.cs  755
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -48,7 +48,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  288
 │   ├── MonacoPreviewControl.Native.cs  137
 │   ├── MultiResultView.cs  330
-│   ├── NativeAdvanceNoteControl.cs  1437
+│   ├── NativeAdvanceNoteControl.cs  1468
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  279
@@ -206,7 +206,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  438
+│   ├── AppSettings.cs  440
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -406,7 +406,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  980
+│       ├── advnote.html  994
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  906
 │       ├── apischema.html  676

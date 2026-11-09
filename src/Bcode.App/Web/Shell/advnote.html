@@ -243,6 +243,7 @@
               <label class="f">Save At Path<input type="text" id="gSave" spellcheck="false" /></label>
               <label class="f">Folder Name<input type="text" id="gFolder" spellcheck="false" /></label>
               <label class="chk" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap" title="Tick nhiều y/c: bật = mỗi y/c 1 thư mục con riêng (1585\, 1586\...); tắt = gộp tất cả vào 1 gói chung (1 file APP_Script.sql)."><input type="checkbox" id="gSplit" checked /> Tách theo từng y/c</label>
+              <label class="chk" style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap" title="Generate Update xong thì tự đánh dấu Done các y/c vừa gen (bỏ tick nếu muốn tự đánh dấu). Không áp khi đang xem note của người khác. Nhớ cho lần sau."><input type="checkbox" id="gDone" checked /> Done sau khi gen</label>
               <button id="btnGen" class="primary">⚙ Generate Update</button>
             </div>
             <div id="pkgBar">
@@ -312,6 +313,7 @@
   try { $('gSplit').checked = localStorage.getItem('advSplit') !== '0'; } catch (e) { }
   $('gSplit').addEventListener('change', () => { try { localStorage.setItem('advSplit', $('gSplit').checked ? '1' : '0'); } catch (e) { } });
   $('gFolder').addEventListener('input', () => { folderTouched = true; });
+  $('gDone').addEventListener('change', () => post('doneAfterGen', { on: $('gDone').checked }));   // nhớ vào settings.json (dùng chung chế độ App / BcodeNote)
   // Nén zip / Gen vào đường dẫn mạng: lưu vào settings.json ngay khi đổi (dùng chung với Gen Update và BcodeNote.exe).
   const pkgOpts = () => ({ zip: $('gZip').checked, net: $('gNet').checked, netRoot: $('gNetRoot').value.trim() });
   function showNetRow() {
@@ -341,7 +343,7 @@
         '<td class="name">' + esc(r.name) + '</td>' +
         '<td class="c">' + (r.mobile ? '☑' : '☐') + '</td>' +
         '<td class="date">' + fmt(r.begin) + '</td>' +
-        '<td class="c">' + (r.done ? '☑' : '☐') + '</td>' +
+        '<td class="c dck" title="' + (S.ro ? 'Done (chỉ đọc — note của người khác)' : 'Bấm để ' + (r.done ? 'bỏ' : 'đánh dấu') + ' Done') + '"' + (S.ro ? '' : ' style="cursor:pointer"') + '>' + (r.done ? '☑' : '☐') + '</td>' +
         '<td class="date">' + fmt(r.updated) + '</td></tr>').join('') + '</tbody></table>';
     updateDeleteLabel();
     // Checkbox ở tiêu đề: tick/bỏ tick TẤT CẢ y/c trong danh sách; tự phản ánh trạng thái (tất cả / một phần / không) khi tick từng dòng.
@@ -361,10 +363,21 @@
     $('listWrap').querySelectorAll('tr.row').forEach((tr) => {
       tr.onclick = (e) => {
         if (e.target.classList.contains('gck')) return;
+        if (e.target.closest('.dck')) { toggleDone(tr.dataset.id); return; }
         flushSave(); select(tr.dataset.id);
       };
       tr.querySelector('.gck').onchange = (e) => { if (e.target.checked) S.checked.add(tr.dataset.id); else S.checked.delete(tr.dataset.id); syncAll(); };
     });
+  }
+  // Bấm ô Done ở Request List: đánh dấu / bỏ Done ngay (không cần mở y/c), lưu như khi tick ô Done trong khung Request.
+  function toggleDone(id) {
+    if (S.ro) { setStatus('Đang xem note của ' + S.ro + ' (chỉ đọc) — không đổi Done được.', 'err'); return; }
+    if (S.saveTimer) flushSave();
+    const r = S.requests.find((x) => x.id === id); if (!r) return;
+    r.done = !r.done;
+    if (r.id === S.currentId) $('fDone').checked = r.done;
+    post('save', { request: r });
+    renderList();
   }
   let listFilterTimer = null;
   $('listFilter').addEventListener('input', () => { clearTimeout(listFilterTimer); listFilterTimer = setTimeout(renderList, 120); });
@@ -664,7 +677,7 @@
     const ids = S.checked.size ? [...S.checked] : (S.currentId ? [S.currentId] : []);
     const picked = S.requests.filter((r) => ids.includes(r.id));
     const description = picked.map((r) => r.name + (r.content ? '\n' + r.content : '')).join('\n\n');
-    post('generate', Object.assign({ ids, savePath: $('gSave').value, folder: $('gFolder').value, description, split: $('gSplit').checked }, pkgOpts()));
+    post('generate', Object.assign({ ids, savePath: $('gSave').value, folder: $('gFolder').value, description, split: $('gSplit').checked, done: $('gDone').checked }, pkgOpts()));
   };
   $('btnNew').onclick = () => { flushSave(); post('newRequest'); };
   // ---- Khung nội dung phóng to: sửa trực tiếp, đồng bộ 2 chiều với ô Request Content (tự lưu như khi gõ ở ô nhỏ) ----
@@ -770,6 +783,7 @@
       $('btnNoteHub').style.display = state.noteHub ? '' : 'none';
       $('btnTeam').style.display = state.team ? '' : 'none';
       S.me = state.me || ''; applyView(state.view);
+      $('gDone').checked = state.doneAfterGen !== false;
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
       select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
     },

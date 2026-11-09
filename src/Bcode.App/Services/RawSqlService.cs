@@ -75,7 +75,7 @@ public class RawSqlService
         return res;
     }
 
-    /// <summary>"Lỗi ở dòng 9 của script (câu lệnh 3/5 giữa các GO, dòng 2 trong câu lệnh): …" + trích đúng dòng gây lỗi. Lỗi bên trong procedure / trigger thì nói rõ tên và dòng trong chính nó.</summary>
+    /// <summary>"Lỗi ở dòng 9 (câu 3/5, dòng 2): …" + trích đúng dòng gây lỗi. Lỗi bên trong procedure / trigger thì nói rõ tên và dòng trong chính nó.</summary>
     private static string DescribeError(SqlError err, string batch, int startLine, int index, int total, List<(string Text, int StartLine)> allBatches)
     {
         if (!string.IsNullOrEmpty(err.Procedure))
@@ -83,16 +83,16 @@ public class RawSqlService
             // Procedure/trigger được tạo-sửa NGAY TRONG script này: đổi số dòng của procedure thành số dòng của script, để bấm vào lỗi (tab Message)
             // nhảy tới đúng chỗ trong editor — "Lỗi ở dòng N" là mẫu trang Message nhận ra để cho bấm.
             if (TryMapProcedureLine(allBatches, err.Procedure, err.LineNumber, out var scriptLine, out var scriptText))
-                return $"Lỗi ở dòng {scriptLine} của script (trong {err.Procedure}, dòng {err.LineNumber} của chính procedure / trigger đó): {err.Message}"
+                return $"Lỗi ở dòng {scriptLine} (trong {err.Procedure}, dòng {err.LineNumber}): {err.Message}"
                        + (scriptText.Length > 0 ? Environment.NewLine + "    → " + scriptText : "");
-            return $"Lỗi trong {err.Procedure} (dòng {err.LineNumber} của chính procedure / trigger đó): {err.Message}";
+            return $"Lỗi trong {err.Procedure}, dòng {err.LineNumber}: {err.Message}";
         }
         var lines = batch.Split('\n');
         var rel = Math.Max(1, err.LineNumber);
         var abs = startLine + rel - 1;
         var snippet = rel <= lines.Length ? lines[rel - 1].Trim() : "";
-        if (snippet.Length > 170) snippet = snippet[..170] + "…";
-        var where = total > 1 ? $"dòng {abs} của script (câu lệnh {index}/{total} giữa các GO, dòng {rel} trong câu lệnh)" : $"dòng {abs}";
+        if (snippet.Length > SnippetMax) snippet = snippet[..SnippetMax] + "…";
+        var where = total > 1 ? $"dòng {abs} (câu {index}/{total}, dòng {rel})" : $"dòng {abs}";
         return $"Lỗi ở {where}: {err.Message}" + (snippet.Length > 0 ? Environment.NewLine + "    → " + snippet : "") + DynamicSqlHint(batch);
     }
 
@@ -116,7 +116,7 @@ public class RawSqlService
             if (idx >= lines.Length) return false;
             scriptLine = startLine + idx;
             scriptText = lines[idx].Trim();
-            if (scriptText.Length > 170) scriptText = scriptText[..170] + "…";
+            if (scriptText.Length > SnippetMax) scriptText = scriptText[..SnippetMax] + "…";
             return true;
         }
         return false;
@@ -132,10 +132,11 @@ public class RawSqlService
             .Where(n => !n.Equals("sp_executesql", StringComparison.OrdinalIgnoreCase) && !n.StartsWith('@'))
             .Distinct(StringComparer.OrdinalIgnoreCase).Take(4).ToList();
         if (names.Count == 0) return "";
-        return Environment.NewLine + $"    ⚠ Batch này gọi procedure ({string.Join(", ", names)}). Nếu dòng trên không chứa chỗ lỗi thì đây thường là lỗi trong SQL động " +
-               "(sp_executesql / EXEC(@q)) bên trong procedure đó: SQL Server tính \"dòng\" theo chuỗi SQL động nên không trỏ về dòng của procedure. " +
-               "Kiểm tra chỗ ghép chuỗi (dấu phẩy, khoảng trắng trong chuỗi '...') hoặc PRINT @q trước khi EXEC để xem câu lệnh thực tế.";
+        return Environment.NewLine + $"    ⚠ Có thể lỗi nằm trong SQL động của {string.Join(", ", names)} — PRINT @q trước EXEC để xem câu thật.";
     }
+
+    /// <summary>Độ dài tối đa của dòng trích "→ …" dưới thông báo lỗi.</summary>
+    private const int SnippetMax = 100;
 
     // "$000000" FROM/JOIN placeholders used to get expanded into a UNION ALL over every real
     // period table here too (the same "$000000 = mọi kỳ" convenience SQL Query's own builder

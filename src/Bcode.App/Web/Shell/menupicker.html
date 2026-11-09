@@ -27,7 +27,7 @@
 <body>
 <div class="dlg-main">
   <input type="text" id="filter" placeholder="Lọc theo tên menu / WMenu ID / link / SysId (gõ không dấu cũng được)..." spellcheck="false" autocomplete="off" />
-  <div class="hint">Tick menu cần gen (tick nhóm = cả nhóm đang hiện). ↓ từ ô lọc xuống cây; Space = tick / bỏ; Enter hoặc double-click 1 menu = Gen Script Menu ngay.</div>
+  <div class="hint" id="hint">Tick menu cần gen (tick nhóm = cả nhóm đang hiện). ↓ từ ô lọc xuống cây; Space = tick / bỏ; Enter hoặc double-click 1 menu = Gen Script Menu ngay.</div>
   <div id="tree" tabindex="0"></div>
 </div>
 <div class="dlg-bar"><span class="status" id="count"></span><button id="bNone">Bỏ tick hết</button><button id="bCancel">Đóng</button><button id="bOk" class="primary">Gen Script Menu</button></div>
@@ -37,7 +37,8 @@
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-  const S = { roots: [], checked: new Set(), open: new Set(), cur: null, rows: [] };
+  // chain = chế độ "gen cả menu mẹ" (Gen Script Menu ở cây WCommand): cây 1 nhánh gốc → menu đang chọn, tick từng dòng (không kéo theo con), không ô lọc.
+  const S = { roots: [], checked: new Set(), open: new Set(), cur: null, rows: [], chain: false };
 
   // Cùng luật ô lọc cây WCommand (WCommandService.Matches): NFC + chữ thường + gộp khoảng trắng; ô lọc không dấu thì so cả tên đã bỏ dấu.
   const norm = (s, fold) => {
@@ -99,11 +100,11 @@
     row.querySelector('.arrow').classList.toggle('open', open);
     if (open) S.open.add(row._n.id); else S.open.delete(row._n.id);
   }
-  // Tick 1 dòng: kéo theo mọi dòng con đang hiện trên cây.
+  // Tick 1 dòng: kéo theo mọi dòng con đang hiện trên cây (chế độ chain: chỉ đúng dòng đó).
   function setChecked(row, on) {
     const walk = (r) => {
       if (on) S.checked.add(r._n.id); else S.checked.delete(r._n.id);
-      if (r._kids) r._kids.querySelectorAll(':scope > div > .tn').forEach(walk);
+      if (r._kids && !S.chain) r._kids.querySelectorAll(':scope > div > .tn').forEach(walk);
     };
     walk(row);
     syncChecks();
@@ -170,12 +171,16 @@
     // d = { roots: [{id, name, bar, bar2, link, sysId, kids}], checked: [id], filter }
     init(d) {
       S.roots = d.roots || []; S.checked = new Set(d.checked || []); S.open.clear();
-      // Không lọc: mở sẵn các nhánh đang chứa menu được tick (mở lại hộp vẫn thấy menu đã chọn).
-      const walk = (n) => { let any = S.checked.has(n.id); (n.kids || []).forEach((c) => { if (walk(c)) { any = true; S.open.add(n.id); } }); return any; };
+      S.chain = !!d.chain;
+      // Không lọc: mở sẵn các nhánh đang chứa menu được tick (mở lại hộp vẫn thấy menu đã chọn). Chế độ chain: mở hết.
+      const walk = (n) => { let any = S.checked.has(n.id); (n.kids || []).forEach((c) => { if (walk(c)) { any = true; S.open.add(n.id); } }); if (S.chain && (n.kids || []).length) S.open.add(n.id); return any; };
       S.roots.forEach(walk);
       $('filter').value = d.filter || '';
+      $('filter').style.display = S.chain ? 'none' : '';
+      if (S.chain) $('hint').textContent = 'Menu mẹ (gốc trước) và menu đang chọn — tick sẵn hết, bỏ tick menu không cần gen. Script sinh theo thứ tự cha trước con. Space = tick / bỏ; Enter = Gen Script Menu; Esc = huỷ.';
       render();
-      $('filter').focus(); $('filter').select();
+      if (S.chain) { tree.focus(); setCur(S.rows[S.rows.length - 1], true); }   // con trỏ ở menu đang chọn (dòng cuối)
+      else { $('filter').focus(); $('filter').select(); }
     },
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');

@@ -22,6 +22,10 @@ public class ScriptPopupForm : ThemedForm
     /// <summary>Bấm Clear — View Script dùng để xoá luôn Script Cart.</summary>
     public event Action? Cleared;
 
+    /// <summary>Người dùng đóng cửa sổ (Close / Esc / nút X): nội dung đang có trong editor — View Script giữ lại để lần mở sau hiện tiếp.</summary>
+    public event Action<string>? TextOnClose;
+    private bool _textHandedOver;
+
     public ScriptPopupForm(string script, string title = "Script", string defaultFileName = "script.sql")
     {
         Text = title;
@@ -41,6 +45,7 @@ public class ScriptPopupForm : ThemedForm
                 case "save": _ = SaveToFileAsync(); break;
                 case "clear":
                     Post(new { type = "clear" });
+                    _pendingText = "";   // trang chưa nạp xong: đóng ngay sau Clear không trả lại nội dung cũ
                     if (_sc is not null) _sc.Text = "";
                     foreach (var tb in Controls.OfType<TextBox>()) tb.Clear(); // khung dự phòng khi không có WebView2
                     Cleared?.Invoke();
@@ -147,6 +152,21 @@ public class ScriptPopupForm : ThemedForm
             return Controls.OfType<TextBox>().FirstOrDefault()?.Text ?? _pendingText;
         var json = await _web.CoreWebView2.ExecuteScriptAsync("window.getText()");
         return JsonSerializer.Deserialize<string>(json) ?? "";
+    }
+
+    protected override async void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (e.Cancel || _textHandedOver || TextOnClose is null || e.CloseReason != CloseReason.UserClosing) return;
+        _textHandedOver = true;
+        var monaco = _sc is null && _ready && _web.CoreWebView2 is not null;
+        if (!monaco) { TextOnClose(await GetTextAsync()); return; }   // Scintilla / TextBox / trang chưa nạp: lấy chữ ngay, không phải chờ
+        // Monaco: lấy chữ qua ExecuteScriptAsync (bất đồng bộ) → hoãn đóng, lấy xong mới đóng thật.
+        e.Cancel = true;
+        string? text = null;
+        try { text = await GetTextAsync(); } catch { /* trang lỗi / đang huỷ — vẫn đóng */ }
+        if (text is not null) TextOnClose?.Invoke(text);
+        if (!IsDisposed) Close();
     }
 
     private async Task SaveToFileAsync()

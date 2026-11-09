@@ -761,16 +761,50 @@ public class WCommandTreeControl : UserControl
         var item = SelectedItem;
         if (item is null) return;
 
-        string script;
-        if (_menuTable is not null)
+        // Menu có menu mẹ trên cây → hỏi gen kèm menu mẹ: Có = hộp tick các menu mẹ (gốc trước) + menu đang chọn, script gom theo thứ tự cha trước con
+        // (chạy ở DB khác không thiếu menu cha); Không = chỉ menu đang chọn như cũ; Huỷ / Esc = thôi. Menu gốc thì không hỏi.
+        var parents = new List<WCommandItem>();
+        for (var n = _tree.SelectedNode?.Parent; n is not null; n = n.Parent)
+            if (n.Tag is WCommandItem p) parents.Insert(0, p);
+        var items = new List<WCommandItem> { item };
+        if (parents.Count > 0)
         {
-            try { script = await _menuTable.GenerateScriptAsync(item.WMenuId); }
-            catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Gen Script Menu", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+            var ask = MessageBox.Show(this,
+                $"Menu \"{DisplayName(item)}\" ({item.WMenuId}) có {parents.Count} menu mẹ:\n" +
+                string.Join("\n", parents.Select((p, i) => new string(' ', i * 3) + $"• {DisplayName(p)} ({p.WMenuId})")) +
+                "\n\nCó muốn gen cả menu mẹ không?\nYes = chọn menu mẹ cần gen kèm · No = chỉ gen menu đang chọn · Cancel = thôi",
+                "Bcode — Gen Script Menu", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+            if (ask == DialogResult.Cancel) return;
+            if (ask == DialogResult.Yes)
+            {
+                var chain = parents.Append(item).ToList();
+                var picked = Forms.MenuPickerForm.PickChain(FindForm(), chain);
+                if (picked is null || picked.Count == 0) return;
+                var set = new HashSet<string>(picked, StringComparer.OrdinalIgnoreCase);
+                items = chain.Where(c => set.Contains(c.WMenuId)).ToList();   // giữ thứ tự cha trước con
+                if (items.Count == 0) return;
+            }
         }
-        else
-        // Chỉ ghi các cột bảng wcommand / command thật sự có ở database này (đọc cấu trúc ở nền, có cache).
-        script = await Task.Run(() => _service.GenerateScriptForCurrentDb(item));
-        using var form = new WCommandScriptForm(script, $"Script — {item.WMenuId}");
+
+        var parts = new List<string>();
+        foreach (var it in items)
+        {
+            string one;
+            if (_menuTable is not null)
+            {
+                try { one = await _menuTable.GenerateScriptAsync(it.WMenuId); }
+                catch (Exception ex) { MessageBox.Show(this, ex.Message, "Bcode — Gen Script Menu", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+            }
+            else
+            // Chỉ ghi các cột bảng wcommand / command thật sự có ở database này (đọc cấu trúc ở nền, có cache).
+            one = await Task.Run(() => _service.GenerateScriptForCurrentDb(it));
+            // 1 menu: y như trước. Nhiều menu: mỗi menu 1 dòng chú thích "-- Menu: ..." (như Script menu của Note (New)).
+            parts.Add(items.Count == 1 ? one : $"-- Menu: {it.Bar} ({it.WMenuId})\r\n" + one.TrimEnd() + "\r\n");
+        }
+        var script = string.Join(Environment.NewLine, parts);
+        var title = items.Count == 1 ? $"Script — {items[0].WMenuId}" : $"Script — {item.WMenuId} + {items.Count - 1} menu mẹ";
+        if (items.Count > 1 && !items.Contains(item)) title = $"Script — {items.Count} menu mẹ của {item.WMenuId}";
+        using var form = new WCommandScriptForm(script, title);
         form.ShowDialog(this);
     }
 

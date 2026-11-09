@@ -354,6 +354,33 @@ public partial class GenAllService
         return names.OrderBy(s => s, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
+    /// <summary>Ô thêm tay table của Note (New) — cú pháp như ô SQL Data của FCode: mỗi dòng "bảng" hoặc "bảng:điều kiện" (tách ở dấu ':' ĐẦU TIÊN,
+    /// điều kiện được chứa ':'). Where = null: dòng không có ':' (chỉ thêm bảng như cũ); "" = "bảng:" (dữ liệu cả bảng). Bảng lặp nhiều dòng thì
+    /// gộp điều kiện bằng OR (có dòng "bảng:" trống thì lấy cả bảng). Cùng luật với parseTblSpecs trong advnote.html.</summary>
+    public static List<(string Name, string? Where)> ParseTableSpecs(string? text)
+    {
+        var order = new List<string>();
+        var map = new Dictionary<string, (string Name, bool Colon, bool All, List<string> Conds)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in (text ?? "").Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            var p = line.IndexOf(':');
+            var name = (p < 0 ? line : line[..p]).Trim();
+            if (name.Length == 0) continue;
+            if (!map.TryGetValue(name, out var s)) { s = (name, false, false, new List<string>()); order.Add(name); }
+            if (p >= 0)
+            {
+                var w = line[(p + 1)..].Trim();
+                s.Colon = true;
+                if (w.Length > 0) s.Conds.Add(w); else s.All = true;
+            }
+            map[name] = s;
+        }
+        return order.Select(k => map[k]).Select(s => (s.Name, !s.Colon ? null
+            : s.All || s.Conds.Count == 0 ? "" : s.Conds.Count == 1 ? s.Conds[0] : string.Join(" OR ", s.Conds.Select(c => "(" + c + ")")))).ToList();
+    }
+
     /// <summary>Tra 1 table theo tên (nhập tay): có ở App / Sys không và bao nhiêu dòng. Không thấy ở đâu thì InApp = InSys = false.</summary>
     public async Task<RelatedTable> LookupTableAsync(string name)
     {
@@ -455,7 +482,19 @@ public partial class GenAllService
                     }
                 }
                 var data = await TableData.LoadTableAsync(t.Sys, obj.Schema, obj.Name, 0, "*", where.Length == 0 ? null : where, null);
-                if (data.Rows.Count == 0) { result.Warnings.Add($"{origin}: không có dòng dữ liệu nào" + (where.Length > 0 ? " khớp Where." : ".")); return; }
+                if (data.Rows.Count == 0 && where.Length > 0)
+                {
+                    // Như FCode (ô SQL Data "bảng:điều kiện"): điều kiện không khớp dòng nào ở đây vẫn sinh DELETE … WHERE — nơi chạy gói xoá đúng các dòng đó.
+                    result.Warnings.Add($"{origin}: không có dòng nào khớp Where — script chỉ DELETE các dòng thoả điều kiện ở nơi chạy (như FCode).");
+                    result.Add(new PackageItem
+                    {
+                        Origin = origin + " · dữ liệu (0 dòng — chỉ xoá)",
+                        RelativeDestPath = PackageLayout.Script(t.Sys, $"20_data_{safe}.sql"),
+                        GeneratedContent = DataScript.GenerateDeleteOnlyScript(obj.Name, where),
+                    });
+                    return;
+                }
+                if (data.Rows.Count == 0) { result.Warnings.Add($"{origin}: không có dòng dữ liệu nào."); return; }
                 var script = DataScript.GenerateDeleteAndReloadScript(data, obj.Name, where.Length == 0 ? null : where);
                 result.Add(new PackageItem
                 {

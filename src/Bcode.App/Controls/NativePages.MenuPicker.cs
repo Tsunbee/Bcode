@@ -18,6 +18,10 @@ internal sealed class MenuPickerPage : DialogPage
     private readonly HashSet<string> _checked = new(StringComparer.OrdinalIgnoreCase);
     private List<Node> _roots = new();
     private bool _loading;
+    // Chế độ "gen cả menu mẹ" (MenuPickerForm.PickChain): cây 1 nhánh, tick từng dòng (không kéo theo con), ẩn ô lọc.
+    private bool _chain;
+    private readonly Panel _top;
+    private readonly Label _hint;
 
     public MenuPickerPage()
     {
@@ -26,7 +30,7 @@ internal sealed class MenuPickerPage : DialogPage
         _tree.KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Accept(); }
-            else if (e.KeyCode == Keys.Up && _tree.SelectedNode is { } s && s.PrevVisibleNode is null) { e.Handled = true; _filter.Inner.Focus(); }
+            else if (e.KeyCode == Keys.Up && !_chain && _tree.SelectedNode is { } s && s.PrevVisibleNode is null) { e.Handled = true; _filter.Inner.Focus(); }
         };
         // Double-click 1 menu lá = chọn đúng menu đó rồi gen luôn.
         _tree.NodeMouseDoubleClick += (_, e) => { if (e.Node is { Nodes.Count: 0 } n) { if (!n.Checked) n.Checked = true; Accept(); } };
@@ -49,9 +53,9 @@ internal sealed class MenuPickerPage : DialogPage
         };
         Disposed += (_, _) => _debounce.Dispose();
 
-        var top = new Panel { Height = NativeSkin.RowHeight(this, 30) + 16, Padding = new Padding(12, 10, 12, 6) };
+        var top = _top = new Panel { Height = NativeSkin.RowHeight(this, 30) + 16, Padding = new Padding(12, 10, 12, 6) };
         _filter.Dock = DockStyle.Fill; top.Controls.Add(_filter);
-        var hint = NK.Muted("Tick menu cần gen (tick nhóm = cả nhóm đang hiện). ↓ từ ô lọc xuống cây; Space = tick / bỏ; Enter hoặc double-click 1 menu = Gen Script Menu ngay.", true);
+        var hint = _hint = NK.Muted("Tick menu cần gen (tick nhóm = cả nhóm đang hiện). ↓ từ ô lọc xuống cây; Space = tick / bỏ; Enter hoặc double-click 1 menu = Gen Script Menu ngay.", true);
         hint.Dock = DockStyle.Top;
         var body = new Panel { Padding = new Padding(12, 2, 12, 4) };
         body.Controls.Add(_tree); body.Controls.Add(hint);
@@ -63,7 +67,11 @@ internal sealed class MenuPickerPage : DialogPage
         Layout(top, body);
     }
 
-    public override void FocusPrimary() { _filter.Inner.Focus(); _filter.Inner.SelectAll(); }
+    public override void FocusPrimary()
+    {
+        if (_chain) { _tree.Focus(); return; }
+        _filter.Inner.Focus(); _filter.Inner.SelectAll();
+    }
     protected override bool HandleKey(Keys key) { if (key == Keys.Escape) { Post(new { action = "cancel" }); return true; } return false; }
 
     public override void Dispatch(string path, IReadOnlyList<JsonElement> a)
@@ -79,9 +87,13 @@ internal sealed class MenuPickerPage : DialogPage
         _roots = PA(d, "roots").Select(Read).ToList();
         _checked.Clear();
         foreach (var id in PA(d, "checked")) if (id.GetString() is { Length: > 0 } s) _checked.Add(s);
+        _chain = d.ValueKind == JsonValueKind.Object && d.TryGetProperty("chain", out var ch) && ch.ValueKind == JsonValueKind.True;
+        _top.Visible = !_chain;
+        if (_chain) _hint.Text = "Menu mẹ (gốc trước) và menu đang chọn — tick sẵn hết, bỏ tick menu không cần gen. Script sinh theo thứ tự cha trước con. Space = tick / bỏ; Enter = Gen Script Menu; Esc = huỷ.";
         _loading = true; _filter.Text = P(d, "filter"); _loading = false;
         _debounce.Stop();
         Rebuild();
+        if (_chain) { var last = _tree.Nodes.Count > 0 ? _tree.Nodes[0] : null; while (last is { Nodes.Count: > 0 }) last = last.Nodes[0]; if (last is not null) _tree.SelectedNode = last; }
         FocusPrimary();
     }
 
@@ -112,7 +124,7 @@ internal sealed class MenuPickerPage : DialogPage
             return t;
         }
         foreach (var r in _roots) if (Build(r, false) is { } node) _tree.Nodes.Add(node);
-        if (filter.Length > 0) _tree.ExpandAll();
+        if (filter.Length > 0 || _chain) _tree.ExpandAll();
         else
         {
             // Không lọc: chỉ mở các nhánh đang chứa menu được tick (mở lại hộp vẫn thấy menu đã chọn).
@@ -140,7 +152,7 @@ internal sealed class MenuPickerPage : DialogPage
         {
             n.Checked = on;
             if (n.Tag is Node m) { if (on) _checked.Add(m.Id); else _checked.Remove(m.Id); }
-            foreach (TreeNode c in n.Nodes) Set(c, on);
+            if (!_chain) foreach (TreeNode c in n.Nodes) Set(c, on);
         }
         Set(e.Node, e.Node.Checked);
         _loading = false;

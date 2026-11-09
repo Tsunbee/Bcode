@@ -93,6 +93,17 @@ public class DataScriptService
         writer.WriteLine("DROP TABLE #data");
     }
 
+    /// <summary>Dữ liệu theo điều kiện mà không còn dòng nào khớp (Note (New) / Gen nhanh Table, như FCode): chỉ xoá các dòng thoả điều kiện ở nơi chạy.</summary>
+    public string GenerateDeleteOnlyScript(string targetTableName, string whereClause)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(Header());
+        sb.AppendLine($"-- Không có dòng nào khớp điều kiện lúc gen → chỉ xoá các dòng thoả điều kiện");
+        sb.AppendLine();
+        sb.AppendLine($"DELETE [{targetTableName.Trim().Trim('[', ']')}] WHERE {whereClause.Trim()}");
+        return sb.ToString();
+    }
+
     /// <summary>Add Script trên toolbar khi đang ở tab SQL Query (giống FCode): đóng gói câu lệnh
     /// trong editor thành 1 batch — dòng header "--//// FCode ..." rồi câu lệnh, kết thúc bằng GO.</summary>
     public string GenerateQueryScript(string sql)

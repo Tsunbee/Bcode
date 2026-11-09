@@ -218,7 +218,7 @@
           <div class="title"><span>Table liên quan</span><span class="hint">table khai báo trong file của các controller ở Gen All — chọn để đưa script tạo table / dữ liệu vào gói</span>
             <button id="btnLoadTables" style="margin-left:auto" title="Đọc lại các file liên quan để lấy danh sách table">⟳ Tải table</button></div>
           <div class="body">
-            <div class="row2" style="margin-bottom:6px"><div style="position:relative;flex:1;max-width:30rem"><input type="text" id="tblAddName" placeholder="Nhập tên table / view để thêm tay..." spellcheck="false" autocomplete="off" /><div class="sugg" id="tblAddSugg"></div></div><button id="btnAddTbl">＋ Thêm</button></div>
+            <div class="row2" style="margin-bottom:6px"><div style="position:relative;flex:1;max-width:30rem"><input type="text" id="tblAddName" placeholder="Nhập tên table / view để thêm tay... (bảng:điều kiện = lấy dữ liệu theo điều kiện)" title="tên bảng → thêm vào lưới&#10;bảng:điều kiện (như FCode) → tick Dữ liệu, Where = điều kiện, vd dmkh:ma_kh LIKE 'ABCD' and kh_yn = 1&#10;dán nhiều dòng = nhiều bảng" spellcheck="false" autocomplete="off" /><div class="sugg" id="tblAddSugg"></div></div><button id="btnAddTbl">＋ Thêm</button></div>
             <div id="tblInfo" class="muted">Nhập controller ở Gen All (hoặc bấm “Tải table”) để liệt kê các table liên quan.</div>
             <div id="tblBox" style="display:none"><table>
               <thead><tr><th>Table</th><th>Controller</th><th style="width:70px">DB</th><th style="width:90px">Số dòng</th><th class="c" style="width:70px">Cấu trúc</th><th class="c" style="width:70px">Dữ liệu</th><th>Where (lọc dữ liệu)</th></tr></thead>
@@ -549,13 +549,52 @@
   });
   $('tblRows').addEventListener('input', (e) => { if (e.target.classList.contains('twh')) { collectTables(); scheduleSave(); } });
   // Thêm tay 1 table / view theo tên (có gợi ý): tra App/Sys rồi đưa vào danh sách để tick Cấu trúc / Dữ liệu.
-  S.tblNames = [];
-  const addTblByName = (name) => { name = (name || $('tblAddName').value).trim(); if (!name) return; $('tblAddSugg').style.display = 'none'; $('tblAddName').value = ''; post('lookupTable', { name }); };
+  // Cú pháp như ô SQL Data của FCode: "bảng:điều kiện" (tách ở dấu ':' ĐẦU TIÊN — điều kiện được chứa ':') → tick sẵn Dữ liệu + Where = điều kiện
+  // ("bảng:" = cả bảng). Dán nhiều dòng = nhiều bảng; 1 bảng lặp nhiều dòng thì gộp điều kiện bằng OR. Bảng đã có trong lưới thì chỉ cập nhật Where.
+  S.tblNames = []; S.tblPending = {};
+  function parseTblSpecs(text) {
+    const map = new Map();
+    String(text || '').split(/\r?\n/).forEach((line) => {
+      line = line.trim(); if (!line) return;
+      const p = line.indexOf(':');
+      const name = (p < 0 ? line : line.slice(0, p)).trim(); if (!name) return;
+      const k = name.toLowerCase();
+      if (!map.has(k)) map.set(k, { name, colon: false, all: false, conds: [] });
+      const s = map.get(k);
+      if (p < 0) return;
+      const w = line.slice(p + 1).trim();
+      s.colon = true; if (w) s.conds.push(w); else s.all = true;
+    });
+    return [...map.values()].map((s) => ({ name: s.name, where: !s.colon ? null : (s.all || !s.conds.length ? '' : s.conds.length === 1 ? s.conds[0] : s.conds.map((c) => '(' + c + ')').join(' OR ')) }));
+  }
+  const addTblByName = (name) => {
+    const specs = parseTblSpecs(name || $('tblAddName').value); if (!specs.length) return;
+    $('tblAddSugg').style.display = 'none'; $('tblAddName').value = '';
+    specs.forEach((s) => { if (s.where !== null) S.tblPending[s.name.toLowerCase()] = s.where; post('lookupTable', { name: s.name }); });
+  };
+  // Áp "bảng:điều kiện" sau khi host tra xong bảng: tick Dữ liệu + Where (giữ tick Cấu trúc / DB nếu bảng đã chọn trước).
+  function applyTblWhere(t, where) {
+    const r = cur(); if (!r || S.ro) return;
+    if (!t.inApp && !t.inSys) return;
+    if (t.isView) { setStatus('"' + t.name + '" là view — không nạp dữ liệu theo điều kiện được (chỉ tick Cấu trúc).', 'err'); return; }
+    r.tables = r.tables || [];
+    const old = r.tables.find((x) => x.name.toLowerCase() === t.name.toLowerCase());
+    if (old) { old.data = true; old.where = where; }
+    else r.tables.push({ name: t.name, sys: !t.inApp && t.inSys, structure: false, data: true, where });
+    scheduleSave();
+    setStatus((old ? 'Đã cập nhật Where của ' : 'Đã thêm ') + t.name + ' — Dữ liệu ' + (where ? 'WHERE ' + where : '(cả bảng)') + '.', 'ok');
+  }
   $('btnAddTbl').onclick = () => addTblByName();
   $('tblAddName').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTblByName(); } else if (e.key === 'Escape') $('tblAddSugg').style.display = 'none'; });
+  // Ô 1 dòng tự bỏ xuống dòng khi dán → dán nhiều dòng (danh sách bảng:điều kiện như FCode) thì thêm luôn từng dòng.
+  $('tblAddName').addEventListener('paste', (e) => {
+    const text = e.clipboardData ? e.clipboardData.getData('text/plain') : '';
+    if (!/[\r\n]/.test(text.trim())) return;
+    e.preventDefault(); addTblByName(text);
+  });
   $('tblAddName').addEventListener('input', () => {
     const q = $('tblAddName').value.trim().toLowerCase(), box = $('tblAddSugg');
-    if (!q) { box.style.display = 'none'; return; }
+    if (!q || q.includes(':')) { box.style.display = 'none'; return; }
     const starts = [], has = [];
     for (let i = 0; i < S.tblNames.length && starts.length + has.length < 400; i++) { const p = S.tblNames[i].toLowerCase().indexOf(q); if (p === 0) starts.push(S.tblNames[i]); else if (p > 0) has.push(S.tblNames[i]); }
     const items = starts.concat(has).slice(0, 14);
@@ -754,6 +793,8 @@
       if (!t.inApp && !t.inSys) setStatus('Không thấy table / view "' + t.name + '" trong App hoặc Sys.', 'err');
       const i = S.tblList.findIndex((x) => x.name.toLowerCase() === t.name.toLowerCase());
       if (i >= 0) S.tblList[i] = Object.assign(S.tblList[i], t); else S.tblList.push(t);
+      const k = String(t.name).toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(S.tblPending, k)) { const w = S.tblPending[k]; delete S.tblPending[k]; applyTblWhere(t, w); }
       renderTables();
     },
     onTables(list) { setBusy(false); S.tblList = list || []; renderTables(); setStatus(S.tblList.length + ' table liên quan.', 'ok'); },

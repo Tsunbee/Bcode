@@ -4015,13 +4015,17 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         // Hiện trong cửa sổ Script riêng (Monaco, không lag với script lớn); Clear ở đây xoá luôn Script Cart.
         // Giỏ trống vẫn mở cửa sổ (nội dung trống) để người dùng tự dán script vào rồi Save.
-        var form = new ScriptPopupForm(_scriptFileService.ViewCartConcatenated(),
+        // Nội dung gõ / sửa tay trong cửa sổ được nhớ khi đóng (Close / Esc / X) và hiện lại lần View sau — chỉ mất khi Clear.
+        var shownCount = _scriptFileService.Cart.Count;
+        var form = new ScriptPopupForm(_scriptFileService.ViewCartText(),
             $"Script Cart ({_scriptFileService.Cart.Count} files)", "script_cart.sql");
         form.Cleared += () =>
         {
             _scriptFileService.ClearCart();
+            shownCount = 0;   // phần còn lại trong cửa sổ là chữ gõ sau Clear, không chứa mục giỏ nào
             PushStatus("Đã xoá Script Cart.");
         };
+        form.TextOnClose += text => _scriptFileService.RememberViewText(text, shownCount);
         form.Show(this);
     }
 

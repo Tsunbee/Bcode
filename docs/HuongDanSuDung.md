@@ -112,7 +112,7 @@ Mở: ⚙ Settings → **Choose Server / Workspaces...**, hoặc **＋ New / ✎
 
 - **Kết nối**: Tên WS, Server Name, Integrated Security (Windows Auth) hoặc Login User / Password.
 - **Project**: ID, Login WLink, Program Path, **Source Path** (đường dẫn UNC tới site, vd `\\server\...\FBISP23` — bắt buộc cho File Lookup, Gen Update), Mobile Path, Working Path, **API Path** (thư mục FastAPIService của dự án, vd `\\server\CustomerPro\FBI\MA_DA\FastAPIService` — **Khai báo API** đọc `Config\ColumnMappings.xml` trong đó để lấy form / trường theo dự án; trống = dùng chuẩn tài liệu LT3), Registry Name.
-- **Database**: Sys Data, App Data, **DB Access** (các database khác hiện thêm trong ô WS trên thanh trên, vd `SYS_S, APP_A, MADA_eInv`), Mã phiên bản.
+- **Database**: Sys Data, App Data, **DB Access** (các database khác hiện thêm trong ô WS trên thanh trên, vd `SYS_S, APP_A, MADA_eInv`), Mã phiên bản (dùng để chọn phiên bản trong kho source cho Cấp source / Sơ đồ phụ thuộc; viết liền số như `FBISP2422`, `FBIHRMSP2422` vẫn khớp kho `FBOR2SP24.2.2`, `FBISP228` khớp `…22.8`).
 - **FSG — Đồng bộ dự án**: **⇅ Synchronize... (Ctrl+F5)** và **☰ Sync menu**.
 - Nút **Test Connection** · **Apply** · **Save & Close** · **Đóng** (đóng mà chưa Save là bỏ thay đổi).
 
@@ -201,7 +201,7 @@ Hàng nút dưới thanh trên, chia vùng bằng dấu "|": SQL (SQL Query, Loo
 ### Giỏ script (Script Cart)
 
 - **Add Script** (`Ctrl+Alt+Shift+A`): ở tab Table → sinh script DELETE + nạp lại dữ liệu đang xem; ở tab SQL Query → lấy đoạn chọn (hoặc cả script) bọc header FCode + GO. Script được copy vào clipboard **và** thêm vào giỏ. Ở tab khác → chọn file `*.f;*.xml;*.sql` để thêm.
-- **View Script** (`Ctrl+Alt+Shift+V`): xem giỏ "Script Cart (N files)". Giỏ trống thì cửa sổ vẫn mở với nội dung trống — dán script vào rồi **Save** được. **Clear Script**: xoá giỏ.
+- **View Script** (`Ctrl+Alt+Shift+V`): xem giỏ "Script Cart (N files)". Giỏ trống thì cửa sổ vẫn mở với nội dung trống — dán script vào rồi **Save** được. Nội dung gõ / sửa tay trong cửa sổ **được giữ** khi đóng (Close, `Esc` hoặc nút X): mở View lại vẫn thấy, script Add thêm sau đó nối vào cuối; chỉ mất khi bấm **Clear** (trong cửa sổ hoặc **Clear Script**). **Clear Script**: xoá giỏ.
 - **Save Script / Copy Script**: lưu / copy nội dung tab script đang mở.
 
 ### Thanh trạng thái
@@ -635,7 +635,7 @@ Trên ảnh: **①** ô lọc theo tên / ID / link · **②** ô (C) chỉ menu
 | Sửa / xoá | `F3` **Edit** · `F8` **Delete** (hỏi xác nhận) |
 | Chạy menu trên web | `Ctrl+F5` hoặc **Run...** → mở `{Login WLink}/Main/{Link}` bằng trình duyệt mặc định |
 | Chạy menu trong FSG FBO | `Ctrl+4` hoặc **Run trong FSG FBO** → mở tab FSG FBO, tự đăng nhập rồi vào đúng trang của menu. Dự án đã có tab FSG FBO đăng nhập rồi thì menu khác mở **thêm 1 tab mới** đi thẳng tới menu đó, dùng chung phiên đăng nhập (như nhiều tab Chrome, không đăng nhập lại); ấn lại đúng menu đã có tab thì chuyển sang tab đó và tải lại trang. Phiên hết hạn (bị đẩy về trang đăng nhập) thì tự đăng nhập lại rồi vào menu |
-| Sinh script menu | `F12` **Gen Script Menu** → cửa sổ "Script — {WMenuId}" (DELETE + INSERT cho wcommand và command, mỗi câu kết thúc GO) |
+| Sinh script menu | `F12` **Gen Script Menu** → cửa sổ "Script — {WMenuId}" (DELETE + INSERT cho wcommand và command, mỗi câu kết thúc GO). Menu có **menu mẹ** thì hỏi trước *"Có muốn gen cả menu mẹ không?"*: **No** = chỉ gen menu đang chọn (như cũ) · **Yes** = hộp tick các menu mẹ (gốc trước) + menu đang chọn, tick sẵn hết — bỏ tick menu không cần rồi **Gen Script Menu** (`Space` tick / bỏ, `Enter` gen, `Esc` huỷ); script gom các menu đã tick theo thứ tự cha trước con, mỗi menu có dòng `-- Menu: …` · **Cancel** / `Esc` = thôi. Menu gốc thì không hỏi |
 | Kiểm tra trùng | **Check WCommand** → hộp "Duplicate Menu" (tab "Not exists in Command" và "Difference Sysid" — sysid của wcommand khác của command; menu không khai sysid như menu nhóm, dòng kẻ "-" được bỏ qua) |
 | Thiết kế màn hình | **Thiết kế màn hình (Screen Designer)** — chỉ bật khi menu có SysId |
 | Lấy source chuẩn | **Copy source standard** / **Cấp source (Add Source)...** (xem [Cấp source](#cap-source)) |
@@ -835,6 +835,8 @@ Quản lý từng yêu cầu (request) và sinh gói update cho yêu cầu đó:
 
 1. **⟳ Sync yêu cầu**: nhập Tên lập trình (ma_lt1) → kéo các yêu cầu của bạn trong dự án về (từ FSG). Hoặc **＋ New Request** để tạo tay.
 2. Chọn yêu cầu ở **Request List** (ô **Lọc mã y/c** ngay trên danh sách: gõ một phần mã, nhiều mã cách nhau dấu cách / phẩy; `Enter` mở y/c đầu tiên khớp, `Esc` xoá lọc; ô tick ở tiêu đề chỉ tick các y/c đang hiện) rồi khai: **Gen All** (controller, mỗi dòng một cái), **File Path** (mỗi dòng một đường dẫn; `Ctrl+V` file copy từ Explorer là dán đường dẫn), **SQL Object** / **SQL Top Script** / **Bottom Script** (chọn App / Sys), **Table liên quan** (⟳ Tải table, Cấu trúc / Dữ liệu / Where).
+   - Ô **Nhập tên table / view để thêm tay** nhận thêm cú pháp như ô SQL Data của FCode: **`bảng:điều kiện`**, vd `dmkh:ma_kh LIKE 'ABCD' and kh_yn = 1` → thêm dòng `dmkh`, tick sẵn **Dữ liệu**, **Where** = phần sau dấu `:` đầu tiên (điều kiện được chứa `:`). Script dữ liệu trong gói = `DELETE [dmkh] WHERE <điều kiện>` rồi nạp lại đúng các dòng thoả điều kiện; không có dòng nào khớp thì (như FCode) script chỉ còn `DELETE … WHERE <điều kiện>` — nơi chạy gói xoá các dòng đó — kèm dòng cảnh báo ⚠ ở Xem trước. `bảng:` (để trống điều kiện) = dữ liệu cả bảng; chỉ gõ tên bảng thì như cũ (thêm dòng, chưa tick gì).
+   - Dán **nhiều dòng** (mỗi dòng một `bảng:điều kiện`) vào ô là thêm cả danh sách; một bảng lặp nhiều dòng thì điều kiện gộp bằng `OR`. Bảng đã có trong lưới thì chỉ cập nhật **Where** (giữ tick Cấu trúc / DB). View không nạp dữ liệu được nên không tick Dữ liệu.
 3. **🔍 Xem trước gói** → cây gói update (double-click file để mở trong tab Query); **▶ Mở tất cả script vào tab Query** để rà lại.
 4. **Generate Update**: Save At Path, Folder Name, **Tách theo từng y/c** (mỗi yêu cầu một thư mục con) → **⚙ Generate Update**. Tick nhiều yêu cầu ở cột đầu danh sách để sinh chung. Có thêm **Gen vào đường dẫn mạng** và **Nén .zip khi gen lên mạng** (2 ô này hiện khi tick ô mạng) — giống hệt [Gen Update](#gen-update), nhớ chung cho cả Gen Update và BcodeNote.
    Gen xong (và ở danh sách **Đã gen trước đó** của yêu cầu) mỗi đường dẫn có **Copy link** · **Mở thư mục** · **🗑 Xoá** — Xoá hỏi lại rồi xoá hẳn thư mục gói ở Save At Path (không vào Recycle Bin) và bỏ link khỏi lịch sử, để gen lại. Bản đã chép lên đường dẫn mạng **không** bị xoá.

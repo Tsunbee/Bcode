@@ -93,8 +93,8 @@ public static class SourceGrantService
             var cv = ParseVersion(code);
             if (cv.Length > 0)
             {
-                var byNumber = PreferFamily(versions.Where(v => CompareVersion(ParseVersion(v), cv) == 0), code);
-                if (byNumber is not null) { note = $"theo số phiên bản {string.Join('.', cv)} của mã đã khai báo \"{code}\""; return byNumber; }
+                var byNumber = SameNumber(versions, cv, code);
+                if (byNumber is not null) { note = $"theo số phiên bản {VersionText(byNumber)} của mã đã khai báo \"{code}\""; return byNumber; }
             }
         }
         var projectName = Path.GetFileName(projectRoot.TrimEnd('\\', '/'));
@@ -106,12 +106,28 @@ public static class SourceGrantService
         var pv = ParseVersion(projectName);
         if (pv.Length > 0)
         {
-            var pick = PreferFamily(versions.Where(v => CompareVersion(ParseVersion(v), pv) == 0), projectName);
-            if (pick is not null) { note = $"cùng số phiên bản {string.Join('.', pv)} với \"{projectName}\""; return pick; }
+            var pick = SameNumber(versions, pv, projectName);
+            if (pick is not null) { note = $"cùng số phiên bản {VersionText(pick)} với \"{projectName}\""; return pick; }
         }
         note = $"không tìm thấy phiên bản khớp \"{projectName}\" — chọn thủ công";
         return null;
     }
+
+    /// <summary>Phiên bản trong kho cùng số với <paramref name="number"/>: so đúng từng phần trước (24.2.2 = 24.2.2); không có thì so số viết
+    /// LIỀN — mã khai / tên thư mục dự án hay viết "FBISP2422", "FBIHRMSP2422", "SP228" (không dấu chấm) nên 2422 khớp kho "FBOR2SP24.2.2",
+    /// 228 khớp "…22.8". Cùng số thì ưu tiên thư mục có tên kết thúc đúng bằng số phiên bản (FBOR2SP24.2.2 trước FBOR2SP24.2.2_SignPDF…),
+    /// rồi theo dòng sản phẩm (<see cref="PreferFamily"/>).</summary>
+    private static string? SameNumber(IReadOnlyList<string> versions, int[] number, string hint)
+    {
+        static IEnumerable<string> EndsWithNumberFirst(IEnumerable<string> l) => l.OrderBy(v => Regex.IsMatch(v, @"\d+(?:\.\d+)*$") ? 0 : 1);
+        var exact = PreferFamily(EndsWithNumberFirst(versions.Where(v => CompareVersion(ParseVersion(v), number) == 0)), hint);
+        if (exact is not null || number.Length != 1) return exact;
+        var joined = number[0].ToString();
+        if (joined.Length < 3) return null;   // "24" đã so ở trên; số ngắn ghép liền dễ khớp nhầm
+        return PreferFamily(EndsWithNumberFirst(versions.Where(v => ParseVersion(v) is { Length: > 1 } pv && string.Concat(pv) == joined)), hint);
+    }
+
+    private static string VersionText(string versionFolder) => string.Join('.', ParseVersion(versionFolder));
 
     /// <summary>Trong các phiên bản cùng số, ưu tiên cùng dòng sản phẩm với <paramref name="hint"/>: trùng 3 chữ đầu (FBO), rồi 2 chữ đầu (FB — dự án
     /// FBISP24 dùng kho FBOR2SP24), cuối cùng mới tới tên khác hẳn (vd "TT24" của kho bổ sung FAP).</summary>

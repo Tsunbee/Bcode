@@ -55,7 +55,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private readonly Label _hDb = NK.Muted("");
     private readonly Label _tObj = new() { AutoSize = true, BackColor = Color.Transparent }, _tTop = new() { AutoSize = true, BackColor = Color.Transparent }, _tBottom = new() { AutoSize = true, BackColor = Color.Transparent };
     private readonly CardPanel _cBottom, _cObj, _cTop;
-    private readonly RoundedInput _tblAddName = NK.Input("Nhập tên table / view để thêm tay...");
+    private readonly RoundedInput _tblAddName = NK.Input("Nhập tên table / view để thêm tay... (bảng:điều kiện = lấy dữ liệu theo điều kiện)");
     private readonly Label _tblInfo = NK.Muted("Nhập controller ở Gen All (hoặc bấm “Tải table”) để liệt kê các table liên quan.");
     private readonly DataGridView _tblGrid = new() { Height = NativeSkin.S(220) };
     private readonly Label _previewSummary = NK.Muted("Bấm “Xem trước gói” để xem những file / script sẽ được đưa vào gói update của y/c này.");
@@ -242,6 +242,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
                 case Keys.Down when open: e.Handled = e.SuppressKeyPress = true; _sugg!.MoveSelection(1); break;
                 case Keys.Up when open: e.Handled = e.SuppressKeyPress = true; _sugg!.MoveSelection(-1); break;
                 case Keys.Escape when open: e.Handled = e.SuppressKeyPress = true; HideSugg(); break;
+                // Ô 1 dòng chỉ giữ dòng đầu khi dán → dán nhiều dòng (danh sách bảng:điều kiện như FCode) thì thêm luôn từng dòng.
+                case Keys.V when e.Control && !e.Alt:
+                case Keys.Insert when e.Shift && !e.Control:
+                    var clip = Clipboard.ContainsText() ? Clipboard.GetText() : "";
+                    if (clip.Trim().IndexOfAny(new[] { '\r', '\n' }) >= 0 && !_tblAddName.ReadOnly) { e.Handled = e.SuppressKeyPress = true; _ = AddTableByNameAsync(clip); }
+                    break;
             }
         };
         _tblAddName.Inner.TextChanged += (_, _) => ShowSugg();
@@ -554,7 +560,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private void ShowSugg()
     {
         var q = _tblAddName.Text.Trim();
-        if (q.Length == 0 || _tableNames is not { Count: > 0 } || !_tblAddName.Inner.Focused || FindForm() is not { } owner) { HideSugg(); return; }
+        if (q.Length == 0 || q.Contains(':') || _tableNames is not { Count: > 0 } || !_tblAddName.Inner.Focused || FindForm() is not { } owner) { HideSugg(); return; }
         var starts = new List<string>(); var has = new List<string>();
         foreach (var n in _tableNames)
         {
@@ -968,22 +974,40 @@ public sealed class NativeAdvanceNoteControl : UserControl
         finally { SetBusy(false); }
     }
 
+    /// <summary>Thêm tay table: "bảng" như cũ; "bảng:điều kiện" (như ô SQL Data của FCode) → tick Dữ liệu + Where = điều kiện (bảng đã chọn thì chỉ
+    /// cập nhật Where, giữ Cấu trúc / DB); nhiều dòng (dán danh sách) = nhiều bảng — luật tách ở <see cref="GenAllService.ParseTableSpecs"/>.</summary>
     private async Task AddTableByNameAsync(string? picked = null)
     {
-        var name = (picked ?? _tblAddName.Text).Trim();
+        var specs = GenAllService.ParseTableSpecs(picked ?? _tblAddName.Text);
         HideSugg();
-        if (name.Length == 0) return;
+        if (specs.Count == 0) return;
         _tblAddName.Text = "";
         HideSugg();
         try
         {
-            var t = await _genAll.LookupTableAsync(name);
-            if (!t.InApp && !t.InSys) SetStatus($"Không thấy table / view \"{t.Name}\" trong App hoặc Sys.", true);
-            var i = _tblList.FindIndex(x => x.Name.Equals(t.Name, StringComparison.OrdinalIgnoreCase));
-            if (i >= 0) _tblList[i] = t; else _tblList.Add(t);
-            RenderTables();
+            foreach (var (name, where) in specs)
+            {
+                var t = await _genAll.LookupTableAsync(name);
+                if (IsDisposed) return;
+                if (!t.InApp && !t.InSys) SetStatus($"Không thấy table / view \"{t.Name}\" trong App hoặc Sys.", true);
+                var i = _tblList.FindIndex(x => x.Name.Equals(t.Name, StringComparison.OrdinalIgnoreCase));
+                if (i >= 0) _tblList[i] = t; else _tblList.Add(t);
+                if (where is not null) ApplyTableWhere(t, where);
+                RenderTables();
+            }
         }
         catch (Exception ex) { SetStatus(ex.Message, true); }
+    }
+
+    private void ApplyTableWhere(RelatedTable t, string where)
+    {
+        if (_cur is null || _viewOwner is not null || !t.InApp && !t.InSys) return;
+        if (t.IsView) { SetStatus($"\"{t.Name}\" là view — không nạp dữ liệu theo điều kiện được (chỉ tick Cấu trúc).", true); return; }
+        var old = _cur.Tables.FirstOrDefault(x => x.Name.Equals(t.Name, StringComparison.OrdinalIgnoreCase));
+        if (old is not null) { old.Data = true; old.Where = where; }
+        else _cur.Tables.Add(new TableSelection { Name = t.Name, Sys = !t.InApp && t.InSys, Structure = false, Data = true, Where = where });
+        Dirty();
+        SetStatus((old is not null ? "Đã cập nhật Where của " : "Đã thêm ") + t.Name + " — Dữ liệu " + (where.Length > 0 ? "WHERE " + where : "(cả bảng)") + ".", ok: true);
     }
 
     // =====================================================================  Xem trước / Generate

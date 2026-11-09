@@ -48,7 +48,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  288
 │   ├── MonacoPreviewControl.Native.cs  137
 │   ├── MultiResultView.cs  330
-│   ├── NativeAdvanceNoteControl.cs  1413
+│   ├── NativeAdvanceNoteControl.cs  1437
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  279
@@ -76,7 +76,7 @@ Bcode.App/
 │   ├── NativePages.GenUpdate.cs  401
 │   ├── NativePages.HintsHelp.cs  123
 │   ├── NativePages.IncludeCheck.cs  372
-│   ├── NativePages.MenuPicker.cs  166
+│   ├── NativePages.MenuPicker.cs  178
 │   ├── NativePages.Note.cs  90
 │   ├── NativePages.Palette.cs  212
 │   ├── NativePages.PartitionCheck.cs  43
@@ -124,7 +124,7 @@ Bcode.App/
 │   ├── TeamNotesControl.cs  182
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
-│   ├── WCommandTreeControl.cs  924
+│   ├── WCommandTreeControl.cs  958
 │   ├── WebActionBar.cs  264
 │   ├── WebBarHost.cs  228
 │   ├── WebFrameHost.cs  215
@@ -164,14 +164,14 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  4675
+│   ├── MainForm.cs  4679
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  374
 │   ├── MainForm.ToolGroups.cs  101
 │   ├── MainForm.Update.cs  75
-│   ├── MenuPickerForm.cs  70
+│   ├── MenuPickerForm.cs  95
 │   ├── NativeProjectPickerForm.cs  193
 │   ├── PartitionCheckForm.cs  58
 │   ├── ProjectActions.cs  68
@@ -184,7 +184,7 @@ Bcode.App/
 │   ├── ReportStudioForm.cs  118
 │   ├── RowDetailForm.cs  41
 │   ├── RptSchemaForm.cs  268
-│   ├── ScriptPopupForm.cs  159
+│   ├── ScriptPopupForm.cs  179
 │   ├── SetupEInvoiceForm.cs  166
 │   ├── SimplePromptForm.cs  78
 │   ├── SourceViewForm.cs  166
@@ -266,7 +266,7 @@ Bcode.App/
 │   ├── ChangeOwnerService.cs  39
 │   ├── ColumnHeaderGuesser.cs  144
 │   ├── CommandTableService.cs  90
-│   ├── DataScriptService.cs  137
+│   ├── DataScriptService.cs  148
 │   ├── DbConnectionService.cs  64
 │   ├── DdlTrackingService.cs  204
 │   ├── DebugTargetScanner.cs  148
@@ -305,7 +305,7 @@ Bcode.App/
 │   ├── FsgNotifyService.cs  662
 │   ├── FsgProjectLookupService.cs  679
 │   ├── FSourceDecryptService.cs  68
-│   ├── GenAllService.cs  838
+│   ├── GenAllService.cs  877
 │   ├── GenAllService.Delivery.cs  117
 │   ├── GenAllService.Suggest.cs  287
 │   ├── GenInsertService.cs  47
@@ -337,12 +337,12 @@ Bcode.App/
 │   ├── ResultExportService.cs  271
 │   ├── ResultFieldChecker.cs  161
 │   ├── SchemaCompareService.cs  79
-│   ├── ScriptFileService.cs  69
+│   ├── ScriptFileService.cs  110
 │   ├── SessionStore.cs  69
 │   ├── SnippetLibraryService.cs  67
 │   ├── SourceCopyRenamer.cs  171
 │   ├── SourceFieldIndex.cs  278
-│   ├── SourceGrantService.cs  328
+│   ├── SourceGrantService.cs  344
 │   ├── SourceIndexService.cs  289
 │   ├── SourceIndexService.Standard.cs  282
 │   ├── SqlAiAssist.cs  349
@@ -406,7 +406,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  939
+│       ├── advnote.html  980
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  906
 │       ├── apischema.html  676
@@ -452,7 +452,7 @@ Bcode.App/
 │       ├── licensekey.html  100
 │       ├── listeditor.html  79
 │       ├── lookup.html  157
-│       ├── menupicker.html  186
+│       ├── menupicker.html  191
 │       ├── note.html  51
 │       ├── partitioncheck.html  49
 │       ├── projects.html  115

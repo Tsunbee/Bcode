@@ -587,6 +587,7 @@ Tab **Command** (dựng SELECT / FROM / WHERE) đã bỏ — dùng [SQL Query](#
 - **DB:** App Data / Sys Data / Cả hai. Ô tên object + tick loại (Function, Store, Table, View, Trigger).
 - Ô thứ hai tìm **nội dung** trong Function / Store / View / Trigger (từ 2 ký tự).
 - Bên phải: **Show Search Text** · **Show Data** (Top 100, chỉ bảng) · **Show History**; **Mở trong Tab** để mở object sang tab SQL.
+- Bấm vào khung script bên phải rồi: `Ctrl+A` chọn hết script (rồi `Ctrl+C` để chép) · `Ctrl+F` mở thanh tìm ở góc trên-phải khung (gõ là tìm, không phân biệt hoa thường; `Enter` / `F3` tìm tiếp, `Shift+Enter` / `Shift+F3` tìm lùi, `Esc` đóng — kết quả đang đứng được bôi đen sẵn). Đổi object khi thanh tìm đang mở thì đếm lại theo script mới.
 
 ### Gen Update (Result) (`Ctrl+Shift+U`)
 
@@ -1215,6 +1216,8 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 **Lưới Table**: `F1` chi tiết dòng · `F3` khai báo nhanh danh sách · `Ctrl+F3` sửa đủ nội dung ô · `F4` thêm · `F8` xoá · `Ctrl+I` nhân bản · `Ctrl+N` chèn sau · `Ctrl+'` copy giá trị · `Ctrl+Shift+C` copy tên cột · `Ctrl+0` NULL · `Ctrl+G` tới cột · `F5` tải lại.
 
 **Cây WCommand**: `Insert` New · `F3` Edit · `F8` Delete · `F4` File Lookup mới · `F12` Gen Script Menu · `F5` Refresh · `Ctrl+F5` Run · `Ctrl+4` Run trong FSG FBO · `Ctrl+C` copy đường dẫn menu. Các nhánh đang bung được giữ nguyên khi chuyển sang mục khác (Object…) rồi quay lại, hoặc khi `F5`.
+
+**Khung script tab Lookup**: `Ctrl+A` chọn hết · `Ctrl+F` tìm (`Enter` / `F3` tiếp, `Shift+Enter` / `Shift+F3` lùi, `Esc` đóng).
 
 **Cây file File Lookup**: `F2` đổi tên file · `F5` quét lại · `F4` nhân bản tab File Lookup · `Ctrl+C` copy đường dẫn các file đã tick (không tick thì dòng đang chọn) · `Ctrl` + click tick / bỏ tick nhanh.
 

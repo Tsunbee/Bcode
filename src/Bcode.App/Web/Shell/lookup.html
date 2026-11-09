@@ -30,6 +30,19 @@
   .k { color: #569cd6; font-weight: 600; } .s { color: #ce9178; } .c { color: #6a9955; } .n { color: #b5cea8; }
   html[data-theme="light"] .k { color: #0000ff; } html[data-theme="light"] .s { color: #a31515; } html[data-theme="light"] .c { color: #008000; } html[data-theme="light"] .n { color: #098658; }
   mark { background: #f5a62366; color: inherit; }
+  /* khung script: chọn được chữ (shell.css khoá user-select toàn trang), bấm vào thì nhận focus để Ctrl+A / Ctrl+F */
+  #preview { user-select: text; -webkit-user-select: text; outline: none; }
+  .pvwrap { position: relative; flex: 1; min-height: 4rem; display: flex; flex-direction: column; }
+  /* thanh tìm nổi góc trên-phải như find widget của Monaco / findbar.html */
+  .lkfind { position: absolute; top: .4rem; right: 1.4rem; z-index: 5; display: none; align-items: center; gap: .3rem; width: min(26rem, calc(100% - 3rem)); padding: .3rem .4rem .3rem .5rem;
+    background: var(--panel-alt); border: var(--bw) solid var(--border); border-radius: var(--r); box-shadow: 0 2px 8px #0006; }
+  .lkfind.show { display: flex; }
+  .lkfind input { flex: 1; min-width: 0; }
+  .lkfind .info { color: var(--text-muted); font-size: .88rem; white-space: nowrap; min-width: 3.5rem; text-align: right; }
+  .lkfind .info.none { color: var(--danger, #e5534b); }
+  .lkfind button { padding: .15rem .45rem; }
+  ::highlight(lk-find) { background-color: #f5a62355; }
+  ::highlight(lk-cur) { background-color: #f5a623; color: #000; }
 </style>
 </head>
 <body>
@@ -54,7 +67,10 @@
       <button id="bTab">Mở trong Tab</button>
       <span class="nm" id="nm"></span>
     </div>
-    <pre id="preview"></pre>
+    <div class="pvwrap">
+      <div class="lkfind" id="lkfind"><input type="text" id="fq" placeholder="Tìm trong script..." spellcheck="false" autocomplete="off"><span class="info" id="finfo"></span><button id="fprev" title="Tìm lùi (Shift+Enter / Shift+F3)">↑</button><button id="fnext" title="Tìm tiếp (Enter / F3)">↓</button><button id="fclose" title="Đóng (Esc)">✕</button></div>
+      <pre id="preview" tabindex="0"></pre>
+    </div>
     <div id="bottom"></div>
   </div>
 </div>
@@ -134,12 +150,91 @@
     const before = lines.slice(0, n).join('\n').length + (n ? 1 : 0), upto = before + (lines[n] || '').length;
     $('preview').innerHTML = highlight(defText.slice(0, before)) + '<mark id="hit">' + highlight(defText.slice(before, upto)) + '</mark>' + highlight(defText.slice(upto));
     const hit = $('hit'); if (hit) hit.scrollIntoView({ block: 'center' });
+    afterRender(false);
   }
+
+  // ---- khung script: Ctrl+A chọn hết, Ctrl+F thanh tìm (WebView2 tắt phím trình duyệt nên không có Ctrl+F sẵn) ----
+  // Tô kết quả bằng CSS Custom Highlight (không đổi DOM của khung → không mất màu SQL / vùng chọn).
+  const pv = $('preview'), fbar = $('lkfind'), fq = $('fq'), finfo = $('finfo');
+  const hls = (window.CSS && CSS.highlights && window.Highlight) ? CSS.highlights : null;
+  let fHits = [], fCur = -1, fNodes = null;
+  const findOpen = () => fbar.classList.contains('show');
+  function nodeMap() {
+    if (fNodes) return fNodes;
+    fNodes = []; let off = 0;
+    const w = document.createTreeWalker(pv, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) { fNodes.push({ n, off }); off += n.nodeValue.length; }
+    return fNodes;
+  }
+  function nodeAt(pos) {
+    const m = nodeMap(); let lo = 0, hi = m.length - 1;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (m[mid].off <= pos) lo = mid; else hi = mid - 1; }
+    const e = m[lo]; return e ? [e.n, Math.min(Math.max(0, pos - e.off), e.n.nodeValue.length)] : [pv, 0];
+  }
+  function rangeOf(start, len) { const r = document.createRange(), a = nodeAt(start), b = nodeAt(start + len); r.setStart(a[0], a[1]); r.setEnd(b[0], b[1]); return r; }
+  function scrollToRange(r) {
+    const rc = r.getBoundingClientRect(), pc = pv.getBoundingClientRect();
+    if (rc.top < pc.top + fbar.offsetHeight + 12 || rc.bottom > pc.bottom - 16) pv.scrollTop += rc.top - pc.top - pv.clientHeight / 3;
+    if (rc.left < pc.left || rc.right > pc.right - 24) pv.scrollLeft += rc.left - pc.left - pv.clientWidth / 3;
+  }
+  function paintFind(scroll) {
+    if (hls) { hls.delete('lk-find'); hls.delete('lk-cur'); }
+    if (!findOpen() || !fHits.length) return;
+    const len = fq.value.length;
+    if (hls) { const all = new Highlight(); fHits.slice(0, 3000).forEach((p) => all.add(rangeOf(p, len))); hls.set('lk-find', all); }
+    if (fCur < 0) return;
+    const r = rangeOf(fHits[fCur], len);
+    if (hls) hls.set('lk-cur', new Highlight(r));
+    if (scroll) scrollToRange(r);
+  }
+  // mode: 'type' (đang gõ: giữ chỗ cũ nếu còn khớp), 'next', 'prev', 'reset' (object mới: từ đầu). Không phân biệt hoa thường, hết thì quay vòng.
+  function runFind(mode, scroll) {
+    const q = fq.value.toLowerCase(), text = pv.textContent.toLowerCase(), old = mode === 'reset' ? -1 : (fCur >= 0 ? fHits[fCur] : -1);
+    fHits = [];
+    if (q) for (let i = text.indexOf(q); i >= 0 && fHits.length < 9999; i = text.indexOf(q, i + 1)) fHits.push(i);
+    const n = fHits.length;
+    if (!n) fCur = -1;
+    else if (mode === 'next') { fCur = fHits.findIndex((p) => p > old); if (fCur < 0) fCur = 0; }
+    else if (mode === 'prev') { fCur = n - 1; for (let i = n - 1; i >= 0; i--) if (fHits[i] < old) { fCur = i; break; } }
+    else { fCur = fHits.findIndex((p) => p >= Math.max(0, old)); if (fCur < 0) fCur = 0; }
+    finfo.textContent = n ? (fCur + 1) + '/' + n + (n >= 9999 ? '+' : '') : (q ? 'Không có kết quả' : '');
+    finfo.className = 'info' + (q && !n ? ' none' : '');
+    paintFind(scroll !== false);
+  }
+  function afterRender(reset) { fNodes = null; if (findOpen()) runFind(reset ? 'reset' : 'type', false); }
+  function openFind() {
+    const sel = getSelection(), s = sel.toString();
+    if (s && s.length <= 120 && !/[\r\n]/.test(s) && pv.contains(sel.anchorNode)) fq.value = s;   // chữ đang bôi đen 1 dòng → điền sẵn (như Monaco)
+    fbar.classList.add('show'); fq.focus(); fq.select();
+    runFind('type');
+  }
+  function closeFind() {
+    const len = fq.value.length, cur = fCur >= 0 && fHits.length ? rangeOf(fHits[fCur], len) : null;
+    fbar.classList.remove('show'); paintFind(false);
+    pv.focus({ preventScroll: true });
+    if (cur) { const sel = getSelection(); sel.removeAllRanges(); sel.addRange(cur); }   // để lại vùng chọn ở kết quả đang đứng (Ctrl+C được)
+  }
+  pv.addEventListener('keydown', (e) => {
+    const ctrl = e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey;
+    if (ctrl && e.code === 'KeyA') { e.preventDefault(); getSelection().selectAllChildren(pv); }
+    else if (ctrl && e.code === 'KeyF') { e.preventDefault(); openFind(); }
+    else if (e.key === 'F3' && findOpen() && fq.value) { e.preventDefault(); runFind(e.shiftKey ? 'prev' : 'next'); }
+    else if (e.key === 'Escape' && findOpen()) { e.preventDefault(); closeFind(); }
+  });
+  fq.addEventListener('input', () => runFind('type'));
+  fq.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === 'F3') { e.preventDefault(); runFind(e.shiftKey ? 'prev' : 'next'); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+    else if (e.ctrlKey && !e.altKey && !e.shiftKey && e.code === 'KeyF') { e.preventDefault(); fq.select(); }
+  });
+  $('fnext').onclick = () => { runFind('next'); fq.focus(); };
+  $('fprev').onclick = () => { runFind('prev'); fq.focus(); };
+  $('fclose').onclick = closeFind;
 
   window.lookup = {
     onList(list) { $('list').innerHTML = list.map((o) => item(o, 'results')).join(''); selEl = null; },
     onDefinition(d) {
-      defText = d.text; $('nm').textContent = d.name; $('preview').innerHTML = highlight(d.text); $('preview').scrollTop = 0; if (mode === 'search') renderBottom();
+      defText = d.text; $('nm').textContent = d.name; $('preview').innerHTML = highlight(d.text); $('preview').scrollTop = 0; afterRender(true); if (mode === 'search') renderBottom();
       const tt = $('tq').value.trim().toLowerCase();
       if (fromText && tt && !d.text.startsWith('-- Đang tải')) { const n = d.text.split('\n').findIndex((l) => l.toLowerCase().includes(tt)); if (n >= 0) jumpToLine(n); }   // chọn từ khu tìm nội dung: nhảy tới dòng khớp đầu tiên
     },

@@ -36,6 +36,7 @@ public sealed class NativeLookupControl : UserControl
     private readonly Scintilla _pv = new() { Dock = DockStyle.Fill, BorderStyle = ScintillaNET.BorderStyle.None };
     private readonly Label _nm = new MutedLabel { AutoSize = true, Margin = new Padding(10, 8, 0, 0), BackColor = Color.Transparent };
     private readonly Panel _bottom = new() { Dock = DockStyle.Bottom, Visible = false };
+    private readonly Panel _right = new() { Dock = DockStyle.Fill };
     private readonly DataGridView _dataGrid = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly Label _status = new() { Dock = DockStyle.Bottom, Height = NativeSkin.S(22), Padding = new Padding(8, 3, 8, 0) };
     private readonly System.Windows.Forms.Timer _qTimer = new() { Interval = 300 }, _tqTimer = new() { Interval = 350 };
@@ -89,7 +90,7 @@ public sealed class NativeLookupControl : UserControl
         _bottom.Controls.Add(_dataGrid); _bottom.Controls.Add(_bottomList);
         _dataGrid.ReadOnly = true; _dataGrid.AllowUserToAddRows = false;
         ResultGridMenu.Attach(_dataGrid);
-        var right = new Panel { Dock = DockStyle.Fill };
+        var right = _right;
         right.Controls.Add(_pv); right.Controls.Add(_bottom); right.Controls.Add(tools);
 
         var split = new SplitContainer { Dock = DockStyle.Fill };
@@ -291,5 +292,93 @@ public sealed class NativeLookupControl : UserControl
         if (i < 0) return;
         if (_mode == "search") { if (i < _lineHits.Count) JumpToLine(_lineHits[i]); }
         else if (_mode == "history" && i < _history.Count) { _fromText = false; _ = LoadObjectAsync(_history[i]); }
+    }
+
+    // ---- phím trong khung xem script: Ctrl+A chọn hết, Ctrl+F (editor.find) mở thanh tìm nổi như SQL Query ----
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        var inFind = _find is { Visible: true } && _find.ContainsFocus;
+        if (_pv.Focused || inFind)
+        {
+            if (keyData == (Keys.Control | Keys.A) && _pv.Focused) { _pv.SelectAll(); return true; }
+            if (ShortcutRegistry.FromKeys(keyData) is { } combo && combo == ShortcutRegistry.Get("editor.find")) { ShowFind(); return true; }
+            if (_find is { Visible: true } && _pv.Focused)
+            {
+                if (keyData == Keys.Escape) { HideFind(); return true; }
+                if (keyData is Keys.F3 or (Keys.Shift | Keys.F3)) { FindInPreview(_findText, keyData == Keys.F3, false); return true; }
+            }
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private NativeFindBar? _find;
+    private string _findText = "";
+
+    private void ShowFind()
+    {
+        if (_find is null)
+        {
+            _find = new NativeFindBar { Visible = false, UnderColor = () => _pv.Styles[Style.Default].BackColor };
+            _find.Find += FindInPreview;
+            _find.CloseRequested += HideFind;
+            _right.Controls.Add(_find);
+            _right.Resize += (_, _) => PositionFind();
+            _bottom.VisibleChanged += (_, _) => PositionFind();
+        }
+        var sel = _pv.SelectedText;   // chữ đang bôi đen trên 1 dòng → điền sẵn (như Monaco)
+        if (sel.Length is > 0 and <= 120 && sel.IndexOfAny(new[] { '\r', '\n' }) < 0) { _findText = sel; _find.SetText(sel); }
+        PositionFind();
+        _find.Visible = true;
+        _find.BringToFront();
+        _find.FocusInput();
+    }
+
+    /// <summary>Góc trên-phải khung script (dưới thanh Show Search Text…), chừa thanh cuộn dọc — như SQL Query.</summary>
+    private void PositionFind()
+    {
+        if (_find is null) return;
+        var width = Math.Min(NativeSkin.S(420), Math.Max(NativeSkin.S(240), _pv.Width - NativeSkin.S(80)));
+        _find.Width = width;
+        _find.Location = new Point(Math.Max(0, _pv.Right - width - SystemInformation.VerticalScrollBarWidth - NativeSkin.S(10)), _pv.Top + NativeSkin.S(6));
+    }
+
+    private void HideFind()
+    {
+        if (_find is null) return;
+        _find.Visible = false;
+        _pv.Focus();
+    }
+
+    /// <summary>Tìm không phân biệt hoa thường trong khung script; hết văn bản thì quay vòng; báo "vị trí/tổng" (cùng cách NativeSqlControl.FindInEditor).</summary>
+    private void FindInPreview(string text, bool forward, bool typing)
+    {
+        _findText = text;
+        if (_find is null) return;
+        if (text.Length == 0) { _find.SetInfo("", false); return; }
+        _pv.SearchFlags = SearchFlags.None;
+        var from = forward ? (typing ? _pv.SelectionStart : _pv.SelectionEnd) : _pv.SelectionStart;
+        var pos = SearchRange(text, from, forward ? _pv.TextLength : 0);
+        if (pos < 0) pos = SearchRange(text, forward ? 0 : _pv.TextLength, from);   // quay vòng
+        if (pos < 0) { _find.SetInfo("Không có kết quả", true); return; }
+        _pv.SetSelection(_pv.TargetEnd, _pv.TargetStart);
+        _pv.ScrollRange(_pv.TargetStart, _pv.TargetEnd);
+        int count = 0, index = 0, at = 0;
+        while (count < 9999)
+        {
+            var p = SearchRange(text, at, _pv.TextLength);
+            if (p < 0) break;
+            count++;
+            if (p == pos) index = count;
+            at = Math.Max(_pv.TargetEnd, p + 1);
+        }
+        _find.SetInfo(count >= 9999 ? $"{index}/9999+" : $"{index}/{count}", false);
+    }
+
+    private int SearchRange(string text, int start, int end)
+    {
+        _pv.TargetStart = start;
+        _pv.TargetEnd = end;   // start > end = tìm lùi
+        return _pv.SearchInTarget(text);
     }
 }

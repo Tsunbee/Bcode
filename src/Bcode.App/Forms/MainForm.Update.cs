@@ -29,7 +29,7 @@ public partial class MainForm
             var (remote, _) = await UpdateCheckService.CheckAsync(ReleaseFolder);   // lỗi mạng lúc tự kiểm tra: im lặng
             if (IsDisposed || remote is null || !UpdateCheckService.IsNewer(remote, UpdateCheckService.Local)) return;
             _newBuild = remote;
-            PushStatus($"Có bản Bcode mới ({remote.Label}) — Settings → \"Cập nhật Bcode\" để xem và cập nhật.");
+            PushNotice($"Có bản Bcode mới ({remote.Label}) — Settings → \"Cập nhật Bcode\" để xem và cập nhật.");
         };
         Disposed += (_, _) => timer.Dispose();
         timer.Start();
@@ -42,10 +42,10 @@ public partial class MainForm
         var what = r.Mode == "rollback" ? "Quay lại bản trước" : "Cập nhật Bcode";
         if (r.Ok)
         {
-            PushStatus(r.Mode == "rollback" ? $"Đã quay lại bản trước ({r.To})." : $"Đã cập nhật Bcode lên {r.To}. Có lỗi thì Settings → Cập nhật Bcode → Quay lại bản trước.");
+            PushNotice(r.Mode == "rollback" ? $"Đã quay lại bản trước ({r.To})." : $"Đã cập nhật Bcode lên {r.To}. Có lỗi thì Settings → Cập nhật Bcode → Quay lại bản trước.");
             return;
         }
-        PushStatus(what + " không thành công — Bcode vẫn là bản cũ.");
+        PushNotice(what + " không thành công — Bcode vẫn là bản cũ.");
         BeginInvoke(() => MessageBox.Show(this, $"{what} không thành công, Bcode vẫn là bản cũ.\n\n{r.Message}\n\nNhật ký: {UpdateCheckService.LogPath}",
             "Bcode — Cập nhật", MessageBoxButtons.OK, MessageBoxIcon.Warning));
     }
@@ -60,7 +60,7 @@ public partial class MainForm
         bool Choose() { var before = ReleaseFolder; ChooseReleaseFolder(); return !string.Equals(before, ReleaseFolder, StringComparison.OrdinalIgnoreCase); }
         using var f = new UpdateForm(() => ReleaseFolder, Choose, _pendingUpdate is { Relaunch: false });
         var res = f.ShowDialog(this);
-        if (res == DialogResult.Abort) { _pendingUpdate = null; PushStatus("Đã huỷ hẹn cài bản mới khi đóng Bcode."); return; }
+        if (res == DialogResult.Abort) { _pendingUpdate = null; PushNotice("Đã huỷ hẹn cài bản mới khi đóng Bcode."); return; }
         if (res != DialogResult.OK) return;
         switch (f.Decision)
         {
@@ -68,17 +68,17 @@ public partial class MainForm
                 _pendingUpdate = (f.Plan, null, f.OverwriteModified, true);
                 PushStatus("Đang đóng Bcode để cài bản mới...");
                 Close();
-                if (!IsDisposed && Visible) { _pendingUpdate = null; PushStatus("Chưa cài bản mới vì Bcode chưa đóng. Mở lại Settings → Cập nhật Bcode khi sẵn sàng."); }
+                if (!IsDisposed && Visible) { _pendingUpdate = null; PushNotice("Chưa cài bản mới vì Bcode chưa đóng. Mở lại Settings → Cập nhật Bcode khi sẵn sàng."); }
                 break;
             case UpdateForm.Outcome.ApplyOnClose when f.Plan is not null:
                 _pendingUpdate = (f.Plan, null, f.OverwriteModified, false);
-                PushStatus($"Bản mới {f.Plan.ToLabel} sẽ được cài khi bạn đóng Bcode.");
+                PushNotice($"Bản mới {f.Plan.ToLabel} sẽ được cài khi bạn đóng Bcode.");
                 break;
             case UpdateForm.Outcome.Rollback when f.Backup is not null:
                 _pendingUpdate = (null, f.Backup, false, true);
                 PushStatus("Đang đóng Bcode để quay lại bản trước...");
                 Close();
-                if (!IsDisposed && Visible) { _pendingUpdate = null; PushStatus("Chưa quay lại bản trước vì Bcode chưa đóng."); }
+                if (!IsDisposed && Visible) { _pendingUpdate = null; PushNotice("Chưa quay lại bản trước vì Bcode chưa đóng."); }
                 break;
         }
     }
@@ -100,6 +100,32 @@ public partial class MainForm
         }
     }
 
+    /// <summary>Settings → About Bcode: phiên bản / build / commit của bản đang chạy (bcode-version.json), nơi cài, thư mục phát hành.
+    /// Hộp MessageBox — Ctrl+C chép được cả nội dung.</summary>
+    private void ShowAbout()
+    {
+        var b = UpdateCheckService.Local;
+        string webView;
+        try { webView = Microsoft.Web.WebView2.Core.CoreWebView2Environment.GetAvailableBrowserVersionString(); }
+        catch { webView = "(không có)"; }
+        var lines = new List<string>
+        {
+            "Bcode" + (b.Version.Length > 0 ? " v" + b.Version : ""),
+            "",
+            "Build: " + (b.Build > 0 ? b.Build.ToString() : "—") + (b.Config.Length > 0 ? " (" + b.Config + ")" : ""),
+            "Ngày build: " + b.When,
+            "Commit: " + (b.HasCommit ? b.Commit : "—"),
+            "",
+            "Cài ở: " + AppContext.BaseDirectory.TrimEnd('\\'),
+            "Thư mục phát hành: " + (ReleaseFolder.Length > 0 ? ReleaseFolder : "(tắt kiểm tra bản mới)"),
+        };
+        if (_newBuild is { } nb) lines.Add("Có bản mới: " + nb.Label + " — Settings → Cập nhật Bcode.");
+        lines.Add(".NET " + Environment.Version + " · WebView2 " + webView + " · máy " + Environment.MachineName);
+        lines.Add("");
+        lines.Add("Dev: HàoTN | PhongNT · Tester: ThinhBM | KhanhNN");
+        MessageBox.Show(this, string.Join("\n", lines), "About Bcode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
     private void ChooseReleaseFolder()
     {
         var text = SimplePromptForm.Show(this, "Thư mục phát hành bản mới", UpdateCheckService.FolderPromptHint + ":", ReleaseFolder);
@@ -107,6 +133,6 @@ public partial class MainForm
         _settings.ReleaseFolder = UpdateCheckService.ToSetting(text);
         try { _settings.Save(); } catch { /* lưu lỗi: chỉ mất cấu hình này */ }
         _newBuild = null;
-        PushStatus(ReleaseFolder.Length == 0 ? "Đã tắt kiểm tra bản mới." : "Thư mục phát hành: " + ReleaseFolder);
+        PushNotice(ReleaseFolder.Length == 0 ? "Đã tắt kiểm tra bản mới." : "Thư mục phát hành: " + ReleaseFolder);
     }
 }

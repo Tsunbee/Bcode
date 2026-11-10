@@ -311,6 +311,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .AddCaption("Cập nhật")
             .Add(UpdateMenuLabel, () => BeginInvoke(new Action(CheckForUpdateInteractive)))
             .Add("Thư mục phát hành bản mới...", () => BeginInvoke(new Action(ChooseReleaseFolder)))
+            .Add("About Bcode (phiên bản đang dùng)...", () => BeginInvoke(new Action(ShowAbout)))
             .AddCaption("Database")
             .Add("Backup Database...", async () => await BackupDatabaseAsync())
             .Add("Restore Database...", () => MessageBox.Show(this,
@@ -616,8 +617,9 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 {
                     PushThemeToShell();
                     PushProjectInfo();
-                    if (_connections.Current is { } cur) PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN| PhongNT | Tester: ThinhBM| KhanhNN");
+                    if (_connections.Current is { } cur) PushStatus(WorkspaceStatusLine(cur));
                     if (Bcode.App.UI.WebViewEnvironment.TempProfileNote is { } wvNote) PushStatus(wvNote);   // báo lúc tạo môi trường thì thanh trạng thái chưa nạp xong
+                    if (_pendingNotice is { } note) { _pendingNotice = null; PushNotice(note); }   // vd "Đã cập nhật Bcode lên ..." báo lúc mở
                 };
 
                 _topBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("topbar.html"));
@@ -743,7 +745,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         PushDbNamesToTopBar(ws);
         // Mật khẩu mã hoá DPAPI bằng tài khoản / máy khác (settings.json chép sang) → báo ngay, khỏi phải đoán lỗi "Login failed".
         var pwNote = ws.PasswordUnreadable ? "  |  ⚠ Mật khẩu đã lưu được mã hoá trên máy / tài khoản Windows khác — nhập lại ở Edit Project hoặc Ctrl+F5 đồng bộ lại" : "";
-        PushStatus($"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN| PhongNT | Tester: ThinhBM| KhanhNN{pwNote}");
+        PushStatus(WorkspaceStatusLine(ws, pwNote));
 
         var swSwitch = System.Diagnostics.Stopwatch.StartNew();
         var syncBefore = swSwitch.ElapsedMilliseconds;
@@ -1079,6 +1081,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         ErrorLog.NoticeDisplayed(text, "Thanh trạng thái");   // dòng trạng thái báo lỗi (thông điệp exception vừa ném) → ghi log kèm stack
         _statusFile = file;
+        _statusShown = text;
+        if (!_pushingNotice) _statusHome = (text, file);
         if (_statusNative is not null)
         {
             _statusNative.SetStatus(text, file is null ? null : new (string, Action)[] { ("Mở file", () => ResultExport.OpenFile(file)), ("Mở thư mục", () => ResultExport.OpenFolder(file)) });
@@ -1090,6 +1094,41 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var links = file is null ? "null" : "[{\"id\":\"file\",\"label\":\"Mở file\"},{\"id\":\"folder\",\"label\":\"Mở thư mục\"}]";
         _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setStatus && window.setStatus({arg}, {links})");
         PushProjectInfo(); // đổi workspace/database thì thông tin project ở góc phải cũng đổi theo
+    }
+
+    // ---- Thông báo tạm (cập nhật Bcode…): hiện 1 lần ~10 giây rồi trả lại dòng trạng thái trước đó (Workspace / Dev…) ----
+
+    private string _statusShown = "";
+    private (string Text, string? File) _statusHome = ("", null);
+    private bool _pushingNotice;
+    private string? _pendingNotice;   // báo lúc thanh trạng thái chưa nạp xong → hiện khi nạp xong (NavigationCompleted)
+    private System.Windows.Forms.Timer? _noticeTimer;
+
+    private bool StatusBarReady => _statusNative is not null || _statusBarWeb.CoreWebView2 is not null;
+
+    /// <summary>Dòng trạng thái mặc định của 1 workspace (kèm tên Dev / Tester).</summary>
+    private static string WorkspaceStatusLine(Workspace ws, string extra = "") =>
+        $"Workspace: {ws.Name}  —  Server: {ws.Server}  |  Dev: HàoTN| PhongNT | Tester: ThinhBM| KhanhNN{extra}";
+
+    /// <summary>Hiện <paramref name="text"/> trên thanh trạng thái trong <paramref name="seconds"/> giây rồi trả lại dòng trước đó —
+    /// không che mãi dòng Workspace / Dev. Có dòng trạng thái khác đẩy vào giữa chừng thì giữ dòng mới đó.</summary>
+    private void PushNotice(string text, int seconds = 10)
+    {
+        if (!StatusBarReady) { _pendingNotice = text; return; }
+        _pushingNotice = true;
+        try { PushStatus(text); } finally { _pushingNotice = false; }
+        _noticeTimer?.Dispose();
+        _noticeTimer = new System.Windows.Forms.Timer { Interval = seconds * 1000 };
+        _noticeTimer.Tick += (s, _) =>
+        {
+            ((System.Windows.Forms.Timer)s!).Dispose();
+            if (ReferenceEquals(_noticeTimer, s)) _noticeTimer = null;
+            if (IsDisposed || _statusShown != text) return;
+            var home = _statusHome;
+            if (home.Text.Length == 0 && _connections.Current is { } ws) home = (WorkspaceStatusLine(ws), null);
+            if (home.Text.Length > 0) PushStatus(home.Text, home.File);
+        };
+        _noticeTimer.Start();
     }
 
     // ---- Góc phải thanh trạng thái: link web đăng nhập, menu project, tên máy ----
@@ -4327,7 +4366,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         PushStatus("Đang tạo menu...");
         var (ok, message) = await new FsgProjectLookupService().CreateMenuAsync(code);
         if (_connections.Current is { } cur)
-            PushStatus($"Workspace: {cur.Name}  —  Server: {cur.Server}  |  Dev: HàoTN| PhongNT | Tester: ThinhBM| KhanhNN");
+            PushStatus(WorkspaceStatusLine(cur));
         if (!ok) MessageBox.Show(this, message, "Create Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 

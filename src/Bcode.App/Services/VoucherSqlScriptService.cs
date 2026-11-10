@@ -226,10 +226,12 @@ WHERE c.object_id = OBJECT_ID(@t)", conn);
             var dst = NewName(src, s.SrcTableNo, s.DstTableNo);
             var cols = new List<string>();
             await using (var cmd = new SqlCommand(@"
-SELECT c.name, t.name, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity, dc.definition, cc.definition
+SELECT c.name, t.name, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity, dc.definition, cc.definition,
+       CONVERT(varchar(40), ic.seed_value), CONVERT(varchar(40), ic.increment_value)
 FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
 LEFT JOIN sys.default_constraints dc ON dc.object_id = c.default_object_id
 LEFT JOIN sys.computed_columns cc ON cc.object_id = c.object_id AND cc.column_id = c.column_id
+LEFT JOIN sys.identity_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id
 WHERE c.object_id = OBJECT_ID(@t) ORDER BY c.column_id", conn))
             {
                 cmd.Parameters.AddWithValue("@t", "dbo." + src);
@@ -247,7 +249,7 @@ WHERE c.object_id = OBJECT_ID(@t) ORDER BY c.column_id", conn))
                         _ => type,
                     };
                     var def = new StringBuilder($"[{r.GetString(0)}] {type}");
-                    if (r.GetBoolean(6)) def.Append(" IDENTITY(1, 1)");
+                    if (r.GetBoolean(6)) def.Append($" IDENTITY({(r.IsDBNull(9) ? "1" : r.GetString(9))}, {(r.IsDBNull(10) ? "1" : r.GetString(10))})");
                     if (!r.GetBoolean(5)) def.Append(" NOT NULL");
                     if (!r.IsDBNull(7)) def.Append(" DEFAULT " + r.GetString(7));
                     cols.Add(def.ToString());

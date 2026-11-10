@@ -425,8 +425,10 @@ ORDER BY ORDINAL_POSITION;";
         var full = "[" + table.Schema + "].[" + table.Name + "]";
         var cols = new List<string>(); var colDecl = new List<string>();
         await using (var cmd = new SqlCommand(@"
-SELECT c.name, t.name AS tname, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity
+SELECT c.name, t.name AS tname, c.max_length, c.precision, c.scale, c.is_nullable, c.is_identity,
+       CONVERT(varchar(40), ic.seed_value), CONVERT(varchar(40), ic.increment_value)
 FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
+LEFT JOIN sys.identity_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id
 WHERE c.object_id = OBJECT_ID(@full) ORDER BY c.column_id;", conn))
         {
             cmd.Parameters.AddWithValue("@full", full);
@@ -442,7 +444,7 @@ WHERE c.object_id = OBJECT_ID(@full) ORDER BY c.column_id;", conn))
                     _ => tn,
                 };
                 cols.Add(name);
-                colDecl.Add("\t" + name + " " + type + (rd.GetBoolean(6) ? " IDENTITY" : "") + (rd.GetBoolean(5) ? "" : " NOT NULL"));
+                colDecl.Add("\t" + name + " " + type + (rd.GetBoolean(6) ? " IDENTITY(" + (rd.IsDBNull(7) ? "1" : rd.GetString(7)) + ", " + (rd.IsDBNull(8) ? "1" : rd.GetString(8)) + ")" : "") + (rd.GetBoolean(5) ? "" : " NOT NULL"));
             }
         }
         if (cols.Count == 0) return "-- Không thấy bảng " + full + ".";
@@ -552,7 +554,9 @@ WHERE c.object_id = OBJECT_ID(@full) ORDER BY c.column_id;", conn))
     private async Task<string> GenerateCreateTableAsync(SqlConnection conn, SqlObjectInfo table)
     {
         const string sql = @"
-SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, NUMERIC_PRECISION, NUMERIC_SCALE
+SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, NUMERIC_PRECISION, NUMERIC_SCALE,
+       COLUMNPROPERTY(OBJECT_ID(@qualified), COLUMN_NAME, 'IsIdentity'),
+       CONVERT(varchar(40), IDENT_SEED(@qualified)), CONVERT(varchar(40), IDENT_INCR(@qualified))
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
 ORDER BY ORDINAL_POSITION;";
@@ -560,6 +564,7 @@ ORDER BY ORDINAL_POSITION;";
         await using var cmd = new SqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@schema", table.Schema);
         cmd.Parameters.AddWithValue("@table", table.Name);
+        cmd.Parameters.AddWithValue("@qualified", $"[{table.Schema}].[{table.Name}]");
 
         var lines = new List<string>();
         await using var reader = await cmd.ExecuteReaderAsync();
@@ -576,7 +581,12 @@ ORDER BY ORDINAL_POSITION;";
                 -1 => $"{dataType}(MAX)",
                 _ => $"{dataType}({maxLen})"
             };
-            lines.Add($"    [{colName}] {typeText} {(nullable ? "NULL" : "NOT NULL")}");
+            // Cột identity: IDENTITY(seed, increment) đúng giá trị thật, ngay sau kiểu dữ liệu (như FCode). Bảng chỉ có tối đa 1 cột identity
+            // nên IDENT_SEED / IDENT_INCR của bảng chính là của cột đó.
+            var identity = !reader.IsDBNull(6) && Convert.ToInt32(reader.GetValue(6)) == 1
+                ? $" IDENTITY({(reader.IsDBNull(7) ? "1" : reader.GetString(7))}, {(reader.IsDBNull(8) ? "1" : reader.GetString(8))})"
+                : "";
+            lines.Add($"    [{colName}] {typeText}{identity} {(nullable ? "NULL" : "NOT NULL")}");
         }
         await reader.DisposeAsync();
 

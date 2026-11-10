@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Bcode.App.Services;
+namespace Bcode.Shared;
 
 /// <summary>Dấu 1 bản build — từ bcode-version.json do target WriteBuildStamp (Bcode.App.csproj) ghi cạnh Bcode.exe.
 /// <see cref="Build"/> = số commit git (tăng dần), 0 = bản build cũ chưa có.</summary>
@@ -60,6 +60,55 @@ public sealed record BackupInfo(string From, string To, DateTime At, List<string
 /// </summary>
 public static class UpdateCheckService
 {
+    // ---------------------------------------------------------------- chương trình nào đang dùng
+    // File này link vào Bcode.App và BcodeViewer.App: mỗi exe một cơ chế cập nhật riêng, thư mục phát hành riêng, thư mục tạm / nhật ký riêng.
+    // Mỗi app gọi Configure lúc khởi động (Bcode: MainForm.InitUpdateCheck; Viewer: MainForm.Update.cs).
+
+    /// <summary>Tên hiện trên giao diện + tên exe ("Bcode" / "BcodeViewer").</summary>
+    public static string AppName { get; private set; } = "Bcode";
+    /// <summary>Tên thư mục làm việc trong %LocalAppData%\Bcode và tên nhật ký trong %AppData%\Bcode ("update" → update\, update.log).</summary>
+    private static string WorkName { get; set; } = "update";
+    /// <summary>%AppData% thật của app (BcodePaths.AppData — mỗi app có bản sao riêng).</summary>
+    private static string AppDataRoot { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+
+    /// <summary>Tên file exe ("BcodeScreenDesigner.exe").</summary>
+    public static string ExeName { get; private set; } = "Bcode.exe";
+    /// <summary>Giá trị -App của tools\publish-release.ps1 ("" = Bcode, "Viewer", "Designer") — chỉ để hiện hướng dẫn.</summary>
+    public static string PublishApp { get; private set; } = "";
+    /// <summary>Thư mục con (cấp 1) trong thư mục cài là APP KHÁC tự cập nhật riêng (Bcode: "ScreenDesigner") — không bao giờ tải / ghi đè / xoá.
+    /// Ngoài danh sách này, thư mục con nào có bcode-version.json riêng cũng được coi là app khác.</summary>
+    private static string[] KeepDirs { get; set; } = Array.Empty<string>();
+
+    /// <param name="appName">Tên hiện trên giao diện.</param>
+    /// <param name="workName">Thư mục tạm %LocalAppData%\Bcode\&lt;workName&gt; + nhật ký %AppData%\Bcode\&lt;workName&gt;.log.</param>
+    /// <param name="exeName">Tên exe (mặc định appName + ".exe").</param>
+    /// <param name="publishApp">-App của publish-release.ps1.</param>
+    /// <param name="keepDirs">Thư mục con là app khác (xem <see cref="KeepDirs"/>).</param>
+    public static void Configure(string appName, string workName, string appDataRoot, string? exeName = null, string publishApp = "", params string[] keepDirs)
+    {
+        AppName = appName; WorkName = workName; AppDataRoot = appDataRoot;
+        ExeName = exeName ?? appName + ".exe"; PublishApp = publishApp; KeepDirs = keepDirs;
+    }
+
+    /// <summary>Thư mục con (cấp 1, tương đối) của <paramref name="installDir"/> thuộc app khác: <see cref="KeepDirs"/> + thư mục có bcode-version.json riêng.</summary>
+    private static HashSet<string> NestedApps(string installDir)
+    {
+        var set = new HashSet<string>(KeepDirs, StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var d in Directory.EnumerateDirectories(installDir))
+                if (File.Exists(Path.Combine(d, StampFileName))) set.Add(Path.GetFileName(d));
+        }
+        catch { /* không liệt kê được: chỉ dùng KeepDirs */ }
+        return set;
+    }
+
+    private static bool InNested(string rel, HashSet<string> nested)
+    {
+        var cut = rel.IndexOfAny(new[] { '\\', '/' });
+        return cut > 0 && nested.Contains(rel[..cut]);
+    }
+
     public const string StampFileName = "bcode-version.json";
     public const string ManifestFileName = "bcode-manifest.json";
     public const string ChangelogFileName = "bcode-changelog.txt";
@@ -102,7 +151,7 @@ public static class UpdateCheckService
 
     /// <summary>Chú thích ô nhập thư mục phát hành (hộp Settings → Thư mục phát hành bản mới và Template → Đường dẫn).</summary>
     public static string FolderPromptHint =>
-        "Thư mục chứa bản build Bcode mới (có file bcode-version.json) — Bcode tự kiểm tra lúc mở. Để trống hoặc gõ - = không kiểm tra"
+        $"Thư mục chứa bản build {AppName} mới (có file bcode-version.json) — {AppName} tự kiểm tra lúc mở. Để trống hoặc gõ - = không kiểm tra"
         + (DefaultReleaseFolder.Length > 0 ? ". Mặc định: " + DefaultReleaseFolder : "");
 
     // ---------------------------------------------------------------- dấu phiên bản
@@ -113,8 +162,25 @@ public static class UpdateCheckService
         get
         {
             var s = Read(Path.Combine(ExeDir, StampFileName))
-                ?? new BuildStamp(File.GetLastWriteTimeUtc(Environment.ProcessPath ?? Path.Combine(ExeDir, "Bcode.exe")), "", "");
-            return s.Version.Length > 0 ? s : s with { Version = ErrorLog.Version };
+                ?? new BuildStamp(File.GetLastWriteTimeUtc(Environment.ProcessPath ?? Path.Combine(ExeDir, ExeName)), "", "");
+            return s.Version.Length > 0 ? s : s with { Version = AssemblyVersion };
+        }
+    }
+
+    /// <summary>&lt;Version&gt; của exe ("2.2-beta"), bỏ đuôi "+commit".</summary>
+    private static string AssemblyVersion
+    {
+        get
+        {
+            try
+            {
+                var a = typeof(UpdateCheckService).Assembly;
+                var v = System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(a)?.InformationalVersion
+                        ?? a.GetName().Version?.ToString() ?? "";
+                var plus = v.IndexOf('+');
+                return plus > 0 ? v[..plus] : v;
+            }
+            catch { return ""; }
         }
     }
 
@@ -184,7 +250,7 @@ public static class UpdateCheckService
 
     // ---------------------------------------------------------------- "Có gì mới"
 
-    private static readonly Regex CommitPrefix = new(@"^\s*bcode\s*\|\s*", RegexOptions.IgnoreCase);
+    private static readonly Regex CommitPrefix = new(@"^\s*(bcode\s*viewer|bcode|viewer)\s*\|\s*", RegexOptions.IgnoreCase);
 
     /// <summary>Đọc bcode-changelog.txt (có hạn giờ). Lỗi / không có → rỗng.</summary>
     public static async Task<List<ChangeEntry>> ReadChangelogAsync(string folder)
@@ -222,12 +288,12 @@ public static class UpdateCheckService
     // ---------------------------------------------------------------- thư mục làm việc
 
     /// <summary>%LocalAppData%\Bcode\update (không roaming — bản tải về có thể vài trăm MB).</summary>
-    public static string UpdateRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bcode", "update");
+    public static string UpdateRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bcode", WorkName);
     public static string Staging => Path.Combine(UpdateRoot, "staging");
     public static string BackupDir => Path.Combine(UpdateRoot, "backup");
     private static string ResultPath => Path.Combine(UpdateRoot, "result.json");
     private static string PlanPath => Path.Combine(Staging, "plan.json");
-    public static string LogPath => Path.Combine(BcodePaths.AppData, "Bcode", "update.log");
+    public static string LogPath => Path.Combine(AppDataRoot, "Bcode", WorkName + ".log");
 
     private static string Full(string p) => Path.GetFullPath(p.Trim()).TrimEnd('\\', '/');
 
@@ -290,16 +356,17 @@ public static class UpdateCheckService
         var dst = Full(ExeDir);
         var newMan = ReadManifest(Path.Combine(src, ManifestFileName));
         var oldMan = ReadManifest(Path.Combine(dst, ManifestFileName));
+        var nested = NestedApps(dst);   // thư mục con là app khác tự cập nhật riêng (Bcode: ScreenDesigner) — không đụng
 
         // Danh sách file của bản mới: theo manifest; không có thì liệt kê thư mục (cỡ + giờ sửa lấy luôn từ danh sách — không hỏi mạng từng file)
         List<(string Rel, string? Hash, FileInfo? Info)> files;
-        if (newMan is not null) files = newMan.Select(kv => (kv.Key, (string?)kv.Value, (FileInfo?)null)).ToList();
+        if (newMan is not null) files = newMan.Where(kv => !InNested(kv.Key, nested)).Select(kv => (kv.Key, (string?)kv.Value, (FileInfo?)null)).ToList();
         else
         {
             var root = new DirectoryInfo(src);
             files = root.EnumerateFiles("*", SearchOption.AllDirectories)
                 .Select(f => (Rel: Path.GetRelativePath(src, f.FullName), Hash: (string?)null, Info: (FileInfo?)f))
-                .Where(x => !IsMeta(x.Rel) && !IsExcluded(x.Rel)).ToList();
+                .Where(x => !IsMeta(x.Rel) && !IsExcluded(x.Rel) && !InNested(x.Rel, nested)).ToList();
         }
 
         if (Directory.Exists(Staging)) Directory.Delete(Staging, true);
@@ -375,7 +442,7 @@ public static class UpdateCheckService
         if (newMan is not null && oldMan is not null)
             foreach (var (rel, oh) in oldMan)
             {
-                if (newMan.ContainsKey(rel)) continue;
+                if (newMan.ContainsKey(rel) || InNested(rel, nested)) continue;
                 var local = Path.Combine(dst, rel);
                 if (File.Exists(local) && HashFile(local) == oh) plan.Delete.Add(rel);
             }
@@ -488,7 +555,7 @@ public static class UpdateCheckService
         try { File.Delete(ResultPath); } catch { }
         var full = JsonSerializer.SerializeToElement(job);
         var dict = full.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value);
-        dict["exe"] = Environment.ProcessPath ?? Path.Combine(ExeDir, "Bcode.exe");
+        dict["exe"] = Environment.ProcessPath ?? Path.Combine(ExeDir, ExeName);
         dict["log"] = LogPath;
         dict["result"] = ResultPath;
         var jobPath = Path.Combine(UpdateRoot, "job.json");

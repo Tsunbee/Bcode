@@ -26,7 +26,7 @@ internal sealed record ProjectGroupTag(string ProjectName);
 /// the bridge object is what the page calls back into for file I/O, AI, and native pickers
 /// (Save As needs a real file dialog, which only this side can show).
 /// </summary>
-public class MainForm : DpiForm
+public partial class MainForm : DpiForm
 {
     // Khung chính dàn bằng Dock / WebView2: không co lúc mở, chỉ để WinForms co khi kéo sang màn khác DPI (xem UI/DpiForm).
     protected override bool ScaleOnLoad => false;
@@ -969,6 +969,7 @@ public class MainForm : DpiForm
         CleanupStaleProfiles(profileRoot);
         var userDataFolder = Path.Combine(profileRoot, Environment.ProcessId.ToString());
         var environment = await CreateWebViewEnvironmentAsync(userDataFolder, WebVirtualHost);
+        _webEnv = environment;   // hộp Cập nhật BcodeViewer (Shared/AppUpdateForm.cs) dùng chung hồ sơ
 
         await _webView.EnsureCoreWebView2Async(environment);
         _webView.CoreWebView2.AddHostObjectToScript("host", _bridge);
@@ -1149,6 +1150,7 @@ public class MainForm : DpiForm
     {
         if (IsDisposed) return;
         ShowWebShell();
+        InitUpdateCheck();   // Cập nhật BcodeViewer: báo kết quả lần cài trước + hẹn kiểm tra nền (MainForm.Update.cs)
 
         if (_initialFile is not null && File.Exists(_initialFile))
             await OpenFileInPageAsync(_initialFile, _initialLine, _initialCol); // triggers editor.js's own NotifyFileOpened
@@ -1328,7 +1330,11 @@ public class MainForm : DpiForm
             _closeConfirmed = true;
             BeginInvoke(Close);
         }
-        finally { _closePromptOpen = false; }
+        finally
+        {
+            _closePromptOpen = false;
+            if (!_closeConfirmed) OnCloseAborted();   // người dùng huỷ đóng (Cancel ở hộp lưu file...) → không cài "Khởi động lại & cập nhật"
+        }
     }
 
     /// <summary>
@@ -1354,6 +1360,7 @@ public class MainForm : DpiForm
     {
         base.OnFormClosed(e);
         Settings.RecentFilesStore.Flush();   // danh sách file gần đây ghi ở luồng nền — đợi lần ghi cuối xong rồi mới thoát
+        RunPendingUpdate();   // đã hẹn cài bản mới / quay lại bản trước → chạy trình cài (chờ Viewer thoát hẳn rồi mới chép)
 
         try { _webView.CoreWebView2?.RemoveHostObjectFromScript("host"); }
         catch { /* already torn down, or the browser process is gone */ }
@@ -1791,6 +1798,7 @@ public class MainForm : DpiForm
             case "theme": ThemeManager.SetTheme(arg); break;
             case "themeSystem": ThemeManager.SetTheme(null, followSystem: true); break;
             case "themeImport": ImportVsCodeTheme(); break;
+            case "checkUpdate": BeginInvoke(CheckForUpdateInteractive); break;   // KHÔNG mở hộp ngay trong lời gọi host của trang: WebView2 không tạo được trình duyệt lồng trong đó ("Class not registered")
             case "themeDelete":
                 var t = ThemeCatalog.Custom.FirstOrDefault(x => x.Id == arg);
                 if (t is not null) DeleteImportedTheme(t.Id, t.Name);

@@ -6,7 +6,7 @@ using Microsoft.Web.WebView2.WinForms;
 namespace Bcode.ScreenDesigner;
 
 /// <summary>Cửa sổ duy nhất của Designer: 1 WebView2 chạy Web\designer.html (giao diện + "Xem trước Dir" của BcodeViewer), bridge ở <see cref="DesignerBridge"/>.</summary>
-public sealed class MainForm : Form
+public sealed partial class MainForm : Form
 {
     private const string VirtualHost = "designer.local";
     private readonly WebView2 _web = new() { Dock = DockStyle.Fill };
@@ -23,7 +23,7 @@ public sealed class MainForm : Form
         try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { /* không có icon cũng được */ }
         Controls.Add(_web);
         Load += async (_, _) => await InitAsync();
-        FormClosed += (_, _) => { try { _web.Dispose(); } catch { /* đang đóng */ } };
+        FormClosed += (_, _) => { try { _web.Dispose(); } catch { /* đang đóng */ } RunPendingUpdate(); };
     }
 
     private async Task InitAsync()
@@ -33,6 +33,7 @@ public sealed class MainForm : Form
             // Mỗi cửa sổ 1 thư mục profile riêng (có thể mở nhiều Designer cùng lúc, như BcodeViewer).
             var profile = Path.Combine(Path.GetTempPath(), "BcodeScreenDesigner.WebView2", Environment.ProcessId.ToString());
             var env = await CreateEnvironmentAsync(profile);
+            _webEnv = env;
             await _web.EnsureCoreWebView2Async(env);
 
             var core = _web.CoreWebView2;
@@ -50,6 +51,7 @@ public sealed class MainForm : Form
                 e.Handled = true;
                 try { Process.Start(new ProcessStartInfo(e.Uri) { UseShellExecute = true }); } catch { /* bỏ qua */ }
             };
+            core.NavigationCompleted += (_, _) => InitUpdateCheck();   // Cập nhật Screen Designer (MainForm.Update.cs)
             core.Navigate($"https://{VirtualHost}/designer.html");
         }
         catch (Exception ex)

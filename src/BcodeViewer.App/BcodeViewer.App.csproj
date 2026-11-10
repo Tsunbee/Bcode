@@ -32,12 +32,22 @@
     <Copyright>© PhongNT|HaoTN. Phần mềm độc quyền. Cấm sao chép, phân phối lại hoặc dịch ngược (decompile/reverse-engineer) khi chưa được phép bằng văn bản.</Copyright>
     <Trademark>BcodeViewer™</Trademark>
     <Version>1.0.0</Version>
+    <!-- Cập nhật BcodeViewer (Shared/AppUpdate.cs, cơ chế riêng — không đi theo Bcode): thư mục phát hành mặc định của RIÊNG Viewer
+         (người phát hành: tools\publish-release.ps1 -App Viewer -Dest <thư mục này>). Mỗi máy đổi được ở Help → Cập nhật BcodeViewer → Đổi…
+         KHÔNG trùng thư mục phát hành của Bcode. -->
+    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN\Bcode\Bcodeviewer</BcodeReleaseFolder>
+    <!-- "Có gì mới" + commit trong bcode-version.json chỉ tính commit đụng tới Viewer (pathspec git, tính từ thư mục project) — Shared/Release.targets. -->
+    <BcodeStampPaths>. ../Shared ../Bcode.Core</BcodeStampPaths>
   </PropertyGroup>
   <!-- Dấu tĩnh truy nguồn (tools/bcode-mark): GUID bộ Bcode nhúng cố định vào metadata assembly để nhận ra bản sao chép nhị phân. -->
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>BcodeMark</_Parameter1>
       <_Parameter2>b3c0de00-0000-4bee-b3c0-deb3c0deb3c0 | BcodeMark v1</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>BcodeReleaseFolder</_Parameter1>
+      <_Parameter2>$(BcodeReleaseFolder)</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
   <!-- Lõi dùng chung (mục 1): WatermarkService — để BcodeViewer cũng mang dấu bí mật như Bcode. Tham chiếu, không chép. -->
@@ -59,6 +69,11 @@
     <Compile Include="..\Shared\AppSwitchFocus.cs" Link="Shared\AppSwitchFocus.cs" />
     <!-- Giao thức pipe liên-tiến-trình có phiên bản (Bcode ↔ BcodeViewer) — Shared/PipeProtocol.cs, link vào cả hai. -->
     <Compile Include="..\Shared\PipeProtocol.cs" Link="Shared\PipeProtocol.cs" />
+    <!-- Cập nhật bản mới — cùng lõi với Bcode.App (kiểm tra / tải trước / cài / quay lại + xử lý hộp update.html), thư mục phát hành riêng. -->
+    <Compile Include="..\Shared\AppUpdate.cs" Link="Shared\AppUpdate.cs" />
+    <Compile Include="..\Shared\AppUpdateDialog.cs" Link="Shared\AppUpdateDialog.cs" />
+    <Compile Include="..\Shared\AppUpdateToast.cs" Link="Shared\AppUpdateToast.cs" />
+    <Compile Include="..\Shared\AppUpdateForm.cs" Link="Shared\AppUpdateForm.cs" />
     <!-- SQL IntelliSense only (table/column names — see Host/SqlSchemaService). BcodeViewer
          reuses the workspace Bcode.App already stores in %AppData%\Bcode\settings.json
          rather than referencing Bcode.App, which would drag its whole WinForms/ClosedXML
@@ -71,6 +86,8 @@
          monaco-editor/min/vs) ships next to the exe so WebView2 can load it via a
          file:// path with no build step and no internet access needed at runtime. -->
     <None Include="Web\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Hộp "Cập nhật BcodeViewer" (Shared/AppUpdateForm.cs): CHÍNH trang update.html + shell.css/dialog.css của Bcode — link, không chép. -->
+    <None Include="..\Bcode.App\Web\Shell\update.html;..\Bcode.App\Web\Shell\shell.css;..\Bcode.App\Web\Shell\dialog.css" LinkBase="Web\update" CopyToOutputDirectory="PreserveNewest" />
     <!-- ApplicationIcon alone only sets the .exe file's own icon (Explorer/taskbar
          pinning) — the running window's titlebar icon needs Form.Icon set explicitly
          at runtime (see MainForm's constructor), which needs the file alongside the exe. -->
@@ -86,4 +103,6 @@
     <!-- Từ có sẵn của Từ điển dịch (Settings/TranslateDictionary) — cùng file HeaderTranslator của Bcode dùng; link, không chép. -->
     <None Include="..\Bcode.App\Templates\HeaderDictionary.json" Link="Assets\fields\HeaderDictionary.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- bcode-version.json / bcode-changelog.txt / bcode-manifest.json cạnh BcodeViewer.exe cho cơ chế cập nhật — dùng chung với Bcode.App. -->
+  <Import Project="..\Shared\Release.targets" />
 </Project>

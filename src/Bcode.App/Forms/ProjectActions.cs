@@ -30,8 +30,8 @@ internal static class ProjectActions
         s.Save();
     }
 
-    public static string Haystack(Workspace w) =>
-        string.Join(' ', IdOf(w), w.Name, w.Server, w.SysDatabase, w.AppDatabase, w.VersionCode, w.DbAccess, w.LoginWLink, w.ProgramPath, w.SourcePath).ToLowerInvariant();
+    /// <summary>Chữ để ô lọc màn hình Projects so khớp: chỉ mã dự án (cột ID) — lọc theo cả link/đường dẫn thì gõ "ttp" khớp mọi "http".</summary>
+    public static string Haystack(Workspace w) => (IdOf(w) ?? "").ToLowerInvariant();
 
     /// <summary>Mở đúng giao diện của File &gt; Choose Server (ConnectionSettingsForm) cho New / Edit / Synchronize. allowSync = true
     /// vì đây là màn hình Projects lúc mới mở — nơi duy nhất có "Synchronize (Ctrl+F5)". Đóng mà không Save thì bỏ các thay đổi

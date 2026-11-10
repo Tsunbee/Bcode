@@ -1507,6 +1507,54 @@ class BcodeEntity {
     });
   }
 
+  /// Peek SỬA ĐƯỢC (cùng khung với peek field) trên 1 khối bất kỳ của file `path`, chọn sẵn 1 đoạn trong khối — vd xem trước mail (mailpreview.js)
+  /// bấm biến của form nằm trong file include → mở khối <action> trong file đó, bôi đúng <field name> / {!biến}. File khác tab đang xem thì mở NGẦM
+  /// thành tab (như peek field): sửa thẳng vào đó, Ctrl+S lưu file đó, Ctrl+F12 mở file tại con trỏ.
+  /// find(text của model) → { start, end, selFrom, selTo } (offset) hoặc null. Trả true nếu đã mở khung.
+  async showRangePeek(title, path, find) {
+    const active = this.bcode.activePath;
+    let p = path, model;
+    if (active && path.toLowerCase() === active.toLowerCase()) { p = active; model = this.bcode.currentModel; }
+    else {
+      let d = this._docEntry(path);
+      if (!d) {
+        if (!this.bcode.openFileInBackground) return false;
+        await this.bcode.openFileInBackground(path);
+        d = this._docEntry(path);
+        if (!d) return false;
+        this._rememberIncluder(d.path, active);
+      }
+      p = d.path; model = d.doc.model;
+    }
+    const r = find(model.getValue());
+    if (!r) return false;
+    const a = model.getPositionAt(r.start), b = model.getPositionAt(r.end);
+    const s = model.getPositionAt(r.selFrom), e = model.getPositionAt(r.selTo);
+    const other = p !== this.bcode.activePath;
+    this.showPeekContent({
+      title,
+      subtitle: '',
+      subtitleTitle: p,
+      text: '',
+      language: model.getLanguageId(),
+      editable: { model, path: p, startLine: a.lineNumber, endLine: b.lineNumber, caret: s },
+      openLabel: other ? 'Mở file tại đây (Ctrl+F12)' : 'Tới chỗ này ở editor (Ctrl+F12)',
+      ctxPath: p, ctxText: model.getValue(),
+      onOpen: () => this._fieldPeekGo(),
+      hint: other
+        ? `Sửa trực tiếp vào ${fileNameOf(p)} (đã mở ngầm thành tab) — Ctrl+S lưu ${fileNameOf(p)}, Ctrl+Z hoàn tác, F12 xem &entity;, Esc đóng.`
+        : 'Sửa trực tiếp vào file — Ctrl+Z hoàn tác, Ctrl+S lưu, F12 xem &entity;, Esc đóng.',
+      copyLabel: 'Copy code',
+    });
+    const pe = this.peekEditor;
+    if (pe) {
+      const sel = new monaco.Selection(s.lineNumber, s.column, e.lineNumber, e.column);
+      pe.setSelection(sel);
+      pe.revealRangeInCenter(sel);
+    }
+    return true;
+  }
+
   /// Nhớ "file nào dẫn tới file include này" (dùng cho F12 trong mảnh include — xem includedFrom).
   _rememberIncluder(target, from) {
     if (!from || !target || from.toLowerCase() === target.toLowerCase()) return;

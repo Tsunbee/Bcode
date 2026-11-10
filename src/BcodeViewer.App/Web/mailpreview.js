@@ -26,7 +26,9 @@ const MP_FRAME_SCRIPT = `(function(){
   var sel=function(n){return '[data-v="'+n+'"],[data-h="'+n+'"]';};
   document.addEventListener('click',function(e){
     var a=e.target.closest('a'); if(a)e.preventDefault();
-    var t=e.target.closest('[data-v],[data-h]'); if(!t||t.isContentEditable)return;
+    var t=e.target.closest('[data-v],[data-h]');
+    if(!t){var c=e.target.closest('td,th,a,li');if(c)t=c.querySelector('[data-v],[data-h]');}
+    if(!t||t.isContentEditable)return;
     post({type:'click',name:t.getAttribute('data-h')||t.getAttribute('data-v'),kind:t.hasAttribute('data-h')?'hdr':'var'});
   },true);
   document.addEventListener('dblclick',function(e){
@@ -556,20 +558,133 @@ class BcodeMailPreview {
     ed.focus();
   }
 
-  jump(name, kind) {
+  /// Mọi bản <action id="…"> của form `a`, theo ĐÚNG thứ tự khai triển của render() (expandFull): đi trong file đang mở theo thứ tự xuất hiện, gặp &Tên;
+  /// thì đi sâu vào nội dung của nó (entity SYSTEM → file include, entity giá trị → giá trị ở file khai báo). Nhờ vậy form nằm trong file include
+  /// (vd &BI.ApprovalMessageAction; → Include\XML\BIModeApprovalActionMessage.xml) vẫn tìm được file + vị trí thật.
+  /// Bỏ qua <!-- --> / CDATA (DOM không coi là phần tử) và phần <!DOCTYPE> của mỗi file. Kênh mail / sms lấy theo <mail> / <sms> đang mở bao quanh.
+  /// Trả { path, text, start, end, names } (text = nội dung file chứa form, offset theo text đó) hoặc null.
+  async locateAction(a) {
+    const model = this.bcode.currentModel, ent = window.bcodeEntity, bcode = this.bcode;
+    if (!model || !bcode.activePath) return null;
+    const memoKey = this.version + '|' + a.key;
+    if (this._locMemo && this._locMemo.key === memoKey) return this._locMemo.hit;
+    const builtin = new Set(['amp', 'lt', 'gt', 'quot', 'apos']);
+    // Mỗi file (cùng 1 chuỗi text) chỉ che comment / CDATA và tìm vị trí <mail> / <sms> một lần — entity giá trị như &HeaderColor; gặp hàng chục lần.
+    const prep = new Map();
+    const info = (t) => {
+      let x = prep.get(t);
+      if (x) return x;
+      const masked = t.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g, (s) => s.replace(/[^\r\n]/g, ' '));
+      const at = (src) => [...masked.matchAll(new RegExp(src, 'g'))].map((y) => y.index);
+      x = { masked, mail: [at('<mail\\b'), at('</mail>')], sms: [at('<sms\\b'), at('</sms>')] };
+      prep.set(t, x);
+      return x;
+    };
+    const lastBefore = (arr, pos) => { let r = -1; for (const i of arr) { if (i >= pos) break; r = i; } return r; };
+    const chanAt = (x, pos, inherited) => {
+      let best = -1, ch = inherited;
+      for (const tag of ['mail', 'sms']) {
+        const open = lastBefore(x[tag][0], pos);
+        if (open < 0 || lastBefore(x[tag][1], pos) > open) continue;
+        if (open > best) { best = open; ch = tag; }
+      }
+      return ch;
+    };
+    const docText = (p) => { const d = ent && ent._docEntry ? ent._docEntry(p) : null; return d ? d.doc.model.getValue() : (ent ? ent.readFile(p) : null); };
+    const hits = [];
+    const re = /<action\b[^>]*\bid\s*=\s*"([^"]*)"|&([A-Za-z_][\w.:$-]*);/gi;
+    const walk = async (path, text, from, to, inherited, stack) => {
+      if (stack.length > 12) return;
+      const x = info(text), masked = x.masked;
+      const r = new RegExp(re.source, 'gi');
+      r.lastIndex = from;
+      let m;
+      while ((m = r.exec(masked)) && m.index < to) {
+        const ch = chanAt(x, m.index, inherited);
+        if (m[2] === undefined) {
+          if (m[1] !== a.id) continue;
+          const close = masked.indexOf('</action>', m.index);
+          const end = close < 0 || close > to ? to : close + '</action>'.length;
+          const names = [...text.slice(m.index, end).matchAll(/<field\b[^>]*\bname\s*=\s*"([^"]+)"/gi)].map((x) => x[1]).join('|');
+          hits.push({ path, text, start: m.index, end, names, channel: ch });
+          continue;
+        }
+        const name = m[2];
+        if (builtin.has(name) || stack.includes(name) || !ent) continue;
+        let found = null;
+        try { found = await ent.resolveActive(name); } catch { found = null; }
+        if (!found) continue;
+        if (found.decl.kind === 'system') {
+          const target = resolvePath(dirNameOf(found.path), found.decl.systemPath.replace(/\//g, '\\'));
+          const sub = await docText(target);
+          if (!sub) continue;
+          const dt = typeof doctypeRange === 'function' ? doctypeRange(sub) : null;
+          await walk(target, sub, dt ? dt.end : 0, sub.length, ch, [...stack, name]);
+        } else if (typeof found.decl.value === 'string' && found.text) {
+          const v0 = found.decl.valueOffset;
+          await walk(found.path, found.text, v0, v0 + found.decl.value.length, ch, [...stack, name]);
+        }
+      }
+    };
+    const root = model.getValue();
+    const dt = typeof doctypeRange === 'function' ? doctypeRange(root) : null;
+    await walk(bcode.activePath, root, dt ? dt.end : 0, root.length, 'mail', []);
+    // render() đánh số bản trùng (#1, #2…) theo thứ tự này trong cùng kênh; danh sách <field> phải khớp — lệch (vd field nằm trong &entity;) thì lấy bản khớp field.
+    const same = hits.filter((h) => h.channel === a.channel);
+    const want = (a.fieldNames || []).join('|');
+    let hit = a.dup ? same[a.dup - 1] : same[0];
+    if (!hit || hit.names !== want) hit = same.find((h) => h.names === want) || hit || null;
+    this._locMemo = { key: memoKey, hit };
+    return hit;
+  }
+
+  /// Bấm tiêu đề / biến trên mail (hoặc chip "Biến dữ liệu") → tới <field name="…"> / {!biến} đầu tiên trong <action> của form đang xem.
+  /// Form ngay trong file đang mở: chọn ở editor chính như cũ. Form nằm trong file include: mở khung peek sửa được trên khối <action> ở file đó.
+  async jump(name, kind) {
     const a = this.current();
-    const r = a && this.actionRange(a);
-    if (!r) { this.flash('Form này nằm trong file include (&entity;) — mở file đó để sửa.'); return; }
+    if (!a) return;
+    const token = this._jumpToken = (this._jumpToken || 0) + 1;
+    let loc = null;
+    try { loc = await this.locateAction(a); } catch { loc = null; }
+    if (token !== this._jumpToken) return;                    // đã bấm chỗ khác trong lúc tra
     const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (kind === 'hdr') {
-      const m = new RegExp('<field\\b[^>]*\\bname\\s*=\\s*"' + esc + '"[^>]*>', 'i').exec(r.text.slice(r.start, r.end));
-      if (m) { this.select(r.text, r.start + m.index, r.start + m.index + m[0].length); return; }
-      this.flash(`Không thấy <field name="${name}"> trong file này (có thể nằm ở file include).`);
+    const fieldRe = new RegExp('<field\\b[^>]*\\bname\\s*=\\s*"' + esc + '"[^>]*>', 'i');
+    /// Vị trí cần chọn trong [start,end) của text: { from, to } hoặc null.
+    const target = (text, start, end) => {
+      if (kind === 'hdr') {
+        const m = fieldRe.exec(text.slice(start, end));
+        return m ? { from: start + m.index, to: start + m.index + m[0].length } : null;
+      }
+      const i = text.indexOf('{!' + name + '}', start);
+      return i >= 0 && i < end ? { from: i, to: i + name.length + 3 } : null;
+    };
+    const what = kind === 'hdr' ? `<field name="${name}">` : `{!${name}}`;
+    const active = this.bcode.activePath || '';
+    const inActive = loc && loc.path.toLowerCase() === active.toLowerCase();
+    if (!loc || inActive) {
+      const r = inActive ? { text: this.bcode.currentModel.getValue(), start: loc.start, end: loc.end } : this.actionRange(a);
+      if (!r) { this.flash('Không tìm thấy <action id="' + a.id + '"> của form này (entity include chưa đọc được?).'); return; }
+      const t = target(r.text, r.start, r.end);
+      if (t) { this.select(r.text, t.from, t.to); return; }
+      this.flash(`Không thấy ${what} trong <action id="${a.id}"> (có thể nằm trong 1 &entity; bên trong form).`);
       return;
     }
-    const i = r.text.indexOf('{!' + name + '}', r.start);
-    if (i >= 0 && i < r.end) { this.select(r.text, i, i + name.length + 3); return; }
-    this.flash(`Không thấy {!${name}} trong form này ở file đang mở (có thể nằm ở file include).`);
+    if (!target(loc.text, loc.start, loc.end)) {
+      this.flash(`Không thấy ${what} trong <action id="${a.id}"> ở ${fileNameOf(loc.path)} (có thể nằm trong 1 &entity; bên trong form).`);
+      return;
+    }
+    // File include: tìm lại khối trên model của tab (có thể đang sửa dở, lệch với bản đã đọc) — bản <action id> gần vị trí cũ nhất.
+    const idRe = new RegExp('<action\\b[^>]*\\bid\\s*=\\s*"' + a.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '"', 'gi');
+    const ok = window.bcodeEntity && await window.bcodeEntity.showRangePeek(`<action id="${a.id}"> · ${what}`, loc.path, (text) => {
+      let m, best = null;
+      while ((m = idRe.exec(text))) if (!best || Math.abs(m.index - loc.start) < Math.abs(best - loc.start)) best = m.index;
+      if (best == null) return null;
+      const close = text.indexOf('</action>', best);
+      const end = close < 0 ? text.length : close + '</action>'.length;
+      const t = target(text, best, end);
+      return t ? { start: best, end, selFrom: t.from, selTo: t.to } : null;
+    });
+    if (!ok) this.flash(`Không mở được ${fileNameOf(loc.path)} để tới ${what}.`);
   }
 
   /// Sửa <header v="..."/e="..."> của <field name="name"> theo ngôn ngữ đang xem.

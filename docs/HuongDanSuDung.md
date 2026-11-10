@@ -97,7 +97,7 @@ Trên ảnh: **①** ô lọc · **②** ＋ New / ✎ Edit / ✕ Delete / ⟳ R
 
 Hiện tự động khi mở Bcode (trừ khi chạy với `--project <tên>`), hoặc `Ctrl+Shift+P` / Actions → **Projects...**.
 
-1. Gõ vào ô "Gõ để lọc (ID, database, link, đường dẫn)..." — nhiều từ thì lọc theo tất cả. Dải **Last Access** phía trên là 10 dự án dùng gần nhất, bấm để chọn ngay.
+1. Gõ vào ô "Gõ để lọc theo mã dự án (ID)..." — chỉ so khớp mã dự án (cột ID), không xét database / link / đường dẫn; nhiều từ thì mã phải chứa đủ các từ. Dải **Last Access** phía trên là 10 dự án dùng gần nhất, bấm để chọn ngay.
 2. Chọn dòng → **Chọn** (hoặc `Enter` / double-click). `Esc` để đóng.
 3. Nút khác: **＋ New** · **✎ Edit** · **✕ Delete** (chỉ xoá khỏi danh sách) · **⟳ Refresh** · **⧉ Copy Project Info** (copy ID, server, database, link, đường dẫn, phiên bản — không copy mật khẩu).
 4. `Ctrl+F5` trên màn này = mở Edit Project kèm hộp **Synchronize** (đồng bộ từ FSG).
@@ -1545,7 +1545,8 @@ Không cần mở Alt+P, trong `<views>` của file Dir/Grid:
 
 - ⇄ đổi vị trí khung (phải → trái → cửa sổ nổi), ⟳ dựng lại (đọc lại cả file include).
 - **Dữ liệu mẫu**: gõ `so_ct = PN001`; dòng chi tiết `ma_vt = A | B | C`. **Dữ liệu thật**: chạy câu master/detail của form trên database workspace (luôn rollback, chỉ đọc).
-- Bấm header / biến để nhảy tới code; double-click chữ header để sửa rồi `Enter` ghi vào `<header v/e>`.
+- Bấm header / biến (hoặc ô bảng, link chứa nó, chip ở dòng **Biến dữ liệu**) để nhảy tới code: header → `<field name>`, biến → `{!biến}` đầu tiên trong `<action>` của form. Form nằm ngay trong file đang mở → chọn ở editor chính. Form nạp qua `&entity;` từ **file include** (vd `&BI.ApprovalMessageAction;` → `Include\XML\BIModeApprovalActionMessage.xml`) → mở **khung peek sửa được** trên khối `<action>` ở file đó, bôi sẵn chỗ cần tới (như `F12` field: file include mở ngầm thành tab, `Ctrl+S` trong khung lưu file đó, `Ctrl+F12` mở file tại con trỏ, `Esc` đóng).
+- Double-click chữ header để sửa rồi `Enter` ghi vào `<header v/e>` (chỉ với form nằm ngay trong file đang mở).
 - Chọn bề rộng thử (Điện thoại 375px, Hộp thư hẹp 600px, rộng 900px) — có cảnh báo tràn ngang và CSS bị trình đọc mail bỏ.
 
 <a id="viewer-sql"></a>

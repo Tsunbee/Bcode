@@ -7,7 +7,7 @@ namespace Bcode.App.Forms;
 
 /// <summary>
 /// Màn hình "Projects" của chế độ App/WinForms — cùng chức năng với <see cref="ProjectPickerForm"/> (trang WebView2 projects.html) nhưng bằng control Windows,
-/// nên mở màn hình này KHÔNG khởi động WebView2: gõ để lọc (cách nhau bằng khoảng trắng = mọi từ phải khớp), dải Last Access, bấm tiêu đề cột để sắp xếp,
+/// nên mở màn hình này KHÔNG khởi động WebView2: gõ để lọc theo mã dự án (cách nhau bằng khoảng trắng = mọi từ phải khớp), dải Last Access, bấm tiêu đề cột để sắp xếp,
 /// Enter / nhấp đúp để chọn, Ctrl+F5 = Synchronize, chuột phải = Chọn / Edit / Copy info / Delete.
 /// Lưới ảo (VirtualMode): danh sách hàng nghìn project vẫn mượt, không dựng từng dòng.
 /// </summary>

@@ -378,6 +378,8 @@ public class UiTemplateForm : ThemedForm
 
     private void SetToolPath(string? key, string value)
     {
+        // Khung Kho source ẩn khi không có key Decrypt SQL Object → không nhận sửa kho / FCode (giữ nguyên giá trị đã lưu).
+        if (key is "srcMain" or "srcExtra" or "fcode" && !Services.LicenseService.IsDecryptUnlocked) return;
         if (key == "viewer") _settings.ViewerExePath = value;
         else if (key == "designer") _settings.ScreenDesignerExePath = value;
         else if (key == "fcode") { _settings.FCodePath = value; AppSettings.Update(s => s.FCodePath = value); PushSourceStatus(); return; }
@@ -565,13 +567,16 @@ public class UiTemplateForm : ThemedForm
         _ = Task.Run(() =>
         {
             bool Ok(string p) { try { return !string.IsNullOrWhiteSpace(p) && Directory.Exists(p); } catch { return false; } }
-            var fcode = new { path = fcodePath, dir = _settings.FCodeDir ?? "" };
+            // Khung Kho source (+ FCode) chỉ hiện khi máy có key Decrypt SQL Object: không có thì không gửi đường dẫn xuống trang (khung ẩn, giá trị đã lưu giữ nguyên).
+            var locked = !Services.LicenseService.IsDecryptUnlocked;
+            if (locked) { main = ""; extra = new(); fcodePath = ""; }
+            var fcode = locked ? null : new { path = fcodePath, dir = _settings.FCodeDir ?? "" };
             // Advance Note: đường dẫn thật của dự án đang mở (sau khi thay {working}/{project}/{ws}) + thư mục update đó có vào được không.
             var advFolder = Services.AdvanceNoteService.ResolveFolder(advWs, _settings);
             var advUpdate = Services.AdvanceNoteService.UpdateFolder(advWs, _settings);
             var advnotes = new { path = advTpl, project = advWs?.Name ?? "", folder = advFolder, ok = Ok(advUpdate ?? ""),
                 local = string.Equals(advFolder, Services.AdvanceNoteService.LocalFolder, StringComparison.OrdinalIgnoreCase) };
-            var state = new { main = new { path = main, ok = Ok(main) }, extra = extra.Select(p => new { path = p, ok = Ok(p) }).ToList(), fcode, advnotes };
+            var state = new { locked, main = new { path = main, ok = Ok(main) }, extra = extra.Select(p => new { path = p, ok = Ok(p) }).ToList(), fcode, advnotes };
             try { BeginInvoke(new Action(() => Js($"window.setSourcePaths({JsonSerializer.Serialize(state)})"))); } catch { /* form đã đóng */ }
         });
     }
@@ -589,7 +594,7 @@ public class UiTemplateForm : ThemedForm
 
     private void BrowseToolPath(string? key)
     {
-        if (key == "srcAdd") { BrowseSourceExtra(); return; }
+        if (key == "srcAdd") { if (Services.LicenseService.IsDecryptUnlocked) BrowseSourceExtra(); return; }
         if (key == "knowledge")
         {
             using var dlg = new FolderBrowserDialog { Description = "Chọn thư mục lưu kiến thức ghost text + Hỏi Fast (vd thư mục mạng dùng chung cho các máy)", UseDescriptionForTitle = true };

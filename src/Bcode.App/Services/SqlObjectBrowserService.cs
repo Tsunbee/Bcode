@@ -556,7 +556,7 @@ WHERE c.object_id = OBJECT_ID(@full) ORDER BY c.column_id;", conn))
         const string sql = @"
 SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, NUMERIC_PRECISION, NUMERIC_SCALE,
        COLUMNPROPERTY(OBJECT_ID(@qualified), COLUMN_NAME, 'IsIdentity'),
-       CONVERT(varchar(40), IDENT_SEED(@qualified)), CONVERT(varchar(40), IDENT_INCR(@qualified))
+       CONVERT(varchar(40), IDENT_SEED(@qualified)), CONVERT(varchar(40), IDENT_INCR(@qualified)), DATETIME_PRECISION
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
 ORDER BY ORDINAL_POSITION;";
@@ -575,11 +575,18 @@ ORDER BY ORDINAL_POSITION;";
             var maxLen = reader.IsDBNull(2) ? (int?)null : reader.GetInt32(2);
             var nullable = reader.GetString(3) == "YES";
 
-            var typeText = maxLen switch
+            static int? Num(SqlDataReader r, int i) => r.IsDBNull(i) ? null : Convert.ToInt32(r.GetValue(i));
+            // Độ dài chỉ cho kiểu chuỗi / nhị phân (text, ntext, image, xml… không có độ dài); numeric / decimal giữ (precision, scale);
+            // datetime2 / time / datetimeoffset giữ số lẻ giây — thiếu thì chạy lại script ra kiểu mặc định (numeric(18, 0), datetime2(7)).
+            var typeText = dataType.ToLowerInvariant() switch
             {
-                null => dataType,
-                -1 => $"{dataType}(MAX)",
-                _ => $"{dataType}({maxLen})"
+                "char" or "varchar" or "nchar" or "nvarchar" or "binary" or "varbinary" when maxLen is { } len
+                    => $"{dataType}({(len == -1 ? "MAX" : len.ToString())})",
+                "numeric" or "decimal" when Num(reader, 4) is { } p
+                    => $"{dataType}({p}, {Num(reader, 5) ?? 0})",
+                "datetime2" or "time" or "datetimeoffset" when Num(reader, 9) is { } dp
+                    => $"{dataType}({dp})",
+                _ => dataType,
             };
             // Cột identity: IDENTITY(seed, increment) đúng giá trị thật, ngay sau kiểu dữ liệu (như FCode). Bảng chỉ có tối đa 1 cột identity
             // nên IDENT_SEED / IDENT_INCR của bảng chính là của cột đó.

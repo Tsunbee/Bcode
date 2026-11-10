@@ -207,20 +207,50 @@
   </ItemGroup>
   <!-- Dấu phiên bản cho "Kiểm tra bản Bcode mới" (Services/UpdateCheckService.cs): thời điểm build (UTC) + commit git, ghi bcode-version.json cạnh Bcode.exe.
        Thư mục phát hành có file này mới hơn bản đang chạy thì Bcode nhắc cập nhật. Không có git thì commit để trống. -->
+  <!-- build = số commit (git rev-list count, tăng dần) — UpdateCheckService so số này trước, giờ build chỉ dùng khi thiếu.
+       bcode-changelog.txt = 80 commit gần nhất "hash|ngày|nội dung" để hộp Cập nhật hiện "Có gì mới" (ghi qua cmd > file để giữ UTF-8 tiếng Việt). -->
   <Target Name="WriteBuildStamp" AfterTargets="Build">
     <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true" IgnoreExitCode="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="BcodeCommit" />
     </Exec>
+    <Exec Command="git rev-list --count HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true" IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="BcodeBuildNo" />
+    </Exec>
+    <Exec Command="git -c i18n.logOutputEncoding=UTF-8 log -80 --format=%25%25h^|%25%25cs^|%25%25s &gt; &quot;$(OutDir)bcode-changelog.txt&quot;" StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true" IgnoreExitCode="true" />
     <PropertyGroup>
       <BcodeBuiltUtc>$([System.DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))</BcodeBuiltUtc>
       <BcodeCommit Condition="$(BcodeCommit.Contains(' ')) Or $(BcodeCommit.Length) &gt; 12">unknown</BcodeCommit>
+      <BcodeBuildNo Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(BcodeBuildNo)', '^\d{1,7}$'))">0</BcodeBuildNo>
     </PropertyGroup>
-    <WriteLinesToFile File="$(OutDir)bcode-version.json" Lines="{ &quot;built&quot;: &quot;$(BcodeBuiltUtc)&quot;, &quot;commit&quot;: &quot;$(BcodeCommit)&quot;, &quot;config&quot;: &quot;$(Configuration)&quot; }" Overwrite="true" />
+    <WriteLinesToFile File="$(OutDir)bcode-version.json" Lines="{ &quot;built&quot;: &quot;$(BcodeBuiltUtc)&quot;, &quot;commit&quot;: &quot;$(BcodeCommit)&quot;, &quot;config&quot;: &quot;$(Configuration)&quot;, &quot;version&quot;: &quot;$(Version)&quot;, &quot;build&quot;: $(BcodeBuildNo) }" Overwrite="true" />
   </Target>
   <Target Name="CopyFDecrypt" AfterTargets="Build">
     <ItemGroup>
       <FDecryptOutput Include="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
     </ItemGroup>
     <Copy SourceFiles="@(FDecryptOutput)" DestinationFiles="@(FDecryptOutput->'$(OutDir)FDecrypt\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <!-- Danh sách file + SHA-256 của bản build (bcode-manifest.json) cho "Cập nhật Bcode": máy cập nhật chỉ tải file khác hash, kiểm hash sau khi tải,
+       xoá file bản mới đã bỏ. PHẢI là target AfterTargets="Build" khai CUỐI file (chạy sau mọi target chép ScreenDesigner / Ocr / FDecrypt).
+       Mặc định chỉ bản Release (Debug thêm /p:BcodeManifest=true). -->
+  <Target Name="WriteReleaseManifest" AfterTargets="Build" Condition="'$(BcodeManifest)' == 'true' Or ('$(BcodeManifest)' == '' And '$(Configuration)' == 'Release')">
+    <ItemGroup>
+      <!-- bỏ *.WebView2\ (hồ sơ trình duyệt WebView2 sinh ra khi chạy Bcode / Viewer / Designer từ thư mục build — dữ liệu máy, không phát hành) -->
+      <_BcodeOutFile Include="$(OutDir)**\*" Exclude="$(OutDir)bcode-manifest.json;$(OutDir)bcode-version.json;$(OutDir)bcode-changelog.txt;$(OutDir)**\*.WebView2\**" />
+    </ItemGroup>
+    <GetFileHash Files="@(_BcodeOutFile)" Algorithm="SHA256" HashEncoding="hex">
+      <Output TaskParameter="Items" ItemName="_BcodeHashed" />
+    </GetFileHash>
+    <PropertyGroup>
+      <_BcodeOutFull>$([System.IO.Path]::GetFullPath('$(OutDir)'))</_BcodeOutFull>
+    </PropertyGroup>
+    <ItemGroup>
+      <!-- đường dẫn tương đối, dấu / (JSON không nhận \ đơn) — tính từ FullPath vì RecursiveDir không đi qua output của task -->
+      <_BcodeHashed>
+        <Rel>$([MSBuild]::MakeRelative('$(_BcodeOutFull)', '%(FullPath)').Replace('\', '/'))</Rel>
+      </_BcodeHashed>
+    </ItemGroup>
+    <WriteLinesToFile File="$(OutDir)bcode-manifest.json" Overwrite="true" Encoding="utf-8"
+                      Lines="{ &quot;files&quot;: [;@(_BcodeHashed->'{ &quot;p&quot;: &quot;%(Rel)&quot;, &quot;h&quot;: &quot;%(FileHash)&quot; }', ',');] }" />
   </Target>
 </Project>

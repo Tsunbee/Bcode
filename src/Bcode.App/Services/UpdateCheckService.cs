@@ -1,25 +1,69 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Bcode.App.Services;
 
-/// <summary>Dấu 1 bản build: thời điểm build (UTC) + commit git — từ bcode-version.json do target WriteBuildStamp (Bcode.App.csproj) ghi cạnh Bcode.exe.</summary>
-public sealed record BuildStamp(DateTime BuiltUtc, string Commit, string Config)
+/// <summary>Dấu 1 bản build — từ bcode-version.json do target WriteBuildStamp (Bcode.App.csproj) ghi cạnh Bcode.exe.
+/// <see cref="Build"/> = số commit git (tăng dần), 0 = bản build cũ chưa có.</summary>
+public sealed record BuildStamp(DateTime BuiltUtc, string Commit, string Config, string Version = "", int Build = 0)
 {
-    public string Label => BuiltUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture) + (Commit is { Length: > 0 } c && c != "unknown" ? " · " + c : "");
+    public string When => BuiltUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+
+    /// <summary>"v2.1-beta · build 466 · 10/11/2026 09:57" (phần nào thiếu thì bỏ).</summary>
+    public string Label => (Version.Length > 0 ? "v" + Version + " · " : "") + (Build > 0 ? "build " + Build + " · " : "") + When;
+
+    public bool HasCommit => Commit is { Length: > 0 } c && c != "unknown";
 }
 
+/// <summary>1 dòng bcode-changelog.txt: "hash|yyyy-MM-dd|nội dung commit".</summary>
+public sealed record ChangeEntry(string Hash, string Date, string Text);
+
+/// <summary>Tiến độ chuẩn bị bản mới. Stage: "scan" (so file ở máy với bản mới) / "download" (tải file khác về thư mục tạm).</summary>
+public sealed record UpdateProgress(string Stage, int Done, int Total, long Bytes, long TotalBytes, string File);
+
+/// <summary>Kế hoạch cập nhật đã chuẩn bị xong: file đã tải đủ + kiểm hash trong <see cref="UpdateCheckService.Staging"/>. Lưu ở staging\plan.json.</summary>
+public sealed class UpdatePlan
+{
+    public string Source { get; set; } = "";
+    public string Target { get; set; } = "";
+    public DateTime RemoteBuiltUtc { get; set; }
+    public string FromLabel { get; set; } = "";
+    public string ToLabel { get; set; } = "";
+    /// <summary>File sẽ chép đè / thêm (đường dẫn tương đối, đã nằm trong staging).</summary>
+    public List<string> Copy { get; set; } = new();
+    /// <summary>File người dùng đã tự sửa ở máy (khác bản cũ) — mặc định GIỮ, chỉ chép khi người dùng chọn ghi đè. Cũng đã nằm trong staging.</summary>
+    public List<string> Modified { get; set; } = new();
+    /// <summary>File bản cũ có, bản mới bỏ (và máy chưa sửa) — dời vào thư mục sao lưu.</summary>
+    public List<string> Delete { get; set; } = new();
+    public long Bytes { get; set; }
+    /// <summary>Bản phát hành có bcode-manifest.json (kiểm được hash) hay chỉ so cỡ + giờ sửa file.</summary>
+    public bool Verified { get; set; }
+}
+
+/// <summary>Kết quả lần cập nhật / quay lại vừa chạy (script ghi update\result.json, Bcode đọc lúc mở lại rồi xoá).</summary>
+public sealed record UpdateResult(bool Ok, string Mode, string From, string To, string Message);
+
+/// <summary>Bản trước còn giữ (thư mục update\backup) để "Quay lại bản trước".</summary>
+public sealed record BackupInfo(string From, string To, DateTime At, List<string> Added);
+
 /// <summary>
-/// "Kiểm tra bản Bcode mới": so dấu phiên bản của bản đang chạy với bcode-version.json trong thư mục phát hành (Settings → Thư mục phát hành bản mới).
-/// Chỉ ĐỌC 1 file nhỏ trên thư mục mạng (có hạn giờ — UNC treo không làm treo Bcode); không vào được thì bỏ qua, không chặn gì.
-/// Cập nhật chỉ chạy khi người dùng đồng ý: 1 script PowerShell tách riêng chờ mọi tiến trình Bcode chạy từ thư mục này thoát, robocopy bản mới vào
-/// (/XO: file ở máy mới hơn bản phát hành — vd mẫu tự sửa — thì giữ), rồi mở lại Bcode. Dữ liệu người dùng nằm ở %AppData%\Bcode nên không bị đụng.
+/// "Cập nhật Bcode". Kiểm tra: so bcode-version.json của bản đang chạy với thư mục phát hành (Settings → Thư mục phát hành bản mới) — chỉ đọc 1 file nhỏ,
+/// có hạn giờ (UNC treo không làm treo Bcode). Chuẩn bị (<see cref="PrepareAsync"/>, lúc Bcode còn chạy): so từng file theo bcode-manifest.json (SHA-256)
+/// — bản phát hành không có manifest thì so cỡ + giờ sửa — chỉ tải file khác về %LocalAppData%\Bcode\update\staging, kiểm hash, đọc lại dấu phiên bản
+/// (bản phát hành đổi giữa chừng thì báo thử lại). Cài (<see cref="StartApply"/>): 1 script PowerShell tách riêng chờ mọi tiến trình chạy từ thư mục Bcode
+/// thoát, sao file sắp ghi đè vào update\backup, chép từ staging (chỉ ổ local — vài giây), lỗi giữa chừng thì chép trả bản cũ; ghi update\result.json,
+/// mở lại Bcode. Backup giữ 1 bản để "Quay lại bản trước". Dữ liệu người dùng ở %AppData%\Bcode không bị đụng.
 /// </summary>
 public static class UpdateCheckService
 {
     public const string StampFileName = "bcode-version.json";
+    public const string ManifestFileName = "bcode-manifest.json";
+    public const string ChangelogFileName = "bcode-changelog.txt";
+    private static readonly string[] MetaFiles = { StampFileName, ManifestFileName, ChangelogFileName };
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(8);
 
     public static string ExeDir => AppContext.BaseDirectory;
@@ -61,9 +105,18 @@ public static class UpdateCheckService
         "Thư mục chứa bản build Bcode mới (có file bcode-version.json) — Bcode tự kiểm tra lúc mở. Để trống hoặc gõ - = không kiểm tra"
         + (DefaultReleaseFolder.Length > 0 ? ". Mặc định: " + DefaultReleaseFolder : "");
 
-    /// <summary>Dấu của bản đang chạy; thiếu file (build cũ) thì lấy giờ sửa Bcode.exe.</summary>
-    public static BuildStamp Local => Read(Path.Combine(ExeDir, StampFileName))
-        ?? new BuildStamp(File.GetLastWriteTimeUtc(Environment.ProcessPath ?? Path.Combine(ExeDir, "Bcode.exe")), "", "");
+    // ---------------------------------------------------------------- dấu phiên bản
+
+    /// <summary>Dấu của bản đang chạy; thiếu file (build cũ) thì lấy giờ sửa Bcode.exe. Thiếu số phiên bản thì lấy &lt;Version&gt; của assembly.</summary>
+    public static BuildStamp Local
+    {
+        get
+        {
+            var s = Read(Path.Combine(ExeDir, StampFileName))
+                ?? new BuildStamp(File.GetLastWriteTimeUtc(Environment.ProcessPath ?? Path.Combine(ExeDir, "Bcode.exe")), "", "");
+            return s.Version.Length > 0 ? s : s with { Version = ErrorLog.Version };
+        }
+    }
 
     public static BuildStamp? Read(string path)
     {
@@ -75,7 +128,9 @@ public static class UpdateCheckService
             var built = r.TryGetProperty("built", out var b) && DateTime.TryParse(b.GetString(), CultureInfo.InvariantCulture,
                 DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var d) ? d : (DateTime?)null;
             if (built is null) return null;
-            return new BuildStamp(built.Value, r.TryGetProperty("commit", out var c) ? c.GetString() ?? "" : "", r.TryGetProperty("config", out var g) ? g.GetString() ?? "" : "");
+            string S(string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+            var build = r.TryGetProperty("build", out var n) && n.ValueKind == JsonValueKind.Number && n.TryGetInt32(out var i) ? i : 0;
+            return new BuildStamp(built.Value, S("commit"), S("config"), S("version"), build);
         }
         catch { return null; }
     }
@@ -83,22 +138,37 @@ public static class UpdateCheckService
     /// <summary>Đọc dấu phiên bản trong thư mục phát hành. Error != null khi không đọc được (mất mạng, thư mục sai, thiếu file).</summary>
     public static async Task<(BuildStamp? Remote, string? Error)> CheckAsync(string? releaseFolder)
     {
-        var folder = (releaseFolder ?? "").Trim();
-        if (folder.Length == 0) return (null, "Chưa đặt thư mục phát hành (Settings → Thư mục phát hành bản mới).");
-        var path = Path.Combine(folder, StampFileName);
-        var work = Task.Run(() => Directory.Exists(folder) ? (Read(path), File.Exists(path)) : ((BuildStamp?)null, false));
-        if (await Task.WhenAny(work, Task.Delay(Timeout)) != work) return (null, $"Không vào được {folder} (quá {Timeout.TotalSeconds:0} giây).");
-        try
-        {
-            var (stamp, exists) = await work;
-            if (stamp is not null) return (stamp, null);
-            return (null, exists ? $"{path} không đúng định dạng." : $"Không thấy {StampFileName} trong {folder} — bản phát hành phải là thư mục build có file này.");
-        }
-        catch (Exception ex) { return (null, ex.Message); }
+        var (remote, error, _) = await CheckDetailedAsync(releaseFolder);
+        return (remote, error);
     }
 
-    /// <summary>Bản phát hành mới hơn bản đang chạy (lệch dưới 1 phút coi như cùng bản).</summary>
-    public static bool IsNewer(BuildStamp remote, BuildStamp local) => remote.BuiltUtc > local.BuiltUtc.AddMinutes(1);
+    /// <summary>Như <see cref="CheckAsync"/>, thêm <c>NoRelease</c> = vào được thư mục nhưng chưa có bản phát hành (thiếu bcode-version.json) —
+    /// khác với không vào được (mất mạng, sai đường dẫn, quá giờ).</summary>
+    public static async Task<(BuildStamp? Remote, string? Error, bool NoRelease)> CheckDetailedAsync(string? releaseFolder)
+    {
+        var folder = (releaseFolder ?? "").Trim();
+        if (folder.Length == 0) return (null, "Chưa đặt thư mục phát hành (Settings → Thư mục phát hành bản mới).", false);
+        var path = Path.Combine(folder, StampFileName);
+        var work = Task.Run(() => Directory.Exists(folder) ? (Read(path), true, File.Exists(path)) : ((BuildStamp?)null, false, false));
+        if (await Task.WhenAny(work, Task.Delay(Timeout)) != work) return (null, $"Không vào được {folder} (quá {Timeout.TotalSeconds:0} giây).", false);
+        try
+        {
+            var (stamp, dir, exists) = await work;
+            if (stamp is not null) return (stamp, null, false);
+            if (!dir) return (null, $"Không vào được {folder} — thư mục không tồn tại hoặc máy này không có quyền đọc.", false);
+            if (exists) return (null, $"{path} không đúng định dạng.", false);
+            return (null, $"Chưa có bản phát hành trong {folder} (chưa có file {StampFileName}).", true);
+        }
+        catch (Exception ex) { return (null, ex.Message, false); }
+    }
+
+    /// <summary>Bản phát hành mới hơn bản đang chạy: hai bên có số build khác nhau thì so số build (build lại commit cũ không bị coi là mới);
+    /// cùng số / thiếu số thì so giờ build (lệch dưới 1 phút coi như cùng bản).</summary>
+    public static bool IsNewer(BuildStamp remote, BuildStamp local)
+    {
+        if (remote.Build > 0 && local.Build > 0 && remote.Build != local.Build) return remote.Build > local.Build;
+        return remote.BuiltUtc > local.BuiltUtc.AddMinutes(1);
+    }
 
     /// <summary>Thư mục phát hành chính là thư mục đang chạy (hoặc nằm trong nhau) thì không cập nhật được.</summary>
     public static bool SameFolder(string releaseFolder)
@@ -112,40 +182,384 @@ public static class UpdateCheckService
         catch { return true; }
     }
 
+    // ---------------------------------------------------------------- "Có gì mới"
+
+    private static readonly Regex CommitPrefix = new(@"^\s*bcode\s*\|\s*", RegexOptions.IgnoreCase);
+
+    /// <summary>Đọc bcode-changelog.txt (có hạn giờ). Lỗi / không có → rỗng.</summary>
+    public static async Task<List<ChangeEntry>> ReadChangelogAsync(string folder)
+    {
+        var work = Task.Run(() => ReadChangelog(Path.Combine(folder, ChangelogFileName)));
+        return await Task.WhenAny(work, Task.Delay(Timeout)) == work ? await work : new List<ChangeEntry>();
+    }
+
+    private static List<ChangeEntry> ReadChangelog(string path)
+    {
+        var list = new List<ChangeEntry>();
+        try
+        {
+            if (!File.Exists(path)) return list;
+            foreach (var line in File.ReadAllLines(path, Encoding.UTF8))
+            {
+                var p = line.Split('|', 3);
+                if (p.Length < 3 || p[0].Trim().Length == 0) continue;
+                list.Add(new ChangeEntry(p[0].Trim(), p[1].Trim(), CommitPrefix.Replace(p[2], "").Trim()));
+            }
+        }
+        catch { /* không đọc được: không hiện "Có gì mới" */ }
+        return list;
+    }
+
+    /// <summary>Các commit bản mới có mà bản đang chạy chưa có: tới commit của bản đang chạy thì dừng; không thấy commit đó thì lấy commit từ ngày build bản đang chạy.</summary>
+    public static List<ChangeEntry> NewSince(List<ChangeEntry> log, BuildStamp local, int max = 40)
+    {
+        var idx = local.HasCommit ? log.FindIndex(e => local.Commit.StartsWith(e.Hash, StringComparison.OrdinalIgnoreCase) || e.Hash.StartsWith(local.Commit, StringComparison.OrdinalIgnoreCase)) : -1;
+        if (idx >= 0) return log.Take(Math.Min(idx, max)).ToList();
+        var since = local.BuiltUtc.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        return log.Where(e => string.CompareOrdinal(e.Date, since) >= 0).Take(max).ToList();
+    }
+
+    // ---------------------------------------------------------------- thư mục làm việc
+
+    /// <summary>%LocalAppData%\Bcode\update (không roaming — bản tải về có thể vài trăm MB).</summary>
+    public static string UpdateRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bcode", "update");
+    public static string Staging => Path.Combine(UpdateRoot, "staging");
+    public static string BackupDir => Path.Combine(UpdateRoot, "backup");
+    private static string ResultPath => Path.Combine(UpdateRoot, "result.json");
+    private static string PlanPath => Path.Combine(Staging, "plan.json");
     public static string LogPath => Path.Combine(BcodePaths.AppData, "Bcode", "update.log");
 
-    /// <summary>Chạy script cập nhật (tiến trình riêng, ẩn) — gọi xong thì đóng Bcode. Script chờ mọi Bcode / BcodeViewer / BcodeNote / ScreenDesigner
-    /// chạy từ thư mục này thoát (tối đa 15 phút), chép bản mới, ghi log, mở lại Bcode.exe.</summary>
-    public static void StartUpdater(string releaseFolder)
+    private static string Full(string p) => Path.GetFullPath(p.Trim()).TrimEnd('\\', '/');
+
+    private static bool IsMeta(string rel) => MetaFiles.Any(m => string.Equals(rel, m, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Không bao giờ tải / ghi đè / xoá: hồ sơ WebView2 (Bcode.exe.WebView2\…, sinh ra khi chạy Bcode từ thư mục build) — dữ liệu riêng từng máy.</summary>
+    private static bool IsExcluded(string rel) =>
+        rel.Split('\\', '/').Any(seg => seg.EndsWith(".WebView2", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>bcode-manifest.json → (đường dẫn tương đối kiểu Windows → sha256 chữ thường). null = không có / hỏng.</summary>
+    private static Dictionary<string, string>? ReadManifest(string path)
     {
-        static string Q(string s) => "'" + s.Replace("'", "''") + "'";
-        var src = Path.GetFullPath(releaseFolder.Trim()).TrimEnd('\\');
-        var dst = Path.GetFullPath(ExeDir).TrimEnd('\\');
-        var exe = Environment.ProcessPath ?? Path.Combine(dst, "Bcode.exe");
-        Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
-        var script = new StringBuilder()
-            .AppendLine("$ErrorActionPreference = 'Continue'")
-            .AppendLine($"$src = {Q(src)}; $dst = {Q(dst)}; $exe = {Q(exe)}; $log = {Q(LogPath)}")
-            .AppendLine("function L($m) { Add-Content -Path $log -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '  ' + $m) -Encoding UTF8 }")
-            .AppendLine("L ('Bắt đầu cập nhật từ ' + $src)")
-            .AppendLine("$deadline = (Get-Date).AddMinutes(15)")
-            .AppendLine("do {")
-            .AppendLine("  $busy = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($dst + '\\', [StringComparison]::OrdinalIgnoreCase) })")
-            .AppendLine("  if ($busy.Count -gt 0) { Start-Sleep -Seconds 1 }")
-            .AppendLine("} while ($busy.Count -gt 0 -and (Get-Date) -lt $deadline)")
-            .AppendLine("if ($busy.Count -gt 0) { L ('Hết giờ chờ — còn mở: ' + (($busy | ForEach-Object { $_.ProcessName }) -join ', ') + '. Không cập nhật.'); exit 1 }")
-            .AppendLine("robocopy $src $dst /E /XO /R:3 /W:2 /NP /NFL /NDL /NJH | Out-Null")
-            .AppendLine("$rc = $LASTEXITCODE")
-            // /XO giữ file ở máy mới hơn — riêng dấu phiên bản luôn chép đè, không thì lần sau vẫn báo "có bản mới".
-            .AppendLine($"if ($rc -lt 8) {{ Copy-Item -LiteralPath (Join-Path $src '{StampFileName}') -Destination $dst -Force -ErrorAction SilentlyContinue }}")
-            .AppendLine("if ($rc -ge 8) { L ('robocopy lỗi mã ' + $rc + ' — bản cũ vẫn giữ (có thể chép dở, chạy lại cập nhật).') } else { L ('Chép xong (robocopy ' + $rc + ').') }")
-            .AppendLine("Start-Process -FilePath $exe")
-            .ToString();
-        var ps1 = Path.Combine(Path.GetTempPath(), "bcode-update-" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".ps1");
-        File.WriteAllText(ps1, script, new UTF8Encoding(true));   // BOM: PowerShell 5.1 đọc đúng tiếng Việt
-        Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1}\"")
+        try
         {
-            UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetTempPath(),
+            if (!File.Exists(path)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var f in doc.RootElement.GetProperty("files").EnumerateArray())
+            {
+                var p = f.GetProperty("p").GetString(); var h = f.GetProperty("h").GetString();
+                if (string.IsNullOrEmpty(p) || string.IsNullOrEmpty(h)) continue;
+                var rel = p.Replace('/', '\\');
+                if (rel.Contains("..") || Path.IsPathRooted(rel) || IsMeta(rel) || IsExcluded(rel)) continue;   // không cho manifest trỏ ra ngoài thư mục Bcode
+                map[rel] = h.ToLowerInvariant();
+            }
+            return map;
+        }
+        catch { return null; }
+    }
+
+    private static string HashFile(string path)
+    {
+        using var s = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1 << 16, FileOptions.SequentialScan);
+        return Convert.ToHexString(SHA256.HashData(s)).ToLowerInvariant();
+    }
+
+    // ---------------------------------------------------------------- chuẩn bị (tải về staging)
+
+    /// <summary>Kế hoạch đã chuẩn bị sẵn cho đúng bản phát hành này (mở lại hộp Cập nhật không phải tải lại). null = chưa có / đã cũ.</summary>
+    public static UpdatePlan? LoadPlan(string releaseFolder, BuildStamp remote)
+    {
+        try
+        {
+            if (!File.Exists(PlanPath)) return null;
+            var plan = JsonSerializer.Deserialize<UpdatePlan>(File.ReadAllText(PlanPath));
+            if (plan is null || plan.RemoteBuiltUtc != remote.BuiltUtc) return null;
+            if (!string.Equals(plan.Target, Full(ExeDir), StringComparison.OrdinalIgnoreCase) || !string.Equals(plan.Source, Full(releaseFolder), StringComparison.OrdinalIgnoreCase)) return null;
+            return plan.Copy.Concat(plan.Modified).All(r => File.Exists(Path.Combine(Staging, r))) ? plan : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>So bản mới với thư mục Bcode, tải các file khác về staging (kiểm hash nếu có manifest). Chạy nền; huỷ được bằng <paramref name="ct"/>.</summary>
+    public static Task<UpdatePlan> PrepareAsync(string releaseFolder, BuildStamp remote, IProgress<UpdateProgress>? progress, CancellationToken ct)
+        => Task.Run(() => Prepare(releaseFolder, remote, progress, ct), ct);
+
+    private static UpdatePlan Prepare(string releaseFolder, BuildStamp remote, IProgress<UpdateProgress>? progress, CancellationToken ct)
+    {
+        var src = Full(releaseFolder);
+        var dst = Full(ExeDir);
+        var newMan = ReadManifest(Path.Combine(src, ManifestFileName));
+        var oldMan = ReadManifest(Path.Combine(dst, ManifestFileName));
+
+        // Danh sách file của bản mới: theo manifest; không có thì liệt kê thư mục (cỡ + giờ sửa lấy luôn từ danh sách — không hỏi mạng từng file)
+        List<(string Rel, string? Hash, FileInfo? Info)> files;
+        if (newMan is not null) files = newMan.Select(kv => (kv.Key, (string?)kv.Value, (FileInfo?)null)).ToList();
+        else
+        {
+            var root = new DirectoryInfo(src);
+            files = root.EnumerateFiles("*", SearchOption.AllDirectories)
+                .Select(f => (Rel: Path.GetRelativePath(src, f.FullName), Hash: (string?)null, Info: (FileInfo?)f))
+                .Where(x => !IsMeta(x.Rel) && !IsExcluded(x.Rel)).ToList();
+        }
+
+        if (Directory.Exists(Staging)) Directory.Delete(Staging, true);
+        Directory.CreateDirectory(Staging);
+
+        var last = Stopwatch.StartNew();
+        void Report(UpdateProgress p, bool force = false)
+        {
+            if (!force && last.ElapsedMilliseconds < 120) return;
+            last.Restart(); progress?.Report(p);
+        }
+
+        // 1) so với máy: file giống hệt thì bỏ qua; khác thì đánh dấu tải; khác bản cũ (người dùng tự sửa) thì đánh dấu "đã sửa"
+        var need = new List<(string Rel, string? Hash, bool Modified)>();
+        for (var i = 0; i < files.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var (rel, hash, info) = files[i];
+            Report(new UpdateProgress("scan", i, files.Count, 0, 0, rel));
+            var local = Path.Combine(dst, rel);
+            var exists = File.Exists(local);
+            if (hash is not null)
+            {
+                var lh = exists ? HashFile(local) : null;
+                if (lh == hash) continue;
+                var modified = exists && (oldMan is not null
+                    ? oldMan.TryGetValue(rel, out var oh) && oh != lh
+                    : File.GetLastWriteTimeUtc(local) > File.GetLastWriteTimeUtc(Path.Combine(src, rel)).AddSeconds(2));
+                need.Add((rel, hash, modified));
+            }
+            else
+            {
+                if (exists)
+                {
+                    var li = new FileInfo(local);
+                    if (li.Length == info!.Length && Math.Abs((li.LastWriteTimeUtc - info.LastWriteTimeUtc).TotalSeconds) <= 2) continue;
+                    need.Add((rel, null, li.LastWriteTimeUtc > info.LastWriteTimeUtc.AddSeconds(2)));   // như robocopy /XO cũ: file máy mới hơn = tự sửa
+                }
+                else need.Add((rel, null, false));
+            }
+        }
+
+        // 2) tải về staging
+        long total = 0;
+        var sizes = new long[need.Count];
+        for (var i = 0; i < need.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var fi = new FileInfo(Path.Combine(src, need[i].Rel));
+            if (!fi.Exists) throw new InvalidOperationException($"Bản phát hành thiếu file {need[i].Rel} — có thể đang được chép dở. Thử lại sau ít phút.");
+            sizes[i] = fi.Length; total += fi.Length;
+        }
+        long done = 0;
+        var plan = new UpdatePlan { Source = src, Target = dst, RemoteBuiltUtc = remote.BuiltUtc, FromLabel = Local.Label, ToLabel = remote.Label, Bytes = total, Verified = newMan is not null };
+        for (var i = 0; i < need.Count; i++)
+        {
+            var (rel, hash, modified) = need[i];
+            Report(new UpdateProgress("download", i, need.Count, done, total, rel), force: i == 0);
+            var from = Path.Combine(src, rel);
+            var to = Path.Combine(Staging, rel);
+            var before = done;
+            for (var attempt = 1; ; attempt++)
+            {
+                done = before;
+                var got = CopyWithHash(from, to, n => { done += n; Report(new UpdateProgress("download", i, need.Count, done, total, rel)); }, ct);
+                if (hash is null || got == hash) break;
+                if (attempt >= 2) throw new InvalidOperationException($"File {rel} tải về sai mã kiểm tra (SHA-256) — bản phát hành có thể đang được chép dở. Thử lại sau ít phút.");
+            }
+            (modified ? plan.Modified : plan.Copy).Add(rel);
+        }
+
+        // 3) file bản cũ có, bản mới bỏ — chỉ khi biết chắc (có cả 2 manifest) và máy chưa sửa file đó
+        if (newMan is not null && oldMan is not null)
+            foreach (var (rel, oh) in oldMan)
+            {
+                if (newMan.ContainsKey(rel)) continue;
+                var local = Path.Combine(dst, rel);
+                if (File.Exists(local) && HashFile(local) == oh) plan.Delete.Add(rel);
+            }
+
+        // 4) dấu phiên bản + manifest + changelog luôn chép đè (chép SAU CÙNG, rồi kiểm bản phát hành không đổi trong lúc tải)
+        foreach (var m in MetaFiles)
+        {
+            var from = Path.Combine(src, m);
+            if (!File.Exists(from)) continue;
+            File.Copy(from, Path.Combine(Staging, m), true);
+            plan.Copy.Add(m);
+        }
+        var again = Read(Path.Combine(Staging, StampFileName));
+        if (again is null || again.BuiltUtc != remote.BuiltUtc)
+            throw new InvalidOperationException("Bản phát hành vừa thay đổi trong lúc tải — bấm Thử lại để tải bản mới nhất.");
+
+        Report(new UpdateProgress("download", need.Count, need.Count, total, total, ""), force: true);
+        File.WriteAllText(PlanPath, JsonSerializer.Serialize(plan));
+        return plan;
+    }
+
+    private static string CopyWithHash(string from, string to, Action<long> onBytes, CancellationToken ct)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+        using var ih = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using (var i = new FileStream(from, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.SequentialScan))
+        using (var o = new FileStream(to, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 16))
+        {
+            var buf = new byte[1 << 16];
+            int n;
+            while ((n = i.Read(buf, 0, buf.Length)) > 0)
+            {
+                ct.ThrowIfCancellationRequested();
+                ih.AppendData(buf, 0, n);
+                o.Write(buf, 0, n);
+                onBytes(n);
+            }
+        }
+        File.SetLastWriteTimeUtc(to, File.GetLastWriteTimeUtc(from));   // giữ giờ sửa như bản phát hành (lần sau so cỡ + giờ vẫn khớp)
+        return Convert.ToHexString(ih.GetHashAndReset()).ToLowerInvariant();
+    }
+
+    // ---------------------------------------------------------------- bản trước / kết quả
+
+    public static BackupInfo? ReadBackup()
+    {
+        try
+        {
+            var path = Path.Combine(BackupDir, "backup.json");
+            if (!File.Exists(path)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var r = doc.RootElement;
+            string S(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+            if (!string.Equals(S("dst").TrimEnd('\\'), Full(ExeDir), StringComparison.OrdinalIgnoreCase)) return null;   // backup của bản Bcode ở thư mục khác
+            var added = r.TryGetProperty("added", out var a) && a.ValueKind == JsonValueKind.Array
+                ? a.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList() : new List<string>();
+            var at = DateTime.TryParse(S("at"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var d) ? d : File.GetLastWriteTime(path);
+            return new BackupInfo(S("from"), S("to"), at, added);
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Đọc kết quả lần cập nhật / quay lại vừa chạy rồi xoá (chỉ báo 1 lần).</summary>
+    public static UpdateResult? TakeResult()
+    {
+        try
+        {
+            if (!File.Exists(ResultPath)) return null;
+            using var doc = JsonDocument.Parse(File.ReadAllText(ResultPath));
+            var r = doc.RootElement;
+            string S(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+            var res = new UpdateResult(r.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True, S("mode"), S("from"), S("to"), S("message"));
+            File.Delete(ResultPath);
+            return res;
+        }
+        catch { try { File.Delete(ResultPath); } catch { } return null; }
+    }
+
+    // ---------------------------------------------------------------- cài / quay lại
+
+    /// <summary>Chạy script cài bản đã chuẩn bị (tiến trình riêng, ẩn) — gọi lúc Bcode ĐÃ đóng (MainForm.FormClosed).</summary>
+    /// <param name="overwriteModified">Chép đè cả file người dùng đã sửa ở máy (<see cref="UpdatePlan.Modified"/>).</param>
+    /// <param name="relaunch">Xong thì mở lại Bcode (cập nhật ngay) — false khi "cài lúc đóng Bcode".</param>
+    public static void StartApply(UpdatePlan plan, bool overwriteModified, bool relaunch)
+    {
+        var copy = overwriteModified ? plan.Copy.Concat(plan.Modified).ToList() : plan.Copy;
+        RunScript(new
+        {
+            mode = "update", src = Staging, dst = plan.Target, copy, delete = plan.Delete,
+            undo = BackupDir, cleanup = Staging, from = plan.FromLabel, to = plan.ToLabel, relaunch,
         });
     }
+
+    /// <summary>Quay lại bản trước: chép trả mọi file trong backup, xoá file lần cập nhật đó thêm vào.</summary>
+    public static void StartRollback(BackupInfo backup, bool relaunch = true)
+    {
+        var files = Path.Combine(BackupDir, "files");
+        var copy = Directory.Exists(files) ? Directory.EnumerateFiles(files, "*", SearchOption.AllDirectories).Select(f => Path.GetRelativePath(files, f)).ToList() : new List<string>();
+        RunScript(new
+        {
+            mode = "rollback", src = files, dst = Full(ExeDir), copy, delete = backup.Added,
+            undo = Path.Combine(UpdateRoot, "undo"), cleanup = BackupDir, from = Local.Label, to = backup.From, relaunch,
+        });
+    }
+
+    private static void RunScript(object job)
+    {
+        Directory.CreateDirectory(UpdateRoot);
+        Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+        try { File.Delete(ResultPath); } catch { }
+        var full = JsonSerializer.SerializeToElement(job);
+        var dict = full.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value);
+        dict["exe"] = Environment.ProcessPath ?? Path.Combine(ExeDir, "Bcode.exe");
+        dict["log"] = LogPath;
+        dict["result"] = ResultPath;
+        var jobPath = Path.Combine(UpdateRoot, "job.json");
+        var ps1 = Path.Combine(UpdateRoot, "apply.ps1");
+        File.WriteAllText(jobPath, JsonSerializer.Serialize(dict), new UTF8Encoding(false));
+        File.WriteAllText(ps1, ApplyScript, new UTF8Encoding(true));   // BOM: PowerShell 5.1 đọc đúng tiếng Việt
+        Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1}\" \"{jobPath}\"")
+        {
+            UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = UpdateRoot,
+        });
+    }
+
+    /// <summary>Script cài: chờ mọi tiến trình chạy từ thư mục Bcode thoát (tối đa 15 phút) → sao file sắp ghi đè / xoá vào thư mục undo → chép từ src →
+    /// lỗi bất kỳ thì chép trả bản cũ + xoá file mới thêm. Ghi result.json + update.log, dọn thư mục tạm, mở lại Bcode nếu cần.</summary>
+    private const string ApplyScript = """
+$ErrorActionPreference = 'Stop'
+$job = Get-Content -LiteralPath $args[0] -Raw -Encoding UTF8 | ConvertFrom-Json
+function L($m) { try { Add-Content -LiteralPath $job.log -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '  ' + $m) -Encoding UTF8 } catch {} }
+function Done($ok, $msg) {
+  $r = [ordered]@{ ok = $ok; mode = $job.mode; from = $job.from; to = $job.to; message = $msg; at = (Get-Date).ToString('o') }
+  try { ($r | ConvertTo-Json) | Set-Content -LiteralPath $job.result -Encoding UTF8 } catch {}
+}
+function CopyRetry($from, $to) {
+  $dir = Split-Path -Parent $to
+  if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+  for ($i = 1; ; $i++) {
+    try { Copy-Item -LiteralPath $from -Destination $to -Force; return }
+    catch { if ($i -ge 10) { throw }; Start-Sleep -Milliseconds 700 }
+  }
+}
+L ('Bắt đầu ' + $job.mode + ': ' + $job.from + ' -> ' + $job.to + ' (' + @($job.copy).Count + ' file chép, ' + @($job.delete).Count + ' file xoá)')
+
+$deadline = (Get-Date).AddMinutes(15)
+do {
+  $busy = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($job.dst + '\', [StringComparison]::OrdinalIgnoreCase) })
+  if ($busy.Count -gt 0) { Start-Sleep -Seconds 1 }
+} while ($busy.Count -gt 0 -and (Get-Date) -lt $deadline)
+if ($busy.Count -gt 0) {
+  $m = 'Hết 15 phút chờ — còn mở: ' + (($busy | ForEach-Object { $_.ProcessName } | Select-Object -Unique) -join ', ') + '. Chưa cài gì, bản cũ giữ nguyên.'
+  L $m; Done $false $m; exit 1
+}
+
+$undo = $job.undo
+$saved = New-Object System.Collections.Generic.List[string]
+$added = New-Object System.Collections.Generic.List[string]
+try {
+  if (Test-Path -LiteralPath $undo) { Remove-Item -LiteralPath $undo -Recurse -Force }
+  New-Item -ItemType Directory -Path (Join-Path $undo 'files') -Force | Out-Null
+  foreach ($rel in @($job.copy)) {
+    $d = Join-Path $job.dst $rel
+    if (Test-Path -LiteralPath $d) { CopyRetry $d (Join-Path (Join-Path $undo 'files') $rel); $saved.Add($rel) } else { $added.Add($rel) }
+    CopyRetry (Join-Path $job.src $rel) $d
+  }
+  foreach ($rel in @($job.delete)) {
+    $d = Join-Path $job.dst $rel
+    if (Test-Path -LiteralPath $d) { CopyRetry $d (Join-Path (Join-Path $undo 'files') $rel); $saved.Add($rel); Remove-Item -LiteralPath $d -Force }
+  }
+  $info = [ordered]@{ from = $job.from; to = $job.to; dst = $job.dst; at = (Get-Date).ToString('o'); added = @($added) }
+  ($info | ConvertTo-Json -Depth 3) | Set-Content -LiteralPath (Join-Path $undo 'backup.json') -Encoding UTF8
+  L ('Xong: ' + $job.to)
+  Done $true ''
+  try { Remove-Item -LiteralPath $job.cleanup -Recurse -Force } catch {}
+  if ($job.mode -ne 'update') { try { Remove-Item -LiteralPath $undo -Recurse -Force } catch {} }
+} catch {
+  $err = $_.Exception.Message
+  L ('Lỗi: ' + $err + ' — chép trả bản cũ...')
+  foreach ($rel in $saved) { try { CopyRetry (Join-Path (Join-Path $undo 'files') $rel) (Join-Path $job.dst $rel) } catch { L ('  không khôi phục được ' + $rel) } }
+  foreach ($rel in $added) { try { Remove-Item -LiteralPath (Join-Path $job.dst $rel) -Force -ErrorAction SilentlyContinue } catch {} }
+  try { Remove-Item -LiteralPath $undo -Recurse -Force } catch {}
+  Done $false $err
+}
+if ($job.relaunch) { Start-Process -FilePath $job.exe }
+""";
 }

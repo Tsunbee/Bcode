@@ -286,6 +286,7 @@ public class RawSqlService
                 await using var cmd = new SqlCommand(batch, conn) { CommandTimeout = 120 };
                 // Cancel: gửi tín hiệu "attention" cho SQL Server dừng lệnh đang chạy (đúng việc nút Cancel của SSMS làm) — lệnh đang chờ / đang đọc kết quả sẽ ném SqlException.
                 await using var cancelReg = ct.Register(() => { try { cmd.Cancel(); } catch { /* lệnh vừa xong */ } });
+                var startDb = conn.Database;   // ResultSourceKeys: database để dịch lại batch khi Generate Design Fields
                 await using var reader = await cmd.ExecuteReaderAsync();
 
                 // A single batch can produce more than one result set — most commonly an EXEC
@@ -349,6 +350,8 @@ public class RawSqlService
                 // reliable once the reader has been fully drained (the loop above just did
                 // that) — -1 means "not applicable" (e.g. a batch that was pure SELECT(s)).
                 var rowsAffected = Math.Max(0, reader.RecordsAffected);
+                // Batch ra đúng 1 bảng: gắn câu SQL để "Generate Design Fields" tìm khoá chính bảng nguồn (isPrimaryKey) khi được bấm.
+                if (tables.Count == 1) ResultSourceKeys.Tag(tables[0], batch, conn, startDb);
                 results.Add(new BatchResult(batch, tables, rowsAffected, null, JoinMessages(pending), batchWatch.ElapsedMilliseconds));
             }
                 catch (Exception) when (ct.IsCancellationRequested)

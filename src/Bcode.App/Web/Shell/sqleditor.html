@@ -448,10 +448,41 @@
                 wordPattern: FCODE_WORD_PATTERN,
                 comments: { lineComment: '--', blockComment: ['/*', '*/'] },
                 brackets: [['{', '}'], ['[', ']'], ['(', ')']],
-                autoClosingPairs: [{ open: '{', close: '}' }, { open: '[', close: ']' }, { open: '(', close: ')' }, { open: '"', close: '"' }, { open: "'", close: "'" }],
+                autoClosingPairs: sqlAutoClosingPairs(),
                 surroundingPairs: [{ open: '{', close: '}' }, { open: '[', close: ']' }, { open: '(', close: ')' }, { open: '"', close: '"' }, { open: "'", close: "'" }]
             });
         }
+
+        // Gõ ' có tự chèn ' đóng không: Options… → "Gõ ' tự chèn ' đóng" (AppSettings.SqlAutoCloseSingleQuote, mặc định TẮT
+        // — giống BcodeViewer); C# đẩy xuống qua window.setAutoCloseSingleQuote (RawSqlControl.PushCopilotAuto). ( ) [ ] { } " luôn
+        // tự đóng; bôi đen rồi gõ ' vẫn bọc 2 đầu (surroundingPairs). Bẫy: Monaco chỉ đăng ký cấu hình gốc của 'sql' (có cặp ')
+        // khi LẦN ĐẦU có model sql (onLanguageEncountered — colorize không tính), có thể SAU installFcodeSql → gốc thắng. Nên đợi
+        // lúc đó (module nạp xong + 1 macrotask) rồi đăng ký lại riêng autoClosingPairs — các trường khác giữ như trước.
+        var _sqlQuoteAutoClose = false;
+        var _sqlQuoteConf = null;
+        function sqlAutoClosingPairs() {
+            var pairs = [{ open: '{', close: '}' }, { open: '[', close: ']' }, { open: '(', close: ')' }, { open: '"', close: '"' }];
+            if (_sqlQuoteAutoClose) pairs.push({ open: "'", close: "'" });
+            return pairs;
+        }
+        function applySqlAutoClosing() {
+            if (_sqlQuoteConf) { try { _sqlQuoteConf.dispose(); } catch (e) { } }
+            _sqlQuoteConf = monaco.languages.setLanguageConfiguration('sql', { autoClosingPairs: sqlAutoClosingPairs() });
+        }
+        function hookSqlAutoClosing() {
+            if (!monaco.languages.onLanguageEncountered) return;
+            monaco.languages.onLanguageEncountered('sql', function () {
+                require(['vs/basic-languages/sql/sql'], function () {
+                    setTimeout(applySqlAutoClosing, 0);
+                }, function () { });
+            });
+        }
+        window.setAutoCloseSingleQuote = function (on) {
+            on = !!on;
+            if (on === _sqlQuoteAutoClose && _sqlQuoteConf) return;
+            _sqlQuoteAutoClose = on;
+            if (window.monaco && monaco.languages) applySqlAutoClosing();
+        };
 
         // GO (dòng chỉ có chữ GO) — FCode tô chữ trắng nền đỏ; màu nền không đặt được bằng token nên dùng decoration.
         var _goDecorations = null;
@@ -485,6 +516,7 @@
             monaco.editor.defineTheme('fcode-sql', { base: 'vs-dark', inherit: true, rules: fcodeSqlRules(true), colors: fcodeSqlColors(true) });
             // Chờ bộ 'sql' có sẵn của Monaco nạp xong rồi mới đè, để nó không nạp sau và ghi đè ngược lại.
             monaco.editor.colorize('', 'sql', {}).then(installFcodeSql, installFcodeSql);
+            try { hookSqlAutoClosing(); } catch (e) { /* chỉ mất phần tắt tự đóng ' */ }
 
             editor = monaco.editor.create(document.getElementById('editor-container'), {
                 value: '',

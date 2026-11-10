@@ -162,8 +162,9 @@ public class MultiResultView : UserControl
         else SynchronizationContext.Current?.Post(_ => run(), null);
     }
 
-    /// <summary>Menu chuột phải "Generate Design Fields": {cols: [{n, t}]} (tên + khoá kiểu của trang — dùng được cả sau Restore) →
-    /// sinh khối &lt;fields&gt;/&lt;views&gt; như FCode (<see cref="Services.DesignFieldsGenerator"/>) và gửi lại trang {type: "designFields", text}.</summary>
+    /// <summary>Menu chuột phải "Generate Design Fields": {table, cols: [{n, t}]} (tên + khoá kiểu của trang — dùng được cả sau Restore) →
+    /// sinh khối &lt;fields&gt;/&lt;views&gt; như FCode (<see cref="Services.DesignFieldsGenerator"/>) và gửi lại trang {type: "designFields", text}.
+    /// Còn DataTable gốc (chưa ngủ đông) thì tra thêm khoá chính bảng nguồn (<see cref="Services.ResultSourceKeys"/>) → isPrimaryKey.</summary>
     private void DesignFields(JsonElement root)
     {
         if (!root.TryGetProperty("cols", out var cs) || cs.ValueKind != JsonValueKind.Array) return;
@@ -175,7 +176,16 @@ public class MultiResultView : UserControl
             cols.Add((name, Services.DesignFieldsGenerator.KindOf(key)));
         }
         if (cols.Count == 0) return;
-        var text = Services.DesignFieldsGenerator.Generate(cols);
+        var index = root.TryGetProperty("table", out var ti) && ti.TryGetInt32(out var tn) ? tn : -1;
+        var table = _tables is { } ts && index >= 0 && index < ts.Count && ts[index].Columns.Count == cols.Count ? ts[index] : null;
+        _ = DesignFieldsAsync(cols, table);   // root thuộc JsonDocument của tin nhắn — đã đọc xong cols trước khi chờ
+    }
+
+    private async Task DesignFieldsAsync(List<(string, Services.DesignFieldsGenerator.Kind)> cols, DataTable? table)
+    {
+        var keys = table is null ? null : await Services.ResultSourceKeys.PrimaryKeyColumnsAsync(table);
+        if (IsDisposed) return;
+        var text = Services.DesignFieldsGenerator.Generate(cols, keys);
         _web.PostJson(JsonSerializer.Serialize(new { type = "designFields", text }));
     }
 

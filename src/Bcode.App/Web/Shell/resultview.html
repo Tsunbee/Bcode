@@ -613,7 +613,7 @@
   }
 
   // Như FCode: C# (DesignFieldsGenerator) sinh <fields> + <views> cho file Grid từ tên + kiểu cột (header v/e tra header.xml), gửi lại {type:'designFields'}.
-  function designFields(t) { post('designFields', { cols: t.cols.map((c) => ({ n: c.n, t: c.t })) }); }
+  function designFields(t) { post('designFields', { table: t.idx, cols: t.cols.map((c) => ({ n: c.n, t: c.t })) }); }   // table: C# tra khoá chính bảng nguồn (isPrimaryKey)
   function showDesignFields(text) {
     copyText(text, 'Đã copy Design Fields.');
     dialog('Generate Design Fields In Grid', '<pre>' + esc(text) + '</pre><div style="color:var(--text-muted)">Đã copy vào clipboard.</div>', [{ label: 'Đóng', primary: true }]);

@@ -888,7 +888,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     private void PushCopilotAuto()
     {
         if (!EdAlive) return;
-        _ = EdExec($"window.setCopilotAuto && window.setCopilotAuto({(_settings.EnableCopilotSuggest ? "true" : "false")}); window.fastGhost = {(_settings.EnableFastGhost ? "true" : "false")};");
+        _ = EdExec($"window.setCopilotAuto && window.setCopilotAuto({(_settings.EnableCopilotSuggest ? "true" : "false")}); window.fastGhost = {(_settings.EnableFastGhost ? "true" : "false")}; window.setAutoCloseSingleQuote && window.setAutoCloseSingleQuote({(_settings.SqlAutoCloseSingleQuote ? "true" : "false")});");
     }
 
     private bool UseClaudeEngine =>
@@ -1281,6 +1281,11 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _settings.SyncEditorFlagsFromDisk();
         return new WebMenu()
         .Add("Word Wrap", () => _scriptBoxWordWrapToggle(!_wordWrap), @checked: _wordWrap)
+        .Add("Gõ ' tự chèn thêm ' đóng", () =>
+        {
+            _settings.SqlAutoCloseSingleQuote = AppSettings.Update(s => s.SqlAutoCloseSingleQuote = !s.SqlAutoCloseSingleQuote).SqlAutoCloseSingleQuote;
+            PushCopilotAuto();
+        }, @checked: _settings.SqlAutoCloseSingleQuote)
         .AddCaption("Copilot / AI")
         .Add("Cấu hình Gemini API Key...", () =>
         {

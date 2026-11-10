@@ -285,6 +285,7 @@ public class EditorBridge
         autoFitMinFont = _settings.AutoFitMinFont,
         lightMode = _settings.LightMode,
         wordWrap = _settings.WordWrap,
+        autoCloseSingleQuote = _settings.AutoCloseSingleQuote,
         aiSidebarPosition = _settings.AiSidebarPosition,
         f5ReuseTab = _settings.F5ReuseTab,
         f5Browser = _settings.F5Browser,
@@ -334,6 +335,7 @@ public class EditorBridge
             _settings.AutoFitFont = B("autoFitFont");
             _settings.LightMode = S("lightMode") is "on" or "off" ? S("lightMode") : "auto";
             _settings.WordWrap = B("wordWrap");
+            if (r.TryGetProperty("autoCloseSingleQuote", out _)) _settings.AutoCloseSingleQuote = B("autoCloseSingleQuote");
             if (r.TryGetProperty("f5ReuseTab", out _)) _settings.F5ReuseTab = B("f5ReuseTab");
             if (r.TryGetProperty("f5Browser", out _)) _settings.F5Browser = S("f5Browser") is "chrome" or "edge" or "bcode" ? S("f5Browser") : "default";
             if (r.TryGetProperty("autoClearReadOnly", out _)) _settings.AutoClearReadOnly = B("autoClearReadOnly");
@@ -1417,6 +1419,7 @@ public class EditorBridge
         autoFitMinFont = _settings.AutoFitMinFont,
         lightMode = _settings.LightMode,
         wordWrap = _settings.WordWrap,
+        autoCloseSingleQuote = _settings.AutoCloseSingleQuote,
         sqlRegionTags = (_settings.SqlRegionTags ?? "")
             .Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(t => t.Trim('<', '>', '/'))

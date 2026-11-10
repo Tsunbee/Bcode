@@ -932,7 +932,7 @@ class BcodeEditor {
   static get BASE_FONT() { return 15; }
 
   initViewConfig() {
-    this.viewConfig = { showMinimap: true, autoFitFont: true, autoFitMinFont: 9, lightMode: 'auto', wordWrap: false };
+    this.viewConfig = { showMinimap: true, autoFitFont: true, autoFitMinFont: 9, lightMode: 'auto', wordWrap: false, autoCloseSingleQuote: false };
     // Editor tạo sau (khung tách đôi, cửa sổ peek...) cũng theo chế độ nhẹ.
     if (!this._liteHooked && monaco.editor.onDidCreateEditor) { this._liteHooked = true; monaco.editor.onDidCreateEditor((ed) => this.applyLiteTo(ed)); }
     // held(): ngay sau khi đổi tab (activateDoc đặt _fitHoldUntil) — layout / cuộn lúc đó là do đổi model gây ra, không phải người dùng → giữ cỡ chữ.
@@ -954,11 +954,14 @@ class BcodeEditor {
         autoFitMinFont: Math.min(14, Math.max(6, c.autoFitMinFont || 9)),
         lightMode: c.lightMode === 'on' || c.lightMode === 'off' ? c.lightMode : 'auto',
         wordWrap: c.wordWrap === true,
+        autoCloseSingleQuote: c.autoCloseSingleQuote === true,
       };
     } catch { /* host cũ chưa có các cờ này — giữ mặc định */ }
     const liteBefore = this._viewConfigLoaded ? !!window.bcodeLiteActive : null;
     this.applyLiteMode();   // gồm cả minimap theo showMinimap + chế độ nhẹ
     this.applyWordWrap();
+    // Gõ ' có tự chèn ' đóng không (mặc định không) — đổi cấu hình ngôn ngữ dùng chung, xem fcode-language.js setSingleQuoteAutoClose.
+    if (window.setSingleQuoteAutoClose) window.setSingleQuoteAutoClose(this.viewConfig.autoCloseSingleQuote === true);
     this.autoFitFont();
     // Lần đọc cấu hình đầu (lúc mở trang) không báo; các lần sau (vd bấm OK trong Settings) mà trạng thái chế độ nhẹ ĐỔI thì báo, vì hiệu ứng khó thấy ngay
     // (theme Fcode vốn đã tắt đường gióng thụt lề; minimap có thể đã tắt sẵn; các tô phụ chỉ hiện khi bấm vào từ / đặt con trỏ cạnh ngoặc).

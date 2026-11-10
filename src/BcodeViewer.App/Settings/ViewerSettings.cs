@@ -165,6 +165,10 @@ public class ViewerSettings
     /// <summary>Tự ngắt dòng dài theo bề ngang khung editor (Wrap) thay vì cuộn ngang / tự thu nhỏ cỡ chữ. Bật thì tự thu nhỏ cỡ chữ không còn tác dụng.</summary>
     public bool WordWrap { get; set; } = false;
 
+    /// <summary>Gõ dấu nháy đơn ' thì editor tự chèn thêm ' đóng (kiểu Monaco gốc). Mặc định tắt: gõ ' chỉ ra một dấu.
+    /// Ngoặc ( ) [ ] { } và nháy kép " vẫn tự đóng như cũ. Xem Web/fcode-language.js setSingleQuoteAutoClose.</summary>
+    public bool AutoCloseSingleQuote { get; set; } = false;
+
     /// <summary>Id of the active theme (see <see cref="UI.ThemeCatalog"/>). An unknown id —
     /// a settings file written by a newer build, or hand-edited — falls back to Dark+ rather
     /// than failing to start.</summary>

@@ -182,6 +182,7 @@ class BcodeSettingsDialog {
     const autoFit = row('', check('Tự thu nhỏ cỡ chữ khi khung editor bị hẹp (vd kéo rộng khung Claude / Gemini) để thấy đủ code', s.autoFitFont !== false));
     const minFont = row('Cỡ chữ nhỏ nhất:', input(String(s.autoFitMinFont || 9)));
     const wrap = row('', check('Tự ngắt dòng dài theo bề ngang khung (Wrap) — không cần cuộn ngang; nhẹ hơn "Tự thu nhỏ cỡ chữ" (khi bật Wrap, tự thu nhỏ cỡ chữ không còn tác dụng)', s.wordWrap === true));
+    const quoteClose = row('', check("Gõ dấu nháy đơn ' thì tự chèn thêm dấu ' đóng (mặc định tắt: gõ ' chỉ ra một dấu; ngoặc ( ) [ ] { } và nháy kép \" vẫn tự đóng)", s.autoCloseSingleQuote === true));
     const lite = row('Chế độ nhẹ (máy yếu):', select([['auto', 'Tự động — bật khi máy ≤ 4 luồng CPU hoặc ≤ 4 GB RAM'], ['on', 'Bật'], ['off', 'Tắt']], ['on', 'off'].includes(s.lightMode) ? s.lightMode : 'auto'));
     note('Chế độ nhẹ tắt: tô màu cặp ngoặc theo cấp, tô các từ trùng với từ đang chọn, tô ngoặc tương ứng và đường gióng thụt lề — giúp gõ và di con trỏ mượt hơn trên máy yếu (đo được nhanh hơn khoảng 20–25%). Minimap chỉ bị tắt khi chọn "Bật" chế độ nhẹ thủ công — ở "Tự động" nó theo ô tick phía trên. "Tự thu nhỏ cỡ chữ" ở trên là tuỳ chọn riêng. Đổi nhanh bằng phím tắt (Settings → Phím tắt: "Bật/tắt Chế độ nhẹ", "Bật/tắt tự co chữ").');
     note('Chữ lớn nhất là 15. Khi khung hẹp lại, cỡ chữ giảm dần cho tới mức này để các dòng đang hiện vẫn vừa khung; khung rộng ra thì chữ tự lớn lại.');
@@ -725,7 +726,7 @@ class BcodeSettingsDialog {
         fcodeConfigXmlPath: fcodeConfig.value, fcodeSqlPassword: fcodePassword.value,
         sqlRegionTags: regionTags.value, editorFontFamily: font.value, fcodeThemeStyle: fcodeStyle.value,
         matchHighlightColor: mhMode.value === 'theme' ? 'theme' : (mhMode.value === 'custom' ? mhColor.value : ''),
-        showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked,
+        showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked, autoCloseSingleQuote: quoteClose.box.checked,
         f5ReuseTab: f5Reuse.box.checked, f5Browser: f5Browser.value,
         autoClearReadOnly: autoClearRo.box.checked,
         autoViewOnFieldDeclare: autoView.box.checked,

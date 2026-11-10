@@ -416,6 +416,8 @@ async function registerFcodeLanguage() {
     monaco.languages.setLanguageConfiguration(FCODE_CDATA_LANGUAGE_ID, embeddedCodeConf);
     monaco.languages.setLanguageConfiguration(FCODE_ENTITY_LANGUAGE_ID, embeddedCodeConf);
     fcodeLanguagesRegistered = true;
+    try { hookSingleQuoteLanguages(); } catch { /* chỉ mất tuỳ chọn tắt tự đóng ' của sql/js/css/xml/html */ }
+    rebuildSingleQuoteOverrides();   // mặc định tắt tự đóng ' — áp ngay cho FCode XML, trước cả khi editor.js đọc cấu hình
     applyFcodeTokenizers();
     return true;
   } catch (e) {
@@ -443,6 +445,61 @@ function detectFcodeVariantLanguage(content) {
   return FCODE_LANGUAGE_ID;
 }
 
+// ---- Tự đóng dấu nháy đơn ' (Settings → Giao diện → "Tự chèn dấu ' đóng", ViewerSettings.AutoCloseSingleQuote, mặc định TẮT) ----
+// Monaco không có tuỳ chọn editor riêng cho nháy đơn (autoClosingQuotes tắt cả " lẫn '), nên khi tắt thì đăng ký thêm một cấu hình
+// ngôn ngữ CHỈ có autoClosingPairs đã bỏ cặp ' — Monaco gộp các cấu hình theo từng trường, cái đăng ký sau thắng — cho các ngôn ngữ
+// có cặp ' (FCode XML + biến thể, sql/javascript/css nhúng hoặc mở file riêng, xml/html thường). Bật lại = huỷ các cấu hình đè đó.
+// Bẫy: ngôn ngữ có sẵn của Monaco (sql, javascript...) chỉ đăng ký cấu hình gốc khi LẦN ĐẦU có model của ngôn ngữ đó
+// (onLanguageEncountered — colorize không tính), tức là có thể SAU cấu hình đè → gốc thắng lại. Nên nghe onLanguageEncountered
+// (đặt trong registerFcodeLanguage, trước khi có model nào), chờ cấu hình gốc đăng ký xong rồi đăng ký lại các cấu hình đè.
+// Chỉ đụng autoClosingPairs: ( ) [ ] { } " vẫn tự đóng; bôi đen rồi gõ ' vẫn bọc 2 đầu (surroundingPairs giữ nguyên).
+const QUOTE_BASIC_LANGUAGES = ['sql', 'javascript', 'css', 'xml', 'html'];
+const basicQuoteConfs = new Map();   // ngôn ngữ có sẵn đã đăng ký cấu hình gốc → conf gốc của nó
+let singleQuoteOverrides = [];
+let singleQuoteAutoCloseOn = false;   // theo ViewerSettings.AutoCloseSingleQuote (mặc định tắt) — editor.js gọi setSingleQuoteAutoClose khi đọc cấu hình
+
+const isSingleQuotePair = (p) => (Array.isArray(p) ? p[0] : p && p.open) === "'";
+
+function loadBasicLanguageConf(id) {
+  return new Promise((resolve) => {
+    try { window.require([`vs/basic-languages/${id}/${id}`], (m) => resolve(m && m.conf), () => resolve(null)); } catch { resolve(null); }
+  });
+}
+
+/// Huỷ hết cấu hình đè rồi (nếu đang tắt tự đóng ') đăng ký lại — luôn đứng SAU mọi cấu hình gốc đã có.
+function rebuildSingleQuoteOverrides() {
+  for (const d of singleQuoteOverrides) { try { d.dispose(); } catch { /* đã huỷ */ } }
+  singleQuoteOverrides = [];
+  if (singleQuoteAutoCloseOn || !window.monaco || !monaco.languages) return;
+  const override = (id, pairs) => {
+    if (!pairs || !pairs.some(isSingleQuotePair)) return;
+    singleQuoteOverrides.push(monaco.languages.setLanguageConfiguration(id, { autoClosingPairs: pairs.filter((p) => !isSingleQuotePair(p)) }));
+  };
+  if (fcodeLanguagesRegistered) for (const [id] of FCODE_VARIANTS) override(id, FCODE_LANGUAGE_CONF.autoClosingPairs);
+  for (const [id, conf] of basicQuoteConfs) override(id, conf && conf.autoClosingPairs);
+}
+
+/// Gọi 1 lần lúc đăng ký ngôn ngữ FCode (trước khi tạo model nào).
+function hookSingleQuoteLanguages() {
+  if (!monaco.languages.onLanguageEncountered) return;
+  for (const id of QUOTE_BASIC_LANGUAGES) {
+    monaco.languages.onLanguageEncountered(id, async () => {
+      const conf = await loadBasicLanguageConf(id);
+      // Monaco đăng ký conf gốc trong continuation của cùng lần nạp module — đợi qua 1 macrotask cho chắc nó đã chạy.
+      await new Promise((r) => setTimeout(r, 0));
+      basicQuoteConfs.set(id, conf);
+      rebuildSingleQuoteOverrides();
+    });
+  }
+}
+
+/// Gọi từ editor.js (applyViewConfig) mỗi lần đọc cấu hình (lúc mở trang, sau khi lưu Settings).
+function setSingleQuoteAutoClose(on) {
+  singleQuoteAutoCloseOn = !!on;
+  try { rebuildSingleQuoteOverrides(); } catch { /* lỗi chỉ làm mất tuỳ chọn này */ }
+}
+
+window.setSingleQuoteAutoClose = setSingleQuoteAutoClose;
 window.FCODE_LANGUAGE_ID = FCODE_LANGUAGE_ID;
 window.FCODE_JS_LANGUAGE_ID = FCODE_JS_LANGUAGE_ID;
 window.FCODE_SQL_LANGUAGE_ID = FCODE_SQL_LANGUAGE_ID;

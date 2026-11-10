@@ -431,7 +431,7 @@ public static class ResultGridMenu
         // Buộc grid vẽ lại phần Header
         grid.Invalidate();
     }
-    private static void GenerateDesignFields(DataGridView grid)
+    private static async void GenerateDesignFields(DataGridView grid)
     {
         if (GetTable(grid) is not { } table)
         {
@@ -440,7 +440,10 @@ public static class ResultGridMenu
         }
 
         // Như FCode: khối <fields> + <views><view id="Grid"> cho file Grid (Services.DesignFieldsGenerator), hiện trong hộp xem chữ; copy sẵn vào clipboard.
-        var script = Services.DesignFieldsGenerator.Generate(table);
+        // Thêm: truy vấn 1 bảng → cột khoá chính của bảng nguồn có isPrimaryKey="true" (Services.ResultSourceKeys; không xác định được thì như cũ).
+        var keys = await Services.ResultSourceKeys.PrimaryKeyColumnsAsync(table);
+        if (grid.IsDisposed) return;
+        var script = Services.DesignFieldsGenerator.Generate(table, keys);
         try { Clipboard.SetText(script); } catch { /* clipboard đang bị chương trình khác giữ */ }
         ShowDesignFieldsText(Owner(grid), script);
     }

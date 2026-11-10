@@ -225,7 +225,7 @@ Mở: nút **SQL Query** (`Ctrl+Shift+Q`). Mỗi lần mở là một tab mới.
 Trên ảnh: **①** ▶ Execute (`F5` / `Ctrl+Enter`) · **②** chọn database App / Sys · **③** ✨ Beauty (`F7`) · **④** nhóm 🐞 Debug · **⑤** nhóm ✎ Script (có Write Schema) · **⑥** nhóm 🕘 Lịch sử · **⑦** nhóm ⚙ Tùy chọn · **⑧** tab Grid Result / Message · **⑨** Xếp chồng / Từng tab.
 
 1. Chọn database ở ô **App Data / Sys Data** trên thanh của tab (hoặc ô WS trên thanh trên). Tab SQL Query mới mở lấy sẵn database đang chọn ở ô WS (đang ở Sys thì tab mới là Sys Data). `Ctrl+2` đảo nhanh App ↔ Sys của riêng tab đang mở (đang ở editor, lưới kết quả hay thanh nút đều được), database trên thanh trên giữ nguyên; `Ctrl+1` thì đổi cả thanh trên lẫn tab.
-2. Gõ / dán script (kéo thả file .sql vào editor cũng được — chế độ Web; file ≥ 50 MB bị từ chối).
+2. Gõ / dán script (kéo thả file .sql vào editor cũng được — chế độ Web; file ≥ 50 MB bị từ chối). Mặc định gõ `'` chỉ ra một dấu (không tự chèn `'` đóng); muốn tự chèn như trước thì tick **Options… → Gõ ' tự chèn thêm ' đóng** (nhớ cho mọi tab, chế độ Web). Ngoặc `( ) [ ] { }` và `"` luôn tự đóng; bôi đen rồi gõ `'` vẫn bọc hai đầu.
 3. `F5` hoặc `Ctrl+Enter` (nút **▶ Execute**): chạy **đoạn đang bôi đen**, không bôi đen thì chạy cả script. Script nhiều batch tách bằng `GO`.
 4. Đang chạy: nút thành **■ Cancel** (hoặc `Alt+F5`) để dừng.
 5. Dòng trạng thái báo số batch, số dòng kết quả, số dòng bị ảnh hưởng, thời gian. Có lỗi → tab **Message** tự mở, bấm dòng "dòng N" để nhảy tới dòng lỗi trong editor.
@@ -250,6 +250,7 @@ Trên ảnh: **①** ▶ Execute (`F5` / `Ctrl+Enter`) · **②** chọn databas
   - Cột ngày → `type="DateTime" dataFormatString="@datetimeFormat"`; cột bit → `type="Boolean"` rộng 60; chữ ten_*/dien_giai/ghi_chu/note rộng 250; chữ ma_* → `@upperCaseFormat`; còn lại rộng 100.
   - so_ct/trang_thai/status → `align="right"` rộng 60; stt/dvt/ty_le rộng 60; stt_rec, sysorder, systotal, sysprint → `hidden="true"`; so_ct khi bảng có cả stt_rec và ma_ct → link mở chứng từ.
   - Tiêu đề `header v/e` lấy từ từ điển field Fast (header.xml); cột không có trong từ điển để `???`.
+  - Cột là **khoá chính** của bảng nguồn có thêm `isPrimaryKey="true"` ngay sau `name` (đúng thứ tự file Grid của Fast); khoá nhiều cột thì đánh dấu đủ các cột có trong kết quả. Chỉ áp dụng khi kết quả lấy từ **1 bảng** và lần chạy (batch, giữa 2 dòng `GO`) ra đúng 1 bảng kết quả — vd `select * from dmku`. Join nhiều bảng, view, bảng #temp, nhiều SELECT trong cùng batch, EXEC procedure, kết quả khôi phục từ lần mở trước → sinh như cũ (không đánh dấu). Server SQL 2008 chỉ nhận ra với câu SELECT đơn (không có DECLARE/SET…). Bcode chỉ đọc cấu trúc câu lệnh (không chạy lại).
 - Chuột phải ô → nhóm **Lưu ra file** (cả chế độ Web lẫn App, cả tab "Command Result" khi bật Result Tab):
   - **Xuất nhanh ra Excel (mở luôn)** (`Ctrl+E` khi con trỏ ở lưới kết quả): không hỏi nơi lưu — ghi file .xlsx vào thư mục tạm `%TEMP%\Bcode\Export` rồi mở ngay bằng Excel (file trong đó cũ hơn 7 ngày tự dọn; muốn giữ thì trong Excel bấm Save As).
   - **Save as Excel (.xlsx)…** · **Save as CSV…** (hỏi nơi lưu, chưa gán phím) — lưu **toàn bộ dòng** của bảng đang chuột phải, kể cả phần lưới không hiện hết (bảng rất lớn). Thứ tự và tên cột giữ như câu SELECT.
@@ -278,7 +279,7 @@ Mặc định ghim **▶ Execute**, ô database, **✨ Beauty**; còn lại gom 
 | 🕘 Lịch sử | 💾 Lưu lịch sử · Lịch sử sửa procedure / function |
 | 🤖 AI | → Claude · → Gemini (gửi script sang tab AI) |
 | 📂 File | Open · Save (file .sql) |
-| ⚙ Tùy chọn | Suggest Param/Caret · Reset Connection · Result Tab · Wrap · Options… |
+| ⚙ Tùy chọn | Suggest Param/Caret · Reset Connection · Result Tab · Wrap · Options… (Word Wrap, Gõ ' tự chèn thêm ' đóng, Copilot / AI, cỡ chữ) |
 
 Chuột phải lên thanh → "Tùy chỉnh thanh SQL Query": kéo nút giữa Ghim / nhóm / Ẩn (áp cho mọi tab SQL). Toggle khác mặc định hiện thành chip trên thanh, vd **⚠ Giữ kết nối** khi tắt Reset Connection (kết nối được giữ giữa các lần chạy — transaction và bảng `#temp` còn nguyên).
 
@@ -1619,7 +1620,7 @@ Mở: **File → Settings…** (hoặc **File → Phím tắt…** để vào th
 
 | Trang | Nội dung chính |
 |---|---|
-| **Giao diện** | Phông chữ editor · Kiểu theme Fcode (.xml) · **Đánh dấu từ trùng** — double-click (hoặc đứng con trỏ trên) một tên thì mọi chỗ cùng tên được tô nền + viền và có vạch trên thanh cuộn: Đậm vàng cam (mặc định) / Đậm màu tự chọn / Nhạt theo theme · minimap · tự thu nhỏ cỡ chữ khi khung hẹp (cỡ nhỏ nhất) · Wrap · **Chế độ nhẹ (máy yếu)** Tự động / Bật / Tắt · vị trí khung Claude / Gemini (phải / dưới / trên) |
+| **Giao diện** | Phông chữ editor · Kiểu theme Fcode (.xml) · **Đánh dấu từ trùng** — double-click (hoặc đứng con trỏ trên) một tên thì mọi chỗ cùng tên được tô nền + viền và có vạch trên thanh cuộn: Đậm vàng cam (mặc định) / Đậm màu tự chọn / Nhạt theo theme · minimap · tự thu nhỏ cỡ chữ khi khung hẹp (cỡ nhỏ nhất) · Wrap · **Tự chèn dấu `'` đóng** — mặc định tắt: gõ `'` chỉ ra một dấu (cả trong thuộc tính XML lẫn SQL / JS trong CDATA); tick thì gõ `'` ra `''` như Monaco gốc. Ngoặc `( ) [ ] { }` và nháy kép `"` không bị ảnh hưởng; bôi đen rồi gõ `'` vẫn bọc hai đầu · **Chế độ nhẹ (máy yếu)** Tự động / Bật / Tắt · vị trí khung Claude / Gemini (phải / dưới / trên) |
 | **Bố cục** | Ẩn / hiện thanh menu, thanh công cụ, đường dẫn, thanh tab · **Ctrl+Tab bấm nhanh** · vị trí và độ rộng cây file · thanh công cụ: vị trí (trên / cùng hàng menu / dưới), kiểu nút (chữ / icon + chữ / chỉ icon), sắp xếp / ghim / nhóm / thêm nút (kéo ☰, "+ Nhóm mới", "+ Vạch ngăn", "+ Thêm nút") · đưa về mặc định |
 | **Phím tắt** | Bảng mọi lệnh: **Đổi** (bấm tổ hợp mới, `Esc` huỷ) · **Xoá phím** · **Mặc định**; ô lọc theo tên / phím; "Đưa TẤT CẢ phím tắt về mặc định" |
 | **Gợi ý & Hỏi Fast** | Gợi ý theo cấu trúc Fast khi gõ (bật mặc định) · Gợi ý Fast dài · Khai field xong tự sinh dòng view (tắt mặc định — xem [IntelliSense](#viewer-intellisense)) · thư mục source Fast các phiên bản + **Học lại ngay** — xem [Hỏi Fast trong BcodeViewer](#viewer-hoi-fast) |

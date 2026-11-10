@@ -16,7 +16,8 @@ namespace Bcode.App.Services;
 /// <item>header v/e: field đầu tiên cùng tên trong header.xml (giữ nguyên chữ, kể cả dấu cách — vd stt e=" Number"); không có → "???";
 /// riêng status cứng "Trạng thái"/"Status".</item>
 /// </list>
-/// Khác FCode đúng 1 chỗ: cột bit FCode quên dấu cách (<c>width="60"type="Boolean"</c> — XML hỏng), ở đây có dấu cách.
+/// Khác FCode: cột bit FCode quên dấu cách (<c>width="60"type="Boolean"</c> — XML hỏng), ở đây có dấu cách; cột khoá chính của bảng nguồn
+/// (truy vấn 1 bảng, ResultSourceKeys) có thêm <c>isPrimaryKey="true"</c> ngay sau name.
 /// </summary>
 public static class DesignFieldsGenerator
 {
@@ -38,10 +39,12 @@ public static class DesignFieldsGenerator
         _ => Kind.Other,
     };
 
-    public static string Generate(DataTable table) =>
-        Generate(table.Columns.Cast<DataColumn>().Select(c => (c.ColumnName, KindOf(c.DataType))).ToList());
+    public static string Generate(DataTable table, ISet<string>? keys = null) =>
+        Generate(table.Columns.Cast<DataColumn>().Select(c => (c.ColumnName, KindOf(c.DataType))).ToList(), keys);
 
-    public static string Generate(IReadOnlyList<(string Name, Kind Kind)> columns)
+    /// <param name="keys">Tên cột kết quả là khoá chính bảng nguồn (ResultSourceKeys) → <c>isPrimaryKey="true"</c> ngay sau name, đúng thứ tự file
+    /// Grid của Fast. null / rỗng = không đánh dấu (như FCode).</param>
+    public static string Generate(IReadOnlyList<(string Name, Kind Kind)> columns, ISet<string>? keys = null)
     {
         bool Has(string n) => columns.Any(c => string.Equals(c.Name, n, StringComparison.OrdinalIgnoreCase));
         var hasVoucherLink = Has("stt_rec") && Has("ma_ct");
@@ -86,7 +89,8 @@ public static class DesignFieldsGenerator
                 ? " hyperlinkFormatString=\"~/AppHandler/Voucher.ashx Query: {Name: '[ma_ct]', Value: '[stt_rec]'}, Script: 'beforeDrillDown(this);'\""
                 : "";
 
-            fields.Append("\r\n\t<field name=\"").Append(n).Append("\" width=\"").Append(width).Append('"').Append(attrs)
+            var pk = keys is not null && keys.Contains(rawName) ? " isPrimaryKey=\"true\"" : "";
+            fields.Append("\r\n\t<field name=\"").Append(n).Append('"').Append(pk).Append(" width=\"").Append(width).Append('"').Append(attrs)
                   .Append(" allowSorting=\"true\" allowFilter=\"true\"").Append(align).Append(hidden).Append(link).Append('>');
             fields.Append("\r\n\t\t<header v=\"").Append(v).Append("\" e=\"").Append(e).Append("\"></header>");
             fields.Append("\r\n\t</field>");

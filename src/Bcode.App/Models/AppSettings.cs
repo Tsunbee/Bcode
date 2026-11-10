@@ -276,6 +276,10 @@ public class AppSettings
     /// <summary>Ghost text theo cấu trúc Fast khi gõ SQL (FastGhostRules — không gọi AI, không tốn token), chạy trước gợi ý AI.</summary>
     public bool EnableFastGhost { get; set; } = true;
 
+    /// <summary>Editor SQL Query (chế độ Web, Monaco): gõ ' thì tự chèn thêm ' đóng. Mặc định tắt — gõ ' chỉ ra một dấu
+    /// (giống BcodeViewer). Ngoặc ( ) [ ] { } và " vẫn tự đóng. Đổi ở Options… của tab SQL Query; xem Web/Shell/sqleditor.html.</summary>
+    public bool SqlAutoCloseSingleQuote { get; set; } = false;
+
     /// <summary>Chế độ ghost Fast: true = gợi ý dài (cả dòng theo chính file, mặc định), false = ngắn (chỉ gợi ý chắc ≥ 90%). Alt+Shift+\ đổi qua lại.</summary>
     public bool FastGhostLong { get; set; } = true;
 
@@ -427,6 +431,7 @@ public class AppSettings
             if (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) is not { } disk) return;
             EnableCopilotSuggest = disk.EnableCopilotSuggest;
             EnableFastGhost = disk.EnableFastGhost;
+            SqlAutoCloseSingleQuote = disk.SqlAutoCloseSingleQuote;
             FastGhostLong = disk.FastGhostLong;
             CopilotEngine = disk.CopilotEngine;
             AnthropicApiKey = disk.AnthropicApiKey ?? "";

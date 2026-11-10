@@ -253,4 +253,8 @@
     <WriteLinesToFile File="$(OutDir)bcode-manifest.json" Overwrite="true" Encoding="utf-8"
                       Lines="{ &quot;files&quot;: [;@(_BcodeHashed->'{ &quot;p&quot;: &quot;%(Rel)&quot;, &quot;h&quot;: &quot;%(FileHash)&quot; }', ',');] }" />
   </Target>
+  <!-- Build không sinh manifest (Debug) thì xoá manifest cũ còn sót: manifest lệch file thật làm máy cập nhật báo "sai mã kiểm tra". -->
+  <Target Name="DeleteStaleManifest" AfterTargets="Build" Condition="!('$(BcodeManifest)' == 'true' Or ('$(BcodeManifest)' == '' And '$(Configuration)' == 'Release'))">
+    <Delete Files="$(OutDir)bcode-manifest.json" ContinueOnError="true" />
+  </Target>
 </Project>

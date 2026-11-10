@@ -305,7 +305,7 @@ public class AdvanceNoteService
         var prefix = Safe(ws?.Name ?? "") + "@";
         try
         {
-            if (!Directory.Exists(folder)) return list;
+            if (Directory.Exists(folder))   // chưa có thư mục AdvanceNotes vẫn đọc NoteX ở thư mục update
             foreach (var f in Directory.EnumerateFiles(folder, "*.json"))
             {
                 var name = Path.GetFileNameWithoutExtension(f);
@@ -314,7 +314,147 @@ public class AdvanceNoteService
             }
         }
         catch { /* mất mạng — trả những gì đã đọc được */ }
+        list.AddRange(LoadNoteX(ws, settings));
         return list.OrderByDescending(o => o.Modified).ToList();
+    }
+
+    // ---- Note của phần mềm note khác (FCode): NoteX_<dự án>@<máy>.xml trong thư mục update — đọc như note JSON, CHỈ ĐỌC (không bao giờ ghi file này) ----
+
+    /// <summary>Đuôi thêm vào tên người của note NoteX (vd "FTSBAOVQ [NoteX]") — phân biệt với note JSON cùng máy và để <see cref="OtherFile"/> biết đọc file .xml.</summary>
+    public const string NoteXTag = " [NoteX]";
+
+    /// <summary>Các thư mục có thể chứa NoteX_*.xml: thư mục update (cha AdvanceNotes), Working Path, chính thư mục AdvanceNotes.</summary>
+    private static List<string> NoteXFolders(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var list = new List<string>();
+        void Add(string? p)
+        {
+            p = (p ?? "").Trim().TrimEnd('\\', '/');
+            if (p.Length > 0 && !list.Contains(p, StringComparer.OrdinalIgnoreCase)) list.Add(p);
+        }
+        var advance = ResolveFolder(ws, settings);
+        if (string.Equals(advance, LocalFolder, StringComparison.OrdinalIgnoreCase)) return list;   // dự án chưa có Working Path
+        Add(Path.GetDirectoryName(advance));
+        Add(ws?.WorkingPath);
+        Add(advance);
+        return list;
+    }
+
+    /// <summary>Tiền tố tên file NoteX của dự án: "NoteX_&lt;tên workspace&gt;@" (và "NoteX_&lt;mã dự án&gt;@" nếu khác).</summary>
+    private static List<string> NoteXPrefixes(Workspace? ws)
+    {
+        var list = new List<string> { "NoteX_" + Safe(ws?.Name ?? "") + "@" };
+        if (!string.IsNullOrWhiteSpace(ws?.ProjectId) && !list.Contains("NoteX_" + Safe(ws.ProjectId) + "@", StringComparer.OrdinalIgnoreCase))
+            list.Add("NoteX_" + Safe(ws.ProjectId) + "@");
+        return list;
+    }
+
+    private List<OtherNotes> LoadNoteX(Workspace? ws, Bcode.App.Models.AppSettings? settings)
+    {
+        var list = new List<OtherNotes>();
+        var prefixes = NoteXPrefixes(ws);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var folder in NoteXFolders(ws, settings))
+        {
+            try
+            {
+                if (!Directory.Exists(folder)) continue;
+                foreach (var f in Directory.EnumerateFiles(folder, "NoteX_*.xml"))
+                {
+                    var name = Path.GetFileNameWithoutExtension(f);
+                    var prefix = prefixes.FirstOrDefault(p => name.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+                    if (prefix is null || name.Length == prefix.Length || !seen.Add(name)) continue;
+                    List<AdvanceRequest> reqs;
+                    try { reqs = ReadNoteX(f); } catch { reqs = new(); }   // file hỏng / đang ghi dở — vẫn hiện tên người, 0 y/c
+                    list.Add(new OtherNotes(name[prefix.Length..] + NoteXTag, f, File.GetLastWriteTime(f), reqs));
+                }
+            }
+            catch { /* mất mạng — trả những gì đã đọc được */ }
+        }
+        return list;
+    }
+
+    /// <summary>File NoteX của người <paramref name="owner"/> (đã có đuôi <see cref="NoteXTag"/>); không thấy file nào thì trả đường dẫn ở thư mục update.</summary>
+    private static string? NoteXFile(Workspace? ws, Bcode.App.Models.AppSettings? settings, string owner)
+    {
+        var who = owner[..^NoteXTag.Length].Trim();
+        if (who.Length == 0) return null;
+        string? first = null;
+        foreach (var folder in NoteXFolders(ws, settings))
+            foreach (var prefix in NoteXPrefixes(ws))
+            {
+                var p = Path.Combine(folder, prefix + who + ".xml");
+                first ??= p;
+                try { if (File.Exists(p)) return p; } catch { /* mất mạng */ }
+            }
+        return first;
+    }
+
+    /// <summary>Tên bảng (có thể kèm schema / ngoặc vuông): dbo.dmvt, [dbo].[dm vt], #tmp.</summary>
+    private static readonly System.Text.RegularExpressions.Regex TableNameRx =
+        new(@"^(\[[^\]]+\]|[\w$#@]+)(\.(\[[^\]]+\]|[\w$#@]+))*$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Đọc 1 file NoteX (DataSet XML của FCode) thành danh sách y/c. Table1 = y/c (id, name, created_date, updated_date, mobile_yn, done_yn,
+    /// description → Request Content, controller → Gen All, file_path → File Path); Table2 = 2 dòng App / Sys cùng id (sql_object → SQL Object,
+    /// sql_script_top / sql_script_bottom → Top / Bottom Script, sql_data "bảng: điều kiện" mỗi dòng → Table lấy dữ liệu). Lỗi thì ném ra.</summary>
+    public static List<AdvanceRequest> ReadNoteX(string path)
+    {
+        var doc = System.Xml.Linq.XDocument.Load(path);
+        var root = doc.Root ?? throw new InvalidDataException("File NoteX rỗng: " + path);
+        static string T(System.Xml.Linq.XElement e, string name) => (string?)e.Element(name) ?? "";
+        static bool B(System.Xml.Linq.XElement e, string name) => string.Equals(T(e, name).Trim(), "true", StringComparison.OrdinalIgnoreCase);
+        static DateTime? D(System.Xml.Linq.XElement e, string name) =>
+            DateTimeOffset.TryParse(T(e, name).Trim(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d.LocalDateTime : null;
+        static string Lines(string s) => s.Replace("\r\n", "\n").Trim('\n', '\r', ' ', '\t');   // xuống dòng \n như note JSON (ô nhập của trang)
+
+        var details = root.Elements("Table2").ToLookup(e => T(e, "id").Trim(), StringComparer.OrdinalIgnoreCase);
+        var list = new List<AdvanceRequest>();
+        foreach (var t in root.Elements("Table1"))
+        {
+            var id = T(t, "id").Trim();
+            var r = new AdvanceRequest
+            {
+                Id = id.Length > 0 ? id : Guid.NewGuid().ToString("N"),
+                Name = T(t, "name").Trim(),
+                Mobile = B(t, "mobile_yn"),
+                Done = B(t, "done_yn"),
+                Begin = D(t, "created_date") ?? File.GetLastWriteTime(path),
+                Updated = D(t, "updated_date"),
+                Content = Lines(T(t, "description")),
+                GenAll = Lines(T(t, "controller")),
+                FilePaths = Lines(T(t, "file_path")),
+                ObjectsSplit = true,
+                ScriptsSplit = true,
+            };
+            foreach (var d in details[id])
+            {
+                var sys = string.Equals(T(d, "database").Trim(), "Sys", StringComparison.OrdinalIgnoreCase);
+                var objects = Lines(T(d, "sql_object"));
+                var top = Lines(T(d, "sql_script_top"));
+                var bottom = Lines(T(d, "sql_script_bottom"));
+                if (sys) { r.ProceduresSys = Join(r.ProceduresSys, objects); r.TopScriptSys = Join(r.TopScriptSys, top); r.BottomScriptSys = Join(r.BottomScriptSys, bottom); }
+                else { r.Procedures = Join(r.Procedures, objects); r.TopScript = Join(r.TopScript, top); r.BottomScript = Join(r.BottomScript, bottom); }
+                // sql_data: mỗi dòng "bảng: điều kiện" (hoặc chỉ "bảng"). Có người dán cả script SQL vào ô này — khối nào có dòng không phải dạng đó thì KHÔNG
+                // coi là bảng (tránh gen dữ liệu bảng "DELETE wcommand ..."), đưa nguyên văn vào Note của y/c để người dùng thấy và tự xử lý.
+                var data = Lines(T(d, "sql_data"));
+                if (data.Length == 0) continue;
+                var isTables = data.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).All(l =>
+                {
+                    var c = l.IndexOf(':');
+                    var table = (c < 0 ? l : l[..c]).Trim();
+                    return TableNameRx.IsMatch(table) && !string.Equals(table, "GO", StringComparison.OrdinalIgnoreCase);
+                });
+                // Cùng cú pháp với ô thêm tay table của Note (New): tách ở dấu : đầu tiên, bảng lặp gộp điều kiện bằng OR.
+                if (isTables)
+                    r.Tables.AddRange(GenAllService.ParseTableSpecs(data).Select(t => new TableSelection { Name = t.Name, Sys = sys, Data = true, Where = t.Where ?? "" }));
+                else r.Note = Join(r.Note, $"[NoteX — ô dữ liệu bảng ({(sys ? "Sys" : "App")}) không phải dạng \"bảng: điều kiện\", CHƯA đưa vào gói]\n{data}");
+            }
+            r.UseSys = r.ProceduresSys.Length > 0 || r.TopScriptSys.Length > 0 || r.BottomScriptSys.Length > 0 || r.Tables.Any(x => x.Sys);
+            list.Add(r);
+        }
+        return list;
+
+        static string Join(string a, string b) => a.Length == 0 ? b : b.Length == 0 ? a : a + "\n" + b;
     }
 
     /// <summary>1 người dùng khác có note trong thư mục AdvanceNotes của dự án — để chọn xem trong Note (New): tên (máy), giờ sửa file, số y/c, số y/c chưa Done.</summary>
@@ -351,6 +491,7 @@ public class AdvanceNoteService
         if (owner.Length == 0 || owner.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || owner.Contains("..")) return null;
         var folder = ResolveFolder(ws, settings);
         if (string.Equals(folder, LocalFolder, StringComparison.OrdinalIgnoreCase)) return null;
+        if (owner.EndsWith(NoteXTag, StringComparison.OrdinalIgnoreCase)) return NoteXFile(ws, settings, owner);   // note NoteX_*.xml (FCode)
         return Path.Combine(folder, $"{Safe(ws?.Name ?? "")}@{owner}.json");
     }
 
@@ -360,9 +501,59 @@ public class AdvanceNoteService
         var folder = Path.GetDirectoryName(path) ?? path;
         if (!IsReachable(folder)) throw new IOException("Không vào được thư mục note của dự án: " + folder);
         if (!File.Exists(path)) throw new FileNotFoundException("Không còn file note: " + path);
+        return ReadNoteFile(path);
+    }
+
+    /// <summary>Đọc 1 file note bất kỳ (chuột phải Request List → Mở / Gộp file note): .xml = NoteX của FCode (<see cref="ReadNoteX"/>), còn lại = note JSON của Bcode.
+    /// Chỉ đọc; lỗi thì ném ra để báo rõ.</summary>
+    public static (List<AdvanceRequest> Requests, DateTime Modified) ReadNoteFile(string path)
+    {
+        if (string.Equals(Path.GetExtension(path), ".xml", StringComparison.OrdinalIgnoreCase)) return (ReadNoteX(path), File.GetLastWriteTime(path));   // NoteX (FCode)
         var text = File.ReadAllText(path);
         var list = JsonSerializer.Deserialize<List<AdvanceRequest>>(text, JsonOptions) ?? new List<AdvanceRequest>();
         return (list, File.GetLastWriteTime(path));
+    }
+
+    /// <summary>Tên người hiện cho 1 file note mở bằng tay: NoteX_&lt;dự án&gt;@&lt;máy&gt;.xml → "&lt;máy&gt; [NoteX]", &lt;dự án&gt;@&lt;máy&gt;.json → "&lt;máy&gt;", còn lại = tên file.</summary>
+    public static string OwnerLabelOf(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        var at = name.LastIndexOf('@');
+        var who = at >= 0 && at < name.Length - 1 ? name[(at + 1)..] : name;
+        return string.Equals(Path.GetExtension(path), ".xml", StringComparison.OrdinalIgnoreCase) && name.StartsWith("NoteX_", StringComparison.OrdinalIgnoreCase)
+            ? who + NoteXTag : who;
+    }
+
+    /// <summary>Gộp các y/c đọc từ file (<paramref name="incoming"/>) vào note của mình (<paramref name="mine"/>, sửa tại chỗ): trùng Id thì lấy nội dung trong file
+    /// (giữ lịch sử Generate của mình), chưa có thì thêm mới GIỮ Id (gộp lại lần sau sẽ cập nhật đúng y/c đó, không nhân bản), giống hệt thì bỏ qua.
+    /// Y/c chỉ có trong note của mình giữ nguyên. Trả số thêm / cập nhật / giống + Id các y/c thêm hoặc cập nhật.</summary>
+    public static (int Added, int Updated, int Same, List<string> Ids) MergeInto(List<AdvanceRequest> mine, IEnumerable<AdvanceRequest> incoming)
+    {
+        int added = 0, updated = 0, same = 0;
+        var ids = new List<string>();
+        static AdvanceRequest Copy(AdvanceRequest r) => JsonSerializer.Deserialize<AdvanceRequest>(JsonSerializer.Serialize(r, JsonOptions), JsonOptions)!;
+        static string Key(AdvanceRequest r) { var c = Copy(r); c.Generations = new(); return JsonSerializer.Serialize(c, JsonOptions); }
+        foreach (var src in incoming)
+        {
+            var i = mine.FindIndex(r => string.Equals(r.Id, src.Id, StringComparison.OrdinalIgnoreCase));
+            if (i >= 0)
+            {
+                if (Key(mine[i]) == Key(src)) { same++; continue; }
+                var copy = Copy(src);
+                copy.Id = mine[i].Id;
+                copy.Generations = mine[i].Generations;
+                mine[i] = copy;
+                updated++; ids.Add(copy.Id);
+            }
+            else
+            {
+                var copy = Copy(src);
+                copy.Generations = new();   // lịch sử gen của người khác — không thuộc note của mình
+                mine.Insert(0, copy);
+                added++; ids.Add(copy.Id);
+            }
+        }
+        return (added, updated, same, ids);
     }
 
     /// <summary>Bản sao 1 y/c của người khác để đưa vào note của mình: Id mới, chưa xong, bỏ lịch sử gen, tên "&lt;tên&gt; (từ &lt;owner&gt;)" không trùng tên y/c đã có.</summary>

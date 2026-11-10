@@ -123,23 +123,90 @@ public class AdvanceNoteControl : UserControl
         var ws = _workspace();
         var path = AdvanceNoteService.OtherFile(ws, _settings, owner);
         if (path is null) { Js("advNote.setBusy(false); advNote.onError('Không xác định được file note của người này (dự án chưa có Working Path?).')"); return; }
+        await ViewPathAsync(v, owner, path, selectId, () => AdvanceNoteService.ReadOther(path));
+    }
+
+    /// <summary>Đọc file note <paramref name="path"/> ở luồng nền rồi xem CHỈ ĐỌC dưới tên <paramref name="owner"/> (dùng chung: note người khác và 📂 Mở file note).</summary>
+    private async Task ViewPathAsync(int v, string owner, string path, string? selectId, Func<(List<AdvanceRequest> Requests, DateTime Modified)> read, bool showPath = false)
+    {
         Js($"advNote.setBusy(true, {J($"Đang đọc note của {owner}...")})");
         try
         {
-            var (list, modified) = await Task.Run(() => AdvanceNoteService.ReadOther(path));
+            var (list, modified) = await Task.Run(read);
             if (v != _viewVersion || IsDisposed) return;
             _viewOwner = owner; _viewModified = modified;
             _requests = list;
             _loadedFor = WorkspaceName;
             _previewItems = new();
             SendList(selectId is not null && list.Any(r => r.Id == selectId) ? selectId : null);
-            Js($"advNote.onViewChanged({J(new { ok = true, message = $"Đang xem note của {owner} ({list.Count} y/c, sửa lần cuối {modified:dd/MM/yy HH:mm}) — chỉ đọc." })})");
+            Js($"advNote.onViewChanged({J(new { ok = true, message = $"Đang xem note của {owner} ({list.Count} y/c, sửa lần cuối {modified:dd/MM/yy HH:mm}" + (showPath ? $", file {path}" : "") + ") — chỉ đọc." })})");
         }
         catch (Exception ex)
         {
             if (v != _viewVersion || IsDisposed) return;
             Js($"advNote.setBusy(false); advNote.onError({J($"Không đọc được note của {owner}: {ex.Message}")})");
         }
+    }
+
+    // ---- Chuột phải Request List: 📂 Mở file note (xem chỉ đọc) / 📥 Gộp file note vào note của tôi — file .json của Bcode hoặc NoteX_*.xml của FCode ----
+
+    private void ShowListMenu()
+    {
+        new WebMenu()
+            .Add("📂 Mở file note… (xem, chỉ đọc)", () => BeginInvoke(new Action(() => _ = OpenNoteFileAsync())))
+            .Add("📥 Gộp file note vào note của tôi…", () => BeginInvoke(new Action(MergeNoteFile)))
+            .Show(this, Cursor.Position);
+    }
+
+    /// <summary>Hộp chọn file note (.json của Bcode / NoteX_*.xml của FCode); mở sẵn ở thư mục note của dự án.</summary>
+    private string? PickNoteFile(string title)
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = title, CheckFileExists = true,
+            Filter = "File note (*.json; NoteX_*.xml)|*.json;*.xml|NoteX của FCode (NoteX_*.xml)|NoteX_*.xml|Note Bcode (*.json)|*.json|Mọi file|*.*",
+        };
+        try
+        {
+            var dir = AdvanceNoteService.UpdateFolder(_workspace(), _settings);
+            if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir)) dlg.InitialDirectory = dir;
+        }
+        catch { /* mất mạng: để hộp thoại tự chọn thư mục */ }
+        return dlg.ShowDialog(FindForm()) == DialogResult.OK ? dlg.FileName : null;
+    }
+
+    private async Task OpenNoteFileAsync()
+    {
+        var path = PickNoteFile("Mở file note để xem (chỉ đọc)");
+        if (path is null) return;
+        var v = ++_viewVersion;
+        await ViewPathAsync(v, AdvanceNoteService.OwnerLabelOf(path), path, null, () => AdvanceNoteService.ReadNoteFile(path), showPath: true);
+    }
+
+    private void MergeNoteFile()
+    {
+        var path = PickNoteFile("Gộp file note vào note của tôi");
+        if (path is null) return;
+        List<AdvanceRequest> incoming;
+        try { incoming = AdvanceNoteService.ReadNoteFile(path).Requests; }
+        catch (Exception ex) { Js($"advNote.onError({J("Không đọc được file note: " + ex.Message)})"); return; }
+        if (incoming.Count == 0) { Js($"advNote.onError({J("File không có y/c nào: " + path)})"); return; }
+        var ws = _workspace();
+        var mine = _store.Load(ws, _settings);
+        var probe = AdvanceNoteService.MergeInto(mine.Select(r => r).ToList(), incoming);   // đếm trước để hỏi (danh sách tạm)
+        if (probe.Added + probe.Updated == 0) { Js($"advNote.onViewChanged({J(new { ok = true, message = $"Note của bạn đã có đủ {incoming.Count} y/c trong file, không có gì để gộp." })})"); return; }
+        if (!NK.Confirm(FindForm() ?? (IWin32Window)this, $"Gộp {incoming.Count} y/c từ file\n{path}\nvào note của bạn?\n\n" +
+                $"• Thêm mới: {probe.Added}\n• Cập nhật (trùng y/c đã gộp trước — lấy nội dung trong file, giữ lịch sử gen của bạn): {probe.Updated}\n• Giống hệt, bỏ qua: {probe.Same}\n\n" +
+                "Y/c chỉ có trong note của bạn giữ nguyên. File được chọn KHÔNG bị sửa.")) return;
+        var (added, updated, _, ids) = AdvanceNoteService.MergeInto(mine, incoming);
+        _store.Save(ws, _settings, mine);
+        // Về note của mình (đang xem note người khác / file thì thoát chế độ chỉ đọc), chọn y/c đầu tiên vừa gộp.
+        ++_viewVersion;
+        _viewOwner = null; _viewModified = null; _loadedStamp = "\0";
+        EnsureLoaded();
+        _previewItems = new();
+        SendList(ids.FirstOrDefault(id => _requests.Any(r => r.Id == id)));
+        Js($"advNote.onViewChanged({J(new { ok = true, message = $"Đã gộp từ {Path.GetFileName(path)}: thêm {added}, cập nhật {updated} y/c." + (_store.LastSaveWarning is { } w ? " " + w : "") })})");
     }
 
     /// <summary>📥 Chép các y/c (đang xem của người khác) về note của mình — file của người kia không bị đụng tới. Trang đã hỏi xác nhận.</summary>
@@ -250,6 +317,10 @@ public class AdvanceNoteControl : UserControl
 
                 case "copyToMine":
                     CopyToMine(root);
+                    break;
+
+                case "listMenu":   // chuột phải Request List
+                    ShowListMenu();
                     break;
 
                 // Trang vừa được focus lại: file danh sách đổi do tiến trình khác ghi (BcodeNote.exe / Bcode khác) thì đẩy danh sách mới xuống.

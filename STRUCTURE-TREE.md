@@ -17,7 +17,7 @@ Bcode.App/
 │   ├── ssms/
 │   └── README.md  17
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  809
+│   ├── AdvanceNoteControl.cs  880
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -48,7 +48,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  288
 │   ├── MonacoPreviewControl.Native.cs  137
 │   ├── MultiResultView.cs  340
-│   ├── NativeAdvanceNoteControl.cs  1524
+│   ├── NativeAdvanceNoteControl.cs  1600
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  279
@@ -164,13 +164,13 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  4821
+│   ├── MainForm.cs  4860
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  372
 │   ├── MainForm.ToolGroups.cs  101
-│   ├── MainForm.Update.cs  112
+│   ├── MainForm.Update.cs  138
 │   ├── MenuPickerForm.cs  95
 │   ├── NativeProjectPickerForm.cs  193
 │   ├── PartitionCheckForm.cs  58
@@ -245,7 +245,7 @@ Bcode.App/
 │   │   ├── RptSchemaService.cs  189
 │   │   ├── RptXmlBuilder.cs  103
 │   │   └── XsdSchemaWriter.cs  110
-│   ├── AdvanceNoteService.cs  437
+│   ├── AdvanceNoteService.cs  628
 │   ├── AdvancePackageBuilder.cs  198
 │   ├── AiCatalogService.cs  581
 │   ├── AiChatService.cs  79
@@ -364,7 +364,7 @@ Bcode.App/
 │   ├── TableDataService.cs  652
 │   ├── TableMenuService.cs  194
 │   ├── TextLanguageDetector.cs  71
-│   ├── UpdateCheckService.cs  555
+│   ├── UpdateCheckService.cs  565
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  76
 │   ├── ViewerLauncher.cs  51
@@ -409,7 +409,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  1018
+│       ├── advnote.html  1020
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  906
 │       ├── apischema.html  676
@@ -493,7 +493,7 @@ Bcode.App/
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1312
-│       ├── update.html  375
+│       ├── update.html  380
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836
 │       ├── voucherview.html  88
@@ -501,7 +501,7 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  256
+├── Bcode.App.csproj  260
 ├── BcodePaths.cs  48
 └── Program.cs  45
 ```
@@ -580,7 +580,7 @@ BcodeViewer.App/
 │   ├── dirview.js  437
 │   ├── dock.js  162
 │   ├── editor.js  1980
-│   ├── entity.js  1979
+│   ├── entity.js  2027
 │   ├── fastask.js  356
 │   ├── fcode-language.js  508
 │   ├── fieldnotes.js  291
@@ -590,7 +590,7 @@ BcodeViewer.App/
 │   ├── hostcall.js  106
 │   ├── index.html  241
 │   ├── keys.js  226
-│   ├── mailpreview.js  718
+│   ├── mailpreview.js  833
 │   ├── outline.js  239
 │   ├── perfwatch.js  110
 │   ├── problems-worker.js  101
@@ -661,9 +661,10 @@ Bcode.ReportBuilder/
 ```
 ```
 Bcode.KeyGen/
-└── Bcode.KeyGen/
-    ├── Bcode.KeyGen.csproj  19
-    └── Program.cs  90
+├── .vscode/
+│   └── settings.json  1
+├── Bcode.KeyGen.csproj  22
+└── Program.cs  109
 ```
 ```
 Shared/

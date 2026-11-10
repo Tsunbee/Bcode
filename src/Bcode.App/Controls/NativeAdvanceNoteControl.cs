@@ -93,7 +93,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
 
         // ---- thanh công cụ ----
         _btnOwner = NK.Button("👤 Note của: tôi ▾", () => _ = ShowOwnersAsync(),
-            tip: "Chọn xem note của người khác cùng dự án (file <dự án>@<máy>.json trong thư mục AdvanceNotes) — CHỈ ĐỌC, vẫn Xem trước gói / Generate Update được (vd người kia nghỉ, bạn gen thay). Mặc định là note của bạn.");
+            tip: "Chọn xem note của người khác cùng dự án (file <dự án>@<máy>.json trong thư mục AdvanceNotes, và NoteX_<dự án>@<máy>.xml của FCode trong thư mục update — hiện tên <máy> [NoteX]) — CHỈ ĐỌC, vẫn Xem trước gói / Generate Update được (vd người kia nghỉ, bạn gen thay). Mặc định là note của bạn.");
         _toolbar.Controls.Add(_btnOwner);
         var btnNew = NK.Button("＋ New Request", () => { Flush(); NewRequest(); }, tip: "Tạo y/c mới");
         _toolbar.Controls.Add(btnNew);
@@ -175,6 +175,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
             _loading = false;
             UpdateDeleteLabel(); RefreshFolder(); _list.InvalidateCell(0, -1);
         };
+        _list.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right) ShowListMenu(); };   // 📂 Mở / 📥 Gộp file note (.json / NoteX_*.xml)
         _list.SelectionChanged += (_, _) => { if (!_loading && _list.CurrentRow?.Tag is string id && id != _cur?.Id) { Flush(); Select(id); } };
         var leftTop = new Panel { Dock = DockStyle.Fill };
         // Ô lọc mã y/c (như advnote.html): nhiều mã cách nhau dấu cách / phẩy, Esc xoá lọc, Enter mở y/c đầu tiên khớp.
@@ -478,11 +479,17 @@ public sealed class NativeAdvanceNoteControl : UserControl
         var ws = _workspace();
         var path = AdvanceNoteService.OtherFile(ws, _settings, owner);
         if (path is null) { SetStatus("Không xác định được file note của người này (dự án chưa có Working Path?).", true); return; }
+        await ViewPathAsync(v, owner, path, selectId, () => AdvanceNoteService.ReadOther(path));
+    }
+
+    /// <summary>Đọc file note <paramref name="path"/> ở luồng nền rồi xem CHỈ ĐỌC dưới tên <paramref name="owner"/> (dùng chung: note người khác và 📂 Mở file note).</summary>
+    private async Task ViewPathAsync(int v, string owner, string path, string? selectId, Func<(List<AdvanceRequest> Requests, DateTime Modified)> read, bool showPath = false)
+    {
         if (BusyGuard()) return;
         SetBusy(true, $"Đang đọc note của {owner}...");
         try
         {
-            var (list, modified) = await Task.Run(() => AdvanceNoteService.ReadOther(path));
+            var (list, modified) = await Task.Run(read);
             if (v != _viewVersion || IsDisposed) return;
             Flush();   // phần đang gõ của note mình (nếu đang xem note mình) — trước khi thay danh sách
             _viewOwner = owner; _viewModified = modified;
@@ -492,13 +499,82 @@ public sealed class NativeAdvanceNoteControl : UserControl
             ClearPreview();
             RenderList();
             Select(selectId is not null && _requests.Any(r => r.Id == selectId) ? selectId : _requests.OrderByDescending(r => r.Begin).FirstOrDefault()?.Id);
-            SetStatus($"Đang xem note của {owner} ({list.Count} y/c, sửa lần cuối {Fmt(modified)}) — chỉ đọc.", ok: true);
+            SetStatus($"Đang xem note của {owner} ({list.Count} y/c, sửa lần cuối {Fmt(modified)}" + (showPath ? $", file {path}" : "") + ") — chỉ đọc.", ok: true);
         }
         catch (Exception ex)
         {
             if (v == _viewVersion && !IsDisposed) SetStatus($"Không đọc được note của {owner}: {ex.Message}", true);
         }
         finally { SetBusy(false); }
+    }
+
+    // ---- Chuột phải Request List: 📂 Mở file note (xem chỉ đọc) / 📥 Gộp file note vào note của tôi — file .json của Bcode hoặc NoteX_*.xml của FCode ----
+
+    private void ShowListMenu()
+    {
+        new WebMenu()
+            .Add("📂 Mở file note… (xem, chỉ đọc)", () => BeginInvoke(new Action(() => _ = OpenNoteFileAsync())))
+            .Add("📥 Gộp file note vào note của tôi…", () => BeginInvoke(new Action(MergeNoteFile)))
+            .Show(this, Cursor.Position);
+    }
+
+    /// <summary>Hộp chọn file note (.json của Bcode / NoteX_*.xml của FCode); mở sẵn ở thư mục update của dự án.</summary>
+    private string? PickNoteFile(string title)
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = title, CheckFileExists = true,
+            Filter = "File note (*.json; NoteX_*.xml)|*.json;*.xml|NoteX của FCode (NoteX_*.xml)|NoteX_*.xml|Note Bcode (*.json)|*.json|Mọi file|*.*",
+        };
+        try
+        {
+            var dir = AdvanceNoteService.UpdateFolder(_workspace(), _settings);
+            if (!string.IsNullOrWhiteSpace(dir) && Directory.Exists(dir)) dlg.InitialDirectory = dir;
+        }
+        catch { /* mất mạng: để hộp thoại tự chọn thư mục */ }
+        return dlg.ShowDialog(FindForm()) == DialogResult.OK ? dlg.FileName : null;
+    }
+
+    private async Task OpenNoteFileAsync()
+    {
+        var path = PickNoteFile("Mở file note để xem (chỉ đọc)");
+        if (path is null) return;
+        Flush();   // phần đang gõ của note mình — trước khi thay danh sách
+        var v = ++_viewVersion;
+        _saveTimer.Stop();
+        await ViewPathAsync(v, AdvanceNoteService.OwnerLabelOf(path), path, null, () => AdvanceNoteService.ReadNoteFile(path), showPath: true);
+    }
+
+    private void MergeNoteFile()
+    {
+        var path = PickNoteFile("Gộp file note vào note của tôi");
+        if (path is null) return;
+        Flush();   // ghi phần đang gõ trước khi đọc / ghi lại file note của mình
+        List<AdvanceRequest> incoming;
+        try { incoming = AdvanceNoteService.ReadNoteFile(path).Requests; }
+        catch (Exception ex) { SetStatus("Không đọc được file note: " + ex.Message, true); return; }
+        if (incoming.Count == 0) { SetStatus("File không có y/c nào: " + path, true); return; }
+        try
+        {
+            var ws = _workspace();
+            var mine = _store.Load(ws, _settings);
+            var probe = AdvanceNoteService.MergeInto(mine.ToList(), incoming);   // đếm trước để hỏi (danh sách tạm)
+            if (probe.Added + probe.Updated == 0) { SetStatus($"Note của bạn đã có đủ {incoming.Count} y/c trong file, không có gì để gộp.", ok: true); return; }
+            if (!NK.Confirm(this, $"Gộp {incoming.Count} y/c từ file\n{path}\nvào note của bạn?\n\n" +
+                    $"• Thêm mới: {probe.Added}\n• Cập nhật (trùng y/c đã gộp trước — lấy nội dung trong file, giữ lịch sử gen của bạn): {probe.Updated}\n• Giống hệt, bỏ qua: {probe.Same}\n\n" +
+                    "Y/c chỉ có trong note của bạn giữ nguyên. File được chọn KHÔNG bị sửa.")) return;
+            var (added, updated, _, ids) = AdvanceNoteService.MergeInto(mine, incoming);
+            _store.Save(ws, _settings, mine);
+            var warn = _store.LastSaveWarning;
+            // Về note của mình (đang xem note người khác / file thì thoát chế độ chỉ đọc), chọn y/c đầu tiên vừa gộp.
+            ++_viewVersion;
+            _loadedFor = ""; _checked.Clear(); _cur = null;
+            Init();
+            var first = ids.FirstOrDefault(id => _requests.Any(r => r.Id == id));
+            if (first is not null) Select(first);
+            SetStatus($"Đã gộp từ {Path.GetFileName(path)}: thêm {added}, cập nhật {updated} y/c." + (warn is { } w ? " " + w : ""), ok: true);
+        }
+        catch (Exception ex) { SetStatus("Không gộp được: " + ex.Message, true); }
     }
 
     /// <summary>📥 Chép các y/c đã tick (không tick = y/c đang chọn) của người đang xem về note của mình — file của người kia không bị đụng tới.</summary>

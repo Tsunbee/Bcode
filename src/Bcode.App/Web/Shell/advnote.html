@@ -117,7 +117,7 @@
 </head>
 <body>
   <div id="toolbar">
-    <span id="ownerWrap"><button id="btnOwner" title="Chọn xem note của người khác cùng dự án (file &lt;dự án&gt;@&lt;máy&gt;.json trong thư mục AdvanceNotes) — CHỈ ĐỌC, vẫn Xem trước gói / Generate Update được (vd người kia nghỉ, bạn gen thay). Mặc định là note của bạn.">👤 Note của: <b id="ownerName">tôi</b> ▾</button><div id="ownerPop"></div></span>
+    <span id="ownerWrap"><button id="btnOwner" title="Chọn xem note của người khác cùng dự án (file &lt;dự án&gt;@&lt;máy&gt;.json trong thư mục AdvanceNotes, và NoteX_&lt;dự án&gt;@&lt;máy&gt;.xml của FCode trong thư mục update — hiện tên &lt;máy&gt; [NoteX]) — CHỈ ĐỌC, vẫn Xem trước gói / Generate Update được (vd người kia nghỉ, bạn gen thay). Mặc định là note của bạn.">👤 Note của: <b id="ownerName">tôi</b> ▾</button><div id="ownerPop"></div></span>
     <button id="btnNew" title="Tạo y/c mới">＋ New Request</button>
     <button id="btnDelete" class="danger" title="Xoá y/c đang chọn">🗑 Xoá</button>
     <span class="sep"></span>
@@ -383,6 +383,8 @@
     renderList();
   }
   let listFilterTimer = null;
+  // Chuột phải Request List (cả chỗ trống): menu thật bên C# — 📂 Mở file note (xem chỉ đọc) / 📥 Gộp file note vào note của tôi (.json hoặc NoteX_*.xml của FCode).
+  $('listWrap').addEventListener('contextmenu', (e) => { e.preventDefault(); flushSave(); post('listMenu'); });
   $('listFilter').addEventListener('input', () => { clearTimeout(listFilterTimer); listFilterTimer = setTimeout(renderList, 120); });
   $('listFilter').addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.stopPropagation(); $('listFilter').value = ''; renderList(); }

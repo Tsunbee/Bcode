@@ -187,6 +187,41 @@ public sealed class RelativeTablesService
         catch { return badges; }
     }
 
+    /// <summary>Key số dòng — khớp ckOf ở relativetables.html: "A|table|where" (App) / "S|table|where" (Sys).</summary>
+    public static string CountKey(RelTable t) => (t.Sys ? "S" : "A") + "|" + t.Table + "|" + t.Where;
+
+    /// <summary>Số dòng (theo WHERE) của từng bảng liên quan — nạp NỀN để trang điền vào danh sách (không chặn danh sách). Key = <see cref="CountKey"/>:
+    /// số ≥ 0 = số dòng; -1 = không đếm được (bảng/WHERE lỗi, quá giờ, hoặc mất kết nối). Gom theo database 1 kết nối, đếm lần lượt, mỗi câu
+    /// CommandTimeout 15s để bảng lớn không treo cả loạt. COUNT_BIG để bảng lớn không tràn int.</summary>
+    public async Task<Dictionary<string, long>> CountAllAsync(IReadOnlyList<RelTable> tables, CancellationToken ct = default)
+    {
+        var result = new Dictionary<string, long>();
+        foreach (var t in tables) result[CountKey(t)] = -1;   // mặc định "?"; đếm được thì ghi đè (trang hết hiện "…")
+        foreach (var grp in tables.GroupBy(t => t.Sys))
+        {
+            try
+            {
+                await using var conn = _connections.CreateConnection(useSysDatabase: grp.Key);
+                await conn.OpenAsync(ct);
+                foreach (var t in grp)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        var where = string.IsNullOrWhiteSpace(t.Where) ? "" : " WHERE " + t.Where;
+                        await using var cmd = new SqlCommand("SELECT COUNT_BIG(*) FROM [dbo].[" + t.Table.Replace("]", "]]") + "]" + where, conn) { CommandTimeout = 15 };
+                        if (await cmd.ExecuteScalarAsync(ct) is long n) result[CountKey(t)] = n;
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch { /* bảng/WHERE lỗi hoặc quá giờ — để -1 ("?"), danh sách vẫn hiện bình thường */ }
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch { /* không mở được database — cả nhóm để -1 */ }
+        }
+        return result;
+    }
+
     /// <summary>Lọc danh sách config chỉ giữ bảng có thật trong database (dbo.&lt;tên&gt;), giữ nguyên thứ tự config.</summary>
     private async Task AddExistingAsync(List<RelTable> into, (string Table, string Where)[] cfg, bool sys,
         Func<string, string> fill, List<string> warnings, CancellationToken ct)

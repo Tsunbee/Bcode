@@ -95,11 +95,24 @@ public sealed class RelativeTablesControl : UserControl
         {
             var result = await _service.BuildAsync(_item, _fbff);
             _web.Call($"window.relativetables.init({JsonSerializer.Serialize(result, JsonOpts)})");
+            _ = LoadCountsAsync(result.Tables);   // số dòng từng bảng: nạp NỀN, điền vào danh sách khi xong (không chặn)
         }
         catch (Exception ex)
         {
             _web.Call($"window.relativetables.onError({WebBarHost.Json(ex.Message)})");
         }
+    }
+
+    /// <summary>Đếm số dòng (theo WHERE) từng bảng ở NỀN rồi điền vào danh sách — không chặn danh sách hiện lên. Lỗi / đã đóng tab thì bỏ qua.</summary>
+    private async Task LoadCountsAsync(IReadOnlyList<RelativeTablesService.RelTable> tables)
+    {
+        if (tables.Count == 0) return;
+        try
+        {
+            var counts = await _service.CountAllAsync(tables);
+            if (!IsDisposed) _web.Call($"window.relativetables.setCounts({JsonSerializer.Serialize(counts, JsonOpts)})");
+        }
+        catch { /* nền — lỗi thì số dòng để "?", danh sách vẫn dùng bình thường */ }
     }
 
     private void OnMessage(JsonElement root)

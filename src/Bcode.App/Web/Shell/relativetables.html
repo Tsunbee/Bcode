@@ -34,6 +34,7 @@
   .row.sel { background: var(--selection); box-shadow: inset 3px 0 0 var(--accent); }
   .row .tb { font-weight: 600; flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .row .db { flex: none; font-size: .7rem; color: var(--text-muted); }
+  .row .cnt { flex: none; font-size: .72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
   .msg { color: var(--text-muted); padding: .5rem .4rem; font-size: .88rem; }
   #menu { position: fixed; z-index: 50; min-width: 13rem; max-width: calc(100vw - 8px); background: var(--panel); border: var(--bw) solid var(--accent); border-radius: var(--r-lg); box-shadow: 0 8px 26px rgba(0,0,0,.5); padding: .25rem 0; display: none; }
   #menu .cap { padding: .3rem 1rem .1rem; color: var(--accent); font-size: .8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -63,6 +64,9 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   let data = null, selKey = '';
   const items = {};   // key ('r<i>' = dòng bảng, 'b<k>' = huy hiệu) → { key, sys, table, where }
+  let counts = {};    // số dòng theo WHERE từng bảng (nạp nền từ host), key = ckOf(t)
+  const ckOf = (t) => (t.sys ? 'S' : 'A') + '|' + t.table + '|' + t.where;
+  const fmtCount = (t) => { const k = ckOf(t); if (!(k in counts)) return '…'; const n = Number(counts[k]); return n < 0 ? '?' : n.toLocaleString('vi-VN') + ' dòng'; };
 
   const q = () => $('flt').value.trim().toLowerCase();
   const match = (t) => !q() || t.table.toLowerCase().includes(q());
@@ -71,7 +75,7 @@
     if (!list.length) return '';
     const v = list.filter(match);
     const rows = v.length
-      ? v.map((t) => `<div class="row${t.key === selKey ? ' sel' : ''}" data-k="${t.key}" title="${esc(t.table + '\nWHERE ' + t.where)}"><span class="tb">${esc(t.table)}</span><span class="db">${t.sys ? 'Sys' : 'App'}</span></div>`).join('')
+      ? v.map((t) => `<div class="row${t.key === selKey ? ' sel' : ''}" data-k="${t.key}" title="${esc(t.table + '\nWHERE ' + t.where)}"><span class="tb">${esc(t.table)}</span><span class="cnt">${esc(fmtCount(t))}</span><span class="db">${t.sys ? 'Sys' : 'App'}</span></div>`).join('')
       : `<div class="msg">Không bảng nào khớp ô lọc.</div>`;
     return `<div class="grp"><div class="gh">${esc(title)} <span class="n">${q() ? v.length + '/' + list.length : list.length}</span></div>${rows}</div>`;
   }
@@ -136,12 +140,14 @@
   window.relativetables = {
     init(d) {
       data = d;
+      counts = {};
       for (const k of Object.keys(items)) delete items[k];
       data.tables = (data.tables || []).map((t, i) => (items['r' + i] = Object.assign({ key: 'r' + i }, t)));
       data.badges = (data.badges || []).map((b, i) => (items['b' + i] = Object.assign({ key: 'b' + i, sys: false }, b)));
       selKey = '';
       render();
     },
+    setCounts(m) { Object.assign(counts, m || {}); render(); },
     onLoading() { $('main').innerHTML = '<div class="msg">Đang tra…</div>'; $('status').textContent = 'Đang tra…'; },
     onError(m) { $('status').textContent = ''; $('main').innerHTML = '<div class="msg" style="color:var(--danger)">Lỗi: ' + esc(m) + '</div>'; },
   };

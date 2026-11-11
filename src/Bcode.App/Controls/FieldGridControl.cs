@@ -15,8 +15,11 @@ public sealed class FieldGridControl : UserControl
 {
     private sealed record Col(string Key, string Header, bool Bool, bool DefaultTrue = false);
 
-    /// <summary>Mở file bằng editor thường (BcodeViewer / tab mở file).</summary>
+    /// <summary>Mở file bằng editor thường — MainForm mở thành tab trong Bcode (không bật cửa sổ BcodeViewer).</summary>
     public event Action<string>? OpenFileRequested;
+
+    /// <summary>View Script: (tiêu đề, nội dung diff) — MainForm mở thành tab chỉ đọc trong Bcode. Không ai nghe thì hiện hộp riêng.</summary>
+    public event Action<string, string>? ScriptViewRequested;
 
     private readonly IReadOnlyList<string> _readOnlyRoots;
     private FgSet _set = new();
@@ -113,9 +116,9 @@ public sealed class FieldGridControl : UserControl
             ("Load Data", "Nạp lại file của tab đang xem từ đĩa (bỏ thay đổi chưa lưu của tab này).", () => ReloadCurrent()),
             ("Reload All", "Tìm lại và nạp lại cả bộ file của SysID (bỏ mọi thay đổi chưa lưu).", () => ReloadAll(_sysId.Text.Trim())),
             ("Save", "Lưu mọi file đã sửa (Ctrl+S) — giữ encoding gốc, chép bản cũ vào %AppData%\\Bcode\\field-grid-backup.", () => SaveAll()),
-            ("View Script", "Xem những dòng XML sẽ đổi so với file trên đĩa (chưa ghi).", ViewScript),
+            ("View Script", "Xem những dòng XML sẽ đổi so với file trên đĩa (chưa ghi) — mở tab chỉ đọc trong Bcode.", ViewScript),
             ("Copy File", "Chép file của tab đang xem vào clipboard (dán vào Explorer / gói cập nhật).", CopyFile),
-            ("Mở XML", "Mở file của tab đang xem bằng editor thường (BcodeViewer).", () => { if (_doc is not null) OpenFileRequested?.Invoke(_doc.Main.Path); }),
+            ("Mở XML", "Mở file của tab đang xem dạng XML trong một tab Bcode.", () => { if (_doc is not null) OpenFileRequested?.Invoke(_doc.Main.Path); }),
         })
         {
             var b = new Button { Text = text, AutoSize = true };
@@ -412,7 +415,10 @@ public sealed class FieldGridControl : UserControl
             var incRo = _doc.Fields.Where(f => f.Via is not null && f.ReadOnlyReason is not null).Select(f => f.Via).Distinct().ToList();
             if (msg is null && incRo.Count > 0) msg = "Field trong " + string.Join(", ", incRo) + " chỉ xem (tô xám) — " + _doc.Fields.First(f => f.Via == incRo[0] && f.ReadOnlyReason is not null).ReadOnlyReason;
             if (msg is null && _doc.Problems.Count > 0) msg = string.Join("  ", _doc.Problems);
-            if (msg is null && _doc.FieldsNode is null) msg = "File không có <fields> ở cấp gốc.";
+            if (msg is null && _doc.FieldsNode is null) msg = "Không tìm thấy <fields> (ở cấp gốc hay trong entity ngay dưới thẻ gốc).";
+            // phần thân nằm trong file include (thường dùng chung cho nhiều file): nói rõ sửa là sửa file đó
+            if (msg is null && _doc.FieldsFile is { } ff && !ReferenceEquals(ff, _doc.Main))
+                msg = $"<fields> nằm trong {_doc.FieldsVia} → {ShortPath(ff.Path)} — sửa ở đây là sửa file include này (mọi file khác include nó cũng đổi theo).";
         }
         _banner.Text = msg ?? "";
         _banner.Visible = msg is not null;
@@ -433,8 +439,9 @@ public sealed class FieldGridControl : UserControl
         void Cell(string col, FgNode? node, string attr)
         {
             var a = node?.Attr(attr);
-            row.Cells[col].Value = a is null ? "" : _doc!.Main.Text[a.ValueStart..a.ValueEnd];
-            var ro = node is null || _doc!.Main.ReadOnlyReason is not null;
+            var file = col.StartsWith("sub", StringComparison.Ordinal) ? _doc!.SubTitleFile : _doc!.TitleFile;
+            row.Cells[col].Value = a is null || file is null ? "" : file.Text[a.ValueStart..a.ValueEnd];
+            var ro = node is null || file is null || file.ReadOnlyReason is not null;
             row.Cells[col].ReadOnly = ro;
             row.Cells[col].Style.BackColor = ro ? AppColors.PanelAlt : Color.Empty;
             row.Cells[col].ToolTipText = node is null ? "File không có thẻ này." : "";
@@ -724,7 +731,9 @@ public sealed class FieldGridControl : UserControl
         var node = col < 2 ? _doc.Title : _doc.SubTitle;
         if (node is null) return;
         var value = (_titleGrid.Rows[0].Cells[col].Value as string ?? "").Trim();
-        Run(() => _set.SetAttr(_doc.Main, node, col % 2 == 0 ? "v" : "e", value));
+        var file = col < 2 ? _doc.TitleFile : _doc.SubTitleFile;
+        if (file is null) return;
+        Run(() => _set.SetAttr(file, node, col % 2 == 0 ? "v" : "e", value));
     }
 
     private void OnViewCellChanged(int row, int col)
@@ -759,8 +768,8 @@ public sealed class FieldGridControl : UserControl
         Run(() =>
         {
             if (cur is not null && cur.Placeholder is null && cur.ReadOnlyReason is null) _set.InsertAfter(cur.File, cur.Node, null, xml);
-            else if (_doc.FieldsNode is not null && _doc.Main.ReadOnlyReason is null) _set.InsertAfter(_doc.Main, null, _doc.FieldsNode, xml);
-            else throw new InvalidOperationException("Không thêm được field: " + (_doc.Main.ReadOnlyReason ?? "file không có <fields>."));
+            else if (_doc.FieldsNode is not null && _doc.FieldsFile is { ReadOnlyReason: null } ff) _set.InsertAfter(ff, null, _doc.FieldsNode, xml);
+            else throw new InvalidOperationException("Không thêm được field: " + (_doc.FieldsFile?.ReadOnlyReason ?? "file không có <fields>."));
         });
         BeginInvoke(new Action(() =>
         {
@@ -893,7 +902,8 @@ public sealed class FieldGridControl : UserControl
         var view = _doc.Views?.Children.FirstOrDefault(c => c.Name == "view");
         if (view is null) { SetStatus("Grid không có <views><view>."); return; }
         var last = view.Children.LastOrDefault(c => c.Name is "field" or "&");
-        Run(() => _set.InsertAfter(_doc.Main, last, last is null ? view : null, $"<field name=\"{f.Name}\"/>"));
+        var vf = _doc.ViewsFile ?? _doc.Main;
+        Run(() => _set.InsertAfter(vf, last, last is null ? view : null, $"<field name=\"{f.Name}\"/>"));
         SetStatus("Đã thêm " + f.Name + " vào cuối <view>.");
     }
 
@@ -959,6 +969,7 @@ public sealed class FieldGridControl : UserControl
         var text = dirty.Count == 0
             ? "Chưa sửa gì — file giống hệt trên đĩa."
             : string.Join("\r\n", dirty.Select(f => "==== " + f.Path + "\r\n" + FgSet.Diff(f).Replace("\n", "\r\n")));
+        if (ScriptViewRequested is not null) { ScriptViewRequested("View Script · " + _set.SysId, text); return; }
         using var form = new Form
         {
             Text = "View Script — thay đổi chưa lưu",

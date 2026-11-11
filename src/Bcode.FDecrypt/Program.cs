@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Reflection;
 using System.Text;
 
@@ -21,7 +23,10 @@ static class Program
 
     static int Main(string[] args)
     {
-        Console.OutputEncoding = Encoding.UTF8;
+        // UTF-8 KHÔNG BOM: .NET Framework ghi BOM ra stdout bị chuyển hướng nếu dùng Encoding.UTF8 → đầu nội dung dính ﻿.
+        Console.OutputEncoding = new UTF8Encoding(false);
+        // Chẩn đoán license: Bcode.FDecrypt.exe --diag <thư-mục-fsystem> → in tên máy, 32/64-bit, ngày cài Windows fsystem thấy, có file .c không.
+        if (args.Length == 2 && args[0] == "--diag") return Diag(args[1]);
         if (args.Length < 2)
         {
             Console.Error.WriteLine("Dùng: Bcode.FDecrypt.exe <thư-mục-fsystem> <file.f>");
@@ -51,11 +56,11 @@ static class Program
             var secType = asm.GetType("fsystem.Sec") ?? throw new Exception("fsystem.dll không có lớp Sec");
             var cmdType = asm.GetType("fsystem.Cmd") ?? throw new Exception("fsystem.dll không có lớp Cmd");
 
-            var hashKey = ReadLicense(secType, cmdType);
+            var hashKey = ReadLicense(secType, cmdType, out var why);
             if (string.IsNullOrEmpty(hashKey))
             {
-                Console.Error.WriteLine("no-license");   // máy chưa có license Fast (%windir%\\<Máy>.c)
-                return 2;
+                Console.Error.WriteLine(why);   // "no-license" = chưa có / không đọc được %windir%\<Máy>.c; khác = license không khớp máy
+                return why == "no-license" ? 2 : 4;
             }
 
             var analysis = secType.GetMethod("AnalysisSource") ?? throw new Exception("fsystem.Sec không có AnalysisSource");
@@ -72,23 +77,51 @@ static class Program
     }
 
     /// <summary>Lấy chuỗi license (hashKey) đúng cách FCode làm: %windir%\&lt;Máy&gt;.c → Sec.Decrypt(…, Cmd.GetClientCode()) → tách 'ÿ', phần tử [2].
-    /// Không có file / sai máy → rỗng.</summary>
-    static string ReadLicense(Type secType, Type cmdType)
+    /// Kiểm đủ như Sec.AnalysisSource: [0] = tên máy, [1] = ngày tạo Windows (Cmd.GetCreatedDateWindow, yyyyMMddHHmmss) — lệch thì AnalysisSource
+    /// trả nguyên văn, nên báo lý do ngay ở đây. Không có file → <paramref name="why"/> = "no-license".</summary>
+    static string ReadLicense(Type secType, Type cmdType, out string why)
     {
+        why = "no-license";
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), Environment.MachineName + ".c");
+        if (!File.Exists(path)) return "";
         try
         {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), Environment.MachineName + ".c");
-            if (!File.Exists(path)) return "";
             var clientCode = (string?)cmdType.GetMethod("GetClientCode")!.Invoke(null, null) ?? "";
             var decrypt = secType.GetMethod("Decrypt", new[] { typeof(string), typeof(string) })!;
             var plain = (string?)decrypt.Invoke(null, new object?[] { File.ReadAllText(path), clientCode }) ?? "";
             var parts = plain.Split('ÿ');   // 'ÿ'
-            // array[0] = tên máy, [1] = ngày tạo Windows, [2] = license. AnalysisSource tự kiểm lại đủ [0]/[1]; ở đây chỉ cần [2].
-            if (parts.Length == 3 && string.Equals(parts[0], Environment.MachineName, StringComparison.OrdinalIgnoreCase))
-                return parts[2];
+            if (parts.Length != 3) { why = "license-mismatch: " + path + " không giải được bằng mã ổ cứng của máy này (license cấp cho máy khác?)"; return ""; }
+            if (!string.Equals(parts[0], Environment.MachineName, StringComparison.Ordinal))
+            { why = "license-mismatch: license cấp cho máy '" + parts[0] + "', máy này là '" + Environment.MachineName + "'"; return ""; }
+            var created = cmdType.GetMethod("GetCreatedDateWindow")?.Invoke(null, null) is DateTime d ? d.ToString("yyyyMMddHHmmss") : null;
+            if (created is not null && parts[1] != created)
+            { why = "license-mismatch: license ghi ngày cài Windows " + parts[1] + ", máy này là " + created + " (cài lại / nâng cấp Windows sau khi cấp license?)"; return ""; }
+            return parts[2];
         }
-        catch { /* đọc license lỗi → coi như không có */ }
-        return "";
+        catch (Exception ex) { why = "license-mismatch: đọc license lỗi — " + (ex.InnerException ?? ex).Message; return ""; }
+    }
+
+    static int Diag(string dir)
+    {
+        _dir = dir;
+        var lic = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), Environment.MachineName + ".c");
+        Console.WriteLine("Máy: " + Environment.MachineName + " · tiến trình " + (Environment.Is64BitProcess ? "64" : "32") + "-bit");
+        Console.WriteLine("License: " + lic + (File.Exists(lic) ? " (có)" : " (KHÔNG có)"));
+        try
+        {
+            AppDomain.CurrentDomain.AssemblyResolve += Resolve;
+            var asm = Assembly.Load(File.ReadAllBytes(Path.Combine(dir, "fsystem.dll")));
+            var cmdType = asm.GetType("fsystem.Cmd")!;
+            var created = cmdType.GetMethod("GetCreatedDateWindow")?.Invoke(null, null) is DateTime d ? d.ToString("yyyyMMddHHmmss") : "?";
+            Console.WriteLine("Ngày cài Windows (fsystem thấy): " + created);
+            if (File.Exists(lic))
+            {
+                var key = ReadLicense(asm.GetType("fsystem.Sec")!, cmdType, out var why);
+                Console.WriteLine(string.IsNullOrEmpty(key) ? "License: " + why : "License: khớp máy này — giải mã được.");
+            }
+            return 0;
+        }
+        catch (Exception ex) { Console.WriteLine("Lỗi: " + (ex.InnerException ?? ex).Message); return 3; }
     }
 
     static Assembly? Resolve(object? sender, ResolveEventArgs e)

@@ -30,7 +30,7 @@ Bcode.App/
 │   ├── ErrorShotControl.cs  130
 │   ├── FastAskControl.cs  169
 │   ├── FcodeLexer.cs  465
-│   ├── FieldGridControl.cs  994
+│   ├── FieldGridControl.cs  1005
 │   ├── FileLookupControl.cs  1752
 │   ├── FileLookupControl.QuickGrant.cs  151
 │   ├── FileLookupControl.Rename.cs  317
@@ -166,7 +166,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  4920
+│   ├── MainForm.cs  4928
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
@@ -302,13 +302,13 @@ Bcode.App/
 │   ├── FboSampleTemplateService.cs  136
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FieldGridDocument.cs  775
+│   ├── FieldGridDocument.cs  800
 │   ├── FileLookupService.cs  1530
 │   ├── FileParseCache.cs  408
 │   ├── FileReferenceService.cs  46
 │   ├── FsgNotifyService.cs  662
 │   ├── FsgProjectLookupService.cs  679
-│   ├── FSourceDecryptService.cs  86
+│   ├── FSourceDecryptService.cs  88
 │   ├── GenAllService.cs  877
 │   ├── GenAllService.Delivery.cs  117
 │   ├── GenAllService.Suggest.cs  287
@@ -503,7 +503,7 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  227
+├── Bcode.App.csproj  232
 ├── BcodePaths.cs  48
 └── Program.cs  45
 ```

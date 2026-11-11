@@ -75,6 +75,8 @@ public sealed class FSourceDecryptService
                 return (null, "Máy này chưa có license Fast (" + Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), Environment.MachineName + ".c")
                               + ") hoặc license không khớp máy — không giải mã được.");
             }
+            if (p.ExitCode == 4)   // có file license nhưng không khớp máy này (tên máy / mã ổ cứng / ngày cài Windows)
+                return (null, "License Fast không khớp máy này — " + err.Replace("license-mismatch: ", "") + ". Nhờ Fast cấp lại license cho máy.");
             if (p.ExitCode != 0) return (null, "Giải mã lỗi: " + (err.Length > 0 ? err : "mã thoát " + p.ExitCode));
             // Chỉ nhận khi thật sự giải được (không còn <Encrypted>); helper trả nguyên văn khi không có gì để giải.
             if (outText.IndexOf("<Encrypted>", StringComparison.OrdinalIgnoreCase) >= 0)

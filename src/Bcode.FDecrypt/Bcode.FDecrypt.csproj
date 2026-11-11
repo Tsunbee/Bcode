@@ -3,20 +3,28 @@
   <!-- Giải mã file controller .f của Fast (khối <Encrypted>) cho Sơ đồ phụ thuộc / File Lookup.
        EXE RIÊNG, chạy tiến trình tách: nạp fsystem.dll ĐÃ CÀI của FCode trên máy dev rồi gọi Sec.AnalysisSource — fsystem.dll là
        binary bị làm rối, nhiều phụ thuộc; chạy tách để lỗi/treo không làm sập Bcode. KHÔNG kèm fsystem.dll hay khoá nào trong repo:
-       khoá là license Fast ghi theo máy (%windir%\<Máy>.c), chỉ máy dev có license mới giải được; máy không có license → trả nguyên văn. -->
+       khoá là license Fast ghi theo máy (%windir%\<Máy>.c), chỉ máy dev có license mới giải được; máy không có license → trả nguyên văn.
+
+       PHẢI chạy 32-bit (.NET Framework x86) như FCode.exe (cờ 32BITREQUIRED): fsystem kiểm license bằng ngày tạo thư mục
+       Environment.SpecialFolder.System — tiến trình 32-bit bị WOW64 chuyển sang C:\Windows\SysWOW64, tiến trình 64-bit đọc System32.
+       Hai thư mục tạo lệch nhau vài phút → bản 64-bit (net8 cũ) đọc được license nhưng AnalysisSource từ chối, trả nguyên khối <Encrypted>.
+       .NET Framework 4.8 có sẵn trên mọi Windows 10/11 (không cần cài .NET 8 x86), System.Management có sẵn trong GAC. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget>
+    <Prefer32Bit>true</Prefer32Bit>
+    <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>Bcode.FDecrypt</AssemblyName>
     <RootNamespace>Bcode.FDecrypt</RootNamespace>
-    <InvariantGlobalization>false</InvariantGlobalization>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- fsystem.dll (.NET Framework) gọi WMI qua System.Management — net8 cần package này để GetClientCode đọc được mã máy. -->
-    <PackageReference Include="System.Management" Version="8.0.0" />
+    <!-- fsystem.dll gọi WMI (Cmd.GetClientCode) qua System.Management — có sẵn trong .NET Framework. -->
+    <Reference Include="System.Management" />
   </ItemGroup>
 
 </Project>

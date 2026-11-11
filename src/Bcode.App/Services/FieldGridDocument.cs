@@ -282,6 +282,11 @@ internal sealed class FgDoc
     /// <summary>Thư mục trong Controllers: Dir / Grid / Filter / Report / Lookup … ("" = file lẻ).</summary>
     public string Kind = "";
     public FgNode? Root, Title, SubTitle, FieldsNode, Views;
+    /// <summary>File chứa thẻ tương ứng: thường là <see cref="Main"/>; khác khi cả phần thân nằm trong entity ngay dưới thẻ gốc
+    /// (Grid\CustomerParameterDetail.f = &lt;grid&gt;&amp;BIParameterGrid;&lt;/grid&gt; → title / fields / views ở Include\XML\BIParameterGrid.txt).</summary>
+    public FgFile? TitleFile, SubTitleFile, FieldsFile, ViewsFile;
+    /// <summary>Chuỗi &amp;X; dẫn tới &lt;fields&gt; / &lt;views&gt; khi chúng nằm trong file include (null = trong file chính).</summary>
+    public string? FieldsVia, ViewsVia;
     public readonly List<FgField> Fields = new();
     public readonly List<FgViewItem> ViewItems = new();
     public readonly List<string> Problems = new();
@@ -299,12 +304,31 @@ internal sealed class FgDoc
         Fields.Clear(); ViewItems.Clear(); Problems.Clear();
         var nodes = Main.Nodes();
         Root = nodes.FirstOrDefault(x => x.Name != "&");
-        Title = Root?.Child("title");
-        SubTitle = Root?.Child("subTitle");
-        FieldsNode = Root?.Child("fields");
-        Views = Root?.Child("views");
-        if (FieldsNode is not null) WalkFields(Main, FieldsNode.Children, null, null, 0);
-        if (Views is not null) WalkViews(Main, Views, null, 0);
+        (TitleFile, Title, _) = FindPart("title");
+        (SubTitleFile, SubTitle, _) = FindPart("subTitle");
+        (FieldsFile, FieldsNode, FieldsVia) = FindPart("fields");
+        (ViewsFile, Views, ViewsVia) = FindPart("views");
+        if (FieldsNode is not null) WalkFields(FieldsFile!, FieldsNode.Children, FieldsVia, null, 0);
+        if (Views is not null) WalkViews(ViewsFile!, Views, ViewsVia, 0);
+    }
+
+    /// <summary>Thẻ con <paramref name="name"/> của thẻ gốc; không có thì tìm trong các &amp;X; đứng ngay dưới thẻ gốc (và &amp;Y; ở cấp ngoài cùng
+    /// của file đó, tối đa 6 lớp).</summary>
+    private (FgFile? File, FgNode? Node, string? Via) FindPart(string name)
+    {
+        if (Root is null) return (null, null, null);
+        var queue = new Queue<(FgFile File, List<FgNode> Items, string? Via, int Depth)>();
+        queue.Enqueue((Main, Root.Children, null, 0));
+        while (queue.Count > 0)
+        {
+            var (file, items, via, depth) = queue.Dequeue();
+            if (items.Find(x => x.Name == name) is { } hit) return (file, hit, via);
+            if (depth >= 6) continue;
+            foreach (var e in items)
+                if (e.Name == "&" && e.Entity is { } ent && ResolveEntity(ent) is { } inc)
+                    queue.Enqueue((inc, inc.Nodes(), (via ?? "") + "&" + ent + ";", depth + 1));
+        }
+        return (null, null, null);
     }
 
     private void WalkFields(FgFile file, List<FgNode> items, string? via, FgNode? top, int depth)
@@ -717,7 +741,8 @@ internal sealed class FgSet
     public void Reload(FgDoc? doc)
     {
         var files = doc is null ? AllFiles.ToList()
-            : doc.Fields.Select(x => x.File).Concat(doc.ViewItems.Select(x => x.File)).Append(doc.Main).Where(x => !x.Virtual).Distinct().ToList();
+            : doc.Fields.Select(x => x.File).Concat(doc.ViewItems.Select(x => x.File)).Append(doc.Main).Append(doc.TitleFile).Append(doc.SubTitleFile).Append(doc.FieldsFile).Append(doc.ViewsFile)
+                .OfType<FgFile>().Where(x => !x.Virtual).Distinct().ToList();
         foreach (var f in files) { try { f.Reload(); if (f.ReadOnlyReason is null && InReadOnlyRoot(f.Path)) f.ReadOnlyReason = "File nằm trong kho source (chỉ đọc) — Bcode không ghi đè."; } catch (Exception) { } }
         _raw.Clear();
         _literals.Clear();

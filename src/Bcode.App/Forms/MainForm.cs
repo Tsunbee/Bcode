@@ -3931,7 +3931,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private FieldGridControl NewFieldGrid()
     {
         var control = new FieldGridControl(_settings.SourceCollectionRoots);
-        control.OpenFileRequested += p => OpenFileFromLookup(p);
+        // Mở XML / View Script: tab trong Bcode (không bật cửa sổ BcodeViewer / hộp riêng)
+        control.OpenFileRequested += p => OpenFileInScriptTab(p);
+        control.ScriptViewRequested += (title, text) =>
+        {
+            var editor = new ScriptEditorControl();
+            editor.LoadContent(null, text);
+            editor.ReadOnly = true;
+            AddDocumentTab(title, editor);
+        };
         return control;
     }
 

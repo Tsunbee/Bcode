@@ -20,7 +20,7 @@
     <Trademark>Bcode™ Bee</Trademark>
     <!-- PHIÊN BẢN Bcode — chỗ DUY NHẤT cần sửa khi lên bản mới. Dạng "số-nhãn" (1.9-beta) → hiện "Beta v1.9" ở góc phải thanh trên
          (topbar.html #verBadge / NativeTopBar) và ghi vào log lỗi (ErrorLog.Version / ErrorLog.VersionLabel). Bỏ "-beta" khi ra bản chính thức → "v2.0". -->
-    <Version>2.2-beta</Version>
+    <Version>2.3-beta</Version>
     <!-- Thư mục phát hành MẶC ĐỊNH cho "Kiểm tra bản Bcode mới" (Shared/AppUpdate.cs): máy chưa khai Settings → Thư mục phát hành bản mới
          thì dùng thư mục này (thư mục build có bcode-version.json). Người dùng vẫn khai đè được; gõ "-" = tắt kiểm tra. Để trống = không có mặc định. -->
     <!-- Bố cục phát hành: HAOTN\Bcode\{Bcode, Bcodeviewer, BcodeScreenDesigner} — mỗi app 1 thư mục con riêng. -->
@@ -217,8 +217,13 @@
   </ItemGroup>
   <Target Name="CopyFDecrypt" AfterTargets="Build">
     <ItemGroup>
-      <FDecryptOutput Include="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.FDecrypt\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
+      <!-- net48 x86 (chạy 32-bit như FCode — xem Bcode.FDecrypt.csproj). -->
+      <FDecryptOutput Include="..\Bcode.FDecrypt\bin\$(Configuration)\net48\**\*" Exclude="..\Bcode.FDecrypt\bin\$(Configuration)\net48\**\*.pdb" />
+      <!-- file còn sót của bản net8 cũ (64-bit) — bỏ để thư mục phát hành không mang theo -->
+      <FDecryptStale Include="$(OutDir)FDecrypt\Bcode.FDecrypt.dll;$(OutDir)FDecrypt\Bcode.FDecrypt.deps.json;$(OutDir)FDecrypt\Bcode.FDecrypt.runtimeconfig.json;$(OutDir)FDecrypt\System.Management.dll;$(OutDir)FDecrypt\System.CodeDom.dll" />
     </ItemGroup>
+    <Delete Files="@(FDecryptStale)" ContinueOnError="true" />
+    <RemoveDir Directories="$(OutDir)FDecrypt\runtimes" ContinueOnError="true" />
     <Copy SourceFiles="@(FDecryptOutput)" DestinationFiles="@(FDecryptOutput->'$(OutDir)FDecrypt\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
   <!-- Dấu phiên bản + "Có gì mới" + manifest SHA-256 cho "Cập nhật Bcode" (Shared/AppUpdate.cs) — dùng chung với BcodeViewer.App.

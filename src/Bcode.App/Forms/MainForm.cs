@@ -216,6 +216,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _rawSqlService = new RawSqlService(_connections);
         _tableDataService = new TableDataService(_connections, _periods);
         _tableMenu = new TableMenuService(_connections, () => _wcommandTree?.FlatLeaves() ?? new());
+        _relativeTables = new RelativeTablesService(_connections);
         _genAllService.TableData = _tableDataService;   // Note (New) → "Table liên quan": đọc dữ liệu để sinh script
         _genAllService.DataScript = _dataScript;
         _lookupService = new LookupService(_connections);
@@ -431,6 +432,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.ApiSchemaRequested += item => _ = OpenApiFromStructureAsync(item, null, declare: false);
         wcommandTree.ApiDeclareRequested += item => _ = OpenApiFromStructureAsync(item, null, declare: true);
         wcommandTree.QuickGenRequested += item => _ = LaunchBcodeNoteAsync(item);
+        wcommandTree.RelativeTablesRequested += item => OpenRelativeTablesTab(item);
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,
@@ -1665,6 +1667,36 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         if (newTab && _depTab is not null && _documentTabs.TabPages.Contains(_depTab)) return;
         _depTab = page;
         page.Disposed += (_, _) => { if (_depTab == page) _depTab = null; };
+    }
+
+    private readonly RelativeTablesService _relativeTables;
+
+    /// <summary>Tab "View Relative Tables" (như FCode): liệt kê các bảng liên quan tới chứng từ đang chọn trên cây WCommand (theo syscode).
+    /// Bấm một bảng trong danh sách → mở tab Table mới đã điền sẵn điều kiện lọc của chứng từ. FBFF cho dòng command (IsAppCommand), còn lại FBO.</summary>
+    private void OpenRelativeTablesTab(WCommandItem item)
+    {
+        var control = new RelativeTablesControl(_relativeTables, item, fbff: item.IsAppCommand, NewRelativeTableGrid);
+        control.OpenTableRequested += OpenTableFiltered;   // chuột phải → Mở sang tab mới
+        var title = string.IsNullOrWhiteSpace(item.SysCode) ? item.SysId : item.SysCode;
+        AddDocumentTab("Table liên quan: " + (string.IsNullOrWhiteSpace(title) ? item.Bar : title), control);
+    }
+
+    /// <summary>Lưới dữ liệu nhúng trong tab "View Relative Tables" (xem tại chỗ) — một TableEditControl như tab Table, đã nối menu.</summary>
+    private TableEditControl NewRelativeTableGrid()
+    {
+        var control = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate);
+        WireTableMenu(control);
+        return control;
+    }
+
+    /// <summary>Mở một bảng trong tab Table mới, điền sẵn điều kiện lọc (dùng cho "View Relative Tables").</summary>
+    private void OpenTableFiltered(bool sys, string table, string where)
+    {
+        var control = new TableEditControl(_tableDataService, _sqlObjectService, _dataScript, _scriptFileService, _genInsert, _genUpdate);
+        WireTableMenu(control);
+        var page = AddDocumentTab(NumberedTabTitle("Table"), control);
+        control.TableLoaded += name => { if (!page.IsDisposed) { page.Text = name; OnTabTitleChanged(); } };
+        _ = control.OpenTableAsync(sys, "dbo", table, (Fields: "", Where: where, Order: "", Top: 0));
     }
 
     /// <summary>Tab "Ai đang dùng …" cho 1 object SQL: quét database (App + Sys) và file source. Mỗi object 1 tab; mở lại thì chuyển tới và quét lại.</summary>

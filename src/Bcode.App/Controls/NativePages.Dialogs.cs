@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bcode.App.Services;
 using Bcode.App.UI;
 
 namespace Bcode.App.Controls;
@@ -327,7 +328,9 @@ internal sealed class RowDetailPage : DialogPage
 /// <summary>"Add New Column" / "Edit Column" (columndesign.html): bảng Name / Type / Length / Not NULL.</summary>
 internal sealed class ColumnDesignPage : DialogPage
 {
-    private static readonly string[] Types = { "bigint", "bit", "char", "date", "datetime", "datetime2", "decimal", "float", "image", "int", "money", "nchar", "ntext", "numeric", "nvarchar", "real", "smalldatetime", "smallint", "text", "tinyint", "uniqueidentifier", "varbinary", "varchar", "xml" };
+    private static readonly string[] AllTypes = { "bigint", "bit", "char", "date", "datetime", "datetime2", "decimal", "float", "image", "int", "money", "nchar", "ntext", "numeric", "nvarchar", "real", "smalldatetime", "smallint", "text", "tinyint", "uniqueidentifier", "varbinary", "varchar", "xml" };
+    // Kiểu hay dùng (ColumnTypeGuess.Favorites) đẩy lên đầu + tô đậm trong dropdown.
+    private static readonly string[] Types = ColumnTypeGuess.Favorites.Concat(AllTypes.Except(ColumnTypeGuess.Favorites)).ToArray();
     private static readonly Dictionary<string, string> DefLen = new() { ["char"] = "16", ["nchar"] = "16", ["varchar"] = "128", ["nvarchar"] = "128", ["varbinary"] = "max", ["decimal"] = "19,4", ["numeric"] = "19,4" };
 
     private readonly RoundedInput _tn = NK.Input("") ;
@@ -346,30 +349,70 @@ internal sealed class ColumnDesignPage : DialogPage
         _grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "nn", HeaderText = "Not NULL", Width = NativeSkin.S(80) });
         _grid.Columns.Add(new DataGridViewButtonColumn { Name = "del", HeaderText = "", Text = "✕", UseColumnTextForButtonValue = true, Width = NativeSkin.S(40) });
         _grid.CurrentCellDirtyStateChanged += (_, _) => { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
+        // Combo Type gõ được + autocomplete; tô đậm kiểu hay dùng trong dropdown.
+        _grid.EditingControlShowing += (_, e) =>
+        {
+            if (_grid.CurrentCell?.OwningColumn?.Name == "type" && e.Control is ComboBox cb)
+            {
+                cb.DropDownStyle = ComboBoxStyle.DropDown;
+                cb.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+                cb.AutoCompleteSource = AutoCompleteSource.ListItems;
+                cb.DrawMode = DrawMode.OwnerDrawFixed;
+                cb.DrawItem -= ComboDrawItem; cb.DrawItem += ComboDrawItem;
+            }
+        };
         _grid.CellValueChanged += (_, e) =>
         {
-            if (_loading || e.RowIndex < 0 || _grid.Columns[e.ColumnIndex].Name != "type") return;
-            var t = _grid.Rows[e.RowIndex].Cells["type"].Value as string ?? "";
-            _loading = true; _grid.Rows[e.RowIndex].Cells["len"].Value = DefLen.TryGetValue(t, out var l) ? l : ""; _loading = false;
-            _grid.Rows[e.RowIndex].Cells["len"].ReadOnly = !DefLen.ContainsKey(t);
+            if (_loading || e.RowIndex < 0) return;
+            var col = _grid.Columns[e.ColumnIndex].Name; var row = _grid.Rows[e.RowIndex];
+            if (col == "type")
+            {
+                var t = (row.Cells["type"].Value as string ?? "").Trim().ToLowerInvariant();
+                row.Tag = true; // người dùng tự chọn kiểu → không auto đoán đè nữa
+                _loading = true; row.Cells["len"].Value = DefLen.TryGetValue(t, out var l) ? l : ""; _loading = false;
+                row.Cells["len"].ReadOnly = !DefLen.ContainsKey(t);
+            }
+            else if (col == "name" && row.Tag is not true && ColumnTypeGuess.Guess(row.Cells["name"].Value as string) is { } g)
+            {
+                _loading = true;
+                var ti = (DataGridViewComboBoxColumn)_grid.Columns["type"]; if (!ti.Items.Contains(g.Type)) ti.Items.Add(g.Type);
+                row.Cells["type"].Value = g.Type; row.Cells["len"].Value = g.Length; row.Cells["len"].ReadOnly = !DefLen.ContainsKey(g.Type);
+                _loading = false;
+            }
         };
-        _grid.CellContentClick += (_, e) => { if (e.RowIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "del") { _grid.Rows.RemoveAt(e.RowIndex); if (_grid.Rows.Count == 0) AddRow("", "", "", false); Renumber(); } };
+        _grid.CellContentClick += (_, e) => { if (e.RowIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "del") { _grid.Rows.RemoveAt(e.RowIndex); if (_grid.Rows.Count == 0) AddRow("", "", "", false, manual: false); Renumber(); } };
         _grid.DataError += (_, e) => e.ThrowException = false;
         var main = new Panel { Padding = new Padding(10) };
-        var addRow = NK.Row(NK.Button("+ Thêm cột", () => { AddRow("", _isAdd ? "nvarchar" : "varchar", "128", false); Renumber(); }));
+        var addRow = NK.Row(NK.Button("+ Thêm cột", () => { AddRow("", _isAdd ? "nvarchar" : "varchar", "128", false, manual: false); Renumber(); }));
         addRow.Dock = DockStyle.Bottom; _grid.Dock = DockStyle.Fill; main.Controls.Add(_grid); main.Controls.Add(addRow);
         Bottom.FlowDirection = FlowDirection.RightToLeft;
         Bottom.Controls.Add(NK.Button("Cancel", () => Post(new { action = "cancel" }))); Bottom.Controls.Add(NK.Button("OK", Ok, primary: true));
         Layout(top, main);
     }
 
-    private void AddRow(string name, string type, string len, bool nn)
+    private void AddRow(string name, string type, string len, bool nn, bool manual = true)
     {
         _loading = true;
         if (type.Length > 0 && !((DataGridViewComboBoxColumn)_grid.Columns["type"]).Items.Contains(type)) ((DataGridViewComboBoxColumn)_grid.Columns["type"]).Items.Insert(0, type);
         var i = _grid.Rows.Add("", name, type.Length > 0 ? type : null, len, nn);
         _grid.Rows[i].Cells["len"].ReadOnly = !DefLen.ContainsKey(type);
+        _grid.Rows[i].Tag = manual; // true = kiểu do người dùng/đầu vào đặt → không auto đoán đè
         _loading = false;
+    }
+
+    // Tô đậm + nền nhạt cho kiểu hay dùng trong dropdown combo Type.
+    private static void ComboDrawItem(object? sender, DrawItemEventArgs e)
+    {
+        if (sender is not ComboBox cb || e.Index < 0) return;
+        var text = cb.Items[e.Index]?.ToString() ?? "";
+        var fav = Array.IndexOf(ColumnTypeGuess.Favorites, text) >= 0;
+        e.DrawBackground();
+        if (fav && (e.State & DrawItemState.Selected) == 0)
+            using (var bg = new SolidBrush(Color.FromArgb(28, e.ForeColor))) e.Graphics.FillRectangle(bg, e.Bounds);
+        var f = fav ? new Font(e.Font!, FontStyle.Bold) : e.Font!;
+        using (var b = new SolidBrush(e.ForeColor)) e.Graphics.DrawString(text, f, b, e.Bounds.Location);
+        if (fav) f.Dispose();
+        e.DrawFocusRectangle();
     }
 
     private void Renumber() { for (var i = 0; i < _grid.Rows.Count; i++) _grid.Rows[i].Cells["n"].Value = (i + 1).ToString(); }
@@ -395,7 +438,7 @@ internal sealed class ColumnDesignPage : DialogPage
         _grid.Rows.Clear();
         var cols = PA(d, "cols").ToList();
         foreach (var c in cols) AddRow(P(c, "name"), P(c, "type"), P(c, "length"), PB(c, "notNull"));
-        if (cols.Count == 0) AddRow("", _isAdd ? "nvarchar" : "", _isAdd ? "128" : "", false);
+        if (cols.Count == 0) AddRow("", _isAdd ? "nvarchar" : "", _isAdd ? "128" : "", false, manual: false);
         Renumber();
     }
 

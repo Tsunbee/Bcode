@@ -13,7 +13,7 @@ dotnet run --project C:\Users\THINHPM-LT3\source\SqlWatch
 
 User và password gắn cứng trong chương trình, không hiện trên màn hình. Login SQL là `profile`. Password không ghi trong file này.
 
-Login này có `VIEW SERVER STATE`, không có quyền tạo session Profiler hay Extended Events. Vì vậy SqlWatch không mở trace trên server. Nó đọc DMV theo nhịp (mặc định 300 ms) và chỉ nhìn các database của project đang chọn.
+Login này có `VIEW SERVER STATE`, không có quyền tạo session Profiler hay Extended Events. Vì vậy SqlWatch không mở trace trên server. Nó đọc DMV theo nhịp (chọn 200 / 250 / 300 ms, mặc định 200 ms) và chỉ nhìn các database của project đang chọn.
 
 Connection dùng `Application Name = SqlWatch` để không tự ghi lại câu lệnh của chính tool.
 

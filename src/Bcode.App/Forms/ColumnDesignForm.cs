@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bcode.App.Services;
 
 namespace Bcode.App.Forms;
 
@@ -38,7 +39,15 @@ public class ColumnDesignForm : WebDialogForm
     }
 
     protected override void OnReady() =>
-        Js($"colDesign.init({J(new { isAdd = _isAdd, table = _table, hint = _hint ?? "", cols = _initial.Select(c => new { name = c.Name, type = c.Type, length = c.Length, notNull = c.NotNull }) })})");
+        Js($"colDesign.init({J(new
+        {
+            isAdd = _isAdd,
+            table = _table,
+            hint = _hint ?? "",
+            cols = _initial.Select(c => new { name = c.Name, type = c.Type, length = c.Length, notNull = c.NotNull }),
+            fav = ColumnTypeGuess.Favorites,
+            guess = ColumnTypeGuess.Rules.Select(r => new { contains = r.Contains, prefix = r.Prefix, suffix = r.Suffix, type = r.Type, length = r.Length }),
+        })})");
 
     protected override Task OnActionAsync(string action, JsonElement msg)
     {

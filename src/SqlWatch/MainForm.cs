@@ -29,7 +29,11 @@ public sealed partial class MainForm : Form
     private Action<string>? _debugStore;
     private string _flash = "";
     private DateTime _flashUntil;
-    private readonly NumericUpDown _interval = new() { Minimum = 200, Maximum = 2000, Value = 300, Increment = 100 };
+    // Nhịp đọc chỉ chọn 200 / 250 / 300 ms (mặc định 200): DMV chỉ giữ câu cuối của mỗi phiên, nên Fast gửi vài câu liền nhau trong
+    // 1 nhịp là sót các câu trước (README "Giới hạn") — nhịp ngắn sót ít hơn. Bcode nhớ lựa chọn (AppSettings.SqlWatchIntervalMs).
+    public static readonly int[] PollIntervals = [200, 250, 300];
+    public const int DefaultPollInterval = 200;
+    private readonly ComboBox _interval = new() { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat };
     private readonly TextBox _loginFilter = new();
     private readonly TextBox _appFilter = new();
     private readonly TextBox _textFilter = new();
@@ -100,6 +104,20 @@ public sealed partial class MainForm : Form
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Action<Exception, string>? ErrorLogged { get; set; }
 
+    /// <summary>Nhịp đọc (ms) — Bcode đặt theo giá trị đã lưu. Giá trị không thuộc <see cref="PollIntervals"/> (bản cũ / sửa tay settings.json) về 200.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public int PollInterval
+    {
+        get => _interval.SelectedItem is int ms ? ms : DefaultPollInterval;
+        set => _interval.SelectedItem = NormalizePollInterval(value);
+    }
+
+    /// <summary>Báo nơi chứa lưu nhịp đọc khi người dùng chọn giá trị khác.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Action<int>? PollIntervalSaved { get; set; }
+
+    public static int NormalizePollInterval(int ms) => Array.IndexOf(PollIntervals, ms) >= 0 ? ms : DefaultPollInterval;
+
     // Lỗi đọc tạm thời (TraceWatcher.IsTransient): hiện trên thanh trạng thái tới khi đọc lại được; nhịp sau thử lại, lùi dần tới 30 giây.
     private string _pollError = "";
     private int _pollFailures;
@@ -138,7 +156,9 @@ public sealed partial class MainForm : Form
         _project.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
         _project.AutoCompleteSource = AutoCompleteSource.ListItems;
         Themed(_project, box => { box.BackColor = _pal.Input; box.ForeColor = _pal.Ink; });
-        _interval.BorderStyle = BorderStyle.FixedSingle;
+        foreach (var ms in PollIntervals)
+            _interval.Items.Add(ms);
+        _interval.SelectedItem = DefaultPollInterval;
         _interval.Width = S(72);
         Themed(_interval, box => { box.BackColor = _pal.Input; box.ForeColor = _pal.Ink; });
         StyleButton(_start, primary: true);
@@ -183,12 +203,15 @@ public sealed partial class MainForm : Form
         _textFilter.TextChanged += (_, _) => { RebuildGrid(); OnFiltersChanged(); };
         _filterSave.Tick += (_, _) => FlushFilters();
         _tips.SetToolTip(_appFilter, "u_id của người dùng Fast (ApplicationName). Tự điền theo user đang theo dõi ở SQL Profiler; lọc ngay khi đọc trên server. Để trống = mọi user.");
-        _interval.ValueChanged += (_, _) =>
+        _interval.SelectedIndexChanged += (_, _) =>
         {
             if (_timer.Enabled)
-                _timer.Interval = (int)_interval.Value;
+                _timer.Interval = PollInterval;
             UpdateStatus();
         };
+        // Chỉ lưu khi người dùng tự chọn (SelectionChangeCommitted) — Bcode đặt PollInterval lúc mở tab thì không ghi lại settings.
+        _interval.SelectionChangeCommitted += (_, _) => PollIntervalSaved?.Invoke(PollInterval);
+        _tips.SetToolTip(_interval, "Bao lâu đọc DMV 1 lần. SQL Server chỉ giữ câu cuối của mỗi phiên: ứng dụng gửi vài câu liền nhau trong 1 nhịp thì chỉ bắt được câu cuối — nhịp ngắn bắt sót ít hơn.");
         _timer.Tick += async (_, _) => await PollAsync();
         AcceptButton = _start;
         FormClosing += (_, _) => { FlushFilters(); CloseWatcher(); };
@@ -720,7 +743,7 @@ public sealed partial class MainForm : Form
         _paused = false;
         _pause.Text = "Tạm dừng";
         SetRunning(true);
-        _timer.Interval = (int)_interval.Value;
+        _timer.Interval = PollInterval;
         _timer.Start();
         UseWaitCursor = false;
         UpdateStatus();
@@ -1140,7 +1163,7 @@ public sealed partial class MainForm : Form
         if (ShowingFlash())
             return;
         var state = _paused ? "Tạm dừng" : "Đang bắt";
-        _status.Text = $"{state}  ·  {_project.Text.Trim()}  ·  hiện {_shown}/{_captured.Count}  ·  nhịp {_interval.Value} ms"
+        _status.Text = $"{state}  ·  {_project.Text.Trim()}  ·  hiện {_shown}/{_captured.Count}  ·  nhịp {PollInterval} ms"
             + (_pollError.Length > 0 ? "  ·  " + _pollError : "")
             + (_note.Length > 0 ? "  ·  " + _note : "");
     }

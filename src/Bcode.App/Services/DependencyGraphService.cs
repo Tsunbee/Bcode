@@ -133,7 +133,12 @@ public sealed class DependencyGraphService
 
     /// <summary>Giải mã 1 file .f mã hoá qua helper FDecrypt (dùng fsystem.dll của FCode). Trả nội dung đã giải, null = không giải được — MainForm gán.
     /// Có cái này thì file .f mã hoá đọc THẲNG bản giải mã của chính file (đúng bản khách đang chạy), không cần dò kho source chuẩn.</summary>
-    public Func<string, string?>? DecryptF { get; set; }
+    public Func<string, string?>? DecryptF
+    {
+        get => _decryptF;
+        set { _decryptF = value; _index.DecryptF = value; }   // index "ai dùng" cũng giải mã .f để thấy tên trong khối <Encrypted>
+    }
+    private Func<string, string?>? _decryptF;
 
     private static readonly object VersionsLock = new();
     private static (string Key, DateTime At, List<string> Versions)? _versions;
@@ -174,6 +179,7 @@ public sealed class DependencyGraphService
     private (string Path, string Version, string Text)? StandardTextFor(string file, string text)
     {
         if (!file.EndsWith(".f", StringComparison.OrdinalIgnoreCase) || text.IndexOf("<Encrypted>", StringComparison.OrdinalIgnoreCase) < 0) return null;
+        if (SourceIndexService.IsCopyOrBackup(file)) return null;   // bản sao / sao lưu: không giải mã, không đưa lên sơ đồ
         try { if (File.Exists(file[..^2] + ".xml")) return null; } catch { return null; }
         // 1) Giải mã chính file (bản thật của khách) nếu có helper + license
         if (DecryptF?.Invoke(file) is { Length: > 0 } decrypted) return (file, "giải mã", decrypted);
@@ -535,6 +541,7 @@ ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
         {
             string full;
             try { full = Path.GetFullPath(Path.Combine(dir, m.Groups[1].Value.Replace('/', '\\'))); } catch { continue; }
+            if (SourceIndexService.IsCopyOrBackup(full)) continue;   // include trỏ tới bản sao / sao lưu: bỏ
             if (seen.Add(full)) down.Add(FileNode(full, File.Exists(full) ? "include" : "include — không thấy file"));
         }
         var names = NamesIn(text, null);
@@ -611,7 +618,7 @@ ORDER BY CASE WHEN o.schema_id = SCHEMA_ID('dbo') THEN 0 ELSE 1 END;";
                 catch (Exception ex) { warn.Add(folder + ": " + ex.Message); }
             }
         }
-        files = files.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        files = files.Where(f => !SourceIndexService.IsCopyOrBackup(f)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();   // bỏ file bản sao / sao lưu
         foreach (var f in files) down.Add(FileNode(f, Path.GetFileName(Path.GetDirectoryName(f))));
 
         // Object database có tên trong các file của menu (store / procedure / function / bảng / view…) — dò như "Dùng tới" của 1 file

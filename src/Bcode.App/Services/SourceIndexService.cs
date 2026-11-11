@@ -17,6 +17,20 @@ public sealed partial class SourceIndexService
     public static readonly string[] Folders = { "Dir", "Filter", "Grid", "Include", "Options", "Report" };
     private static readonly string[] Extensions = { ".f", ".xml", ".aspx", ".ascx", ".vb", ".cs", ".js", ".htm", ".html", ".txt", ".config", ".sql" };
     private static readonly TimeSpan RefreshEvery = TimeSpan.FromMinutes(3);
+
+    // Bản sao / sao lưu: tên (bỏ đuôi) kết thúc bằng "copy"/"backup" (vd "SVTran - Copy.f", "SVTran_backup.xml", "SVTran - Copy (2).f"), tiền tố "Copy of", hoặc đuôi .bak.
+    private static readonly System.Text.RegularExpressions.Regex CopyBackupRx = new(
+        @"[\s_\-.](?:copy|backup)(?:\s*\(\d+\))?$",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>true = file là bản sao / sao lưu — bỏ khỏi chỉ mục "ai dùng" / source chuẩn và khỏi sơ đồ phụ thuộc, KHÔNG giải mã (đỡ tốn thời gian lập chỉ mục).</summary>
+    public static bool IsCopyOrBackup(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        if (Path.GetExtension(path).Equals(".bak", StringComparison.OrdinalIgnoreCase)) return true;
+        var name = Path.GetFileNameWithoutExtension(path);
+        return CopyBackupRx.IsMatch(name) || name.StartsWith("Copy of ", StringComparison.OrdinalIgnoreCase);
+    }
     private const int FormatVersion = 1, MaxSnippets = 4, SnippetWidth = 220, MaxHits = 400;
 
     private sealed class Entry { public long Ticks, Length; public int[] Hashes = Array.Empty<int>(); }
@@ -121,9 +135,48 @@ public sealed partial class SourceIndexService
             return result;
         }, ct);
 
-    private static Index GetIndex(string dir, string[]? folders, out string key)
+    /// <summary>Có đặt thì khi lập chỉ mục, file .f mã hoá (có &lt;Encrypted&gt;) được GIẢI MÃ trước rồi mới băm từ — nhờ vậy tra "ai dùng" / File Reference
+    /// thấy được tên store / procedure nằm trong khối mã hoá. null = index theo nội dung thô như cũ (máy chưa cấp key). Trả null cho 1 file = file đó index thô.</summary>
+    public Func<string, string?>? DecryptF { get; set; }
+
+    /// <summary>true = cạnh file .f đã có file .xml cùng tên (bản giải sẵn trong chính dự án) → không cần giải mã lại khi lập chỉ mục.</summary>
+    private static bool HasSiblingXml(string fPath)
     {
-        key = dir + (folders is null ? "|all" : "|ctl");
+        try { return fPath.EndsWith(".f", StringComparison.OrdinalIgnoreCase) && File.Exists(fPath[..^2] + ".xml"); }
+        catch { return false; }
+    }
+
+    /// <summary>Nội dung dùng để băm từ: file .f mã hoá + có DecryptF + CHƯA có .xml cạnh → bản đã giải; còn lại → nội dung thô
+    /// (có .xml cạnh thì bản .xml đã được lập chỉ mục riêng nên khỏi giải mã lại — đỡ tốn thời gian).</summary>
+    private string TextForIndex(FileInfo fi)
+    {
+        var raw = File.ReadAllText(fi.FullName);
+        if (DecryptF is { } dec && fi.Extension.Equals(".f", StringComparison.OrdinalIgnoreCase)
+            && raw.IndexOf("<Encrypted>", StringComparison.OrdinalIgnoreCase) >= 0
+            && !HasSiblingXml(fi.FullName)
+            && dec(fi.FullName) is { Length: > 0 } decrypted)
+            return decrypted;
+        return raw;
+    }
+
+    /// <summary>Các dòng của file để quét / đếm "chỗ dùng": file .f mã hoá + có DecryptF → quét trên bản đã giải (để khớp tên store nằm trong khối mã hoá);
+    /// còn lại → thô. Không ném lỗi (đọc hỏng → rỗng).</summary>
+    private string[] LinesFor(string path)
+    {
+        string raw;
+        try { raw = File.ReadAllText(path); } catch { return Array.Empty<string>(); }
+        var text = raw;
+        if (DecryptF is { } dec && path.EndsWith(".f", StringComparison.OrdinalIgnoreCase)
+            && raw.IndexOf("<Encrypted>", StringComparison.OrdinalIgnoreCase) >= 0
+            && !HasSiblingXml(path)
+            && dec(path) is { Length: > 0 } d) text = d;
+        return text.Replace("\r\n", "\n").Split('\n');
+    }
+
+    private Index GetIndex(string dir, string[]? folders, out string key)
+    {
+        // Khoá cache có hậu tố "|dec" khi máy có key giải mã: index bản đã giải tách riêng index thô, bật/tắt key thì tự dựng lại đúng loại.
+        key = dir + (folders is null ? "|all" : "|ctl") + (DecryptF is not null ? "|dec" : "");
         var k = key;
         return Memory.GetOrAdd(k, _ => Load(k) ?? new Index());
     }
@@ -159,7 +212,7 @@ public sealed partial class SourceIndexService
                     try
                     {
                         var n = 0;
-                        foreach (var line in File.ReadLines(path))
+                        foreach (var line in LinesFor(path))
                         {
                             n++;
                             if (!pattern.IsMatch(line)) continue;
@@ -173,14 +226,14 @@ public sealed partial class SourceIndexService
             }
         }, ct);
 
-    private static (int Count, List<UsageLine> Snippets) Scan(string path, Regex pattern)
+    private (int Count, List<UsageLine> Snippets) Scan(string path, Regex pattern)
     {
         var snippets = new List<UsageLine>();
         var count = 0;
         try
         {
             var n = 0;
-            foreach (var line in File.ReadLines(path))
+            foreach (var line in LinesFor(path))
             {
                 n++;
                 if (!pattern.IsMatch(line)) continue;
@@ -210,7 +263,7 @@ public sealed partial class SourceIndexService
                 foreach (var fi in new DirectoryInfo(dir).EnumerateFiles("*", SearchOption.AllDirectories))
                 {
                     ct.ThrowIfCancellationRequested();
-                    if (Extensions.Contains(fi.Extension, StringComparer.OrdinalIgnoreCase)) current[fi.FullName] = fi;
+                    if (Extensions.Contains(fi.Extension, StringComparer.OrdinalIgnoreCase) && !IsCopyOrBackup(fi.Name)) current[fi.FullName] = fi;
                 }
             }
             catch (OperationCanceledException) { throw; }
@@ -226,7 +279,7 @@ public sealed partial class SourceIndexService
         {
             Parallel.ForEach(changed, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = ct }, fi =>
             {
-                try { fresh[fi.FullName] = new Entry { Ticks = fi.LastWriteTimeUtc.Ticks, Length = fi.Length, Hashes = HashesOf(File.ReadAllText(fi.FullName)) }; }
+                try { fresh[fi.FullName] = new Entry { Ticks = fi.LastWriteTimeUtc.Ticks, Length = fi.Length, Hashes = HashesOf(TextForIndex(fi)) }; }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { /* khoá / không đọc được — lần sau thử lại */ }
                 var d = Interlocked.Increment(ref done);
                 if (d % 100 == 0) progress($"Đang lập chỉ mục lần đầu / cập nhật: {d}/{changed.Count} file…");

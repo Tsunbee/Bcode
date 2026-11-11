@@ -26,18 +26,31 @@
   input[type=text] { font: inherit; color: var(--text); background: var(--input); border: var(--bw) solid var(--border); border-radius: var(--r); padding: calc(.25rem * var(--dens)) .6rem; width: min(18rem, 40vw); }
   main { flex: 1; min-height: 0; overflow: auto; position: relative; }
   #graph { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem) minmax(0, 1fr); gap: 0 4.5rem; padding: 1rem 1.2rem 1.5rem; align-items: start; }
+  /* Cách 2: một bên rỗng (vd menu không ai dùng tới) → nhường hết bề ngang cho bên kia để xếp được nhiều cột hơn. */
+  #graph.mode-grid.no-up { grid-template-columns: minmax(12rem, 20rem) minmax(0, 1fr); gap: 0 3rem; }
+  #graph.mode-grid.no-up #cUp { display: none; }
+  #graph.mode-grid.no-down { grid-template-columns: minmax(0, 1fr) minmax(12rem, 20rem); gap: 0 3rem; }
+  #graph.mode-grid.no-down #cDown { display: none; }
   #wires { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
   #wires path { fill: none; stroke: color-mix(in srgb, var(--text-muted) 55%, transparent); stroke-width: 1.2; }
   #wires path.hot { stroke: var(--accent); stroke-width: 1.8; }
   .col h2 { margin: 0 0 .5rem; font-size: .8rem; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); display: flex; gap: .5rem; align-items: baseline; }
   .col h2 .n { color: var(--text); background: var(--button-back); border-radius: 999px; padding: 0 .5rem; font-size: .75rem; }
-  .grp { margin-bottom: .7rem; }
-  .grp > .gh { font-size: .75rem; color: var(--text-muted); margin: .2rem 0 .25rem; }
-  .node { position: relative; display: flex; align-items: center; gap: .45rem; padding: calc(.28rem * var(--dens)) .55rem; margin-bottom: .3rem; border: var(--bw) solid var(--border);
+  /* Cách 2 "Lưới" (nút Dạng): các vùng xếp LƯỚI nhiều cột cho dễ tìm. Cách 1 "Nhánh cây" (mặc định block): một nhánh dọc như ban đầu. */
+  #graph.mode-grid #lUp, #graph.mode-grid #lDown { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: .5rem; align-content: start; align-items: start; }
+  /* Mỗi loại một "vùng" riêng có khung để dễ nhìn: function, store, Dir, Grid, Filter… tách bạch. */
+  .grp { margin-bottom: .5rem; border: var(--bw) solid var(--border); border-radius: var(--r); background: color-mix(in srgb, var(--text-muted) 6%, transparent); padding: .35rem .45rem .12rem; }
+  #graph.mode-grid .grp { margin-bottom: 0; }
+  .grp > .gh { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); margin: 0 0 .32rem; display: flex; gap: .4rem; align-items: baseline; }
+  .grp > .gh::before { content: ''; width: .5rem; height: .5rem; border-radius: 2px; flex: none; background: var(--gc, var(--text-muted)); }
+  .grp.k-menu { --gc: #b46ee0; } .grp.k-file { --gc: #4ab38a; } .grp.k-proc { --gc: #4a90e2; }
+  .grp.k-func, .grp.k-view { --gc: #3fb6c9; } .grp.k-trigger { --gc: #e5534b; } .grp.k-table { --gc: #e2a84a; } .grp.k-unknown { --gc: #8b949e; }
+  /* Node: cho chữ XUỐNG DÒNG hiện đủ (không cắt cụt); ghi chú (vd "App trong SVTran.xml") xuống dòng riêng. */
+  .node { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem .4rem; padding: calc(.28rem * var(--dens)) .55rem; margin-bottom: .3rem; border: var(--bw) solid var(--border);
           border-radius: var(--r); background: var(--panel); cursor: pointer; min-width: 0; }
   .node:hover, .node.hot { border-color: var(--accent); background: var(--selection); }
-  .node .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .node .nt { flex: none; color: var(--text-muted); font-size: .75rem; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .node .nm { flex: 1 1 6rem; min-width: 0; overflow-wrap: anywhere; }
+  .node .nt { flex: 1 1 100%; color: var(--text-muted); font-size: .72rem; overflow-wrap: anywhere; margin-left: 1.3rem; }
   .node .op { flex: none; visibility: hidden; border: none; background: none; padding: 0 .2rem; color: var(--accent); }
   .node:hover .op { visibility: visible; }
   .k { flex: none; font-size: .68rem; padding: .02rem .4rem; border-radius: 999px; color: var(--text); background: var(--button-back); text-transform: uppercase; letter-spacing: .03em; }
@@ -48,6 +61,9 @@
   .k.trigger { background: color-mix(in srgb, #e5534b 30%, transparent); }
   .k.table { background: color-mix(in srgb, #e2a84a 34%, transparent); }
   .k.unknown { background: color-mix(in srgb, #8b949e 30%, transparent); }
+  #kinds { display: flex; flex-wrap: wrap; gap: .25rem; }
+  .kchip { cursor: pointer; user-select: none; border: var(--bw) solid transparent; }
+  .kchip.off { opacity: .4; text-decoration: line-through; }
   .enc { flex: none; font-size: .66rem; padding: 0 .35rem; border-radius: 999px; border: 1px solid #d29922; color: #d29922; }
   .enc.std { border-color: #4ab38a; color: #4ab38a; }
   .db { flex: none; font-size: .68rem; color: var(--text-muted); }
@@ -79,7 +95,8 @@
   #menu hr { border: none; border-top: 1px solid var(--border); margin: .25rem 0; }
   .tip { flex: none; padding: .3rem 1rem; color: var(--text-muted); font-size: .78rem; border-top: var(--bw) solid var(--border); }
   @media (max-width: 760px) {
-    #graph { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    #graph, #graph.mode-grid.no-up, #graph.mode-grid.no-down { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    #graph.mode-grid.no-up #cUp, #graph.mode-grid.no-down #cDown { display: none; }
     #center { position: static; order: -1; }
     #wires { display: none; }
   }
@@ -93,7 +110,9 @@
   <span class="sp"></span>
   <span id="status"></span>
   <input id="flt" type="text" placeholder="Lọc tên trong sơ đồ…" spellcheck="false" autocomplete="off">
+  <div id="kinds" title="Lọc theo loại: bấm để ẩn/hiện proc, func, view, trigger, bảng, file, menu…"></div>
   <button id="bCopyPaths" title="Chép đường dẫn đầy đủ của mọi FILE đang hiện trong sơ đồ (cả 2 cột + nút ở giữa, theo ô lọc), mỗi dòng 1 đường dẫn. Procedure / function / bảng / menu không có đường dẫn nên bỏ qua." disabled>Chép đường dẫn</button>
+  <button id="bMode" title="Đổi cách thể hiện sơ đồ: Nhánh cây (một cột như ban đầu) ↔ Lưới (xếp nhiều cột cho dễ tìm)">Dạng: Lưới</button>
   <button id="bImpact" class="primary" title="Dò ngược nhiều tầng từ nút đang xem tới tận menu: những gì bị ảnh hưởng nếu sửa nó">Phân tích ảnh hưởng</button>
   <button id="bRe" title="Tra lại (bỏ kết quả đã nhớ)">Làm mới</button>
 </header>
@@ -118,6 +137,18 @@
   const KIND = { menu: 'Menu', file: 'File', proc: 'Proc', func: 'Func', view: 'View', trigger: 'Trigger', table: 'Bảng', unknown: '?' };
   const GROUP = { menu: 'Menu', file: 'File controller / include', proc: 'Stored procedure', func: 'Function', view: 'View', trigger: 'Trigger', table: 'Bảng', unknown: 'Không xác định (không thấy trong database)' };
   const ORDER = ['menu', 'file', 'proc', 'func', 'view', 'trigger', 'table', 'unknown'];
+  // Tách "vùng" theo loại cho dễ nhìn: file controller còn chia nhỏ theo thư mục (Dir / Grid / Filter / Include / Options / Report) — mỗi loại một khung riêng.
+  const FILE_ORDER = ['Dir', 'Grid', 'Filter', 'Include', 'Options', 'Report'];
+  const fileType = (n) => {
+    if (!n.path) return 'File';
+    const parts = String(n.path).replace(/\\/g, '/').split('/').filter(Boolean);
+    const folder = parts.length >= 2 ? parts[parts.length - 2] : '';
+    return FILE_ORDER.find((f) => f.toLowerCase() === folder.toLowerCase()) || 'File';
+  };
+  const sectionOf = (n) => (n.kind === 'file' ? 'file:' + fileType(n) : n.kind);
+  const SECTION_ORDER = ['menu'].concat(FILE_ORDER.map((f) => 'file:' + f), ['file:File', 'proc', 'func', 'view', 'trigger', 'table', 'unknown']);
+  const sectionLabel = (key) => key.startsWith('file:') ? (key.slice(5) === 'File' ? 'File controller / include' : 'Controller · ' + key.slice(5)) : (GROUP[key] || key);
+  const sectionBaseKind = (key) => key.startsWith('file:') ? 'file' : key;
   const ENC_TIP = 'Tạo WITH ENCRYPTION — không đọc được nội dung';
   // nhãn "mã hoá" (object WITH ENCRYPTION) + nhãn "source <phiên bản>" (file .f của chương trình bị mã hoá → xét theo bản .xml trong kho source chuẩn)
   const encTag = (n) => (n.encrypted ? `<span class="enc" title="${ENC_TIP}">mã hoá</span>` : '')
@@ -128,23 +159,40 @@
   let data = null;         // { center, up, down, warnings }
   let byKey = {};
   let loading = false;     // đang tra nút mới (data vẫn là của nút cũ) — nút Chép đường dẫn tắt
+  let layoutMode = 'grid'; // 'grid' = Lưới nhiều cột (cách 2) · 'tree' = Nhánh cây một cột như ban đầu (cách 1)
+  try { layoutMode = localStorage.getItem('depgraph.mode') || 'grid'; } catch (e) { /* localStorage bị chặn */ }
 
   const dbTag = (n) => (['menu', 'file'].includes(n.kind) ? '' : `<span class="db">${n.sys ? 'Sys' : 'App'}</span>`);
   const nodeHtml = (n, side) => `<div class="node" data-key="${esc(n.key)}" data-side="${side}" title="${esc(n.label + (n.path ? '\n' + n.path : '') + (n.note ? '\n' + n.note : ''))}">`
     + `<span class="k ${esc(n.kind)}">${esc(KIND[n.kind] || n.kind)}</span><span class="nm">${esc(n.label)}</span>${encTag(n)}${dbTag(n)}`
-    + (n.note ? `<span class="nt">${esc(n.note)}</span>` : '') + `<button class="op" data-open="1" title="Mở">↗</button></div>`;
+    + ((n.note && !(n.kind === 'file' && n.note === fileType(n))) ? `<span class="nt">${esc(n.note)}</span>` : '') + `<button class="op" data-open="1" title="Mở">↗</button></div>`;
 
   const q = () => $('flt').value.trim().toLowerCase();
-  const match = (n) => !q() || (n.label + ' ' + (n.path || '')).toLowerCase().includes(q());
+  // Lọc theo LOẠI (proc/func/view/trigger/bảng/file/menu): kindOff = các loại đang ẩn (rỗng = hiện hết).
+  const kindOff = new Set();
+  const kindOn = (k) => !kindOff.has(k);
+  const match = (n) => kindOn(n.kind) && (!q() || (n.label + ' ' + (n.path || '') + ' ' + (n.note || '')).toLowerCase().includes(q()));
+
+  // Dãy chip "loại" — chỉ hiện loại có trong sơ đồ; bấm để ẩn/hiện.
+  const KIND_ORDER = ['proc', 'func', 'view', 'trigger', 'table', 'file', 'menu', 'unknown'];
+  function renderKinds() {
+    const present = new Set();
+    if (data) [data.center].concat(data.up || [], data.down || []).forEach((n) => present.add(n.kind));
+    const ks = KIND_ORDER.filter((k) => present.has(k));
+    $('kinds').innerHTML = ks.map((k) => `<span class="kchip k ${esc(k)}${kindOn(k) ? '' : ' off'}" data-kind="${esc(k)}" title="Ẩn/hiện ${esc(KIND[k] || k)}">${esc(KIND[k] || k)}</span>`).join('');
+  }
 
   function renderList(list, el, countEl, side) {
     const v = list.filter(match);
     countEl.textContent = q() ? `${v.length}/${list.length}` : String(list.length);
     if (!list.length) { el.innerHTML = `<div class="msg">${side === 'up' ? 'Không thấy ai dùng.' : 'Không dùng tới gì (trong phạm vi dò được).'}</div>`; return; }
     if (!v.length) { el.innerHTML = '<div class="msg">Không có nút nào khớp ô lọc.</div>'; return; }
-    el.innerHTML = ORDER.map((k) => {
-      const g = v.filter((n) => n.kind === k);
-      return g.length ? `<div class="grp"><div class="gh">${esc(GROUP[k])} · ${g.length}</div>${g.map((n) => nodeHtml(n, side)).join('')}</div>` : '';
+    const sections = {};
+    v.forEach((n) => { const k = sectionOf(n); (sections[k] || (sections[k] = [])).push(n); });
+    const keys = SECTION_ORDER.filter((k) => sections[k]).concat(Object.keys(sections).filter((k) => !SECTION_ORDER.includes(k)));
+    el.innerHTML = keys.map((k) => {
+      const g = sections[k];
+      return `<div class="grp k-${esc(sectionBaseKind(k))}"><div class="gh">${esc(sectionLabel(k))} · ${g.length}</div>${g.map((n) => nodeHtml(n, side)).join('')}</div>`;
     }).join('');
   }
 
@@ -176,8 +224,11 @@
     byKey = {};
     [data.center].concat(data.up, data.down).forEach((n) => { byKey[n.key] = n; });
     renderCenter(data.center);
+    renderKinds();
     renderList(data.up, $('lUp'), $('nUp'), 'up');
     renderList(data.down, $('lDown'), $('nDown'), 'down');
+    $('graph').classList.toggle('no-up', !data.up.length);
+    $('graph').classList.toggle('no-down', !data.down.length);
     $('warn').innerHTML = (data.warnings || []).map((w) => '⚠ ' + esc(w)).join('<br>');
     updateCopyPaths();
     hotKey = null;
@@ -235,13 +286,15 @@
     const mk = (up) => {
       const ns = sides[up ? 'up' : 'down'];
       if (!ns.length) return null;
-      const s = { up, ns, bus: ns.length > BUS, edge: up ? cl : cr, byKey: {} };
+      // Các vùng đã xếp lưới nhiều cột → nút nằm ở nhiều cột x khác nhau: gom về một thân dọc, không vẽ gạch ngang từng nút cho đỡ rối.
+      const tiled = new Set(ns.map((n) => Math.round(up ? n.r : n.l))).size > 1;
+      const s = { up, ns, bus: ns.length > BUS || tiled, tiled, edge: up ? cl : cr, byKey: {} };
       ns.forEach((n) => { s.byKey[n.key] = n; });
       if (s.bus) {
         const nx = up ? Math.max(...ns.map((n) => n.r)) : Math.min(...ns.map((n) => n.l));
         s.tx = (nx + s.edge) / 2;
         s.y0 = Math.min(...ns.map((n) => n.y)); s.y1 = Math.max(...ns.map((n) => n.y));
-        stat += ns.map((n) => `M${up ? n.r : n.l},${n.y}H${s.tx}`).join('') + `M${s.tx},${s.y0}V${s.y1}`;
+        stat += (s.tiled ? '' : ns.map((n) => `M${up ? n.r : n.l},${n.y}H${s.tx}`).join('')) + `M${s.tx},${s.y0}V${s.y1}`;
       }
       return s;
     };
@@ -366,8 +419,28 @@
   document.addEventListener('mousedown', (e) => { if (e.button === 3 || e.button === 4) e.preventDefault(); });
   document.addEventListener('auxclick', (e) => { if (e.button === 3 || e.button === 4) e.preventDefault(); });
   $('flt').addEventListener('input', render);
+  // Bấm chip "loại" → ẩn/hiện loại đó, vẽ lại (cả sơ đồ lẫn bảng "Phân tích ảnh hưởng" nếu đang mở).
+  $('kinds').addEventListener('click', (e) => {
+    const c = e.target.closest('.kchip'); if (!c) return;
+    const k = c.dataset.kind;
+    if (kindOff.has(k)) kindOff.delete(k); else kindOff.add(k);
+    render();
+    if ($('impact').classList.contains('on')) renderImpact();
+  });
   $('bRe').addEventListener('click', () => post('refresh'));
   $('bImpact').addEventListener('click', () => post('impact'));
+  // Đổi cách thể hiện: Nhánh cây (một cột) ↔ Lưới (nhiều cột). Nhớ lựa chọn trên máy này.
+  function applyMode() {
+    $('graph').classList.toggle('mode-grid', layoutMode === 'grid');
+    $('bMode').textContent = layoutMode === 'grid' ? 'Dạng: Lưới' : 'Dạng: Nhánh cây';
+    queueWires(true);
+  }
+  $('bMode').addEventListener('click', () => {
+    layoutMode = layoutMode === 'grid' ? 'tree' : 'grid';
+    try { localStorage.setItem('depgraph.mode', layoutMode); } catch (e) { /* localStorage bị chặn */ }
+    applyMode();
+  });
+  applyMode();
   window.addEventListener('resize', () => queueWires(true));
   $('main').addEventListener('scroll', () => queueWires(), { passive: true });
   $('iBody').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr && byKey[tr.dataset.key]) focus(byKey[tr.dataset.key]); });

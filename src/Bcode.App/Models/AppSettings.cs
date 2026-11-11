@@ -155,6 +155,8 @@ public class AppSettings
     /// <summary>Nền nổi của nút "📋 Copy SQL Command" trên tab SqlWatch (Template → Cửa sổ → SQL Profiler): "#rrggbb", mặc định #80d3a1;
     /// "" = nút thường như các nút khác.</summary>
     public string SqlWatchCopyColor { get; set; } = "#80d3a1";
+    /// <summary>Nhịp đọc DMV của tab SqlWatch (ms): chỉ 200 / 250 / 300 (SqlWatch.MainForm.PollIntervals), mặc định 200; giá trị khác về 200.</summary>
+    public int SqlWatchIntervalMs { get; set; } = 200;
     public string SqlSmsPath { get; set; } = "ssms.exe";
     public string LibraryPath { get; set; } = "";
     public int FileLookupSplitterDistance { get; set; } = 0;

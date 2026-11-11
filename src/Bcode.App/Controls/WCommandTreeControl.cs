@@ -56,6 +56,9 @@ public class WCommandTreeControl : UserControl
     /// <summary>Menu "Gen nhanh menu": mở Note (New) nhiều dự án (BcodeNote.exe) ở đúng dự án + menu này, tự hiện gợi ý Gen All / File / SQL Object / Table.</summary>
     public event Action<WCommandItem>? QuickGenRequested;
 
+    /// <summary>Menu "View Relative Tables" (như FCode): mở tab liệt kê các bảng liên quan tới chứng từ đang chọn (theo syscode). Chỉ hiện khi node có syscode.</summary>
+    public event Action<WCommandItem>? RelativeTablesRequested;
+
     private void RequestRequirements()
     {
         if (IsMenuTable || _tree.SelectedNode is not { Tag: WCommandItem item } node) return;
@@ -212,6 +215,7 @@ public class WCommandTreeControl : UserControl
                 .AddSeparator()
                 .Add("Yêu cầu liên quan (QLYC)…", RequestRequirements, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.requirements"), enabled: hasSelection && RequirementsRequested is not null)
                 .Add("Sơ đồ phụ thuộc…", () => { if (SelectedItem is { } it) DependencyRequested?.Invoke(it); }, enabled: hasSelection && DependencyRequested is not null)
+                .Add("View Relative Tables", () => { if (SelectedItem is { SysCode.Length: > 0 } it) RelativeTablesRequested?.Invoke(it); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysCode.Length: > 0 } && RelativeTablesRequested is not null)
                 .Add("Tạo cấu trúc API…", () => { if (SelectedItem is { SysId.Length: > 0 } it) ApiSchemaRequested?.Invoke(it); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 } && ApiSchemaRequested is not null)
                 .Add("Tạo khai báo API…", () => { if (SelectedItem is { SysId.Length: > 0 } it) ApiDeclareRequested?.Invoke(it); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 } && ApiDeclareRequested is not null)
                 .Add("Gen nhanh menu", () => { if (SelectedItem is { } it) QuickGenRequested?.Invoke(it); }, enabled: _tree.SelectedNode?.Tag is WCommandItem qg && (!string.IsNullOrWhiteSpace(qg.SysId) || !string.IsNullOrWhiteSpace(qg.Link)) &&QuickGenRequested is not null)

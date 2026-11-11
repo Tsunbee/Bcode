@@ -48,6 +48,14 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
             try { _settings.Save(); } catch { /* chỉ nhớ trong phiên */ }
         };
         _form.UserIdLookup = LookupUserIdAsync;
+        // Nhịp đọc (dropdown 200 / 250 / 300 ms) nhớ chung cho mọi dự án; giá trị cũ ngoài 3 mức này về 200.
+        _form.PollInterval = _settings.SqlWatchIntervalMs;
+        _form.PollIntervalSaved = ms =>
+        {
+            if (_settings.SqlWatchIntervalMs == ms) return;
+            _settings.SqlWatchIntervalMs = ms;
+            try { _settings.Save(); } catch { /* chỉ nhớ trong phiên */ }
+        };
         // Lỗi tạm thời khi đọc (database OFFLINE, rớt mạng…): SqlWatch không bật hộp, chỉ báo trên thanh trạng thái — ghi vào log lỗi chung (F1 gửi được).
         _form.ErrorLogged = (ex, source) => ErrorLog.Record(ex, source);
         // Chấm trên icon tab: đỏ = đang bắt, xám = tạm dừng, không chấm = đã dừng (nhìn thanh tab là biết SqlWatch còn chạy không).

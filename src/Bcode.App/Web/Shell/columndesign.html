@@ -7,11 +7,24 @@
 <link rel="stylesheet" href="dialog.css" />
 <style>
   table.tbl td { padding: .15rem .3rem; max-width: none; overflow: visible; }
-  table.tbl td input[type=text], table.tbl td select { width: 100%; box-sizing: border-box; }
+  table.tbl td input[type=text] { width: 100%; box-sizing: border-box; }
   td.c { text-align: center; width: 5rem; }
   td.n { width: 2.4rem; color: var(--text-muted); text-align: center; }
   td.x button { padding: 0 .5rem; }
   #tn { width: 16rem; }
+  /* combo Type: ô gõ được + nút ▾ */
+  td.ty { position: relative; }
+  td.ty .tin { padding-right: 1.1rem; }
+  td.ty .tca { position: absolute; right: .55rem; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-muted); font-size: .7rem; }
+  /* menu gợi ý kiểu (nổi, gắn vào body) */
+  #tmenu { position: fixed; z-index: 60; max-height: 15rem; overflow: auto; min-width: 11rem;
+    background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: var(--r, 4px);
+    box-shadow: 0 .4rem 1rem rgba(0,0,0,.35); padding: .15rem 0; }
+  #tmenu .it { padding: .2rem .6rem; cursor: pointer; white-space: nowrap; }
+  #tmenu .it.fav { font-weight: 700; background: var(--panel-alt); }
+  #tmenu .it.sel, #tmenu .it:hover { background: var(--selection); }
+  #tmenu .sep { height: 1px; background: var(--border); margin: .15rem 0; }
+  #tmenu .non { padding: .2rem .6rem; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -24,6 +37,7 @@
   <div class="row"><button id="bAdd">+ Thêm cột</button><span class="status" id="st"></span></div>
 </div>
 <div class="dlg-bar"><span class="grow"></span><button class="primary" id="bOk">OK</button><button id="bCancel">Cancel</button></div>
+<div id="tmenu" hidden></div>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -32,52 +46,157 @@
   const TYPES = ['bigint', 'bit', 'char', 'date', 'datetime', 'datetime2', 'decimal', 'float', 'image', 'int', 'money', 'nchar', 'ntext', 'numeric', 'nvarchar', 'real', 'smalldatetime', 'smallint', 'text', 'tinyint', 'uniqueidentifier', 'varbinary', 'varchar', 'xml'];
   const DEF_LEN = { char: '16', nchar: '16', varchar: '128', nvarchar: '128', varbinary: 'max', decimal: '19,4', numeric: '19,4' };
   const LEN_TYPES = Object.keys(DEF_LEN);
+  // Nguồn luật/kiểu hay dùng lấy từ C# (ColumnTypeGuess) qua init; có bản dự phòng nếu thiếu.
+  let FAV = ['nvarchar', 'varchar', 'char', 'numeric', 'smalldatetime'];
+  let GUESS = [
+    { contains: ['tien', 'so_luong', 'sl', 'thue'], prefix: ['t_'], suffix: ['_nt'], type: 'numeric', length: '19,4' },
+    { contains: ['ngay'], prefix: [], suffix: [], type: 'smalldatetime', length: '' },
+    { contains: ['ma_'], prefix: ['nh_', 'loai_'], suffix: [], type: 'varchar', length: '32' },
+  ];
   let cols = [], isAdd = true;
 
+  // ---- đoán kiểu theo tên cột (khớp bảng luật C#) ----
+  function guess(name) {
+    const n = String(name || '').trim().toLowerCase();
+    if (!n) return null;
+    for (const r of GUESS) {
+      const hit = (r.contains || []).some((s) => n.includes(s))
+        || (r.prefix || []).some((s) => n.startsWith(s))
+        || (r.suffix || []).some((s) => n.endsWith(s));
+      if (hit) return { type: r.type, length: r.length };
+    }
+    return null;
+  }
+
+  // ---- menu gợi ý kiểu ----
+  const menu = $('tmenu');
+  let mInput = null, mSel = -1, mItems = [];
+
+  function base(t) { return String(t || '').trim().toLowerCase(); }
+  function orderedTypes() { const rest = TYPES.filter((t) => !FAV.includes(t)); return FAV.concat(rest); }
+
+  function renderMenu(filter) {
+    const f = base(filter);
+    const match = orderedTypes().filter((t) => !f || t.includes(f));
+    mItems = match;
+    if (!match.length) { menu.innerHTML = '<div class="non">(gõ kiểu tự do)</div>'; mSel = -1; return; }
+    let favShown = false, html = '';
+    for (const t of match) {
+      const fav = FAV.includes(t);
+      if (favShown && !fav && html && match.some((x) => FAV.includes(x))) { html += '<div class="sep"></div>'; favShown = false; }
+      if (fav) favShown = true;
+      html += '<div class="it' + (fav ? ' fav' : '') + '" data-t="' + esc(t) + '">' + esc(t) + '</div>';
+    }
+    menu.innerHTML = html;
+    mSel = -1;
+  }
+  function placeMenu(input) {
+    const r = input.getBoundingClientRect();
+    menu.style.left = r.left + 'px';
+    menu.style.top = r.bottom + 'px';
+    menu.style.minWidth = Math.max(r.width, 150) + 'px';
+  }
+  function openMenu(input) {
+    mInput = input; placeMenu(input); renderMenu(input.value); menu.hidden = false;
+  }
+  function closeMenu() { menu.hidden = true; mInput = null; mSel = -1; mItems = []; }
+  function moveSel(d) {
+    const its = menu.querySelectorAll('.it'); if (!its.length) return;
+    mSel = (mSel + d + its.length) % its.length;
+    its.forEach((el, i) => el.classList.toggle('sel', i === mSel));
+    const el = its[mSel]; if (el) el.scrollIntoView({ block: 'nearest' });
+  }
+  // chọn kiểu (từ menu / Enter): đặt type + length mặc định, đánh dấu chọn tay
+  function pickType(tr, c, t) {
+    const b = base(t);
+    c.type = t; c.typeManual = true;
+    c.length = LEN_TYPES.includes(b) ? (DEF_LEN[b] || '') : '';
+    const tin = tr.querySelector('input[data-k=type]'); if (tin) tin.value = t;
+    syncLen(tr, c);
+  }
+  // bật/tắt ô Length theo kiểu, đồng bộ giá trị length lên input
+  function syncLen(tr, c) {
+    const lin = tr.querySelector('input[data-k=length]'); if (!lin) return;
+    lin.value = c.length || '';
+    lin.disabled = !LEN_TYPES.includes(base(c.type));
+  }
+
+  menu.addEventListener('mousedown', (e) => {
+    const it = e.target.closest('.it'); if (!it || !mInput) return;
+    e.preventDefault();
+    const tr = mInput.closest('tr'); const c = cols[+tr.dataset.i];
+    pickType(tr, c, it.dataset.t); closeMenu();
+  });
+  document.addEventListener('mousedown', (e) => { if (!menu.hidden && !menu.contains(e.target) && e.target !== mInput) closeMenu(); });
+
   function rowHtml(c, i) {
-    const opts = (TYPES.includes(c.type) || !c.type ? TYPES : [c.type].concat(TYPES)).map((t) => '<option' + (t === c.type ? ' selected' : '') + '>' + esc(t) + '</option>').join('');
-    const hasLen = LEN_TYPES.includes(c.type);
+    const hasLen = LEN_TYPES.includes(base(c.type));
     return '<tr data-i="' + i + '"><td class="n">' + (i + 1) + '</td>' +
-      '<td><input type="text" data-k="name" value="' + esc(c.name) + '" spellcheck="false" /></td>' +
-      '<td><select data-k="type">' + (c.type ? '' : '<option value=""></option>') + opts + '</select></td>' +
+      '<td><input type="text" data-k="name" value="' + esc(c.name) + '" spellcheck="false" autocomplete="off" /></td>' +
+      '<td class="ty"><input type="text" class="tin" data-k="type" value="' + esc(c.type) + '" spellcheck="false" autocomplete="off" /><span class="tca">▾</span></td>' +
       '<td><input type="text" data-k="length" value="' + esc(c.length) + '"' + (hasLen ? '' : ' disabled') + ' /></td>' +
       '<td class="c"><input type="checkbox" data-k="notNull"' + (c.notNull ? ' checked' : '') + ' /></td>' +
       '<td class="x"><button data-del="' + i + '" title="Xoá dòng">✕</button></td></tr>';
   }
   function render(focusLast) {
+    closeMenu();
     $('rows').innerHTML = cols.map(rowHtml).join('');
     if (focusLast) { const ins = $('rows').querySelectorAll('input[data-k=name]'); if (ins.length) ins[ins.length - 1].focus(); }
   }
+
   $('rows').addEventListener('input', (e) => {
     const tr = e.target.closest('tr'); if (!tr) return;
     const c = cols[+tr.dataset.i], k = e.target.dataset.k;
-    if (k === 'notNull') c.notNull = e.target.checked; else if (k) c[k] = e.target.value;
+    if (k === 'notNull') { c.notNull = e.target.checked; return; }
+    if (k === 'name') {
+      c.name = e.target.value;
+      if (!c.typeManual) { const g = guess(c.name); if (g) { c.type = g.type; c.length = g.length; const tin = tr.querySelector('input[data-k=type]'); if (tin) tin.value = g.type; syncLen(tr, c); } }
+      return;
+    }
+    if (k === 'type') {
+      c.type = e.target.value; c.typeManual = true;
+      const b = base(c.type);
+      if (!LEN_TYPES.includes(b)) c.length = ''; else if (!c.length) c.length = DEF_LEN[b] || '';
+      syncLen(tr, c); if (mInput === e.target) renderMenu(e.target.value); return;
+    }
+    if (k === 'length') { c.length = e.target.value; return; }
   });
-  $('rows').addEventListener('change', (e) => {
+  $('rows').addEventListener('focusin', (e) => { if (e.target.dataset.k === 'type') openMenu(e.target); });
+  $('rows').addEventListener('focusout', (e) => { if (e.target.dataset.k === 'type') setTimeout(() => { if (mInput === e.target) closeMenu(); }, 120); });
+  $('rows').addEventListener('keydown', (e) => {
     if (e.target.dataset.k !== 'type') return;
-    const tr = e.target.closest('tr'), c = cols[+tr.dataset.i];
-    c.type = e.target.value;
-    c.length = LEN_TYPES.includes(c.type) ? (DEF_LEN[c.type] || '') : '';
-    render();
+    if (menu.hidden && (e.key === 'ArrowDown' || e.key === 'Alt')) { openMenu(e.target); if (e.key === 'ArrowDown') e.preventDefault(); return; }
+    if (menu.hidden) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveSel(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveSel(-1); }
+    else if (e.key === 'Enter') { const tr = e.target.closest('tr'), c = cols[+tr.dataset.i]; const t = mSel >= 0 ? mItems[mSel] : (e.target.value.trim() || c.type); if (t) pickType(tr, c, t); closeMenu(); e.preventDefault(); }
+    else if (e.key === 'Escape') { closeMenu(); e.stopPropagation(); e.preventDefault(); }
+    else if (e.key === 'Tab') { closeMenu(); }
   });
+
   $('rows').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-del]'); if (!b) return;
-    cols.splice(+b.dataset.del, 1); if (!cols.length) cols.push({ name: '', type: '', length: '', notNull: false }); render();
+    cols.splice(+b.dataset.del, 1); if (!cols.length) cols.push({ name: '', type: '', length: '', notNull: false, typeManual: false }); render();
   });
-  $('bAdd').onclick = () => { cols.push({ name: '', type: isAdd ? 'nvarchar' : 'varchar', length: isAdd ? '128' : '128', notNull: false }); render(true); };
+  $('bAdd').onclick = () => { cols.push({ name: '', type: isAdd ? 'nvarchar' : 'varchar', length: '128', notNull: false, typeManual: false }); render(true); };
   $('bOk').onclick = () => {
-    const ok = cols.filter((c) => c.name.trim() && c.type);
+    const ok = cols.filter((c) => c.name.trim() && c.type.trim());
     if (!ok.length) { $('st').textContent = 'Nhập ít nhất 1 cột (tên + kiểu).'; $('st').className = 'status err'; return; }
-    post({ action: 'ok', cols: ok });
+    post({ action: 'ok', cols: ok.map((c) => ({ name: c.name, type: c.type, length: c.length, notNull: c.notNull })) });
   };
   $('bCancel').onclick = () => post({ action: 'cancel' });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post({ action: 'cancel' }); });
+  window.addEventListener('resize', closeMenu);
+  document.querySelector('.tbl-wrap').addEventListener('scroll', closeMenu);
+
   window.colDesign = {
     init(d) {
       isAdd = d.isAdd; $('tn').value = d.table;
-      $('hint').textContent = d.hint || (isAdd ? 'Thêm cột mới (cột đã tick ở Structure được điền sẵn kiểu để copy sang bảng khác).' : 'Sửa kiểu / độ dài các cột đã tick, rồi OK để sinh script Alter Column.');
-      cols = (d.cols || []).map((c) => Object.assign({}, c));
-      if (!cols.length) cols.push({ name: '', type: isAdd ? 'nvarchar' : '', length: isAdd ? '128' : '', notNull: false });
+      if (Array.isArray(d.fav) && d.fav.length) FAV = d.fav;
+      if (Array.isArray(d.guess) && d.guess.length) GUESS = d.guess;
+      $('hint').textContent = d.hint || (isAdd ? 'Thêm cột mới (cột đã tick ở Structure được điền sẵn kiểu để copy sang bảng khác). Gõ tên cột để tự đoán kiểu; ô Type gõ-lọc được.' : 'Sửa kiểu / độ dài các cột đã tick, rồi OK để sinh script Alter Column.');
+      cols = (d.cols || []).map((c) => Object.assign({}, c, { typeManual: !!(c.type && String(c.type).trim()) }));
+      if (!cols.length) cols.push({ name: '', type: isAdd ? 'nvarchar' : '', length: isAdd ? '128' : '', notNull: false, typeManual: false });
       render(isAdd && !d.cols.length);
     },
   };

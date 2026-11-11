@@ -38,7 +38,7 @@ public static class LicenseService
     /// <summary>Tên hiển thị + các tính năng mở khoá của từng loại key (hộp thoại Key bản quyền).</summary>
     public static (string Title, string[] Features) Describe(Kind kind) => kind switch
     {
-        Kind.DecryptF => ("Key dịch file .f", new[] { "Dịch file .f (giải mã khối <Encrypted> của file controller Fast để xem mã nguồn)" }),
+        Kind.DecryptF => ("Key đặc biệt", new[] { "Mở chức năng đặc biệt" }),
         Kind.Decrypt => ("Key Decrypt SQL Object", new[] { "Decrypt SQL Object (giải mã object WITH ENCRYPTION)", "Theo dõi ngoài Bcode (cài / gỡ DDL trigger ghi thay đổi procedure / function do SSMS, tool khác)" }),
         _ => ("Key bản quyền", new[]
         {

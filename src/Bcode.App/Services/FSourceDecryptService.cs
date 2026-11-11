@@ -39,7 +39,7 @@ public sealed class FSourceDecryptService
     {
         if (!File.Exists(Exe)) return (null, "Thiếu chương trình giải mã FDecrypt\\Bcode.FDecrypt.exe cạnh Bcode.exe (build lại / chép thư mục FDecrypt).");
         if (HashKey.Length == 0) return (null, "Bản Bcode này build thiếu khoá giải mã (Secrets\\LocalSecrets.cs → FHashKey) — không giải được file .f.");
-        if (!LicenseService.IsDecryptFUnlocked) return (null, "Máy chưa cấp key \"Dịch file .f\". Vào Settings → Key dịch file .f… để nhập key.");
+        if (!LicenseService.IsDecryptFUnlocked) return (null, "Máy chưa cấp \"Key đặc biệt\". Vào Settings → Key đặc biệt… để nhập key.");
         var r = Run(file);
         if (r.Text is not null)
             try { _cache[file + "|" + File.GetLastWriteTimeUtc(file).Ticks] = r.Text; } catch { }

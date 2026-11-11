@@ -309,7 +309,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             // Decrypt SQL Object cấp key RIÊNG (bcrypt ghép khác key chung) — mục riêng, lưu riêng license-decrypt.key
             .Add(LicenseService.IsDecryptUnlocked ? "Key Decrypt SQL Object ✓ (đã kích hoạt)..." : "Key Decrypt SQL Object...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.Decrypt); f.ShowDialog(this); })))
             // Dịch file .f (giải khối <Encrypted>) cấp key RIÊNG (bcrypt ghép khác hai key trên) — lưu riêng license-decryptf.key
-            .Add(LicenseService.IsDecryptFUnlocked ? "Key dịch file .f ✓ (đã kích hoạt)..." : "Key dịch file .f...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.DecryptF); f.ShowDialog(this); })))
+            .Add(LicenseService.IsDecryptFUnlocked ? "Key đặc biệt ✓ (đã kích hoạt)..." : "Key đặc biệt...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.DecryptF); f.ShowDialog(this); })))
             .AddCaption("Cập nhật")
             .Add(UpdateMenuLabel, () => BeginInvoke(new Action(CheckForUpdateInteractive)))
             .Add("Thư mục phát hành bản mới...", () => BeginInvoke(new Action(ChooseReleaseFolder)))

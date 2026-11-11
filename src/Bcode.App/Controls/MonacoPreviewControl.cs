@@ -36,6 +36,9 @@ public partial class MonacoPreviewControl : UserControl
     /// <summary>F12 khi bôi đen nhiều entity — xem <see cref="ScriptEditorControl.EntityMultiPeekRequested"/>.</summary>
     public event Action<List<EntityPreviewItem>>? EntityMultiPeekRequested;
 
+    /// <summary>Ctrl+Enter trong khung xem (Monaco) — nơi gọi tự quyết làm gì với <see cref="CurrentPath"/>.</summary>
+    public event Action? CtrlEnterRequested;
+
     private static string ThemeFilePath => Path.Combine(BcodePaths.AppData, "Bcode", "viewer-theme.json");
 
     public MonacoPreviewControl()
@@ -131,6 +134,9 @@ public partial class MonacoPreviewControl : UserControl
                 break;
             case "viewer":   // phím file.openInViewer (mặc định Ctrl+F12) — trang bắt theo tổ hợp gửi kèm lệnh load
                 OnOpenInViewer(offset);
+                break;
+            case "ctrlenter":
+                CtrlEnterRequested?.Invoke();
                 break;
             // Ctrl+G không còn qua host: trang dùng hộp "Go to" của BcodeViewer (viewer/goto.js) — xem filepreview.html.
         }

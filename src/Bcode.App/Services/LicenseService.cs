@@ -53,7 +53,7 @@ public static class LicenseService
     /// <summary>Key Decrypt SQL Object (key riêng) đã lưu có hợp lệ cho máy này không.</summary>
     public static bool IsDecryptUnlocked => IsUnlockedFor(Kind.Decrypt);
 
-    /// <summary>Key "Dịch file .f" (key riêng) đã lưu có hợp lệ cho máy này không.</summary>
+    /// <summary>Key đặc biệt (key riêng) đã lưu có hợp lệ cho máy này không.</summary>
     public static bool IsDecryptFUnlocked => IsUnlockedFor(Kind.DecryptF);
 
     public static bool IsUnlockedFor(Kind kind)

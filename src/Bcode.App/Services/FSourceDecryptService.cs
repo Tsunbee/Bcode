@@ -5,11 +5,10 @@ using System.Text;
 namespace Bcode.App.Services;
 
 /// <summary>
-/// Giải mã file controller .f của Fast (khối <c>&lt;Encrypted&gt;</c>) để Sơ đồ phụ thuộc / File Lookup đọc được mã nguồn (tên store / procedure…). Gọi EXE RIÊNG
-/// <c>FDecrypt\Bcode.FDecrypt.exe</c> (tiến trình tách — dùng engine SẠCH <c>Bcode.FSystem.dll</c>, tự chứa; chạy tách để lỗi/treo không làm sập Bcode).
-/// <para>KHÔNG cần license Fast / fsystem.dll cài sẵn nữa: khoá là <c>hashKey</c> (hằng số, ở <see cref="LicenseSecret.FHashKey"/> — Secrets/LocalSecrets.cs,
-/// gitignore) truyền cho helper qua stdin. Tính năng CHỈ bật khi máy đã cấp key "Dịch file .f" (<see cref="LicenseService.IsDecryptFUnlocked"/>) và bản build
-/// có hashKey. Kết quả nhớ theo (đường dẫn + ngày sửa) để không chạy lại helper nhiều lần.</para>
+/// Xử lý nội dung file controller .f của Fast để Sơ đồ phụ thuộc / File Lookup đọc được mã nguồn (tên store / procedure…). Gọi EXE RIÊNG
+/// <c>FDecrypt\Bcode.FDecrypt.exe</c> (tiến trình tách — dùng thành phần riêng <c>Bcode.FSystem.dll</c>, tự chứa; chạy tách để lỗi/treo không làm sập Bcode).
+/// <para>Khoá (hằng số ở <see cref="LicenseSecret.FHashKey"/> — Secrets/LocalSecrets.cs, gitignore) truyền cho helper qua stdin. Chỉ bật khi máy đã có key
+/// (<see cref="LicenseService.IsDecryptFUnlocked"/>) và bản build có khoá. Kết quả nhớ theo (đường dẫn + ngày sửa) để không chạy lại helper nhiều lần.</para>
 /// </summary>
 public sealed class FSourceDecryptService
 {
@@ -18,10 +17,10 @@ public sealed class FSourceDecryptService
     private static string Exe => Path.Combine(AppContext.BaseDirectory, "FDecrypt", "Bcode.FDecrypt.exe");
     private static string HashKey => LicenseSecret.FHashKey ?? "";
 
-    /// <summary>Có thể thử giải mã không: có helper + bản build có hashKey + máy đã cấp key "Dịch file .f". Không thì nơi gọi khỏi mất công.</summary>
+    /// <summary>Có thể dùng không: có helper + bản build có khoá + máy đã có key. Không thì nơi gọi khỏi mất công.</summary>
     public bool Available => File.Exists(Exe) && HashKey.Length > 0 && LicenseService.IsDecryptFUnlocked;
 
-    /// <summary>Nội dung đã giải mã của 1 file .f; null = không giải được (không có helper / chưa cấp key / lỗi / không đổi gì). Chạy đồng bộ — nơi gọi tự bọc Task.Run.</summary>
+    /// <summary>Nội dung XML của 1 file .f; null = không xử lý được (không có helper / chưa có key / lỗi / không đổi gì). Chạy đồng bộ — nơi gọi tự bọc Task.Run.</summary>
     public string? TryDecrypt(string file)
     {
         if (!Available) return null;
@@ -33,13 +32,13 @@ public sealed class FSourceDecryptService
         return result;
     }
 
-    /// <summary>Như <see cref="TryDecrypt"/> nhưng kèm lý do khi không giải được — cho mục chuột phải "Xem bản giải mã" (báo người dùng thiếu gì).
+    /// <summary>Như <see cref="TryDecrypt"/> nhưng kèm lý do khi không mở được — cho mục chuột phải "Xem XML" (báo người dùng thiếu gì).
     /// Chỉ đọc file; kết quả chỉ để hiện, không ghi ra đâu cả. Chạy đồng bộ — nơi gọi tự bọc Task.Run.</summary>
     public (string? Text, string? Error) DecryptForView(string file)
     {
-        if (!File.Exists(Exe)) return (null, "Thiếu chương trình giải mã FDecrypt\\Bcode.FDecrypt.exe cạnh Bcode.exe (build lại / chép thư mục FDecrypt).");
-        if (HashKey.Length == 0) return (null, "Bản Bcode này build thiếu khoá giải mã (Secrets\\LocalSecrets.cs → FHashKey) — không giải được file .f.");
-        if (!LicenseService.IsDecryptFUnlocked) return (null, "Máy chưa cấp \"Key đặc biệt\". Vào Settings → Key đặc biệt… để nhập key.");
+        if (!File.Exists(Exe)) return (null, "Thiếu thành phần FDecrypt\\Bcode.FDecrypt.exe cạnh Bcode.exe (build lại / chép thư mục FDecrypt).");
+        if (HashKey.Length == 0) return (null, "Bản Bcode này build thiếu khoá (Secrets\\LocalSecrets.cs → FHashKey) — không xử lý được file.");
+        if (!LicenseService.IsDecryptFUnlocked) return (null, "Máy chưa có key phù hợp.");
         var r = Run(file);
         if (r.Text is not null)
             try { _cache[file + "|" + File.GetLastWriteTimeUtc(file).Ticks] = r.Text; } catch { }
@@ -63,22 +62,22 @@ public sealed class FSourceDecryptService
             psi.ArgumentList.Add(file);
             using var p = Process.Start(psi);
             if (p is null) return (null, "Không chạy được Bcode.FDecrypt.exe.");
-            // hashKey đưa qua stdin (không để lộ ở dòng lệnh). Đọc stderr song song: đọc tuần tự stdout rồi stderr có thể kẹt.
+            // khoá đưa qua stdin (không để lộ ở dòng lệnh). Đọc stderr song song: đọc tuần tự stdout rồi stderr có thể kẹt.
             try { p.StandardInput.Write(HashKey); } catch { } finally { try { p.StandardInput.Close(); } catch { } }
             var errTask = p.StandardError.ReadToEndAsync();
             var outText = p.StandardOutput.ReadToEnd();
-            if (!p.WaitForExit(20000)) { try { p.Kill(true); } catch { } return (null, "Giải mã quá 20 giây — đã dừng."); }
+            if (!p.WaitForExit(20000)) { try { p.Kill(true); } catch { } return (null, "Quá 20 giây — đã dừng."); }
             var err = errTask.Result.Trim();
-            if (p.ExitCode == 5)   // helper không nhận được hashKey
-                return (null, "Không truyền được khoá giải mã cho helper (hashKey rỗng).");
-            if (p.ExitCode == 6)   // bản build không có engine thật (chỉ FEngine.Empty.cs)
-                return (null, "Bản build thiếu engine giải mã (Bcode.FSystem/FEngine.cs) — chép file đó vào rồi build lại.");
-            if (p.ExitCode != 0) return (null, "Giải mã lỗi: " + (err.Length > 0 ? err : "mã thoát " + p.ExitCode));
-            // Chỉ nhận khi thật sự giải được (không còn <Encrypted>); helper trả nguyên văn khi không có gì để giải.
+            if (p.ExitCode == 5)   // helper không nhận được khoá
+                return (null, "Không truyền được khoá cho thành phần xử lý.");
+            if (p.ExitCode == 6)   // bản build không có thành phần thật (chỉ FEngine.Empty.cs)
+                return (null, "Bản build thiếu thành phần xử lý (Bcode.FSystem/FEngine.cs) — chép file đó vào rồi build lại.");
+            if (p.ExitCode != 0) return (null, "Lỗi: " + (err.Length > 0 ? err : "mã thoát " + p.ExitCode));
+            // Chỉ nhận khi thật sự xử lý được; helper trả nguyên văn khi không có gì để làm.
             if (outText.IndexOf("<Encrypted>", StringComparison.OrdinalIgnoreCase) >= 0)
-                return (null, "Không giải được khối <Encrypted> của file này (khoá không hợp lệ hoặc file dùng khoá khác).");
+                return (null, "Không xử lý được nội dung file này (khoá không hợp lệ hoặc khác khoá).");
             return (outText, null);
         }
-        catch (Exception ex) { return (null, "Giải mã lỗi: " + ex.Message); }
+        catch (Exception ex) { return (null, "Lỗi: " + ex.Message); }
     }
 }

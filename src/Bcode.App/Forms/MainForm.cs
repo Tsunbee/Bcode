@@ -308,8 +308,6 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX, Tạo nhanh danh mục…)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             // Decrypt SQL Object cấp key RIÊNG (bcrypt ghép khác key chung) — mục riêng, lưu riêng license-decrypt.key
             .Add(LicenseService.IsDecryptUnlocked ? "Key Decrypt SQL Object ✓ (đã kích hoạt)..." : "Key Decrypt SQL Object...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.Decrypt); f.ShowDialog(this); })))
-            // Dịch file .f (giải khối <Encrypted>) cấp key RIÊNG (bcrypt ghép khác hai key trên) — lưu riêng license-decryptf.key
-            .Add(LicenseService.IsDecryptFUnlocked ? "Key đặc biệt ✓ (đã kích hoạt)..." : "Key đặc biệt...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.DecryptF); f.ShowDialog(this); })))
             .AddCaption("Cập nhật")
             .Add(UpdateMenuLabel, () => BeginInvoke(new Action(CheckForUpdateInteractive)))
             .Add("Thư mục phát hành bản mới...", () => BeginInvoke(new Action(ChooseReleaseFolder)))
@@ -1556,20 +1554,63 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         };
         // File .f mã hoá → xét theo bản .xml trong kho source chuẩn (như Cấp source nhanh của File Lookup)
         _depService.StandardSource = () => (_settings.SourceCollectionRoots, _connections.Current?.VersionCode);
-        // …và ưu tiên GIẢI MÃ chính file .f qua FDecrypt (engine sạch Bcode.FSystem, khoá hashKey) nếu máy đã cấp key "Dịch file .f"
+        // …và ưu tiên xử lý chính file .f qua thành phần riêng (cạnh Bcode) nếu máy đã có key phù hợp
         _fdecrypt ??= new FSourceDecryptService();
         _depService.DecryptF = f => _fdecrypt.TryDecrypt(f);
         return _depService;
     }
 
-    /// <summary>File Lookup → chuột phải file .f → "Xem bản giải mã (.f)…" (hoặc Ctrl+Enter): dịch ngược khối &lt;Encrypted&gt; qua FDecrypt (engine sạch,
-    /// khoá hằng số hashKey) rồi mở cửa sổ CHỈ XEM (không ghi gì ra file / thư mục dự án). Cần key "Dịch file .f" (menu chỉ hiện khi có).</summary>
+    /// <summary>File Lookup → chuột phải file .f → "Xem XML…": mở nội dung XML của file ở cửa sổ CHỈ XEM (không ghi gì ra file / thư mục dự án). Chỉ khi máy có key.</summary>
     private void OpenDecryptedF(string path)
     {
         if (!LicenseService.IsDecryptFUnlocked) return;
         _fdecrypt ??= new FSourceDecryptService();
         var svc = _fdecrypt;
         SourceViewForm.OpenDecrypted(path, () => svc.DecryptForView(path), this);
+    }
+
+    /// <summary>File Lookup → Ctrl+Enter trên file .f (đã có key): GHI nội dung XML ra <c>&lt;tên&gt;.xml</c> NGAY TRONG folder chứa file. CHẶN nếu <c>&lt;tên&gt;.xml</c> đã tồn tại (KHÔNG ghi đè).</summary>
+    private void SaveDecryptedXml(string path)
+    {
+        if (!LicenseService.IsDecryptFUnlocked) return;
+        string outPath;
+        try { outPath = Path.Combine(Path.GetDirectoryName(path) ?? "", Path.GetFileNameWithoutExtension(path) + ".xml"); }
+        catch { return; }
+        if (File.Exists(outPath))
+        {
+            MessageBox.Show(this, "Đã có file:\r\n" + outPath + "\r\n\r\nKhông ghi đè. Xoá / đổi tên file .xml cũ rồi thử lại.",
+                "Xuất XML", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        _fdecrypt ??= new FSourceDecryptService();
+        var svc = _fdecrypt;
+        var name = Path.GetFileName(path);
+        Task.Run(() =>
+        {
+            var r = svc.DecryptForView(path);
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (r.Text is { } text)
+                    {
+                        if (File.Exists(outPath))   // kiểm lại phòng khi vừa có người khác tạo
+                        {
+                            MessageBox.Show(this, "Đã có file:\r\n" + outPath + "\r\n\r\nKhông ghi đè.", "Xuất XML", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                        try
+                        {
+                            File.WriteAllText(outPath, text, new System.Text.UTF8Encoding(false));
+                            MessageBox.Show(this, "Đã tạo:\r\n" + outPath, "Xuất XML", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        }
+                        catch (Exception ex) { MessageBox.Show(this, "Không ghi được file .xml:\r\n" + ex.Message, "Xuất XML", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                    }
+                    else MessageBox.Show(this, "Không mở được " + name + ":\r\n" + r.Error, "Xuất XML", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }));
+            }
+            catch (InvalidOperationException) { /* form đã đóng */ }
+        });
     }
 
     private void OpenDependencyTab(DepNode start, bool newTab = false)
@@ -2323,6 +2364,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
         control.DecryptViewRequested += path => OpenDecryptedF(path);
+        control.DecryptToXmlRequested += path => SaveDecryptedXml(path);
+        control.DecryptFKeyNeeded += () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.DecryptF); f.ShowDialog(this); }));
         control.ApiSchemaRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: false);
         control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
@@ -3819,6 +3862,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
         control.DecryptViewRequested += path => OpenDecryptedF(path);
+        control.DecryptToXmlRequested += path => SaveDecryptedXml(path);
+        control.DecryptFKeyNeeded += () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.DecryptF); f.ShowDialog(this); }));
         control.ApiSchemaRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: false);
         control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);

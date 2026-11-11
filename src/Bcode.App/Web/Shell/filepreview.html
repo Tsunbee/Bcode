@@ -210,6 +210,8 @@
       };
       editor.addCommand(monaco.KeyCode.F12, () => f12(editor.getPosition(), true));
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.F12, () => f12(editor.getPosition(), false));
+      // Ctrl+Enter: báo host (host tự biết file đang xem) — lối vào ẩn cho file .f.
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => post({ action: 'ctrlenter' }));
       // Phím file.openInViewer (mặc định Ctrl+F12): host mở bằng BcodeViewer file mà F12 tại con trỏ sẽ đi tới. Bắt ở pha capture của window
       // (trước keybinding của Monaco) nên thắng lệnh Ctrl+F12 = F12 ở trên; đổi sang phím khác thì Ctrl+F12 lại như F12 như cũ.
       window.addEventListener('keydown', (e) => {

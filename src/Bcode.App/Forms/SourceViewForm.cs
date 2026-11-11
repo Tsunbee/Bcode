@@ -86,17 +86,17 @@ public sealed class SourceViewForm : ThemedForm
         return f.ShowNear(near, cascade);
     }
 
-    /// <summary>Xem BẢN GIẢI MÃ của file controller .f (khối &lt;Encrypted&gt;) — chỉ xem: không ghi ra đĩa, không đụng file / thư mục dự án.
-    /// <paramref name="decrypt"/> chạy ở nền (gọi helper Bcode.FDecrypt), trả nội dung đã giải hoặc lý do không giải được. F12 tra entity theo thư mục file gốc.</summary>
+    /// <summary>Mở nội dung XML của file .f ở dạng chỉ xem (không ghi ra đĩa, không đụng file / thư mục dự án).
+    /// <paramref name="decrypt"/> chạy ở nền, trả nội dung hoặc lý do không mở được. F12 tra entity theo thư mục file gốc.</summary>
     public static SourceViewForm OpenDecrypted(string path, Func<(string? Text, string? Error)> decrypt, Form? near)
     {
         var f = new SourceViewForm(null, null);
         f.ShowNear(near, cascade: false);
         f._basePath = path;
-        f.Text = Path.GetFileName(path) + " — bản giải mã";
-        f._info.Text = "Bản giải mã (chỉ xem, không lưu) · " + path;
+        f.Text = Path.GetFileName(path) + " — XML";
+        f._info.Text = "XML (chỉ xem) · " + path;
         f._tip.SetToolTip(f._info, path);
-        f._view.LoadContent(null, "Đang giải mã " + Path.GetFileName(path) + "...");
+        f._view.LoadContent(null, "Đang mở " + Path.GetFileName(path) + "...");
         Task.Run(() =>
         {
             (string? Text, string? Error) r;
@@ -108,10 +108,10 @@ public sealed class SourceViewForm : ThemedForm
                     if (f.IsDisposed) return;
                     if (r.Text is { } text)
                     {
-                        f._info.Text = "Bản giải mã (chỉ xem, không lưu) · " + path + " · " + text.Split('\n').Length + " dòng";
+                        f._info.Text = "XML (chỉ xem) · " + path + " · " + text.Split('\n').Length + " dòng";
                         f._view.LoadContent(path, text);
                     }
-                    else f._view.LoadContent(null, "Không giải mã được " + Path.GetFileName(path) + ":\r\n" + r.Error);
+                    else f._view.LoadContent(null, "Không mở được " + Path.GetFileName(path) + ":\r\n" + r.Error);
                 }));
             }
             catch (InvalidOperationException) { /* cửa sổ đã đóng / chưa có handle */ }

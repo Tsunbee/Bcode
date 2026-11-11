@@ -404,6 +404,20 @@ public class UiTemplateForm : ThemedForm
                 : "Đã lưu.");
             return;
         }
+        else if (key is "tk2help" or "tk2forum")   // TK2 Help / Forum TK2 Help (menu Triển khai): trống hoặc trùng mặc định → lưu trống (= mặc định)
+        {
+            value = value.Trim().Trim('"');
+            if (value.Length > 0 && !value.Contains("://")) value = "http://" + value;
+            if (value.Length > 0 && !(Uri.TryCreate(value, UriKind.Absolute, out var tu) && (tu.Scheme == Uri.UriSchemeHttps || tu.Scheme == Uri.UriSchemeHttp)))
+            { PushTk2("✘ Đường dẫn phải là http://… hoặc https://… — chưa lưu."); return; }
+            var def = key == "tk2help" ? AppSettings.Tk2HelpDefaultUrl : AppSettings.Tk2ForumDefaultUrl;
+            if (string.Equals(value, def, StringComparison.OrdinalIgnoreCase)) value = "";
+            if (key == "tk2help") _settings.Tk2HelpUrl = value; else _settings.Tk2ForumUrl = value;
+            var v = value;
+            try { AppSettings.Update(s => { if (key == "tk2help") s.Tk2HelpUrl = v; else s.Tk2ForumUrl = v; }); } catch { /* chỉ áp cho phiên này */ }
+            PushTk2(value.Length == 0 ? "Đã lưu — dùng đường dẫn mặc định." : "Đã lưu.");
+            return;
+        }
         else if (key == "release")   // Cập nhật Bcode: thư mục phát hành (trùng mặc định → lưu trống; trống / "-" → tắt) — xem UpdateCheckService.EffectiveFolder
         {
             _settings.ReleaseFolder = Bcode.Shared.UpdateCheckService.ToSetting(value);
@@ -561,7 +575,19 @@ public class UiTemplateForm : ThemedForm
         PushSourceStatus();
         PushKnowledgeStatus();
         PushErrorReport(null);
+        PushTk2(null);
         PushRelease();
+    }
+
+    /// <summary>Ô TK2 Help / Forum TK2 Help (tab Đường dẫn): giá trị đã lưu (trống = mặc định) + đường dẫn mặc định; <paramref name="note"/> null = giữ dòng ghi chú.</summary>
+    private void PushTk2(string? note)
+    {
+        var state = new
+        {
+            help = _settings.Tk2HelpUrl ?? "", forum = _settings.Tk2ForumUrl ?? "",
+            helpDefault = AppSettings.Tk2HelpDefaultUrl, forumDefault = AppSettings.Tk2ForumDefaultUrl, note,
+        };
+        Js($"window.setTk2 && window.setTk2({JsonSerializer.Serialize(state)})");
     }
 
     /// <summary>Ô Cập nhật Bcode (tab Đường dẫn): thư mục phát hành đang dùng + đọc thử bcode-version.json ở đó (có hạn giờ, luồng nền) để báo có bản mới không.</summary>

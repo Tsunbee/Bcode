@@ -312,6 +312,17 @@
     <div class="muted" style="font-size:11.5px" id="pKnowMoveNote"></div>
   </div>
   <div class="panel">
+    <h3>TK2 Help (web nội bộ: hướng dẫn + forum)</h3>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Trang mở bằng menu <b>Triển khai → TK2 Help</b> / <b>Forum TK2 Help</b>, hiện ngay trong tab của Bcode (không bật trình duyệt ngoài). Để trống = đường dẫn mặc định. Đổi xong thì lần mở tab sau dùng đường dẫn mới (tab đang mở: đóng rồi mở lại).</div>
+    <div class="row"><label>TK2 Help</label>
+      <div class="ctl"><input type="text" id="pTk2Help" spellcheck="false" placeholder="(trống = mặc định)" />
+        <button class="btn btn-border" id="pTk2HelpDefault">Trả về mặc định</button></div></div>
+    <div class="row"><label>Forum TK2 Help</label>
+      <div class="ctl"><input type="text" id="pTk2Forum" spellcheck="false" placeholder="(trống = mặc định)" />
+        <button class="btn btn-border" id="pTk2ForumDefault">Trả về mặc định</button></div></div>
+    <div class="muted" style="font-size:11.5px" id="pTk2Note"></div>
+  </div>
+  <div class="panel">
     <h3>Báo lỗi (log lỗi + phím Gửi lỗi)</h3>
     <div class="muted" style="font-size:12.5px;margin-bottom:10px">Mọi lỗi của Bcode được ghi vào <code>error.log</code> (thời gian, dự án, chức năng / tab, thông điệp + stack trace; mật khẩu trong chuỗi kết nối đã che). Vừa có lỗi thì bấm <b id="pErrKey">F1</b> (đổi ở tab Phím tắt → "Gửi lỗi gần nhất") để gửi lỗi đó tới Google Sheet / forum TK2 Help bên dưới — luôn hỏi lại kèm nội dung trước khi gửi; lúc không có lỗi phím vẫn làm việc cũ. Google Sheet không nhận ghi qua link mở sheet: muốn gửi <b>tự động</b> thì gắn mã Apps Script vào sheet (nút "Chép mã Apps Script", dán vào Tiện ích mở rộng → Apps Script, Triển khai → Ứng dụng web, Ai có quyền truy cập: Bất kỳ ai) rồi khai URL <code>…/exec</code>. Chỉ khai link sheet thì F1 chép 1 dòng lỗi vào clipboard và mở sheet để dán.</div>
     <div class="row"><label>Link Google Sheet lỗi</label>
@@ -936,6 +947,20 @@ $('swCopyX').onclick = () => sendSwCopy('');
   $('pKnow').onchange = () => { post('paths-set', { key: 'knowledge', value: $('pKnow').value.trim() }); window.setKnowledge({ path: $('pKnow').value.trim(), checking: true }); };
   $('pKnowBrowse').onclick = () => post('paths-browse', { key: 'knowledge' });
   $('pKnowLocal').onclick = () => { $('pKnow').value = ''; $('pKnow').onchange(); };
+  // TK2 Help: 2 đường dẫn (lưu ngay vào settings.json; trống = mặc định — placeholder hiện đường dẫn mặc định)
+  window.setTk2 = (r) => {
+    if (document.activeElement !== $('pTk2Help')) $('pTk2Help').value = r.help;
+    if (document.activeElement !== $('pTk2Forum')) $('pTk2Forum').value = r.forum;
+    $('pTk2Help').placeholder = '(trống = mặc định) ' + r.helpDefault;
+    $('pTk2Forum').placeholder = '(trống = mặc định) ' + r.forumDefault;
+    $('pTk2HelpDefault').title = 'Dùng đường dẫn mặc định: ' + r.helpDefault;
+    $('pTk2ForumDefault').title = 'Dùng đường dẫn mặc định: ' + r.forumDefault;
+    if (r.note != null) $('pTk2Note').textContent = r.note;
+  };
+  $('pTk2Help').onchange = () => post('paths-set', { key: 'tk2help', value: $('pTk2Help').value.trim() });
+  $('pTk2Forum').onchange = () => post('paths-set', { key: 'tk2forum', value: $('pTk2Forum').value.trim() });
+  $('pTk2HelpDefault').onclick = () => { $('pTk2Help').value = ''; $('pTk2Help').onchange(); };
+  $('pTk2ForumDefault').onclick = () => { $('pTk2Forum').value = ''; $('pTk2Forum').onchange(); };
   // Báo lỗi: link Google Sheet + URL Apps Script nhận lỗi (lưu ngay, file riêng error-report.json)
   window.setErrorReport = (r) => {
     if (document.activeElement !== $('pErrSheet')) $('pErrSheet').value = r.sheet;

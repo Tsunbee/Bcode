@@ -78,7 +78,7 @@ Bcode.App/
 │   ├── NativePages.HintsHelp.cs  123
 │   ├── NativePages.IncludeCheck.cs  372
 │   ├── NativePages.MenuPicker.cs  178
-│   ├── NativePages.MsgBox.cs  240
+│   ├── NativePages.MsgBox.cs  270
 │   ├── NativePages.Note.cs  90
 │   ├── NativePages.Palette.cs  229
 │   ├── NativePages.PartitionCheck.cs  43
@@ -168,7 +168,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  5011
+│   ├── MainForm.cs  5037
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
@@ -199,9 +199,10 @@ Bcode.App/
 │   ├── StringBeautyForm.cs  170
 │   ├── StubForm.cs  91
 │   ├── TabSwitcherForm.cs  191
+│   ├── Tk2HelpForm.cs  396
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
-│   ├── UiTemplateForm.cs  930
+│   ├── UiTemplateForm.cs  956
 │   ├── UpdateForm.cs  32
 │   ├── VoucherCloneForm.cs  536
 │   ├── VoucherPreviewForm.cs  64
@@ -212,7 +213,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  466
+│   ├── AppSettings.cs  482
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -465,7 +466,7 @@ Bcode.App/
 │       ├── listeditor.html  79
 │       ├── lookup.html  252
 │       ├── menupicker.html  191
-│       ├── msgbox.html  99
+│       ├── msgbox.html  100
 │       ├── note.html  51
 │       ├── partitioncheck.html  49
 │       ├── projects.html  115
@@ -503,7 +504,7 @@ Bcode.App/
 │       ├── topbar.html  213
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
-│       ├── uitemplate.html  1326
+│       ├── uitemplate.html  1351
 │       ├── update.html  392
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836

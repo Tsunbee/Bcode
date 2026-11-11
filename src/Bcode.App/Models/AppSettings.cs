@@ -53,6 +53,22 @@ public class AppSettings
     /// <summary>Tab FSG FBO (Ctrl+4): đang bật "🏷 Tên field" (nhãn tên field trên mọi ô / cột) — nhớ cho lần mở sau.</summary>
     public bool FboShowFieldNames { get; set; }
 
+    // ---- TK2 Help (web nội bộ: hướng dẫn + forum) — menu Triển khai → "TK2 Help" / "Forum TK2 Help", mở trong tab của Bcode (Forms/Tk2HelpForm.cs).
+    public const string Tk2HelpDefaultUrl = "http://172.168.5.11/TK2_HELP/login";
+    public const string Tk2ForumDefaultUrl = "http://172.168.5.11/TK2_HELP/forum";
+    /// <summary>Đường dẫn trang TK2 Help (Template → Đường dẫn); trống = <see cref="Tk2HelpDefaultUrl"/>.</summary>
+    public string Tk2HelpUrl { get; set; } = "";
+    /// <summary>Đường dẫn trang Forum TK2 Help (Template → Đường dẫn); trống = <see cref="Tk2ForumDefaultUrl"/>.</summary>
+    public string Tk2ForumUrl { get; set; } = "";
+    [JsonIgnore] public string Tk2HelpUrlEffective => string.IsNullOrWhiteSpace(Tk2HelpUrl) ? Tk2HelpDefaultUrl : Tk2HelpUrl.Trim();
+    [JsonIgnore] public string Tk2ForumUrlEffective => string.IsNullOrWhiteSpace(Tk2ForumUrl) ? Tk2ForumDefaultUrl : Tk2ForumUrl.Trim();
+    /// <summary>Tài khoản TK2 Help nhớ từ thanh đăng nhập của tab (ô "Nhớ") — lần sau tự điền và đăng nhập.</summary>
+    public string Tk2HelpUser { get; set; } = "";
+    private readonly ProtectedText _tk2HelpPassword = new();
+    [JsonIgnore] public string Tk2HelpPassword { get => _tk2HelpPassword.Plain; set => _tk2HelpPassword.Plain = value; }
+    [JsonPropertyName(nameof(Tk2HelpPassword)), EditorBrowsable(EditorBrowsableState.Never)]
+    public string Tk2HelpPasswordStored { get => _tk2HelpPassword.Stored; set => _tk2HelpPassword.Stored = value; }
+
     /// <summary>Đường dẫn tới Config.xml của chính FCode (thường ở
     /// "...\FCode\Config\Config.xml") — Ctrl+F5 tra ở đây TRƯỚC để lấy đúng server thật của
     /// từng dự án (SQL2008/2014/2016/... khác nhau tuỳ dự án, không phải lúc nào cũng giống

@@ -355,6 +355,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("report_builder", "Tạo báo cáo", null, (_, _) => OpenReportBuilderTab()));        _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
         _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => OpenFsgCrawlerTab()));
+        _toolSpecs.Add(("tk2_help", "TK2 Help", null, (_, _) => OpenTk2HelpTab(forum: false)));
+        _toolSpecs.Add(("tk2_forum", "Forum TK2 Help", null, (_, _) => OpenTk2HelpTab(forum: true)));
         _toolSpecs.Add(("quick_launch", "FSG FBO", "Ctrl+4", (_, _) => OpenQuickLaunchLogin()));
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
         _toolSpecs.Add(("open_ssms", "Mở SSMS", null, (_, _) => _ = OpenSsmsAsync()));
@@ -1287,7 +1289,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // ---- Menu "Triển khai" ----------------------------------------------------------------------------
     // Các công cụ phục vụ triển khai gom vào 1 nút menu trên thanh công cụ, KHÔNG hiện riêng ở thanh công cụ / Quick Access / Template thứ tự nút.
     // Phím tắt riêng của từng công cụ ("tool:<key>") vẫn cấu hình được ở Template → Phím tắt.
-    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail" };
+    private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail", "tk2_help", "tk2_forum" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
     private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms" };
@@ -2061,6 +2063,30 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _fsgCrawlerForm = new FsgRequirementCrawlerForm();
         var page = AddFormTab("FSG Yêu cầu", _fsgCrawlerForm);
         page.Disposed += (_, _) => _fsgCrawlerForm = null;
+    }
+
+    private Tk2HelpForm? _tk2HelpForm, _tk2ForumForm;
+
+    /// <summary>"TK2 Help" / "Forum TK2 Help" (menu Triển khai): web nội bộ TK2 Help trong tab tài liệu — mỗi mục 1 tab, mở lại thì chuyển tới tab đang có.
+    /// Đường dẫn theo Template → Đường dẫn (trống = mặc định); 2 tab chung phiên đăng nhập (Forms/Tk2HelpForm.cs).</summary>
+    private void OpenTk2HelpTab(bool forum)
+    {
+        if (SelectFormTab(forum ? _tk2ForumForm : _tk2HelpForm)) return;
+        var title = forum ? "Forum TK2 Help" : "TK2 Help";
+        var form = new Tk2HelpForm(_settings, forum ? _settings.Tk2ForumUrlEffective : _settings.Tk2HelpUrlEffective) { Text = title };
+        form.NewWindowTab = ShowTk2PopupTab;
+        if (forum) _tk2ForumForm = form; else _tk2HelpForm = form;
+        var page = AddFormTab(title, form);
+        page.Disposed += (_, _) => { if (forum) { if (ReferenceEquals(_tk2ForumForm, form)) _tk2ForumForm = null; } else if (ReferenceEquals(_tk2HelpForm, form)) _tk2HelpForm = null; };
+    }
+
+    /// <summary>Trang TK2 Help mở cửa sổ mới (link target=_blank, window.open) → tab mới trong Bcode, chung phiên đăng nhập (như FSG FBO).</summary>
+    private Tk2HelpForm ShowTk2PopupTab()
+    {
+        var form = new Tk2HelpForm(_settings, "", popup: true) { Text = "TK2 Help · cửa sổ mới" };
+        form.NewWindowTab = ShowTk2PopupTab;
+        AddFormTab("TK2 Help · cửa sổ mới", form);
+        return form;
     }
 
     /// <summary>Các tab FSG FBO còn mở của <paramref name="ws"/>, tab mở sau cùng ở cuối.</summary>

@@ -308,6 +308,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add(LicenseService.IsUnlocked ? "Key bản quyền ✓ (đã kích hoạt)..." : "Key bản quyền (Create RPT & XML, Excel → FRX, Tạo nhanh danh mục…)...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(); f.ShowDialog(this); })))
             // Decrypt SQL Object cấp key RIÊNG (bcrypt ghép khác key chung) — mục riêng, lưu riêng license-decrypt.key
             .Add(LicenseService.IsDecryptUnlocked ? "Key Decrypt SQL Object ✓ (đã kích hoạt)..." : "Key Decrypt SQL Object...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.Decrypt); f.ShowDialog(this); })))
+            // Dịch file .f (giải khối <Encrypted>) cấp key RIÊNG (bcrypt ghép khác hai key trên) — lưu riêng license-decryptf.key
+            .Add(LicenseService.IsDecryptFUnlocked ? "Key dịch file .f ✓ (đã kích hoạt)..." : "Key dịch file .f...", () => BeginInvoke(new Action(() => { using var f = new LicenseKeyForm(null, LicenseService.Kind.DecryptF); f.ShowDialog(this); })))
             .AddCaption("Cập nhật")
             .Add(UpdateMenuLabel, () => BeginInvoke(new Action(CheckForUpdateInteractive)))
             .Add("Thư mục phát hành bản mới...", () => BeginInvoke(new Action(ChooseReleaseFolder)))
@@ -1554,18 +1556,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         };
         // File .f mã hoá → xét theo bản .xml trong kho source chuẩn (như Cấp source nhanh của File Lookup)
         _depService.StandardSource = () => (_settings.SourceCollectionRoots, _connections.Current?.VersionCode);
-        // …và ưu tiên GIẢI MÃ chính file .f qua FDecrypt (fsystem.dll của FCode) nếu máy có license Fast
-        _fdecrypt ??= new FSourceDecryptService(() => _settings.FCodeDir);
+        // …và ưu tiên GIẢI MÃ chính file .f qua FDecrypt (engine sạch Bcode.FSystem, khoá hashKey) nếu máy đã cấp key "Dịch file .f"
+        _fdecrypt ??= new FSourceDecryptService();
         _depService.DecryptF = f => _fdecrypt.TryDecrypt(f);
         return _depService;
     }
 
-    /// <summary>File Lookup → chuột phải file .f → "Xem bản giải mã (.f)…": dịch ngược khối &lt;Encrypted&gt; qua FDecrypt rồi mở cửa sổ CHỈ XEM
-    /// (không ghi gì ra file / thư mục dự án). Cần key Decrypt SQL Object (menu chỉ hiện khi có) và license Fast của máy cho fsystem.dll.</summary>
+    /// <summary>File Lookup → chuột phải file .f → "Xem bản giải mã (.f)…" (hoặc Ctrl+Enter): dịch ngược khối &lt;Encrypted&gt; qua FDecrypt (engine sạch,
+    /// khoá hằng số hashKey) rồi mở cửa sổ CHỈ XEM (không ghi gì ra file / thư mục dự án). Cần key "Dịch file .f" (menu chỉ hiện khi có).</summary>
     private void OpenDecryptedF(string path)
     {
-        if (!LicenseService.IsDecryptUnlocked) return;
-        _fdecrypt ??= new FSourceDecryptService(() => _settings.FCodeDir);
+        if (!LicenseService.IsDecryptFUnlocked) return;
+        _fdecrypt ??= new FSourceDecryptService();
         var svc = _fdecrypt;
         SourceViewForm.OpenDecrypted(path, () => svc.DecryptForView(path), this);
     }

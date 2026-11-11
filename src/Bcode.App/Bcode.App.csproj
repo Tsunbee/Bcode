@@ -20,7 +20,7 @@
     <Trademark>Bcode™ Bee</Trademark>
     <!-- PHIÊN BẢN Bcode — chỗ DUY NHẤT cần sửa khi lên bản mới. Dạng "số-nhãn" (1.9-beta) → hiện "Beta v1.9" ở góc phải thanh trên
          (topbar.html #verBadge / NativeTopBar) và ghi vào log lỗi (ErrorLog.Version / ErrorLog.VersionLabel). Bỏ "-beta" khi ra bản chính thức → "v2.0". -->
-    <Version>2.3-beta</Version>
+    <Version>2.4-beta</Version>
     <!-- Thư mục phát hành MẶC ĐỊNH cho "Kiểm tra bản Bcode mới" (Shared/AppUpdate.cs): máy chưa khai Settings → Thư mục phát hành bản mới
          thì dùng thư mục này (thư mục build có bcode-version.json). Người dùng vẫn khai đè được; gõ "-" = tắt kiểm tra. Để trống = không có mặc định. -->
     <!-- Bố cục phát hành: HAOTN\Bcode\{Bcode, Bcodeviewer, BcodeScreenDesigner} — mỗi app 1 thư mục con riêng. -->

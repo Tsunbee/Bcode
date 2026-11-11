@@ -78,7 +78,7 @@ public partial class FileLookupControl : UserControl
     private static bool IsFieldGridSource(string path)
         => Path.GetExtension(path).ToLowerInvariant() is ".xml" or ".f" && FgSet.Locate(path).Root is not null;
 
-    /// <summary>Chuột phải file .f → "Xem bản giải mã (.f)…" (full path). Chỉ hiện khi máy có key Decrypt SQL Object (<see cref="LicenseService.IsDecryptUnlocked"/>).</summary>
+    /// <summary>Chuột phải file .f → "Xem bản giải mã (.f)…" hoặc Ctrl+Enter trên file .f. Chỉ hiện khi máy có key "Dịch file .f" (<see cref="LicenseService.IsDecryptFUnlocked"/>).</summary>
     public event Action<string>? DecryptViewRequested;
 
     /// <summary>Chuột phải file Grid / Dir (.f / .xml trong Controllers\Grid|Dir) → "Tạo cấu trúc API…" (full path): MainForm dựng cấu trúc rồi mở màn Tạo cấu trúc API.</summary>
@@ -217,11 +217,11 @@ public partial class FileLookupControl : UserControl
                     { Font = new Font(_fileContextMenu.Font, FontStyle.Bold), ToolTipText = "Khai báo / sửa field của bộ Dir, Grid, Filter, Report cùng tên trên lưới (như FSD Studio)." });
             if (_tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } depFile)
                 _fileContextMenu.Items.Add("Sơ đồ phụ thuộc…", null, (_, _) => DependencyRequested?.Invoke(depFile.FullPath));
-            // Dịch ngược file .f (khối <Encrypted>) — chỉ xem; chỉ hiện khi máy có key Decrypt SQL Object.
-            if (DecryptViewRequested is not null && LicenseService.IsDecryptUnlocked
+            // Dịch ngược file .f (khối <Encrypted>) — chỉ xem; chỉ hiện khi máy có key "Dịch file .f". Phím tắt Ctrl+Enter (xem _tree.KeyDown).
+            if (DecryptViewRequested is not null && LicenseService.IsDecryptFUnlocked
                 && _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } fFile
                 && Path.GetExtension(fFile.FullPath).Equals(".f", StringComparison.OrdinalIgnoreCase))
-                _fileContextMenu.Items.Add("Xem bản giải mã (.f)…", null, (_, _) => DecryptViewRequested?.Invoke(fFile.FullPath));
+                _fileContextMenu.Items.Add("Xem bản giải mã (.f)…  (Ctrl+Enter)", null, (_, _) => DecryptViewRequested?.Invoke(fFile.FullPath));
             if (_tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } apiFile && IsApiSchemaSource(apiFile.FullPath))
             {
                 if (ApiSchemaRequested is not null) _fileContextMenu.Items.Add("Tạo cấu trúc API…", null, (_, _) => ApiSchemaRequested?.Invoke(apiFile.FullPath));
@@ -315,6 +315,15 @@ public partial class FileLookupControl : UserControl
             {
                 e.Handled = e.SuppressKeyPress = true;
                 _previewEditor.ShowFind();
+            }
+            // Ctrl+Enter trên file .f: dịch khối <Encrypted> → mở cửa sổ chỉ xem (chỉ khi đã cấp key "Dịch file .f").
+            if (e.Control && (e.KeyCode == Keys.Return || e.KeyCode == Keys.Enter) && DecryptViewRequested is not null
+                && LicenseService.IsDecryptFUnlocked
+                && _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } fNode
+                && Path.GetExtension(fNode.FullPath).Equals(".f", StringComparison.OrdinalIgnoreCase))
+            {
+                e.Handled = e.SuppressKeyPress = true;
+                DecryptViewRequested?.Invoke(fNode.FullPath);
             }
         };
 

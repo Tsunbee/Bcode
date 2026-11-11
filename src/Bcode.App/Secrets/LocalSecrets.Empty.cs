@@ -37,4 +37,10 @@ internal static class LocalSecrets
 
     // Cách ghép chuỗi đưa vào bcrypt cho key Decrypt SQL Object ({m} = mã máy, {k} = key gốc) — khác key chung; rỗng = không cấp / không mở được Decrypt.
     public const string DecryptKeyTemplate = "";
+
+    // Cách ghép chuỗi đưa vào bcrypt cho key "Dịch file .f" (LicenseCodec.Kind.DecryptF) — rỗng = không cấp / không mở được.
+    public const string DecryptFKeyTemplate = "";
+
+    // hashKey giải khối <Encrypted> của file .f — rỗng = không giải được (bản build không có bí mật).
+    public const string FHashKey = "";
 }

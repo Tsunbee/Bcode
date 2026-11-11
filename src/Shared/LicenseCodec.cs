@@ -72,14 +72,15 @@ internal static class LicenseCodec
 
     /// <summary>Loại key: <see cref="General"/> = key chung (Excel → FRX, Create RPT &amp; XML, Tạo nhanh danh mục…); <see cref="Decrypt"/> = key riêng cho
     /// Decrypt SQL Object — chuỗi đưa vào bcrypt ghép KHÁC hẳn (cách ghép ở Secrets/LocalSecrets.cs, không có trong source) nên key chung không mở được Decrypt và ngược lại.</summary>
-    public enum Kind { General, Decrypt }
+    public enum Kind { General, Decrypt, DecryptF }
 
     private static string Material(string secret, string machineCode, Kind kind = Kind.General)
     {
-        if (kind != Kind.Decrypt) return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret.Trim() + "|" + machineCode)));
-        // Cách ghép của key Decrypt nằm ở file bí mật (Secrets/LocalSecrets.cs — gitignore), không để trong source. Bản build thiếu file đó: không cấp / không mở được Decrypt.
-        var tpl = Bcode.App.Services.LicenseSecret.DecryptTemplate;
-        if (string.IsNullOrEmpty(tpl) || !tpl.Contains("{m}") || !tpl.Contains("{k}")) throw new InvalidOperationException("Bản build này không có cách ghép key Decrypt SQL Object (Secrets/LocalSecrets.cs).");
+        if (kind == Kind.General) return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret.Trim() + "|" + machineCode)));
+        // Cách ghép của key Decrypt / DecryptF nằm ở file bí mật (Secrets/LocalSecrets.cs — gitignore), không để trong source. Bản build thiếu file đó: không cấp / không mở được.
+        var tpl = kind == Kind.DecryptF ? Bcode.App.Services.LicenseSecret.DecryptFTemplate : Bcode.App.Services.LicenseSecret.DecryptTemplate;
+        var name = kind == Kind.DecryptF ? "Dịch file .f" : "Decrypt SQL Object";
+        if (string.IsNullOrEmpty(tpl) || !tpl.Contains("{m}") || !tpl.Contains("{k}")) throw new InvalidOperationException($"Bản build này không có cách ghép key {name} (Secrets/LocalSecrets.cs).");
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(tpl.Replace("{m}", machineCode).Replace("{k}", secret.Trim()))));
     }
 

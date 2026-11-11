@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cấu hình ConfuserEx (làm rối IL) cho Bcode.FSystem.dll — chỉ chạy khi build Release (xem Bcode.FSystem.csproj).
+  NHIỀU LỚP chống dịch ngược. Bcode.FSystem là net48 (.NET Framework) nên dùng được cả anti tamper / anti debug / anti dump
+  (các lớp này thiết kế cho .NET Framework; ReportBuilder là net8 nên trước đây bỏ, ở đây bật được).
+
+  Lớp dùng:
+   - rename (renameArgs=false): đổi tên lớp/hàm/biến NỘI BỘ; GIỮ nguyên API public (Bcode.FDecrypt gọi Bcode.FSystem.FEngine.Decode
+     lúc biên dịch). renameArgs=false để không mất tên tham số (không cần, nhưng an toàn).
+   - ctrl flow: làm rối luồng điều khiển (phá đọc logic giải mã / cắt hashKey / vòng lặp engine).
+   - constants: MÃ HOÁ chuỗi & hằng số nhúng — không đọc thẳng được.
+   - ref proxy: thay lời gọi hàm bằng proxy (khó lần theo gọi crypto API).
+   - anti ildasm: gắn cờ chặn ildasm.exe.
+   - anti tamper: MÃ HOÁ thân hàm, giải mã lúc chạy — sửa/vá IL là hỏng. (net48 OK; vẫn giữ metadata public để tham chiếu biên dịch.)
+   - anti debug: chặn gắn debugger lúc chạy.
+   - anti dump: chống dump ảnh assembly từ bộ nhớ.
+
+  KHÔNG dùng "invalid metadata" (cố tình hỏng bảng metadata để phá tool dịch ngược) vì Bcode.FDecrypt tham chiếu DLL này LÚC
+  BIÊN DỊCH — Roslyn phải đọc được metadata. Rule thứ hai giữ hẳn namespace Bcode.FSystem (FEngine) không bị đổi tên.
+-->
+<project baseDir="." outputDir="." xmlns="http://confuser.codeplex.com">
+  <rule pattern="true" preset="none" inherit="false">
+    <protection id="rename">
+      <argument name="renameArgs" value="false" />
+    </protection>
+    <protection id="ctrl flow" />
+    <protection id="constants" />
+    <protection id="ref proxy" />
+    <protection id="anti ildasm" />
+    <protection id="anti tamper" />
+    <protection id="anti debug" />
+    <protection id="anti dump" />
+  </rule>
+  <!-- Giữ nguyên API public để Bcode.FDecrypt gọi thẳng FEngine.Decode / Available lúc biên dịch. -->
+  <rule pattern="namespace('Bcode.FSystem')" preset="none" inherit="false" />
+</project>

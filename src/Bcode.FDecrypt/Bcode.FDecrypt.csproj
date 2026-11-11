@@ -1,19 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- Giải mã file controller .f của Fast (khối <Encrypted>) cho Sơ đồ phụ thuộc / File Lookup.
-       EXE RIÊNG, chạy tiến trình tách: nạp fsystem.dll ĐÃ CÀI của FCode trên máy dev rồi gọi Sec.AnalysisSource — fsystem.dll là
-       binary bị làm rối, nhiều phụ thuộc; chạy tách để lỗi/treo không làm sập Bcode. KHÔNG kèm fsystem.dll hay khoá nào trong repo:
-       khoá là license Fast ghi theo máy (%windir%\<Máy>.c), chỉ máy dev có license mới giải được; máy không có license → trả nguyên văn.
+       EXE RIÊNG, chạy tiến trình tách: gọi engine SẠCH Bcode.FSystem.dll (viết lại từ fsystem, tự chứa) — KHÔNG nạp fsystem.dll
+       cài sẵn, KHÔNG đọc license %windir%\<máy>.c. Chạy tách để lỗi/treo của engine không làm sập Bcode và giữ nguyên giao thức
+       với Sơ đồ phụ thuộc. Khoá (hashKey 391 ký tự) Bcode truyền vào qua STDIN (không hiện ở dòng lệnh).
 
-       PHẢI chạy 32-bit (.NET Framework x86) như FCode.exe (cờ 32BITREQUIRED): fsystem kiểm license bằng ngày tạo thư mục
-       Environment.SpecialFolder.System — tiến trình 32-bit bị WOW64 chuyển sang C:\Windows\SysWOW64, tiến trình 64-bit đọc System32.
-       Hai thư mục tạo lệch nhau vài phút → bản 64-bit (net8 cũ) đọc được license nhưng AnalysisSource từ chối, trả nguyên khối <Encrypted>.
-       .NET Framework 4.8 có sẵn trên mọi Windows 10/11 (không cần cài .NET 8 x86), System.Management có sẵn trong GAC. -->
+       net48: Bcode.FSystem là net48 (có Microsoft.VisualBasic trong GAC). Không còn cần WMI/System.Management hay chạy 32-bit
+       (trước đây x86 là vì fsystem kiểm license theo ngày tạo System32 — nay bỏ hẳn license). Giữ net48 để build kèm Bcode.App
+       như cũ (target CopyFDecrypt chép từ bin\<Config>\net48). .NET Framework 4.8 có sẵn trên mọi Windows 10/11. -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net48</TargetFramework>
-    <PlatformTarget>x86</PlatformTarget>
-    <Prefer32Bit>true</Prefer32Bit>
+    <PlatformTarget>AnyCPU</PlatformTarget>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -23,8 +21,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- fsystem.dll gọi WMI (Cmd.GetClientCode) qua System.Management — có sẵn trong .NET Framework. -->
-    <Reference Include="System.Management" />
+    <ProjectReference Include="..\Bcode.FSystem\Bcode.FSystem.csproj" />
   </ItemGroup>
 
 </Project>

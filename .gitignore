@@ -41,3 +41,6 @@ src/ExcelToFrx/
 
 # Tool Setup HDDT (VB) của Fast — chỉ là bản tham chiếu khi viết Setup eInvoice (logic đã viết lại bằng C# trong Bcode.App), không đưa lên repo.
 src/Setup HDDT/
+
+# Engine giải mã .f (logic từ fsystem) — không đẩy lên repo công khai. Thiếu file thì build bằng FEngine.Empty.cs (dịch .f tắt).
+src/Bcode.FSystem/FEngine.cs

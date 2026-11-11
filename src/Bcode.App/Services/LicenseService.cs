@@ -22,31 +22,39 @@ public static class LicenseService
 {
     /// <summary>Hai loại key, cấp và lưu riêng: key chung (Excel → FRX, Create RPT &amp; XML, Tạo nhanh danh mục, Tạo báo cáo…) và key riêng cho
     /// Decrypt SQL Object + Theo dõi ngoài Bcode (công thức bcrypt ghép khác — <see cref="LicenseCodec.Kind"/>).</summary>
-    public enum Kind { General, Decrypt }
+    public enum Kind { General, Decrypt, DecryptF }
 
-    private static readonly Dictionary<Kind, bool?> _unlocked = new() { [Kind.General] = null, [Kind.Decrypt] = null };
+    private static readonly Dictionary<Kind, bool?> _unlocked = new() { [Kind.General] = null, [Kind.Decrypt] = null, [Kind.DecryptF] = null };
 
     /// <summary>Báo khi key được lưu hoặc xoá (để làm mới nhãn menu).</summary>
     public static event Action? Changed;
 
-    private static string KeyPath(Kind kind) => Path.Combine(BcodePaths.AppData, "Bcode", kind == Kind.Decrypt ? "license-decrypt.key" : "license.key");
+    private static string KeyPath(Kind kind) => Path.Combine(BcodePaths.AppData, "Bcode",
+        kind switch { Kind.Decrypt => "license-decrypt.key", Kind.DecryptF => "license-decryptf.key", _ => "license.key" });
 
-    private static LicenseCodec.Kind CodecKind(Kind kind) => kind == Kind.Decrypt ? LicenseCodec.Kind.Decrypt : LicenseCodec.Kind.General;
+    private static LicenseCodec.Kind CodecKind(Kind kind) =>
+        kind switch { Kind.Decrypt => LicenseCodec.Kind.Decrypt, Kind.DecryptF => LicenseCodec.Kind.DecryptF, _ => LicenseCodec.Kind.General };
 
     /// <summary>Tên hiển thị + các tính năng mở khoá của từng loại key (hộp thoại Key bản quyền).</summary>
-    public static (string Title, string[] Features) Describe(Kind kind) => kind == Kind.Decrypt
-        ? ("Key Decrypt SQL Object", new[] { "Decrypt SQL Object (giải mã object WITH ENCRYPTION)", "Theo dõi ngoài Bcode (cài / gỡ DDL trigger ghi thay đổi procedure / function do SSMS, tool khác)" })
-        : ("Key bản quyền", new[]
+    public static (string Title, string[] Features) Describe(Kind kind) => kind switch
+    {
+        Kind.DecryptF => ("Key dịch file .f", new[] { "Dịch file .f (giải mã khối <Encrypted> của file controller Fast để xem mã nguồn)" }),
+        Kind.Decrypt => ("Key Decrypt SQL Object", new[] { "Decrypt SQL Object (giải mã object WITH ENCRYPTION)", "Theo dõi ngoài Bcode (cài / gỡ DDL trigger ghi thay đổi procedure / function do SSMS, tool khác)" }),
+        _ => ("Key bản quyền", new[]
         {
             "Create RPT & XML (Excel / Pivot Excel mẫu + header report XML)", "Excel → FRX / RPT (mẫu in Excel → FastReport / Crystal)",
             "Tạo báo cáo · Báo cáo yêu cầu FSG · Thiết kế màn hình", "Khai báo API · Tạo cấu trúc API", "Tạo nhanh danh mục · Clone danh mục",
-        });
+        }),
+    };
 
     /// <summary>Key chung đã lưu có hợp lệ cho máy này không (tính 1 lần rồi nhớ — bcrypt chạy chậm có chủ đích).</summary>
     public static bool IsUnlocked => IsUnlockedFor(Kind.General);
 
     /// <summary>Key Decrypt SQL Object (key riêng) đã lưu có hợp lệ cho máy này không.</summary>
     public static bool IsDecryptUnlocked => IsUnlockedFor(Kind.Decrypt);
+
+    /// <summary>Key "Dịch file .f" (key riêng) đã lưu có hợp lệ cho máy này không.</summary>
+    public static bool IsDecryptFUnlocked => IsUnlockedFor(Kind.DecryptF);
 
     public static bool IsUnlockedFor(Kind kind)
     {

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Engine giải mã khối <Encrypted> của file .f (Fast), viết lại SẠCH từ nguồn fsystem của FCode — tự chứa, KHÔNG reflection,
+       KHÔNG cần fsystem.dll cài sẵn, KHÔNG đọc license %windir%\<máy>.c. Khoá (hashKey 391 ký tự) do nơi gọi truyền vào
+       (Bcode: LocalSecrets.FHashKey → Bcode.FDecrypt.exe qua stdin).
+
+       net48 để Bcode.FDecrypt.exe (net48 x86) tham chiếu thẳng. Microsoft.VisualBasic cho các hàm runtime (Strings/Conversions/
+       Operators/Interaction) mà bản giải mã của fsystem dùng.
+
+       SOURCE NGÀI GIT: FEngine.cs nằm trong .gitignore (không đẩy logic giải mã lên repo công khai). Máy không có file đó build
+       bằng bản rỗng FEngine.Empty.cs (Decode trả nguyên văn, Available=false). Xem README.md.
+
+       OBFUSCATE: ConfuserEx (Confuser.MSBuild) CHỈ chạy Release (xem Bcode.FSystem.crproj) — làm rối IL để khó dịch ngược. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Bcode.FSystem</AssemblyName>
+    <RootNamespace>Bcode.FSystem</RootNamespace>
+    <Obfuscate Condition="'$(Configuration)' == 'Release'">true</Obfuscate>
+    <ConfuserReplaceOutput>true</ConfuserReplaceOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.VisualBasic" />
+  </ItemGroup>
+
+  <!-- Có FEngine.cs (engine thật) thì bỏ bản rỗng (cùng tên lớp FEngine); không có thì build bằng bản rỗng. -->
+  <ItemGroup Condition="Exists('FEngine.cs')">
+    <Compile Remove="FEngine.Empty.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Confuser.MSBuild" Version="1.6.0" Condition="'$(Configuration)' == 'Release'" />
+  </ItemGroup>
+
+</Project>

@@ -13,4 +13,8 @@ internal static class LicenseSecret
     public static string Key => Bcode.App.Secrets.LocalSecrets.LicenseKey;
     /// <summary>Cách ghép key Decrypt SQL Object (Secrets/LocalSecrets.cs, gitignore) — xem <c>LicenseCodec.Kind.Decrypt</c>.</summary>
     public static string DecryptTemplate => Bcode.App.Secrets.LocalSecrets.DecryptKeyTemplate;   // key gốc nằm ở Secrets/LocalSecrets.cs (gitignore) — không để trong source
+    /// <summary>Cách ghép key "Dịch file .f" (Secrets/LocalSecrets.cs, gitignore) — xem <c>LicenseCodec.Kind.DecryptF</c>.</summary>
+    public static string DecryptFTemplate => Bcode.App.Secrets.LocalSecrets.DecryptFKeyTemplate;
+    /// <summary>hashKey (391 ký tự) giải khối &lt;Encrypted&gt; của file .f (Secrets/LocalSecrets.cs, gitignore). Rỗng = bản build không giải được.</summary>
+    public static string FHashKey => Bcode.App.Secrets.LocalSecrets.FHashKey;
 }

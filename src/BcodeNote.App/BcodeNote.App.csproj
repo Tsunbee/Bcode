@@ -42,9 +42,22 @@
       <_NoteFiles Include="$(OutDir)BcodeNote.exe;$(OutDir)BcodeNote.dll;$(OutDir)BcodeNote.pdb;$(OutDir)BcodeNote.deps.json;$(OutDir)BcodeNote.runtimeconfig.json" />
       <_NotePages Include="$(OutDir)Web\Shell\notehub.html;$(OutDir)Web\Shell\notesuggest.html" />
     </ItemGroup>
-    <Copy SourceFiles="@(_NoteFiles)" DestinationFolder="$(BcodeOutDir)" SkipUnchangedFiles="true" Condition="Exists('%(FullPath)')" />
-    <Copy SourceFiles="@(_NotePages)" DestinationFolder="$(BcodeOutDir)Web\Shell\" SkipUnchangedFiles="true" Condition="Exists('%(FullPath)')" />
+    <Copy SourceFiles="@(_NoteFiles)" DestinationFolder="$(BcodeOutDir)" SkipUnchangedFiles="true" Condition="Exists('%(FullPath)')">
+      <Output TaskParameter="CopiedFiles" ItemName="_NoteCopied" />
+    </Copy>
+    <Copy SourceFiles="@(_NotePages)" DestinationFolder="$(BcodeOutDir)Web\Shell\" SkipUnchangedFiles="true" Condition="Exists('%(FullPath)')">
+      <Output TaskParameter="CopiedFiles" ItemName="_NoteCopied" />
+    </Copy>
     <Message Importance="high" Text="BcodeNote → $(BcodeOutDir)" />
+    <!-- BcodeNote.App build SAU Bcode.App (tham chiếu nó) nên bcode-manifest.json của Bcode (Shared/Release.targets, sinh lúc Bcode.App build xong) còn
+         mang SHA-256 của BcodeNote.* CŨ → file vừa chép đè lệch manifest, máy cập nhật báo "BcodeNote.dll tải về sai mã kiểm tra" (v2.3-beta build 475).
+         Có chép file + thư mục đó có manifest (build Release / BcodeManifest=true) thì sinh lại manifest của Bcode.App cho khớp file thật. -->
+    <PropertyGroup>
+      <_BcodeOutFull>$([System.IO.Path]::GetFullPath('$(BcodeOutDir)'))</_BcodeOutFull>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\Bcode.App\Bcode.App.csproj" Targets="WriteReleaseManifest"
+             Properties="Configuration=$(Configuration);OutDir=$(_BcodeOutFull);BcodeManifest=true"
+             Condition="'@(_NoteCopied)' != '' And Exists('$(_BcodeOutFull)bcode-manifest.json')" />
   </Target>
   <!-- Không cần Monaco (Web\Shell\viewer), ExcelToFrx và mẫu Check LCTT (Templates\Cfs — đường dẫn rất dài) của Bcode: bỏ khỏi danh sách chép kèm cho thư mục BcodeNote gọn. -->
   <Target Name="TrimBcodeContent" AfterTargets="GetCopyToOutputDirectoryItems" BeforeTargets="_CopyOutOfDateSourceItemsToOutputDirectory">

@@ -3930,7 +3930,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     private FieldGridControl NewFieldGrid()
     {
-        var control = new FieldGridControl(_settings.SourceCollectionRoots);
+        var control = new FieldGridControl(_settings.SourceCollectionRoots) { HideEmptyColumns = _settings.FieldGridHideEmpty };
+        foreach (var c in _settings.FieldGridHiddenColumns) control.HiddenColumns.Add(c);
+        control.ColumnPrefsChanged += () =>
+        {
+            _settings.FieldGridHideEmpty = control.HideEmptyColumns;
+            _settings.FieldGridHiddenColumns = control.HiddenColumns.OrderBy(x => x, StringComparer.Ordinal).ToList();
+            _settings.Save();
+        };
         // Mở XML / View Script: tab trong Bcode (không bật cửa sổ BcodeViewer / hộp riêng)
         control.OpenFileRequested += p => OpenFileInScriptTab(p);
         control.ScriptViewRequested += (title, text) =>

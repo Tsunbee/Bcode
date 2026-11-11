@@ -428,12 +428,22 @@ public static class UpdateCheckService
             var from = Path.Combine(src, rel);
             var to = Path.Combine(Staging, rel);
             var before = done;
+            string? prevGot = null;
             for (var attempt = 1; ; attempt++)
             {
                 done = before;
                 var got = CopyWithHash(from, to, n => { done += n; Report(new UpdateProgress("download", i, need.Count, done, total, rel)); }, ct);
                 if (hash is null || got == hash) break;
-                if (attempt >= 2) throw new InvalidOperationException($"File {rel} tải về sai mã kiểm tra (SHA-256) — bản phát hành có thể đang được chép dở. Thử lại sau ít phút.");
+                if (attempt >= 2)
+                {
+                    // 2 lần tải ra CÙNG một hash sai = file trên server đứng yên nhưng lệch bcode-manifest.json (manifest sinh trước khi file được build lại —
+                    // v2.3-beta build 475: BcodeNote.dll) → Thử lại không hết, phải phát hành lại. Hash khác nhau = file đang bị chép đè.
+                    if (got == prevGot)
+                        throw new InvalidOperationException($"File {rel} trên thư mục phát hành không khớp mã kiểm tra (SHA-256) ghi trong bcode-manifest.json — "
+                            + "bản phát hành bị lệch, Thử lại sẽ không hết. Báo người phát hành chạy lại tools\\publish-release.ps1 (script kiểm lại manifest trước khi chép).");
+                    throw new InvalidOperationException($"File {rel} tải về sai mã kiểm tra (SHA-256) — bản phát hành có thể đang được chép dở. Thử lại sau ít phút.");
+                }
+                prevGot = got;
             }
             (modified ? plan.Modified : plan.Copy).Add(rel);
         }

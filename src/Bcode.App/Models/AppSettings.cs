@@ -184,6 +184,12 @@ public class AppSettings
     /// Mở file bình thường (nhấn đúp) vẫn là editor XML. Mặc định tắt.</summary>
     public bool DeployGridMode { get; set; }
 
+    /// <summary>Lưới khai field: cột (tên thuộc tính) người dùng ẩn qua nút "Cột" — dùng chung mọi loại file.</summary>
+    public List<string> FieldGridHiddenColumns { get; set; } = new();
+
+    /// <summary>Lưới khai field: tự ẩn cột không dòng nào có giá trị (trừ name / header / width / ô tick chính). Mặc định bật.</summary>
+    public bool FieldGridHideEmpty { get; set; } = true;
+
     // ---- File Lookup → Search Box (String search): các file/thư mục bị LOẠI khi tìm nội dung. Mặc định = đúng như trước đây; sửa ở Template → "Tìm file".
     /// <summary>Đuôi file ĐƯỢC tìm khi File Type là *.* (chỉ quét các đuôi này; để trống = mọi đuôi trừ 2 danh sách loại trừ). Gõ rõ đuôi ở File Type thì không áp.</summary>
     public string SearchIncludeExtensions { get; set; } = ".xml, .f, .txt, .js, .sql, .ent, .xsd, .css, .config, .json, .html";

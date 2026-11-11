@@ -224,11 +224,18 @@ internal sealed class FgFile
             }
         }
         DiskText = Text;
-        if (ReadOnlyReason is null && File.GetAttributes(Path).HasFlag(FileAttributes.ReadOnly))
-            ReadOnlyReason = "File đang đặt thuộc tính chỉ đọc (Read-only).";
-        if (ReadOnlyReason is null && Text.Contains("<Encrypted>", StringComparison.OrdinalIgnoreCase))
-            ReadOnlyReason = "File có khối <Encrypted> (mã hoá theo license máy của Fast) — chỉ xem, không ghi.";
+        // Thuộc tính Read-only (bản cài của khách hay đặt cho .f): như FSD Studio — vẫn sửa, lúc lưu tạm gỡ rồi đặt lại (FgSet.Save).
+        ReadOnlyAttr = File.GetAttributes(Path).HasFlag(FileAttributes.ReadOnly);
+        // Khối <Encrypted> (mã hoá theo license máy của Fast): KHÔNG khoá cả file — lưới chỉ sửa thuộc tính / header / thứ tự, khối mã hoá giữ
+        // nguyên từng ký tự (như FSD Studio); field chứa <Encrypted> thì khung XML của nó chỉ xem (FgField.Encrypted).
+        HasEncrypted = Text.Contains("<Encrypted>", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>File có khối &lt;Encrypted&gt; ở đâu đó (script / command…) — chỉ để báo.</summary>
+    public bool HasEncrypted;
+
+    /// <summary>File đặt thuộc tính Read-only lúc nạp — lưu thì tạm gỡ rồi đặt lại.</summary>
+    public bool ReadOnlyAttr;
 
     public byte[] Bytes()
     {
@@ -254,6 +261,8 @@ internal sealed class FgField
     /// <summary>Dòng giả cho &amp;X; không đọc được.</summary>
     public string? Placeholder;
     public string? ReadOnlyReason;
+    /// <summary>Field có khối &lt;Encrypted&gt; bên trong (clientScript…): sửa thuộc tính / header / chuyển / xoá được, khung XML chỉ xem.</summary>
+    public bool Encrypted;
 
     public string Name => Placeholder ?? Get("name") ?? "";
     public string? Get(string attr) => Node.Attr(attr) is { } a ? File.Text[a.ValueStart..a.ValueEnd] : null;
@@ -309,7 +318,7 @@ internal sealed class FgDoc
         (FieldsFile, FieldsNode, FieldsVia) = FindPart("fields");
         (ViewsFile, Views, ViewsVia) = FindPart("views");
         if (FieldsNode is not null) WalkFields(FieldsFile!, FieldsNode.Children, FieldsVia, null, 0);
-        if (Views is not null) WalkViews(ViewsFile!, Views, ViewsVia, 0);
+        if (Views is not null) WalkViews(ViewsFile!, Views.Children, "views", "", ViewsVia, 0);
     }
 
     /// <summary>Thẻ con <paramref name="name"/> của thẻ gốc; không có thì tìm trong các &amp;X; đứng ngay dưới thẻ gốc (và &amp;Y; ở cấp ngoài cùng
@@ -338,8 +347,8 @@ internal sealed class FgDoc
             if (item.Name == "field")
             {
                 var f = new FgField { File = file, Node = item, Siblings = items, TopItem = top ?? item, Via = via };
-                f.ReadOnlyReason = file.ReadOnlyReason
-                    ?? (f.Xml.Contains("<Encrypted>", StringComparison.OrdinalIgnoreCase) ? "Field có khối <Encrypted> — không sửa." : null);
+                f.ReadOnlyReason = file.ReadOnlyReason;
+                f.Encrypted = f.Xml.Contains("<Encrypted>", StringComparison.OrdinalIgnoreCase);
                 Fields.Add(f);
             }
             else if (item.Name == "&" && item.Entity is { } ent)
@@ -358,23 +367,31 @@ internal sealed class FgDoc
         }
     }
 
-    private void WalkViews(FgFile file, FgNode parent, string? via, int depth)
+    /// <summary>Dòng của &lt;views&gt;: &lt;field&gt; / &lt;item&gt; trong &lt;view&gt; / &lt;category&gt;. &amp;X; ở bất kỳ cấp nào (cả &lt;views&gt;&amp;FlowMultiFormView;&lt;/views&gt;
+    /// mà file include chứa nguyên &lt;view&gt;) được mở ra — dòng bên trong sửa vào file include; không đọc được thì 1 dòng chỉ xem.</summary>
+    private void WalkViews(FgFile file, List<FgNode> items, string parentName, string ctx, string? via, int depth)
     {
-        foreach (var item in parent.Children)
+        foreach (var item in items)
         {
             if (item.Name is "view" or "category")
             {
-                WalkViews(file, item, via, depth);
+                var c = item.Name + (item.Attr("id") is { } id ? " " + file.Text[id.ValueStart..id.ValueEnd]
+                    : item.Attr("index") is { } ix ? " " + file.Text[ix.ValueStart..ix.ValueEnd] : "");
+                WalkViews(file, item.Children, item.Name, c, via, depth);
                 continue;
             }
-            if (parent.Name is not ("view" or "category")) continue;
-            var ctx = parent.Name + (parent.Attr("id") is { } id ? " " + file.Text[id.ValueStart..id.ValueEnd]
-                : parent.Attr("index") is { } ix ? " " + file.Text[ix.ValueStart..ix.ValueEnd] : "");
-            if (item.Name is "field" or "item")
-                ViewItems.Add(new FgViewItem { File = file, Node = item, Siblings = parent.Children, Context = ctx, Via = via, ReadOnlyReason = file.ReadOnlyReason });
-            else if (item.Name == "&" && item.Entity is { } ent)
-                ViewItems.Add(new FgViewItem { File = file, Node = item, Siblings = parent.Children, Context = ctx, Via = via,
-                    ReadOnlyReason = "Entity &" + ent + "; — các dòng bên trong sửa ở file include." });
+            if (item.Name == "&" && item.Entity is { } ent)
+            {
+                var inc = depth < 8 ? ResolveEntity(ent) : null;
+                if (inc is not null) { WalkViews(inc, inc.Nodes(), parentName, ctx, (via ?? "") + "&" + ent + ";", depth + 1); continue; }
+                if (parentName is "view" or "category" or "views")
+                    ViewItems.Add(new FgViewItem { File = file, Node = item, Siblings = items, Context = ctx, Via = via,
+                        ReadOnlyReason = "Không đọc được entity &" + ent + "; — sửa ở file XML." });
+                continue;
+            }
+            if (parentName is not ("view" or "category") || item.Name is not ("field" or "item")) continue;
+            ViewItems.Add(new FgViewItem { File = file, Node = item, Siblings = items, Context = ctx, Via = via,
+                ReadOnlyReason = file.ReadOnlyReason ?? (file.Text[item.Start..item.End].Contains("<Encrypted>", StringComparison.OrdinalIgnoreCase) ? "Dòng có khối <Encrypted> — không sửa." : null) });
         }
     }
 
@@ -475,7 +492,7 @@ internal sealed class FgSet
     {
         if (preferred is not null && Locate(preferred) is { Root: { } r, Kind: var k }
             && string.Equals(k, kind, StringComparison.OrdinalIgnoreCase) && string.Equals(r, root, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(Path.GetFileNameWithoutExtension(preferred), name, StringComparison.OrdinalIgnoreCase)) return preferred;
+            && string.Equals(Path.GetFileNameWithoutExtension(preferred), name, StringComparison.OrdinalIgnoreCase) && File.Exists(preferred)) return preferred;
         foreach (var ext in new[] { ".xml", ".f" })
         {
             var p = Path.Combine(root, kind, name + ext);
@@ -686,6 +703,8 @@ internal sealed class FgSet
     /// <summary>Thay cả phần tử bằng chữ người dùng sửa ở khung XML (bỏ thụt dòng đầu — đã có sẵn trong file).</summary>
     public void ReplaceNode(FgFile f, FgNode n, string xml)
     {
+        if (f.Text[n.Start..n.End].Contains("<Encrypted>", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Phần tử có khối <Encrypted> — không thay bằng XML gõ tay (sửa thuộc tính trên lưới).");
         var nl = f.NewLine;
         var text = xml.TrimStart(' ', '\t').TrimEnd().Replace("\r\n", "\n").Replace("\n", nl);
         Replace(f, n.Start, n.End, text);
@@ -710,7 +729,12 @@ internal sealed class FgSet
             if (f.ReadOnlyReason is not null) continue;
             backupDir ??= MakeBackupDir();
             try { File.Copy(f.Path, Path.Combine(backupDir, saved.Count.ToString("00") + "_" + Path.GetFileName(f.Path)), overwrite: true); } catch (Exception) { /* không chép được bản cũ vẫn ghi */ }
-            File.WriteAllBytes(f.Path, f.Bytes());
+            // Read-only (bản cài của khách): tạm gỡ, ghi, đặt lại như cũ — như FSD Studio
+            var attrs = File.GetAttributes(f.Path);
+            var ro = attrs.HasFlag(FileAttributes.ReadOnly);
+            if (ro) File.SetAttributes(f.Path, attrs & ~FileAttributes.ReadOnly);
+            try { File.WriteAllBytes(f.Path, f.Bytes()); }
+            finally { if (ro) File.SetAttributes(f.Path, attrs); }
             f.DiskText = f.Text;
             f.DiskTime = File.GetLastWriteTimeUtc(f.Path);
             saved.Add(f.Path);

@@ -6,10 +6,12 @@ namespace Bcode.App.Controls;
 
 /// <summary>
 /// "Chế độ triển khai" — khai field dạng LƯỚI như FSD Studio (F1Customize) thay cho sửa XML: chuột phải file Dir / Grid / Filter / Report ở File Lookup
-/// hoặc menu ở cây WCommand → tab này mở cả bộ file của chứng từ (SysID). Lưới Title (titleV/E, subTitleV/E), lưới Fields (mỗi thuộc tính 1 cột, thuộc tính
-/// true/false = ô tick; field trong &amp;X; include cũng hiện và sửa vào file include), tab Views (&lt;field name&gt; của Grid / &lt;item value&gt; của Dir, Filter),
-/// khung XML của field đang chọn (sửa được). Mọi thay đổi sửa thẳng chuỗi gốc (Services/FieldGridDocument.cs) — định dạng, comment, entity giữ nguyên.
-/// Dùng chung cho chế độ Web và App (WinForms thuần, không WebView2).
+/// hoặc menu ở cây WCommand → tab này mở cả bộ file của chứng từ (SysID). Bố cục: hàng tab file · 1 thanh công cụ (Fields / Views, thêm / xoá / chuyển,
+/// chọn cột, khung XML, nạp / lưu / View Script…, SysID) · 1 dòng Title (titleV/E, subTitleV/E) · lưới (trái) + khung XML của dòng đang chọn (phải, ẩn được)
+/// · dòng trạng thái. Lưới Fields: mỗi thuộc tính 1 cột (true/false = ô tick, gom 1 nhóm, tiêu đề tô riêng), cột name cố định khi cuộn ngang, cột trống tự ẩn
+/// (tắt được), chọn cột ẩn/hiện (nhớ ở AppSettings); field trong &amp;X; include tô nền nhạt + cột Nguồn. Mọi thay đổi sửa thẳng chuỗi gốc
+/// (Services/FieldGridDocument.cs) — định dạng, comment, entity, khối &lt;Encrypted&gt; giữ nguyên. Dùng chung cho chế độ Web và App (WinForms thuần).
+/// Hiệu năng: lưới double-buffer, màu dòng tô trong CellFormatting (không tạo style riêng cho từng dòng), đổ lại chỉ ghi ô đổi giá trị.
 /// </summary>
 public sealed class FieldGridControl : UserControl
 {
@@ -21,6 +23,19 @@ public sealed class FieldGridControl : UserControl
     /// <summary>View Script: (tiêu đề, nội dung diff) — MainForm mở thành tab chỉ đọc trong Bcode. Không ai nghe thì hiện hộp riêng.</summary>
     public event Action<string, string>? ScriptViewRequested;
 
+    /// <summary>Người dùng đổi cột ẩn / "Ẩn cột trống" — MainForm ghi vào AppSettings.</summary>
+    public event Action? ColumnPrefsChanged;
+
+    /// <summary>Tên cột (thuộc tính) người dùng chọn ẩn — dùng chung mọi loại file.</summary>
+    public HashSet<string> HiddenColumns { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Tự ẩn cột không dòng nào có giá trị (trừ các cột chính name / header / ô tick hay dùng).</summary>
+    public bool HideEmptyColumns { get; set; } = true;
+
+    /// <summary>Cột luôn hiện khi "Ẩn cột trống" (vẫn ẩn được bằng tay).</summary>
+    private static readonly HashSet<string> CoreColumns = new(StringComparer.Ordinal)
+        { "name", "@via", "headerV", "headerE", "width", "allowNulls", "readOnly", "disabled", "hidden", "inactivate" };
+
     private readonly IReadOnlyList<string> _readOnlyRoots;
     private FgSet _set = new();
     private FgDoc? _doc;
@@ -29,32 +44,38 @@ public sealed class FieldGridControl : UserControl
     private bool _viewsMode;
     private List<Col> _cols = new();
     private string _colSig = "";
+    private Color _incBack, _incBackAlt, _boolHead;
 
-    private readonly FlowLayoutPanel _fileBar = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(4, 4, 4, 2) };
-    private readonly Label _banner = new() { Dock = DockStyle.Top, AutoSize = false, Visible = false, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6, 0, 0, 0) };
-    private readonly SplitContainer _split = new() { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
-    private readonly SplitContainer _topSplit = new() { Dock = DockStyle.Fill, Orientation = Orientation.Vertical };
-    private readonly DataGridView _titleGrid = NewGrid();
+    private readonly FlowLayoutPanel _fileBar = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(4, 3, 4, 0) };
+    private readonly ToolStrip _toolbar = new() { Dock = DockStyle.Top, GripStyle = ToolStripGripStyle.Hidden, CanOverflow = true, Padding = new Padding(4, 1, 4, 1) };
+    private readonly FlowLayoutPanel _titleRow = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(6, 2, 4, 2) };
+    private readonly TextBox[] _titleBoxes = Enumerable.Range(0, 4).Select(_ => new TextBox { Width = NativeSkin.S(190), BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle }).ToArray();
+    private readonly Label _banner = new() { Dock = DockStyle.Top, AutoSize = false, Visible = false, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0), AutoEllipsis = true };
+    private readonly SplitContainer _split = new() { Dock = DockStyle.Fill, Orientation = Orientation.Vertical };
     private readonly DataGridView _grid = NewGrid();
     private readonly DataGridView _viewGrid = NewGrid();
     private readonly Scintilla _xml = new() { Dock = DockStyle.Fill, BorderStyle = ScintillaNET.BorderStyle.None };
-    private readonly Label _xmlLabel = new() { Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft };
-    private readonly Button _xmlApply = new() { Text = "Áp dụng XML", AutoSize = true, Dock = DockStyle.Right };
-    private readonly FlowLayoutPanel _tools = new() { Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(2) };
-    private readonly RadioButton _tabFields = new() { Text = "Fields", Appearance = Appearance.Button, AutoSize = true, Checked = true, FlatStyle = FlatStyle.Flat };
-    private readonly RadioButton _tabViews = new() { Text = "Views", Appearance = Appearance.Button, AutoSize = true, FlatStyle = FlatStyle.Flat };
-    private readonly Button _btnAdd = new() { Text = "Thêm (F4)", AutoSize = true };
-    private readonly Button _btnCopy = new() { Text = "Nhân bản", AutoSize = true };
-    private readonly Button _btnDelete = new() { Text = "Xoá (F8)", AutoSize = true };
-    private readonly Button _btnUp = new() { Text = "↑ Lên", AutoSize = true };
-    private readonly Button _btnDown = new() { Text = "↓ Xuống", AutoSize = true };
-    private readonly Button _btnToView = new() { Text = "Thêm vào view (F7)", AutoSize = true };
-    private readonly Button _btnUndo = new() { Text = "Hoàn tác (Ctrl+Z)", AutoSize = true };
-    private readonly TextBox _sysId = new() { Width = 140 };
-    private readonly TextBox _voucherCode = new() { Width = 70, ReadOnly = true };
-    private readonly LinkLabel _pathLink = new() { AutoSize = true, Margin = new Padding(8, 7, 8, 0) };
-    private readonly Label _status = new() { AutoSize = true, Margin = new Padding(8, 7, 0, 0) };
-    private int _dragRow = -1;
+    private readonly Label _xmlLabel = new() { Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6, 0, 0, 0) };
+    private readonly Button _xmlApply = new() { Text = "Áp dụng", AutoSize = true, Dock = DockStyle.Right };
+    private readonly Panel _statusBar = new() { Dock = DockStyle.Bottom };
+    private readonly LinkLabel _pathLink = new() { AutoSize = true, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6, 0, 10, 0) };
+    private readonly Label _status = new() { Dock = DockStyle.Fill, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft };
+
+    private readonly ToolStripButton _tabFields = new("Fields") { DisplayStyle = ToolStripItemDisplayStyle.Text, Checked = true };
+    private readonly ToolStripButton _tabViews = new("Views") { DisplayStyle = ToolStripItemDisplayStyle.Text };
+    private readonly ToolStripButton _btnAdd = new("＋ Thêm") { ToolTipText = "Thêm field mới ngay dưới dòng đang chọn (F4 / Insert) rồi gõ tên." };
+    private readonly ToolStripButton _btnCopy = new("⧉ Nhân bản") { ToolTipText = "Nhân bản field đang chọn (chép cả XML) ngay bên dưới rồi gõ tên mới." };
+    private readonly ToolStripButton _btnDelete = new("✕ Xoá") { ToolTipText = "Xoá field / dòng view đang chọn (F8) — Ctrl+Z để hoàn tác." };
+    private readonly ToolStripButton _btnUp = new("↑") { ToolTipText = "Đưa lên trên (Alt+↑). Kéo tiêu đề dòng (cột số) để đổi chỗ nhanh." };
+    private readonly ToolStripButton _btnDown = new("↓") { ToolTipText = "Đưa xuống dưới (Alt+↓)." };
+    private readonly ToolStripButton _btnToView = new("→ View") { ToolTipText = "Thêm field đang chọn vào <views> của Grid (F7)." };
+    private readonly ToolStripButton _btnUndo = new("↶ Hoàn tác") { ToolTipText = "Hoàn tác 1 bước (Ctrl+Z)." };
+    private readonly ToolStripDropDownButton _btnCols = new("Cột") { ToolTipText = "Chọn cột hiện / ẩn; \"Ẩn cột trống\" tự ẩn cột không dòng nào có giá trị." };
+    private readonly ToolStripButton _btnXml = new("XML") { Checked = true, ToolTipText = "Hiện / ẩn khung XML của dòng đang chọn." };
+    private readonly ToolStripButton _btnSave = new("Save") { ToolTipText = "Lưu mọi file đã sửa (Ctrl+S) — giữ encoding gốc, chép bản cũ vào %AppData%\\Bcode\\field-grid-backup." };
+    private readonly ToolStripTextBox _sysId = new() { AutoSize = false, Width = NativeSkin.S(150), ToolTipText = "Gõ SysID khác rồi Enter để mở bộ file khác cùng thư mục Controllers." };
+    private readonly ToolStripLabel _voucherCode = new("") { ToolTipText = "Voucher Code (mã chứng từ của menu)" };
+    private int _dragRow = -1, _dropRow = -1, _dropSrc = -1;
     private Point _dragStart;
 
     internal FieldGridControl(IEnumerable<string>? readOnlyRoots = null)
@@ -63,131 +84,208 @@ public sealed class FieldGridControl : UserControl
         Font = ThemeManager.BaseFont;
         BuildLayout();
         WireEvents();
-        ThemeManager.Subscribe(this, () => { ApplyColors(); SqlScintilla.ApplyTheme(_xml); FcodeLexer.Apply(_xml); });
+        ThemeManager.Subscribe(this, () => BeginInvoke(new Action(() =>
+        {
+            if (IsDisposed) return;
+            ApplyColors();
+            SqlScintilla.ApplyTheme(_xml);
+            FcodeLexer.Apply(_xml);
+        })));
     }
 
     // ------------------------------------------------------------------ dựng giao diện
 
-    private static DataGridView NewGrid() => new()
+    private static DataGridView NewGrid()
     {
-        Dock = DockStyle.Fill,
-        AllowUserToAddRows = false,
-        AllowUserToDeleteRows = false,
-        AllowUserToResizeRows = false,
-        RowHeadersWidth = 28,
-        SelectionMode = DataGridViewSelectionMode.CellSelect,
-        MultiSelect = false,
-        EditMode = DataGridViewEditMode.EditOnKeystrokeOrF2,
-        AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-        ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
-    };
+        var g = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            AllowUserToResizeRows = false,
+            SelectionMode = DataGridViewSelectionMode.CellSelect,
+            MultiSelect = false,
+            EditMode = DataGridViewEditMode.EditOnKeystrokeOrF2,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
+            AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
+            RowHeadersWidthSizeMode = DataGridViewRowHeadersWidthSizeMode.DisableResizing,
+            ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
+            ShowCellToolTips = true,
+        };
+        ControlPerf.EnableDoubleBuffering(g);   // cuộn không nháy / không vẽ lại từng phần
+        return g;
+    }
 
     private void BuildLayout()
     {
-        // khung XML field đang chọn
+        // thanh công cụ: 1 hàng duy nhất
+        _toolbar.Items.AddRange(new ToolStripItem[]
+        {
+            _tabFields, _tabViews, new ToolStripSeparator(),
+            _btnAdd, _btnCopy, _btnDelete, _btnUp, _btnDown, _btnToView, _btnUndo, new ToolStripSeparator(),
+            _btnCols, _btnXml, new ToolStripSeparator(),
+            Btn("Load Data", "Nạp lại file của tab đang xem từ đĩa (bỏ thay đổi chưa lưu của tab này).", () => ReloadCurrent()),
+            Btn("Reload All", "Tìm lại và nạp lại cả bộ file của SysID (bỏ mọi thay đổi chưa lưu).", () => ReloadAll(_sysId.Text.Trim())),
+            _btnSave,
+            Btn("View Script", "Xem những dòng XML sẽ đổi so với file trên đĩa (chưa ghi) — mở tab chỉ đọc trong Bcode.", ViewScript),
+            Btn("Copy File", "Chép file của tab đang xem vào clipboard (dán vào Explorer / gói cập nhật).", CopyFile),
+            Btn("Mở XML", "Mở file của tab đang xem dạng XML trong một tab Bcode.", () => { if (_doc is not null) OpenFileRequested?.Invoke(_doc.Main.Path); }),
+        });
+        // bên phải (thêm theo thứ tự phải → trái)
+        _voucherCode.Alignment = ToolStripItemAlignment.Right;
+        _sysId.Alignment = ToolStripItemAlignment.Right;
+        var sysLabel = new ToolStripLabel("SysID") { Alignment = ToolStripItemAlignment.Right };
+        _toolbar.Items.Add(_voucherCode);
+        _toolbar.Items.Add(_sysId);
+        _toolbar.Items.Add(sysLabel);
+        _btnSave.Font = new Font(_toolbar.Font, FontStyle.Bold);
+        _toolbar.Renderer = FlatToolStripRenderer.Shared;
+
+        // dòng Title
+        var labels = new[] { "Title", "E", "SubTitle", "E" };
+        for (var i = 0; i < 4; i++)
+        {
+            _titleRow.Controls.Add(new Label { Text = labels[i], AutoSize = true, Margin = new Padding(i % 2 == 0 && i > 0 ? 14 : 2, 5, 2, 0) });
+            _titleRow.Controls.Add(_titleBoxes[i]);
+            NK.Tip(_titleBoxes[i], new[] { "titleV (tiếng Việt)", "titleE (tiếng Anh)", "subTitle v", "subTitle e" }[i] + " — Enter / rời ô để ghi.");
+        }
+
+        // khung XML bên phải
         SqlScintilla.Configure(_xml);
         SqlScintilla.ApplyTheme(_xml);
         FcodeLexer.Apply(_xml);
-        var xmlHead = new Panel { Dock = DockStyle.Top, Height = NativeSkin.S(30) };
+        var xmlHead = new Panel { Dock = DockStyle.Top, Height = NativeSkin.S(28) };
         xmlHead.Controls.Add(_xmlLabel);
         xmlHead.Controls.Add(_xmlApply);
-        var xmlPanel = new Panel { Dock = DockStyle.Fill };
-        xmlPanel.Controls.Add(_xml);
-        xmlPanel.Controls.Add(xmlHead);
-        _topSplit.Panel1.Controls.Add(_titleGrid);
-        _topSplit.Panel2.Controls.Add(xmlPanel);
-        _split.Panel1.Controls.Add(_topSplit);
-
-        foreach (var c in new Control[] { _tabFields, _tabViews, Spacer(), _btnAdd, _btnCopy, _btnDelete, _btnUp, _btnDown, _btnToView, _btnUndo })
-            _tools.Controls.Add(c);
+        _split.Panel2.Controls.Add(_xml);
+        _split.Panel2.Controls.Add(xmlHead);
         _viewGrid.Visible = false;
-        _split.Panel2.Controls.Add(_grid);
-        _split.Panel2.Controls.Add(_viewGrid);
-        _split.Panel2.Controls.Add(_tools);
+        _split.Panel1.Controls.Add(_grid);
+        _split.Panel1.Controls.Add(_viewGrid);
 
-        var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, WrapContents = true, Padding = new Padding(4) };
-        bottom.Controls.Add(new Label { Text = "SysID", AutoSize = true, Margin = new Padding(4, 7, 2, 0) });
-        bottom.Controls.Add(_sysId);
-        bottom.Controls.Add(new Label { Text = "Voucher Code", AutoSize = true, Margin = new Padding(10, 7, 2, 0) });
-        bottom.Controls.Add(_voucherCode);
-        bottom.Controls.Add(_pathLink);
-        foreach (var (text, tip, act) in new (string, string, Action)[]
-        {
-            ("Load Data", "Nạp lại file của tab đang xem từ đĩa (bỏ thay đổi chưa lưu của tab này).", () => ReloadCurrent()),
-            ("Reload All", "Tìm lại và nạp lại cả bộ file của SysID (bỏ mọi thay đổi chưa lưu).", () => ReloadAll(_sysId.Text.Trim())),
-            ("Save", "Lưu mọi file đã sửa (Ctrl+S) — giữ encoding gốc, chép bản cũ vào %AppData%\\Bcode\\field-grid-backup.", () => SaveAll()),
-            ("View Script", "Xem những dòng XML sẽ đổi so với file trên đĩa (chưa ghi) — mở tab chỉ đọc trong Bcode.", ViewScript),
-            ("Copy File", "Chép file của tab đang xem vào clipboard (dán vào Explorer / gói cập nhật).", CopyFile),
-            ("Mở XML", "Mở file của tab đang xem dạng XML trong một tab Bcode.", () => { if (_doc is not null) OpenFileRequested?.Invoke(_doc.Main.Path); }),
-        })
-        {
-            var b = new Button { Text = text, AutoSize = true };
-            b.Click += (_, _) => act();
-            NK.Tip(b, tip);
-            bottom.Controls.Add(b);
-        }
-        bottom.Controls.Add(_status);
+        _statusBar.Height = NativeSkin.S(24);
+        _statusBar.Controls.Add(_status);
+        _statusBar.Controls.Add(_pathLink);
 
-        _banner.Height = NativeSkin.S(26);
+        _banner.Height = NativeSkin.S(24);
         // tên entity &X; phải hiện nguyên dấu & (Label / nút mặc định ăn & làm phím tắt)
         _banner.UseMnemonic = _xmlLabel.UseMnemonic = _status.UseMnemonic = _pathLink.UseMnemonic = false;
         Controls.Add(_split);
         Controls.Add(_banner);
+        Controls.Add(_titleRow);
+        Controls.Add(_toolbar);
         Controls.Add(_fileBar);
-        Controls.Add(bottom);
-
-        NK.Tip(_btnAdd, "Thêm field mới ngay dưới dòng đang chọn (F4 / Insert) rồi gõ tên.");
-        NK.Tip(_btnCopy, "Nhân bản field đang chọn (chép cả XML) ngay bên dưới rồi gõ tên mới.");
-        NK.Tip(_btnDelete, "Xoá field / dòng view đang chọn (F8) — Ctrl+Z để hoàn tác.");
-        NK.Tip(_btnUp, "Đưa lên trên (Alt+↑). Kéo tiêu đề dòng để đổi chỗ nhanh.");
-        NK.Tip(_btnDown, "Đưa xuống dưới (Alt+↓).");
-        NK.Tip(_btnToView, "Thêm field đang chọn vào <views> của Grid (F7).");
-        NK.Tip(_sysId, "Gõ SysID khác rồi Enter để mở bộ file khác cùng thư mục Controllers.");
+        Controls.Add(_statusBar);
         NK.Tip(_xmlApply, "Ghi XML đã sửa ở khung này vào file (Ctrl+Enter).");
     }
 
-    private static Control Spacer() => new Label { Width = NativeSkin.S(12), AutoSize = false, Height = 4 };
+    private static ToolStripButton Btn(string text, string tip, Action act)
+    {
+        var b = new ToolStripButton(text) { DisplayStyle = ToolStripItemDisplayStyle.Text, ToolTipText = tip };
+        b.Click += (_, _) => act();
+        return b;
+    }
 
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
+        // sau ThemeManager.Apply của tab (nó đặt kiểu lưới chung) → đặt lại kiểu riêng của lưới field
         BeginInvoke(new Action(() =>
         {
             try
             {
-                _split.Panel1MinSize = NativeSkin.S(60);
-                _split.SplitterDistance = Math.Max(NativeSkin.S(90), Math.Min(NativeSkin.S(150), Height / 4));
-                _topSplit.SplitterDistance = Math.Max(NativeSkin.S(200), Width * 45 / 100);
+                _split.Panel2MinSize = NativeSkin.S(160);
+                _split.SplitterDistance = Math.Max(NativeSkin.S(300), Width * 70 / 100);
             }
             catch (Exception) { /* kích thước chưa có */ }
             ApplyColors();
         }));
     }
 
+    private static Color Blend(Color a, Color b, double t)
+        => Color.FromArgb((int)(a.R + (b.R - a.R) * t), (int)(a.G + (b.G - a.G) * t), (int)(a.B + (b.B - a.B) * t));
+
     private void ApplyColors()
     {
-        _banner.BackColor = AppColors.PanelAlt;
-        _banner.ForeColor = AppColors.Warning;
-        foreach (var rb in _fileBar.Controls.OfType<RadioButton>().Concat(new[] { _tabFields, _tabViews })) PaintToggle(rb);
+        _banner.BackColor = Blend(AppColors.Panel, AppColors.Warning, 0.12);
+        _banner.ForeColor = AppColors.Text;
+        _statusBar.BackColor = AppColors.PanelAlt;
         _status.ForeColor = AppColors.TextMuted;
         _pathLink.LinkColor = AppColors.Accent;
         _pathLink.ActiveLinkColor = AppColors.AccentHover;
+        _toolbar.BackColor = AppColors.Panel;
+        _toolbar.ForeColor = AppColors.Text;
+        foreach (ToolStripItem it in _toolbar.Items) it.ForeColor = AppColors.Text;
+        _sysId.BackColor = AppColors.Input;
+        _sysId.ForeColor = AppColors.Text;
+        _titleRow.BackColor = AppColors.Panel;
+        foreach (var rb in _fileBar.Controls.OfType<RadioButton>()) PaintToggle(rb);
+        _fileBar.BackColor = AppColors.Background;
+        _incBack = Blend(AppColors.Panel, AppColors.Accent, 0.09);
+        _incBackAlt = Blend(AppColors.PanelAlt, AppColors.Accent, 0.09);
+        _boolHead = Blend(AppColors.PanelAlt, AppColors.Accent, 0.16);
+        StyleGrid(_grid);
+        StyleGrid(_viewGrid);
+        ApplyBoolHeaderColors();
+        _grid.Invalidate();
+        _viewGrid.Invalidate();
+    }
+
+    /// <summary>Kiểu riêng của lưới field (đặt sau kiểu chung của ThemeManager): kẻ ô, xen màu dòng rõ hơn, dòng thấp gọn, tiêu đề vừa chữ.</summary>
+    private void StyleGrid(DataGridView g)
+    {
+        g.BackgroundColor = AppColors.Panel;
+        g.BorderStyle = System.Windows.Forms.BorderStyle.None;
+        g.CellBorderStyle = DataGridViewCellBorderStyle.Single;
+        g.GridColor = Blend(AppColors.Panel, AppColors.Border, 0.75);
+        g.EnableHeadersVisualStyles = false;
+        g.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
+        g.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
+        g.DefaultCellStyle.BackColor = AppColors.Panel;
+        g.DefaultCellStyle.ForeColor = AppColors.Text;
+        g.DefaultCellStyle.SelectionBackColor = AppColors.Selection;
+        g.DefaultCellStyle.SelectionForeColor = AppColors.Text;
+        g.DefaultCellStyle.Padding = new Padding(NativeSkin.Px(g, 3), 0, NativeSkin.Px(g, 3), 0);
+        g.AlternatingRowsDefaultCellStyle.BackColor = Blend(AppColors.Panel, AppColors.Text, 0.045);
+        g.AlternatingRowsDefaultCellStyle.SelectionBackColor = AppColors.Selection;
+        g.AlternatingRowsDefaultCellStyle.SelectionForeColor = AppColors.Text;
+        g.ColumnHeadersDefaultCellStyle.BackColor = AppColors.PanelAlt;
+        g.ColumnHeadersDefaultCellStyle.ForeColor = AppColors.Text;
+        g.ColumnHeadersDefaultCellStyle.SelectionBackColor = AppColors.PanelAlt;
+        g.ColumnHeadersDefaultCellStyle.Font = ThemeManager.BaseFont;
+        g.ColumnHeadersDefaultCellStyle.Padding = new Padding(NativeSkin.Px(g, 3), 0, NativeSkin.Px(g, 3), 0);
+        g.RowHeadersDefaultCellStyle.BackColor = AppColors.PanelAlt;
+        g.RowHeadersDefaultCellStyle.ForeColor = AppColors.TextMuted;
+        g.RowHeadersDefaultCellStyle.SelectionBackColor = AppColors.Selection;
+        g.RowHeadersWidth = NativeSkin.Px(g, 40);
+        g.ColumnHeadersHeight = NativeSkin.Dens(g, 26);
+        var h = NativeSkin.Dens(g, 23);
+        g.RowTemplate.Height = h;
+        foreach (DataGridViewRow r in g.Rows) if (r.Height != h) r.Height = h;
+    }
+
+    private void ApplyBoolHeaderColors()
+    {
+        for (var i = 0; i < _cols.Count && i < _grid.Columns.Count; i++)
+            _grid.Columns[i].HeaderCell.Style.BackColor = _cols[i].Bool ? _boolHead : Color.Empty;
     }
 
     private static void PaintToggle(RadioButton rb)
     {
-        rb.FlatAppearance.BorderColor = AppColors.Border;
-        rb.FlatAppearance.CheckedBackColor = AppColors.Accent;
-        rb.BackColor = rb.Checked ? AppColors.Accent : AppColors.ButtonBack;
-        rb.ForeColor = rb.Checked ? AppColors.OnAccent : AppColors.Text;
-        rb.Margin = new Padding(2);
-        rb.Padding = new Padding(6, 1, 6, 1);
+        rb.FlatAppearance.BorderSize = 0;
+        rb.FlatAppearance.CheckedBackColor = AppColors.Panel;
+        rb.FlatAppearance.MouseOverBackColor = AppColors.PanelAlt;
+        rb.BackColor = rb.Checked ? AppColors.Panel : AppColors.Background;
+        rb.ForeColor = rb.Checked ? AppColors.Accent : AppColors.TextMuted;
+        rb.Font = new Font(rb.Font, rb.Checked ? FontStyle.Bold : FontStyle.Regular);
+        rb.Margin = new Padding(0, 0, 2, 0);
+        rb.Padding = new Padding(8, 2, 8, 2);
     }
 
     private void WireEvents()
     {
-        _tabFields.CheckedChanged += (_, _) => { if (_tabFields.Checked) SetViewsMode(false); PaintToggle(_tabFields); };
-        _tabViews.CheckedChanged += (_, _) => { if (_tabViews.Checked) SetViewsMode(true); PaintToggle(_tabViews); };
+        _tabFields.Click += (_, _) => SetViewsMode(false);
+        _tabViews.Click += (_, _) => SetViewsMode(true);
         _btnAdd.Click += (_, _) => AddField(copy: false);
         _btnCopy.Click += (_, _) => AddField(copy: true);
         _btnDelete.Click += (_, _) => DeleteCurrent();
@@ -195,11 +293,20 @@ public sealed class FieldGridControl : UserControl
         _btnDown.Click += (_, _) => MoveCurrent(1);
         _btnToView.Click += (_, _) => AddToView();
         _btnUndo.Click += (_, _) => DoUndo();
+        _btnSave.Click += (_, _) => { EndEdits(); SaveAll(); };
+        _btnXml.Click += (_, _) => { _btnXml.Checked = !_btnXml.Checked; _split.Panel2Collapsed = !_btnXml.Checked; };
+        _btnCols.DropDownOpening += (_, _) => BuildColumnMenu();
         _xmlApply.Click += (_, _) => ApplyXml();
         _pathLink.LinkClicked += (_, _) => { if (_doc is not null) OpenFileRequested?.Invoke(_doc.Main.Path); };
         _sysId.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; ReloadAll(_sysId.Text.Trim()); } };
+        for (var i = 0; i < 4; i++)
+        {
+            var idx = i;
+            _titleBoxes[i].KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; OnTitleChanged(idx); } };
+            _titleBoxes[i].Leave += (_, _) => OnTitleChanged(idx);
+        }
 
-        foreach (var g in new[] { _grid, _titleGrid, _viewGrid })
+        foreach (var g in new[] { _grid, _viewGrid })
         {
             g.CurrentCellDirtyStateChanged += (_, _) =>
             {
@@ -208,9 +315,24 @@ public sealed class FieldGridControl : UserControl
             g.DataError += (_, e) => e.ThrowException = false;
         }
         _grid.CellValueChanged += (_, e) => { if (!_filling && e.RowIndex >= 0) OnFieldCellChanged(e.RowIndex, e.ColumnIndex); };
-        _titleGrid.CellValueChanged += (_, e) => { if (!_filling && e.RowIndex >= 0) OnTitleCellChanged(e.ColumnIndex); };
         _viewGrid.CellValueChanged += (_, e) => { if (!_filling && e.RowIndex >= 0) OnViewCellChanged(e.RowIndex, e.ColumnIndex); };
         _grid.CurrentCellChanged += (_, _) => { if (!_filling) ShowXmlOfCurrent(); };
+        _viewGrid.CurrentCellChanged += (_, _) => { if (!_filling) ShowXmlOfCurrent(); };
+        // màu dòng tô lúc vẽ (không tạo DataGridViewCellStyle riêng cho từng dòng — đỡ tốn khi cuộn)
+        _grid.CellFormatting += (_, e) =>
+        {
+            if (_doc is null || e.RowIndex < 0 || e.RowIndex >= _doc.Fields.Count || e.CellStyle is null) return;
+            var f = _doc.Fields[e.RowIndex];
+            if (f.Via is not null) e.CellStyle.BackColor = e.RowIndex % 2 == 0 ? _incBack : _incBackAlt;
+            if (f.ReadOnlyReason is not null || (e.ColumnIndex < _cols.Count && _cols[e.ColumnIndex].Key == "@via")) e.CellStyle.ForeColor = AppColors.TextMuted;
+        };
+        _viewGrid.CellFormatting += (_, e) =>
+        {
+            if (_doc is null || e.RowIndex < 0 || e.RowIndex >= _doc.ViewItems.Count || e.CellStyle is null) return;
+            var v = _doc.ViewItems[e.RowIndex];
+            if (v.Via is not null) e.CellStyle.BackColor = e.RowIndex % 2 == 0 ? _incBack : _incBackAlt;
+            if (v.ReadOnlyReason is not null || e.ColumnIndex is 0 or 1 or 4) e.CellStyle.ForeColor = AppColors.TextMuted;
+        };
         _grid.CellToolTipTextNeeded += (_, e) =>
         {
             if (_doc is null || e.RowIndex < 0 || e.RowIndex >= _doc.Fields.Count) return;
@@ -236,24 +358,95 @@ public sealed class FieldGridControl : UserControl
                 _dragRow = -1;
                 g.DoDragDrop(row, DragDropEffects.Move);
             };
-            g.DragOver += (_, e) => e.Effect = e.Data?.GetDataPresent(typeof(int)) == true ? DragDropEffects.Move : DragDropEffects.None;
+            g.DragOver += (_, e) =>
+            {
+                if (e.Data?.GetData(typeof(int)) is not int src) { e.Effect = DragDropEffects.None; return; }
+                e.Effect = DragDropEffects.Move;
+                var p = g.PointToClient(new Point(e.X, e.Y));
+                // tự cuộn khi rê sát mép trên / dưới
+                var rowH = g.RowTemplate.Height;
+                if (p.Y < g.ColumnHeadersHeight + rowH && g.FirstDisplayedScrollingRowIndex > 0) g.FirstDisplayedScrollingRowIndex--;
+                else if (p.Y > g.ClientSize.Height - rowH && g.FirstDisplayedScrollingRowIndex + g.DisplayedRowCount(false) < g.Rows.Count) g.FirstDisplayedScrollingRowIndex++;
+                var target = g.HitTest(p.X, p.Y).RowIndex;
+                if (target < 0) target = p.Y > g.ColumnHeadersHeight ? g.Rows.Count - 1 : 0;
+                if (target != _dropRow || src != _dropSrc) { _dropRow = target; _dropSrc = src; g.Invalidate(); }
+            };
+            g.DragLeave += (_, _) => { _dropRow = -1; g.Invalidate(); };
             g.DragDrop += (_, e) =>
             {
+                var target = _dropRow;
+                _dropRow = -1;
+                g.Invalidate();
                 if (e.Data?.GetData(typeof(int)) is not int src) return;
-                var p = g.PointToClient(new Point(e.X, e.Y));
-                var target = g.HitTest(p.X, p.Y).RowIndex;
-                if (target < 0) target = g.Rows.Count - 1;
                 if (target == src || target < 0) return;
                 if (ReferenceEquals(g, _grid)) DragField(src, target); else DragView(src, target);
+            };
+            // vạch chỉ chỗ thả: trên dòng đích khi kéo lên, dưới dòng đích khi kéo xuống
+            g.Paint += (_, e) =>
+            {
+                if (_dropRow < 0 || _dropRow >= g.Rows.Count || _dropRow == _dropSrc) return;
+                var r = g.GetRowDisplayRectangle(_dropRow, false);
+                if (r.Height == 0) return;
+                var y = _dropRow > _dropSrc ? r.Bottom - 2 : r.Top;
+                using var b = new SolidBrush(AppColors.Accent);
+                e.Graphics.FillRectangle(b, 0, y - 1, g.ClientSize.Width, NativeSkin.Px(g, 3));
             };
         }
         _xml.KeyDown += (_, e) => { if (e.Control && e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; ApplyXml(); } };
     }
 
+    private void BuildColumnMenu()
+    {
+        var dd = _btnCols.DropDownItems;
+        dd.Clear();
+        var hideEmpty = new ToolStripMenuItem("Ẩn cột trống") { Checked = HideEmptyColumns, ToolTipText = "Cột không dòng nào có giá trị thì ẩn (trừ name, header, width, các ô tick chính)." };
+        hideEmpty.Click += (_, _) => { HideEmptyColumns = !HideEmptyColumns; ColumnPrefsChanged?.Invoke(); ApplyColumnVisibility(); };
+        dd.Add(hideEmpty);
+        var showAll = new ToolStripMenuItem("Hiện tất cả cột");
+        showAll.Click += (_, _) => { HiddenColumns.Clear(); HideEmptyColumns = false; ColumnPrefsChanged?.Invoke(); ApplyColumnVisibility(); };
+        dd.Add(showAll);
+        dd.Add(new ToolStripSeparator());
+        foreach (var c in _cols)
+        {
+            if (c.Key == "name") continue;
+            var empty = HideEmptyColumns && !CoreColumns.Contains(c.Key) && IsEmptyColumn(c);
+            var item = new ToolStripMenuItem(c.Header + (c.Bool ? "  ☑" : "") + (empty ? "  (trống — đang ẩn)" : "")) { Checked = !HiddenColumns.Contains(c.Key), CheckOnClick = false };
+            item.Click += (_, _) =>
+            {
+                if (!HiddenColumns.Remove(c.Key)) HiddenColumns.Add(c.Key);
+                ColumnPrefsChanged?.Invoke();
+                ApplyColumnVisibility();
+            };
+            dd.Add(item);
+        }
+        ThemeManager.ApplyMenu(_btnCols.DropDown);
+    }
+
+    private bool IsEmptyColumn(Col c)
+    {
+        if (_doc is null) return true;
+        foreach (var f in _doc.Fields)
+        {
+            if (f.Placeholder is not null) continue;
+            if (!string.IsNullOrEmpty(GetValue(f, c))) return false;
+        }
+        return true;
+    }
+
+    private void ApplyColumnVisibility()
+    {
+        for (var i = 0; i < _cols.Count && i < _grid.Columns.Count; i++)
+        {
+            var c = _cols[i];
+            var show = c.Key == "name" || (!HiddenColumns.Contains(c.Key) && !(HideEmptyColumns && !CoreColumns.Contains(c.Key) && IsEmptyColumn(c)));
+            if (_grid.Columns[i].Visible != show) _grid.Columns[i].Visible = show;
+        }
+    }
+
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         var inXml = _xml.Focused;
-        var editing = _grid.IsCurrentCellInEditMode || _titleGrid.IsCurrentCellInEditMode || _viewGrid.IsCurrentCellInEditMode || _sysId.Focused;
+        var editing = _grid.IsCurrentCellInEditMode || _viewGrid.IsCurrentCellInEditMode || _sysId.Focused || _titleBoxes.Any(t => t.Focused);
         switch (keyData)
         {
             case Keys.Control | Keys.S: EndEdits(); SaveAll(); return true;
@@ -271,7 +464,8 @@ public sealed class FieldGridControl : UserControl
 
     private void EndEdits()
     {
-        foreach (var g in new[] { _grid, _titleGrid, _viewGrid }) if (g.IsCurrentCellInEditMode) g.EndEdit();
+        foreach (var g in new[] { _grid, _viewGrid }) if (g.IsCurrentCellInEditMode) g.EndEdit();
+        for (var i = 0; i < 4; i++) if (_titleBoxes[i].Focused) OnTitleChanged(i);
     }
 
     // ------------------------------------------------------------------ mở / nạp
@@ -291,7 +485,7 @@ public sealed class FieldGridControl : UserControl
     public void OpenSysId(string controllersRoot, string sysId, string? voucherCode)
     {
         _clicked = null;
-        _voucherCode.Text = voucherCode ?? "";
+        _voucherCode.Text = string.IsNullOrWhiteSpace(voucherCode) ? "" : "Voucher: " + voucherCode;
         LoadSet(controllersRoot, sysId, null);
     }
 
@@ -300,7 +494,7 @@ public sealed class FieldGridControl : UserControl
         => string.Equals(_set.SysId, sysId, StringComparison.OrdinalIgnoreCase)
            && string.Equals(_set.ControllersRoot.TrimEnd('\\'), (controllersRoot ?? "").TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
 
-    public string TitleText =>"Lưới field · " + (_set.SysId.Length > 0 ? _set.SysId : "?");
+    public string TitleText => "Lưới field · " + (_set.SysId.Length > 0 ? _set.SysId : "?");
 
     private void LoadSet(string? root, string sysId, string? clicked)
     {
@@ -343,8 +537,8 @@ public sealed class FieldGridControl : UserControl
         foreach (var rb in _fileBar.Controls.OfType<RadioButton>())
         {
             if (rb.Tag is not FgDoc d) continue;
-            var dirty = d.Main.Dirty || d.Fields.Any(f => f.File.Dirty) || d.ViewItems.Any(v => v.File.Dirty);
-            var t = (dirty ? "*" : "") + d.TabTitle;
+            var dirty = d.Main.Dirty || d.Fields.Any(f => f.File.Dirty) || d.ViewItems.Any(v => v.File.Dirty) || d.TitleFile?.Dirty == true;
+            var t = (dirty ? "● " : "") + d.TabTitle;
             if (rb.Text != t) rb.Text = t;
             if (rb.Checked != ReferenceEquals(d, _doc)) rb.Checked = ReferenceEquals(d, _doc);
         }
@@ -356,9 +550,9 @@ public sealed class FieldGridControl : UserControl
         _doc = d;
         _colSig = "";
         _pathLink.Text = d is null ? "" : ShortPath(d.Main.Path);
-        NK.Tip(_pathLink, d?.Main.Path ?? "");
-        _btnToView.Visible = d?.Kind == "Grid";
+        NK.Tip(_pathLink, d is null ? "" : d.Main.Path + " — bấm để mở XML");
         FillAll();
+        SetViewsMode(_viewsMode);
         RefreshFileBarMarks();
     }
 
@@ -408,61 +602,63 @@ public sealed class FieldGridControl : UserControl
 
     private void FillBanner()
     {
-        string? msg = null;
+        var msgs = new List<string>();
         if (_doc is not null)
         {
-            msg = _doc.Main.ReadOnlyReason;
+            if (_doc.Main.ReadOnlyReason is { } ro) msgs.Add(ro);
             var incRo = _doc.Fields.Where(f => f.Via is not null && f.ReadOnlyReason is not null).Select(f => f.Via).Distinct().ToList();
-            if (msg is null && incRo.Count > 0) msg = "Field trong " + string.Join(", ", incRo) + " chỉ xem (tô xám) — " + _doc.Fields.First(f => f.Via == incRo[0] && f.ReadOnlyReason is not null).ReadOnlyReason;
-            if (msg is null && _doc.Problems.Count > 0) msg = string.Join("  ", _doc.Problems);
-            if (msg is null && _doc.FieldsNode is null) msg = "Không tìm thấy <fields> (ở cấp gốc hay trong entity ngay dưới thẻ gốc).";
+            if (incRo.Count > 0) msgs.Add("Field trong " + string.Join(", ", incRo) + " chỉ xem — " + _doc.Fields.First(f => f.Via == incRo[0] && f.ReadOnlyReason is not null).ReadOnlyReason);
+            msgs.AddRange(_doc.Problems);
+            if (_doc.FieldsNode is null) msgs.Add("Không tìm thấy <fields> (ở cấp gốc hay trong entity ngay dưới thẻ gốc).");
             // phần thân nằm trong file include (thường dùng chung cho nhiều file): nói rõ sửa là sửa file đó
-            if (msg is null && _doc.FieldsFile is { } ff && !ReferenceEquals(ff, _doc.Main))
-                msg = $"<fields> nằm trong {_doc.FieldsVia} → {ShortPath(ff.Path)} — sửa ở đây là sửa file include này (mọi file khác include nó cũng đổi theo).";
+            if (_doc.FieldsFile is { } ff && !ReferenceEquals(ff, _doc.Main))
+                msgs.Add($"<fields> nằm trong {_doc.FieldsVia} → {ShortPath(ff.Path)} — sửa ở đây là sửa file include này (file khác include nó cũng đổi theo).");
+            if (_doc.Main.HasEncrypted && _doc.Main.ReadOnlyReason is null)
+                msgs.Add("Có khối <Encrypted>: khối mã hoá giữ nguyên từng ký tự — field chứa nó sửa được thuộc tính / header, khung XML chỉ xem.");
+            var roAttr = _doc.Fields.Select(f => f.File).Append(_doc.Main).Where(f => f.ReadOnlyAttr && f.ReadOnlyReason is null).Select(f => Path.GetFileName(f.Path)).Distinct().ToList();
+            if (roAttr.Count > 0)
+                msgs.Add("Đặt Read-only: " + string.Join(", ", roAttr) + " — khi lưu Bcode tạm gỡ rồi đặt lại (như FSD Studio).");
         }
-        _banner.Text = msg ?? "";
-        _banner.Visible = msg is not null;
+        _banner.Text = msgs.Count == 0 ? "" : "⚠ " + string.Join("   ·   ", msgs);
+        _banner.Visible = msgs.Count > 0;
+        NK.Tip(_banner, string.Join("\n", msgs));
     }
+
+    private (FgFile? File, FgNode? Node, string Attr) TitleSlot(int i) => i switch
+    {
+        0 => (_doc?.TitleFile, _doc?.Title, "v"),
+        1 => (_doc?.TitleFile, _doc?.Title, "e"),
+        2 => (_doc?.SubTitleFile, _doc?.SubTitle, "v"),
+        _ => (_doc?.SubTitleFile, _doc?.SubTitle, "e"),
+    };
 
     private void FillTitle()
     {
-        var g = _titleGrid;
-        if (g.Columns.Count == 0)
+        for (var i = 0; i < 4; i++)
         {
-            foreach (var (k, h) in new[] { ("titleV", "titleV"), ("titleE", "titleE"), ("subTitleV", "subTitleV"), ("subTitleE", "subTitleE") })
-                g.Columns.Add(new DataGridViewTextBoxColumn { Name = k, HeaderText = h, Width = NativeSkin.S(160), SortMode = DataGridViewColumnSortMode.NotSortable });
-        }
-        g.Rows.Clear();
-        if (_doc is null) return;
-        var i = g.Rows.Add();
-        var row = g.Rows[i];
-        void Cell(string col, FgNode? node, string attr)
-        {
+            var (file, node, attr) = TitleSlot(i);
             var a = node?.Attr(attr);
-            var file = col.StartsWith("sub", StringComparison.Ordinal) ? _doc!.SubTitleFile : _doc!.TitleFile;
-            row.Cells[col].Value = a is null || file is null ? "" : file.Text[a.ValueStart..a.ValueEnd];
-            var ro = node is null || file is null || file.ReadOnlyReason is not null;
-            row.Cells[col].ReadOnly = ro;
-            row.Cells[col].Style.BackColor = ro ? AppColors.PanelAlt : Color.Empty;
-            row.Cells[col].ToolTipText = node is null ? "File không có thẻ này." : "";
+            var box = _titleBoxes[i];
+            var text = a is null || file is null ? "" : file.Text[a.ValueStart..a.ValueEnd];
+            if (box.Text != text) box.Text = text;
+            box.ReadOnly = node is null || file is null || file.ReadOnlyReason is not null;
+            box.Tag = text;   // giá trị đã đổ — để Leave không ghi lại khi không đổi
+            box.BackColor = box.ReadOnly ? AppColors.PanelAlt : AppColors.Input;
+            box.ForeColor = box.ReadOnly ? AppColors.TextMuted : AppColors.Text;
+            if (node is null) NK.Tip(box, "File không có thẻ <" + (i < 2 ? "title" : "subTitle") + ">.");
         }
-        Cell("titleV", _doc.Title, "v");
-        Cell("titleE", _doc.Title, "e");
-        Cell("subTitleV", _doc.SubTitle, "v");
-        Cell("subTitleE", _doc.SubTitle, "e");
     }
 
     private List<Col> ColumnsFor(FgDoc d)
     {
-        var cols = new List<Col> { new("name", "name", false), new("headerV", "headerV", false), new("headerE", "headerE", false) };
+        var cols = new List<Col> { new("name", "name", false), new("@via", "Nguồn", false), new("headerV", "headerV", false), new("headerE", "headerE", false) };
         switch (d.Kind)
         {
             case "Grid":
                 cols.AddRange(new Col[] { new("width", "width", false), new("clientDefault", "clientDefault", false), new("defaultValue", "defaultValue", false),
                     new("dataFormatString", "dataFormatString", false), new("align", "align", false), new("aliasName", "aliasName", false), new("type", "type", false),
                     new("allowNulls", "allowNulls", true, true), new("readOnly", "readOnly", true), new("hidden", "hidden", true), new("inactivate", "inactivate", true),
-                    new("external", "external", true), new("allowFilter", "allowFilter", true), new("allowSorting", "allowSorting", true), new("isPrimaryKey", "isPrimaryKey", true),
-                    new("footerV", "footerV", false), new("footerE", "footerE", false) });
+                    new("external", "external", true), new("allowFilter", "allowFilter", true), new("allowSorting", "allowSorting", true), new("isPrimaryKey", "isPrimaryKey", true) });
                 break;
             case "Dir" or "Filter" or "Lookup" or "":
                 cols.AddRange(new Col[] { new("clientDefault", "clientDefault", false), new("defaultValue", "defaultValue", false), new("dataFormatString", "dataFormatString", false),
@@ -474,10 +670,11 @@ public sealed class FieldGridControl : UserControl
                 cols.Add(new("type", "type", false));
                 break;
         }
-        // thuộc tính khác có trong file: mỗi cái 1 cột; toàn true/false thì là ô tick (mặc định false)
+        // thuộc tính khác có trong file: mỗi cái 1 cột; toàn true/false thì là ô tick (mặc định false) — ô tick xếp liền nhóm ô tick
         var known = new HashSet<string>(cols.Select(c => c.Key), StringComparer.Ordinal);
         var extra = new List<string>();
         var values = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var hasFooter = d.Kind == "Grid";
         foreach (var f in d.Fields)
         {
             if (f.Placeholder is not null) continue;
@@ -487,15 +684,16 @@ public sealed class FieldGridControl : UserControl
                 if (!values.TryGetValue(a.Name, out var list)) { values[a.Name] = list = new(); extra.Add(a.Name); }
                 list.Add(f.File.Text[a.ValueStart..a.ValueEnd]);
             }
-            if (f.Node.Child("footer") is not null && !known.Contains("footerV")) { known.Add("footerV"); known.Add("footerE"); }
+            if (f.Node.Child("footer") is not null) hasFooter = true;
         }
+        var lastBool = cols.FindLastIndex(c => c.Bool);
         foreach (var name in extra)
         {
             var isBool = values[name].All(v => v is "true" or "false" or "True" or "False");
-            cols.Add(new Col(name, name, isBool));
+            if (isBool && lastBool >= 0) cols.Insert(++lastBool, new Col(name, name, true));
+            else cols.Add(new Col(name, name, isBool));
         }
-        if (known.Contains("footerV") && !cols.Any(c => c.Key == "footerV")) { cols.Add(new("footerV", "footerV", false)); cols.Add(new("footerE", "footerE", false)); }
-        cols.Add(new Col("@via", "Nguồn", false));
+        if (hasFooter) { cols.Add(new("footerV", "footerV", false)); cols.Add(new("footerE", "footerE", false)); }
         return cols;
     }
 
@@ -505,7 +703,7 @@ public sealed class FieldGridControl : UserControl
         "headerE" => f.Sub("header", "e"),
         "footerV" => f.Sub("footer", "v"),
         "footerE" => f.Sub("footer", "e"),
-        "@via" => f.Via is null ? "" : f.Via + " (" + Path.GetFileName(f.File.Path) + ")",
+        "@via" => f.Via is null ? "" : f.Via.TrimEnd(';').Split(';')[^1] + ";",
         _ => f.Placeholder is not null ? (c.Key == "name" ? f.Placeholder : null) : f.Get(c.Key),
     };
 
@@ -525,23 +723,25 @@ public sealed class FieldGridControl : UserControl
         {
             g.Rows.Clear();
             g.Columns.Clear();
-            var headFont = g.ColumnHeadersDefaultCellStyle.Font ?? ThemeManager.BoldFont;
+            var headFont = g.ColumnHeadersDefaultCellStyle.Font ?? Font;
             foreach (var c in cols)
             {
-                // bề rộng tối thiểu = đủ chữ tiêu đề (đậm) + chỗ cho viền
-                var head = TextRenderer.MeasureText(c.Header, headFont).Width + NativeSkin.S(16);
+                // bề rộng tối thiểu = đủ chữ tiêu đề + chỗ cho viền; ô tick hẹp, gom 1 nhóm (tiêu đề tô riêng)
+                var head = TextRenderer.MeasureText(c.Header, headFont).Width + NativeSkin.S(12);
                 DataGridViewColumn col = c.Bool
-                    ? new DataGridViewCheckBoxColumn { Width = Math.Max(NativeSkin.S(56), head) }
-                    : new DataGridViewTextBoxColumn { Width = Math.Max(head, NativeSkin.S(c.Key switch { "name" => 130, "headerV" or "headerE" => 150, "@via" => 220, "aliasName" => 120, _ => 90 })) };
+                    ? new DataGridViewCheckBoxColumn { Width = Math.Max(NativeSkin.S(46), head), FlatStyle = FlatStyle.Flat }
+                    : new DataGridViewTextBoxColumn { Width = Math.Max(head, NativeSkin.S(c.Key switch { "name" => 130, "headerV" or "headerE" => 150, "@via" => 110, "aliasName" => 120, _ => 80 })) };
                 col.Name = c.Key;
                 col.HeaderText = c.Header;
+                col.ToolTipText = c.Key == "@via" ? "Field nằm trong entity include nào (trống = khai ngay trong file)" : c.Header + (c.Bool ? " (ô tick" + (c.DefaultTrue ? ", mặc định true)" : ")") : "");
                 col.SortMode = DataGridViewColumnSortMode.NotSortable;
                 if (c.Key == "@via") col.ReadOnly = true;
                 g.Columns.Add(col);
             }
-            if (g.Columns.Count > 0) g.Columns[0].Frozen = true;
+            if (g.Columns.Count > 0) g.Columns[0].Frozen = true;   // name cố định khi cuộn ngang
             _cols = cols;
             _colSig = sig;
+            ApplyBoolHeaderColors();
         }
         if (g.Rows.Count != _doc.Fields.Count)
         {
@@ -552,24 +752,25 @@ public sealed class FieldGridControl : UserControl
         {
             var f = _doc.Fields[r];
             var row = g.Rows[r];
-            row.HeaderCell.Value = (r + 1).ToString();
+            var num = (r + 1).ToString();
+            if (!Equals(row.HeaderCell.Value, num)) row.HeaderCell.Value = num;
             var ro = f.ReadOnlyReason is not null;
-            row.ReadOnly = ro;
-            row.DefaultCellStyle.ForeColor = ro ? AppColors.TextMuted : f.Via is not null ? AppColors.Accent : Color.Empty;
+            if (row.ReadOnly != ro) row.ReadOnly = ro;
             for (var c = 0; c < _cols.Count; c++)
             {
                 var v = GetValue(f, _cols[c]);
                 object val = _cols[c].Bool ? BoolOf(v, _cols[c].DefaultTrue) : v ?? "";
                 if (!Equals(row.Cells[c].Value, val)) row.Cells[c].Value = val;
-                // header/footer chưa có thẻ: vẫn gõ được (tự chèn thẻ); field tự đóng thì cũng được
             }
         }
+        ApplyColumnVisibility();
         if (g.Rows.Count > 0)
         {
             try
             {
                 var rr = Math.Min(keepRow, g.Rows.Count - 1);
                 var cc = Math.Min(keepCol, g.Columns.Count - 1);
+                if (!g.Columns[cc].Visible) cc = 0;
                 if (g.CurrentCell is null || g.CurrentCell.RowIndex != rr || g.CurrentCell.ColumnIndex != cc) g.CurrentCell = g.Rows[rr].Cells[cc];
                 if (keepTop >= 0 && keepTop < g.Rows.Count) g.FirstDisplayedScrollingRowIndex = keepTop;
             }
@@ -582,10 +783,11 @@ public sealed class FieldGridControl : UserControl
         var g = _viewGrid;
         if (g.Columns.Count == 0)
         {
-            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "ctx", HeaderText = "View", Width = NativeSkin.S(110), ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
-            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "tag", HeaderText = "Thẻ", Width = NativeSkin.S(60), ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
-            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "value", HeaderText = "name / value", Width = NativeSkin.S(520), SortMode = DataGridViewColumnSortMode.NotSortable });
-            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "xml", HeaderText = "XML", Width = NativeSkin.S(420), ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
+            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "ctx", HeaderText = "View", Width = NativeSkin.S(100), ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
+            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "tag", HeaderText = "Thẻ", Width = NativeSkin.S(50), ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
+            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "value", HeaderText = "name / value", Width = NativeSkin.S(480), SortMode = DataGridViewColumnSortMode.NotSortable });
+            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "xml", HeaderText = "XML", Width = NativeSkin.S(360), ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
+            g.Columns.Add(new DataGridViewTextBoxColumn { Name = "via", HeaderText = "Nguồn", Width = NativeSkin.S(140), ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
         }
         var keepRow = g.CurrentCell?.RowIndex ?? 0;
         var keepTop = g.FirstDisplayedScrollingRowIndex;
@@ -600,8 +802,8 @@ public sealed class FieldGridControl : UserControl
             row.Cells[1].Value = v.Node.Name == "&" ? "entity" : v.Node.Name;
             row.Cells[2].Value = v.Value;
             row.Cells[3].Value = v.Node.Name == "&" ? "" : v.File.Text[v.Node.Start..v.Node.End].Replace("\r", " ").Replace("\n", " ");
+            row.Cells[4].Value = v.Via is null ? "" : v.Via.TrimEnd(';').Split(';')[^1] + ";";
             row.ReadOnly = v.ReadOnlyReason is not null;
-            row.DefaultCellStyle.ForeColor = v.ReadOnlyReason is not null ? AppColors.TextMuted : Color.Empty;
         }
         if (g.Rows.Count > 0)
         {
@@ -626,15 +828,16 @@ public sealed class FieldGridControl : UserControl
         if (_viewsMode && CurrentView is { } v)
         {
             text = v.Node.Name == "&" ? "&" + v.Node.Entity + ";" : (FgSet.IndentOf(v.File.Text, v.Node.Start) ?? "") + v.File.Text[v.Node.Start..v.Node.End];
-            label = "XML dòng view" + (v.ReadOnlyReason is not null ? " — " + v.ReadOnlyReason : "");
+            label = "Dòng view" + (v.Via is not null ? " · " + Path.GetFileName(v.File.Path) : "") + (v.ReadOnlyReason is not null ? " — " + v.ReadOnlyReason : "");
             ro = v.ReadOnlyReason is not null || v.Node.Name == "&";
         }
         else if (!_viewsMode && CurrentField is { } f)
         {
             text = f.Placeholder ?? (FgSet.IndentOf(f.File.Text, f.Node.Start) ?? "") + f.Xml;
-            label = "XML field: " + f.Name + (f.Via is not null ? "  (trong " + f.Via + " → " + Path.GetFileName(f.File.Path) + ")" : "")
-                + (f.ReadOnlyReason is not null ? " — " + f.ReadOnlyReason : "");
-            ro = f.ReadOnlyReason is not null || f.Placeholder is not null;
+            label = f.Name + (f.Via is not null ? " · " + f.Via + " → " + Path.GetFileName(f.File.Path) : "")
+                + (f.ReadOnlyReason is not null ? " — " + f.ReadOnlyReason
+                   : f.Encrypted ? " — có khối <Encrypted>: khung XML chỉ xem, sửa thuộc tính / header trên lưới" : "");
+            ro = f.ReadOnlyReason is not null || f.Placeholder is not null || f.Encrypted;
         }
         _xml.ReadOnly = false;
         _xml.Text = text;
@@ -642,6 +845,7 @@ public sealed class FieldGridControl : UserControl
         _xml.ReadOnly = ro;
         FcodeLexer.Restyle(_xml);
         _xmlLabel.Text = label;
+        NK.Tip(_xmlLabel, label);
         _xmlApply.Enabled = !ro;
     }
 
@@ -649,10 +853,13 @@ public sealed class FieldGridControl : UserControl
     {
         EndEdits();
         _viewsMode = views;
+        _tabFields.Checked = !views;
+        _tabViews.Checked = views;
         _grid.Visible = !views;
         _viewGrid.Visible = views;
         _btnAdd.Visible = _btnCopy.Visible = !views;
         _btnToView.Visible = !views && _doc?.Kind == "Grid";
+        _btnCols.Visible = !views;
         ShowXmlOfCurrent();
         UpdateButtons();
     }
@@ -661,6 +868,7 @@ public sealed class FieldGridControl : UserControl
     {
         _btnUndo.Enabled = _set.CanUndo;
         var dirty = _set.AllFiles.Where(f => f.Dirty).Select(f => Path.GetFileName(f.Path)).ToList();
+        _btnSave.Text = dirty.Count > 0 ? "● Save" : "Save";
         if (dirty.Count > 0) SetStatus("Chưa lưu: " + string.Join(", ", dirty) + " (Ctrl+S)");
         else if (_status.Text.StartsWith("Chưa lưu", StringComparison.Ordinal)) SetStatus("");
     }
@@ -725,15 +933,15 @@ public sealed class FieldGridControl : UserControl
         if (changed > 0) SetStatus($"Đổi tên {old} → {name}, sửa {changed} chỗ trong <views>.");
     }
 
-    private void OnTitleCellChanged(int col)
+    private void OnTitleChanged(int i)
     {
-        if (_doc is null) return;
-        var node = col < 2 ? _doc.Title : _doc.SubTitle;
-        if (node is null) return;
-        var value = (_titleGrid.Rows[0].Cells[col].Value as string ?? "").Trim();
-        var file = col < 2 ? _doc.TitleFile : _doc.SubTitleFile;
-        if (file is null) return;
-        Run(() => _set.SetAttr(file, node, col % 2 == 0 ? "v" : "e", value));
+        var box = _titleBoxes[i];
+        var (file, node, attr) = TitleSlot(i);
+        if (_doc is null || node is null || file is null || box.ReadOnly) return;
+        var value = box.Text.Trim();
+        if (value == (box.Tag as string ?? "")) return;   // không đổi gì
+        box.Tag = value;
+        Run(() => _set.SetAttr(file, node, attr, value));
     }
 
     private void OnViewCellChanged(int row, int col)

@@ -30,7 +30,7 @@ Bcode.App/
 │   ├── ErrorShotControl.cs  130
 │   ├── FastAskControl.cs  169
 │   ├── FcodeLexer.cs  465
-│   ├── FieldGridControl.cs  1005
+│   ├── FieldGridControl.cs  1213
 │   ├── FileLookupControl.cs  1752
 │   ├── FileLookupControl.QuickGrant.cs  151
 │   ├── FileLookupControl.Rename.cs  317
@@ -166,7 +166,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  4928
+│   ├── MainForm.cs  4935
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
@@ -209,7 +209,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  458
+│   ├── AppSettings.cs  464
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -302,7 +302,7 @@ Bcode.App/
 │   ├── FboSampleTemplateService.cs  136
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FieldGridDocument.cs  800
+│   ├── FieldGridDocument.cs  824
 │   ├── FileLookupService.cs  1530
 │   ├── FileParseCache.cs  408
 │   ├── FileReferenceService.cs  46
@@ -674,7 +674,7 @@ Bcode.KeyGen/
 Shared/
 ├── AiWebHelper.cs  373
 ├── AppSwitchFocus.cs  86
-├── AppUpdate.cs  632
+├── AppUpdate.cs  642
 ├── AppUpdateDialog.cs  171
 ├── AppUpdateForm.cs  181
 ├── AppUpdateToast.cs  195

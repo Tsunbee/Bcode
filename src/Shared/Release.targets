@@ -8,6 +8,9 @@
     $(BcodeStampPaths) = pathspec git (tính từ thư mục project) để "Có gì mới" + commit chỉ tính commit đụng tới app này
     (vd Viewer: ". ../Shared ../Bcode.Core"); trống = cả repo (Bcode).
     Target manifest chạy sau mọi target AfterTargets="Build" khai TRƯỚC nó (chép ScreenDesigner / Ocr / FDecrypt của Bcode) — vì vậy import cuối file.
+    Project KHÁC chép file vào thư mục build của app SAU khi app build xong (BcodeNote.App → cạnh Bcode.exe) phải gọi lại target
+    WriteReleaseManifest của app đó (xem CopyNoteBesideBcode trong BcodeNote.App.csproj), không thì manifest lệch file thật.
+    tools/publish-release.ps1 kiểm lại SHA-256 mọi file với manifest trước khi phát hành (lệch = dừng, không chép gì).
   -->
   <Target Name="WriteBuildStamp" AfterTargets="Build">
     <PropertyGroup>

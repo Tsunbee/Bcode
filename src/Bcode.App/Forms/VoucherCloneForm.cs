@@ -9,8 +9,8 @@ namespace Bcode.App.Forms;
 
 /// <summary>
 /// "Tạo chứng từ" — nhân bản 1 chứng từ có sẵn sang mã mới, 6 bước như FCode (General, File Source, File Reference, Sql Declaration,
-/// Wcommand, File Generation), xuất theo đúng dạng gói FCode: Web\App_Data\..., Web\Main\..., Script\App\AppScript.sql,
-/// Script\Sys\SysScript.sql. Đổi tên / nội dung file: <see cref="VoucherCloneService"/>; SQL: <see cref="VoucherSqlScriptService"/>
+/// Wcommand, File Generation), xuất file theo dạng gói FCode: Web\App_Data\..., Web\Main\...; script App / Sys không ghi file, mở sang
+/// tab SQL Query bằng nút Open ở bước Sql Declaration. Đổi tên / nội dung file: <see cref="VoucherCloneService"/>; SQL: <see cref="VoucherSqlScriptService"/>
 /// (chỉ sinh script); menu: mở form WCOMMAND có sẵn. Giao diện: Web/Shell/vouchercopy.html.
 /// </summary>
 public class VoucherCloneForm : WebDialogForm
@@ -350,6 +350,7 @@ public class VoucherCloneForm : WebDialogForm
             // freecolumns khai theo controller của chứng từ: {SysID}, {tiền tố}Detail / Tax / Charge / Deductible (như gói FCode).
             var controllers = new[] { spec.SrcPrefix + "Detail", spec.SrcSysId, spec.SrcPrefix + "Tax", spec.SrcPrefix + "Charge", spec.SrcPrefix + "Deductible" };
             var blocks = await _sql.ConfigBlocksAsync(spec, controllers, S("srcApprove"), S("dstApprove"));
+            var stores = await _sql.StoreBlocksAsync(spec);
             var tables = spec.SrcTableNo.Length > 0 ? await _sql.SourceTablesAsync(spec.SrcTableNo, spec.SrcNoPartition) : new List<string>();
             var tableScript = spec.NewTables && spec.DstTableNo.Length > 0 && tables.Count > 0 ? await _sql.NewTablesScriptAsync(tables, spec) : "";
             var taken = spec.NewTables && spec.DstTableNo.Length > 0 ? await _sql.SourceTablesAsync(spec.DstTableNo, spec.SrcNoPartition) : new List<string>();
@@ -361,15 +362,19 @@ public class VoucherCloneForm : WebDialogForm
             var app = new StringBuilder(ddl);
             foreach (var b in blocks.Where(b => !b.Sys)) app.Append(b.Script).Append("\r\n");
             app.Append(gen);
+            // Store riêng (post / unpost / duyệt...) sau cùng: bảng mới đã có.
+            foreach (var b in stores.Where(b => !b.Sys)) app.Append("\r\n").Append(b.Script);
             var sys = new StringBuilder();
             foreach (var b in blocks.Where(b => b.Sys)) sys.Append(b.Script).Append("\r\n");
+            foreach (var b in stores.Where(b => b.Sys)) sys.Append(b.Script).Append("\r\n");
+            blocks.AddRange(stores);
 
             Js($"vc.onSql({J(new
             {
                 tables,
                 newTables = tables.Select(t => VoucherSqlScriptService.NewName(t, spec.SrcTableNo, spec.DstTableNo)),
                 taken,
-                blocks = blocks.Select(b => new { sys = b.Sys, table = b.Table, where = b.Where, rows = b.Rows }),
+                blocks = blocks.Select(b => new { sys = b.Sys, table = b.Table, where = b.Where, rows = b.Rows, proc = b.Proc }),
                 app = app.ToString(), sysScript = sys.ToString(),
             })})");
         }
@@ -454,7 +459,7 @@ public class VoucherCloneForm : WebDialogForm
         var output = S("output").Trim();
         var direct = msg.TryGetProperty("direct", out var d) && d.ValueKind == JsonValueKind.True;
         var spec = ReadSpec(msg.GetProperty("spec"));
-        if (output.Length == 0) { MessageBox.Show(this, "Chưa chọn thư mục lưu (Save As).", Title, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        if (output.Length == 0 && !direct) { MessageBox.Show(this, "Chưa chọn thư mục lưu (Save As).", Title, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
 
         List<(string Rel, string Target)> Pairs(string n) => msg.TryGetProperty(n, out var arr) && arr.ValueKind == JsonValueKind.Array
             ? arr.EnumerateArray().Select(x => (x.GetProperty("rel").GetString() ?? "", x.GetProperty("target").GetString() ?? ""))
@@ -479,7 +484,7 @@ public class VoucherCloneForm : WebDialogForm
             return;
         }
 
-        // Gói: output\Web\... + output\Script\App|Sys. Ghi thẳng: file vào thư mục source, script vẫn ở output\Script.
+        // Gói: output\Web\... Ghi thẳng: file vào thư mục source. Script App / Sys không ghi file: mở bằng nút Open ở bước Sql Declaration.
         var webRoot = direct ? source : Path.Combine(output, "Web");
         try
         {
@@ -499,18 +504,8 @@ public class VoucherCloneForm : WebDialogForm
             written.AddRange(VoucherCloneService.WriteRegistry(source, webRoot, registry, spec));
             written.AddRange(VoucherCloneService.WriteApprovalFiles(data.Tree, webRoot, spec));
             if (!direct) written.AddRange(VoucherCloneService.CopyAsIs(source, webRoot, copies));
-
-            void Script(string sub, string name, string text)
-            {
-                if (string.IsNullOrWhiteSpace(text)) return;
-                var p = Path.Combine(output, "Script", sub, name);
-                Directory.CreateDirectory(Path.GetDirectoryName(p)!);
-                File.WriteAllText(p, text, new UTF8Encoding(true));
-                written.Add(p);
-            }
-            Script("App", "AppScript.sql", S("appScript"));
-            Script("Sys", "SysScript.sql", S("sysScript"));
-            Js($"vc.onGenerated({J(new { folder = output, files = written.Select(p => new { path = p, name = p.StartsWith(output, StringComparison.OrdinalIgnoreCase) ? Path.GetRelativePath(output, p) : p }) })})");
+            var folder = direct ? source : output;
+            Js($"vc.onGenerated({J(new { folder, files = written.Select(p => new { path = p, name = p.StartsWith(folder, StringComparison.OrdinalIgnoreCase) ? Path.GetRelativePath(folder, p) : p }) })})");
         }
         catch (Exception ex) { MessageBox.Show(this, "Không tạo được:\n" + ex.Message, Title, MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }

@@ -6,7 +6,7 @@ using Microsoft.Data.SqlClient;
 namespace Bcode.App.Services;
 
 /// <summary>1 nhóm dòng cấu hình của chứng từ nguồn trong 1 bảng (DELETE + INSERT cho mã mới).</summary>
-public record VoucherSqlBlock(bool Sys, string Table, string Where, int Rows, string Script);
+public record VoucherSqlBlock(bool Sys, string Table, string Where, int Rows, string Script, bool Proc = false);
 
 /// <summary>
 /// Phần "Sql Declaration" của Tạo chứng từ — làm theo đúng gói FCode sinh ra khi tạo chứng từ (Script\App\AppScript.sql +
@@ -169,6 +169,39 @@ public class VoucherSqlScriptService
                 }
                 blocks.Add(new VoucherSqlBlock(sys, table, where, rows, sb.Append("GO\r\n").ToString()));
             }
+        }
+        return blocks;
+    }
+
+    /// <summary>
+    /// Store riêng của chứng từ (<see cref="VoucherCloneSpec.StoreRenames"/>: post / unpost / duyệt / thông báo): tạo store mới theo định nghĩa store nguồn,
+    /// nội dung đổi như file (tên store, mã ct, loại duyệt, số bảng...). Tìm ở App trước rồi Sys; không thấy (hoặc mã hoá) thì khối chỉ có ghi chú, Rows = 0.
+    /// </summary>
+    public async Task<List<VoucherSqlBlock>> StoreBlocksAsync(VoucherCloneSpec s)
+    {
+        var blocks = new List<VoucherSqlBlock>();
+        foreach (var (from, to) in s.StoreRenames)
+        {
+            string? def = null;
+            var sys = false;
+            foreach (var inSys in new[] { false, true })
+            {
+                await using var conn = _connections.CreateConnection(inSys);
+                await conn.OpenAsync();
+                await using var cmd = new SqlCommand("SELECT m.definition FROM sys.sql_modules m JOIN sys.objects o ON o.object_id = m.object_id WHERE o.type = 'P' AND m.object_id = OBJECT_ID(@n)", conn);
+                cmd.Parameters.AddWithValue("@n", "dbo.[" + from.Replace("]", "]]") + "]");
+                if (await cmd.ExecuteScalarAsync() is string d && d.Trim().Length > 0) { def = d; sys = inSys; break; }
+            }
+            var name = to.Replace("]", "]]");
+            var sb = new StringBuilder();
+            if (def == null)
+                sb.Append($"-- Không thấy store nguồn {from} trong database (hoặc store mã hoá): tự tạo {to} cho chứng từ mới.\r\n");
+            else
+            {
+                sb.Append($"IF OBJECT_ID(N'dbo.[{name}]', 'P') IS NOT NULL DROP PROCEDURE [dbo].[{name}]\r\nGO\r\n");
+                sb.Append(VoucherCloneService.Transform(def.Trim(), s)).Append("\r\nGO\r\n");
+            }
+            blocks.Add(new VoucherSqlBlock(sys, to, from, def == null ? 0 : 1, sb.ToString(), Proc: true));
         }
         return blocks;
     }

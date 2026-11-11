@@ -88,6 +88,12 @@ public class VoucherCloneSpec
     /// <summary>Đổi tên file không theo tiền tố (Main\tpblcthdx.aspx → tpblcthdz.aspx) — áp cả trong nội dung (link menu, dmct9.url...).</summary>
     public List<(string From, string To)> FileRenames { get; set; } = new();
 
+    /// <summary>
+    /// Store riêng của chứng từ được gọi trong file có chép (exec rs_PostPRAuthorize / rs_UnPostPRAuthorize / fs_PostSVTran / zrs_ZVC$PostAuthorize):
+    /// tên nguồn → tên mới. Tính ở Prepare; đổi trong nội dung và sinh script tạo store ở bước Sql Declaration.
+    /// </summary>
+    public List<(string From, string To)> StoreRenames { get; set; } = new();
+
     private Regex? _tokens;
     private int _tokensKept = -1;
 
@@ -570,7 +576,7 @@ public class VoucherCloneService
         var t = text;
         if (s.SrcApprove.Length > 0 && s.DstApprove.Length > 0 && s.SrcApprove != s.DstApprove)
         {
-            t = t.Replace($"\"{s.SrcApprove}\"", $"\"{s.DstApprove}\"").Replace($"'{s.SrcApprove}'", $"'{s.DstApprove}'");
+            t = ReplaceQuoted(t, s.SrcApprove, s.DstApprove, leadingWildcard: true);
             t = ApproveTypeDef.Replace(t, m => IsEncryptedValue(m.Groups[2].Value) ? m.Groups[1].Value + s.DstApprove + "\"" : m.Value);
         }
         if (s.DstApproveController.Length > 0)
@@ -584,6 +590,18 @@ public class VoucherCloneService
         if (s.SrcNotify.Length > 0 && s.DstNotify.Length > 0)
             t = NotifyDef.Replace(t, m => m.Groups[2].Value == s.SrcNotify || IsEncryptedValue(m.Groups[2].Value) ? m.Groups[1].Value + s.DstNotify + "\"" : m.Value);
         return t;
+    }
+
+    private const string Wildcard = "(?:%|&#37;|&#x25;)*";   // % của LIKE, trong XML thường viết &#37;
+
+    /// <summary>
+    /// Đổi giá trị đứng riêng trong nháy '...' / "...", kể cả mẫu LIKE: 'Z008%' (XML: 'Z008&amp;#37;'), và '%Z008%' khi <paramref name="leadingWildcard"/>.
+    /// </summary>
+    internal static string ReplaceQuoted(string text, string from, string to, bool leadingWildcard)
+    {
+        if (from.Length == 0 || from == to) return text;
+        var re = "(['\"])(" + (leadingWildcard ? Wildcard : "") + ")" + Regex.Escape(from) + "(" + Wildcard + @")\1";
+        return Regex.Replace(text, re, m => m.Groups[1].Value + m.Groups[2].Value + to + m.Groups[3].Value + m.Groups[1].Value, RegexOptions.CultureInvariant);
     }
 
     /// <summary>Tiền tố dài hơn của chứng từ khác bắt đầu bằng tiền tố này: HD → HDC; AS → ASA01, ASAsset.</summary>
@@ -663,6 +681,47 @@ public class VoucherCloneService
                     if (!s.OwnWords.Contains(w)) s.SharedNames.Add(w);
         PlanEntities(s, copied, index);
         PlanApproval(tree, s, copied, index);
+        PlanStores(tree, s, copied, index);
+    }
+
+    // ---- Store riêng của chứng từ ------------------------------------------------------------------------
+
+    private static readonly Regex ExecName = new(@"\bexec(?:ute)?\s+(?:\[?dbo\]?\.)?\[?([A-Za-z_][A-Za-z0-9_$]*)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Tên mới của 1 store nếu store thuộc riêng chứng từ: SysID / tiền tố nằm giữa tên, sau chữ thường / _ / $ (rs_PostPRAuthorize, fs_PostSVTran,
+    /// rs_CreateNotifyPRTran, zrs_ZVC$PostAuthorize). Store hệ thống FastBusiness$... và tên bắt đầu bằng tiền tố thì không đổi; null = không đổi.
+    /// </summary>
+    internal static string? MapStore(string name, VoucherCloneSpec s)
+    {
+        if (s.SrcPrefix.Length == 0 || s.DstPrefix.Length == 0 || name.StartsWith("FastBusiness", StringComparison.OrdinalIgnoreCase)) return null;
+        for (var i = name.IndexOf(s.SrcPrefix, 1, StringComparison.Ordinal); i > 0; i = name.IndexOf(s.SrcPrefix, i + 1, StringComparison.Ordinal))
+        {
+            var before = name[i - 1];
+            if (!(char.IsAsciiLetterLower(before) || before is '_' or '$')) continue;
+            var word = Regex.Match(name[i..], "^[A-Za-z0-9_]*").Value;
+            if (!IsPrefixWord(word, s.SrcPrefix, s.OtherPrefixes)) continue;
+            var sysId = s.SrcSysId.Length > 0 && s.DstSysId.Length > 0 && word.StartsWith(s.SrcSysId, StringComparison.OrdinalIgnoreCase)
+                        && (word.Length == s.SrcSysId.Length || !char.IsAsciiLetterLower(word[s.SrcSysId.Length]));
+            var (from, to) = sysId ? (s.SrcSysId, s.DstSysId) : (s.SrcPrefix, s.DstPrefix);
+            var mapped = name[..i] + to + name[(i + from.Length)..];
+            return mapped.Equals(name, StringComparison.Ordinal) ? null : mapped;
+        }
+        return null;
+    }
+
+    /// <summary>Store được gọi (exec) trong file có chép, dòng entity sẽ chép và action duyệt sẽ nhân bản → <see cref="VoucherCloneSpec.StoreRenames"/>.</summary>
+    private static void PlanStores(SourceTree tree, VoucherCloneSpec s, IReadOnlyCollection<string> copied, EntityIndex index)
+    {
+        var texts = copied.Select(tree.Text).OfType<string>()
+            .Concat(s.CopyEntities.SelectMany(e => index.Defs.TryGetValue(e, out var d) ? d.Select(x => x.Line) : Enumerable.Empty<string?>()).OfType<string>())
+            .Concat(s.ApprovalActions.Select(a => a.Block));
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in texts)
+            foreach (Match m in ExecName.Matches(t))
+                if (!map.ContainsKey(m.Groups[1].Value) && MapStore(m.Groups[1].Value, s) is { } to) map[m.Groups[1].Value] = to;
+        // Tên dài trước: rs_PostPRAuthorizeX không bị đổi dở bởi rs_PostPRAuthorize.
+        s.StoreRenames = map.Select(kv => (kv.Key, kv.Value)).OrderByDescending(x => x.Key.Length).ThenBy(x => x.Key, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     // ---- Action duyệt: Options\Message.xml, Comment.xml (mẫu ZVCApprovalActionMessage.xml) ---------------------
@@ -1174,13 +1233,15 @@ public class VoucherCloneService
     public static string Transform(string text, VoucherCloneSpec s)
     {
         var t = text;
+        // Store riêng của chứng từ (rs_PostPRAuthorize → rs_PostPXAuthorize): đổi trước, script tạo store mới ở bước Sql Declaration.
+        foreach (var (from, to) in s.StoreRenames)
+            t = Regex.Replace(t, @"(?<![A-Za-z0-9_$])" + Regex.Escape(from) + @"(?![A-Za-z0-9_$])", to.Replace("$", "$$"), RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (s.SrcPrefix.Length > 0 && (s.SrcSysId != s.DstSysId || s.SrcPrefix != s.DstPrefix))
             t = s.Tokens().Replace(t, m => m.Groups["keep"].Success ? m.Value : MapWord(m.Value, s, false));
         if (s.SrcCode != s.DstCode)
         {
-            t = t.Replace($"id=\"{s.SrcCode}\"", $"id=\"{s.DstCode}\"")
-                 .Replace($"'{s.SrcCode}'", $"'{s.DstCode}'")
-                 .Replace($"\"{s.SrcCode}\"", $"\"{s.DstCode}\"");
+            // Mã ct trong nháy, kể cả mẫu LIKE 'PO1%' (không đổi '%PO1%': mã ngắn dễ trùng chuỗi tìm kiếm khác).
+            t = ReplaceQuoted(t.Replace($"id=\"{s.SrcCode}\"", $"id=\"{s.DstCode}\""), s.SrcCode, s.DstCode, leadingWildcard: false);
         }
         if (s.RenameAction && s.SrcAction != s.DstAction)
             t = Regex.Replace(t, @"(?<![A-Za-z0-9_])" + Regex.Escape(s.SrcAction) + @"(?![A-Za-z0-9_])", s.DstAction.Replace("$", "$$"));

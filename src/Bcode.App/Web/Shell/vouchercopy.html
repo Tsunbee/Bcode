@@ -205,7 +205,7 @@
     <div class="split2" style="min-height:20rem">
       <div class="tblw" style="flex:.8"><table class="tbl"><thead><tr><th style="width:3rem">DB</th><th>Bảng</th><th style="width:3.5rem">Dòng</th></tr></thead><tbody id="blockRows"></tbody></table></div>
       <div style="flex:1.6;display:flex;flex-direction:column;gap:.4rem">
-        <div class="tabs2"><button id="tApp" class="on">Script\App\AppScript.sql</button><button id="tSys">Script\Sys\SysScript.sql</button><span class="muted" style="align-self:center">— sửa được, lưu ở bước 6</span><button id="bOpenSql" style="margin-left:auto" disabled title="Mở script đang xem (kể cả phần vừa sửa) sang tab SQL Query mới của Bcode, đúng database App / Sys. Chưa chạy gì.">Open</button></div>
+        <div class="tabs2"><button id="tApp" class="on">AppScript (App)</button><button id="tSys">SysScript (Sys)</button><span class="muted" style="align-self:center">— sửa được, không ghi file: bấm Open để mở sang tab SQL Query rồi chạy</span><button id="bOpenSql" style="margin-left:auto" disabled title="Mở script đang xem (kể cả phần vừa sửa) sang tab SQL Query mới của Bcode, đúng database App / Sys. Chưa chạy gì.">Open</button></div>
         <textarea class="code" id="appScript" spellcheck="false"></textarea>
         <textarea class="code" id="sysScript" spellcheck="false" hidden></textarea>
       </div>
@@ -708,13 +708,15 @@
   function renderSql() {
     const s = spec();
     if (sql.error) { $('sqlInfo').innerHTML = '<span class="err">Không đọc được database: ' + esc(sql.error) + '</span>'; return; }
-    const rowsTotal = sql.blocks.reduce((n, b) => n + b.rows, 0);
+    const cfg = sql.blocks.filter((b) => !b.proc), procs = sql.blocks.filter((b) => b.proc);
+    const rowsTotal = cfg.reduce((n, b) => n + b.rows, 0);
     $('sqlInfo').innerHTML = 'Bảng chứng từ nguồn: <b>' + esc((sql.tables || []).join(', ') || '(không thấy)') + '</b> — ' +
       (s.newTables ? 'tạo bảng mới <b>' + esc((sql.newTables || []).join(', ')) + '</b> theo đúng định nghĩa bảng nguồn' + (noPartition() ? ', không phân kỳ.' : ' + sysgendata + các kỳ.') : 'dùng chung bảng nguồn.') +
       ((sql.taken || []).length ? '<br><span class="err">Số bảng ' + esc(s.dstTableNo) + ' đã có trong database (' + esc(sql.taken.join(', ')) + ') — đổi số khác.</span>' : '') +
       ($('otherProject').checked ? '<br><span class="err">Đang lấy file từ dự án khác, nhưng script đọc từ database của workspace hiện tại — kiểm tra lại trước khi chạy.</span>' : '') +
-      '<br>Cấu hình chép sang mã ' + esc(s.dstCode) + ': ' + sql.blocks.filter((b) => b.rows > 0).length + ' bảng có dữ liệu, ' + rowsTotal + ' dòng (bảng không có dòng vẫn DELETE cho sạch, như FCode).';
-    $('blockRows').innerHTML = sql.blocks.map((b) => '<tr' + (b.rows ? '' : ' class="off"') + ' title="' + esc('WHERE ' + b.where) + '"><td>' + (b.sys ? 'Sys' : 'App') + '</td><td>' + esc(b.table) + '</td><td>' + b.rows + '</td></tr>').join('');
+      '<br>Cấu hình chép sang mã ' + esc(s.dstCode) + ': ' + cfg.filter((b) => b.rows > 0).length + ' bảng có dữ liệu, ' + rowsTotal + ' dòng (bảng không có dòng vẫn DELETE cho sạch, như FCode).' +
+      (procs.length ? '<br>Store riêng của chứng từ (post / unpost / duyệt...) tạo theo store nguồn: ' + procs.map((b) => esc(b.where) + ' → <b>' + esc(b.table) + '</b>' + (b.rows ? '' : ' <span class="err">(không thấy store nguồn)</span>')).join(', ') + '.' : '');
+    $('blockRows').innerHTML = sql.blocks.map((b) => '<tr' + (b.rows ? '' : ' class="off"') + ' title="' + esc(b.proc ? 'Tạo từ store ' + b.where : 'WHERE ' + b.where) + '"><td>' + (b.sys ? 'Sys' : 'App') + '</td><td>' + (b.proc ? 'proc ' : '') + esc(b.table) + '</td><td>' + b.rows + '</td></tr>').join('');
     setCode('appScript', sql.app || '', 'AppScript.sql');
     setCode('sysScript', sql.sysScript || '', 'SysScript.sql');
     $('bOpenSql').disabled = false;
@@ -741,8 +743,8 @@
       ['Entity giữ tên nguồn', kept.length + ' entity'],
       ['File đăng ký (thêm dòng)', r.length + ' file'],
       ['Controller chép nguyên', direct ? '(bỏ qua khi ghi thẳng vào source)' : c.length + ' file'],
-      ['Script', (sql && !sql.error ? 'Script\\App\\AppScript.sql, Script\\Sys\\SysScript.sql' : '(chưa lập — mở bước 4)')],
-      ['Lưu vào', direct ? 'file → ' + source() + ' · script → ' + $('output').value + '\\Script' : $('output').value + '\\Web, ' + $('output').value + '\\Script'],
+      ['Script', 'không ghi file — mở AppScript / SysScript bằng nút Open ở bước 4 rồi chạy'],
+      ['Lưu vào', direct ? source() : $('output').value + '\\Web'],
     ];
     $('summary').innerHTML = rows.map(([k, v]) => '<b>' + k + '</b><span>' + esc(v) + '</span>').join('') +
       (warns.length ? '<b class="err">Cảnh báo</b><span class="err">' + warns.map(esc).join('<br>') + '</span>' : '');
@@ -750,7 +752,6 @@
   $('bGen').onclick = () => {
     const e = validate1(); if (e) { say(e, 'err'); go(1); return; }
     if (planKey !== planKeyNow()) { say('Thông tin đã đổi — đang lập lại danh sách file, bấm Tạo file lần nữa.', ''); loadPlan(); return; }
-    if (!sql || sql.error || sqlKey !== sqlKeyNow()) { say('Script chưa lập theo thông tin hiện tại — mở bước 4 trước.', 'err'); return; }
     const same = files.find((x) => x.on && x.rel.toLowerCase() === x.target.toLowerCase());
     if (same) { say('File đích trùng file nguồn: ' + same.rel + ' — đổi tên đích ở bước 2 hoặc bỏ tick.', 'err'); return; }
     post('generate', {
@@ -758,7 +759,6 @@
       files: files.filter((x) => x.on).map((x) => ({ rel: x.rel, target: x.target })),
       registry: registry.filter((x) => x.on).map((x) => x.rel),
       copies: controllers.filter((x) => x.on).map((x) => x.rel),
-      appScript: getCode('appScript'), sysScript: getCode('sysScript'),
     });
   };
   let lastFolder = '';

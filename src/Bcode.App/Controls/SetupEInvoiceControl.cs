@@ -195,6 +195,14 @@ public class SetupEInvoiceControl : UserControl, ISleepableTab
                 Js($"setupEInvoice.onDone({(ok ? "true" : "false")})");
                 break;
             }
+
+            case "checkurl":   // kiểm Web.config: chưa có urlEInvoice thì khai luôn
+            {
+                Js("setupEInvoice.onClear()");
+                var ok = await _service.EnsureUrlEInvoiceAsync(i, (line, kind) => Js($"setupEInvoice.onLog({J(line)}, {J(kind)})"));
+                Js($"setupEInvoice.onDone({(ok ? "true" : "false")})");
+                break;
+            }
         }
     }
 }

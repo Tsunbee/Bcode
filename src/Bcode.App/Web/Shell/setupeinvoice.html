@@ -88,6 +88,7 @@
     <button id="bStep1" title="Dựng script để xem / copy (App setting; thêm Proxy setting khi nhóm dịch vụ riêng), chưa chạy gì">Step 1: View UpdateKey Script</button>
     <button id="bStep2" title="Chạy script: App setting vào App Data; Proxy setting vào database Proxy (khi nhóm dịch vụ riêng)">Step 2: Exec Insert in Server (SQL)</button>
     <button id="bWipe" title="Xoá HẾT dữ liệu các bảng cấu hình HĐĐT (App Data; + database Proxy khi nhóm dịch vụ riêng) để cài lại từ đầu — không gọi API">Clear cấu hình HĐĐT</button>
+    <button id="bCheckUrl" title="Kiểm Web.config ở Program Path của dự án: nếu CHƯA có appSetting urlEInvoice thì khai luôn (http://{host}/{mã}_eInv/AppService/FastBusiness.EInvoice.Proxy.asmx). Có rồi thì không đụng. Sao lưu .bcode.bak trước khi ghi.">Khai urlEInvoice (Web.config)</button>
     <span class="sp"></span>
     <button class="primary" id="bUpdate" title="Tính pass_hddt từ mật khẩu portal, gọi API UpdateProxy ở Link trung gian, thành công thì chạy luôn script App (+ Proxy khi nhóm dịch vụ riêng) vào database">Cập nhật / Update Key</button>
   </div>
@@ -124,7 +125,7 @@
     lastProject = p;
   }
   $('project').addEventListener('input', followProject);
-  function setBusy(b) { busy = b; ['bStep1', 'bStep2', 'bWipe', 'bUpdate', 'bGo'].forEach((id) => { $(id).disabled = b; }); $('state').textContent = b ? 'Đang chạy...' : $('state').textContent; $('state').className = b ? 'run' : $('state').className; }
+  function setBusy(b) { busy = b; ['bStep1', 'bStep2', 'bWipe', 'bUpdate', 'bGo', 'bCheckUrl'].forEach((id) => { $(id).disabled = b; }); $('state').textContent = b ? 'Đang chạy...' : $('state').textContent; $('state').className = b ? 'run' : $('state').className; }
   function line(text, kind) { const d = document.createElement('div'); d.className = kind || 'info'; d.textContent = text; $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; plain += (plain ? '\n' : '') + text; $('bCopy').disabled = false; }
   function clear() { $('log').innerHTML = ''; plain = ''; $('bCopy').disabled = true; $('state').textContent = ''; $('state').className = ''; }
 
@@ -138,6 +139,7 @@
   $('bClear').onclick = clear;
   $('bCopy').onclick = () => post('copy', { text: plain });
   $('bStep1').onclick = () => { $('confirm').classList.remove('on'); post('step1', { inputs: inputs() }); };
+  $('bCheckUrl').onclick = () => { $('confirm').classList.remove('on'); post('checkurl', { inputs: inputs() }); };
   /* Step 2 và Cập nhật / Update Key đều GHI xuống database: xác nhận ngay trong trang (không hộp thoại). pending = action sẽ gửi khi bấm nút đỏ. */
   let pending = '';
   function askConfirm(action) {

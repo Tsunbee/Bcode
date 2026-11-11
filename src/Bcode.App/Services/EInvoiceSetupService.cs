@@ -40,6 +40,70 @@ public class EInvoiceSetupService
 
     public EInvoiceSetupService(DbConnectionService connections) => _connections = connections;
 
+    /// <summary>Kiểm Web.config ở Program Path của dự án: nếu CHƯA có appSetting <c>urlEInvoice</c> thì khai luôn (giá trị
+    /// <c>http://{host}/{mã_dự_án}_eInv/AppService/FastBusiness.EInvoice.Proxy.asmx</c>, host lấy từ đường UNC của Program Path).
+    /// Có rồi thì KHÔNG đụng. Sao lưu Web.config.bcode.bak trước khi ghi. Chèn kiểu văn bản để giữ nguyên định dạng / chú thích của file.</summary>
+    public Task<bool> EnsureUrlEInvoiceAsync(EInvoiceInputs i, Action<string, string> log)
+    {
+        var ws = _connections.Current;
+        var programPath = (ws?.ProgramPath ?? "").Trim();
+        if (programPath.Length == 0) { log("Error: dự án chưa khai Program Path (thư mục site chứa Web.config) — khai ở phần sửa dự án rồi thử lại.", "err"); return Task.FromResult(false); }
+        var project = (i.Project ?? "").Trim();
+        if (project.Length == 0) project = (ws?.ProjectId ?? "").Trim();
+        if (project.Length == 0) { log("Error: thiếu Mã dự án.", "err"); return Task.FromResult(false); }
+        var host = UncHost(programPath);   // \\172.168.5.14\... → 172.168.5.14
+        if (host.Length == 0) { log("Error: Program Path không phải đường mạng (\\\\máy\\...) nên không đoán được host cho URL. Dùng đường UNC hoặc khai urlEInvoice thủ công.", "err"); return Task.FromResult(false); }
+        var url = $"http://{host}/{project}_eInv/AppService/FastBusiness.EInvoice.Proxy.asmx";
+        var webConfig = System.IO.Path.Combine(programPath, "Web.config");
+        return Task.Run(() => EnsureAppSetting(webConfig, "urlEInvoice", url, log));
+    }
+
+    /// <summary>"\\172.168.5.14\CustomerPro\..." → "172.168.5.14"; đường ổ cục bộ → "".</summary>
+    private static string UncHost(string path) => path.StartsWith(@"\\") ? path[2..].Split('\\', 2)[0] : "";
+
+    /// <summary>Thêm 1 appSetting vào Web.config nếu chưa có (chèn văn bản, giữ nguyên phần còn lại). true = đã có sẵn hoặc khai xong; false = lỗi.</summary>
+    private static bool EnsureAppSetting(string webConfig, string key, string value, Action<string, string> log)
+    {
+        byte[] bytes;
+        try { bytes = System.IO.File.ReadAllBytes(webConfig); }
+        catch (Exception ex) { log($"Error: không đọc được {webConfig} — {ex.Message}", "err"); return false; }
+        var hasBom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        var text = new UTF8Encoding(false).GetString(bytes, hasBom ? 3 : 0, bytes.Length - (hasBom ? 3 : 0));
+
+        var rx = new System.Text.RegularExpressions.Regex("<add\\s+key\\s*=\\s*\"" + System.Text.RegularExpressions.Regex.Escape(key) + "\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        var m = rx.Match(text);
+        if (m.Success)
+        {
+            var vm = System.Text.RegularExpressions.Regex.Match(text[m.Index..], "value\\s*=\\s*\"([^\"]*)\"", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            log($"Đã có {key}" + (vm.Success ? " = " + vm.Groups[1].Value : "") + " trong Web.config — không khai lại.", "ok");
+            return true;
+        }
+
+        var line = $"<add key=\"{key}\" value=\"{value}\" />";
+        string updated;
+        var closeAs = System.Text.RegularExpressions.Regex.Match(text, "</appSettings\\s*>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (closeAs.Success)
+            updated = text.Insert(closeAs.Index, "  " + line + "\r\n  ");
+        else
+        {
+            var openCfg = System.Text.RegularExpressions.Regex.Match(text, "<configuration[^>]*>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!openCfg.Success) { log("Error: Web.config không có <configuration> — không chèn được.", "err"); return false; }
+            var at = openCfg.Index + openCfg.Length;
+            updated = text.Insert(at, "\r\n  <appSettings>\r\n    " + line + "\r\n  </appSettings>");
+        }
+
+        try
+        {
+            var bak = webConfig + ".bcode.bak";
+            if (!System.IO.File.Exists(bak)) System.IO.File.Copy(webConfig, bak);
+            System.IO.File.WriteAllText(webConfig, updated, new UTF8Encoding(hasBom));
+            log($"Đã khai {key} = {value}", "ok");
+            log($"→ ghi vào {webConfig} (đã sao lưu {System.IO.Path.GetFileName(bak)}).", "info");
+            return true;
+        }
+        catch (Exception ex) { log($"Error: không ghi được Web.config — {ex.Message}", "err"); return false; }
+    }
+
     /// <summary>null = bản build có khoá RSA mẫu; còn lại là thông báo — thiếu thì KHÔNG được dựng script (sẽ ghi khoá rỗng vào DB khách).</summary>
     public static string? MissingKeysError =>
         LocalSecrets.EInvProxyPrivateKey.Length > 0 && LocalSecrets.EInvProxyPublicKey.Length > 0 && LocalSecrets.EInvAppPk.Length > 0 && LocalSecrets.EInvAppRk.Length > 0 ? null

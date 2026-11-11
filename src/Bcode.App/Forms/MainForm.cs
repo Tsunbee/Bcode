@@ -630,10 +630,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             catch (Exception ex)
             {
                 MessageBox.Show(this,
-                    "Không khởi tạo được phần giao diện mới (top bar/icon rail/status bar, dùng WebView2).\n" +
-                    "Kiểm tra máy đã có WebView2 Runtime chưa (thường có sẵn qua Edge trên Windows 10/11 — " +
-                    "nếu chưa, tải \"WebView2 Runtime\" (Evergreen Bootstrapper) từ trang Microsoft rồi mở lại Bcode).\n\n" +
-                    "Chi tiết lỗi: " + ex.Message,
+                    Bcode.App.UI.WebViewEnvironment.FriendlyInitMessage("phần giao diện mới (top bar/icon rail/status bar)", ex),
                     "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }

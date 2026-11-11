@@ -40,6 +40,21 @@ Trong Bcode, tài liệu này mở bằng nút **Trợ giúp** trên thanh trên
 4. Quên chức năng nằm đâu: `Ctrl+P` (Command Palette) rồi gõ tên.
 5. Đang ở tab nào không biết dùng: bấm **Trợ giúp** (`Ctrl+F1`) — mở đúng mục của tab đó.
 
+<a id="loi-mo-webview2"></a>
+## Lỗi "Không khởi tạo được … (dùng WebView2)" khi mở Bcode
+
+Mở Bcode hiện hộp **"Bcode — WebView2"** với dòng *"Unable to load DLL 'WebView2Loader.dll' or one of its dependencies: The specified module could not be found. (0x8007007E)"* — và giao diện (thanh trên / cây / thanh công cụ) không lên.
+
+**Nguyên nhân** (gần như luôn là một trong hai): bản Bcode được **chép tay** sang máy này nhưng **thiếu thư mục con** `runtimes\win-x64\native\` (chứa `WebView2Loader.dll`), hoặc file đó bị **diệt virus xoá/khoá**. Đây **không** phải lỗi thiếu Microsoft Visual C++ Redistributable — `WebView2Loader.dll` chỉ phụ thuộc các thư viện có sẵn của Windows.
+
+**Khắc phục trên máy bị lỗi:**
+
+1. **Chép lại nguyên vẹn** cả thư mục Bcode từ bản phát hành, **giữ mọi thư mục con** — đừng chỉ chép các file lẻ cạnh `Bcode.exe`. Kiểm tra có file `Bcode\runtimes\win-x64\native\WebView2Loader.dll` (và từ bản này có thêm `WebView2Loader.dll` **ngay cạnh** `Bcode.exe`).
+2. Nếu chép qua **mạng / USB / giải nén ZIP**: chuột phải `WebView2Loader.dll` → **Properties** → tích **Unblock** (bỏ chặn mark-of-the-web), rồi mở lại. Kiểm tra phần mềm **diệt virus** có cách ly file không.
+3. Nên có sẵn **Microsoft Edge WebView2 Runtime** (Windows 10/11 thường đã có qua Edge; nếu thiếu, tải "WebView2 Runtime" Evergreen Bootstrapper từ trang Microsoft).
+
+> Cách gọn nhất để không bao giờ gặp lỗi này: dùng đúng cơ chế **Cập nhật Bcode** (chép đủ thư mục) thay vì chọn tay vài file.
+
 <a id="tro-giup"></a>
 ## Dùng tab Trợ giúp
 

@@ -162,7 +162,7 @@ public class SqlObjectTreeControl : UserControl
             catch (Exception ex)
             {
                 MessageBox.Show(this,
-                    "Không khởi tạo được thanh công cụ (dùng WebView2).\nChi tiết lỗi: " + ex.Message,
+                    Bcode.App.UI.WebViewEnvironment.FriendlyInitMessage("thanh công cụ", ex),
                     "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }

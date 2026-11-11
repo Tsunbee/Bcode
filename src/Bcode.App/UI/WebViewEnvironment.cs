@@ -168,6 +168,43 @@ internal static class WebViewEnvironment
         catch { }
     }
 
+    /// <summary>Lỗi "Unable to load DLL 'WebView2Loader.dll' ... (0x8007007E)": không nạp được file loader native của WebView2
+    /// (ERROR_MOD_NOT_FOUND). WebView2Loader.dll chỉ phụ thuộc KERNEL32/ADVAPI32/ole32 (đều của Windows, không cần VC++ Redistributable),
+    /// nên lỗi này gần như luôn là THIẾU chính file loader — thường do bản Bcode chép tay bỏ sót thư mục con runtimes\win-x64\native\,
+    /// hoặc file bị diệt virus xoá/khoá (mark-of-the-web), chứ không phải thiếu phụ thuộc hệ thống.</summary>
+    internal static bool IsLoaderError(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            if (e is DllNotFoundException) return true;
+            if (unchecked((uint)e.HResult) == 0x8007007Eu) return true;   // ERROR_MOD_NOT_FOUND
+            if (e.Message.Contains("WebView2Loader", StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Thông báo lỗi dễ hiểu cho người dùng khi không khởi tạo được 1 phần giao diện WebView2 (<paramref name="what"/> = phần nào,
+    /// vd "thanh công cụ"). Nhận ra lỗi thiếu WebView2Loader.dll (0x8007007E) thì hướng dẫn chép lại đủ thư mục / bỏ chặn file; các lỗi khác
+    /// thì nhắc kiểm tra WebView2 Runtime như trước. Dùng chung cho mọi chỗ bắt lỗi khởi tạo WebView2 (MainForm, các thanh công cụ cây).</summary>
+    public static string FriendlyInitMessage(string what, Exception ex)
+    {
+        if (IsLoaderError(ex))
+            return
+                $"Không khởi tạo được {what} (dùng WebView2).\n\n" +
+                "Máy thiếu/không nạp được tệp WebView2Loader.dll — thường do bản Bcode được CHÉP TAY sang máy này bị thiếu thư mục con " +
+                "(file loader nằm trong runtimes\\win-x64\\native\\), hoặc bị phần mềm diệt virus xoá/khoá.\n\n" +
+                "Cách khắc phục:\n" +
+                "• Chép LẠI toàn bộ thư mục Bcode từ bản phát hành, giữ nguyên MỌI thư mục con (nhất là runtimes\\) — đừng chỉ chép các file lẻ cạnh Bcode.exe.\n" +
+                "• Nếu chép qua mạng/USB/giải nén ZIP: chuột phải WebView2Loader.dll → Properties → tích \"Unblock\", và kiểm tra diệt virus có cách ly file không.\n" +
+                "• Nên có sẵn Microsoft Edge WebView2 Runtime (Windows 10/11 thường đã có qua Edge).\n\n" +
+                "Chi tiết lỗi: " + ex.Message;
+        return
+            $"Không khởi tạo được {what} (dùng WebView2).\n" +
+            "Kiểm tra máy đã có WebView2 Runtime chưa (thường có sẵn qua Edge trên Windows 10/11 — " +
+            "nếu chưa, tải \"WebView2 Runtime\" (Evergreen Bootstrapper) từ trang Microsoft rồi mở lại Bcode).\n\n" +
+            "Chi tiết lỗi: " + ex.Message;
+    }
+
     /// <summary>Host ảo (<see cref="Host"/>, <see cref="UiOverrides.UserHost"/>) không có thật trên mạng nhưng mỗi lần điều hướng tới nó (trang chính lẫn
     /// iframe) WebView2 vẫn hỏi DNS hệ thống rồi mới phục vụ từ thư mục — đo 22/10/2026: ~90–110 ms mỗi lần, có lúc ~2 s (mở tab SQL Query: framehost
     /// rồi iframe thanh + editor = 2 lần chờ nối tiếp). Báo "không có" ngay tại chỗ (giống kết quả DNS thật, chỉ khỏi chờ) — host thật không bị ảnh hưởng.</summary>

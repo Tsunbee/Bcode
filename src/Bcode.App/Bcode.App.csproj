@@ -226,7 +226,15 @@
     <RemoveDir Directories="$(OutDir)FDecrypt\runtimes" ContinueOnError="true" />
     <Copy SourceFiles="@(FDecryptOutput)" DestinationFiles="@(FDecryptOutput->'$(OutDir)FDecrypt\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
+  <!-- WebView2Loader.dll (native, x64) chỉ nằm trong runtimes\win-x64\native\ (gói Microsoft.Web.WebView2, phân giải qua Bcode.deps.json).
+       Bản Bcode CHÉP TAY sang máy khác mà bỏ sót thư mục con runtimes\ (hoặc diệt virus xoá/khoá file) → lúc mở báo
+       "Unable to load DLL 'WebView2Loader.dll' ... (0x8007007E)" và hỏng toàn bộ giao diện WebView2. Chép thêm 1 bản THẲNG cạnh exe:
+       thiếu runtimes\ thì hệ điều hành vẫn tìm thấy loader cạnh Bcode.exe (đường tìm DLL mặc định). Phải chạy TRƯỚC manifest (import dưới). -->
+  <Target Name="CopyWebView2LoaderBesideExe" AfterTargets="Build;Publish">
+    <Copy SourceFiles="$(OutDir)runtimes\win-x64\native\WebView2Loader.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true"
+          Condition="Exists('$(OutDir)runtimes\win-x64\native\WebView2Loader.dll')" />
+  </Target>
   <!-- Dấu phiên bản + "Có gì mới" + manifest SHA-256 cho "Cập nhật Bcode" (Shared/AppUpdate.cs) — dùng chung với BcodeViewer.App.
-       Import CUỐI file: target manifest phải chạy sau mọi target chép ScreenDesigner / Ocr / FDecrypt. -->
+       Import CUỐI file: target manifest phải chạy sau mọi target chép ScreenDesigner / Ocr / FDecrypt / WebView2Loader. -->
   <Import Project="..\Shared\Release.targets" />
 </Project>

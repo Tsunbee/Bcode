@@ -363,7 +363,7 @@ public class SqlProfilerControl : UserControl
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Không khởi tạo được thanh công cụ (dùng WebView2).\nChi tiết lỗi: " + ex.Message, "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(this, Bcode.App.UI.WebViewEnvironment.FriendlyInitMessage("thanh công cụ", ex), "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
 

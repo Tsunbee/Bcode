@@ -1,4 +1,5 @@
 using Bcode.App.Services;
+using Bcode.Shared;
 
 namespace Bcode.App.Forms;
 
@@ -18,6 +19,8 @@ public partial class MainForm
 
     private void InitUpdateCheck()
     {
+        // Lõi dùng chung với BcodeViewer / Screen Designer (Shared/AppUpdate.cs). ScreenDesigner cạnh Bcode.exe là app tự cập nhật riêng — cập nhật Bcode không đụng.
+        UpdateCheckService.Configure("Bcode", "update", BcodePaths.AppData, "Bcode.exe", "", "ScreenDesigner");
         FormClosed += (_, _) => RunPendingUpdate();
         ReportLastUpdate();
         if (string.IsNullOrWhiteSpace(ReleaseFolder)) return;
@@ -29,10 +32,28 @@ public partial class MainForm
             var (remote, _) = await UpdateCheckService.CheckAsync(ReleaseFolder);   // lỗi mạng lúc tự kiểm tra: im lặng
             if (IsDisposed || remote is null || !UpdateCheckService.IsNewer(remote, UpdateCheckService.Local)) return;
             _newBuild = remote;
-            PushNotice($"Có bản Bcode mới ({remote.Label}) — Settings → \"Cập nhật Bcode\" để xem và cập nhật.");
+            ShowUpdateToast();
         };
         Disposed += (_, _) => timer.Dispose();
         timer.Start();
+    }
+
+    /// <summary>Thông báo "Có bản Bcode mới" không tự tắt, góc dưới phải cửa sổ (Shared/AppUpdateToast.cs): Xem = mở hộp Cập nhật; Để sau = nhắc lại sau 4 giờ.</summary>
+    private AppUpdateToast? _updateToast;
+
+    private AppUpdateToast UpdateToast => _updateToast ??= new AppUpdateToast(this,
+        () => new ToastPalette(UI.AppColors.Panel, UI.AppColors.Text, UI.AppColors.TextMuted, UI.AppColors.Accent, UI.AppColors.Border),
+        () => BeginInvoke(CheckForUpdateInteractive));
+
+    private (string Title, string Detail) UpdateToastText(BuildStamp b) =>
+        ($"Có bản Bcode mới — {(b.Version.Length > 0 ? "v" + b.Version + " " : "")}{(b.Build > 0 ? "build " + b.Build : b.When)}",
+         "Bấm Xem để xem có gì mới và cập nhật. Tải về chạy nền, Bcode vẫn dùng bình thường.");
+
+    private void ShowUpdateToast()
+    {
+        if (_newBuild is not { } b || _pendingUpdate is not null) return;
+        var (t, d) = UpdateToastText(b);
+        UpdateToast.Show(t, d);
     }
 
     /// <summary>Lần cập nhật / quay lại vừa chạy (trước khi mở Bcode này): thành công → thanh trạng thái; lỗi → hộp báo kèm đường dẫn nhật ký.</summary>
@@ -58,23 +79,29 @@ public partial class MainForm
     private void CheckForUpdateInteractive()
     {
         bool Choose() { var before = ReleaseFolder; ChooseReleaseFolder(); return !string.Equals(before, ReleaseFolder, StringComparison.OrdinalIgnoreCase); }
+        _updateToast?.Clear();
         using var f = new UpdateForm(() => ReleaseFolder, Choose, _pendingUpdate is { Relaunch: false });
         var res = f.ShowDialog(this);
-        if (res == DialogResult.Abort) { _pendingUpdate = null; PushNotice("Đã huỷ hẹn cài bản mới khi đóng Bcode."); return; }
-        if (res != DialogResult.OK) return;
+        if (res == DialogResult.Abort) { _pendingUpdate = null; PushNotice("Đã huỷ hẹn cài bản mới khi đóng Bcode."); }
+        if (res != DialogResult.OK || f.Decision == UpdateDialogLogic.Outcome.None)
+        {
+            // đóng hộp mà chưa cập nhật: nhắc lại sau 4 giờ (thông báo cố định)
+            if (_newBuild is { } nb && _pendingUpdate is null) { var (t, d) = UpdateToastText(nb); UpdateToast.Later(t, d); }
+            return;
+        }
         switch (f.Decision)
         {
-            case UpdateForm.Outcome.ApplyNow when f.Plan is not null:
+            case UpdateDialogLogic.Outcome.ApplyNow when f.Plan is not null:
                 _pendingUpdate = (f.Plan, null, f.OverwriteModified, true);
                 PushStatus("Đang đóng Bcode để cài bản mới...");
                 Close();
                 if (!IsDisposed && Visible) { _pendingUpdate = null; PushNotice("Chưa cài bản mới vì Bcode chưa đóng. Mở lại Settings → Cập nhật Bcode khi sẵn sàng."); }
                 break;
-            case UpdateForm.Outcome.ApplyOnClose when f.Plan is not null:
+            case UpdateDialogLogic.Outcome.ApplyOnClose when f.Plan is not null:
                 _pendingUpdate = (f.Plan, null, f.OverwriteModified, false);
                 PushNotice($"Bản mới {f.Plan.ToLabel} sẽ được cài khi bạn đóng Bcode.");
                 break;
-            case UpdateForm.Outcome.Rollback when f.Backup is not null:
+            case UpdateDialogLogic.Outcome.Rollback when f.Backup is not null:
                 _pendingUpdate = (null, f.Backup, false, true);
                 PushStatus("Đang đóng Bcode để quay lại bản trước...");
                 Close();
@@ -132,7 +159,7 @@ public partial class MainForm
         if (text is null) return;
         _settings.ReleaseFolder = UpdateCheckService.ToSetting(text);
         try { _settings.Save(); } catch { /* lưu lỗi: chỉ mất cấu hình này */ }
-        _newBuild = null;
+        _newBuild = null; _updateToast?.Clear();
         PushNotice(ReleaseFolder.Length == 0 ? "Đã tắt kiểm tra bản mới." : "Thư mục phát hành: " + ReleaseFolder);
     }
 }

@@ -346,6 +346,13 @@ public class DesignerBridge
     private static string DefaultMineDir => Path.Combine(DataDir, "my");
     private static string MineDir => _mineDirOverride.Length > 0 ? _mineDirOverride : DefaultMineDir;
 
+    /// <summary>Nút "⬆ Cập nhật": mở hộp Cập nhật Screen Designer (MainForm.Update.cs) — trả về ngay, hộp mở trên luồng giao diện.</summary>
+    public void BeginUpdate(string requestId) => Begin(requestId, () =>
+    {
+        if (_form is MainForm f && !f.IsDisposed) f.BeginInvoke(f.CheckForUpdateInteractive);
+        return "";
+    });
+
     /// <summary>Thư mục đang lưu "Mẫu của tôi" (mặc định %AppData%BcodeScreenDesignermy).</summary>
     public void BeginMineInfo(string requestId) => Begin(requestId, () => JsonSerializer.Serialize(new { dir = MineDir, isDefault = _mineDirOverride.Length == 0, defaultDir = DefaultMineDir }));
 

@@ -195,6 +195,10 @@ public class ViewerSettings
     /// <summary>Bố cục giao diện: khoá → giá trị ("menubar"/"toolbar"/"breadcrumb"/"tabstrip" = "0" để ẩn, "sidebarSide" = "left"|"right"...). Không có khoá = mặc định.</summary>
     public Dictionary<string, string> LayoutPrefs { get; set; } = new();
 
+    /// <summary>Thư mục phát hành bản BcodeViewer mới (Help → Cập nhật BcodeViewer → Đổi…). "" = mặc định &lt;BcodeReleaseFolder&gt; của
+    /// BcodeViewer.App.csproj, "-" = tắt kiểm tra. Riêng của Viewer — khác thư mục phát hành của Bcode.</summary>
+    public string ReleaseFolder { get; set; } = "";
+
     /// <summary>When set, <see cref="ThemeId"/> is ignored and the theme follows the Windows
     /// app-colour setting, tracking it live. Off by default: someone who deliberately picked
     /// Monokai should not have it swapped out when Windows switches to light at sunset.</summary>

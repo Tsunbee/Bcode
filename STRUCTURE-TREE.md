@@ -172,7 +172,7 @@ Bcode.App/
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  372
 │   ├── MainForm.ToolGroups.cs  101
-│   ├── MainForm.Update.cs  138
+│   ├── MainForm.Update.cs  165
 │   ├── MenuPickerForm.cs  95
 │   ├── NativeProjectPickerForm.cs  193
 │   ├── PartitionCheckForm.cs  58
@@ -199,7 +199,7 @@ Bcode.App/
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
 │   ├── UiTemplateForm.cs  930
-│   ├── UpdateForm.cs  149
+│   ├── UpdateForm.cs  32
 │   ├── VoucherCloneForm.cs  541
 │   ├── VoucherPreviewForm.cs  64
 │   ├── WCommandDuplicateForm.cs  29
@@ -367,7 +367,6 @@ Bcode.App/
 │   ├── TableDataService.cs  652
 │   ├── TableMenuService.cs  194
 │   ├── TextLanguageDetector.cs  71
-│   ├── UpdateCheckService.cs  565
 │   ├── UsageSearchService.cs  116
 │   ├── ViewerControlServer.cs  76
 │   ├── ViewerLauncher.cs  51
@@ -496,7 +495,7 @@ Bcode.App/
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1326
-│       ├── update.html  380
+│       ├── update.html  392
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836
 │       ├── voucherview.html  88
@@ -504,7 +503,7 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  262
+├── Bcode.App.csproj  227
 ├── BcodePaths.cs  48
 └── Program.cs  45
 ```
@@ -561,7 +560,7 @@ BcodeViewer.App/
 │   ├── SharedHistoryStore.cs  317
 │   ├── TemplatePickerForm.cs  79
 │   ├── TranslateDictionary.cs  370
-│   └── ViewerSettings.cs  243
+│   └── ViewerSettings.cs  247
 ├── UI/
 │   ├── AppTheme.cs  397
 │   ├── CodeHighlighter.cs  100
@@ -601,7 +600,7 @@ BcodeViewer.App/
 │   ├── quickopen.js  184
 │   ├── search.js  335
 │   ├── settings.js  802
-│   ├── shell.js  869
+│   ├── shell.js  874
 │   ├── sqlrun.js  635
 │   ├── style.css  1056
 │   ├── tabs.js  249
@@ -612,9 +611,10 @@ BcodeViewer.App/
 │   ├── ui.js  134
 │   └── zoombar.js  102
 ├── BcodePaths.cs  45
-├── BcodeViewer.App.csproj  91
+├── BcodeViewer.App.csproj  110
 ├── HintCodeForm.cs  520
-├── MainForm.cs  2876
+├── MainForm.cs  2884
+├── MainForm.Update.cs  155
 └── Program.cs  231
 ```
 ```
@@ -626,13 +626,14 @@ Bcode.ScreenDesigner/
 │   └── SampleModels.cs  43
 ├── Web/
 │   ├── designer.css  121
-│   ├── designer.html  127
-│   ├── designer.js  1279
+│   ├── designer.html  128
+│   ├── designer.js  1287
 │   ├── dp.css  135
 │   └── shim.js  102
-├── Bcode.ScreenDesigner.csproj  44
-├── DesignerBridge.cs  461
-├── MainForm.cs  74
+├── Bcode.ScreenDesigner.csproj  65
+├── DesignerBridge.cs  468
+├── MainForm.cs  76
+├── MainForm.Update.cs  173
 └── Program.cs  28
 ```
 ```
@@ -673,8 +674,12 @@ Bcode.KeyGen/
 Shared/
 ├── AiWebHelper.cs  373
 ├── AppSwitchFocus.cs  86
+├── AppUpdate.cs  632
+├── AppUpdateDialog.cs  171
+├── AppUpdateForm.cs  181
+├── AppUpdateToast.cs  195
 ├── DpapiText.cs  134
 ├── KnowledgeMover.cs  166
 ├── LicenseCodec.cs  103
-└── PipeProtocol.cs  44
+├── PipeProtocol.cs  44
 ```

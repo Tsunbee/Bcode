@@ -1,9 +1,13 @@
 ﻿<#
-  Phát hành bản Bcode lên thư mục phát hành (thư mục mà "Cập nhật Bcode" của các máy đọc — Services/UpdateCheckService.cs).
+  Phát hành bản Bcode / BcodeViewer / Screen Designer lên thư mục phát hành (thư mục mà "Cập nhật ..." của các máy đọc — Shared/AppUpdate.cs).
+  Mỗi app một cơ chế cập nhật riêng, thư mục phát hành RIÊNG (không trùng nhau).
 
   Cách dùng (từ gốc repo, sau khi build Release):
       powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1 -Dest "\\máy\thư mục phát hành"
-      -Source <thư mục build>  nếu không phải src\Bcode.App\bin\Release\net8.0-windows
+      -App Viewer | Designer   phát hành BcodeViewer / Screen Designer (mặc định: Bcode)
+                               Bcode build kèm ScreenDesigner\ (bản khởi đầu cho máy mới) nhưng manifest của Bcode bỏ thư mục đó —
+                               Designer cập nhật bằng -App Designer.
+      -Source <thư mục build>  nếu không phải src\<app>\bin\Release\net8.0-windows
       -Full                    chép lại toàn bộ (khi nghi file trên server bị sửa tay / thiếu)
 
   Nhanh: chỉ đọc 1 file bcode-manifest.json đang có trên server, so SHA-256 với bản mới → chỉ chép file KHÁC (thường vài chục file,
@@ -17,20 +21,29 @@
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Dest,
-    [string]$Source = '',
+    [ValidateSet('Bcode', 'Viewer', 'Designer')][string]$App = 'Bcode',
+    [string]$Source,
     [switch]$Full
 )
 $ErrorActionPreference = 'Stop'
-# Windows PowerShell 5.1 chạy bằng -File: $PSScriptRoot còn rỗng lúc tính giá trị mặc định trong param() → tính ở đây.
+$apps = @{ Bcode = 'Bcode.App', 'Bcode.exe'; Viewer = 'BcodeViewer.App', 'BcodeViewer.exe'; Designer = 'Bcode.ScreenDesigner', 'BcodeScreenDesigner.exe' }
+$proj, $exe = $apps[$App]
+# Windows PowerShell 5.1 chạy bằng -File: $PSScriptRoot có thể còn rỗng → lấy thư mục script từ $MyInvocation.
 if (-not $Source) {
     $here = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-    $Source = Join-Path $here '..\src\Bcode.App\bin\Release\net8.0-windows'
+    $Source = Join-Path $here "..\src\$proj\bin\Release\net8.0-windows"
 }
 $Source = (Resolve-Path -LiteralPath $Source).Path.TrimEnd('\')
+if (-not (Test-Path -LiteralPath (Join-Path $Source $exe))) { throw "Không thấy $exe trong $Source — sai -App hoặc -Source?" }
+# Chặn phát hành nhầm app vào thư mục đang chứa app khác (mỗi app phải có thư mục phát hành riêng)
+foreach ($k in $apps.Keys) {
+    $other = $apps[$k][1]
+    if ($k -ne $App -and (Test-Path -LiteralPath (Join-Path $Dest $other))) { throw "$Dest đang chứa $other — mỗi app cần thư mục phát hành riêng." }
+}
 $Dest = $Dest.TrimEnd('\')
 $meta = 'bcode-version.json', 'bcode-manifest.json', 'bcode-changelog.txt'
 
-foreach ($f in 'Bcode.exe', 'bcode-version.json', 'bcode-manifest.json') {
+foreach ($f in $exe, 'bcode-version.json', 'bcode-manifest.json') {
     if (-not (Test-Path -LiteralPath (Join-Path $Source $f))) {
         throw "Thiếu $f trong $Source — build Release trước (bcode-manifest.json chỉ sinh ở Release, hoặc build thêm /p:BcodeManifest=true)."
     }
@@ -43,7 +56,7 @@ function Read-Manifest($path) {
 }
 
 $stamp = [IO.File]::ReadAllText((Join-Path $Source 'bcode-version.json')) | ConvertFrom-Json
-Write-Host ("Phát hành v{0} build {1} ({2}, commit {3})" -f $stamp.version, $stamp.build, $stamp.built, $stamp.commit)
+Write-Host ("Phát hành $App v{0} build {1} ({2}, commit {3})" -f $stamp.version, $stamp.build, $stamp.built, $stamp.commit)
 Write-Host "  từ  $Source"
 Write-Host "  tới $Dest"
 $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -57,7 +70,24 @@ if (-not $Full -and (Test-Path -LiteralPath $oldManPath)) {
 }
 
 $destStamp = Join-Path $Dest 'bcode-version.json'
-if (Test-Path -LiteralPath $destStamp) { Remove-Item -LiteralPath $destStamp -Force }
+if (Test-Path -LiteralPath $destStamp) {
+    # Xoá dấu phiên bản trước khi chép để máy khác không thấy "bản mới" giữa chừng. Share chỉ cho GHI mà không cho XOÁ (file do người khác tạo...)
+    # thì giữ dấu cũ và ghi đè ở cuối — máy cập nhật vẫn kiểm SHA-256 từng file + đọc lại dấu sau khi tải nên không cài phải bản chép dở.
+    $removed = $false
+    try { Remove-Item -LiteralPath $destStamp -Force -ErrorAction Stop; $removed = $true } catch { }
+    if (-not $removed) {
+        try { (Get-Item -LiteralPath $destStamp -Force).Attributes = 'Normal'; Remove-Item -LiteralPath $destStamp -Force -ErrorAction Stop; $removed = $true } catch { }
+    }
+    if (-not $removed) {
+        $canWrite = $false
+        try { $fs = [IO.File]::Open($destStamp, 'Open', 'Write', 'ReadWrite'); $fs.Dispose(); $canWrite = $true } catch { }
+        if (-not $canWrite) {
+            throw "Không xoá cũng không ghi được $destStamp (máy này / tài khoản $env:USERNAME không có quyền). Chưa chép gì lên server. " +
+                  "Nhờ người quản lý share cấp quyền Sửa (Modify) cho thư mục $Dest, hoặc nhờ người tạo file xoá nó."
+        }
+        Write-Host "  Không xoá được bcode-version.json cũ (share không cho xoá) — giữ lại, sẽ ghi đè ở cuối." -ForegroundColor Yellow
+    }
+}
 
 if ($null -eq $oldMan) {
     Write-Host ("  chép toàn bộ ({0} file)..." -f $newMan.Count)
@@ -90,4 +120,4 @@ foreach ($f in 'bcode-manifest.json', 'bcode-changelog.txt', 'bcode-version.json
     $p = Join-Path $Source $f
     if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination (Join-Path $Dest $f) -Force }
 }
-Write-Host ("Xong: chép {0} file trong {1:N1} giây. Các máy sẽ thấy bản mới ở lần kiểm tra kế tiếp (mở Bcode, hoặc mỗi 4 giờ)." -f $copied, $sw.Elapsed.TotalSeconds) -ForegroundColor Green
+Write-Host ("Xong: chép {0} file trong {1:N1} giây. Các máy sẽ thấy bản mới ở lần kiểm tra kế tiếp (mở $($exe -replace '\.exe$',''), hoặc mỗi 4 giờ)." -f $copied, $sw.Elapsed.TotalSeconds) -ForegroundColor Green

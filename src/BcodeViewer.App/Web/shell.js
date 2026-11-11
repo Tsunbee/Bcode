@@ -77,6 +77,9 @@ class BcodeShell {
   k(id) { return window.bcodeKeys ? window.bcodeKeys.get(id) : ''; }
 
   cmd(name, arg) { try { this.host && this.host.ShellCommand(name, arg || ''); } catch { /* host gone */ } }
+
+  /// Nhãn mục Help → Cập nhật BcodeViewer (host đổi khi thấy bản mới / đã hẹn cài khi đóng — MainForm.Update.cs).
+  setUpdateLabel(text) { this.updateLabel = text || ''; }
   load(key) { try { return localStorage.getItem(key); } catch { return null; } }
   save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage blocked */ } }
 
@@ -162,6 +165,8 @@ class BcodeShell {
       ] },
       { title: 'Help', items: [
         { label: 'Giới thiệu...', run: () => this.showAbout() },
+        // Cập nhật riêng của BcodeViewer (thư mục phát hành riêng, không đi theo Bcode) — MainForm.Update.cs / UpdateForm.cs.
+        { label: this.updateLabel || 'Kiểm tra bản BcodeViewer mới...', run: () => this.cmd('checkUpdate') },
         // Web/perfwatch.js: mỗi lần trang bị chặn >= 100 ms ghi 1 dòng (lúc đang làm gì) — thấy giật thì gửi file này.
         { label: 'Log độ mượt (viewer-perf.log)...', run: () => window.bcodeNotify('OpenPerfLog') },
       ] },

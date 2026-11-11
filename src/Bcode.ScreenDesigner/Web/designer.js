@@ -65,6 +65,14 @@
   document.querySelectorAll('#kinds input').forEach((c) => c.addEventListener('change', renderList));
   $('list').addEventListener('click', (e) => { const it = e.target.closest('.it'); if (it) openScreen(S.screens[+it.dataset.i]); });
 
+  // Cập nhật Screen Designer (cơ chế riêng — MainForm.Update.cs): host đẩy nhãn / sáng nút / thông báo qua setUpdateState.
+  $('bUpd').onclick = () => call('BeginUpdate').catch(() => {});
+  window.setUpdateState = (s) => {
+    const b = $('bUpd');
+    b.textContent = s.label || '⬆ Cập nhật'; b.title = s.title || ''; b.classList.toggle('primary', !!s.hot);
+    if (s.toast) toast(s.toast);
+  };
+
   $('proj').onchange = async () => { S.source = $('proj').value; await refreshMirror(); applyCache(); await loadScreens(false); saveState(); };
   $('bBrowse').onclick = async () => {
     const p = await call('BeginPickFolder', S.source || '');

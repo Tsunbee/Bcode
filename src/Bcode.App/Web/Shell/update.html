@@ -139,7 +139,7 @@
       <ul id="modL"></ul>
       <label class="chk"><input type="checkbox" id="overwrite"> Ghi đè cả các file này bằng bản mới (bản đang có được sao lưu)</label>
     </details>
-    <div class="hint" style="margin-top:.6rem">Khi cài, Bcode đóng lại; mọi cửa sổ Bcode / BcodeViewer / BcodeNote chạy từ thư mục này cũng phải đóng. Chép xong Bcode tự mở lại. Dữ liệu (dự án, phiên, note) ở <code>%AppData%\Bcode</code> không bị đụng — nhớ lưu các tab đang sửa.</div>
+    <div class="hint" style="margin-top:.6rem" id="cfgHint"></div>
   </section>
 
   <section class="card hide" id="chg">
@@ -261,6 +261,16 @@
     ['prog', 'ready', 'chg'].forEach((id) => show(id, false));
     buttons([]);
 
+    // Tên app: trang dùng chung cho "Cập nhật Bcode" và "Cập nhật BcodeViewer" (Shared/AppUpdateDialog.cs gửi s.app)
+    const A = s.app || 'Bcode';
+    document.title = 'Cập nhật ' + A;
+    $('bOnClose').textContent = 'Cài khi đóng ' + A;
+    $('cfgHint').innerHTML = '';
+    $('cfgHint').append(A === 'Bcode'
+      ? 'Khi cài, Bcode đóng lại; mọi cửa sổ Bcode / Screen Designer chạy từ thư mục này cũng phải đóng. Chép xong Bcode tự mở lại. Dữ liệu (dự án, phiên, note) ở '
+      : 'Khi cài, ' + A + ' đóng lại; mọi cửa sổ ' + A + ' khác chạy từ thư mục này cũng phải đóng. Chép xong ' + A + ' tự mở lại. Cài đặt, file gần đây, lịch sử ở ');
+    const code = document.createElement('code'); code.textContent = '%AppData%\\Bcode'; $('cfgHint').append(code, ' không bị đụng — nhớ lưu các tab đang sửa.');
+
     const remoteName = s.remote ? (s.remote.version ? 'v' + s.remote.version : '') + (s.remote.build ? ' build ' + s.remote.build : '') : '';
     switch (s.phase) {
       case 'checking':
@@ -268,7 +278,7 @@
         $('bLater').textContent = 'Đóng';
         break;
       case 'nofolder':
-        hero('folder', '', 'Chưa đặt thư mục phát hành', 'Bcode lấy bản mới từ một thư mục chung (thường là thư mục mạng).');
+        hero('folder', '', 'Chưa đặt thư mục phát hành', A + ' lấy bản mới từ một thư mục chung (thường là thư mục mạng).');
         setMain('Chọn thư mục...', () => post('folder'));
         break;
       case 'error':
@@ -277,22 +287,23 @@
         buttons(['bRetry']); $('bLater').textContent = 'Đóng';
         break;
       case 'norelease':
-        hero('folder', '', 'Chưa có bản phát hành', 'Thư mục phát hành chưa có bản Bcode nào để so — Bcode đang dùng vẫn bình thường.');
-        note('info', 'Thư mục ' + (s.folder || '') + ' chưa có bản build Bcode (thiếu bcode-version.json). Người phát hành build Release rồi chạy tools\\publish-release.ps1 -Dest "<thư mục này>". Nếu bản build nằm ở thư mục con, bấm Đổi… để trỏ đúng thư mục chứa Bcode.exe.');
+        hero('folder', '', 'Chưa có bản phát hành', 'Thư mục phát hành chưa có bản ' + A + ' nào để so — ' + A + ' đang dùng vẫn bình thường.');
+        note('info', 'Thư mục ' + (s.folder || '') + ' chưa có bản build ' + A + ' (thiếu bcode-version.json). Người phát hành build Release rồi chạy tools\\publish-release.ps1'
+          + (s.publishApp ? ' -App ' + s.publishApp : '') + ' -Dest "<thư mục này>". Nếu bản build nằm ở thư mục con, bấm Đổi… để trỏ đúng thư mục chứa ' + (s.exe || A + '.exe') + '.');
         buttons(['bRetry']); $('bRetry').textContent = 'Kiểm tra lại'; $('bLater').textContent = 'Đóng';
         break;
       case 'latest':
-        hero('check', 'ok', 'Bcode đang là bản mới nhất', s.remote ? 'Bản phát hành: ' + s.remote.label : '');
+        hero('check', 'ok', A + ' đang là bản mới nhất', s.remote ? 'Bản phát hành: ' + s.remote.label : '');
         buttons(['bRetry']); $('bRetry').textContent = 'Kiểm tra lại'; $('bLater').textContent = 'Đóng';
         break;
       case 'available':
-        hero('down', '', 'Có bản Bcode mới' + (remoteName ? ' — ' + remoteName.trim() : ''), 'Tải trước về máy (Bcode vẫn dùng bình thường), xong mới cần khởi động lại.');
+        hero('down', '', 'Có bản ' + A + ' mới' + (remoteName ? ' — ' + remoteName.trim() : ''), 'Tải trước về máy (' + A + ' vẫn dùng bình thường), xong mới cần khởi động lại.');
         if (s.message) note('info', s.message);
         show('chg', true); renderChanges(s.changes);
         setMain('Tải bản mới', () => post('download'));
         break;
       case 'downloading': {
-        hero('down', 'bob', 'Đang tải bản mới', 'Bcode vẫn dùng bình thường trong lúc tải.');
+        hero('down', 'bob', 'Đang tải bản mới', A + ' vẫn dùng bình thường trong lúc tải.');
         show('prog', true); show('chg', true); renderChanges(s.changes);
         buttons(['bStop']); show('bLater', false);
         const p = s.progress || {};
@@ -315,7 +326,7 @@
         break;
       }
       case 'failed':
-        hero('alert', 'err', 'Tải bản mới không thành công', 'Chưa có gì thay đổi trên máy — Bcode vẫn là bản cũ.');
+        hero('alert', 'err', 'Tải bản mới không thành công', 'Chưa có gì thay đổi trên máy — ' + A + ' vẫn là bản cũ.');
         note('err', s.message);
         show('chg', true); renderChanges(s.changes);
         buttons(['bRetry']);
@@ -332,7 +343,8 @@
           $('modS').textContent = mod.length + ' file bạn đã tự sửa ở máy sẽ được GIỮ nguyên — xem danh sách';
           $('modL').innerHTML = ''; mod.forEach((f) => { const li = document.createElement('li'); li.textContent = f; $('modL').appendChild(li); });
         }
-        if (s.pendingOnClose) note('info', 'Đã hẹn cài bản mới khi đóng Bcode.');
+        if (s.pendingOnClose) note('info', 'Đã hẹn cài bản mới khi đóng ' + A + '.');
+        else if (s.busy) note('info', s.busy);
         buttons(s.pendingOnClose ? ['bUnsched'] : ['bOnClose']);
         setMain('Khởi động lại & cập nhật', () => post('apply', { when: 'now', overwrite: $('overwrite').checked }));
         break;
@@ -351,7 +363,7 @@
   $('bRollback').onclick = () => {
     const b = $('bRollback');
     if (b.classList.contains('armed')) { disarm(); post('rollback'); return; }
-    b.classList.add('armed'); b.textContent = 'Bấm lần nữa: đóng Bcode & quay lại';
+    b.classList.add('armed'); b.textContent = 'Bấm lần nữa: đóng ' + (state.app || 'Bcode') + ' & quay lại';
     armT = setTimeout(disarm, 4000);
   };
 

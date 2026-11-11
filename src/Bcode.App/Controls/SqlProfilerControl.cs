@@ -363,7 +363,7 @@ public class SqlProfilerControl : UserControl
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, Bcode.App.UI.WebViewEnvironment.FriendlyInitMessage("thanh công cụ", ex), "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            System.Windows.Forms.MessageBox.Show(this, Bcode.App.UI.WebViewEnvironment.FriendlyInitMessage("thanh công cụ", ex), "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);   // hộp Windows: WebView2 hỏng
         }
     }
 

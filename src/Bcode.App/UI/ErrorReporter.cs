@@ -21,6 +21,9 @@ public static class ErrorReporter
     private static bool _installed, _sending;
     private static int _quiet;   // > 0: hộp thoại của chính phần gửi lỗi — không theo dõi
 
+    /// <summary>Đang hiện hộp thoại của chính phần gửi lỗi — ThemedMessageBox không đối chiếu chữ với exception (như hook WH_CBT bỏ qua).</summary>
+    internal static bool Quiet => _quiet > 0;
+
     public static void Install()
     {
         if (_installed) return;

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<style>
+  /* Hộp thông báo theo theme (Forms/MessageBoxForm.cs, thay MessageBox của Windows). Bản native ở chế độ App: Controls/NativePages.MsgBox.cs (MsgBoxPage).
+     Cỡ chữ cố định theo rem gốc của dialog.css; nội dung dài (đường dẫn UNC...) xuống dòng ở bất kỳ ký tự nào, quá cao thì vùng chữ tự cuộn. */
+  html { font-size: 13px; }
+  #main { flex: 1; min-height: 0; display: flex; gap: 1rem; padding: 1.1rem 1.3rem 1rem; overflow: auto; }
+  #icon { flex: none; width: 2.3rem; height: 2.3rem; margin-top: .05rem; }
+  #icon svg { width: 100%; height: 100%; display: block; }
+  #icon:empty { display: none; }
+  #text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; line-height: 1.5; user-select: text; -webkit-user-select: text; cursor: text; }
+  #text::selection { background: var(--selection); }
+  #bar { flex: none; display: flex; align-items: center; gap: .55rem; padding: .6rem 1rem; background: var(--panel-alt); border-top: var(--bw) solid var(--border); }
+  #hint { flex: 1; min-width: 0; color: var(--text-muted); font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #bar button { min-width: 5.6rem; }
+  #bar button:focus-visible, #bar button.focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+</style>
+</head>
+<body data-area="editor">
+<div id="main"><div id="icon"></div><div id="text"></div></div>
+<div id="bar"><span id="hint">Ctrl+C: chép nội dung</span></div>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  // Biểu tượng vẽ cùng hình với bản native (MsgBoxPage.IconBox): tròn màu nhấn + "i" / "?", tam giác vàng + "!", tròn đỏ + "×".
+  // Tam giác dùng vàng hổ phách cố định (#f2b32a), không lấy --warning: vài bảng màu tối có warning nâu sậm → dấu "!" đen không đọc được.
+  const ICONS = {
+    info: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="var(--accent)"/><rect x="14.4" y="13.5" width="3.2" height="10" rx="1.2" fill="var(--on-accent)"/><circle cx="16" cy="9.3" r="2" fill="var(--on-accent)"/></svg>',
+    question: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="var(--accent)"/><path d="M11.6 12.3a4.4 4.4 0 1 1 6.3 4c-1.2.6-1.9 1.3-1.9 2.7v.6" fill="none" stroke="var(--on-accent)" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="24" r="1.9" fill="var(--on-accent)"/></svg>',
+    warning: '<svg viewBox="0 0 32 32"><path d="M16 2.5c.9 0 1.7.5 2.2 1.3l12.6 22.4c.9 1.6-.2 3.6-2.1 3.6H3.3c-1.9 0-3-2-2.1-3.6L13.8 3.8c.5-.8 1.3-1.3 2.2-1.3z" fill="#f2b32a"/><rect x="14.4" y="10" width="3.2" height="10.5" rx="1.2" fill="#1e1e1e"/><circle cx="16" cy="24.6" r="1.9" fill="#1e1e1e"/></svg>',
+    error: '<svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="var(--danger)"/><path d="M11 11l10 10M21 11L11 21" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></svg>'
+  };
+  let buttons = [];   // [{ id, label, key }]
+  let cur = 0;        // nút đang được chọn (Tab / mũi tên đổi)
+
+  function answer(id) { post('answer', { r: id }); }
+  function focusBtn(i) {
+    const els = [...document.querySelectorAll('#bar button')];
+    if (!els.length) return;
+    cur = (i + els.length) % els.length;
+    els.forEach((b, k) => { b.classList.toggle('primary', k === cur); b.classList.toggle('focus', k === cur); });
+    els[cur].focus();
+  }
+  function fit() {
+    // Báo C# chiều cao nội dung cần (px của trang) so với chiều cao đang có → C# đổi cỡ cửa sổ (MessageBoxForm "fit").
+    const need = $('main').scrollHeight + $('bar').offsetHeight;
+    post('fit', { content: need, view: window.innerHeight });
+  }
+
+  window.msgbox = {
+    init(o) {
+      $('text').textContent = o.text || '';
+      $('icon').innerHTML = ICONS[o.icon] || '';
+      const bar = $('bar');
+      bar.querySelectorAll('button').forEach((b) => b.remove());
+      buttons = Array.isArray(o.buttons) ? o.buttons : [];
+      buttons.forEach((b, i) => {
+        const el = document.createElement('button');
+        el.textContent = b.label;
+        el.onclick = () => answer(b.id);
+        el.onfocus = () => { if (cur !== i) focusBtn(i); };
+        bar.appendChild(el);
+      });
+      focusBtn(Math.min(Math.max(o.def | 0, 0), buttons.length - 1));
+      requestAnimationFrame(() => requestAnimationFrame(fit));
+    }
+  };
+
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if (e.ctrlKey && !e.altKey && (k === 'c' || k === 'C' || k === 'Insert')) {
+      // Có bôi đen chữ → trình duyệt tự chép phần bôi đen; không bôi đen → chép cả hộp (như MessageBox của Windows).
+      if (!String(window.getSelection() || '')) { e.preventDefault(); post('copy'); }
+      return;
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (k === 'Escape') { e.preventDefault(); post('escape'); return; }
+    if (k === 'Enter' || k === ' ') { e.preventDefault(); if (buttons[cur]) answer(buttons[cur].id); return; }
+    if (k === 'ArrowRight' || k === 'ArrowDown') { e.preventDefault(); focusBtn(cur + 1); return; }
+    if (k === 'ArrowLeft' || k === 'ArrowUp') { e.preventDefault(); focusBtn(cur - 1); return; }
+    if (k === 'Tab') { e.preventDefault(); focusBtn(cur + (e.shiftKey ? -1 : 1)); return; }
+    if (k.length === 1) {
+      const b = buttons.find((x) => x.key && x.key.toLowerCase() === k.toLowerCase());
+      if (b) { e.preventDefault(); answer(b.id); }
+    }
+  });
+  window.addEventListener('resize', () => { const els = document.querySelectorAll('#bar button'); if (els[cur]) els[cur].focus(); });
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  if (window.chrome && window.chrome.webview) post('ready');
+})();
+</script>
+</body>
+</html>

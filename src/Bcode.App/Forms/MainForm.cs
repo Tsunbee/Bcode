@@ -631,7 +631,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this,
+                System.Windows.Forms.MessageBox.Show(this,   // hộp Windows: WebView2 hỏng thì hộp theo theme (cần WebView2 ở chế độ Web) cũng không hiện được
                     Bcode.App.UI.WebViewEnvironment.FriendlyInitMessage("phần giao diện mới (top bar/icon rail/status bar)", ex),
                     "Bcode — WebView2", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }

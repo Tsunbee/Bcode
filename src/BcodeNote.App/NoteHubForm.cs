@@ -345,7 +345,7 @@ internal sealed class NoteHubForm : ThemedForm
             var r = BcodePipe.SendScript(script, title, ctx.Ws.Name, sys: false);
             if (r.Length == 0) return;
             try { Clipboard.SetText(script); } catch { /* clipboard bận */ }
-            MessageBox.Show(form, r + "\n\nScript đã được copy vào clipboard.", "Bcode Note", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ThemedMessageBox.Show(form, r + "\n\nScript đã được copy vào clipboard.", "Bcode Note", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         form.Show();
         return form;

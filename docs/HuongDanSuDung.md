@@ -1228,6 +1228,18 @@ Template → Cửa sổ → **Hiệu năng**: Tự động (theo CPU / RAM) / Th
 
 ⚙ Settings → **Tỉ lệ giao diện...**: Tự động (khớp màn hình so với chuẩn 1600×900) hoặc 80 / 90 / 100 / 110 / 125 / 150 %. Kiểu bo góc / mật độ nhanh: ⚙ Settings → **Kiểu giao diện** (Mềm / Gọn / Thoáng / Vuông vức).
 
+### Hộp thông báo / xác nhận
+
+Các hộp hỏi / báo của Bcode (vd **Cấp source cho …?**, "Lưu thay đổi?", báo lỗi kết nối) vẽ theo theme đang dùng — nền sáng / tối, màu nhấn, font, bo góc như các hộp khác, cả chế độ Web lẫn App; bấm ☀/☾ khi hộp đang mở thì hộp đổi màu theo. Đường dẫn dài tự xuống dòng; nội dung quá dài thì cuộn trong hộp.
+
+| Phím | Tác dụng |
+|---|---|
+| Enter / Space | Bấm nút đang chọn (nút tô màu nhấn) |
+| ← → / Tab | Chọn nút khác |
+| Y / N / C / O / R | Bấm thẳng Yes / No / Cancel / OK / Retry |
+| Esc | Cancel (hộp chỉ có OK thì là OK). Hộp **Yes / No** không đóng bằng Esc hay ✕ — phải chọn Yes hoặc No |
+| Ctrl+C | Chưa bôi đen: chép cả hộp (tiêu đề, nội dung, các nút) để dán vào chat / báo lỗi. Đã bôi đen: chép phần bôi đen |
+
 <a id="phim-tat"></a>
 ## Phím tắt và Settings phím tắt
 

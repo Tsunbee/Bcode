@@ -113,6 +113,20 @@ public sealed class FieldGridControl : UserControl
             ShowCellToolTips = true,
         };
         ControlPerf.EnableDoubleBuffering(g);   // cuộn không nháy / không vẽ lại từng phần
+
+        // Tô sáng NGUYÊN dòng đang chọn: lưới để CellSelect (sửa từng ô) nên mặc định chỉ 1 ô sáng → khó thấy đang focus dòng nào.
+        // Đổ nền cả dòng theo màu nhấn (nhạt hơn ô đang chọn), ô đang chọn vẫn sáng đậm bên trên.
+        int hiRow = -1;
+        void Highlight()
+        {
+            var r = g.CurrentCell?.RowIndex ?? -1;
+            if (r == hiRow) return;
+            if (hiRow >= 0 && hiRow < g.Rows.Count) g.Rows[hiRow].DefaultCellStyle.BackColor = Color.Empty;
+            hiRow = r;
+            if (r >= 0 && r < g.Rows.Count) g.Rows[r].DefaultCellStyle.BackColor = Blend(AppColors.Panel, AppColors.Accent, 0.25);
+        }
+        g.CurrentCellChanged += (_, _) => Highlight();
+        g.DataBindingComplete += (_, _) => { hiRow = -1; Highlight(); };
         return g;
     }
 
@@ -617,7 +631,7 @@ public sealed class FieldGridControl : UserControl
                 msgs.Add("Có khối <Encrypted>: khối mã hoá giữ nguyên từng ký tự — field chứa nó sửa được thuộc tính / header, khung XML chỉ xem.");
             var roAttr = _doc.Fields.Select(f => f.File).Append(_doc.Main).Where(f => f.ReadOnlyAttr && f.ReadOnlyReason is null).Select(f => Path.GetFileName(f.Path)).Distinct().ToList();
             if (roAttr.Count > 0)
-                msgs.Add("Đặt Read-only: " + string.Join(", ", roAttr) + " — khi lưu Bcode tạm gỡ rồi đặt lại (như FSD Studio).");
+                msgs.Add("Đặt Read-only: " + string.Join(", ", roAttr) + " — khi lưu Bcode tạm gỡ rồi đặt lại.");
         }
         _banner.Text = msgs.Count == 0 ? "" : "⚠ " + string.Join("   ·   ", msgs);
         _banner.Visible = msgs.Count > 0;

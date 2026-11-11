@@ -85,6 +85,16 @@ internal sealed class DtdIncludeResolver
         return texts;
     }
 
+    /// <summary>Các &lt;!ENTITY X ...&gt; thường đang có hiệu lực của file (kể cả khai trong .ent nạp bằng %Y;, khối IGNORE bỏ): tên → giá trị literal
+    /// hoặc đường dẫn đầy đủ của file SYSTEM. Lưới khai field (Services/FieldGridDocument.cs) dùng để mở &amp;X; nằm trong &lt;fields&gt; / &lt;views&gt;.</summary>
+    public static Dictionary<string, (string? Literal, string? Path)> GeneralEntities(string filePath, string content, Func<string, string?> read)
+    {
+        var r = new DtdIncludeResolver(read);
+        var dt = Regex.Match(content, @"<!DOCTYPE\s+[^\[>]*\[", RegexOptions.IgnoreCase);
+        if (dt.Success) r.ProcessDtd(content, dt.Index + dt.Length, Path.GetDirectoryName(filePath) ?? "", 0, stopAtDoctypeEnd: true);
+        return r._general.ToDictionary(kv => kv.Key, kv => (kv.Value.Literal, kv.Value.Path), StringComparer.Ordinal);
+    }
+
     private string? ReadFile(string path)
     {
         if (_fileCache.TryGetValue(path, out var t)) return t;

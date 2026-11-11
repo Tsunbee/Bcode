@@ -625,6 +625,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private void SetStatus(string text, bool error = false, bool ok = false)
     {
         _status.Text = text;
+        if (error) Bcode.App.Services.ErrorLog.NoticeDisplayed(text, "Note (New) (chế độ App)");   // như bản Web (WebBarHost.Call) — lỗi vừa ném thì ghi log, F1 gửi được
         _status.ForeColor = error ? AppColors.Danger : ok ? AppColors.Success : AppColors.TextMuted;
     }
 

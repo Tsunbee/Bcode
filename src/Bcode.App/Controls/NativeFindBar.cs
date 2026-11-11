@@ -12,6 +12,21 @@ internal sealed class NativeFindBar : Panel
     /// <summary>(chữ cần tìm, tìm xuôi?, đang gõ?)</summary>
     public event Action<string, bool, bool>? Find;
     public event Action? CloseRequested;
+    /// <summary>(chữ cần tìm, thay bằng, thay hết?) — chỉ khi đã bật hàng Thay thế (<see cref="ShowReplace"/>).</summary>
+    public event Action<string, string, bool>? Replace;
+
+    private readonly RoundedInput _r = NK.Input("Thay bằng...");
+    private readonly Panel _replaceRow;
+
+    /// <summary>Hiện / ẩn hàng Thay thế (thanh cao thêm 1 hàng).</summary>
+    public void ShowReplace(bool on)
+    {
+        if (_replaceRow.Visible == on) return;
+        _replaceRow.Visible = on;
+        Height = NativeSkin.RowHeight(this, on ? 72 : 38);
+    }
+    public bool ReplaceShown => _replaceRow.Visible;
+    public void FocusReplace() { _r.Inner.Focus(); _r.Inner.SelectAll(); }
 
     public NativeFindBar()
     {
@@ -28,8 +43,20 @@ internal sealed class NativeFindBar : Panel
         var close = Small("✕", "Đóng (Esc)", () => CloseRequested?.Invoke());
         _info.AutoSize = true; _info.Dock = DockStyle.Right; _info.Padding = new Padding(6, 0, 4, 0); _info.TextAlign = ContentAlignment.MiddleRight;
         _q.Dock = DockStyle.Fill;
-        // WinForms dock control CUỐI danh sách trước: ✕ ngoài cùng phải, rồi ↓ ↑ "3/17", ô tìm (Fill) lấp phần còn lại.
-        Controls.Add(_q); Controls.Add(_info); Controls.Add(prev); Controls.Add(next); Controls.Add(close);
+        // Hàng Thay thế (chỉ hiện khi host gọi ShowReplace — SQL Query Ctrl+H như find widget của Monaco): ô "Thay bằng", Thay (Enter), Thay hết (Ctrl+Alt+Enter).
+        _replaceRow = new Panel { Dock = DockStyle.Bottom, Height = NativeSkin.RowHeight(this, 32), Visible = false, BackColor = Color.Transparent, Padding = new Padding(0, 4, 0, 0) };
+        var one = NK.Button("Thay", () => { Replace?.Invoke(_q.Text, _r.Text, false); _r.Inner.Focus(); }, tip: "Thay kết quả đang chọn rồi sang kết quả kế (Enter ở ô Thay bằng)");
+        var all = NK.Button("Thay hết", () => { Replace?.Invoke(_q.Text, _r.Text, true); _r.Inner.Focus(); }, tip: "Thay mọi kết quả (Ctrl+Alt+Enter) — 1 lần Ctrl+Z là hoàn tác");
+        one.Dock = DockStyle.Right; all.Dock = DockStyle.Right; one.Margin = all.Margin = new Padding(2, 0, 0, 0);
+        _r.Dock = DockStyle.Fill;
+        _r.InputKeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Replace?.Invoke(_q.Text, _r.Text, e.Control && e.Alt); }
+            else if (e.KeyCode == Keys.Escape) { e.Handled = e.SuppressKeyPress = true; CloseRequested?.Invoke(); }
+        };
+        _replaceRow.Controls.Add(_r); _replaceRow.Controls.Add(one); _replaceRow.Controls.Add(all);
+        // WinForms dock control CUỐI danh sách trước: hàng Thay thế (Bottom), ✕ ngoài cùng phải, rồi ↓ ↑ "3/17", ô tìm (Fill) lấp phần còn lại.
+        Controls.Add(_q); Controls.Add(_info); Controls.Add(prev); Controls.Add(next); Controls.Add(close); Controls.Add(_replaceRow);
         Height = NativeSkin.RowHeight(this, 38);
         ThemeManager.ThemeChanged += Invalidate;
         Disposed += (_, _) => ThemeManager.ThemeChanged -= Invalidate;

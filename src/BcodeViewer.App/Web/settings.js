@@ -546,6 +546,30 @@ class BcodeSettingsDialog {
     knowledgeStatus.className = 'setNote';
     knowledgeStatus.textContent = s.knowledgeSummary || '';
     row('', knowledgeStatus);
+    // Ổ C đầy: gõ / chọn thư mục ở ổ khác ở ô trên rồi bấm — chuyển hết viewer\ (ghost, ask, versions) sang, xoá ở chỗ cũ, lưu luôn thư mục mới.
+    const moveNote = document.createElement('div');
+    moveNote.className = 'setNote';
+    moveNote.textContent = 'Chuyển hết dữ liệu kiến thức của Viewer từ thư mục đang dùng sang thư mục ở ô trên (dùng khi ổ C đầy).';
+    const moveBtn = button('Chuyển dữ liệu sang đây', async () => {
+      const dir = knowledgeDir.value.trim();
+      moveBtn.disabled = true;
+      try {
+        moveNote.textContent = 'Đang đo dữ liệu ở chỗ cũ…';
+        const info = JSON.parse(await window.bcodeHost.call('BeginKnowledgeMoveInfo', dir));
+        if (!info.files) { moveNote.textContent = info.message; return; }
+        moveNote.textContent = '';
+        if (!await window.bcodeUi.confirm(`Chuyển dữ liệu kiến thức của BcodeViewer (${info.size} · ${info.files} file)\n\n  từ:   ${info.from}\n  sang: ${info.to}\n\n`
+          + 'Mỗi file chép xong mới xoá ở chỗ cũ; lịch sử chat Hỏi Fast vẫn ở máy này. Thư mục mới được lưu luôn vào Settings (không cần bấm OK).',
+          { okText: 'Chuyển' })) return;
+        moveNote.textContent = 'Đang chuyển…';
+        const r = JSON.parse(await window.bcodeHost.call('BeginMoveKnowledge', dir));
+        moveNote.textContent = r.text;
+        if (r.summary) knowledgeStatus.textContent = r.summary;
+      } catch (e) {
+        moveNote.textContent = '✘ Chuyển lỗi: ' + (e && e.message || e) + ' — dữ liệu chưa chuyển vẫn ở chỗ cũ.';
+      } finally { moveBtn.disabled = false; }
+    });
+    row('', moveNote, moveBtn);
     note('Đặt 1 thư mục mạng cả nhóm cùng đọc / ghi (vd \\\\172.168.5.14\\Bee\\Knowledge): ma trận học từ source các dự án được gộp thành KIẾN THỨC CHUNG (dự án chưa mở lần nào vẫn được gợi ý theo cách viết của các dự án khác), '
       + 'và mỗi lần ai đó nhận (Tab) hay bỏ qua 1 gợi ý, ô ma trận sinh ra nó được chỉnh lại — gợi ý hay bị bỏ qua tự ít hiện đi, hay được nhận thì chắc hơn, cho cả nhóm. '
       + 'Trống = dùng "Thư mục kiến thức" của Bcode (Template → Đường dẫn), Bcode cũng trống thì chỉ máy này.');

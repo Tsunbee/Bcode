@@ -48,6 +48,8 @@ public sealed class SqlWatchControl : UserControl, IThemeOptOut
             try { _settings.Save(); } catch { /* chỉ nhớ trong phiên */ }
         };
         _form.UserIdLookup = LookupUserIdAsync;
+        // Lỗi tạm thời khi đọc (database OFFLINE, rớt mạng…): SqlWatch không bật hộp, chỉ báo trên thanh trạng thái — ghi vào log lỗi chung (F1 gửi được).
+        _form.ErrorLogged = (ex, source) => ErrorLog.Record(ex, source);
         // Chấm trên icon tab: đỏ = đang bắt, xám = tạm dừng, không chấm = đã dừng (nhìn thanh tab là biết SqlWatch còn chạy không).
         _form.CaptureStateChanged += () =>
         {

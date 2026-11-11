@@ -25,6 +25,15 @@ public partial class MonacoPreviewControl
             else if (e.Control && e.KeyCode == Keys.G) { e.Handled = e.SuppressKeyPress = true; GoToNative(); }
             else if (e.Control && e.KeyCode == Keys.F) { e.Handled = e.SuppressKeyPress = true; ShowFindNative(); }
         };
+        // Ctrl+click = F12 tại chỗ bấm (như filepreview.html: editor.onMouseDown ctrlKey → f12).
+        _ed.MouseUp += (_, e) =>
+        {
+            if (e.Button != MouseButtons.Left || (ModifierKeys & Keys.Control) == 0 || CurrentPath is null) return;
+            var at = _ed.CharPositionFromPoint(e.X, e.Y);
+            if (at < 0 || at > _ed.TextLength) return;
+            _ed.SetEmptySelection(at);
+            OnF12(Pos(at), -1, -1);
+        };
         ThemeManager.Subscribe(this, () => { if (_ed is { IsDisposed: false }) { SqlScintilla.ApplyTheme(_ed); if (_lang != "None") SetLang(_ed, _lang); ApplyHotNative(); } });
 
         _findBox = NK.Input("Tìm... (Enter = tiếp, Shift+Enter = lùi, Esc = đóng)"); _findBox.Dock = DockStyle.Fill;
@@ -49,12 +58,27 @@ public partial class MonacoPreviewControl
         if (path is not null) ScriptEditorControl.PrewarmEntityIndex(_entityResolveBasePath, content);
         _text = path is null ? "" : content.Replace("\r\n", "\n").Replace('\r', '\n');
         var show = path is null ? content : _text;
-        var lang = path is null ? "None" : show.TrimStart().StartsWith('<') ? "XML" : "SQL";
+        var lang = path is null ? "None" : DetectLangNative(path);
         if (lang != _lang) { _lang = lang; if (lang == "None") { FcodeLexer.Detach(ed); ed.Lexer = Lexer.Null; } else SetLang(ed, lang); }
         ed.ReadOnly = false; ed.Text = show; ed.ReadOnly = true;
         FcodeLexer.Restyle(ed);   // tô FCode ngay (file XML) — không đợi StyleNeeded
         ApplyHotNative();
         ed.GotoPosition(0);
+    }
+
+    /// <summary>Chọn bộ tô màu theo đuôi file — cùng bảng với detectLanguage của filepreview.html (bản Web) / editor.js của BcodeViewer.
+    /// .xml/.f/.ent/.txt/.aspx/.html = bộ tô FCode (XML + SQL/JS trong CDATA, .txt mảnh tự đoán); .sql; .js; .json; còn lại chữ thường.
+    /// Trước đây đoán theo ký tự đầu ('&lt;' = XML, còn lại SQL) nên .js / .json / .css bị tô như SQL.</summary>
+    private static string DetectLangNative(string path)
+    {
+        switch (Path.GetExtension(path).ToLowerInvariant())
+        {
+            case ".xml": case ".f": case ".ent": case ".txt": case ".aspx": case ".html": case ".htm": return "XML";
+            case ".sql": return "SQL";
+            case ".js": return "JavaScript";
+            case ".json": return "JSON";
+            default: return "None";
+        }
     }
 
     private const int HotIndicatorA = 16, HotIndicatorB = 17, HotMarkerA = 20, HotMarkerB = 21;

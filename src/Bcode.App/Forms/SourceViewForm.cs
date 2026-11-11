@@ -86,6 +86,39 @@ public sealed class SourceViewForm : ThemedForm
         return f.ShowNear(near, cascade);
     }
 
+    /// <summary>Xem BẢN GIẢI MÃ của file controller .f (khối &lt;Encrypted&gt;) — chỉ xem: không ghi ra đĩa, không đụng file / thư mục dự án.
+    /// <paramref name="decrypt"/> chạy ở nền (gọi helper Bcode.FDecrypt), trả nội dung đã giải hoặc lý do không giải được. F12 tra entity theo thư mục file gốc.</summary>
+    public static SourceViewForm OpenDecrypted(string path, Func<(string? Text, string? Error)> decrypt, Form? near)
+    {
+        var f = new SourceViewForm(null, null);
+        f.ShowNear(near, cascade: false);
+        f._basePath = path;
+        f.Text = Path.GetFileName(path) + " — bản giải mã";
+        f._info.Text = "Bản giải mã (chỉ xem, không lưu) · " + path;
+        f._tip.SetToolTip(f._info, path);
+        f._view.LoadContent(null, "Đang giải mã " + Path.GetFileName(path) + "...");
+        Task.Run(() =>
+        {
+            (string? Text, string? Error) r;
+            try { r = decrypt(); } catch (Exception ex) { r = (null, ex.Message); }
+            try
+            {
+                f.BeginInvoke(new Action(() =>
+                {
+                    if (f.IsDisposed) return;
+                    if (r.Text is { } text)
+                    {
+                        f._info.Text = "Bản giải mã (chỉ xem, không lưu) · " + path + " · " + text.Split('\n').Length + " dòng";
+                        f._view.LoadContent(path, text);
+                    }
+                    else f._view.LoadContent(null, "Không giải mã được " + Path.GetFileName(path) + ":\r\n" + r.Error);
+                }));
+            }
+            catch (InvalidOperationException) { /* cửa sổ đã đóng / chưa có handle */ }
+        });
+        return f;
+    }
+
     /// <summary>Mở cửa sổ xem 1 GIÁ TRỊ bất kỳ (vd ô kết quả SQL Query — phím result.viewCell / Ctrl+F3): đủ chuỗi, chỉ đọc, Ctrl+F tìm, chọn copy được.
     /// Tô màu theo nội dung: JSON / HTML / XML nhận ra ở đây, còn lại đuôi .txt (khung xem tự tô SQL / JS / FCode như file include).</summary>
     public static SourceViewForm OpenValue(string title, string info, string value, Form? near)

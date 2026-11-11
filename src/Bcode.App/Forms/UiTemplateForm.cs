@@ -251,6 +251,7 @@ public class UiTemplateForm : ThemedForm
                     BeginInvoke(new Action(() => ErrorReportAction(eop)));
                     break;
                 }
+                case "knowledge-move": BeginInvoke(new Action(MoveKnowledge)); break;
                 case "paths-browse":
                 {
                     var bk = data.TryGetProperty("key", out var bke) ? bke.GetString() : null;
@@ -416,7 +417,11 @@ public class UiTemplateForm : ThemedForm
             // lưu ngay (các tab SQL / Hỏi Fast dùng bản settings riêng → ghi thẳng vào file), đổi thư mục + chép kiến thức đang có sang ở luồng nền (ổ mạng chậm)
             _settings.KnowledgeDir = value;
             AppSettings.Update(s => s.KnowledgeDir = value);
-            _ = Task.Run(() => { Bcode.App.Services.KnowledgePaths.Configure(value); try { BeginInvoke(new Action(PushKnowledgeStatus)); } catch { /* form đã đóng */ } });
+            _ = Task.Run(() =>
+            {
+                var old = Bcode.App.Services.KnowledgePaths.Configure(value);
+                try { BeginInvoke(new Action(() => { if (old is not null) SetKnowledgeMoveFrom(old); PushKnowledgeStatus(); })); } catch { /* form đã đóng */ }
+            });
             return;
         }
         else return;
@@ -427,11 +432,79 @@ public class UiTemplateForm : ThemedForm
     private void PushKnowledgeStatus()
     {
         var path = _settings.KnowledgeDir ?? "";
+        var moveFrom = _settings.KnowledgeMoveFrom;
         _ = Task.Run(() =>
         {
             var root = Bcode.App.Services.KnowledgePaths.Root;
-            var state = new { path, root, ok = path.Length == 0 || Bcode.App.Services.KnowledgePaths.CustomOk == true, local = Bcode.App.Services.KnowledgePaths.Local };
+            // chỗ cũ còn dữ liệu (thư mục trước lần đổi / %AppData%\Bcode) → hiện nút "Chuyển dữ liệu sang đây"
+            var move = Bcode.App.Services.KnowledgePaths.MoveCandidate(moveFrom);
+            var state = new
+            {
+                path, root, ok = path.Length == 0 || Bcode.App.Services.KnowledgePaths.CustomOk == true, local = Bcode.App.Services.KnowledgePaths.Local,
+                moveFrom = move?.From ?? "", moveSize = move is { } m ? Bcode.Shared.KnowledgeMover.Mb(m.Bytes) : "", moveFiles = move?.Files ?? 0,
+            };
             try { BeginInvoke(new Action(() => Js($"window.setKnowledge && window.setKnowledge({JsonSerializer.Serialize(state)})"))); } catch { /* form đã đóng */ }
+        });
+    }
+
+    /// <summary>Nhớ chỗ cũ của thư mục kiến thức — ghi cả vào bản settings dùng chung với MainForm (lần lưu khác của MainForm không đè mất) lẫn file.</summary>
+    private void SetKnowledgeMoveFrom(string value)
+    {
+        _settings.KnowledgeMoveFrom = value;
+        try { AppSettings.Update(s => s.KnowledgeMoveFrom = value); } catch { /* chỉ là gợi ý chỗ cũ */ }
+    }
+
+    /// <summary>Nút "Chuyển dữ liệu sang đây": hỏi lại (dung lượng, từ đâu → đâu) rồi chuyển ở luồng nền — chép từng file xong mới xoá ở chỗ cũ.</summary>
+    private void MoveKnowledge()
+    {
+        var saved = _settings.KnowledgeMoveFrom;
+        void Note(string text, bool busy = false)
+        {
+            try { BeginInvoke(new Action(() => Js($"window.setKnowledgeMove && window.setKnowledgeMove({JsonSerializer.Serialize(new { text, busy })})"))); } catch { /* form đã đóng */ }
+        }
+        Note("Đang đo dữ liệu ở chỗ cũ…", busy: true);
+        _ = Task.Run(() =>
+        {
+            var c = Bcode.App.Services.KnowledgePaths.MoveCandidate(saved);
+            var to = Bcode.App.Services.KnowledgePaths.Root;
+            try
+            {
+                BeginInvoke(new Action(() =>
+                {
+                    if (c is not { } cand) { Note("Không có dữ liệu ở chỗ cũ để chuyển (hoặc thư mục mới không với tới được)."); PushKnowledgeStatus(); return; }
+                    var ask = MessageBox.Show(this,
+                        $"Chuyển dữ liệu kiến thức ({Bcode.Shared.KnowledgeMover.Mb(cand.Bytes)} · {cand.Files:N0} file)\n\n  từ:   {cand.From}\n  sang: {to}\n\n" +
+                        "Gồm ghost\\, fastask\\ (trừ lịch sử chat — vẫn ở máy này) và viewer\\ của BcodeViewer (khi Viewer dùng chung thư mục với Bcode).\n" +
+                        "Mỗi file chép xong mới xoá ở chỗ cũ; file xác nhận ✔ ✘ trùng tên thì gộp. Nên đóng BcodeViewer trong lúc chuyển.\n\nChuyển ngay?",
+                        "Chuyển dữ liệu kiến thức", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (ask != DialogResult.Yes) { Note(""); return; }
+                    Note("Đang chuyển…", busy: true);
+                    _ = Task.Run(() =>
+                    {
+                        string text;
+                        try
+                        {
+                            var done = Bcode.App.Services.KnowledgePaths.MoveAll(saved, p => Note(p, busy: true));
+                            text = done is { } d ? "✔ " + d.Result.Summary(d.From, to) : "Không có dữ liệu ở chỗ cũ để chuyển.";
+                            if (done is { } d2 && (d2.Result.Errors.Count > 0 || d2.Result.Kept.Count > 0)) text = "⚠ " + text[2..];
+                        }
+                        catch (Exception ex) { text = "✘ Chuyển lỗi: " + ex.Message + " — dữ liệu chưa chuyển vẫn ở chỗ cũ."; }
+                        var left = Bcode.App.Services.KnowledgePaths.MoveCandidate(saved);
+                        try
+                        {
+                            BeginInvoke(new Action(() =>
+                            {
+                                // chỗ cũ đã hết dữ liệu → thôi nhớ
+                                if (left is null && !string.IsNullOrEmpty(saved)) SetKnowledgeMoveFrom("");
+                                Js($"window.setKnowledgeMove && window.setKnowledgeMove({JsonSerializer.Serialize(new { text, busy = false })})");
+                                PushKnowledgeStatus();
+                            }));
+                        }
+                        catch { /* form đã đóng */ }
+                    });
+                }));
+            }
+            catch { /* form đã đóng */ }
         });
     }
 

@@ -150,6 +150,7 @@ public sealed class TraceWatcher : IAsyncDisposable
         try
         {
             _statsLookups = 0;
+            await EnsureOpenAsync(cancellationToken).ConfigureAwait(false);
             await ReadBatchesAsync(found, cancellationToken).ConfigureAwait(false);
             await ReadModulesAsync(found, cancellationToken).ConfigureAwait(false);
         }
@@ -169,6 +170,66 @@ public sealed class TraceWatcher : IAsyncDisposable
     }
 
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync().ConfigureAwait(false);
+
+    /// <summary>Kết nối đang mở được (false sau lỗi nặng: mất mạng, server khởi động lại… — nhịp sau tự mở lại).</summary>
+    public bool IsConnected => _connection.State == ConnectionState.Open;
+
+    /// <summary>Kết nối bị rớt (lỗi class ≥ 20 thì SqlClient đóng kết nối) → mở lại, giữ nguyên mốc Bắt đầu / watermark / các dòng đã thấy.</summary>
+    private async Task EnsureOpenAsync(CancellationToken cancellationToken)
+    {
+        if (_connection.State == ConnectionState.Open)
+            return;
+        if (_connection.State != ConnectionState.Closed)
+            _connection.Close();
+        await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Lỗi tạm thời khi đọc — thử lại nhịp sau là được, không phải lỗi cấu hình / quyền: database không ONLINE (offline, đang
+    /// restore / recovery, single user đang bận…), mất mạng / kết nối rớt, hết giờ, deadlock / chờ khoá, server đang tắt / thiếu bộ nhớ.</summary>
+    public static bool IsTransient(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            switch (e)
+            {
+                case SqlException sql:
+                    if (TransientNumbers.Contains(sql.Number))
+                        return true;
+                    foreach (SqlError error in sql.Errors)
+                    {
+                        if (error.Class >= 20 || TransientNumbers.Contains(error.Number))
+                            return true;
+                    }
+                    return false;
+                case IOException or System.Net.Sockets.SocketException or TimeoutException:
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static readonly HashSet<int> TransientNumbers =
+    [
+        // database không mở được lúc này
+        942, 943, 945, 922, 924, 927, 952, 913, 4060,
+        // mạng / kết nối / hết giờ
+        -2, -1, 0, 2, 26, 40, 53, 64, 121, 233, 258, 1231, 10053, 10054, 10060, 10061, 11001,
+        // khoá, tài nguyên, server tắt / tạm dừng
+        1205, 1222, 701, 8645, 6005, 6006, 17142,
+    ];
+
+    /// <summary>Biểu thức sql_handle "an toàn" cho sys.dm_exec_sql_text: handle của procedure / function / trigger (byte đầu 0x03, byte 3-4 = dbid)
+    /// thuộc database không ONLINE thì thay bằng NULL (APPLY bỏ dòng đó). dm_exec_sql_text đọc nội dung module từ chính database của nó —
+    /// database đã OFFLINE / đang restore… thì cả câu lỗi 942 ("Database '…' cannot be opened because it is offline"), dù database đó không
+    /// nằm trong danh sách theo dõi (vd most_recent_sql_handle cũ của 1 kết nối từng gọi procedure ở database đó; filter dbid chạy sau APPLY).
+    /// Bỏ qua dbid 32767 (resource db — DATABASEPROPERTYEX trả NULL nhưng luôn đọc được). Đã thử trên SQL 2008 R2 / 2014 / 2016.</summary>
+    private static string SafeHandle(string handle) =>
+        $"""
+        CASE WHEN SUBSTRING({handle}, 1, 1) = 0x03
+                  AND CONVERT(int, SUBSTRING({handle}, 4, 1) + SUBSTRING({handle}, 3, 1)) <> 32767
+                  AND ISNULL(CONVERT(nvarchar(60), DATABASEPROPERTYEX(DB_NAME(CONVERT(int, SUBSTRING({handle}, 4, 1) + SUBSTRING({handle}, 3, 1))), 'Status')), N'') <> N'ONLINE'
+             THEN NULL ELSE {handle} END
+        """;
 
     private async Task ReadBatchesAsync(List<CapturedEvent> found, CancellationToken cancellationToken)
     {
@@ -299,7 +360,9 @@ public sealed class TraceWatcher : IAsyncDisposable
                   OBJECT_SCHEMA_NAME(t.objectid, t.dbid),
                   OBJECT_NAME(t.objectid, t.dbid)
               FROM sys.dm_exec_connections AS c
-              CROSS APPLY sys.dm_exec_sql_text(c.most_recent_sql_handle) AS t
+              CROSS APPLY sys.dm_exec_sql_text(
+              """ + SafeHandle("c.most_recent_sql_handle") + """
+              ) AS t
               WHERE c.session_id = @spid;
               """;
 
@@ -330,8 +393,9 @@ public sealed class TraceWatcher : IAsyncDisposable
             var info = GetString(reader, 2);
             return (GetString(reader, 0), info.Trim(), info.Length >= InputBufferLimit);
         }
-        catch (SqlException)
+        catch (SqlException ex) when (!IsTransient(ex))
         {
+            // Lỗi tạm thời (mất mạng…) thì ném lên cho nhịp đọc thử lại — không tắt hẳn DBCC cho cả phiên bắt vì 1 lần rớt mạng.
             _dbccInputBuffer = false;
             return ("", "", false);
         }
@@ -351,17 +415,17 @@ public sealed class TraceWatcher : IAsyncDisposable
     private static async Task<string?> FindFullBatchAsync(SqlConnection connection, int spid, DateTime start, string buffer,
         bool useStats, bool useCache, CancellationToken cancellationToken)
     {
-        const string sessionSql = """
-            SELECT t.text FROM sys.dm_exec_requests AS r CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS t WHERE r.session_id = @spid
+        var sessionSql = $"""
+            SELECT t.text FROM sys.dm_exec_requests AS r CROSS APPLY sys.dm_exec_sql_text({SafeHandle("r.sql_handle")}) AS t WHERE r.session_id = @spid
             UNION ALL
-            SELECT t.text FROM sys.dm_exec_connections AS c CROSS APPLY sys.dm_exec_sql_text(c.most_recent_sql_handle) AS t WHERE c.session_id = @spid;
+            SELECT t.text FROM sys.dm_exec_connections AS c CROSS APPLY sys.dm_exec_sql_text({SafeHandle("c.most_recent_sql_handle")}) AS t WHERE c.session_id = @spid;
             """;
         // Lọc thô trên server (dài ≥ 4000 ký tự + dòng đầu khớp) để không kéo text của mọi câu về; so khớp đủ 4000 ký tự làm ở dưới.
-        const string statsSql = """
+        var statsSql = $"""
             SELECT TOP (20) t.text
             FROM (SELECT sql_handle, MAX(last_execution_time) AS last_time
                   FROM sys.dm_exec_query_stats WHERE last_execution_time >= @since GROUP BY sql_handle) AS q
-            CROSS APPLY sys.dm_exec_sql_text(q.sql_handle) AS t
+            CROSS APPLY sys.dm_exec_sql_text({SafeHandle("q.sql_handle")}) AS t
             WHERE DATALENGTH(t.text) >= 8000 AND CHARINDEX(@needle, LEFT(t.text, 1000)) > 0
             ORDER BY q.last_time DESC;
             """;
@@ -426,6 +490,7 @@ public sealed class TraceWatcher : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            await EnsureOpenAsync(cancellationToken).ConfigureAwait(false);
             return await ResolveFullAsync(_connection, row, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -498,7 +563,7 @@ public sealed class TraceWatcher : IAsyncDisposable
             FROM sys.dm_exec_requests AS r
             INNER JOIN sys.dm_exec_sessions AS s ON s.session_id = r.session_id
             INNER JOIN sys.sysprocesses AS p ON p.spid = r.session_id AND p.ecid = 0
-            CROSS APPLY sys.dm_exec_sql_text(r.sql_handle) AS t
+            CROSS APPLY sys.dm_exec_sql_text({SafeHandle("r.sql_handle")}) AS t
             WHERE r.session_id <> @@SPID
               AND ISNULL(s.program_name, N'') <> @appName
               AND ISNULL(s.program_name, N'') NOT LIKE N'Bcode%'
@@ -557,7 +622,7 @@ public sealed class TraceWatcher : IAsyncDisposable
 
     private async Task<string> ReadModuleTextAsync(byte[] handle, CancellationToken cancellationToken)
     {
-        await using var command = new SqlCommand("SELECT LEFT(text, 8000) FROM sys.dm_exec_sql_text(@h);", _connection) { CommandTimeout = 20 };
+        await using var command = new SqlCommand($"SELECT LEFT(text, 8000) FROM sys.dm_exec_sql_text({SafeHandle("@h")});", _connection) { CommandTimeout = 20 };
         command.Parameters.Add("@h", SqlDbType.VarBinary, 64).Value = handle;
         var value = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         return value is string text ? text : "";

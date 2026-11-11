@@ -283,6 +283,7 @@ public sealed class NativeQueryHistoryControl : UserControl
         if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
         _service.SavePin(null, dlg.LabelText.Length > 0 ? dlg.LabelText : FirstLine(r.Sql), dlg.Tags, dlg.ThisWs ? _currentWorkspace() : null, r.Sql);
         _wsList = _service.Workspaces(); FillTags(_service.AllTags());
+        Search();   // như bản Web (onSaved tải lại danh sách) — câu vừa ghim hiện ngay
         SetStatus("Đã ghim.");
     }
 
@@ -341,6 +342,10 @@ internal sealed class PinDialog : ThemedForm
         bar.Controls.Add(ok); bar.Controls.Add(cancel);
         Controls.Add(body); Controls.Add(bar);
         AcceptButton = null; KeyPreview = true;
-        KeyDown += (_, e) => { if (e.KeyCode == Keys.Escape) { DialogResult = DialogResult.Cancel; Close(); } };
+        KeyDown += (_, e) =>
+        {
+            if (e.KeyCode == Keys.Escape) { DialogResult = DialogResult.Cancel; Close(); }
+            else if (e.KeyCode == Keys.Enter && e.Modifiers == Keys.None) { e.Handled = e.SuppressKeyPress = true; DialogResult = DialogResult.OK; Close(); }   // Enter = Lưu (như queryhistory.html)
+        };
     }
 }

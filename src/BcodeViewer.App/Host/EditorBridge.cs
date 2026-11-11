@@ -541,6 +541,44 @@ public class EditorBridge
     internal static bool IsUntitledPath(string? path) =>
         path is not null && path.StartsWith(UntitledRoot + "\\", StringComparison.Ordinal);
 
+    /// <summary>Settings → Thư mục kiến thức chung → "Chuyển dữ liệu sang đây" bước 1: từ đâu → đến đâu, bao nhiêu (trang hỏi lại trước khi chuyển).</summary>
+    public void BeginKnowledgeMoveInfo(string requestId, string dir) =>
+        _async.Begin(requestId, () =>
+        {
+            var from = FastSource.ViewerKnowledge.Root;
+            var to = FastSource.ViewerKnowledge.Resolve(dir);
+            if (!string.IsNullOrWhiteSpace(dir) && !Bcode.Shared.KnowledgeMover.SameDir(to, dir.Trim()))
+                return JsonSerializer.Serialize(new { files = 0, message = "✘ Không tạo / với tới được thư mục này (sai đường dẫn / mất mạng / không đủ quyền)." });
+            if (Bcode.Shared.KnowledgeMover.SameDir(from, to))
+                return JsonSerializer.Serialize(new { files = 0, message = "Dữ liệu đang ở đúng thư mục này rồi (" + from + "\\viewer) — gõ / chọn thư mục mới ở ô trên rồi bấm lại." });
+            var (bytes, files) = Bcode.Shared.KnowledgeMover.Measure(from, FastSource.ViewerKnowledge.MoveParts);
+            if (files == 0)
+                return JsonSerializer.Serialize(new { files = 0, message = "Chỗ cũ (" + from + "\\viewer) không có dữ liệu kiến thức để chuyển." });
+            return JsonSerializer.Serialize(new { from = from + "\\viewer", to = to + "\\viewer", size = Bcode.Shared.KnowledgeMover.Mb(bytes), files });
+        });
+
+    /// <summary>Bước 2: chuyển viewer\ sang thư mục mới (chép từng file xong mới xoá ở chỗ cũ), lưu luôn ô "Thư mục kiến thức chung" vào Settings
+    /// rồi nạp lại kiến thức. Dừng giữa chừng (ổ mới đầy / mất mạng) thì KHÔNG đổi thư mục — bấm lại để chuyển tiếp.</summary>
+    public void BeginMoveKnowledge(string requestId, string dir) =>
+        _async.Begin(requestId, () =>
+        {
+            dir = (dir ?? "").Trim();
+            var done = FastSource.ViewerKnowledge.MoveTo(dir);
+            var text = done is { } d
+                ? (d.Result.Errors.Count == 0 && d.Result.Kept.Count == 0 ? "✔ " : "⚠ ") + d.Result.Summary(d.From + "\\viewer", d.To + "\\viewer")
+                : "Không có dữ liệu ở chỗ cũ để chuyển.";
+            if (done is not { Result.Stopped: true } && !string.Equals(dir, _settings.KnowledgeDir, StringComparison.OrdinalIgnoreCase))
+            {
+                _settings.KnowledgeDir = dir;
+                _settings.Save();
+                FastSource.ViewerKnowledge.Configure(dir);
+                Fast.ResetKnowledge();
+                text += " Đã lưu thư mục mới vào Settings.";
+            }
+            else if (done is not null) { FastSource.ViewerKnowledge.Configure(_settings.KnowledgeDir); Fast.ResetKnowledge(); }
+            return JsonSerializer.Serialize(new { text, summary = Fast.KnowledgeSummary() });
+        });
+
     /// <summary>Native folder picker for the Settings dialog; "" when cancelled.</summary>
     public void BeginChooseFolder(string requestId, string initial) =>
         _async.Begin(requestId, () => ChooseFolder?.Invoke(initial) ?? "");

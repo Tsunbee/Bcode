@@ -205,6 +205,8 @@ public sealed class NativeLookupControl : UserControl
         _pv.Text = text;
         _pv.ReadOnly = true;
         _pv.GotoPosition(0);
+        // Thanh tìm đang mở → tìm lại trong script mới (đếm "x/y" theo object vừa chọn) — như lookup.html afterRender(true).
+        if (_find is { Visible: true } && _findText.Length > 0) FindInPreview(_findText, true, true);
     }
 
     private async Task LoadObjectAsync(SqlObjectInfo info)

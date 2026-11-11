@@ -40,6 +40,9 @@ internal sealed class GenUpdatePage : NativePage
     private bool _busy, _loading;
     private JsonElement _root;
     private int _leafCount;
+    /// <summary>File đã tick theo đường dẫn — giữ cả file đang bị ô "Lọc trong cây" ẩn đi (như S.checked của genupdate.html); trước đây chỉ gom tick
+    /// của node đang hiện nên gõ lọc rồi xoá lọc là mất tick.</summary>
+    private readonly HashSet<string> _checked = new(StringComparer.OrdinalIgnoreCase);
 
     public GenUpdatePage()
     {
@@ -100,7 +103,7 @@ internal sealed class GenUpdatePage : NativePage
         var cm = new CardPanel("Source File") { Dock = DockStyle.Fill };
         cm.RightBar.Controls.Add(_treeCount);
         _tree.AfterCheck += OnTreeCheck; _treeFilter.TextChanged += (_, _) => RebuildTree();
-        _checkAll.Click += (_, _) => { _loading = true; foreach (TreeNode n in _tree.Nodes) SetChecked(n, _checkAll.Checked); _loading = false; UpdateCounts(); };
+        _checkAll.Click += (_, _) => CheckAllLeaves(_checkAll.Checked);
         var mid = new Panel { Dock = DockStyle.Fill };
         _treeEmpty.Dock = DockStyle.Fill;
         mid.Controls.Add(_tree); mid.Controls.Add(_treeEmpty); mid.Controls.Add(tbar); mid.Controls.Add(tools);
@@ -113,6 +116,9 @@ internal sealed class GenUpdatePage : NativePage
         _batchList.ItemChecked += (_, _) => { if (!_loading) SyncBatchAll(); };
         _batchAll.Click += (_, _) => { _loading = true; foreach (ListViewItem i in _batchList.Items) i.Checked = _batchAll.Checked; _loading = false; SyncBatchAll(); };
         _bRemove = NK.Button("Bỏ file đã chọn", () => Post(new { action = "removeBatch", keys = _batchList.CheckedItems.Cast<ListViewItem>().Select(i => (string)i.Tag!).ToList() })); _bRemove.ForeOverride = AppColors.Danger;
+        // Bỏ 1 file (bản Web: nút ✕ trên từng dòng): Delete / chuột phải → "Bỏ khỏi gói" trên dòng đang chọn.
+        _batchList.KeyDown += (_, e) => { if (e.KeyCode == Keys.Delete) { e.Handled = true; RemoveSelectedBatch(); } };
+        WebMenu.AttachTo(_batchList, () => _batchList.SelectedItems.Count == 0 ? null : new WebMenu().Add($"✕ Bỏ khỏi gói ({_batchList.SelectedItems.Count} file)", RemoveSelectedBatch, shortcut: "Delete"));
         _bClear = NK.Button("Xoá hết", () => { if (_batch.Count > 0) Post(new { action = "clearBatch" }); }); _bClear.ForeOverride = AppColors.Danger;
         _bCreate = NK.Button("⚙ Create Update File", Create, primary: true);
         var btools = TopBar(); btools.Controls.AddRange(new Control[] { _batchAll, _bRemove, _bClear, _batchSummary });
@@ -201,9 +207,54 @@ internal sealed class GenUpdatePage : NativePage
     }
     private void AddChecked()
     {
-        var paths = new List<string>(); void Walk(TreeNode n) { if (n.Tag is string p && n.Checked) paths.Add(p); foreach (TreeNode c in n.Nodes) Walk(c); }
-        foreach (TreeNode n in _tree.Nodes) Walk(n);
+        // Mọi file đã tick, kể cả file đang bị ô lọc ẩn (như bản Web gửi S.checked), theo thứ tự trên cây.
+        var paths = AllLeaves().Where(_checked.Contains).ToList();
         if (paths.Count > 0) Post(new { action = "add", paths });
+    }
+
+    private void RemoveSelectedBatch()
+    {
+        var keys = _batchList.SelectedItems.Cast<ListViewItem>().Select(i => (string)i.Tag!).ToList();
+        if (keys.Count > 0) Post(new { action = "removeBatch", keys });
+    }
+
+    /// <summary>Đường dẫn mọi file trong cây đang nạp (không theo ô lọc).</summary>
+    private List<string> AllLeaves()
+    {
+        var list = new List<string>();
+        void Walk(JsonElement n) { if (PB(n, "dir")) { foreach (var c in PA(n, "children")) Walk(c); } else if (P(n, "path") is { Length: > 0 } p) list.Add(p); }
+        if (_root.ValueKind == JsonValueKind.Object) Walk(_root);
+        return list;
+    }
+
+    /// <summary>Check All / Ctrl+A: tick (bỏ tick) mọi file của cây — cả file đang bị lọc ẩn, như bản Web.</summary>
+    private void CheckAllLeaves(bool on)
+    {
+        if (on) foreach (var p in AllLeaves()) _checked.Add(p); else _checked.Clear();
+        _loading = true; foreach (TreeNode n in _tree.Nodes) SetChecked(n, on); _loading = false;
+        UpdateCounts();
+    }
+
+    /// <summary>Ctrl+A như genupdate.html: đang ở danh sách gói → chọn hết / bỏ chọn hết file trong gói; ở cây Source File → tick hết / bỏ tick hết
+    /// (bấm lại = bỏ). Đang gõ trong ô chữ thì để Ctrl+A mặc định (bôi đen chữ).</summary>
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == (Keys.Control | Keys.A))
+        {
+            if (_batchList.ContainsFocus && _batch.Count > 0)
+            {
+                var on = _batchList.CheckedItems.Count != _batch.Count;
+                _loading = true; foreach (ListViewItem i in _batchList.Items) i.Checked = on; _loading = false; SyncBatchAll();
+                return true;
+            }
+            if (_tree.ContainsFocus && _root.ValueKind == JsonValueKind.Object)
+            {
+                var all = AllLeaves();
+                CheckAllLeaves(!(all.Count > 0 && all.All(_checked.Contains)));
+                return true;
+            }
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
     }
 
     // ---- cây ----
@@ -229,8 +280,6 @@ internal sealed class GenUpdatePage : NativePage
 
     private void RebuildTree()
     {
-        var checkedPaths = new HashSet<string>(); void Collect(TreeNode n) { if (n.Tag is string p && n.Checked) checkedPaths.Add(p); foreach (TreeNode c in n.Nodes) Collect(c); }
-        foreach (TreeNode n in _tree.Nodes) Collect(n);
         _loading = true;
         _tree.BeginUpdate(); _tree.Nodes.Clear();
         if (_root.ValueKind == JsonValueKind.Object)
@@ -238,7 +287,7 @@ internal sealed class GenUpdatePage : NativePage
             var leaves = 0; var filter = _treeFilter.Text.Trim().ToLowerInvariant();
             BuildTree(_tree.Nodes, _root, filter, ref leaves);
             _leafCount = leaves;
-            void Restore(TreeNode n) { if (n.Tag is string p && checkedPaths.Contains(p)) n.Checked = true; foreach (TreeNode c in n.Nodes) Restore(c); }
+            void Restore(TreeNode n) { if (n.Tag is string p && _checked.Contains(p)) n.Checked = true; foreach (TreeNode c in n.Nodes) Restore(c); }
             foreach (TreeNode n in _tree.Nodes) Restore(n);
             if (_leafCount > 150 && filter.Length == 0) { foreach (TreeNode n in _tree.Nodes) { n.Expand(); foreach (TreeNode c in n.Nodes) c.Collapse(); } } else _tree.ExpandAll();
         }
@@ -259,14 +308,15 @@ internal sealed class GenUpdatePage : NativePage
     {
         if (_loading || e.Node is null) return;
         _loading = true; foreach (TreeNode c in e.Node.Nodes) SetChecked(c, e.Node.Checked); _loading = false;
+        void Sync(TreeNode n) { if (n.Tag is string p) { if (n.Checked) _checked.Add(p); else _checked.Remove(p); } foreach (TreeNode c in n.Nodes) Sync(c); }
+        Sync(e.Node);
         UpdateCounts();
     }
 
     private void UpdateCounts()
     {
-        var total = 0; var chk = 0;
-        void Walk(TreeNode n) { if (n.Tag is string) { total++; if (n.Checked) chk++; } foreach (TreeNode c in n.Nodes) Walk(c); }
-        foreach (TreeNode n in _tree.Nodes) Walk(n);
+        // Đếm trên toàn bộ file của cây (như bản Web), không chỉ file đang hiện sau khi lọc.
+        var all = AllLeaves(); var total = all.Count; var chk = all.Count(_checked.Contains);
         _treeCount.Text = total > 0 ? total + " file" : ""; _checkedCount.Text = chk > 0 ? "đã tick " + chk : "";
         _loading = true; _checkAll.Checked = total > 0 && chk == total; _loading = false;
         _bAdd.Enabled = chk > 0;
@@ -340,12 +390,12 @@ internal sealed class GenUpdatePage : NativePage
                 _cats = PA(d, "categories").Select(c => P(c, "value")).ToList();
                 _cat.SetItems(_cats.Count > 0 ? PA(d, "categories").Select(c => P(c, "label")).ToList() : new List<string> { "(chưa có)" }, 0);
                 _batch = PA(d, "batch").Select(b => new BatchItem { Key = P(b, "key"), Name = P(b, "name"), Rel = P(b, "rel"), Kind = P(b, "kind") }).ToList(); RenderBatch();
-                if (d.TryGetProperty("tree", out var tr) && tr.ValueKind == JsonValueKind.Object) { _root = tr.Clone(); _treeTitle.Text = P(d, "treeTitle"); RebuildTree(); }
+                if (d.TryGetProperty("tree", out var tr) && tr.ValueKind == JsonValueKind.Object) { _root = tr.Clone(); _checked.Clear(); _treeTitle.Text = P(d, "treeTitle"); RebuildTree(); }
                 else RebuildTree();
                 break;
             }
             case "genUpdate.onTree":
-                SetBusy(false); _root = a.Count > 0 && a[0].ValueKind == JsonValueKind.Object ? a[0].Clone() : default; _treeTitle.Text = Str(a, 1); _treeFilter.Text = ""; RebuildTree();
+                SetBusy(false); _root = a.Count > 0 && a[0].ValueKind == JsonValueKind.Object ? a[0].Clone() : default; _checked.Clear(); _treeTitle.Text = Str(a, 1); _treeFilter.Text = ""; RebuildTree();
                 break;
             case "genUpdate.onBatch":
                 if (a.Count > 0 && a[0].ValueKind == JsonValueKind.Array) { _batch = a[0].EnumerateArray().Select(b => new BatchItem { Key = P(b, "key"), Name = P(b, "name"), Rel = P(b, "rel"), Kind = P(b, "kind") }).ToList(); RenderBatch(); }

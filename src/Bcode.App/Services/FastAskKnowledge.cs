@@ -17,15 +17,76 @@ public static class KnowledgePaths
     /// <summary>Thư mục kiến thức trên máy này (mặc định).</summary>
     public static string Local => Path.Combine(BcodePaths.AppData, "Bcode");
 
-    /// <summary>Đặt lại thư mục (trống = mặc định); chép kiến thức đang có ở thư mục cũ sang nếu thư mục mới chưa có file đó.</summary>
-    public static void Configure(string? dir)
+    /// <summary>Đặt lại thư mục (trống = mặc định); chép kiến thức đang có ở thư mục cũ sang nếu thư mục mới chưa có file đó.
+    /// Trả thư mục cũ (đường dẫn đầy đủ) nếu thư mục đang dùng thực sự đổi — nơi gọi lưu vào <see cref="Models.AppSettings.KnowledgeMoveFrom"/>
+    /// để nút "Chuyển dữ liệu sang đây" biết chỗ cũ.</summary>
+    public static string? Configure(string? dir)
     {
         var old = Root;
         _custom = string.IsNullOrWhiteSpace(dir) ? null : dir.Trim();
         _loaded = true;
         _probe = null;
         var now = Root;
-        if (!string.Equals(Path.GetFullPath(old), Path.GetFullPath(now), StringComparison.OrdinalIgnoreCase)) CopyMissing(old, now);
+        if (!string.Equals(Path.GetFullPath(old), Path.GetFullPath(now), StringComparison.OrdinalIgnoreCase))
+        {
+            CopyMissing(old, now);
+            return Path.GetFullPath(old);
+        }
+        return null;
+    }
+
+    // ---------------------------------------------------------------- chuyển dữ liệu sang thư mục mới
+
+    /// <summary>Thư mục con được chuyển: ghost\, fastask\ (trừ lịch sử chat fastask\sessions — luôn ở máy này) và viewer\ của BcodeViewer
+    /// khi Viewer dùng chung thư mục với Bcode (ô "Thư mục kiến thức chung" trong Settings của Viewer để trống).</summary>
+    private static (string[] Parts, string[] Exclude) MoveParts() =>
+        (ViewerFollowsBcode() ? ["ghost", "fastask", "viewer"] : ["ghost", "fastask"], [Path.Combine("fastask", "sessions")]);
+
+    private static bool ViewerFollowsBcode()
+    {
+        try
+        {
+            var path = Path.Combine(Local, "viewer-settings.json");
+            if (!File.Exists(path)) return true;
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            return !(doc.RootElement.TryGetProperty("KnowledgeDir", out var k) && k.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(k.GetString()));
+        }
+        catch { return true; }
+    }
+
+    /// <summary>Chỗ cũ còn dữ liệu để chuyển sang thư mục đang dùng: thư mục trước lần đổi gần nhất (<see cref="Models.AppSettings.KnowledgeMoveFrom"/>),
+    /// không có thì %AppData%\Bcode của máy này. null = không có gì để chuyển (hoặc thư mục khai báo không với tới được).</summary>
+    public static (string From, long Bytes, int Files)? MoveCandidate(string? saved)
+    {
+        var root = Root;
+        if (_custom is not null && CustomOk != true) return null;
+        var (parts, exclude) = MoveParts();
+        foreach (var from in new[] { saved, Local })
+        {
+            if (string.IsNullOrWhiteSpace(from) || !Directory.Exists(from) || Bcode.Shared.KnowledgeMover.SameDir(from, root)) continue;
+            var (bytes, files) = Bcode.Shared.KnowledgeMover.Measure(from, parts, exclude);
+            if (files > 0) return (from, bytes, files);
+        }
+        return null;
+    }
+
+    /// <summary>Chuyển hết dữ liệu ở chỗ cũ (<see cref="MoveCandidate"/>) sang thư mục đang dùng — chép từng file rồi mới xoá bản cũ.
+    /// feedback.json (xác nhận ✔ ✘ / bản sửa) thì gộp. null = không có gì để chuyển. <paramref name="saved"/> = KnowledgeMoveFrom.</summary>
+    internal static (string From, Bcode.Shared.KnowledgeMover.Result Result)? MoveAll(string? saved, Action<string>? progress = null)
+    {
+        if (MoveCandidate(saved) is not { } c) return null;
+        var to = Root;
+        var (parts, exclude) = MoveParts();
+        var feedback = Path.GetFullPath(Path.Combine(c.From, "fastask", "feedback.json"));
+        var result = Bcode.Shared.KnowledgeMover.Move(c.From, to, parts, exclude,
+            merge: (src, _) =>
+            {
+                if (!string.Equals(Path.GetFullPath(src), feedback, StringComparison.OrdinalIgnoreCase)) return false;
+                FastAskFeedback.MergeFrom(src);
+                return true;
+            },
+            progress);
+        return (c.From, result);
     }
 
     /// <summary>Thư mục đang dùng: thư mục khai báo nếu tạo / ghi được (kiểm tra lại mỗi phút — ổ mạng có lúc mất), không thì máy này.</summary>

@@ -427,6 +427,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.RequirementsRequested += menu => OpenFsgRequirementReportTab(menu);
         wcommandTree.RunInFboRequested += item => _ = RunMenuInFboAsync(item);
         wcommandTree.DependencyRequested += item => OpenDependencyTab(DepService().MenuNodeOf(item));
+        wcommandTree.FieldGridRequested += item => OpenFieldGridForMenu(item);
         wcommandTree.ApiSchemaRequested += item => _ = OpenApiFromStructureAsync(item, null, declare: false);
         wcommandTree.ApiDeclareRequested += item => _ = OpenApiFromStructureAsync(item, null, declare: true);
         wcommandTree.QuickGenRequested += item => _ = LaunchBcodeNoteAsync(item);
@@ -1559,6 +1560,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         return _depService;
     }
 
+    /// <summary>File Lookup → chuột phải file .f → "Xem bản giải mã (.f)…": dịch ngược khối &lt;Encrypted&gt; qua FDecrypt rồi mở cửa sổ CHỈ XEM
+    /// (không ghi gì ra file / thư mục dự án). Cần key Decrypt SQL Object (menu chỉ hiện khi có) và license Fast của máy cho fsystem.dll.</summary>
+    private void OpenDecryptedF(string path)
+    {
+        if (!LicenseService.IsDecryptUnlocked) return;
+        _fdecrypt ??= new FSourceDecryptService(() => _settings.FCodeDir);
+        var svc = _fdecrypt;
+        SourceViewForm.OpenDecrypted(path, () => svc.DecryptForView(path), this);
+    }
+
     private void OpenDependencyTab(DepNode start, bool newTab = false)
     {
         DepService();
@@ -1773,6 +1784,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ["TableEditControl"] = "table",
         ["SqlQueryControl"] = "command-lookup", ["LookupControl"] = "command-lookup", ["NativeLookupControl"] = "command-lookup",
         ["FileLookupControl"] = "file-lookup",
+        ["FieldGridControl"] = "luoi-field",
         ["FastAskControl"] = "hoi-fast",
         ["GenUpdatePackageControl"] = "gen-update",
         ["NoteControl"] = "note", ["AdvanceNoteControl"] = "note", ["NativeAdvanceNoteControl"] = "note",
@@ -2120,6 +2132,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 "Bcode", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if (choice != DialogResult.Yes) return;
         }
+        if (page.Controls.OfType<FieldGridControl>().FirstOrDefault() is { IsDirty: true })
+        {
+            var choice = MessageBox.Show(this, $"Tab \"{page.Text}\" (lưới field) có thay đổi chưa lưu. Đóng và bỏ qua thay đổi?",
+                "Bcode", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (choice != DialogResult.Yes) return;
+        }
 
         RecordClosedTab(page);
 
@@ -2298,9 +2316,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings);
         control.ProjectName = ws.Name;
         control.FileActivated += path => OpenFileFromLookup(path);
+        control.FieldGridRequested += path => OpenFieldGridForFile(path);
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
+        control.DecryptViewRequested += path => OpenDecryptedF(path);
         control.ApiSchemaRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: false);
         control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
@@ -2378,6 +2398,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
         if (_advanceNoteTab is not null && FindDescendant<AdvanceNoteControl>(_advanceNoteTab) is { } note) await note.FlushAsync();
+        if (_advanceNoteTab is not null && FindDescendant<NativeAdvanceNoteControl>(_advanceNoteTab) is { } nativeNote) nativeNote.FlushPending();   // chế độ App: ghi phần đang gõ trước khi BcodeNote đọc file
         var psi = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! };
         if (_connections.Current is { } ws) { psi.ArgumentList.Add("--project"); psi.ArgumentList.Add(ws.Name); }
         if (menu is not null && _connections.Current is not null)
@@ -3791,9 +3812,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         var control = new FileLookupControl(_fileLookupService, _scriptFileService, _settings) { ProjectName = ws.Name };
         control.FileActivated += path => OpenFileFromLookup(path);
+        control.FieldGridRequested += path => OpenFieldGridForFile(path);
         control.ExcelToFrxRequested += path => OpenExcelToFrxTab(path, "frx");
         control.ExcelToRptRequested += path => OpenExcelToFrxTab(path, "rpt");
         control.DependencyRequested += path => OpenDependencyTab(_depService is null ? new DepNode("file", "file:" + path, Path.GetFileName(path), Path: path) : _depService.FileNode(path));
+        control.DecryptViewRequested += path => OpenDecryptedF(path);
         control.ApiSchemaRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: false);
         control.ApiDeclareRequested += path => _ = OpenApiFromStructureAsync(null, path, declare: true);
         control.NewLookupRequested += src => OpenLookupCloneOf(src);
@@ -3877,6 +3900,43 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         OpenFileInScriptTab(path);
     }
+
+    /// <summary>Chế độ triển khai: tab lưới khai field (Controls/FieldGridControl.cs) cho bộ Dir / Grid / Filter / Report chứa <paramref name="path"/>.</summary>
+    private void OpenFieldGridForFile(string path)
+    {
+        var (root, _) = Services.FgSet.Locate(path);
+        if (FindFieldGridTab(root, Path.GetFileNameWithoutExtension(path)) is { } open) { _documentTabs.SelectedTab = open; return; }
+        var control = NewFieldGrid();
+        var page = AddDocumentTab("Lưới field", control);
+        control.OpenFile(path);
+        page.Text = control.TitleText;
+    }
+
+    /// <summary>Chế độ triển khai: tab lưới khai field cho menu WCommand (tìm file theo SysID trong App_Data\Controllers của workspace).</summary>
+    private void OpenFieldGridForMenu(WCommandItem item)
+    {
+        if (_connections.Current is not { } ws || string.IsNullOrWhiteSpace(ws.SourcePath))
+        {
+            MessageBox.Show(this, "Workspace hiện tại chưa khai báo Source Path (UNC). Vào File > Choose Server để thêm.", "Bcode");
+            return;
+        }
+        var root = Path.Combine(ws.SourcePath, "App_Data", "Controllers");
+        if (FindFieldGridTab(root, item.SysId) is { } open) { _documentTabs.SelectedTab = open; return; }
+        var control = NewFieldGrid();
+        var page = AddDocumentTab("Lưới field", control);
+        control.OpenSysId(root, item.SysId, item.SysCode);
+        page.Text = control.TitleText;
+    }
+
+    private FieldGridControl NewFieldGrid()
+    {
+        var control = new FieldGridControl(_settings.SourceCollectionRoots);
+        control.OpenFileRequested += p => OpenFileFromLookup(p);
+        return control;
+    }
+
+    private TabPage? FindFieldGridTab(string? root, string sysId)
+        => _documentTabs.TabPages.Cast<TabPage>().FirstOrDefault(p => p.Controls.OfType<FieldGridControl>().FirstOrDefault() is { } c && c.IsSet(root, sysId));
 
     private void OpenFileInScriptTab(string path)
     {

@@ -9,17 +9,40 @@ internal sealed class BarFlow : FlowLayoutPanel
     protected override void OnPaintBackground(PaintEventArgs e) { using var b = new SolidBrush(AppColors.PanelAlt); e.Graphics.FillRectangle(b, ClientRectangle); }
 }
 
-/// <summary>Label luôn dùng màu chữ phụ của theme (ThemeManager.Apply đặt ForeColor = Text cho mọi Label nên phải chặn ở đây).</summary>
+/// <summary>Label luôn dùng màu chữ phụ của theme (ThemeManager.Apply đặt ForeColor = Text cho mọi Label nên phải chặn ở đây).
+/// Riêng màu trạng thái (Danger / Success / Warning / Accent — dòng báo lỗi, "Đã lưu"...) thì nhận, như .err/.ok của trang web — trước đây bị bỏ qua
+/// nên mọi dòng trạng thái ở chế độ App đều xám. Màu nhớ theo vai trò nên đổi sáng/tối vẫn đúng.</summary>
 public sealed class MutedLabel : Label
 {
-    public override Color ForeColor { get => AppColors.TextMuted; set { } }
+    private StatusTone.Kind _tone;
+    public override Color ForeColor { get => StatusTone.Resolve(_tone); set { var t = StatusTone.Of(value); if (t != _tone) { _tone = t; Invalidate(); } } }
+    /// <summary>Dòng trạng thái của trang native hiện thông điệp của exception vừa ném → ghi error.log (như WebBarHost.Call của bản Web; rất rẻ khi không có lỗi gần đây).</summary>
+    public override string Text { get => base.Text; set { base.Text = value; Bcode.App.Services.ErrorLog.NoticeDisplayed(value, "Trang native"); } }
+}
+
+/// <summary>Màu trạng thái mà <see cref="MutedLabel"/> / <see cref="WrapLabel"/> nhận khi gán ForeColor; màu khác (Text của theme, màu vùng...) = chữ phụ.</summary>
+internal static class StatusTone
+{
+    public enum Kind { Muted, Danger, Success, Warning, Accent }
+    public static Kind Of(Color c) =>
+        c.IsEmpty ? Kind.Muted
+        : c.ToArgb() == AppColors.Danger.ToArgb() ? Kind.Danger
+        : c.ToArgb() == AppColors.Success.ToArgb() ? Kind.Success
+        : c.ToArgb() == AppColors.Warning.ToArgb() ? Kind.Warning
+        : c.ToArgb() == AppColors.Accent.ToArgb() ? Kind.Accent
+        : Kind.Muted;
+    public static Color Resolve(Kind k) => k switch
+    {
+        Kind.Danger => AppColors.Danger, Kind.Success => AppColors.Success, Kind.Warning => AppColors.Warning, Kind.Accent => AppColors.Accent, _ => AppColors.TextMuted,
+    };
 }
 
 /// <summary>Nhãn chữ phụ tự xuống dòng: rộng theo chỗ được cấp (Dock, hoặc <see cref="Control.MaximumSize"/>.Width khi không Dock), cao tự tính theo số dòng
 /// thực tế — dùng cho chú thích dài trong thẻ (như &lt;p class="muted"&gt; của trang web).</summary>
 public sealed class WrapLabel : Label
 {
-    public override Color ForeColor { get => AppColors.TextMuted; set { } }
+    private StatusTone.Kind _tone;
+    public override Color ForeColor { get => StatusTone.Resolve(_tone); set { var t = StatusTone.Of(value); if (t != _tone) { _tone = t; Invalidate(); } } }
 
     public WrapLabel() { AutoSize = false; BackColor = Color.Transparent; UseMnemonic = false; }
 
@@ -39,7 +62,7 @@ public sealed class WrapLabel : Label
     }
 
     protected override void OnResize(EventArgs e) { base.OnResize(e); Fit(); }
-    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Fit(); }
+    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Fit(); Bcode.App.Services.ErrorLog.NoticeDisplayed(Text, "Trang native"); }   // như MutedLabel.Text
     protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); Fit(); }
     protected override void OnDockChanged(EventArgs e) { base.OnDockChanged(e); Fit(); }
     public override Size MaximumSize { get => base.MaximumSize; set { base.MaximumSize = value; Fit(); } }

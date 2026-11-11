@@ -43,6 +43,80 @@ public sealed class NativeResultPane : UserControl
 
     private int _focusedTable = -1;   // bảng có lưới được focus cuối cùng từ lần chạy này (-1 = chưa bấm bảng nào)
 
+    /// <summary>Quét khối nhiều ô số → "Average / Count / Sum / n Row(s)" (như thanh tổng của resultview.html) — ResultGridMenu.AttachSelectionSummary.</summary>
+    private readonly MutedLabel _selSummary = new() { AutoSize = true, Margin = new Padding(14, 6, 0, 0), BackColor = Color.Transparent, UseMnemonic = false };
+
+    private readonly RoundedInput _quick = NK.Input("Tìm trong kết quả...");
+    private readonly System.Windows.Forms.Timer _quickTimer = new() { Interval = 250 };
+    private readonly PillButton _fit, _copyOne;
+    private readonly MutedLabel _meta = new() { AutoSize = true, Margin = new Padding(14, 6, 0, 0), BackColor = Color.Transparent, UseMnemonic = false };
+    private readonly List<Label> _titles = new();   // chữ "Bảng N · n dòng · c cột · ⏱" của từng thẻ (nhiều bảng)
+
+    /// <summary>"[đang lọc / ]n dòng · c cột[ · ⏱ thời gian]" như .meta của resultview.html; thời gian = ExtendedProperties["ms"] do RawSqlService ghi.</summary>
+    private string Meta(int i)
+    {
+        var t = _tables[i];
+        var shown = t.DefaultView.Count;
+        var ms = t.ExtendedProperties["ms"] is long m ? m : (long?)null;
+        return (shown != t.Rows.Count ? $"{shown:N0} / " : "") + $"{t.Rows.Count:N0} dòng · {t.Columns.Count} cột" + (ms is { } v ? " · ⏱ " + Dur(v) : "");
+    }
+
+    private static string Dur(long ms) => ms < 1000 ? ms + " ms" : ms < 60000 ? (ms / 1000.0).ToString("0.0").Replace('.', ',') + " s" : $"{ms / 60000} phút {(ms % 60000) / 1000} s";
+
+    private void UpdateMeta()
+    {
+        _meta.Text = _tables.Count == 1 ? Meta(0) : "";
+        for (var i = 0; i < _titles.Count && i < _tables.Count; i++) _titles[i].Text = $"Bảng {i + 1} · " + Meta(i);
+    }
+
+    private void ApplyQuick()
+    {
+        foreach (var t in _tables)
+            try { ResultGridMenu.SetQuickFilter(t, _quick.Text); } catch { /* biểu thức lọc không dựng được — bỏ qua như gõ dở */ }
+        UpdateMeta();
+    }
+
+    /// <summary>"↔ Fit cột": co mọi cột vừa nội dung (tối đa ~440px như fitColumn của bản Web); bảng lớn thì đo theo dòng đang hiện cho nhanh.</summary>
+    private void FitColumns()
+    {
+        foreach (var (_, grid, _, rows) in _cards)
+        {
+            grid.AutoResizeColumns(rows <= 5000 ? DataGridViewAutoSizeColumnsMode.AllCells : DataGridViewAutoSizeColumnsMode.DisplayedCells);
+            var max = NativeSkin.Px(grid, 440);
+            foreach (DataGridViewColumn c in grid.Columns) if (c.Width > max) c.Width = max;
+        }
+    }
+
+    /// <summary>Ô NULL hiện theo Template giao diện (Result: kiểu NULL — italic / [NULL] / — / trống) và ngày dd/MM/yyyy[ HH:mm:ss] như bản Web
+    /// (resultview.html nullText, MultiResultView.CellText). Chỉ đổi chữ hiển thị — copy / Ctrl+F3 vẫn đọc giá trị gốc.</summary>
+    private static void FormatCell(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (sender is not DataGridView g || e.RowIndex < 0 || e.ColumnIndex < 0) return;
+        switch (e.Value)
+        {
+            case DBNull or null:
+                if (g.Columns[e.ColumnIndex] is DataGridViewImageColumn) return;
+                var style = UiTemplate.Current.ResultNullStyle;
+                e.Value = style switch { "bracket" => "[NULL]", "dash" => "—", "blank" => "", _ => "NULL" };
+                e.CellStyle.ForeColor = AppColors.TextMuted;
+                if (style == "italic") e.CellStyle.Font = ItalicFont(g.Font);
+                e.FormattingApplied = true;
+                break;
+            case DateTime d:
+                e.Value = MultiResultView.CellText(d, full: true);
+                e.FormattingApplied = true;
+                break;
+        }
+    }
+
+    private static Font? _italic;
+    private static Font ItalicFont(Font baseFont)
+    {
+        if (_italic is null || _italic.Size != baseFont.Size || _italic.FontFamily.Name != baseFont.FontFamily.Name)
+            _italic = new Font(baseFont, FontStyle.Italic);   // cache 1 font (không tạo GDI mỗi lần vẽ ô)
+        return _italic;
+    }
+
     /// <summary>Check Fields (như MultiResultView.CheckFieldsTables của chế độ Web): cột mọi bảng + bảng đang chọn — 1 bảng thì lấy luôn;
     /// nhiều bảng: "Từng tab" = bảng đang hiện, "Xếp chồng" = bảng bấm vào cuối cùng (-1 = chưa chọn).</summary>
     public List<List<Bcode.App.Services.ResultFieldChecker.Column>> CheckFieldsTables(out int chosen)
@@ -66,6 +140,21 @@ public sealed class NativeResultPane : UserControl
         _strip.Controls.Add(_mStack);
         _strip.Controls.Add(_mTabs);
         _strip.Controls.Add(_tabPills);
+        _strip.Controls.Add(_selSummary);
+        // Như thanh trên của resultview.html: chữ bảng (1 bảng), ô "Tìm trong kết quả...", "↔ Fit cột", "⎘ Copy" (1 bảng; nhiều bảng thì nút nằm trên từng bảng).
+        _quick.Width = NativeSkin.S(220); _quick.Margin = new Padding(12, 0, 4, 0);
+        _quickTimer.Tick += (_, _) => { _quickTimer.Stop(); ApplyQuick(); };
+        _quick.TextChanged += (_, _) => { _quickTimer.Stop(); _quickTimer.Start(); };
+        _quick.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Escape && _quick.Text.Length > 0) { e.Handled = e.SuppressKeyPress = true; _quick.Text = ""; } };
+        _fit = Tab("↔ Fit cột", FitColumns); NK.Tip(_fit, "Tự co cột vừa nội dung (bấm đúp mép cột = co riêng cột đó)");
+        _copyOne = Tab("⎘ Copy", () => { if (_cards.Count == 1) ResultGridMenu.CopyWholeTable(_cards[0].Grid); }); NK.Tip(_copyOne, "Copy cả bảng (kèm tên cột)");
+        _strip.Controls.Add(_meta); _strip.Controls.Add(_quick); _strip.Controls.Add(_fit); _strip.Controls.Add(_copyOne);
+        _msgWrap.CheckedChanged += (_, _) => _msg.WordWrap = _msgWrap.Checked;
+        _msgCopy = Tab("Copy", () => { try { if (_plain.Length > 0) Clipboard.SetText(_plain); } catch { /* clipboard đang bận */ } });
+        NK.Tip(_msgCopy, "Copy toàn bộ message (không kèm số dòng)");
+        _strip.Controls.Add(_msgSum); _strip.Controls.Add(_msgWrap); _strip.Controls.Add(_msgCopy);
+        _msg.MouseMove += (_, e) => { var l = _msg.GetLineFromCharIndex(_msg.GetCharIndexFromPosition(e.Location)); _msg.Cursor = _jump.ContainsKey(l) ? Cursors.Hand : Cursors.IBeam; };
+        Disposed += (_, _) => _quickTimer.Dispose();
         _stack.Resize += (_, _) => LayoutCards();
 
         _msg.Font = ThemeManager.MonoFont;
@@ -89,7 +178,12 @@ public sealed class NativeResultPane : UserControl
         return b;
     }
 
-    private void Restyle() { if (_msg.TextLength > 0) Invalidate(true); }
+    private void Restyle() { if (_msg.TextLength > 0) { RenderMessages(); Invalidate(true); } }   // màu Message tô sẵn trong chữ → đổi theme thì vẽ lại
+
+    // Thanh của tab Message (như #bar của sqlmessages.html): tóm tắt, Wrap, Copy — chỉ hiện khi đang ở tab Message.
+    private readonly MutedLabel _msgSum = new() { AutoSize = true, Margin = new Padding(14, 6, 0, 0), BackColor = Color.Transparent, UseMnemonic = false };
+    private readonly CheckBox _msgWrap = new() { Text = "Wrap", AutoSize = true, Margin = new Padding(14, 5, 0, 0), BackColor = Color.Transparent };
+    private PillButton? _msgCopy;
 
     public void Select(string id)
     {
@@ -120,6 +214,9 @@ public sealed class NativeResultPane : UserControl
         _mStack.Visible = _mTabs.Visible = multi;
         _mStack.IsPrimary = _mode == "stack"; _mTabs.IsPrimary = _mode == "tabs";
         _tabPills.Visible = multi && _mode == "tabs";
+        var grid = _tables.Count > 0 && _active == "grid";
+        if (_quick is not null) { _quick.Visible = _fit.Visible = grid; _copyOne.Visible = _meta.Visible = grid && _tables.Count == 1; }
+        if (_msgCopy is not null) { _msgSum.Visible = _msgWrap.Visible = _msgCopy.Visible = _active == "msg"; _selSummary.Visible = _active == "grid"; }
         for (var i = 0; i < _tabPills.Controls.Count; i++) if (_tabPills.Controls[i] is PillButton pb) { pb.IsPrimary = i == _activeTable; pb.Invalidate(); }
         foreach (var b in new[] { _btnGrid, _btnMsg, _btnPivot, _mStack, _mTabs }) b.Invalidate();
     }
@@ -155,6 +252,8 @@ public sealed class NativeResultPane : UserControl
     private void BuildCards()
     {
         _stack.SuspendLayout();
+        _selSummary.Text = "";
+        _titles.Clear();
         foreach (var c in _cards) { c.Grid.DataSource = null; c.Card.Dispose(); }
         _cards.Clear();
         _stack.Controls.Clear();
@@ -167,6 +266,8 @@ public sealed class NativeResultPane : UserControl
             ResultGridMenu.Attach(grid);
             ResultGridMenu.EnableCopy(grid);   // Ctrl+C 1 ô = giá trị gốc; nhiều ô = TSV chỉ bọc "..." khi cần
             ResultGridMenu.EnableSave(grid, () => _tables.Count > 1 ? $"Bảng {idx + 1}" : null);   // Save as CSV / Excel (.xlsx)
+            ResultGridMenu.AttachSelectionSummary(grid, _selSummary);
+            grid.CellFormatting += FormatCell;
             var card = new Panel { Dock = DockStyle.Top, Padding = new Padding(1) };
             PillButton? toggle = null;
             if (_tables.Count > 1)
@@ -174,8 +275,12 @@ public sealed class NativeResultPane : UserControl
                 var head = new BarFlow { Dock = DockStyle.Top, AutoSize = true, WrapContents = false, Padding = new Padding(6, 3, 6, 3) };
                 toggle = Tab("▾", () => { if (!_collapsed.Remove(idx)) _collapsed.Add(idx); LayoutCards(); });
                 toggle.AutoWidth = false; toggle.Width = NativeSkin.S(30);
-                var title = new Label { Text = $"Bảng {i + 1} · {_tables[i].Rows.Count:N0} dòng · {_tables[i].Columns.Count} cột", AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(4, 7, 0, 0), UseMnemonic = false };
-                head.Controls.Add(toggle); head.Controls.Add(title);
+                var title = new Label { Text = $"Bảng {i + 1} · " + Meta(i), AutoSize = true, BackColor = Color.Transparent, Margin = new Padding(4, 7, 0, 0), UseMnemonic = false };
+                _titles.Add(title);
+                var copy = Tab("⎘ Copy", () => ResultGridMenu.CopyWholeTable(grid));   // như nút ⎘ Copy trên từng bảng của resultview.html
+                NK.Tip(copy, "Copy cả bảng (kèm tên cột)");
+                copy.Margin = new Padding(12, 0, 0, 0);
+                head.Controls.Add(toggle); head.Controls.Add(title); head.Controls.Add(copy);
                 card.Controls.Add(grid); card.Controls.Add(head); card.Controls.Add(Grip(card, idx));
             }
             else card.Controls.Add(grid);
@@ -190,6 +295,7 @@ public sealed class NativeResultPane : UserControl
         ThemeManager.Apply(_stack);
         for (var i = 0; i < _cards.Count; i++) GridDisplayHelper.BindOptimized(_cards[i].Grid, _tables[i]);
         _stack.ResumeLayout(true);
+        if (_quick.Text.Trim().Length > 0) ApplyQuick(); else UpdateMeta();   // ô tìm giữ qua các lần chạy (như S.quick của bản Web)
         LayoutCards();
     }
 
@@ -283,33 +389,86 @@ public sealed class NativeResultPane : UserControl
 
     /// <summary>Đặt nội dung tab Message. <paramref name="error"/> = lỗi (đỏ), <paramref name="printed"/> = PRINT/RAISERROR (màu nhấn);
     /// tự chọn tab: có lỗi hoặc không có bảng nào mà có message → Message, còn lại → Grid Result.</summary>
+    private string? _lastError, _lastPrinted;
+    private readonly Dictionary<int, int> _jump = new();   // dòng trong khung Message → dòng editor cần nhảy tới
+    private string _plain = "";
+
     public void SetMessages(string? error, string? printed, int tables)
     {
-        _msg.Clear();
-        void Add(string? text, Color color)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return;
-            _msg.SelectionStart = _msg.TextLength; _msg.SelectionLength = 0; _msg.SelectionColor = color;
-            _msg.AppendText(text.TrimEnd() + Environment.NewLine);
-        }
-        Add(error, AppColors.Danger);
-        Add(printed, AppColors.Accent);
+        // Như khung sqlmessages.html của bản Web: lỗi Bcode (không phải SqlException của script người dùng) hiện ở đây thì ghi error.log (F1 gửi được).
+        Bcode.App.Services.ErrorLog.NoticeDisplayed(error, "sqlmessages.html (chế độ App)");
+        _lastError = error; _lastPrinted = printed;
+        RenderMessages();
         _lines = Count(error) + Count(printed);
         _kind = !string.IsNullOrWhiteSpace(error) ? "error" : !string.IsNullOrWhiteSpace(printed) ? "info" : "none";
         Select(_kind == "error" || (tables == 0 && _lines > 0) ? "msg" : "grid");
+    }
+
+    /// <summary>Kiểu dòng như kindOf của sqlmessages.html: "(N rows affected)" mờ, có chữ warning / cảnh báo = vàng, "Msg N, Level N" = lỗi, còn lại PRINT (màu nhấn).</summary>
+    private static string KindOf(string line) =>
+        Regex.IsMatch(line, @"^\s*\(\d+\s*(rows?|dòng)\b.*\)\s*$", RegexOptions.IgnoreCase) ? "dim"
+        : Regex.IsMatch(line, @"\b(warning|cảnh báo)\b", RegexOptions.IgnoreCase) ? "warn"
+        : Regex.IsMatch(line, @"^\s*msg\s+\d+,\s*level\s+\d+", RegexOptions.IgnoreCase) ? "err"
+        : "print";
+
+    private static readonly Regex ErrLine = new(@"Lỗi ở dòng (\d+)", RegexOptions.Compiled);
+    private Font? _msgBold;
+
+    /// <summary>Vẽ tab Message như sqlmessages.html: số thứ tự dòng, nhóm "LỖI" / "MESSAGE (PRINT / RAISERROR)", lỗi đỏ đậm, PRINT màu nhấn, cảnh báo vàng,
+    /// "(N rows affected)" mờ; chỉ dòng "Lỗi ở dòng N…" và dòng "→ câu lệnh" ngay dưới mới bấm được để nhảy tới dòng N. Đổi theme thì vẽ lại.</summary>
+    private void RenderMessages()
+    {
+        static string[] Lines(string? s) => string.IsNullOrWhiteSpace(s) ? Array.Empty<string>() : s.Replace("\r\n", "\n").Split('\n');
+        var err = Lines(_lastError);
+        var outl = Lines(_lastPrinted);
+        _jump.Clear();
+        _msg.SuspendLayout();
+        _msg.Clear();
+        var warnColor = Color.FromArgb(0xE0, 0xA8, 0x00);
+        if (_msgBold is null || _msgBold.Size != _msg.Font.Size) _msgBold = new Font(_msg.Font, FontStyle.Bold);
+        var bold = _msgBold;
+        int n = 0, line = 0, jumpTo = 0;
+        void Row(string kind, string text, bool numbered)
+        {
+            var no = numbered ? (++n).ToString().PadLeft(4) + "  " : "";
+            var (fore, isBold) = kind switch
+            {
+                "err" => (AppColors.Danger, true), "warn" => (warnColor, true), "print" => (AppColors.Accent, true),
+                "dim" or "sep" => (AppColors.TextMuted, false), _ => (AppColors.Text, false),
+            };
+            _msg.SelectionStart = _msg.TextLength; _msg.SelectionLength = 0;
+            _msg.SelectionColor = AppColors.TextMuted; _msg.SelectionFont = _msg.Font;
+            _msg.AppendText(no);
+            _msg.SelectionStart = _msg.TextLength; _msg.SelectionColor = fore; _msg.SelectionFont = isBold ? bold : _msg.Font;
+            _msg.AppendText((kind == "sep" ? text.ToUpperInvariant() : text) + "\n");
+            if (kind == "err")
+            {
+                var m = ErrLine.Match(text);
+                if (m.Success) jumpTo = int.Parse(m.Groups[1].Value);
+                if (m.Success || text.TrimStart().StartsWith('→')) { if (jumpTo > 0) _jump[line] = jumpTo; }
+                else jumpTo = 0;
+            }
+            line++;
+        }
+        if (err.Length > 0) { Row("sep", "Lỗi", false); foreach (var l in err) if (l.Trim() != "---") Row("err", l, true); }
+        if (outl.Length > 0) { if (err.Length > 0) Row("sep", "Message (PRINT / RAISERROR)", false); foreach (var l in outl) Row(l.Trim().Length == 0 ? "dim" : KindOf(l), l, true); }
+        if (line == 0) { _msg.SelectionColor = AppColors.TextMuted; _msg.AppendText("Chưa có message. PRINT / RAISERROR của procedure và lỗi SQL sẽ hiện ở đây."); }
+        _msg.SelectionStart = 0; _msg.SelectionLength = 0;
+        _msg.ResumeLayout();
+        var printN = outl.Count(l => l.Trim().Length > 0);
+        _msgSum.Text = line == 0 ? "Chưa có message." : (printN > 0 ? $"{printN} dòng message" : "") + (err.Length > 0 ? (printN > 0 ? " · " : "") + "có lỗi" : "");
+        _msgSum.ForeColor = err.Length > 0 ? AppColors.Danger : AppColors.TextMuted;
+        _plain = string.Join("\r\n", err.Concat(err.Length > 0 && outl.Length > 0 ? new[] { "---" } : Array.Empty<string>()).Concat(outl));
     }
 
     public void ClearMessages() => SetMessages(null, null, _tables.Count);
 
     private static int Count(string? s) => s is null ? 0 : s.Split('\n').Count(l => l.Trim().Length > 0 && l.Trim() != "---");
 
-    private static readonly Regex LineRef = new(@"d[oò]ng\s+(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
     private void TryGoto(int charIndex)
     {
         if (charIndex < 0 || charIndex >= _msg.TextLength) return;
         var line = _msg.GetLineFromCharIndex(charIndex);
-        if (line < 0 || line >= _msg.Lines.Length) return;
-        if (LineRef.Match(_msg.Lines[line]) is { Success: true } m && int.TryParse(m.Groups[1].Value, out var n)) GotoLineRequested?.Invoke(n);
+        if (_jump.TryGetValue(line, out var n)) GotoLineRequested?.Invoke(n);
     }
 }

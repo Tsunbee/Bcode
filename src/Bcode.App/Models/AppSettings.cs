@@ -179,6 +179,11 @@ public class AppSettings
     /// bằng bản sao (Services/OfflineExcelDesign.cs) để Excel không khoá file gốc — FBO vẫn in được; Excel lưu thì bản sửa tự chép về file gốc. Mặc định tắt.</summary>
     public bool FileLookupOfflineExcel { get; set; }
 
+    /// <summary>"Chế độ triển khai" (chuột phải cây File Lookup → bật/tắt): bật thì chuột phải file Dir / Grid / Filter / Report (File Lookup) hoặc menu
+    /// (cây WCommand) có thêm "Mở dạng lưới (khai field)" — tab Controls/FieldGridControl.cs khai field dạng lưới như FSD Studio thay vì sửa XML.
+    /// Mở file bình thường (nhấn đúp) vẫn là editor XML. Mặc định tắt.</summary>
+    public bool DeployGridMode { get; set; }
+
     // ---- File Lookup → Search Box (String search): các file/thư mục bị LOẠI khi tìm nội dung. Mặc định = đúng như trước đây; sửa ở Template → "Tìm file".
     /// <summary>Đuôi file ĐƯỢC tìm khi File Type là *.* (chỉ quét các đuôi này; để trống = mọi đuôi trừ 2 danh sách loại trừ). Gõ rõ đuôi ở File Type thì không áp.</summary>
     public string SearchIncludeExtensions { get; set; } = ".xml, .f, .txt, .js, .sql, .ent, .xsd, .css, .config, .json, .html";
@@ -286,6 +291,10 @@ public class AppSettings
     /// <summary>Thư mục lưu kiến thức ghost text + Hỏi Fast (Template → Đường dẫn). Trống = %AppData%\Bcode trên máy này; khai cùng 1 thư mục mạng cho
     /// nhiều máy để dùng chung (xem <see cref="Services.KnowledgePaths"/>).</summary>
     public string KnowledgeDir { get; set; } = "";
+
+    /// <summary>Thư mục kiến thức đang dùng TRƯỚC lần đổi gần nhất (đường dẫn đầy đủ) — nguồn của nút "Chuyển dữ liệu sang đây"
+    /// (<see cref="Services.KnowledgePaths.MoveAll"/>); chuyển xong hết thì xoá. Trống = nguồn là %AppData%\Bcode của máy này.</summary>
+    public string KnowledgeMoveFrom { get; set; } = "";
 
     /// <summary>Cỡ chữ editor SQL Query (px) người dùng chọn bằng Ctrl+lăn chuột / Tăng-Giảm cỡ chữ.
     /// 0 = mặc định như FCode (Consolas 11px, xem Web/Shell/sqleditor.html).</summary>

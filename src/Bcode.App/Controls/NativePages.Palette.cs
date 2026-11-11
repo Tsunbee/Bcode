@@ -28,7 +28,7 @@ internal sealed class CommandPalettePage : NativePage
     {
         _q.Dock = DockStyle.Top; _qHost.Controls.Add(_q); _qHost.Height = NativeSkin.RowHeight(this, 40);
         _foot.Height = NativeSkin.RowHeight(this, 26);
-        _list.MeasureItem += (_, e) => e.ItemHeight = _list.Font.Height + 12;
+        _list.MeasureItem += (_, e) => e.ItemHeight = _list.Font.Height + 12 + (GroupHeaderAt(e.Index) is not null ? _list.Font.Height + 8 : 0);
         _list.DrawItem += Draw;
         _q.TextChanged += (_, _) => Compute();
         _list.MouseMove += (_, e) => { var i = _list.IndexFromPoint(e.Location); if (i >= 0 && i != _list.SelectedIndex) _list.SelectedIndex = i; };
@@ -147,6 +147,16 @@ internal sealed class CommandPalettePage : NativePage
         if (e.Index < 0 || e.Index >= _shown.Count) return;
         var it = _shown[e.Index]; var sel = (e.State & DrawItemState.Selected) != 0;
         var g = e.Graphics; var b = e.Bounds;
+        // Mục đầu của mỗi nhóm ("Gần đây", "Tab đang mở"...): dải tiêu đề nhóm phía trên, như .grp của commandpalette.html.
+        if (GroupHeaderAt(e.Index) is { } grp)
+        {
+            var hh = _list.Font.Height + 8;
+            var hr = new Rectangle(b.X, b.Y, b.Width, hh);
+            using (var hb = new SolidBrush(AppColors.Panel)) g.FillRectangle(hb, hr);
+            TextRenderer.DrawText(g, grp.ToUpperInvariant(), _list.Font, new Rectangle(b.X + 12, b.Y + 2, b.Width - 24, hh - 2), AppColors.TextMuted, AppColors.Panel,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis);
+            b = new Rectangle(b.X, b.Y + hh, b.Width, b.Height - hh);
+        }
         using (var br = new SolidBrush(sel ? AppColors.Accent : AppColors.Panel)) g.FillRectangle(br, b);
         var fore = sel ? AppColors.OnAccent : AppColors.Text; var muted = sel ? AppColors.OnAccent : AppColors.TextMuted;
         var f = _list.Font; var x = b.X + 12;
@@ -166,6 +176,13 @@ internal sealed class CommandPalettePage : NativePage
             TextRenderer.DrawText(g, it.Sub, f, sub, muted, TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
         }
         if (keyW > 0) TextRenderer.DrawText(g, it.Key, f, new Rectangle(b.Right - keyW - 10, b.Y, keyW, b.Height), muted, TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
+    }
+
+    /// <summary>Tên nhóm cần vẽ trên mục <paramref name="i"/> (mục đầu của nhóm khác nhóm mục trước), null = không.</summary>
+    private string? GroupHeaderAt(int i)
+    {
+        if (i < 0 || i >= _shown.Count || string.IsNullOrEmpty(_shown[i].Grp)) return null;
+        return i == 0 || _shown[i - 1].Grp != _shown[i].Grp ? _shown[i].Grp : null;
     }
 
     private void Move(int d)

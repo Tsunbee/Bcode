@@ -117,6 +117,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     {
         _service = service;
         _sqlObjectService = sqlObjectService;
+        _snippetLib = snippets;
         Dock = DockStyle.Fill;
 
         // ---- thanh nút ----
@@ -146,6 +147,9 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         };
         _hints = new NativeSqlHints(_ed, this, () => _useSys, () => CurrentProject?.Invoke() ?? "", snippets, _sqlObjectService,
             () => _running ? null : _persistentConn, () => _objectNames, () => _tableNames, () => _service.Connections.Current is not null);
+        SqlAutoClose.Attach(_ed, () => _settings.SqlAutoCloseSingleQuote);   // tự đóng ( [ { " (và ' theo Options) như Monaco của bản Web
+        // Nhiều con trỏ chỉ bật trong lúc dùng Ctrl+Shift+D; về 1 vùng chọn thì tắt lại (Ctrl+click giữ hành vi cũ của Scintilla).
+        _ed.UpdateUI += (_, _) => { if (_ed.MultipleSelection && _ed.Selections.Count <= 1) _ed.MultipleSelection = false; };
         _ed.MouseWheel += (_, e) => { };
         WebMenu.AttachTo(_ed, BuildEditorMenu);
         _ed.MouseUp += (_, e) => { if (e.Button == MouseButtons.Right && (ModifierKeys & Keys.Control) != 0) OnCtrlRightClick(e.Location); };
@@ -321,7 +325,21 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
     // ---- thanh phần trăm phóng to (hiện góc phải trên editor khi Ctrl + lăn chuột / Tăng-Giảm cỡ chữ / Ctrl+0; tự ẩn sau ~2,5 giây) ----
     private Panel? _zoomPanel;
-    private Label? _zoomPct;
+    private TextBox? _zoomPct;
+    private string _zoomLast = "100%";
+
+    /// <summary>Gõ số % rồi Enter / rời ô (như ô #zoomPct của bản Web, 30–500): đổi sang mức Zoom của Scintilla (số điểm cộng thêm, giới hạn −10…+20).</summary>
+    private void ApplyZoomText()
+    {
+        if (_zoomPct is null) return;
+        var raw = _zoomPct.Text.Replace("%", "").Replace(',', '.').Trim();
+        if (!double.TryParse(raw, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pct) || pct <= 0) { _zoomPct.Text = _zoomLast; return; }
+        pct = Math.Clamp(pct, 30, 500);
+        var size = Math.Max(1, _ed.Styles[Style.Default].Size);
+        _ed.Zoom = Math.Clamp((int)Math.Round(size * pct / 100.0 - size), -10, 20);
+        SaveZoomIfChanged();
+        ShowZoomBar();
+    }
     private readonly System.Windows.Forms.Timer _zoomHide = new() { Interval = 2500 };
 
     private void ShowZoomBar()
@@ -331,7 +349,15 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         {
             _zoomHide.Tick += (_, _) => { _zoomHide.Stop(); if (_zoomPanel is not null) _zoomPanel.Visible = false; };
             Disposed += (_, _) => _zoomHide.Dispose();
-            _zoomPct = new Label { AutoSize = false, Width = 52, Height = 26, Left = 10, Top = 4, TextAlign = ContentAlignment.MiddleLeft };
+            _zoomPct = new TextBox { Width = 48, Left = 8, Top = 6, TextAlign = HorizontalAlignment.Center, BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle };
+            NK.Tip(_zoomPct, "Gõ số % rồi Enter (30–500)");
+            _zoomPct.Enter += (_, _) => { _zoomHide.Stop(); BeginInvoke(new Action(() => _zoomPct.SelectAll())); };
+            _zoomPct.KeyDown += (_, e) =>
+            {
+                if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; ApplyZoomText(); _ed.Focus(); }
+                else if (e.KeyCode == Keys.Escape) { e.Handled = e.SuppressKeyPress = true; _zoomPct.Text = _zoomLast; _ed.Focus(); }
+            };
+            _zoomPct.Leave += (_, _) => { if (_zoomPct.Text != _zoomLast) ApplyZoomText(); _zoomHide.Stop(); _zoomHide.Start(); };
             Button Btn(string text, int left, int width, Action act, bool accent = false)
             {
                 var b = new Button { Text = text, Left = left, Top = 4, Width = width, Height = 26, FlatStyle = FlatStyle.Flat, TabStop = false, Cursor = Cursors.Hand };
@@ -350,6 +376,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         }
         _zoomPanel.BackColor = Bcode.App.UI.AppColors.PanelAlt;
         _zoomPct!.ForeColor = Bcode.App.UI.AppColors.Text;
+        _zoomPct.BackColor = Bcode.App.UI.AppColors.Panel;
         foreach (var b in _zoomPanel.Controls.OfType<Button>())
         {
             b.BackColor = Bcode.App.UI.AppColors.PanelAlt;
@@ -357,11 +384,12 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             b.FlatAppearance.BorderColor = Bcode.App.UI.AppColors.Accent;
         }
         var size = Math.Max(1, _ed.Styles[Style.Default].Size);   // 100% = cỡ chữ gốc; Zoom của Scintilla = số điểm cộng thêm
-        _zoomPct.Text = Math.Max(10, (int)Math.Round((size + _ed.Zoom) * 100.0 / size)) + "%";
+        _zoomLast = Math.Max(10, (int)Math.Round((size + _ed.Zoom) * 100.0 / size)) + "%";
+        if (!_zoomPct.Focused) _zoomPct.Text = _zoomLast;   // đang gõ thì không ghi đè (như showZoom của bản Web)
         _zoomPanel.Location = new Point(Math.Max(0, _ed.Right - _zoomPanel.Width - Bcode.App.UI.NativeSkin.Px(host, 30)), _ed.Top + Bcode.App.UI.NativeSkin.Px(host, 6));
         _zoomPanel.Visible = true;
         _zoomPanel.BringToFront();
-        _zoomHide.Stop(); _zoomHide.Start();
+        _zoomHide.Stop(); if (!_zoomPct.Focused) _zoomHide.Start();
     }
 
     private void ApplyEditorTheme() { if (!IsDisposed) { SqlScintilla.ApplyTheme(_ed); FcodeLexer.ApplySql(_ed); ApplyNextLineColor(); ApplyGhostStyle(); } }
@@ -604,6 +632,9 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         var items = BarItems().ToDictionary(i => i.Key);
         _bar.SuspendLayout();
         _bar.Controls.Clear();
+        _pinnedKeys = layout.Pinned.ToHashSet();
+        foreach (var cb in _chipBtns) cb.Dispose();
+        _chipBtns.Clear();
         foreach (var gb in _groupBtns) gb.Dispose();
         _groupBtns.Clear();
         foreach (var key in layout.Pinned) _bar.Controls.Add(BarControlFor(items[key]));
@@ -655,6 +686,37 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
                 var on = it.On();
                 if (pb.IsPrimary != on) { pb.IsPrimary = on; pb.Invalidate(); }
             }
+        RefreshBarChips();
+    }
+
+    // Chip trạng thái trên thanh (như CHIPS của sqlquerybar.html): nút bật/tắt KHÔNG ghim mà đang khác mặc định → hiện nhãn, bấm để bật/tắt lại.
+    private static readonly (string Key, bool When, string Text, string Tip, bool Warn)[] BarChipDefs =
+    {
+        ("reset-conn", false, "⚠ Giữ kết nối", "Reset Connection đang TẮT: các lần chạy dùng chung 1 kết nối (transaction / bảng tạm còn giữ). Bấm để bật lại.", true),
+        ("debug-step", true, "🐞 Debug từng bước", "Đang bật Debug từng bước. Bấm để tắt.", false),
+        ("result-tab", true, "Result Tab", "Kết quả mở ra tab mới. Bấm để tắt.", false),
+        ("suggest", false, "Suggest: tắt", "Suggest Param/Caret đang tắt. Bấm để bật.", false),
+    };
+    private readonly List<PillButton> _chipBtns = new();
+    private HashSet<string> _pinnedKeys = new();
+
+    private void RefreshBarChips()
+    {
+        var want = BarChipDefs.Where(c => !_pinnedKeys.Contains(c.Key) && BarItems().First(i => i.Key == c.Key).On?.Invoke() == c.When).ToList();
+        if (want.Select(c => c.Key).SequenceEqual(_chipBtns.Select(b => (string)b.Tag!))) return;
+        _bar.SuspendLayout();
+        foreach (var b in _chipBtns) { _bar.Controls.Remove(b); b.Dispose(); }
+        _chipBtns.Clear();
+        foreach (var c in want)
+        {
+            var def = c;
+            var b = Btn(def.Text, def.Tip, () => BarItems().First(i => i.Key == def.Key).Run?.Invoke(_bar));
+            b.Tag = def.Key;
+            if (def.Warn) b.ForeOverride = AppColors.Warning;
+            _chipBtns.Add(b);
+            _bar.Controls.Add(b);
+        }
+        _bar.ResumeLayout(true);
     }
 
     private void OpenBarGroup(int index)
@@ -1508,6 +1570,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("editor.toggleSuggest")) { ToggleSuggest(); return true; }
             if (combo == ShortcutRegistry.Get("editor.toggleResetConn")) { ToggleResetConn(); return true; }
             if (combo == ShortcutRegistry.Get("editor.toggleResultTab")) { ToggleResultTab(); return true; }
+            if (combo == ShortcutRegistry.Get("editor.fontUp")) { ChangeZoom(1); return true; }     // như bản Web (bar-action font-up) — mặc định chưa gán phím
+            if (combo == ShortcutRegistry.Get("editor.fontDown")) { ChangeZoom(-1); return true; }
             if (combo == ShortcutRegistry.Get("editor.options") && _barCtl.TryGetValue("options", out var optBtn)) { BuildOptionsMenu().Show(optBtn, 0, optBtn.Height + 2); return true; }
             for (var g = 1; g <= 9; g++)
                 if (combo == ShortcutRegistry.Get("editor.barGroup" + g)) { OpenBarGroup(g); return true; }
@@ -1520,6 +1584,10 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (combo == ShortcutRegistry.Get("debug.findError")) { _ = DebugFindErrorAsync(); return true; }
             if (combo == ShortcutRegistry.Get("debug.dynSql")) { _ = ShowDynamicSqlAsync(); return true; }
         }
+        // Như Monaco của bản Web: Ctrl+H = Tìm & thay thế, Ctrl+Shift+D = thêm con trỏ ở chỗ giống tiếp theo (bcode.addSelectionToNextMatch).
+        if (keyData == (Keys.Control | Keys.H) && (_ed.Focused || _find is { Visible: true, ContainsFocus: true })) { ShowFind(replace: true); return true; }
+        if (keyData == (Keys.Control | Keys.Shift | Keys.D) && _ed.Focused) { AddSelectionToNextMatch(); return true; }
+        if (keyData == Keys.Escape && _ed.Focused && _ed.Selections.Count > 1) { _ed.SetEmptySelection(_ed.CurrentPosition); return true; }   // Esc bỏ các con trỏ phụ (như Monaco)
         if (keyData == (Keys.Control | Keys.R)) { _split.Panel2Collapsed = !_split.Panel2Collapsed; return true; }
         if (keyData == (Keys.Control | Keys.D0) && _ed.Focused) { ChangeZoom(0); return true; }
         if (keyData == Keys.Escape && _peek is { Visible: true }) { PeekBack(); return true; }
@@ -1531,24 +1599,89 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
     private NativeFindBar? _find;
 
-    private void ShowFind()
+    private void ShowFind() => ShowFind(replace: false);
+
+    /// <param name="replace">Ctrl+H: hiện thêm hàng Thay thế và đặt con trỏ vào ô "Thay bằng" khi đã có chữ cần tìm (như Monaco). Ctrl+F: ẩn hàng Thay thế.</param>
+    private void ShowFind(bool replace)
     {
         if (_find is null)
         {
             // Thanh tìm NỔI ở góc trên-phải editor (như find widget của Monaco / ScriptEditorControl), không dock chiếm cả bề ngang.
             _find = new NativeFindBar { Visible = false, UnderColor = () => _ed.Styles[Style.Default].BackColor };   // góc bo trùng nền editor bên dưới
             _find.Find += FindInEditor;
+            _find.Replace += ReplaceInEditor;
             _find.CloseRequested += HideFind;
             _split.Panel1.Controls.Add(_find);
             _split.Panel1.Resize += (_, _) => PositionFind();
         }
+        _find.ShowReplace(replace);
         // Chữ đang bôi đen trên 1 dòng → điền sẵn (như Monaco).
         var sel = _ed.SelectedText;
-        if (sel.Length > 0 && sel.IndexOfAny(new[] { '\r', '\n' }) < 0) _find.SetText(sel);
+        var filled = sel.Length > 0 && sel.IndexOfAny(new[] { '\r', '\n' }) < 0;
+        if (filled) _find.SetText(sel);
         PositionFind();
         _find.Visible = true;
         _find.BringToFront();
-        _find.FocusInput();
+        if (replace && filled) _find.FocusReplace(); else _find.FocusInput();
+    }
+
+    /// <summary>Thay 1 (kết quả đang bôi đen khớp chữ tìm → thay rồi sang kết quả kế; chưa khớp thì chỉ tìm tới) hoặc thay hết (1 bước Ctrl+Z).
+    /// Không phân biệt hoa thường như phần tìm.</summary>
+    private void ReplaceInEditor(string find, string with, bool all)
+    {
+        if (_find is null || find.Length == 0 || _ed.ReadOnly) return;
+        _ed.SearchFlags = SearchFlags.None;
+        if (all)
+        {
+            var n = 0;
+            _ed.BeginUndoAction();
+            var at = 0;
+            while (true)
+            {
+                var p = SearchRange(find, at, _ed.TextLength);
+                if (p < 0) break;
+                var len = _ed.ReplaceTarget(with);
+                at = _ed.TargetStart + len;   // sau chữ vừa thay (chữ thay có chứa chữ tìm cũng không lặp vô hạn)
+                n++;
+            }
+            _ed.EndUndoAction();
+            _find.SetInfo(n == 0 ? "Không có kết quả" : $"Đã thay {n}", n == 0);
+            return;
+        }
+        int s = Math.Min(_ed.SelectionStart, _ed.SelectionEnd), e = Math.Max(_ed.SelectionStart, _ed.SelectionEnd);
+        if (e > s && string.Equals(_ed.GetTextRange(s, e - s), find, StringComparison.OrdinalIgnoreCase))
+        {
+            _ed.TargetStart = s; _ed.TargetEnd = e;
+            var len = _ed.ReplaceTarget(with);
+            _ed.SetEmptySelection(s + len);
+        }
+        FindInEditor(find, true, false);
+    }
+
+    /// <summary>Ctrl+Shift+D: thêm 1 vùng chọn (nhiều con trỏ) ở chỗ giống tiếp theo — chưa bôi đen thì chọn từ dưới con trỏ (như addSelectionToNextFindMatch của Monaco).</summary>
+    private void AddSelectionToNextMatch()
+    {
+        _ed.MultipleSelection = true;
+        _ed.AdditionalSelectionTyping = true;
+        if (_ed.SelectionStart == _ed.SelectionEnd)
+        {
+            var p = _ed.CurrentPosition;
+            int ws = _ed.WordStartPosition(p, true), we = _ed.WordEndPosition(p, true);
+            if (we > ws) _ed.SetSelection(we, ws);
+            return;
+        }
+        var main = _ed.Selections[_ed.MainSelection];
+        int a = Math.Min(main.Start, main.End), b = Math.Max(main.Start, main.End);
+        var word = _ed.GetTextRange(a, b - a);
+        if (word.Length == 0) return;
+        // Tìm sau vùng chọn cuối cùng; hết thì quay vòng; bỏ chỗ đã chọn rồi.
+        var last = _ed.Selections.Max(sel => Math.Max(sel.Start, sel.End));
+        _ed.SearchFlags = SearchFlags.MatchCase;
+        var pos = SearchRange(word, last, _ed.TextLength);
+        if (pos < 0) pos = SearchRange(word, 0, a);
+        if (pos < 0 || _ed.Selections.Any(sel => Math.Min(sel.Start, sel.End) == pos)) return;
+        _ed.AddSelection(_ed.TargetEnd, _ed.TargetStart);
+        _ed.ScrollRange(_ed.TargetStart, _ed.TargetEnd);
     }
 
     /// <summary>Góc trên-phải khung editor, chừa chỗ thanh cuộn dọc; rộng tối đa 420px thiết kế (co lại khi khung hẹp).</summary>
@@ -1618,6 +1751,9 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     private void SetRunningUi(bool running)
     {
         _btnRun.Text = running ? "■ Cancel" : "▶ Execute";
+        // Như bản Web (sqlquerybar.html paintRun): đang chạy thì nút đỏ chữ trắng.
+        _btnRun.BackOverride = running ? AppColors.Danger : null;
+        _btnRun.ForeOverride = running ? Color.White : null;
         _btnRun.Invalidate();
     }
 
@@ -1817,6 +1953,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         _settings.SyncEditorFlagsFromDisk();   // dấu tick theo trạng thái mới nhất
         return new WebMenu()
         .Add("Word Wrap", ToggleWrap, shortcut: ShortcutRegistry.Display("editor.wrap"), @checked: _wordWrap)
+        .Add("Gõ ' tự chèn thêm ' đóng", () => _settings.SqlAutoCloseSingleQuote = AppSettings.Update(s => s.SqlAutoCloseSingleQuote = !s.SqlAutoCloseSingleQuote).SqlAutoCloseSingleQuote,
+            @checked: _settings.SqlAutoCloseSingleQuote)   // như bản Web (RawSqlControl): dùng chung AppSettings.SqlAutoCloseSingleQuote
         .Add("Gợi ý code khi gõ (mẫu, hàm + tham số, cột, từ khoá, bảng) — Ctrl+Space gọi ngay", ToggleSuggest, @checked: _suggestOn)
         .Add("Reset Connection mỗi lần chạy", ToggleResetConn, @checked: _resetConnOn)
         .Add("Result Tab (kết quả ra tab mới)", ToggleResultTab, @checked: _resultTabOn)
@@ -1833,6 +1971,11 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         .Add("Gợi ý AI tự động khi gõ (chỉ trong procedure / function)", () => { _settings.EnableCopilotSuggest = AppSettings.Update(s => s.EnableCopilotSuggest = !s.EnableCopilotSuggest).EnableCopilotSuggest; if (!_settings.EnableCopilotSuggest) ClearGhost(); }, @checked: _settings.EnableCopilotSuggest)
         .Add("Cấu hình Gemini API Key…", () => ConfigureApiKey(gemini: true))
         .Add("Cấu hình Claude (Anthropic) API Key…", () => ConfigureApiKey(gemini: false))
+        // Chọn engine như bản Web (RawSqlControl.BuildOptionsMenu) — SqlAiAssist đọc AppSettings.CopilotEngine mỗi lần gọi.
+        .Add("Dùng Claude cho gợi ý SQL", () => _settings.CopilotEngine = AppSettings.Update(s => s.CopilotEngine = "claude").CopilotEngine,
+            @checked: string.Equals(_settings.CopilotEngine, "claude", StringComparison.OrdinalIgnoreCase))
+        .Add("Dùng Gemini cho gợi ý SQL", () => _settings.CopilotEngine = AppSettings.Update(s => s.CopilotEngine = "gemini").CopilotEngine,
+            @checked: !string.Equals(_settings.CopilotEngine, "claude", StringComparison.OrdinalIgnoreCase))
         .Add("Lịch sử gợi ý AI…", () => { using var form = new Bcode.App.Forms.AiHistoryForm(text => { _ed.ReplaceSelection(text); FocusEditor(); return Task.CompletedTask; }); form.ShowDialog(FindForm()); })
         .AddSeparator()
         .Add("Tùy chỉnh thanh nút…", CustomizeBar)
@@ -1850,7 +1993,26 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     {
         if ((ModifierKeys & Keys.Control) != 0) return null;   // Ctrl + chuột phải = chèn định nghĩa object (OnCtrlRightClick), không mở menu
         var hasSel = _ed.SelectionStart != _ed.SelectionEnd;
-        return new WebMenu()
+        var menu = new WebMenu();
+        // Snippet Library (Tools, …) — mỗi nhóm 1 menu con, như menu chuột phải editor bản Web (RawSqlControl.ShowEditorContextMenu).
+        try { _snippetLib.Load(); } catch { }
+        var project = CurrentProject?.Invoke() ?? "";
+        var visible = _snippetLib.Snippets.Where(s => s.AppliesTo(project)).ToList();
+        if (visible.Count > 0)
+            foreach (var group in visible.GroupBy(sn => string.IsNullOrWhiteSpace(sn.Category) ? "Tools" : sn.Category))
+            {
+                var grp = group.ToList();
+                menu.AddSub(group.Key, sub =>
+                {
+                    foreach (var snippet in grp)
+                    {
+                        var content = snippet.Content;
+                        sub.Add(string.IsNullOrWhiteSpace(snippet.Project) ? snippet.Name : "★ " + snippet.Name, () => { _ed.ReplaceSelection(content); FocusEditor(); });
+                    }
+                });
+            }
+        else menu.AddSub("Tools", sub => sub.Add("(Chưa có cấu hình - Mở Library...)", () => { }, enabled: false));
+        menu.AddSeparator()
             .Add("Execute", () => _ = RunAsync(), shortcut: ShortcutRegistry.Display("editor.run"))
             .AddSeparator()
             .Add("Cut", () => _ed.Cut(), shortcut: "Ctrl+X", enabled: hasSel)
@@ -1860,9 +2022,66 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             .AddSeparator()
             .Add("Comment", () => ToggleComment(true))
             .Add("Uncomment", () => ToggleComment(false))
-            .Add("Beauty", BeautyFormat, shortcut: ShortcutRegistry.Display("editor.beauty"))
+            .Add("Beauty", BeautyFormat, shortcut: ShortcutRegistry.Display("editor.beauty"));
+        if (hasSel && !string.IsNullOrWhiteSpace(_ed.SelectedText)) AddChangeFieldItems(menu);
+        menu.AddSub("Hỏi AI (chưa gửi — gõ câu hỏi rồi Enter)", ai => ai
+                .Add(hasSel ? "Gửi phần chọn sang Claude" : "Gửi script sang Claude", () => SendToAi("claude"))
+                .Add(hasSel ? "Gửi phần chọn sang Gemini" : "Gửi script sang Gemini", () => SendToAi("gemini")))
             .AddSeparator()
             .Add("Mở object dưới con trỏ ở tab mới", () => _ = OpenObjectUnderCaretAsync(), shortcut: ShortcutRegistry.Display("editor.openObject"));
+        return menu;
+    }
+
+    private readonly SnippetLibraryService _snippetLib;
+
+    /// <summary>"Change Field to:" khi đang bôi đen danh sách cột — cùng mục và cùng biến đổi (SqlFieldTransform) với bản Web (RawSqlControl.AddChangeFieldItems).</summary>
+    private void AddChangeFieldItems(WebMenu menu)
+    {
+        menu.AddSeparator();
+        menu.AddCaption("Change Field to:");
+        foreach (var fn in new[] { "MAX", "MIN", "SUM", "COUNT", "AVG" })
+        {
+            var f = fn;
+            menu.Add(f, () => ApplyFieldChange(s => SqlFieldTransform.Wrap(s, f + "({0})")));
+        }
+        menu.AddSub("Alias", al =>
+        {
+            foreach (var x in new[] { "a", "b", "c", "d", "e", "f" })
+            {
+                var pre = x + ".";
+                al.Add(pre, () => ApplyFieldChange(s => SqlFieldTransform.Prefix(s, pre)));
+            }
+            al.AddSeparator();
+            al.Add("Bỏ tiền tố (a.x → x)", () => ApplyFieldChange(SqlFieldTransform.StripPrefix));
+        });
+        menu.AddSub("More...", w => w
+            .Add("ISNULL(x, 0)", () => ApplyFieldChange(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, 0)")))
+            .Add("ISNULL(x, '')", () => ApplyFieldChange(s => SqlFieldTransform.Wrap(s, "ISNULL({0}, '')")))
+            .Add("LTRIM(RTRIM(x))", () => ApplyFieldChange(s => SqlFieldTransform.Wrap(s, "LTRIM(RTRIM({0}))")))
+            .Add("UPPER(x)", () => ApplyFieldChange(s => SqlFieldTransform.Wrap(s, "UPPER({0})")))
+            .Add("[x]", () => ApplyFieldChange(SqlFieldTransform.Bracket))
+            .Add("@x", () => ApplyFieldChange(SqlFieldTransform.Variable))
+            .Add("Thêm AS tên cột", () => ApplyFieldChange(SqlFieldTransform.AddAlias))
+            .AddSeparator()
+            .Add("x = b.x   (SET của UPDATE)", () => ApplyFieldChange(s => SqlFieldTransform.Compare(s, "", "b.", and: false)))
+            .Add("a.x = b.x   (nối AND)", () => ApplyFieldChange(s => SqlFieldTransform.Compare(s, "a.", "b.", and: true)))
+            .Add("x = a.x   (SET của UPDATE)", () => ApplyFieldChange(s => SqlFieldTransform.Compare(s, "", "a.", and: false))));
+    }
+
+    /// <summary>Thay đoạn đang bôi đen bằng kết quả biến đổi, giữ bôi đen đoạn mới (như window.replaceSelectionKeep của sqleditor.html); 1 bước Ctrl+Z.</summary>
+    private void ApplyFieldChange(Func<string, string> transform)
+    {
+        var selected = _ed.SelectedText;
+        if (string.IsNullOrWhiteSpace(selected)) return;
+        string result;
+        try { result = transform(selected); } catch { return; }
+        if (result == selected) return;
+        var start = Math.Min(_ed.SelectionStart, _ed.SelectionEnd);
+        _ed.BeginUndoAction();
+        _ed.ReplaceSelection(result);
+        _ed.EndUndoAction();
+        _ed.SetSelection(start + result.Length, start);
+        FocusEditor();
     }
 
     private void ToggleWrap()
@@ -1939,9 +2158,10 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
     private void ApplyDefaultType(bool toUpper)
     {
-        var sel = _ed.SelectedText;
-        if (!string.IsNullOrEmpty(sel)) ReplaceSelectionKeep(SqlSyntaxHighlighter.TransformKeywordCase(sel, toUpper));
-        else ReplaceAllUndoable(SqlSyntaxHighlighter.TransformKeywordCase(_ed.Text ?? "", toUpper));
+        // Luôn đổi cả script như bản Web (RawSqlControl — user chọn 11/11/2026), kể cả khi đang bôi đen; 1 bước Ctrl+Z.
+        var all = _ed.Text ?? "";
+        if (string.IsNullOrEmpty(all)) return;
+        ReplaceAllUndoable(SqlSyntaxHighlighter.TransformKeywordCase(all, toUpper));
     }
 
     /// <summary>Thay vùng chọn thành 1 bước Ctrl+Z rồi bôi đen lại đúng đoạn mới (để áp tiếp bước khác).</summary>
@@ -1971,10 +2191,12 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
 
     private void SaveToHistory()
     {
-        var script = _ed.Text ?? "";
-        if (string.IsNullOrWhiteSpace(script)) return;
+        // Như bản Web (RawSqlControl.SaveToQueryHistoryAsync): có bôi đen thì lưu phần bôi đen, không thì cả script; trống thì báo.
+        var script = _ed.SelectedText;
+        if (string.IsNullOrWhiteSpace(script)) script = _ed.Text ?? "";
+        if (string.IsNullOrWhiteSpace(script)) { SetStatus("Script trống — không có gì để lưu vào Lịch sử SQL.", Color.DarkOrange); return; }
         SaveHistoryRequested?.Invoke(script, _useSys);
-        SetStatus("Đã lưu script vào Lịch sử SQL.", AppColors.Success);
+        SetStatus("Đã lưu vào Lịch sử SQL (mở tab \"Lịch sử SQL\" để gắn nhãn / thẻ).", AppColors.Success);
     }
 
     private void OpenSqlHistory()
@@ -2021,7 +2243,8 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     {
         var text = _ed.SelectedText;
         if (string.IsNullOrWhiteSpace(text)) text = _ed.Text ?? "";
-        if (!string.IsNullOrWhiteSpace(text)) AskAiRequested?.Invoke(engine, text);
+        if (string.IsNullOrWhiteSpace(text)) { SetStatus("Chưa có script để gửi.", Color.DarkOrange); return; }   // như bản Web (SendToAiAsync)
+        AskAiRequested?.Invoke(engine, text);
     }
 
     // =====================================================================  gợi ý + mở object

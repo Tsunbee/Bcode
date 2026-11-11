@@ -71,6 +71,16 @@ public partial class FileLookupControl : UserControl
     /// <summary>Chuột phải file controller → "Sơ đồ phụ thuộc…" (full path).</summary>
     public event Action<string>? DependencyRequested;
 
+    /// <summary>Chuột phải → "Mở dạng lưới (khai field)" (chỉ khi bật Chế độ triển khai): đường dẫn file Dir / Grid / Filter / Report.</summary>
+    public event Action<string>? FieldGridRequested;
+
+    /// <summary>File controller .xml / .f nằm trong Controllers\Dir|Filter|Grid|Report|Lookup — mở được bằng lưới khai field.</summary>
+    private static bool IsFieldGridSource(string path)
+        => Path.GetExtension(path).ToLowerInvariant() is ".xml" or ".f" && FgSet.Locate(path).Root is not null;
+
+    /// <summary>Chuột phải file .f → "Xem bản giải mã (.f)…" (full path). Chỉ hiện khi máy có key Decrypt SQL Object (<see cref="LicenseService.IsDecryptUnlocked"/>).</summary>
+    public event Action<string>? DecryptViewRequested;
+
     /// <summary>Chuột phải file Grid / Dir (.f / .xml trong Controllers\Grid|Dir) → "Tạo cấu trúc API…" (full path): MainForm dựng cấu trúc rồi mở màn Tạo cấu trúc API.</summary>
     public event Action<string>? ApiSchemaRequested;
 
@@ -200,8 +210,18 @@ public partial class FileLookupControl : UserControl
                     (_, _) => ExcelToRptRequested?.Invoke(img.FullPath)));
             }
             _fileContextMenu.Items.Add(new ToolStripSeparator());
+            // Chế độ triển khai: khai field dạng lưới như FSD Studio (Controls/FieldGridControl.cs) — nhấn đúp vẫn mở editor XML như cũ.
+            if (_settings.DeployGridMode && FieldGridRequested is not null
+                && _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } gridFile && IsFieldGridSource(gridFile.FullPath))
+                _fileContextMenu.Items.Add(new ToolStripMenuItem("Mở dạng lưới (khai field)", null, (_, _) => FieldGridRequested?.Invoke(gridFile.FullPath))
+                    { Font = new Font(_fileContextMenu.Font, FontStyle.Bold), ToolTipText = "Khai báo / sửa field của bộ Dir, Grid, Filter, Report cùng tên trên lưới (như FSD Studio)." });
             if (_tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } depFile)
                 _fileContextMenu.Items.Add("Sơ đồ phụ thuộc…", null, (_, _) => DependencyRequested?.Invoke(depFile.FullPath));
+            // Dịch ngược file .f (khối <Encrypted>) — chỉ xem; chỉ hiện khi máy có key Decrypt SQL Object.
+            if (DecryptViewRequested is not null && LicenseService.IsDecryptUnlocked
+                && _tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } fFile
+                && Path.GetExtension(fFile.FullPath).Equals(".f", StringComparison.OrdinalIgnoreCase))
+                _fileContextMenu.Items.Add("Xem bản giải mã (.f)…", null, (_, _) => DecryptViewRequested?.Invoke(fFile.FullPath));
             if (_tree.SelectedNode?.Tag is FileLookupNode { IsDirectory: false } apiFile && IsApiSchemaSource(apiFile.FullPath))
             {
                 if (ApiSchemaRequested is not null) _fileContextMenu.Items.Add("Tạo cấu trúc API…", null, (_, _) => ApiSchemaRequested?.Invoke(apiFile.FullPath));
@@ -240,6 +260,18 @@ public partial class FileLookupControl : UserControl
             {
                 Checked = _settings.FileLookupOfflineExcel,
                 ToolTipText = "Mở mẫu in Excel (Templates\\Excel) bằng bản sao để Excel không khoá file gốc — FBO vẫn in được; Excel lưu thì bản sửa tự chép về file gốc.",
+            });
+            _fileContextMenu.Items.Add(new ToolStripMenuItem("Chế độ triển khai (khai field dạng lưới)", null, (_, _) =>
+            {
+                _settings.DeployGridMode = !_settings.DeployGridMode;
+                _settings.Save();
+                SetStatus(_settings.DeployGridMode
+                    ? "Chế độ triển khai: BẬT — chuột phải file Dir / Grid / Filter (hoặc menu ở cây WCommand) → \"Mở dạng lưới (khai field)\"."
+                    : "Chế độ triển khai: TẮT.", false);
+            })
+            {
+                Checked = _settings.DeployGridMode,
+                ToolTipText = "Dành cho người triển khai: thêm mục \"Mở dạng lưới (khai field)\" vào chuột phải file Dir / Grid / Filter / Report và menu WCommand — khai field trên lưới như FSD Studio. Nhấn đúp file vẫn mở editor XML.",
             });
             _fileContextMenu.Items.Add(new ToolStripMenuItem("Refresh", null, (_, _) => RefreshNewFiles()) { ShortcutKeyDisplayString = "F5" });
         };

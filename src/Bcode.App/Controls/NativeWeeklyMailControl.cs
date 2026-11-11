@@ -420,6 +420,7 @@ public sealed class NativeWeeklyMailControl : UserControl
     private void AddLog(string text, string? kind)
     {
         if (IsDisposed) return;
+        if (kind == "err") Bcode.App.Services.ErrorLog.NoticeDisplayed(text, "Mail kế hoạch tuần (chế độ App)");   // như bản Web (WebBarHost.Call) — lỗi vừa ném thì ghi log
         var color = kind switch { "err" => AppColors.Danger, "ok" => AppColors.Success, "dim" => AppColors.TextMuted, _ => AppColors.Text };
         foreach (var log in new[] { _log, _log2 })   // 2 tab con mỗi tab 1 khung kết quả — ghi cả hai
         {

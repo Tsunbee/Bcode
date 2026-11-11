@@ -16,9 +16,13 @@ internal sealed class SqlPeekPanel : Panel
     private readonly Label _title = new() { AutoSize = true, Margin = new Padding(0, 7, 12, 0), BackColor = Color.Transparent, UseMnemonic = false };
     private readonly Label _hint = new() { AutoSize = true, Margin = new Padding(0, 7, 12, 0), BackColor = Color.Transparent, UseMnemonic = false };
     private readonly BarFlow _head = new() { Dock = DockStyle.Top, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 3, 6, 3) };
-    private readonly PillButton _prev, _next, _open, _close;
+    private readonly PillButton _prev, _next, _open, _close, _mode;
+    // Dải chip từng object (như bản Web): bấm chip = xem object đó; ẩn khi chỉ 1 object hoặc đang gộp 1 trang.
+    private readonly BarFlow _chips = new() { Dock = DockStyle.Top, WrapContents = true, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(8, 2, 6, 3), Visible = false };
     private IReadOnlyList<Item> _items = Array.Empty<Item>();
     private int _index;
+    /// <summary>Nhiều object: true = gộp 1 trang (mỗi object 1 khối có dòng tiêu đề), false = tách tab — nhớ trong phiên (bản Web nhớ ở localStorage 'bcode.peekMode').</summary>
+    private static bool _mergeAll;
 
     public Scintilla Editor => _ed;
     public Item? Current => _index >= 0 && _index < _items.Count ? _items[_index] : null;
@@ -41,11 +45,23 @@ internal sealed class SqlPeekPanel : Panel
         _next = Btn("▶", "Object kế", () => Go(1));
         _open = Btn("Mở tab mới", "Mở object đang xem ở tab SQL Query mới (Ctrl+F12)", () => { if (Current is { } c) OpenTabRequested?.Invoke(c); });
         _close = Btn("✕", "Đóng (Esc)", () => CloseRequested?.Invoke());
-        _head.Controls.AddRange(new Control[] { _title, _hint, _prev, _next, _open, _close });
+        _mode = Btn("", "Gộp mọi object vào 1 trang / tách từng object (Ctrl+PgUp / Ctrl+PgDn chuyển object)", () => { _mergeAll = !_mergeAll; Render(); _ed.Focus(); });
+        _head.Controls.AddRange(new Control[] { _title, _hint, _prev, _next, _mode, _open, _close });
+        _ed.KeyDown += (_, e) =>
+        {
+            // Ctrl+PgDn / Ctrl+PgUp: object kế / trước (như ped.addCommand của sqleditor.html).
+            if (e.Control && !e.Shift && !e.Alt && e.KeyCode is Keys.PageDown or Keys.PageUp && _items.Count > 1)
+            {
+                e.Handled = e.SuppressKeyPress = true;
+                if (_mergeAll) _mergeAll = false;
+                Go(e.KeyCode == Keys.PageDown ? 1 : -1);
+            }
+        };
 
         var inner = new Panel { Dock = DockStyle.Fill };
         inner.Controls.Add(_ed);
-        inner.Controls.Add(_head);   // thêm sau → Dock Top xếp trước, editor lấp phần còn lại
+        inner.Controls.Add(_chips);
+        inner.Controls.Add(_head);   // thêm sau → Dock Top xếp trước (thanh tiêu đề, rồi dải chip), editor lấp phần còn lại
         Controls.Add(inner);
     }
 
@@ -90,15 +106,19 @@ internal sealed class SqlPeekPanel : Panel
     private void Render()
     {
         var item = Current;
-        _title.Text = item is null ? "" : (_items.Count > 1 ? $"[{_index + 1}/{_items.Count}] " : "") + item.Title;
-        _prev.Visible = _next.Visible = _items.Count > 1;
+        var all = _items.Count > 1 && _mergeAll;
+        _title.Text = item is null ? "" : all ? $"{_items.Count} object (gộp 1 trang)" : (_items.Count > 1 ? $"[{_index + 1}/{_items.Count}] " : "") + item.Title;
+        _prev.Visible = _next.Visible = _items.Count > 1 && !all;
+        _mode.Visible = _items.Count > 1;
+        _mode.Text = all ? "Đang gộp 1 trang — bấm để tách tab" : "Đang tách tab — bấm để gộp 1 trang";
+        RenderChips(all);
         _ed.ReadOnly = false;
-        _ed.Text = item?.Text ?? "";
+        _ed.Text = all ? string.Join("\n\n\n", _items.Select(i => "-- ===================== " + i.Title + " =====================\n" + i.Text)) : item?.Text ?? "";
         _ed.EmptyUndoBuffer();
         _ed.ReadOnly = true;
         _ed.GotoPosition(0);
         _ed.MarkerDeleteAll(DeclMarker);
-        if (item is { Line: > 0 } && item.Line <= _ed.Lines.Count)
+        if (!all && item is { Line: > 0 } && item.Line <= _ed.Lines.Count)
         {
             var line = _ed.Lines[item.Line - 1];
             var bg = _ed.Styles[Style.Default].BackColor;
@@ -111,6 +131,29 @@ internal sealed class SqlPeekPanel : Panel
             _revealCaret = caret;
             BeginInvoke(new Action(RevealDeclaration));   // sau khi khung có kích thước (LinesOnScreen) mới cuộn giữa màn hình được
         }
+    }
+
+    private void RenderChips(bool all)
+    {
+        _chips.SuspendLayout();
+        var old = _chips.Controls.Cast<Control>().ToList();
+        _chips.Controls.Clear();
+        foreach (var c in old) c.Dispose();
+        // Không đọc lại _chips.Visible: khung peek chưa hiện (lần vẽ đầu trong ShowItems) thì Visible luôn trả false.
+        var show = _items.Count > 1 && !all;
+        _chips.Visible = show;
+        if (show)
+            for (var i = 0; i < _items.Count; i++)
+            {
+                var idx = i;
+                var chip = PillButton.Flat(_items[i].Title.Split("   (")[0]);
+                chip.OnPanelAlt = true;
+                chip.IsPrimary = i == _index;
+                chip.Margin = new Padding(0, 0, 4, 2);
+                chip.Click += (_, _) => { _index = idx; Render(); _ed.Focus(); };
+                _chips.Controls.Add(chip);
+            }
+        _chips.ResumeLayout(true);
     }
 
     private const int DeclMarker = 4;

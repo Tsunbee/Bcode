@@ -180,7 +180,8 @@
     renderList(data.down, $('lDown'), $('nDown'), 'down');
     $('warn').innerHTML = (data.warnings || []).map((w) => '⚠ ' + esc(w)).join('<br>');
     updateCopyPaths();
-    requestAnimationFrame(drawWires);
+    hotKey = null;
+    queueWires(true);
   }
 
   // ---- Chép đường dẫn: đường dẫn (cùng dạng "Chép đường dẫn" ở menu chuột phải = n.path) của mọi file đang hiện — nút giữa + 2 cột theo ô lọc, bỏ trùng ----
@@ -208,23 +209,66 @@
     statusTimer = setTimeout(() => { if ($('status').textContent === statusToast) $('status').textContent = statusKeep; statusToast = ''; }, 3000);
   });
 
-  // Đường nối: từ mép phải các nút "được dùng bởi" / mép trái các nút "dùng tới" tới thẻ ở giữa
-  function drawWires(hotKey) {
+  // Đường nối: từ mép phải các nút "được dùng bởi" / mép trái các nút "dùng tới" tới thẻ ở giữa.
+  // Nhẹ khi nhiều nút: đo vị trí các nút MỘT lần (lúc vẽ danh sách / đổi cỡ) — toạ độ trong #graph không đổi khi cuộn; chỉ thẻ giữa (sticky)
+  // dời theo cuộn. Một bên quá BUS nút thì gom về 1 thân dọc: mỗi nút 1 gạch ngang + thân (tĩnh, vẽ 1 lần) + 1 đường cong thân → thẻ giữa
+  // (vẽ lại khi cuộn) — thay cho mỗi nút 1 đường cong vẽ lại mỗi lần rê chuột / cuộn (146 nút là giật). Rê chuột chỉ vẽ lại lớp "động" vài đường.
+  const BUS = 20;
+  let wl = null, hotKey = null, wq = 0, wfull = false;
+  function queueWires(full) {
+    if (full) wfull = true;
+    if (!wq) wq = requestAnimationFrame(() => { wq = 0; const f = wfull; wfull = false; if (f) layoutWires(); drawDyn(); });
+  }
+  function layoutWires() {
     const svg = $('wires'), g = $('graph');
-    if (getComputedStyle(svg).display === 'none') return;
+    wl = null;
+    if (getComputedStyle(svg).display === 'none') { svg.innerHTML = ''; return; }
     const box = g.getBoundingClientRect(), c = $('center').querySelector('.card').getBoundingClientRect();
-    svg.setAttribute('width', g.scrollWidth); svg.setAttribute('height', g.scrollHeight);
-    const cy = c.top - box.top + Math.min(c.height / 2, 40);
-    let paths = '';
+    const sides = { up: [], down: [] };
     document.querySelectorAll('#graph .node').forEach((el) => {
-      const r = el.getBoundingClientRect(), y = r.top - box.top + r.height / 2;
-      const up = el.dataset.side === 'up';
-      const x1 = up ? r.right - box.left : c.right - box.left, y1 = up ? y : cy;
-      const x2 = up ? c.left - box.left : r.left - box.left, y2 = up ? cy : y;
-      const mx = (x1 + x2) / 2;
-      paths += `<path class="${el.dataset.key === hotKey ? 'hot' : ''}" d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}"/>`;
+      const r = el.getBoundingClientRect();
+      sides[el.dataset.side].push({ key: el.dataset.key, y: r.top - box.top + r.height / 2, l: r.left - box.left, r: r.right - box.left });
     });
-    svg.innerHTML = paths;
+    svg.setAttribute('width', g.scrollWidth); svg.setAttribute('height', g.scrollHeight);
+    const cl = c.left - box.left, cr = c.right - box.left;
+    let stat = '';
+    const mk = (up) => {
+      const ns = sides[up ? 'up' : 'down'];
+      if (!ns.length) return null;
+      const s = { up, ns, bus: ns.length > BUS, edge: up ? cl : cr, byKey: {} };
+      ns.forEach((n) => { s.byKey[n.key] = n; });
+      if (s.bus) {
+        const nx = up ? Math.max(...ns.map((n) => n.r)) : Math.min(...ns.map((n) => n.l));
+        s.tx = (nx + s.edge) / 2;
+        s.y0 = Math.min(...ns.map((n) => n.y)); s.y1 = Math.max(...ns.map((n) => n.y));
+        stat += ns.map((n) => `M${up ? n.r : n.l},${n.y}H${s.tx}`).join('') + `M${s.tx},${s.y0}V${s.y1}`;
+      }
+      return s;
+    };
+    wl = { sides: [mk(true), mk(false)].filter(Boolean) };
+    svg.innerHTML = (stat ? `<path d="${stat}"/>` : '') + '<g id="wDyn"></g>';
+  }
+  function drawDyn() {
+    if (!wl) return;
+    const dyn = $('wDyn'); if (!dyn) return;
+    const box = $('graph').getBoundingClientRect(), c = $('center').querySelector('.card').getBoundingClientRect();
+    const cy = c.top - box.top + Math.min(c.height / 2, 40);
+    const curve = (x1, y1, x2, y2) => { const mx = (x1 + x2) / 2; return `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`; };
+    let out = '';
+    wl.sides.forEach((s) => {
+      if (!s.bus) {
+        s.ns.forEach((n) => {
+          const d = s.up ? curve(n.r, n.y, s.edge, cy) : curve(s.edge, cy, n.l, n.y);
+          out += `<path class="${n.key === hotKey ? 'hot' : ''}" d="${d}"/>`;
+        });
+        return;
+      }
+      const jy = Math.max(s.y0, Math.min(s.y1, cy));   // điểm thân nối vào thẻ giữa
+      out += `<path d="${s.up ? curve(s.tx, jy, s.edge, cy) : curve(s.edge, cy, s.tx, jy)}"/>`;
+      const h = hotKey && s.byKey[hotKey];
+      if (h) out += `<path class="hot" d="M${s.up ? h.r : h.l},${h.y}H${s.tx}V${jy}"/><path class="hot" d="${s.up ? curve(s.tx, jy, s.edge, cy) : curve(s.edge, cy, s.tx, jy)}"/>`;
+    });
+    dyn.innerHTML = out;
   }
 
   function focus(n) {
@@ -299,7 +343,8 @@
     focus(n);
   });
   $('graph').addEventListener('dblclick', (e) => { const el = e.target.closest('.node'); if (el && byKey[el.dataset.key]) post('open', { node: byKey[el.dataset.key] }); });
-  $('graph').addEventListener('mouseover', (e) => { const el = e.target.closest('.node'); drawWires(el ? el.dataset.key : null); });
+  // chỉ vẽ lại khi đổi nút đang rê (mouseover bắn cả khi đi qua chữ / nhãn bên trong cùng 1 nút)
+  $('graph').addEventListener('mouseover', (e) => { const el = e.target.closest('.node'), k = el ? el.dataset.key : null; if (k !== hotKey) { hotKey = k; queueWires(); } });
   $('cActs').addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]'); if (!b || !data) return;
     if (b.dataset.act === 'open') post('open', { node: data.center });
@@ -323,8 +368,8 @@
   $('flt').addEventListener('input', render);
   $('bRe').addEventListener('click', () => post('refresh'));
   $('bImpact').addEventListener('click', () => post('impact'));
-  window.addEventListener('resize', () => requestAnimationFrame(() => drawWires()));
-  $('main').addEventListener('scroll', () => requestAnimationFrame(() => drawWires()));
+  window.addEventListener('resize', () => queueWires(true));
+  $('main').addEventListener('scroll', () => queueWires(), { passive: true });
   $('iBody').addEventListener('click', (e) => { const tr = e.target.closest('tr[data-key]'); if (tr && byKey[tr.dataset.key]) focus(byKey[tr.dataset.key]); });
 
   // ---- gọi từ C# (DependencyGraphControl) ----
@@ -339,7 +384,7 @@
       renderCenter(n);
       $('lUp').innerHTML = $('lDown').innerHTML = '<div class="msg">Đang tra…</div>';
       $('nUp').textContent = $('nDown').textContent = '…';
-      $('warn').innerHTML = ''; $('wires').innerHTML = '';
+      $('warn').innerHTML = ''; $('wires').innerHTML = ''; wl = null;
       $('impact').classList.remove('on');
       loading = true; $('bCopyPaths').disabled = true;   // đang tra: chưa có danh sách của nút mới
     },
@@ -395,7 +440,7 @@
   }
   $('iSum').addEventListener('click', (e) => { const b = e.target.closest('[data-ik]'); if (b) { impactKind = b.dataset.ik; renderImpact(); } });
   $('flt').addEventListener('input', renderImpact);
-  window.setTheme = (dark) => { document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); if (typeof drawWires === 'function') requestAnimationFrame(() => drawWires()); };
+  window.setTheme = (dark) => { document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); if (typeof queueWires === 'function') queueWires(true); };
   post('ready');
 })();
 </script>

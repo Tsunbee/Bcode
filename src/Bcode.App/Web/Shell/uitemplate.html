@@ -300,12 +300,16 @@
   </div>
   <div class="panel">
     <h3>Thư mục kiến thức (ghost text + Hỏi Fast)</h3>
-    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Nơi lưu ma trận gợi ý đã học của các dự án (<code>ghost\</code>), kiến thức Hỏi Fast và các xác nhận ✔ / ✘ / bản sửa (<code>fastask\</code>). Để trống = lưu trên máy này (<code>%AppData%\Bcode</code>). Khai <b>cùng 1 thư mục mạng</b> cho các máy dùng Bcode (vd <code>\\server\Bcode\knowledge</code>) để dùng chung: máy nào bấm Học dự án / chấm ✔ ✘ / sửa câu trả lời thì máy khác dùng được luôn. Đổi thư mục: kiến thức đang có được chép sang (không ghi đè file đã có, xác nhận thì gộp). Lịch sử chat Hỏi Fast vẫn lưu riêng từng máy. Thư mục không với tới được (mất mạng) thì tạm dùng thư mục trên máy.</div>
+    <div class="muted" style="font-size:12.5px;margin-bottom:10px">Nơi lưu ma trận gợi ý đã học của các dự án (<code>ghost\</code>), kiến thức Hỏi Fast và các xác nhận ✔ / ✘ / bản sửa (<code>fastask\</code>). Để trống = lưu trên máy này (<code>%AppData%\Bcode</code>). Khai <b>cùng 1 thư mục mạng</b> cho các máy dùng Bcode (vd <code>\\server\Bcode\knowledge</code>) để dùng chung: máy nào bấm Học dự án / chấm ✔ ✘ / sửa câu trả lời thì máy khác dùng được luôn. Đổi thư mục: kiến thức đang có được chép sang (không ghi đè file đã có, xác nhận thì gộp). <b>Ổ C đầy</b>: khai thư mục ở ổ khác (vd <code>D:\BcodeData</code>) rồi bấm <b>Chuyển dữ liệu sang đây</b> — chuyển hết dữ liệu ở chỗ cũ (cả <code>viewer\</code> của BcodeViewer) sang và xoá ở chỗ cũ. Lịch sử chat Hỏi Fast vẫn lưu riêng từng máy. Thư mục không với tới được (mất mạng) thì tạm dùng thư mục trên máy.</div>
     <div class="row"><label>Thư mục</label>
       <div class="ctl"><input type="text" id="pKnow" spellcheck="false" placeholder="(trống = trên máy này) \\server\Bcode\knowledge" />
         <button class="btn btn-border" id="pKnowBrowse">Chọn...</button>
         <button class="btn btn-border" id="pKnowLocal">Dùng máy này</button></div></div>
     <div class="muted" style="font-size:11.5px" id="pKnowNote"></div>
+    <div class="row" id="pKnowMoveRow" style="display:none;margin-top:6px"><label></label>
+      <div class="ctl"><button class="btn btn-border" id="pKnowMove">Chuyển dữ liệu sang đây</button>
+        <span class="muted" style="font-size:11.5px" id="pKnowMoveFrom"></span></div></div>
+    <div class="muted" style="font-size:11.5px" id="pKnowMoveNote"></div>
   </div>
   <div class="panel">
     <h3>Báo lỗi (log lỗi + phím Gửi lỗi)</h3>
@@ -918,7 +922,17 @@ $('swCopyX').onclick = () => sendSwCopy('');
     $('pKnowNote').textContent = k.checking ? 'Đang kiểm tra / chép kiến thức sang…'
       : !k.path ? 'Đang lưu trên máy này: ' + k.local
       : k.ok ? '✔ Đang dùng: ' + k.root : '✘ Không với tới được thư mục này (sai đường dẫn / mất mạng / không đủ quyền) — tạm dùng trên máy: ' + k.local;
+    // chỗ cũ còn dữ liệu (thư mục trước lần đổi / %AppData%\Bcode) → nút chuyển hết sang thư mục đang dùng
+    if (!k.checking) {
+      $('pKnowMoveRow').style.display = k.moveFrom ? '' : 'none';
+      $('pKnowMoveFrom').textContent = k.moveFrom ? 'Chỗ cũ còn ' + k.moveSize + ' (' + k.moveFiles + ' file): ' + k.moveFrom : '';
+    }
   };
+  window.setKnowledgeMove = (m) => {
+    $('pKnowMoveNote').textContent = m.text || '';
+    $('pKnowMove').disabled = !!m.busy;
+  };
+  $('pKnowMove').onclick = () => post('knowledge-move', {});
   $('pKnow').onchange = () => { post('paths-set', { key: 'knowledge', value: $('pKnow').value.trim() }); window.setKnowledge({ path: $('pKnow').value.trim(), checking: true }); };
   $('pKnowBrowse').onclick = () => post('paths-browse', { key: 'knowledge' });
   $('pKnowLocal').onclick = () => { $('pKnow').value = ''; $('pKnow').onchange(); };

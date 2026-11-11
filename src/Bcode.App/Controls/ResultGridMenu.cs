@@ -21,7 +21,9 @@ public static class ResultGridMenu
     /// a grid that has no menu of its own yet.</summary>
     public static void Attach(DataGridView grid)
     {
-        WebMenu.AttachTo(grid, () => AddItemsTo(new WebMenu(), grid));
+        // Chuột phải đúng tên cột → Sum/Max/Min/Avg + màu chữ cột (như resultview.html của bản Web); chỗ khác = menu thường.
+        // Attach chỉ dùng ở lưới chế độ App (NativeResultPane, NativeLookupControl) — lưới Table / Command tự dựng menu.
+        WebMenu.AttachTo(grid, () => TryBuildHeaderMenu(grid) ?? AddItemsTo(new WebMenu(), grid));
         WireShortcuts(grid);
     }
 
@@ -68,8 +70,12 @@ public static class ResultGridMenu
     {
         var cell = grid.CurrentCell;
         if (cell is null || cell.RowIndex < 0 || cell.ColumnIndex < 0) return;
-        if (MultiResultView.CellText(cell.Value, full: true) is not { } text) { System.Media.SystemSounds.Beep.Play(); return; }   // NULL
-        var col = grid.Columns[cell.ColumnIndex].HeaderText;
+        var col = grid.Columns[cell.ColumnIndex].Name;   // tên cột thật (HeaderText có thể đã thành "1. col" sau Add Index Column Order)
+        if (MultiResultView.CellText(cell.Value, full: true) is not { } text)   // NULL — như bản Web: báo thay vì chỉ kêu bíp
+        {
+            MessageBox.Show(Owner(grid), "Ô đang chọn là NULL.", "Bcode — Xem đủ giá trị ô", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
         Forms.SourceViewForm.OpenValue($"{col} — dòng {cell.RowIndex + 1}", $"Cột {col} · dòng {cell.RowIndex + 1} · {text.Length:N0} ký tự", text, grid.FindForm());
     }
 
@@ -78,10 +84,14 @@ public static class ResultGridMenu
     public static bool HandleCopyKey(Control? focused, Keys keyData)
     {
         if (focused is not DataGridView g || !CopyOn.TryGetValue(g, out _)) return false;
+        var pressed = Bcode.App.UI.ShortcutRegistry.FromKeys(keyData);
+        if (pressed is null) return false;
         var combo = Bcode.App.UI.ShortcutRegistry.Get("result.copyColumnName");
-        if (combo.Length == 0 || Bcode.App.UI.ShortcutRegistry.FromKeys(keyData) != combo) return false;
-        CopySelectedColumnNames(g);
-        return true;
+        if (combo.Length > 0 && pressed == combo) { CopySelectedColumnNames(g); return true; }
+        // result.viewCell (Ctrl+F3) cũng giành trước phím toàn cục trùng tổ hợp — như bản Web (MultiResultView.ClaimKeys).
+        var view = Bcode.App.UI.ShortcutRegistry.Get("result.viewCell");
+        if (view.Length > 0 && pressed == view) { ViewCell(g); return true; }
+        return false;
     }
 
     private static void AddCopyItems(WebMenu menu, DataGridView grid)
@@ -123,7 +133,8 @@ public static class ResultGridMenu
         }
         SetClipboard(sb.ToString());
 
-        static string Text(DataGridViewCell c) => c.Value is null or DBNull ? "" : c.FormattedValue?.ToString() ?? "";
+        // Cùng chữ với bản Web (MultiResultView.CellText full): nhị phân = đủ 0x + hex (không phải bản rút gọn trên lưới), ngày dd/MM/yyyy[ HH:mm:ss].
+        static string Text(DataGridViewCell c) => MultiResultView.CellText(c.Value, full: true) ?? "";
         static string Quote(string s) => s.StartsWith('"') || s.IndexOfAny(['\t', '\r', '\n']) >= 0 ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
     }
 
@@ -407,13 +418,54 @@ public static class ResultGridMenu
         using var form = new ColumnFilterForm(table.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList());
         if (form.ShowDialog(Owner(grid)) != DialogResult.OK) return;
 
-        try { table.DefaultView.RowFilter = form.FilterExpression; }
-        catch (Exception ex) { MessageBox.Show(Owner(grid), "Biểu thức lọc không hợp lệ: " + ex.Message, "Bcode — Filter"); }
+        var old = table.ExtendedProperties[UserFilterKey];
+        table.ExtendedProperties[UserFilterKey] = form.FilterExpression;
+        try { ApplyRowFilter(table); }
+        catch (Exception ex) { table.ExtendedProperties[UserFilterKey] = old; MessageBox.Show(Owner(grid), "Biểu thức lọc không hợp lệ: " + ex.Message, "Bcode — Filter"); }
     }
+
+    private const string UserFilterKey = "bcode.userFilter", QuickFilterKey = "bcode.quickFilter";
+
+    /// <summary>Lọc nhanh "Tìm trong kết quả…" (lưới kết quả SQL chế độ App, như ô #q của resultview.html): giữ dòng có ô nào chứa <paramref name="text"/>
+    /// (không phân biệt hoa thường), cộng (AND) với Filter của menu nếu có. Trống = bỏ lọc nhanh. Trả số dòng còn lại.</summary>
+    public static int SetQuickFilter(DataTable table, string? text)
+    {
+        string? expr = null;
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            // LIKE của DataView: * % là ký tự đại diện, [ ] bọc để hiểu đúng chữ; tên cột thoát ] bằng \.
+            var q = text.Trim().Replace("'", "''").Replace("[", "[[]").Replace("]", "[]]").Replace("*", "[*]").Replace("%", "[%]");
+            var parts = table.Columns.Cast<DataColumn>().Where(c => c.DataType != typeof(byte[]))
+                .Select(c => $"CONVERT([{c.ColumnName.Replace("\\", "\\\\").Replace("]", "\\]")}], 'System.String') LIKE '%{q}%'").ToList();
+            expr = parts.Count == 0 ? "1 = 0" : string.Join(" OR ", parts);
+        }
+        table.ExtendedProperties[QuickFilterKey] = expr;
+        ApplyRowFilter(table);
+        return table.DefaultView.Count;
+    }
+
+    /// <summary>RowFilter = Filter của menu AND lọc nhanh. Chưa dùng lọc nhanh thì y như trước (chỉ Filter của menu).</summary>
+    private static void ApplyRowFilter(DataTable table)
+    {
+        var parts = new[] { table.ExtendedProperties[UserFilterKey] as string, table.ExtendedProperties[QuickFilterKey] as string }
+            .Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        table.DefaultView.RowFilter = parts.Count switch { 0 => "", 1 => parts[0]!, _ => string.Join(" AND ", parts.Select(p => "(" + p + ")")) };
+    }
+
+    /// <summary>Nút "⎘ Copy" của bảng kết quả (như resultview.html): copy cả bảng đang hiện, kèm dòng tên cột.</summary>
+    public static void CopyWholeTable(DataGridView grid) => CopyCells(grid, true, true);
 
     private static void AddIndexColumnOrder(DataGridView grid)
     {
         if (grid == null || grid.Columns.Count == 0) return;
+
+        // Lưới kết quả SQL Query chế độ App: bấm lại thì tắt (về tên cột gốc) — như resultview.html của bản Web. Lưới Table/Command giữ như cũ.
+        if (CopyOn.TryGetValue(grid, out _) && grid.Columns.Cast<DataGridViewColumn>().Any(c => c.HeaderText != (string.IsNullOrEmpty(c.DataPropertyName) ? c.Name : c.DataPropertyName)))
+        {
+            foreach (DataGridViewColumn c in grid.Columns) c.HeaderText = string.IsNullOrEmpty(c.DataPropertyName) ? c.Name : c.DataPropertyName;
+            grid.Invalidate();
+            return;
+        }
 
         for (int i = 0; i < grid.Columns.Count; i++)
         {

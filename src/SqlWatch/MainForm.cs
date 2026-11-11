@@ -95,6 +95,18 @@ public sealed partial class MainForm : Form
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
     public Func<string, Task<string?>>? UserIdLookup { get; set; }
 
+    /// <summary>Nơi chứa (Bcode) ghi lỗi tạm thời vào log lỗi chung (exception, nguồn) — lỗi này chỉ hiện trên thanh trạng thái, không bật hộp.
+    /// Chạy riêng (null) thì chỉ hiện trên thanh trạng thái.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public Action<Exception, string>? ErrorLogged { get; set; }
+
+    // Lỗi đọc tạm thời (TraceWatcher.IsTransient): hiện trên thanh trạng thái tới khi đọc lại được; nhịp sau thử lại, lùi dần tới 30 giây.
+    private string _pollError = "";
+    private int _pollFailures;
+    private DateTime _retryAt;
+    private string _lastLoggedError = "";
+    private DateTime _lastLoggedAt;
+
     private TraceWatcher? _watcher;
     // Chuỗi kết nối lần bắt gần nhất — đã Dừng mà xem / copy dòng câu dài chưa đủ (FullPending) thì mở kết nối riêng để tìm cả câu.
     private string _connectionString = "";
@@ -689,11 +701,21 @@ public sealed partial class MainForm : Form
             _lifetime?.Dispose();
             _lifetime = null;
             UseWaitCursor = false;
+            if (TraceWatcher.IsTransient(ex))
+            {
+                // Mất mạng / server chưa sẵn sàng lúc bấm Bắt đầu (hay chế độ Tự động): báo trên thanh trạng thái + log, không bật hộp chặn.
+                try { ErrorLogged?.Invoke(ex, "SqlWatch: không kết nối được lúc Bắt đầu (lỗi tạm thời)"); } catch { }
+                ReportStatus("⚠ Chưa bắt được — không kết nối được server: " + OneLine(ex) + " — bấm Bắt đầu để thử lại.");
+                return;
+            }
             MessageBox.Show(this, ex.Message, Text, MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
 
         _watcher = watcher;
+        _pollFailures = 0;
+        _retryAt = DateTime.MinValue;
+        _pollError = "";
         _note = watcher.MissingDatabases.Count == 0 ? "" : "bỏ qua (không có trên server này): " + string.Join(", ", watcher.MissingDatabases);
         _paused = false;
         _pause.Text = "Tạm dừng";
@@ -744,19 +766,33 @@ public sealed partial class MainForm : Form
 
     private async Task PollAsync()
     {
-        if (_busy || _watcher is null || _lifetime is null)
+        if (_busy || _watcher is null || _lifetime is null || DateTime.Now < _retryAt)
             return;
 
         _busy = true;
+        var watcher = _watcher;
         try
         {
-            var rows = await _watcher.PollAsync(_lifetime.Token);
+            var rows = await watcher.PollAsync(_lifetime.Token);
             if (IsDisposed)
                 return;
+            if (_pollFailures > 0)
+                ClearPollError();
             Append(rows);
         }
         catch (OperationCanceledException)
         {
+        }
+        // Lỗi tạm thời (database không ONLINE, mất mạng / kết nối rớt, hết giờ, deadlock…): trước đây bật hộp lỗi chặn người dùng và dừng bắt.
+        // Giờ chỉ báo trên thanh trạng thái + ghi log lỗi chung của Bcode, bắt tiếp ở nhịp sau (kết nối rớt thì TraceWatcher tự mở lại).
+        catch (Exception ex) when (!IsDisposed && ReferenceEquals(watcher, _watcher)
+                                   && (TraceWatcher.IsTransient(ex) || ex is InvalidOperationException && !watcher.IsConnected))
+        {
+            OnPollError(ex);
+        }
+        catch (Exception) when (!ReferenceEquals(watcher, _watcher))
+        {
+            // đã Dừng (hoặc bắt lại) trong lúc nhịp này đang đọc — lỗi của kết nối cũ, bỏ qua
         }
         catch (Exception ex)
         {
@@ -772,6 +808,39 @@ public sealed partial class MainForm : Form
         {
             _busy = false;
         }
+    }
+
+    private void OnPollError(Exception ex)
+    {
+        _pollFailures++;
+        var wait = TimeSpan.FromSeconds(Math.Min(30, 1 << Math.Min(_pollFailures - 1, 5)));
+        _retryAt = DateTime.Now + wait;
+        var message = OneLine(ex);
+        _pollError = $"⚠ lỗi đọc lúc {DateTime.Now:HH:mm:ss}: {message} — tự thử lại sau {wait.TotalSeconds:0} giây"
+            + (_pollFailures > 1 ? $" (lần {_pollFailures})" : "");
+        // Ghi log: lỗi khác lần trước hoặc đã quá 10 phút — server tắt lâu thì không ghi mỗi nhịp.
+        if (!message.Equals(_lastLoggedError, StringComparison.Ordinal) || DateTime.Now - _lastLoggedAt > TimeSpan.FromMinutes(10))
+        {
+            _lastLoggedError = message;
+            _lastLoggedAt = DateTime.Now;
+            try { ErrorLogged?.Invoke(ex, "SqlWatch: lỗi tạm thời khi đọc câu SQL (không dừng bắt, tự thử lại)"); }
+            catch { /* log hỏng không được làm dừng bắt */ }
+        }
+        UpdateStatus();
+    }
+
+    private void ClearPollError()
+    {
+        _pollFailures = 0;
+        _retryAt = DateTime.MinValue;
+        _pollError = "";
+        UpdateStatus();
+    }
+
+    private static string OneLine(Exception ex)
+    {
+        var text = Regex.Replace(ex.Message, @"\s+", " ").Trim();
+        return text.Length > 200 ? text[..200] + "…" : text;
     }
 
     private void BuildEventMenu()
@@ -1072,6 +1141,7 @@ public sealed partial class MainForm : Form
             return;
         var state = _paused ? "Tạm dừng" : "Đang bắt";
         _status.Text = $"{state}  ·  {_project.Text.Trim()}  ·  hiện {_shown}/{_captured.Count}  ·  nhịp {_interval.Value} ms"
+            + (_pollError.Length > 0 ? "  ·  " + _pollError : "")
             + (_note.Length > 0 ? "  ·  " + _note : "");
     }
 

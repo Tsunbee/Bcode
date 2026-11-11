@@ -61,6 +61,8 @@
     <Compile Include="..\Shared\LicenseCodec.cs" Link="Shared\LicenseCodec.cs" />
     <!-- Mã hoá DPAPI mật khẩu / API key khi ghi settings.json — dùng chung với BcodeViewer.App (Viewer đọc chung settings.json). -->
     <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
+    <!-- Chuyển dữ liệu kiến thức (ghost + Hỏi Fast) sang thư mục / ổ khác — dùng chung với BcodeViewer. -->
+    <Compile Include="..\Shared\KnowledgeMover.cs" Link="Shared\KnowledgeMover.cs" />
     <!-- Alt+Tab quay lại thì trả focus / con trỏ về chỗ cũ (WebView2 không tự làm) — dùng chung với BcodeViewer.App. -->
     <Compile Include="..\Shared\AppSwitchFocus.cs" Link="Shared\AppSwitchFocus.cs" />
     <!-- Giao thức pipe liên-tiến-trình có phiên bản (Bcode ↔ BcodeViewer ↔ BcodeNote) — Shared/PipeProtocol.cs, link vào cả hai. -->

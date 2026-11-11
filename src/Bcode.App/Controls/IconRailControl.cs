@@ -25,7 +25,7 @@ public class IconRailControl : Panel
 
     public const int ItemSize = 38;
     private const int Gap = 3;
-    private int S(int v) => (int)Math.Round(v * DeviceDpi / 96.0);   // tự scale theo DPI màn hình
+    private int S(int v) => Bcode.App.UI.NativeSkin.Px(this, v);   // DPI màn hình × tỉ lệ giao diện (Template) — như cột icon WebView2 của bản Web (trước đây chỉ theo DPI)
 
     /// <summary>Kích thước ô khi nằm ngang (một hàng trên cây) — nhỏ hơn dọc để hàng không chiếm nhiều chỗ của cây.</summary>
     public const int HorizontalItemSize = 32;

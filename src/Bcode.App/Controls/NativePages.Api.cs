@@ -719,11 +719,14 @@ internal sealed class ApiDeclarationPage : DialogPage
 
     protected override bool HandleKey(Keys k)
     {
-        if (k == (Keys.Control | Keys.Shift | Keys.Enter)) { Send(false); return true; }
-        if (k == (Keys.Control | Keys.S)) { SaveProject(); return true; }
-        if (k == (Keys.Control | Keys.Shift | Keys.T)) { if (_p is not null) { Busy(true); Post(Payload("token")); } return true; }
-        if (k == (Keys.Control | Keys.Shift | Keys.F)) { Format(); return true; }
-        if (k == (Keys.Control | Keys.Shift | Keys.K)) { Validate(); return true; }
+        // Phím theo Template → Phím tắt → "Khai báo API" (api.*), như apideclaration.html (comboOf) — trước đây viết cứng nên gán lại không có tác dụng ở chế độ App.
+        if (Bcode.App.UI.ShortcutRegistry.FromKeys(k) is not { } c) return false;
+        bool Is(string id) => Bcode.App.UI.ShortcutRegistry.Get(id) is { Length: > 0 } v && v == c;
+        if (Is("api.send")) { Send(false); return true; }
+        if (Is("api.save")) { SaveProject(); return true; }
+        if (Is("api.token")) { if (_p is not null) { Busy(true); Post(Payload("token")); } return true; }
+        if (Is("api.format")) { Format(); return true; }
+        if (Is("api.validate")) { Validate(); return true; }
         return false;
     }
 

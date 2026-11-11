@@ -17,10 +17,15 @@
 #>
 param(
     [Parameter(Mandatory = $true)][string]$Dest,
-    [string]$Source = (Join-Path $PSScriptRoot '..\src\Bcode.App\bin\Release\net8.0-windows'),
+    [string]$Source = '',
     [switch]$Full
 )
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 chạy bằng -File: $PSScriptRoot còn rỗng lúc tính giá trị mặc định trong param() → tính ở đây.
+if (-not $Source) {
+    $here = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
+    $Source = Join-Path $here '..\src\Bcode.App\bin\Release\net8.0-windows'
+}
 $Source = (Resolve-Path -LiteralPath $Source).Path.TrimEnd('\')
 $Dest = $Dest.TrimEnd('\')
 $meta = 'bcode-version.json', 'bcode-manifest.json', 'bcode-changelog.txt'

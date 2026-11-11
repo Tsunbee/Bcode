@@ -44,6 +44,8 @@ public class WCommandTreeControl : UserControl
 
     /// <summary>Menu "Sơ đồ phụ thuộc…": mở tab sơ đồ từ menu đang chọn (menu con, file controller, procedure / bảng trong các file đó).</summary>
     public event Action<WCommandItem>? DependencyRequested;
+    /// <summary>Chuột phải → "Mở dạng lưới (khai field)" — chỉ hiện khi bật Chế độ triển khai (AppSettings.DeployGridMode).</summary>
+    public event Action<WCommandItem>? FieldGridRequested;
 
     /// <summary>Menu "Tạo cấu trúc API…": dựng cấu trúc API (bảng Dir + Grid chi tiết của menu) rồi mở màn Tạo cấu trúc API đang chọn đúng API đó.</summary>
     public event Action<WCommandItem>? ApiSchemaRequested;
@@ -191,12 +193,16 @@ public class WCommandTreeControl : UserControl
                     .AddSeparator()
                     .Add(MenuNameToggleLabel, ToggleMenuName, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.menuName"))
                     .Add("Refresh", async () => await ReloadAsync(force: true), shortcut: "F5");
-            return new WebMenu()
+            var menu = new WebMenu()
                 .Add("New", async () => await NewAsync(), shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.new"))
                 .Add("Edit", async () => await EditSelectedAsync(), shortcut: "F3", enabled: hasSelection)
                 .Add("Delete", async () => await DeleteSelectedAsync(), shortcut: "F8", enabled: hasSelection, danger: true)
                 .AddSeparator()
-                .Add("Thiết kế màn hình (Screen Designer)", () => { if (SelectedItem is { } d && !string.IsNullOrWhiteSpace(d.SysId)) DesignRequested?.Invoke(d); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 })
+                .Add("Thiết kế màn hình (Screen Designer)", () => { if (SelectedItem is { } d && !string.IsNullOrWhiteSpace(d.SysId)) DesignRequested?.Invoke(d); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 });
+            // Chế độ triển khai (Template → chuột phải File Lookup → "Chế độ triển khai"): khai field Dir / Grid / Filter của menu dạng lưới như FSD Studio.
+            if (_settings?.DeployGridMode == true && FieldGridRequested is not null)
+                menu.Add("Mở dạng lưới (khai field)", () => { if (SelectedItem is { SysId.Length: > 0 } g) FieldGridRequested?.Invoke(g); }, enabled: _tree.SelectedNode?.Tag is WCommandItem { SysId.Length: > 0 });
+            return menu
                 .Add("Mở File Lookup mới", OpenInNewLookup, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.newLookup"), enabled: hasSelection)
                 .Add("Run...", RunSelectedMenu, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.run"), enabled: hasSelection)
                 .Add("Run trong FSG FBO (tự đăng nhập)", () => { if (SelectedItem is { } it) RunInFboRequested?.Invoke(it); }, shortcut: Bcode.App.UI.ShortcutRegistry.Display("wcommand.runFbo"), enabled: hasSelection && RunInFboRequested is not null)

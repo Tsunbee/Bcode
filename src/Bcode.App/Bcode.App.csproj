@@ -207,7 +207,8 @@
   </ItemGroup>
   <Target Name="CopyGame" AfterTargets="Build">
     <ItemGroup>
-      <GameOutput Include="..\Bcode.Game\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.Game\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
+      <!-- Bỏ *.xlsx + CauHoi\: file câu hỏi là tài liệu nội bộ — người dùng có thể đặt cạnh BcodeGame.exe để chơi, nhưng không được theo bản build Bcode lên thư mục phát hành. -->
+      <GameOutput Include="..\Bcode.Game\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.Game\bin\$(Configuration)\net8.0-windows\**\*.pdb;..\Bcode.Game\bin\$(Configuration)\net8.0-windows\**\*.xlsx;..\Bcode.Game\bin\$(Configuration)\net8.0-windows\CauHoi\**" />
     </ItemGroup>
     <Copy SourceFiles="@(GameOutput)" DestinationFiles="@(GameOutput->'$(OutDir)Game\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>

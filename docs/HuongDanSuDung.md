@@ -1169,7 +1169,7 @@ Game suy luận xã hội chơi chung qua mạng LAN, chủ đề đêm trước
 
 1. **Tool mở rộng → Giải lao (game LAN)**. Gõ tên của bạn.
 2. Một người bấm **Mở phòng** (máy này giữ toàn bộ ván: vai, đáp án, lỗi). Lần đầu Windows có thể hỏi tường lửa — chọn **cho phép trên mạng Private**, không thì máy khác không vào được.
-3. Trong phòng chờ, chủ phòng bấm **📂 Chọn file câu hỏi (Excel)**: file trắc nghiệm, mỗi sheet có cột `Câu hỏi`, `PA1..PA5`, `ĐA1..ĐA5` (1 = đúng) là một **phân hệ** (một phòng trên bản đồ); sheet không có cột "Câu hỏi" tự bỏ qua. File chỉ đọc trên máy chủ phòng — người chơi khác **không** nhận file hay đáp án. Chỉnh hạn dự án, số nhiệm vụ, giờ thảo luận / bỏ phiếu… rồi **▶ Bắt đầu** (cần 5–8 người).
+3. Trong phòng chờ, chủ phòng bấm **📂 Chọn file câu hỏi (Excel)**: file trắc nghiệm, mỗi sheet có cột `Câu hỏi`, `PA1..PA5`, `ĐA1..ĐA5` (1 = đúng) là một **phân hệ** (một phòng trên bản đồ); sheet không có cột "Câu hỏi" tự bỏ qua. Lần sau mở phòng game **tự nạp lại file lần trước**; máy chưa chọn bao giờ thì tự lấy file `.xlsx` đặt sẵn trong thư mục `Game\CauHoi\` (hoặc cạnh `BcodeGame.exe`), không có nữa thì lấy ở thư mục dùng chung `\\172.168.5.17\Users\HAOTN\BcodeGame\CauHoi\` trên mạng văn phòng (đổi thư mục khác bằng `"BankDir"` trong `game-lan.json`) — để file ở đó thì máy nào mở phòng cũng có câu hỏi. File chỉ đọc trên máy chủ phòng — người chơi khác **không** nhận file hay đáp án. Chỉnh hạn dự án, số nhiệm vụ, giờ thảo luận / bỏ phiếu… rồi **▶ Bắt đầu** (cần 5–8 người).
 4. Người khác: phòng hiện trong danh sách **Phòng trong mạng LAN** → **Vào**. Không thấy (khác VLAN / subnet) thì gõ **IP chủ phòng** (hiện ở dòng đầu phòng chờ của chủ phòng) vào ô dưới → **Vào**.
 
 **Vai trò** (bảng chia: 5 người = 3 Triển khai, 1 Tester, 1 Lập trình; 6 = thêm 1 Bảo hành; 7 = 4 Triển khai…; 8 = 4 Triển khai, 1 Tester, 2 Lập trình, 1 Bảo hành)
@@ -1185,7 +1185,7 @@ Game suy luận xã hội chơi chung qua mạng LAN, chủ đề đêm trước
 
 **Phím**: `WASD` / mũi tên đi · `E` dùng · `R` báo cáo · `Q` hạ gục / xử lý · `B` report lỗi · `H` bàn giao · `M` bản đồ nhỏ · `Enter` chat (khi họp / khi là "ma") · `Esc` đóng câu hỏi. Người bị loại thành "ma": vẫn đi xuyên tường, Triển khai vẫn làm khảo sát được, chỉ chat với ma khác.
 
-**Lỗi hay gặp**: *"Không nối được tới …"* — sai IP, khác mạng, hoặc tường lửa máy chủ phòng chặn (Windows Security → Firewall → Allow an app → cho phép BcodeGame trên mạng Private). *Không thấy phòng trong danh sách* — mạng chặn broadcast UDP (cổng 47810): gõ IP. Cổng chơi mặc định TCP 47811 (bận thì game tự lấy 47812…, IP kèm `:cổng` hiện ở phòng chờ). Game nhớ tên, IP và đường dẫn file lần trước ở `%AppData%\Bcode\game-lan.json` (không lưu nội dung câu hỏi).
+**Lỗi hay gặp**: *"Không nối được tới … sau 4 giây"* — gần như luôn do **tường lửa máy chủ phòng** chặn (lần đầu bấm Huỷ / không có quyền admin ở hộp hỏi tường lửa thì Windows tự tạo luật chặn). Phòng chờ của chủ phòng tự kiểm tra tường lửa và báo ⛔ / ⚠ / ✅; bấm **🛡 Mở tường lửa** → đồng ý hộp quyền admin → game gỡ luật chặn cũ và mở cổng TCP 47811–47820, UDP 47810. Máy không có quyền admin hoặc công ty khoá tường lửa → nhờ IT, hoặc để máy khác (tường lửa đã mở) làm chủ phòng. *Không thấy phòng trong danh sách* — mạng chặn broadcast UDP (cổng 47810): gõ IP. Cổng chơi mặc định TCP 47811 (bận thì game tự lấy 47812…, IP kèm `:cổng` hiện ở phòng chờ). Game nhớ tên, IP và đường dẫn file lần trước ở `%AppData%\Bcode\game-lan.json` (không lưu nội dung câu hỏi).
 
 <a id="tao-nhanh-bang-moi"></a>
 ### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script

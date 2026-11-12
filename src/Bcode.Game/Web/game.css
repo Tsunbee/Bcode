@@ -17,6 +17,10 @@ button.big { padding: 12px 18px; font-size: 1.1rem; width: 100%; margin-top: 10p
 .ghost-btn { background: transparent; }
 .hidden { display: none !important; }
 .muted { color: var(--muted); }
+.fw { margin: 6px 0 0; font-size: .86rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fw[data-level="ok"] { color: var(--good); } .fw[data-level="warn"] { color: var(--accent); } .fw[data-level="bad"] { color: var(--bad); }
+.lobby-head .ghost-btn { white-space: nowrap; }
+.fw .ghost-btn.small { padding: 4px 10px; font-size: .82rem; }
 .err { color: var(--bad); min-height: 1.2em; margin: 6px 0 0; }
 .err.big { text-align: center; font-size: 1.05rem; white-space: pre-line; }
 .hint { color: var(--muted); font-size: .88rem; line-height: 1.45; margin: 8px 0 0; }

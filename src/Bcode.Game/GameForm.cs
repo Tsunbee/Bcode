@@ -146,6 +146,9 @@ public sealed class GameForm : Form
             case "ui.pickfile":
                 PickFile();
                 break;
+            case "ui.firewall":
+                _ = OpenFirewallAsync();
+                break;
             case "ui.leave":
                 LeaveRoom();
                 Post(new { t = "ui.left" });
@@ -186,8 +189,51 @@ public sealed class GameForm : Form
         _server.Room.Log += s => Debug.WriteLine(s);
         Post(new { t = "ui.hosted", port = _server.Port, ips = RoomFinder.LocalIPv4(), warn = _server.BeaconError });
         await ConnectAsync("127.0.0.1", _server.Port, _server.Room.HostToken);
+        if (!_opts.ContainsKey("loopback")) _ = CheckFirewallAsync();
         var file = _opts.GetValueOrDefault("file") ?? _prefs.LastFile;
+        if (string.IsNullOrEmpty(file) || !File.Exists(file)) file = FirstXlsx(Path.Combine(AppContext.BaseDirectory, "CauHoi")) ?? FirstXlsx(AppContext.BaseDirectory);
+        if (string.IsNullOrEmpty(file) || !File.Exists(file)) file = await SharedBankFileAsync();
         if (!string.IsNullOrEmpty(file) && File.Exists(file)) await LoadBankAsync(file);
+    }
+
+    /// <summary>Chủ phòng: đọc luật tường lửa (không cần admin) → báo ở phòng chờ trước khi máy khác gặp lỗi "không nối được".</summary>
+    private async Task CheckFirewallAsync()
+    {
+        var server = _server;
+        if (server is null) return;
+        var st = await Task.Run(() => Firewall.Check(Environment.ProcessPath ?? Application.ExecutablePath, server.Port));
+        if (_server == server) Post(new { t = "ui.fw", level = st.Level, text = st.Text });
+    }
+
+    private async Task OpenFirewallAsync()
+    {
+        Post(new { t = "ui.fw", level = "warn", text = "Đang chờ bạn đồng ý hộp xin quyền admin của Windows…", busy = true });
+        var err = await Firewall.OpenAsync(Environment.ProcessPath ?? Application.ExecutablePath);
+        if (err != null) { Post(new { t = "ui.fw", level = "bad", text = err }); return; }
+        await CheckFirewallAsync();
+    }
+
+    /// <summary>Thư mục câu hỏi dùng chung trên ổ mạng văn phòng (cùng máy với thư mục phát hành trong build.bat) — máy nào mở phòng cũng tự lấy,
+    /// không phải chép file. Ghi đè bằng "BankDir" trong game-lan.json. File là tài liệu nội bộ: chỉ để trên ổ chung, KHÔNG vào repo / bản phát hành.</summary>
+    private const string SharedBankDir = @"\\172.168.5.17\Users\HAOTN\BcodeGame\CauHoi";
+
+    /// <summary>Dò ổ chung có hạn giờ: máy ngoài mạng văn phòng thì Directory.Exists trên đường dẫn UNC có thể treo vài chục giây.</summary>
+    private async Task<string?> SharedBankFileAsync()
+    {
+        var dir = string.IsNullOrWhiteSpace(_prefs.BankDir) ? SharedBankDir : _prefs.BankDir;
+        var probe = Task.Run(() => FirstXlsx(dir));
+        return await Task.WhenAny(probe, Task.Delay(4000)) == probe ? probe.Result : null;
+    }
+
+    /// <summary>File .xlsx đầu tiên (theo tên) trong thư mục — bỏ file khoá tạm "~$..." của Excel. Thư mục không có / không đọc được → null.</summary>
+    private static string? FirstXlsx(string dir)
+    {
+        try
+        {
+            if (!Directory.Exists(dir)) return null;
+            return Directory.GetFiles(dir, "*.xlsx").Where(p => !Path.GetFileName(p).StartsWith("~$")).OrderBy(p => p).FirstOrDefault();
+        }
+        catch { return null; }
     }
 
     private async Task JoinAsync(string? name, string? ip)
@@ -272,6 +318,8 @@ internal sealed class Prefs
     public string Room { get; set; } = "Phòng của " + Environment.UserName;
     public string LastIp { get; set; } = "";
     public string LastFile { get; set; } = "";
+    /// <summary>Thư mục câu hỏi dùng chung (trống = GameForm.SharedBankDir).</summary>
+    public string BankDir { get; set; } = "";
     private string _path = "";
 
     public static Prefs Load(string? dir)

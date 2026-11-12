@@ -116,7 +116,8 @@ for (const inp of document.querySelectorAll("#setBox input")) {
   };
 }
 $("btnPick").onclick = () => post({ t: "ui.pickfile" });
-$("btnStart").onclick = () => { $("lbErr").textContent = ""; send({ t: "start" }); };
+$("btnFw").onclick = () => post({ t: "ui.firewall" });
+$("btnStart").onclick =() => { $("lbErr").textContent = ""; send({ t: "start" }); };
 $("btnLeave").onclick = () => { post({ t: "ui.leave" }); };
 $("lbChatIn").onkeydown = (e) => { if (e.key === "Enter" && e.target.value.trim()) { send({ t: "chat", text: e.target.value }); e.target.value = ""; } };
 
@@ -641,6 +642,14 @@ function handle(m) {
       S.port = m.port; S.ips = m.ips;
       $("lbAddr").textContent = `Người khác vào bằng danh sách phòng, hoặc gõ IP: ${m.ips.map((ip) => ip + (m.port !== 47811 ? ":" + m.port : "")).join("  ·  ") || "(không có IP LAN)"}`;
       if (m.warn) $("lbErr").textContent = m.warn;
+      $("lbFw").classList.add("hidden");
+      break;
+    case "ui.fw":
+      $("lbFw").classList.remove("hidden");
+      $("lbFw").dataset.level = m.level;
+      $("lbFwText").textContent = (m.level === "ok" ? "✅ " : m.level === "bad" ? "⛔ " : "⚠ ") + m.text;
+      $("btnFw").disabled = !!m.busy;
+      $("btnFw").textContent = m.level === "ok" ? "🛡 Mở lại tường lửa" : "🛡 Mở tường lửa";
       break;
     case "ui.bank":
       if (m.loading) $("bankBox").textContent = `Đang đọc ${m.file}…`;
@@ -657,7 +666,7 @@ function handle(m) {
       break;
     case "welcome":
       S.me = m.id; S.host = m.host; S.name = m.name;
-      if (!S.host) $("lbAddr").textContent = "";
+      if (!S.host) { $("lbAddr").textContent = ""; $("lbFw").classList.add("hidden"); }
       $("lbChat").innerHTML = ""; $("lbErr").textContent = "";
       show("lobby");
       break;

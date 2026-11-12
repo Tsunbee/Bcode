@@ -84,7 +84,7 @@ public sealed class GameClient : IDisposable
         catch (OperationCanceledException)
         {
             tcp.Dispose();
-            throw new TimeoutException($"Không nối được tới {host}:{port} sau {timeoutMs / 1000} giây — kiểm tra IP, cùng mạng LAN, và tường lửa máy chủ phòng (cho phép BcodeGame trên mạng Private).");
+            throw new TimeoutException($"Không nối được tới {host}:{port} sau {timeoutMs / 1000} giây — thường do tường lửa máy chủ phòng chặn: nhờ chủ phòng bấm 🛡 Mở tường lửa trong phòng chờ (hoặc đổi máy khác làm chủ phòng). Cũng kiểm tra lại IP / cùng mạng LAN.");
         }
         catch (SocketException ex)
         {

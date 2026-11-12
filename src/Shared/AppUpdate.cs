@@ -393,6 +393,66 @@ public static class UpdateCheckService
         return Convert.ToHexString(SHA256.HashData(s)).ToLowerInvariant();
     }
 
+    // ---------------------------------------------------------------- cache hash file ở máy
+    // Bước "So sánh file ở máy" trước đây đọc + tính SHA-256 lại MỌI file đã cài (3.700+ file, phần lớn Templates\fileSource\ không đổi) mỗi lần
+    // cập nhật. Cache (đường dẫn → cỡ|giờ sửa|hash) như index của git: cỡ + giờ sửa khớp thì dùng hash đã lưu, không mở file. File bị sửa tay /
+    // ghi đè thì giờ sửa đổi → tính lại, nên vẫn phát hiện được. Cache gắn với thư mục cài (Root) — Bcode chuyển chỗ thì bỏ cache cũ.
+
+    private static string HashCachePath => Path.Combine(UpdateRoot, "hashcache.json");
+
+    private sealed class HashCacheFile
+    {
+        public string Root { get; set; } = "";
+        public Dictionary<string, string> Files { get; set; } = new();
+    }
+
+    private static Dictionary<string, string> LoadHashCache(string root)
+    {
+        try
+        {
+            if (File.Exists(HashCachePath)
+                && JsonSerializer.Deserialize<HashCacheFile>(File.ReadAllText(HashCachePath)) is { } c
+                && string.Equals(c.Root, root, StringComparison.OrdinalIgnoreCase))
+                return new Dictionary<string, string>(c.Files, StringComparer.OrdinalIgnoreCase);
+        }
+        catch { /* hỏng → như chưa có cache */ }
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static void SaveHashCache(string root, Dictionary<string, string> files)
+    {
+        try
+        {
+            Directory.CreateDirectory(UpdateRoot);
+            var tmp = HashCachePath + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(new HashCacheFile { Root = root, Files = files }));
+            File.Move(tmp, HashCachePath, true);
+        }
+        catch { /* không lưu được thì lần sau tính lại — không ảnh hưởng cập nhật */ }
+    }
+
+    private static string CacheKey(FileInfo f) => f.Length + "|" + f.LastWriteTimeUtc.Ticks + "|";
+
+    /// <summary>Ghi vào <paramref name="next"/> — trừ file vừa sửa (≤ 2 giây): có thể còn đang được ghi, cùng giờ sửa mà nội dung khác.</summary>
+    private static void PutCache(Dictionary<string, string> next, string rel, FileInfo f, string hash)
+    {
+        if ((DateTime.UtcNow - f.LastWriteTimeUtc).TotalSeconds > 2) next[rel] = CacheKey(f) + hash;
+    }
+
+    /// <summary>SHA-256 của file ở máy, lấy từ <paramref name="cache"/> nếu cỡ + giờ sửa không đổi; kết quả ghi vào <paramref name="next"/>.</summary>
+    private static string HashCached(FileInfo f, string rel, Dictionary<string, string> cache, Dictionary<string, string> next)
+    {
+        var key = CacheKey(f);
+        if (cache.TryGetValue(rel, out var v) && v.Length == key.Length + 64 && v.StartsWith(key, StringComparison.Ordinal))
+        {
+            next[rel] = v;
+            return v[key.Length..];
+        }
+        var h = HashFile(f.FullName);
+        PutCache(next, rel, f, h);
+        return h;
+    }
+
     // ---------------------------------------------------------------- chuẩn bị (tải về staging)
 
     /// <summary>Kế hoạch đã chuẩn bị sẵn cho đúng bản phát hành này (mở lại hộp Cập nhật không phải tải lại). null = chưa có / đã cũ.</summary>
@@ -443,6 +503,9 @@ public static class UpdateCheckService
         }
 
         // 1) so với máy: file giống hệt thì bỏ qua; khác thì đánh dấu tải; khác bản cũ (người dùng tự sửa) thì đánh dấu "đã sửa"
+        //    hash file ở máy lấy từ cache khi cỡ + giờ sửa không đổi (xem LoadHashCache) — không đọc lại hàng nghìn file mẫu mỗi lần
+        var cache = LoadHashCache(dst);
+        var nextCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var need = new List<(string Rel, string? Hash, bool Modified)>();
         for (var i = 0; i < files.Count; i++)
         {
@@ -453,7 +516,7 @@ public static class UpdateCheckService
             var exists = File.Exists(local);
             if (hash is not null)
             {
-                var lh = exists ? HashFile(local) : null;
+                var lh = exists ? HashCached(new FileInfo(local), rel, cache, nextCache) : null;
                 if (lh == hash) continue;
                 var modified = exists && (oldMan is not null
                     ? oldMan.TryGetValue(rel, out var oh) && oh != lh
@@ -471,6 +534,8 @@ public static class UpdateCheckService
                 else need.Add((rel, null, false));
             }
         }
+
+        SaveHashCache(dst, nextCache);   // lưu ngay: tải lỗi giữa chừng → "Thử lại" không phải quét lại từ đầu
 
         // 2) tải về staging
         long total = 0;
@@ -509,6 +574,9 @@ public static class UpdateCheckService
                 prevGot = got;
             }
             (modified ? plan.Modified : plan.Copy).Add(rel);
+            // trình cài chép staging → thư mục cài giữ nguyên cỡ + giờ sửa (CopyWithHash đặt giờ như bản phát hành) → ghi sẵn vào cache,
+            // lần cập nhật sau khỏi đọc lại. Cài không thành / không chép file "đã sửa" thì cỡ|giờ ở máy khác key → tự tính lại.
+            if (hash is not null) PutCache(nextCache, rel, new FileInfo(to), hash);
         }
 
         // 3) file bản cũ có, bản mới bỏ — chỉ khi biết chắc (có cả 2 manifest) và máy chưa sửa file đó
@@ -517,8 +585,9 @@ public static class UpdateCheckService
             {
                 if (newMan.ContainsKey(rel) || InNested(rel, nested)) continue;
                 var local = Path.Combine(dst, rel);
-                if (File.Exists(local) && HashFile(local) == oh) plan.Delete.Add(rel);
+                if (File.Exists(local) && HashCached(new FileInfo(local), rel, cache, new Dictionary<string, string>()) == oh) plan.Delete.Add(rel);
             }
+        SaveHashCache(dst, nextCache);
 
         // 4) dấu phiên bản + manifest + changelog luôn chép đè (chép SAU CÙNG, rồi kiểm bản phát hành không đổi trong lúc tải)
         foreach (var m in MetaFiles)

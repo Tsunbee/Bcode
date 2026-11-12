@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đêm Go-Live</title>
+<link rel="stylesheet" href="game.css">
+</head>
+<body>
+
+<!-- ═══════════ Màn chính: tìm / mở phòng ═══════════ -->
+<section id="scrHome" class="screen">
+  <div class="home">
+    <header class="brand">
+      <div class="logo"><span class="moon"></span><span class="lamp"></span></div>
+      <div>
+        <h1>ĐÊM GO-LIVE</h1>
+        <p class="sub">Giải lao Bcode · game suy luận chơi chung qua mạng LAN văn phòng</p>
+      </div>
+      <button class="ghost-btn" id="btnRules">📖 Luật chơi</button>
+    </header>
+    <div class="name-row">
+      <label>Tên của bạn</label>
+      <input id="inName" maxlength="18" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h2>🔎 Phòng trong mạng LAN</h2>
+        <ul id="roomList" class="room-list"><li class="muted">Đang tìm phòng…</li></ul>
+        <p id="findErr" class="err"></p>
+        <div class="row">
+          <input id="inIp" placeholder="IP chủ phòng, vd 192.168.1.20 (hoặc 192.168.1.20:47811)" spellcheck="false">
+          <button id="btnJoinIp">Vào</button>
+        </div>
+        <p class="hint">Không thấy phòng? Mạng khác VLAN / subnet thì gói tìm phòng không qua được — hỏi chủ phòng IP rồi gõ vào ô trên.</p>
+      </div>
+      <div class="card">
+        <h2>🏢 Mở phòng mới</h2>
+        <div class="row"><input id="inRoom" maxlength="24" spellcheck="false"><button id="btnHost" class="primary">Mở phòng</button></div>
+        <p class="hint">Máy mở phòng giữ toàn bộ trạng thái ván (vai trò, đáp án, lỗi). Bạn sẽ chọn file câu hỏi Excel trong phòng chờ — file chỉ đọc trên máy bạn, không gửi cho ai.</p>
+        <p class="hint">Lần đầu mở phòng, Windows có thể hỏi tường lửa: chọn cho phép trên mạng <b>Private</b>.</p>
+      </div>
+    </div>
+    <p id="homeErr" class="err big"></p>
+    <footer id="ver" class="muted"></footer>
+  </div>
+</section>
+
+<!-- ═══════════ Phòng chờ ═══════════ -->
+<section id="scrLobby" class="screen hidden">
+  <div class="lobby">
+    <header class="lobby-head">
+      <div>
+        <h1 id="lbRoom">Phòng</h1>
+        <p id="lbAddr" class="muted"></p>
+      </div>
+      <div class="spacer"></div>
+      <button class="ghost-btn" id="btnRules2">📖 Luật chơi</button>
+      <button class="ghost-btn" id="btnLeave">↩ Rời phòng</button>
+    </header>
+    <div class="lobby-grid">
+      <div class="card">
+        <h2>Người chơi <span id="lbCount" class="pill"></span></h2>
+        <ul id="lbPlayers" class="players"></ul>
+        <p id="lbRoles" class="hint"></p>
+      </div>
+      <div class="card">
+        <h2>Ván chơi</h2>
+        <div id="bankBox" class="bank"></div>
+        <button id="btnPick" class="hostonly">📂 Chọn file câu hỏi (Excel)…</button>
+        <div class="settings" id="setBox">
+          <label>Hạn dự án (phút)<input type="number" data-k="minutes" min="3" max="40"></label>
+          <label>Nhiệm vụ / Triển khai<input type="number" data-k="tasksPer" min="1" max="8"></label>
+          <label>Câu đúng / nhiệm vụ<input type="number" data-k="qPerTask" min="1" max="4"></label>
+          <label>Thảo luận (giây)<input type="number" data-k="discuss" min="10" max="180"></label>
+          <label>Bỏ phiếu (giây)<input type="number" data-k="vote" min="10" max="120"></label>
+          <label>Hồi chiêu hạ gục (giây)<input type="number" data-k="killCd" min="10" max="90"></label>
+          <label>Ngưỡng lỗi mở<input type="number" data-k="bugLimit" min="2" max="10"></label>
+        </div>
+        <button id="btnStart" class="primary hostonly big">▶ Bắt đầu</button>
+        <p id="lbWait" class="hint guestonly">Chờ chủ phòng bắt đầu…</p>
+        <p id="lbErr" class="err"></p>
+      </div>
+      <div class="card chatcard">
+        <h2>Chat phòng chờ</h2>
+        <div id="lbChat" class="chatlog"></div>
+        <input id="lbChatIn" maxlength="200" placeholder="Nhắn gì đó… (Enter)">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ Trong ván ═══════════ -->
+<section id="scrGame" class="screen hidden">
+  <canvas id="cv"></canvas>
+  <canvas id="mini" title="Bản đồ (M)"></canvas>
+
+  <div class="hud-top">
+    <div id="roleCard" class="role-card"></div>
+    <div class="center-hud">
+      <div class="clock"><span>Hạn dự án</span><b id="clock">--:--</b></div>
+      <div class="prog"><div class="prog-label">Tài liệu khảo sát <b id="progTxt"></b></div><div class="bar"><i id="progBar"></i></div></div>
+      <div id="review" class="review hidden"></div>
+    </div>
+    <div id="taskBox" class="task-box"></div>
+  </div>
+
+  <div id="feed" class="feed"></div>
+  <div id="toast" class="toast"></div>
+  <div id="ghostTag" class="ghost-tag hidden">👻 Bạn là "ma" — vẫn đi lại / làm khảo sát được, chỉ chat với ma (Enter)</div>
+  <div id="ghostChat" class="ghost-chat hidden"><div id="gcLog" class="chatlog"></div><input id="gcIn" maxlength="200" placeholder="Chat với ma khác…"></div>
+
+  <div class="actions" id="actions">
+    <button data-a="use" id="aUse"><b>E</b><span>Dùng</span></button>
+    <button data-a="bh" id="aBh"><b>B</b><span>Report lỗi</span></button>
+    <button data-a="handover" id="aHand"><b>H</b><span>Bàn giao</span></button>
+    <button data-a="report" id="aRep"><b>R</b><span>Báo cáo</span></button>
+    <button data-a="kill" id="aKill"><b>Q</b><span>Hạ gục</span></button>
+  </div>
+
+  <div id="bhPrompt" class="bh-prompt hidden">
+    <div>📋 Khách hàng đang nghiệm thu… <b id="bhSecs"></b></div>
+    <button id="btnBhReject" class="danger">Từ chối nghiệm thu (dùng 1 lượt report)</button>
+  </div>
+
+  <!-- Tin nhắn khách hàng: không khoá di chuyển -->
+  <div id="msgBox" class="msg-box hidden"></div>
+
+  <!-- Câu hỏi nhiệm vụ -->
+  <div id="qModal" class="modal hidden"><div class="qcard" id="qCard"></div></div>
+
+  <!-- Họp -->
+  <div id="meet" class="modal hidden">
+    <div class="meet">
+      <header>
+        <div><h2 id="mtTitle"></h2><p id="mtSub" class="muted"></p></div>
+        <div class="spacer"></div>
+        <div class="mt-timer" id="mtTimer"></div>
+      </header>
+      <div class="meet-body">
+        <div class="vote-grid" id="mtGrid"></div>
+        <div class="meet-chat">
+          <div id="mtChat" class="chatlog"></div>
+          <input id="mtChatIn" maxlength="200" placeholder="Thảo luận… (Enter)">
+        </div>
+      </div>
+      <footer><button id="btnSkip">⬜ Bỏ phiếu trắng</button><span id="mtNote" class="muted"></span></footer>
+    </div>
+  </div>
+
+  <div id="resultBox" class="modal hidden"><div class="result" id="resultCard"></div></div>
+  <div id="overBox" class="modal hidden"><div class="over" id="overCard"></div></div>
+  <div id="roleIntro" class="modal hidden"><div class="intro" id="introCard"></div></div>
+</section>
+
+<!-- Luật chơi -->
+<div id="rules" class="modal hidden">
+  <div class="rules">
+    <button class="x" id="rulesX">✕</button>
+    <h2>📖 Đêm Go-Live — luật chơi</h2>
+    <p>Đêm trước ngày go-live dự án ERP. Đội dự án phải viết xong tài liệu khảo sát và bàn giao trước hạn — nhưng trong đội có người đang lén gài lỗi.</p>
+    <div class="rules-grid">
+      <div><h3 class="c-good">Triển khai</h3><p>Đến các <b>phòng phân hệ</b>, bấm <b>E</b> ở bàn để viết khảo sát = trả lời câu hỏi của 1 nghiệp vụ. Thỉnh thoảng có <b>tin nhắn khách hàng</b>: trả lời đúng được <b>gợi ý</b> (loại bớt phương án sai) cho 1 nhiệm vụ.</p>
+        <p>Một Triển khai là <b>Trưởng dự án</b>: được <b>xử lý 1 lần</b> (Q). Xử lý nhầm người phe mình thì chính mình bị loại.</p></div>
+      <div><h3 class="c-good">Tester</h3><p>Ở <b>Khu Tester</b>, bấm E để kiểm lỗi. Mỗi lỗi bắt được lộ <b>manh mối</b> cho cả đội: lỗi gài từ máy Dev số mấy, khoảng bao lâu trước. Tester mất thì Triển khai phải tự kiểm (chậm hơn).</p></div>
+      <div><h3 class="c-bad">Lập trình</h3><p><b>Hạ gục</b> người khác (Q, có hồi chiêu). Ngồi một máy ở <b>Khu Dev</b> 4 giây (E) để <b>gài lỗi</b> — người khác nhìn thấy bạn đang gõ. Lỗi làm 1 tài liệu đã xong phải làm lại, hoặc khách hàng hỏi thêm nhiệm vụ mới.</p></div>
+      <div><h3 class="c-bad">Bảo hành <small>(6+ người)</small></h3><p>Phe xấu, <b>ẩn vai</b>, không giết được, biết ai là Lập trình. Có <b>2 lượt report lỗi</b>: đứng trong phòng phân hệ bấm B (1 tài liệu ở đó phải làm lại), hoặc từ chối khi khách nghiệm thu. Bảo hành mất thì bàn giao được duyệt luôn.</p></div>
+    </div>
+    <h3>Họp</h3><p>Thấy người bị hạ → <b>R</b> báo cáo; hoặc bấm nút <b>Họp khẩn</b> ở Phòng họp (mỗi người 1 lần). Thảo luận bằng chat rồi bỏ phiếu (được bỏ phiếu trắng). Người bị loại lộ là có phải Lập trình hay không.</p>
+    <h3>Thắng</h3>
+    <p><span class="c-good">Phe tốt</span>: xong hết tài liệu, không còn lỗi mở và <b>bàn giao</b> thành công ở Phòng họp (H) — <i>hoặc</i> loại hết Lập trình.<br>
+       <span class="c-bad">Phe xấu</span>: số Lập trình còn sống ≥ số người phe tốt còn sống, <i>hoặc</i> hết hạn dự án, <i>hoặc</i> số lỗi mở chạm ngưỡng.</p>
+    <h3>Điều khiển</h3><p><b>WASD / phím mũi tên</b> đi · <b>E</b> dùng · <b>R</b> báo cáo · <b>Q</b> hạ gục / xử lý · <b>B</b> report lỗi · <b>H</b> bàn giao · <b>M</b> bản đồ · <b>Enter</b> chat (khi họp / khi là ma) · <b>Esc</b> đóng câu hỏi</p>
+    <table class="role-table"><tr><th>Số người</th><th>Triển khai</th><th>Tester</th><th>Lập trình</th><th>Bảo hành</th></tr>
+      <tr><td>5</td><td>3</td><td>1</td><td>1</td><td>– (hệ thống tự nghiệm thu)</td></tr>
+      <tr><td>6</td><td>3</td><td>1</td><td>1</td><td>1</td></tr>
+      <tr><td>7</td><td>4</td><td>1</td><td>1</td><td>1</td></tr>
+      <tr><td>8</td><td>4</td><td>1</td><td>2</td><td>1</td></tr></table>
+  </div>
+</div>
+
+<div id="sound" class="sound" title="Bật / tắt âm thanh">🔊</div>
+<script src="sfx.js"></script>
+<script src="render.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

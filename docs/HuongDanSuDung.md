@@ -1157,6 +1157,34 @@ Lưu ý:
 | **Tạo nhanh danh mục** | Sinh bộ file danh mục từ một bảng: nhập Bảng (Enter để nạp cột), Controller, File Main, Key, Order, cột tên (Lookup), Title / Subtitle (v/e) + **Dịch**, bảng chi tiết (tuỳ chọn) → **Xem XML** → **Tạo file** (`Ctrl+Enter`) → **Mở Dir trong BcodeViewer** / **Tạo menu…**. Mẫu nằm ở `Templates\fileSource\CreateList` cạnh Bcode.exe (sửa mẫu không cần build). Gõ tên **bảng chưa có** = tạo bảng mới; **+ Thêm cột** để thêm trường — script ở tab **Script**, xem [bên dưới](#tao-nhanh-bang-moi). |
 | **Tạo chứng từ** | Nhân bản chứng từ có sẵn sang mã mới, xem [Tạo chứng từ](#tao-chung-tu). Cần key. |
 | **Note (New) nhiều dự án** | Mở **BcodeNote.exe** vào dự án đang chọn: Note (New) chuyển qua lại nhiều dự án, chọn menu để gợi ý Gen All / File Path / SQL Object / Table liên quan. Dùng chung dữ liệu với Note (New). Xem [BcodeNote](#bcodenote). |
+| **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–8 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
+
+<a id="giai-lao"></a>
+### Giải lao — game LAN "Đêm Go-Live"
+
+Game suy luận xã hội chơi chung qua mạng LAN, chủ đề đêm trước go-live dự án ERP: đội dự án phải viết xong tài liệu khảo sát (= trả lời câu hỏi trắc nghiệm nghiệp vụ) và bàn giao trước hạn, trong khi có người lén gài lỗi. Game là chương trình riêng (`Game\BcodeGame.exe` cạnh Bcode.exe) — Bcode chỉ mở nó, không nặng thêm.
+
+**Mở phòng / vào phòng**
+
+1. **Tool mở rộng → Giải lao (game LAN)**. Gõ tên của bạn.
+2. Một người bấm **Mở phòng** (máy này giữ toàn bộ ván: vai, đáp án, lỗi). Lần đầu Windows có thể hỏi tường lửa — chọn **cho phép trên mạng Private**, không thì máy khác không vào được.
+3. Trong phòng chờ, chủ phòng bấm **📂 Chọn file câu hỏi (Excel)**: file trắc nghiệm, mỗi sheet có cột `Câu hỏi`, `PA1..PA5`, `ĐA1..ĐA5` (1 = đúng) là một **phân hệ** (một phòng trên bản đồ); sheet không có cột "Câu hỏi" tự bỏ qua. File chỉ đọc trên máy chủ phòng — người chơi khác **không** nhận file hay đáp án. Chỉnh hạn dự án, số nhiệm vụ, giờ thảo luận / bỏ phiếu… rồi **▶ Bắt đầu** (cần 5–8 người).
+4. Người khác: phòng hiện trong danh sách **Phòng trong mạng LAN** → **Vào**. Không thấy (khác VLAN / subnet) thì gõ **IP chủ phòng** (hiện ở dòng đầu phòng chờ của chủ phòng) vào ô dưới → **Vào**.
+
+**Vai trò** (bảng chia: 5 người = 3 Triển khai, 1 Tester, 1 Lập trình; 6 = thêm 1 Bảo hành; 7 = 4 Triển khai…; 8 = 4 Triển khai, 1 Tester, 2 Lập trình, 1 Bảo hành)
+
+| Vai | Phe | Làm gì |
+|---|---|---|
+| **Triển khai** | Tốt | Đến phòng phân hệ, bấm `E` ở bàn để viết khảo sát (trả lời câu hỏi của 1 nghiệp vụ; câu nhiều đáp án phải chọn đủ). Tin nhắn khách hàng bật lên: trả lời đúng được gợi ý (loại bớt phương án sai) cho 1 nhiệm vụ. Một Triển khai là **Trưởng dự án**: được xử lý 1 người (`Q`), nhầm người phe mình thì chính mình bị loại. |
+| **Tester** | Tốt | Ở Khu Tester bấm `E` kiểm lỗi: mỗi lỗi bắt được lộ manh mối cho cả đội ("gài từ máy Dev số 3, khoảng 2 phút trước"). Tester bị loại thì Triển khai phải tự kiểm (chậm hơn). |
+| **Lập trình** | Xấu | Hạ gục người khác (`Q`, có hồi chiêu). Ngồi một máy Khu Dev 4 giây (`E`) để gài lỗi — người đứng gần thấy đang gõ. Lỗi làm 1 tài liệu đã xong phải làm lại hoặc khách hỏi thêm nhiệm vụ mới. |
+| **Bảo hành** | Xấu (ẩn vai) | Không giết được, biết ai là Lập trình. 2 lượt report lỗi: đứng trong phòng phân hệ bấm `B`, hoặc **Từ chối nghiệm thu** khi đội bàn giao. Bảo hành bị loại thì bàn giao được duyệt luôn. |
+
+**Họp & thắng thua**: thấy người bị hạ → `R` báo cáo; hoặc nút **Họp khẩn** ở Phòng họp (mỗi người 1 lần). Thảo luận bằng chat, hết giờ thì bỏ phiếu (được bỏ phiếu trắng); người bị loại lộ có phải Lập trình hay không. **Phe tốt thắng** khi xong hết tài liệu, không còn lỗi mở và bàn giao thành công ở Phòng họp (`H`), hoặc loại hết Lập trình. **Phe xấu thắng** khi số Lập trình còn sống ≥ số người phe tốt còn sống, hết hạn dự án, hoặc số lỗi mở chạm ngưỡng.
+
+**Phím**: `WASD` / mũi tên đi · `E` dùng · `R` báo cáo · `Q` hạ gục / xử lý · `B` report lỗi · `H` bàn giao · `M` bản đồ nhỏ · `Enter` chat (khi họp / khi là "ma") · `Esc` đóng câu hỏi. Người bị loại thành "ma": vẫn đi xuyên tường, Triển khai vẫn làm khảo sát được, chỉ chat với ma khác.
+
+**Lỗi hay gặp**: *"Không nối được tới …"* — sai IP, khác mạng, hoặc tường lửa máy chủ phòng chặn (Windows Security → Firewall → Allow an app → cho phép BcodeGame trên mạng Private). *Không thấy phòng trong danh sách* — mạng chặn broadcast UDP (cổng 47810): gõ IP. Cổng chơi mặc định TCP 47811 (bận thì game tự lấy 47812…, IP kèm `:cổng` hiện ở phòng chờ). Game nhớ tên, IP và đường dẫn file lần trước ở `%AppData%\Bcode\game-lan.json` (không lưu nội dung câu hỏi).
 
 <a id="tao-nhanh-bang-moi"></a>
 ### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script
@@ -1887,6 +1915,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\query-history\`, `sql-history\` | Bcode | Lịch sử SQL, lịch sử sửa object |
 | `%AppData%\Bcode\Notes\`, `AdvanceNotes\` | Bcode (AdvanceNotes dùng chung với BcodeNote) | Note, Note (New) |
 | `%AppData%\Bcode\bcodenote.json` | BcodeNote | Dự án mở gần nhất, bố cục khung trái |
+| `%AppData%\Bcode\game-lan.json` | Giải lao (game) | Tên người chơi, tên phòng, IP gõ tay, đường dẫn file câu hỏi lần trước |
 | `%AppData%\Bcode\FileLookupCache\` | Bcode | Cache phân tích file / menu (xoá được) |
 | `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" (hoặc Create RPT ghi thẳng vào site) |
 | `%AppData%\Bcode\license.key` | Bcode | Key bản quyền |

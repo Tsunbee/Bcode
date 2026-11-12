@@ -202,6 +202,16 @@
     <Copy SourceFiles="@(DesignerOutput)" DestinationFiles="@(DesignerOutput->'$(OutDir)ScreenDesigner\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
   <ItemGroup>
+    <!-- "Giải lao" (game LAN Đêm Go-Live): exe riêng src/Bcode.Game — Bcode chỉ build kèm, chép ra Game\ cạnh Bcode.exe và mở bằng Process.Start (không nạp gì vào Bcode). -->
+    <ProjectReference Include="..\Bcode.Game\Bcode.Game.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <Target Name="CopyGame" AfterTargets="Build">
+    <ItemGroup>
+      <GameOutput Include="..\Bcode.Game\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.Game\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(GameOutput)" DestinationFiles="@(GameOutput->'$(OutDir)Game\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <ItemGroup>
     <!-- Đọc chữ trên ảnh (Tra ảnh lỗi): exe riêng src/Bcode.Ocr dùng OCR có sẵn của Windows (WinRT cần TargetFramework windows10.x) — build kèm, chép ra Ocr\. -->
     <ProjectReference Include="..\Bcode.Ocr\Bcode.Ocr.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net8.0-windows10.0.19041.0" />
   </ItemGroup>

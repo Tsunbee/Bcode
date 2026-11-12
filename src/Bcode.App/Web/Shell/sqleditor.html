@@ -587,11 +587,32 @@
                                          /\bFROM\s+[^;]+,\s*([a-zA-Z0-9_#$]*)$/i.test(textBefore) ||
                                          /\b(dbo\.)([a-zA-Z0-9_#$]*)$/i.test(textBefore);
 
+                    var word = model.getWordUntilPosition(position);
                     if (!isTableContext) {
-                        return { suggestions: [] };
+                        // Gõ tự do (ngoài FROM/JOIN...): ≥ 3 ký tự, không trong chuỗi / chú thích, không sau "." / "@" → gợi ý bảng/view có tên
+                        // BẮT ĐẦU bằng chữ đang gõ (≥ 4 ký tự thì khớp cả "chứa"), tối đa 200 mục — để gõ "dmkh" ngay đầu dòng cũng hiện.
+                        var fw = /[A-Za-z0-9_#$]*$/.exec(textBefore)[0];
+                        if (fw.length < 3 || /[.@][A-Za-z0-9_#$]*$/.test(textBefore) || /--/.test(textBefore)
+                            || (window.BcodeHints && BcodeHints.isKeywordPrefix && BcodeHints.isKeywordPrefix(fw))   // đang gõ từ khoá SQL (sel, dec, beg…)
+                            || ((textBefore.match(/'/g) || []).length % 2) === 1) return { suggestions: [] };
+                        var lfw = fw.toLowerCase(), finfos = dbTableInfos(), free = [];
+                        var frange = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: position.column - fw.length, endColumn: position.column };
+                        for (var fi = 0; fi < _dbTables.length && free.length < 200; fi++) {
+                            var at0 = finfos[fi].lower.indexOf(lfw);
+                            if (at0 !== 0 && !(lfw.length >= 4 && at0 > 0)) continue;
+                            var it = _dbTables[fi];
+                            free.push({
+                                label: it.name,
+                                kind: it.kind === 'View' ? monaco.languages.CompletionItemKind.Interface : monaco.languages.CompletionItemKind.Class,
+                                detail: it.kind === 'View' ? '[View]' : '[Table]',
+                                insertText: it.name, filterText: it.name,
+                                sortText: (at0 === 0 ? '2_' : '3_') + finfos[fi].lower,
+                                range: frange
+                            });
+                        }
+                        return { suggestions: free };
                     }
 
-                    var word = model.getWordUntilPosition(position);
                     var range = {
                         startLineNumber: position.lineNumber,
                         endLineNumber: position.lineNumber,

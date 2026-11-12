@@ -11,6 +11,20 @@
   function bare(name) { var n = String(name).toLowerCase(); return n.indexOf('dbo.') === 0 ? n.slice(4) : n; }
   function escSnippetText(s) { return String(s).replace(/[\\$}]/g, '\\$&'); }
 
+  /* Gõ tự do: chữ đang gõ là ĐẦU của một từ khoá SQL (sel → select, dec → declare, beg → begin) thì không gợi ý bảng / procedure —
+     gõ quá từ khoá (sett, selx…) thì gợi ý lại như thường. Dùng chung với gợi ý bảng trong sqleditor.html. */
+  var SQL_KEYWORDS = ('select from where insert into update delete values set declare begin end exec execute procedure function return returns ' +
+    'create alter drop table view index trigger nocount ansi_nulls quoted_identifier transaction commit rollback while break continue ' +
+    'case when then else and not null between like exists inner outer left right full cross join group order having union distinct top ' +
+    'print raiserror throw try catch output varchar nvarchar numeric decimal smalldatetime datetime char int bit tinyint smallint bigint ' +
+    'cursor fetch open close deallocate isnull convert cast coalesce getdate rtrim ltrim replace substring charindex count sum max min avg ' +
+    'with nolock option go use primary key default constraint truncate merge apply pivot offset rows partition over').split(' ');
+  H.isKeywordPrefix = function (w) {
+    var l = String(w).toLowerCase();
+    for (var i = 0; i < SQL_KEYWORDS.length; i++) if (SQL_KEYWORDS[i].indexOf(l) === 0) return true;
+    return false;
+  };
+
   H.setCatalog = function (c) {
     H.cat = c || H.cat;
     H.rank = {}; (H.cat.popular || []).forEach(function (n, i) { H.rank[String(n).toLowerCase()] = i; });
@@ -347,7 +361,7 @@
       }
     });
 
-    /* 2+3) Procedure / function: sau exec / dbo. hoặc gõ ≥ 3 chữ của hàm hay dùng — chèn sẵn tham số (cách gọi quen thuộc nếu có).
+    /* 2+3) Procedure / function: sau exec / dbo. hoặc gõ tự do ≥ 3 chữ (mọi procedure/function, hàm hay dùng xếp đầu) — chèn sẵn tham số (cách gọi quen thuộc nếu có).
        Cùng nhóm '*' với mẫu gõ-tắt ở trên (xem chú thích ở đó) để hai nguồn này luôn được hỏi cùng nhau như trước. */
     monaco.languages.registerCompletionItemProvider('*', {
       triggerCharacters: ['.', ' '],
@@ -358,13 +372,14 @@
         var mode = null, w = '', hasDbo = false, m;
         if ((m = /\b(?:exec|execute)\s+(?:dbo\.)?([\w$#]*)$/i.exec(tb))) { mode = 'exec'; w = m[1]; hasDbo = /dbo\.[\w$#]*$/i.test(tb); }
         else if ((m = /\bdbo\.([\w$#]*)$/i.exec(tb))) { mode = 'dbo'; w = m[1]; hasDbo = true; }
-        else { w = /[\w$#]*$/.exec(tb)[0]; if (w.length >= 3 && !/[.@]\w*$/.test(tb)) mode = 'popular'; }
+        else { w = /[\w$#]*$/.exec(tb)[0]; if (w.length >= 3 && !/[.@]\w*$/.test(tb) && !H.isKeywordPrefix(w)) mode = 'popular'; }
         if (!mode) return { suggestions: [] };
         var lw = w.toLowerCase(), out = [];
         for (var i = 0; i < H.routines.length && out.length < 400; i++) {
           var r = H.routines[i], b = bare(r.name);
           if (mode === 'exec' && isFunc(r) && !H.idiom[b]) continue;
-          if (mode === 'popular') { if (H.rank[b] === undefined) continue; if (b.indexOf(lw) !== 0 && !(lw.length >= 4 && b.indexOf(lw) >= 0)) continue; }
+          // Gõ tự do: mọi procedure/function có tên BẮT ĐẦU bằng chữ đang gõ (≥ 4 ký tự thì khớp cả "chứa") — hàm hay dùng vẫn xếp đầu (sortText)
+          if (mode === 'popular') { if (b.indexOf(lw) !== 0 && !(lw.length >= 4 && b.indexOf(lw) >= 0)) continue; }
           else if (lw && b.indexOf(lw) < 0) continue;
           var rk = H.rank[b], idi = H.idiom[b];
           out.push({

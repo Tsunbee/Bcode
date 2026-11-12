@@ -5,6 +5,7 @@ out/
 
 # Visual Studio
 .vs/
+build.bat
 *.user
 *.suo
 

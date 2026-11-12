@@ -70,7 +70,7 @@ public sealed class UpdateDialogLogic
             message,
             local = StampView(UpdateCheckService.Local),
             remote = StampView(_remote),
-            changes = _changes.Select(c => new { hash = c.Hash, date = c.Date, text = c.Text }),
+            changes = UpdateCheckService.Digest(_changes).Select(c => new { kind = c.Kind, hash = c.Hash, date = c.Date, text = c.Text }),
             folder,
             isDefault = folder.Length > 0 && string.Equals(folder.TrimEnd('\\'), UpdateCheckService.DefaultReleaseFolder.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase),
             plan = Plan is null ? null : new { files = Plan.Copy.Count, bytes = Plan.Bytes, modified = Plan.Modified, deletes = Plan.Delete.Count, verified = Plan.Verified },

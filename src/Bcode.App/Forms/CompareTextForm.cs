@@ -176,6 +176,21 @@ public class CompareTextControl : UserControl
         panel.Controls.Add(box); panel.Controls.Add(lbl); return panel;
     }
 
+    /// <summary>Nạp sẵn 2 file rồi so luôn (So sánh thư mục → nháy đúp file chữ khác nhau). Thanh trên chưa nạp xong thì chờ rồi mới điền đường dẫn.</summary>
+    public async void CompareFiles(string path1, string path2)
+    {
+        try
+        {
+            _content1Box.Text = File.ReadAllText(path1); _content1Box.EmptyUndoBuffer();
+            _content2Box.Text = File.ReadAllText(path2); _content2Box.EmptyUndoBuffer();
+        }
+        catch (Exception ex) { MessageBox.Show(this, "Không đọc được file: " + ex.Message); return; }
+        _path1 = path1; _path2 = path2;
+        RunCompare();
+        await _topBarWeb.WaitReadyAsync();
+        if (!IsDisposed) _topBarWeb.Call($"window.setPaths({JsonSerializer.Serialize(path1)}, {JsonSerializer.Serialize(path2)})");
+    }
+
     private void ChooseFile(int fileIndex, Scintilla contentBox)
     {
         using var ofd = new OpenFileDialog { Filter = "All files (*.*)|*.*|SQL files (*.sql)|*.sql" };

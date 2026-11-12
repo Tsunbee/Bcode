@@ -345,6 +345,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("err_shot", "Tra ảnh lỗi", null, (_, _) => OpenErrorShotTab()));
         _toolSpecs.Add(("screen_designer", "Thiết kế màn hình", null, (_, _) => LaunchScreenDesigner(null)));
         _toolSpecs.Add(("compare_text", "Compare Text", null, (_, _) => OpenCompareTextTab()));
+        _toolSpecs.Add(("folder_compare", "So sánh thư mục", null, (_, _) => OpenFolderCompareTab()));
         _toolSpecs.Add(("string_beauty", "String Beauty", null, (_, _) => OpenStringBeautyTab()));
         _toolSpecs.Add(("query_history", "Lịch sử SQL", "Y", (_, _) => OpenQueryHistoryTab()));
         _toolSpecs.Add(("compare_objects", "So sánh object", "J", (_, _) => OpenCompareObjectsTab()));
@@ -1293,7 +1294,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail", "tk2_help", "tk2_forum" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms", "giai_lao" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms", "folder_compare", "giai_lao" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
@@ -1867,7 +1868,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         ["CreateRptControl"] = "create-rpt", ["QuickReportControl"] = "tool-mo-rong",
         ["CompareObjectsControl"] = "sql-object", ["NativeCompareObjectsControl"] = "sql-object", ["UsagesControl"] = "sql-object",
         ["DecryptSqlObjectControl"] = "sql-object", ["SqlProfilerControl"] = "sql-object", ["SqlWatchControl"] = "sql-object",
-        ["FileReferenceControl"] = "cap-source", ["IncludeCheckControl"] = "tool-mo-rong",
+        ["FileReferenceControl"] = "cap-source", ["IncludeCheckControl"] = "tool-mo-rong", ["FolderCompareControl"] = "so-sanh-thu-muc",
         ["CashFlowCheckControl"] = "trien-khai", ["BbxnControl"] = "trien-khai", ["FsgRequirementReportControl"] = "trien-khai",
         ["NativeWeeklyMailControl"] = "trien-khai",
         ["SetupEInvoiceControl"] = "tien-ich", ["CheckMailControl"] = "tien-ich", ["NativeCheckMailControl"] = "tien-ich",
@@ -4720,6 +4721,28 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         _compareTextTab = AddDocumentTab("Compare Text", compareCtrl);
         _compareTextTab.Disposed += (_, _) => _compareTextTab = null;
+    }
+
+    private TabPage? _folderCompareTab;
+
+    /// <summary>Tab "So sánh thư mục" (menu Tool mở rộng; Controls/FolderCompareControl.cs) — 1 tab, mở lại thì chuyển tới. Chỉ xem, không chép / xoá file.
+    /// Nháy đúp file chữ khác nhau → mỗi cặp file 1 tab Compare Text riêng (không đè tab Compare Text đang gõ dở).</summary>
+    private void OpenFolderCompareTab()
+    {
+        if (_folderCompareTab is not null && _documentTabs.TabPages.Contains(_folderCompareTab))
+        {
+            _documentTabs.SelectedTab = _folderCompareTab;
+            return;
+        }
+        var ctrl = new FolderCompareControl();
+        ctrl.CompareFilesRequested += (a, b) =>
+        {
+            var diff = new CompareTextControl();
+            AddDocumentTab("Diff: " + Path.GetFileName(a), diff);
+            diff.CompareFiles(a, b);
+        };
+        _folderCompareTab = AddDocumentTab("So sánh thư mục", ctrl);
+        _folderCompareTab.Disposed += (_, _) => _folderCompareTab = null;
     }
 
 

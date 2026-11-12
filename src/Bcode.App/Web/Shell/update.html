@@ -70,7 +70,8 @@
   .changes { display: flex; flex-direction: column; gap: .7rem; max-height: none; }
   .day { display: flex; flex-direction: column; gap: .3rem; }
   .day .d { font-size: .82rem; font-weight: 600; color: var(--text-muted); }
-  .item { display: flex; gap: .55rem; align-items: baseline; line-height: 1.45; }
+  .day .d .pill { min-width: 0; font-size: .78rem; padding: .1rem .6rem; }
+  .items { margin: .1rem 0 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .2rem; line-height: 1.45; }
   .pill { flex: none; font-size: .72rem; font-weight: 650; padding: .05rem .5rem; border-radius: 1rem; min-width: 4.2rem; text-align: center; }
   .pill.fix { background: color-mix(in srgb, var(--danger) 22%, transparent); color: color-mix(in srgb, var(--danger) 65%, var(--text)); }
   .pill.new { background: color-mix(in srgb, var(--success) 24%, transparent); color: color-mix(in srgb, var(--success) 65%, var(--text)); }
@@ -215,29 +216,26 @@
     if (s.commit) { m.appendChild(document.createTextNode(' · ')); const c = document.createElement('code'); c.textContent = s.commit; m.appendChild(c); }
   }
 
-  // "fix f4 lookup, bổ sung double click ..., sửa ..." → từng ý; nhãn theo chữ đầu
-  const SPLIT = /,\s*(?=(?:fix|sửa|bổ sung|thêm|đổi|bỏ|gắn|giấu|tối ưu|cải tiến|update|cập nhật|hỗ trợ|cho phép|chỉnh)\b)/i;
-  function kind(t) {
-    if (/^(fix|sửa lỗi|sửa|lỗi)\b/i.test(t)) return ['fix', 'Sửa lỗi'];
-    if (/^(bổ sung|thêm|hỗ trợ|cho phép|add)\b/i.test(t)) return ['new', 'Mới'];
-    return ['imp', 'Cải tiến'];
-  }
+  // Mục đã xử lý sẵn ở C# (UpdateCheckService.Digest: tách ý, phân loại, bỏ ý vô nghĩa / trùng / [internal], dùng note nếu có) → nhóm theo loại.
+  const KINDS = [['new', 'Tính năng mới'], ['fix', 'Sửa lỗi'], ['imp', 'Cải tiến khác']];
   function renderChanges(list) {
     const box = $('chgL'); box.innerHTML = '';
-    if (!list || !list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Bản phát hành không kèm danh sách thay đổi.'; box.appendChild(e); return; }
-    let day = null, cur = null, count = 0;
-    list.forEach((c) => {
-      if (c.date !== day) {
-        day = c.date; cur = document.createElement('div'); cur.className = 'day';
-        const d = document.createElement('div'); d.className = 'd'; d.textContent = fmtD(day); cur.appendChild(d); box.appendChild(cur);
-      }
-      c.text.split(SPLIT).map((s) => s.trim()).filter(Boolean).forEach((t) => {
-        const [k, label] = kind(t);
-        const row = document.createElement('div'); row.className = 'item'; row.title = c.hash;
-        const p = document.createElement('span'); p.className = 'pill ' + k; p.textContent = label;
-        const x = document.createElement('span'); x.textContent = t.charAt(0).toUpperCase() + t.slice(1);
-        row.appendChild(p); row.appendChild(x); cur.appendChild(row); count++;
+    if (!list || !list.length) { const e = document.createElement('div'); e.className = 'empty'; e.textContent = 'Bản phát hành không kèm danh sách thay đổi.'; box.appendChild(e); $('chgH').textContent = 'Có gì mới'; return; }
+    let count = 0;
+    KINDS.forEach(([k, label]) => {
+      const group = list.filter((c) => (c.kind || 'imp') === k);
+      if (!group.length) return;
+      const sec = document.createElement('div'); sec.className = 'day';
+      const h = document.createElement('div'); h.className = 'd';
+      const p = document.createElement('span'); p.className = 'pill ' + k; p.textContent = label + ' · ' + group.length;
+      h.appendChild(p); sec.appendChild(h);
+      const ul = document.createElement('ul'); ul.className = 'items';
+      group.forEach((c) => {
+        const li = document.createElement('li'); li.textContent = c.text;
+        if (c.hash) li.title = fmtD(c.date) + ' · ' + c.hash;
+        ul.appendChild(li); count++;
       });
+      sec.appendChild(ul); box.appendChild(sec);
     });
     $('chgH').textContent = 'Có gì mới · ' + count + ' thay đổi';
   }

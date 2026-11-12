@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<style>
+  /* So sánh thư mục (Controls/FolderCompareControl.cs, Services/FolderCompareService.cs) — chỉ xem, không chép / xoá file.
+     Màu / font / mật độ / bo góc theo Template (shell.css + biến C# đẩy vào trang) — không đặt cứng ở đây. */
+  body { display: flex; flex-direction: column; background: var(--panel-alt); user-select: text; -webkit-user-select: text; }
+  header { flex: none; display: flex; flex-direction: column; gap: calc(.4rem * var(--dens)); padding: calc(.6rem * var(--dens)) .8rem;
+           background: var(--panel); border-bottom: var(--bw) solid var(--border); }
+  .line { display: flex; align-items: center; gap: .45rem; min-width: 0; flex-wrap: wrap; }
+  .side { flex: none; width: 1.6rem; height: 1.6rem; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .85rem; color: #fff; }
+  .side.a { background: #c0504d; } .side.b { background: #2e8b57; }
+  /* 2 ô thư mục đối xứng: A trái, B phải (soi gương), ⇄ ở giữa */
+  .pair { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: .5rem; align-items: center; }
+  .pick { display: flex; align-items: center; gap: .4rem; min-width: 0; padding: calc(.3rem * var(--dens)) .4rem; border-radius: var(--r-lg);
+          border: var(--bw) solid var(--border); }
+  .pick.a { background: color-mix(in srgb, #c0504d 8%, var(--panel)); border-color: color-mix(in srgb, #c0504d 35%, var(--border)); }
+  .pick.b { background: color-mix(in srgb, #2e8b57 8%, var(--panel)); border-color: color-mix(in srgb, #2e8b57 35%, var(--border)); }
+  .pick input.path { flex: 1; min-width: 0; }
+  .pick.b input.path { text-align: right; }
+  .pick.b input.path:focus { text-align: left; }
+  @media (max-width: 760px) { .pair { grid-template-columns: 1fr; } #swap { justify-self: center; } }
+  #ignore { flex: 1 1 14rem; min-width: 8rem; }
+  .lbl { color: var(--text-muted); font-size: .88rem; white-space: nowrap; }
+  label.chk { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; cursor: pointer; }
+  #recent { max-width: 16rem; }
+  .grow { flex: 1; }
+  #status { color: var(--text-muted); font-size: .88rem; min-height: 1.2em; overflow-wrap: anywhere; }
+  #status.err { color: var(--danger); }
+  .bar { height: 4px; border-radius: 2px; background: var(--button-back); overflow: hidden; display: none; }
+  .bar.on { display: block; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+  .bar.ind i { width: 30%; animation: ind 1.1s ease-in-out infinite; }
+  @keyframes ind { from { margin-left: -30%; } to { margin-left: 100%; } }
+
+  nav { flex: none; display: flex; align-items: center; gap: .35rem; padding: calc(.45rem * var(--dens)) .8rem; border-bottom: var(--bw) solid var(--border); flex-wrap: wrap; }
+  .tab { border: var(--bw) solid var(--border); border-radius: 999px; padding: calc(3px * var(--dens)) calc(11px * var(--dens)); }
+  .tab .n { font-weight: 700; margin-left: .2rem; font-variant-numeric: tabular-nums; }
+  .tab.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+  .tab.k-diff .n { color: var(--warning); } .tab.k-onlyA .n { color: #e06c69; } .tab.k-onlyB .n { color: #3fb37a; }
+  #q { width: 16rem; max-width: 100%; }
+
+  main { flex: 1; min-height: 0; overflow: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  thead th { position: sticky; top: 0; z-index: 1; background: var(--panel); color: var(--text-muted); font-weight: 600; text-align: left;
+             padding: calc(.35rem * var(--dens)) .55rem; border-bottom: var(--bw) solid var(--border); white-space: nowrap; font-size: .82rem; }
+  td { padding: calc(.28rem * var(--dens)) .55rem; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); vertical-align: top; }
+  /* Lưới 2 bên kiểu công cụ so thư mục: # | Tên · Sửa lúc · Cỡ · Version · Thư mục con (A) | mũi tên | (B) cùng các cột.
+     Bên thiếu file ghi "Missing" đỏ; mũi tên: → chỉ có ở A, ← chỉ có ở B, ⇄ khác nhau, trống = giống. Cột cố định bề rộng, chữ dài thì "…". */
+  table { table-layout: fixed; }
+  thead th { text-align: center; border-right: 1px solid var(--border); overflow: hidden; text-overflow: ellipsis; }
+  td { padding: calc(.22rem * var(--dens)) .45rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+  td.no { text-align: right; color: var(--text-muted); font-size: .8rem; font-variant-numeric: tabular-nums; border-right: 1px solid var(--border); }
+  td.nm { font-size: .92rem; }
+  td.t { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: .88rem; }
+  td.t.new { color: var(--text); font-weight: 700; }
+  td.num { font-variant-numeric: tabular-nums; }
+  td.num.hi, td.ver.hi { color: var(--accent); font-weight: 600; }
+  td.ver { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .82rem; color: var(--text-muted); }
+  td.sub { color: var(--text-muted); font-size: .84rem; }
+  td.miss { color: #e05a52; }
+  td.arw { text-align: center; font-size: 1.05rem; line-height: 1; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  td.arw.onlyA, td.arw.onlyB { color: #e8892a; }
+  td.arw.diff { color: var(--text); }
+  td.ck, th.ck { text-align: center; padding-left: 0; padding-right: 0; }
+  td.ck input, th.ck input { margin: 0; cursor: pointer; vertical-align: middle; accent-color: var(--accent); }
+  tbody tr.sel td { background: var(--selection); }
+  tbody tr.sel { box-shadow: inset 0 -1px 0 #e05a52; }
+  tbody tr { cursor: default; }
+  tbody tr:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+  tbody tr.sel { background: var(--selection); }
+  .pill { display: inline-block; font-size: .74rem; font-weight: 650; padding: .05rem .5rem; border-radius: 1rem; white-space: nowrap; }
+  .pill.diff { background: color-mix(in srgb, var(--warning) 25%, transparent); color: color-mix(in srgb, var(--warning) 70%, var(--text)); }
+  .pill.onlyA { background: color-mix(in srgb, #c0504d 28%, transparent); color: color-mix(in srgb, #e06c69 75%, var(--text)); }
+  .pill.onlyB { background: color-mix(in srgb, #2e8b57 28%, transparent); color: color-mix(in srgb, #3fb37a 75%, var(--text)); }
+  .pill.same { background: var(--button-back); color: var(--text-muted); }
+  .txt { font-size: .72rem; color: var(--accent); margin-left: .35rem; border: 1px solid currentColor; border-radius: .3rem; padding: 0 .25rem; cursor: pointer; }
+  .msg { color: var(--text-muted); padding: 2rem 1rem; text-align: center; line-height: 1.6; }
+  .more { text-align: center; padding: .6rem; }
+  footer { flex: none; padding: calc(.3rem * var(--dens)) .8rem; border-top: var(--bw) solid var(--border); color: var(--text-muted); font-size: .82rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+  footer:empty { display: none; }
+  details.errs summary { cursor: pointer; color: var(--warning); }
+  details.errs ul { margin: .3rem 0; padding-left: 1.2rem; max-height: 8rem; overflow: auto; }
+
+  #menu { position: fixed; z-index: 50; min-width: 14rem; background: var(--panel); border: var(--bw) solid var(--accent); border-radius: var(--r-lg);
+          box-shadow: 0 8px 26px rgba(0,0,0,.45); padding: .25rem 0; display: none; }
+  #menu div { padding: .35rem 1rem; cursor: pointer; white-space: nowrap; }
+  #menu div:hover { background: var(--selection); }
+  #menu div.off { opacity: .45; pointer-events: none; }
+  #menu hr { border: 0; border-top: 1px solid var(--border); margin: .25rem 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="pair">
+    <div class="pick a">
+      <span class="side a" title="Thư mục A (cũ / gốc)">A</span>
+      <input type="text" class="path" id="pa" placeholder="Thư mục A — vd bản cũ: D:\Release\v1\bin" spellcheck="false" />
+      <button id="ba" title="Chọn thư mục A">…</button>
+    </div>
+    <button id="swap" class="btn-icon" title="Đổi chỗ A ⇄ B">⇄</button>
+    <div class="pick b">
+      <button id="bb" title="Chọn thư mục B">…</button>
+      <input type="text" class="path" id="pb" placeholder="Thư mục B — vd bản mới: D:\Release\v2\bin" spellcheck="false" />
+      <span class="side b" title="Thư mục B (mới / cần đối chiếu)">B</span>
+    </div>
+  </div>
+  <div class="line">
+    <select id="recent" title="Cặp thư mục đã so gần đây"><option value="">Gần đây…</option></select>
+    <label class="chk" title="Khác cỡ = khác; cùng cỡ + cùng giờ sửa = giống (không đọc file). Cùng cỡ nhưng khác giờ sửa: Bật = đọc so nội dung 2 bên (biết được file build lại y hệt); Tắt = coi là khác."><input type="checkbox" id="exact" /> So nội dung khi khác giờ sửa</label>
+    <span class="lbl">Bỏ qua</span>
+    <input type="text" id="ignore" spellcheck="false" title="Ngăn bởi ; — 'obj\' = thư mục ở mọi cấp, '*.pdb' = tên file, 'runtimes\*.dll' = theo đường dẫn tương đối. Dùng * và ?." />
+    <button id="defIgnore" class="link-btn" title="Trả về mẫu bỏ qua mặc định">Mặc định</button>
+    <span class="grow"></span>
+    <button id="stop" style="display:none">Dừng</button>
+    <button id="go" class="btn-primary" title="F5">So sánh</button>
+  </div>
+  <div class="bar" id="bar"><i id="barI"></i></div>
+  <div id="status"></div>
+</header>
+<nav>
+  <button class="tab k-diff on" data-k="diff">Khác nhau<span class="n" id="n-diff">0</span></button>
+  <button class="tab k-onlyA" data-k="onlyA">Chỉ có ở A<span class="n" id="n-onlyA">0</span></button>
+  <button class="tab k-onlyB" data-k="onlyB">Chỉ có ở B<span class="n" id="n-onlyB">0</span></button>
+  <button class="tab k-same" data-k="same">Giống nhau<span class="n" id="n-same">0</span></button>
+  <button class="tab k-all" data-k="all">Tất cả<span class="n" id="n-all">0</span></button>
+  <span class="grow"></span>
+  <button id="tickAll" class="link-btn" title="Tick mọi file Khác nhau + Chỉ có ở A đang hiện (theo nhóm / ô lọc)">Tick hết</button>
+  <button id="tickNone" class="link-btn" title="Bỏ tick tất cả">Bỏ tick</button>
+  <button id="copyAB" class="btn-primary" disabled title="Chép các file đã tick từ A sang B (hỏi xác nhận, sao lưu bản B bị ghi đè)">Chép A → B</button>
+  <input type="search" id="q" placeholder="Lọc theo tên / đường dẫn (Ctrl+F)" spellcheck="false" />
+</nav>
+<main id="main"><div class="msg">Chọn 2 thư mục rồi bấm <b>So sánh</b> (F5).<br>Tick file rồi bấm <b>Chép A → B</b> để chép sang B — luôn hỏi xác nhận, bản cũ ở B được sao lưu, không xoá file nào.</div></main>
+<footer id="foot"></footer>
+<div id="menu"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const LABEL = { diff: 'Khác nhau', onlyA: 'Chỉ có ở A', onlyB: 'Chỉ có ở B', same: 'Giống nhau' };
+  const PAGE = 1500;   // số dòng vẽ mỗi lượt (thư mục lớn: bấm "Hiện thêm")
+
+  let cfg = { recent: [], exact: true, ignore: '', defaultIgnore: '' };
+  let data = null, kind = 'diff', shown = PAGE, sel = -1, view = [], running = false;
+  const picked = new Set();   // đường dẫn tương đối đã tick (giữ qua đổi nhóm / lọc; xoá khi so lại)
+  const canCopy = (e) => e.status === 'diff' || e.status === 'onlyA';   // có file ở A, B thiếu hoặc khác
+
+  function updatePicked() {
+    $('copyAB').disabled = running || picked.size === 0;
+    $('copyAB').textContent = picked.size ? 'Chép A → B (' + fmtN(picked.size) + ')' : 'Chép A → B';
+    const all = $('ckAll');
+    if (all) {
+      const elig = view.slice(0, shown).filter(canCopy);
+      const n = elig.filter((e) => picked.has(e.rel)).length;
+      all.checked = elig.length > 0 && n === elig.length;
+      all.indeterminate = n > 0 && n < elig.length;
+      all.disabled = elig.length === 0;
+    }
+  }
+  function toggle(e, on) {
+    if (!canCopy(e)) return;
+    if (on ?? !picked.has(e.rel)) picked.add(e.rel); else picked.delete(e.rel);
+  }
+
+  // ---------------------------------------------------------------- định dạng
+  const fmtB = (n) => n == null ? '' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(2) + ' MB';
+  const fmtN = (n) => (n || 0).toLocaleString('vi-VN');
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function setRunning(on) {
+    running = on;
+    $('go').disabled = on; $('stop').style.display = on ? '' : 'none';
+    if (typeof updatePicked === 'function') updatePicked();
+    $('bar').classList.toggle('on', on);
+    if (!on) { $('bar').classList.remove('ind'); $('barI').style.width = '0'; }
+  }
+  function status(t, err) { $('status').textContent = t || ''; $('status').classList.toggle('err', !!err); }
+
+  // ---------------------------------------------------------------- bảng
+  function render() {
+    const main = $('main');
+    if (!data) return;
+    const q = $('q').value.trim().toLowerCase();
+    view = data.entries.filter((e) => (kind === 'all' || e.status === kind) && (!q || e.rel.toLowerCase().includes(q)));
+    if (kind === 'all') view.sort((x, y) => x.rel.localeCompare(y.rel, 'vi', { sensitivity: 'base' }));   // Tất cả: theo tên như cây thư mục
+    sel = Math.min(sel, view.length - 1);
+    if (!view.length) {
+      main.innerHTML = '<div class="msg">' + (q ? 'Không có file nào khớp "' + esc(q) + '".' : kind === 'diff' ? '✓ Không có file nào khác nhau.' : 'Không có file nào.') + '</div>';
+      updatePicked();
+      return;
+    }
+    const ARROW = { onlyA: '→', onlyB: '←', diff: '⇄', same: '' };
+    const fmtT = (t) => t ? t.slice(8, 10) + '/' + t.slice(5, 7) + '/' + t.slice(2, 4) + ' ' + t.slice(11) : '';   // yyyy-MM-dd HH:mm:ss → dd/MM/yy HH:mm:ss
+    const rows = [];
+    view.slice(0, shown).forEach((e, i) => {
+      const cut = e.rel.lastIndexOf('\\');
+      const file = esc(cut > 0 ? e.rel.slice(cut + 1) : e.rel), sub = esc(cut > 0 ? e.rel.slice(0, cut) : '');
+      const both = e.status === 'diff' || e.status === 'same';
+      const sizeHi = both && e.sizeA !== e.sizeB, verHi = both && e.verA && e.verB && e.verA !== e.verB;
+      const newer = both && e.timeA !== e.timeB ? (e.timeA > e.timeB ? 'a' : 'b') : '';
+      const side = (has, time, size, ver, isNew) => has
+        ? '<td class="nm" title="' + esc(e.rel) + '">' + file + '</td>'
+          + '<td class="t' + (isNew ? ' new' : '') + '">' + fmtT(time) + '</td>'
+          + '<td class="num' + (sizeHi ? ' hi' : '') + '" title="' + (size ?? '') + ' byte">' + fmtB(size) + '</td>'
+          + '<td class="ver' + (verHi ? ' hi' : '') + '">' + esc(ver || '') + '</td>'
+          + '<td class="sub" title="' + sub + '">' + sub + '</td>'
+        : '<td class="nm miss">Missing</td><td></td><td></td><td></td><td></td>';
+      const tip = LABEL[e.status] + (e.reason ? ' — ' + e.reason : '') + (e.text ? ' · nháy đúp: so nội dung' : '');
+      const ck = canCopy(e)
+        ? '<td class="ck"><input type="checkbox" class="pk"' + (picked.has(e.rel) ? ' checked' : '') + ' title="Tick để chép file này từ A sang B" /></td>'
+        : '<td class="ck"></td>';
+      rows.push('<tr data-i="' + i + '"' + (i === sel ? ' class="sel"' : '') + '><td class="no">' + (i + 1) + '</td>' + ck
+        + side(e.status !== 'onlyB', e.timeA, e.sizeA, e.verA, newer === 'a')
+        + '<td class="arw ' + e.status + '" title="' + esc(tip) + '">' + ARROW[e.status] + '</td>'
+        + side(e.status !== 'onlyA', e.timeB, e.sizeB, e.verB, newer === 'b') + '</tr>');
+    });
+    const cols = (n) => '<th>Tên ' + n + '</th><th>Sửa lúc ' + n + '</th><th>Cỡ ' + n + '</th><th>Version ' + n + '</th><th>Thư mục con ' + n + '</th>';
+    main.innerHTML = '<table><colgroup><col style="width:3%"><col style="width:2.4%">'
+      + '<col style="width:16%"><col style="width:9.5%"><col style="width:5.5%"><col style="width:6%"><col style="width:7.6%">'
+      + '<col style="width:3%">'
+      + '<col style="width:16%"><col style="width:9.5%"><col style="width:5.5%"><col style="width:6%"><col style="width:9%">'
+      + '</colgroup><thead><tr><th>…</th><th class="ck"><input type="checkbox" id="ckAll" title="Tick / bỏ tick mọi file chép được đang hiện" /></th>' + cols('A') + '<th title="→ chỉ có ở A · ← chỉ có ở B · ⇄ khác nhau"></th>' + cols('B') + '</tr></thead><tbody>'
+      + rows.join('') + '</tbody></table>'
+      + (view.length > shown ? '<div class="more"><button id="more">Hiện thêm (' + fmtN(view.length - shown) + ' file nữa)</button></div>' : '');
+    main.querySelector('thead th:nth-child(3)').title = 'A: ' + data.a;
+    main.querySelector('thead th:nth-child(9)').title = 'B: ' + data.b;
+    $('ckAll').onchange = (ev) => { view.slice(0, shown).forEach((e) => toggle(e, ev.target.checked)); render(); };
+    if ($('more')) $('more').onclick = () => { shown += PAGE * 2; render(); };
+    updatePicked();
+  }
+
+  function counts() {
+    const c = { diff: 0, onlyA: 0, onlyB: 0, same: 0 };
+    data.entries.forEach((e) => c[e.status]++);
+    Object.keys(c).forEach((k) => $('n-' + k).textContent = fmtN(c[k]));
+    $('n-all').textContent = fmtN(data.entries.length);
+    return c;
+  }
+
+  function setKind(k) {
+    kind = k; shown = PAGE; sel = -1;
+    document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.k === k));
+    render();
+  }
+
+  function select(i, scroll) {
+    sel = Math.max(0, Math.min(i, Math.min(view.length, shown) - 1));
+    document.querySelectorAll('tbody tr').forEach((tr) => tr.classList.toggle('sel', +tr.dataset.i === sel));
+    const tr = document.querySelector('tbody tr[data-i="' + sel + '"]');
+    if (tr && scroll) tr.scrollIntoView({ block: 'nearest' });
+  }
+
+  function openDiff(e) {
+    if (!e) return;
+    if (e.status === 'diff' && e.text) post('diff', { rel: e.rel });
+    else if (e.status === 'onlyB') post('reveal', { rel: e.rel, side: 'b' });
+    else post('reveal', { rel: e.rel, side: 'a' });
+  }
+
+  // ---------------------------------------------------------------- menu chuột phải
+  function showMenu(x, y, e) {
+    const m = $('menu');
+    const items = [
+      ['So sánh nội dung (Compare Text)', () => post('diff', { rel: e.rel }), e.status === 'diff' && e.text],
+      [picked.has(e.rel) ? 'Bỏ tick' : 'Tick để chép A → B', () => { toggle(e); render(); }, canCopy(e)],
+      null,
+      ['Mở thư mục chứa file (A)', () => post('reveal', { rel: e.rel, side: 'a' }), e.status !== 'onlyB'],
+      ['Mở thư mục chứa file (B)', () => post('reveal', { rel: e.rel, side: 'b' }), e.status !== 'onlyA'],
+      null,
+      ['Chép đường dẫn tương đối', () => post('copy', { text: e.rel }), true],
+      ['Chép đường dẫn đầy đủ (A)', () => post('copy', { text: data.a + '\\' + e.rel }), e.status !== 'onlyB'],
+      ['Chép đường dẫn đầy đủ (B)', () => post('copy', { text: data.b + '\\' + e.rel }), e.status !== 'onlyA'],
+      ['Chép danh sách đang hiện (' + fmtN(view.length) + ' file)', copyList, view.length > 0],
+    ];
+    m.innerHTML = '';
+    items.forEach((it) => {
+      if (!it) { m.appendChild(document.createElement('hr')); return; }
+      const d = document.createElement('div'); d.textContent = it[0];
+      if (!it[2]) d.className = 'off';
+      d.onclick = () => { hideMenu(); it[1](); };
+      m.appendChild(d);
+    });
+    m.style.display = 'block';
+    const r = m.getBoundingClientRect();
+    m.style.left = Math.min(x, innerWidth - r.width - 4) + 'px';
+    m.style.top = Math.min(y, innerHeight - r.height - 4) + 'px';
+  }
+  const hideMenu = () => $('menu').style.display = 'none';
+
+  function copyList() {
+    const lines = view.map((e) => LABEL[e.status] + '\t' + e.rel + '\t' + (e.sizeA ?? '') + '\t' + (e.sizeB ?? '') + '\t' + (e.verA || '') + '\t' + (e.verB || '') + '\t' + e.reason);
+    post('copy', { text: 'Trạng thái\tFile\tCỡ A\tCỡ B\tVersion A\tVersion B\tGhi chú\n' + lines.join('\n') });
+    status('Đã chép ' + fmtN(view.length) + ' dòng (dán được vào Excel).');
+  }
+
+  // ---------------------------------------------------------------- sự kiện
+  function compare() {
+    if (running) return;
+    const a = $('pa').value.trim(), b = $('pb').value.trim();
+    if (!a || !b) { status('Chọn đủ 2 thư mục A và B.', true); return; }
+    setRunning(true); $('bar').classList.add('ind'); status('Đang liệt kê file…');
+    post('compare', { a, b, exact: $('exact').checked, ignore: $('ignore').value });
+  }
+
+  $('go').onclick = compare;
+  $('stop').onclick = () => post('stop');
+  $('ba').onclick = () => post('browse', { side: 'a', current: $('pa').value });
+  $('bb').onclick = () => post('browse', { side: 'b', current: $('pb').value });
+  $('swap').onclick = () => { const t = $('pa').value; $('pa').value = $('pb').value; $('pb').value = t; };
+  $('defIgnore').onclick = () => { $('ignore').value = cfg.defaultIgnore || ''; };
+  $('recent').onchange = (ev) => {
+    const p = cfg.recent[+ev.target.value];
+    if (p) { $('pa').value = p.a; $('pb').value = p.b; }
+    ev.target.value = '';
+  };
+  ['pa', 'pb', 'ignore'].forEach((id) => $(id).addEventListener('keydown', (ev) => { if (ev.key === 'Enter') compare(); }));
+  document.querySelectorAll('.tab').forEach((t) => t.onclick = () => setKind(t.dataset.k));
+  let qTimer = 0;
+  $('q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { shown = PAGE; sel = -1; render(); }, 150); });
+
+  // ---- tick + chép A → B
+  $('tickAll').onclick = () => { view.forEach((e) => toggle(e, true)); render(); };
+  $('tickNone').onclick = () => { picked.clear(); render(); };
+  $('copyAB').onclick = () => {
+    if (!data || !picked.size || running) return;
+    setRunning(true); $('bar').classList.add('ind'); status('Chờ xác nhận chép ' + fmtN(picked.size) + ' file…');
+    post('copyAB', { rels: [...picked] });
+  };
+  let afterCopy = '';   // thông báo kết quả chép, giữ lại sau khi tự so lại
+
+  const main = $('main');
+  const rowOf = (ev) => { const tr = ev.target.closest('tbody tr'); return tr ? +tr.dataset.i : -1; };
+  main.addEventListener('click', (ev) => {
+    const i = rowOf(ev); if (i < 0) return;
+    if (ev.target.classList.contains('pk')) { toggle(view[i], ev.target.checked); updatePicked(); return; }
+    select(i);
+  });
+  main.addEventListener('dblclick', (ev) => { if (ev.target.classList.contains('pk')) return; const i = rowOf(ev); if (i >= 0) openDiff(view[i]); });
+  main.addEventListener('contextmenu', (ev) => { ev.preventDefault(); const i = rowOf(ev); if (i < 0) return; select(i); showMenu(ev.clientX, ev.clientY, view[i]); });
+  document.addEventListener('mousedown', (ev) => { if (!$('menu').contains(ev.target)) hideMenu(); });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'F5') { ev.preventDefault(); compare(); return; }
+    if (ev.key === 'Escape') { hideMenu(); if (running) post('stop'); return; }
+    if (ev.ctrlKey && (ev.key === 'f' || ev.key === 'F')) { ev.preventDefault(); $('q').focus(); $('q').select(); return; }
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+    if (ev.key === 'ArrowDown') { ev.preventDefault(); select(sel + 1, true); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); select(sel - 1, true); }
+    else if (ev.key === 'Enter' && sel >= 0) openDiff(view[sel]);
+    else if (ev.key === ' ' && sel >= 0) {   // Space: tick / bỏ tick dòng đang chọn rồi xuống dòng
+      ev.preventDefault(); toggle(view[sel]);
+      const cb = document.querySelector('tbody tr[data-i="' + sel + '"] .pk'); if (cb) cb.checked = picked.has(view[sel].rel);
+      updatePicked(); select(sel + 1, true);
+    }
+  });
+
+  // kết quả lớn đến qua PostWebMessage
+  window.chrome.webview.addEventListener('message', (ev) => {
+    const m = ev.data;
+    if (!m || m.type !== 'result') return;
+    setRunning(false);
+    data = { a: m.a, b: m.b, entries: m.result.entries };
+    picked.clear();
+    const c = counts();
+    shown = PAGE; sel = -1;
+    setKind(c.diff + c.onlyA + c.onlyB === 0 ? 'same' : c.diff ? 'diff' : c.onlyA ? 'onlyA' : 'onlyB');
+    const total = data.entries.length;
+    status(afterCopy + (c.diff + c.onlyA + c.onlyB === 0
+      ? '✓ Hai thư mục giống nhau (' + fmtN(total) + ' file).'
+      : fmtN(c.diff) + ' file khác nhau · ' + fmtN(c.onlyA) + ' chỉ có ở A · ' + fmtN(c.onlyB) + ' chỉ có ở B · ' + fmtN(c.same) + ' giống nhau.'));
+    afterCopy = '';
+    const foot = $('foot');
+    foot.innerHTML = '<span>' + (m.result.exact ? 'So cỡ + giờ sửa, đọc nội dung khi khác giờ' : 'So nhanh: cỡ + giờ sửa') + ' · ' + (m.result.elapsedMs / 1000).toFixed(1) + ' giây</span>'
+      + (m.result.ignored ? '<span>Bỏ qua ' + fmtN(m.result.ignored) + ' file / thư mục theo mẫu</span>' : '');
+    if (m.result.errors && m.result.errors.length) {
+      const d = document.createElement('details'); d.className = 'errs';
+      d.innerHTML = '<summary>' + m.result.errors.length + ' chỗ không đọc được</summary><ul>' + m.result.errors.slice(0, 200).map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+      foot.appendChild(d);
+    }
+    cfg.recent = [{ a: m.a, b: m.b }].concat(cfg.recent.filter((p) => !(p.a.toLowerCase() === $('pa').value.trim().toLowerCase() && p.b.toLowerCase() === $('pb').value.trim().toLowerCase()))).slice(0, 10);
+    fillRecent();
+  });
+
+  function fillRecent() {
+    const s = $('recent');
+    s.innerHTML = '<option value="">Gần đây…</option>';
+    cfg.recent.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = p.a + '  ⇄  ' + p.b; s.appendChild(o); });
+    s.style.display = cfg.recent.length ? '' : 'none';
+  }
+
+  window.fc = {
+    init(c) {
+      cfg = Object.assign(cfg, c || {});
+      cfg.recent = cfg.recent || [];
+      $('exact').checked = cfg.exact !== false;
+      $('ignore').value = cfg.ignore ?? cfg.defaultIgnore ?? '';
+      if (cfg.recent[0] && !$('pa').value && !$('pb').value) { $('pa').value = cfg.recent[0].a; $('pb').value = cfg.recent[0].b; }
+      fillRecent();
+    },
+    setFolder(side, path) { $(side === 'b' ? 'pb' : 'pa').value = path; },
+    progress(p) {
+      if (!running) return;
+      if (p.stage === 'scan') { $('bar').classList.add('ind'); status('Đang liệt kê file… ' + fmtN(p.done) + ' file'); return; }
+      $('bar').classList.remove('ind');
+      $('barI').style.width = (p.total ? Math.round(p.done * 100 / p.total) : 0) + '%';
+      status('Đang so ' + fmtN(p.done) + ' / ' + fmtN(p.total) + (p.file ? ' — ' + p.file : ''));
+    },
+    stopped() { setRunning(false); status('Đã dừng.'); },
+    copying() { $('bar').classList.remove('ind'); status('Đang chép…'); },
+    copied(r) {
+      setRunning(false);
+      if (!r) { status('Đã huỷ chép.'); return; }
+      if (r.stopped) { afterCopy = 'Đã dừng chép giữa chừng. '; }
+      else {
+        afterCopy = 'Đã chép ' + fmtN(r.copied) + ' file (thêm ' + fmtN(r.added) + ', ghi đè ' + fmtN(r.overwritten) + ')'
+          + (r.errors && r.errors.length ? ', ' + r.errors.length + ' file lỗi' : '')
+          + (r.backupDir ? ' · bản cũ sao lưu ở ' + r.backupDir : '') + '. ';
+      }
+      // so lại đúng cặp thư mục vừa chép (không theo ô đang gõ)
+      setRunning(true); $('bar').classList.add('ind'); status(afterCopy + 'Đang so lại…');
+      post('compare', { a: data.a, b: data.b, exact: $('exact').checked, ignore: $('ignore').value });
+    },
+    error(msg) { setRunning(false); status(msg, true); },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+})();
+</script>
+</body>
+</html>

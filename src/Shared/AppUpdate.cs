@@ -19,8 +19,12 @@ public sealed record BuildStamp(DateTime BuiltUtc, string Commit, string Config,
     public bool HasCommit => Commit is { Length: > 0 } c && c != "unknown";
 }
 
-/// <summary>1 dòng bcode-changelog.txt: "hash|yyyy-MM-dd|nội dung commit".</summary>
-public sealed record ChangeEntry(string Hash, string Date, string Text);
+/// <summary>1 commit trong bcode-changelog.txt: dòng "hash|yyyy-MM-dd|tiêu đề commit", có thể kèm ngay sau dòng "|note|câu cho người dùng"
+/// (trailer "note:" trong thân commit — nhiều note nối bằng ";;").</summary>
+public sealed record ChangeEntry(string Hash, string Date, string Text, string Note = "");
+
+/// <summary>1 mục "Có gì mới" đã xử lý: Kind = "new" (tính năng mới) / "fix" (sửa lỗi) / "imp" (cải tiến khác).</summary>
+public sealed record ChangeItem(string Kind, string Text, string Hash, string Date);
 
 /// <summary>Tiến độ chuẩn bị bản mới. Stage: "scan" (so file ở máy với bản mới) / "download" (tải file khác về thư mục tạm).</summary>
 public sealed record UpdateProgress(string Stage, int Done, int Total, long Bytes, long TotalBytes, string File);
@@ -267,6 +271,13 @@ public static class UpdateCheckService
             if (!File.Exists(path)) return list;
             foreach (var line in File.ReadAllLines(path, Encoding.UTF8))
             {
+                // "|note|..." đi ngay sau dòng commit của nó (bản Bcode cũ bỏ qua dòng này vì hash trống)
+                if (line.StartsWith(NoteLinePrefix, StringComparison.Ordinal))
+                {
+                    var note = line[NoteLinePrefix.Length..].Trim();
+                    if (note.Length > 0 && list.Count > 0) list[^1] = list[^1] with { Note = note };
+                    continue;
+                }
                 var p = line.Split('|', 3);
                 if (p.Length < 3 || p[0].Trim().Length == 0) continue;
                 list.Add(new ChangeEntry(p[0].Trim(), p[1].Trim(), CommitPrefix.Replace(p[2], "").Trim()));
@@ -283,6 +294,58 @@ public static class UpdateCheckService
         if (idx >= 0) return log.Take(Math.Min(idx, max)).ToList();
         var since = local.BuiltUtc.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         return log.Where(e => string.CompareOrdinal(e.Date, since) >= 0).Take(max).ToList();
+    }
+
+    private const string NoteLinePrefix = "|note|";
+
+    /// <summary>Tiêu đề có [internal] / [skip] / [nội bộ] → không hiện cho người dùng.</summary>
+    private static readonly Regex HiddenTag = new(@"\[(internal|skip|nội bộ)\]|^\s*Merge\s", RegexOptions.IgnoreCase);
+    /// <summary>Chữ "fix" đầu ý — bỏ khi hiện (đã nằm dưới nhóm "Sửa lỗi").</summary>
+    private static readonly Regex FixLead = new(@"^(fix|fixed)\s+(lỗi\s+)?", RegexOptions.IgnoreCase);
+    /// <summary>Tách 1 commit nhiều ý: dấu phẩy / chấm phẩy + khoảng trắng, hoặc dấu phẩy dính liền ý mới ("a,fix b").</summary>
+    private static readonly Regex ItemSplit = new(@"[,;]\s+|,(?=(?:fix|sửa|bổ sung|thêm)\b)", RegexOptions.IgnoreCase);
+    private static readonly Regex FixWord = new(@"^(fix|sửa|lỗi|bug)\b", RegexOptions.IgnoreCase);
+    private static readonly Regex NewWord = new(@"^(bổ sung|thêm|hỗ trợ|cho phép|cho|add|new|tính năng mới)\b", RegexOptions.IgnoreCase);
+    private static readonly Regex ImpWord = new(@"^(đổi|chỉnh|điều chỉnh|tối ưu|cải tiến|update|cập nhật|bỏ|ẩn|giấu)\b", RegexOptions.IgnoreCase);
+    private static readonly Regex Spaces = new(@"\s+");
+    /// <summary>Ý chỉ gồm toàn các từ này = vô nghĩa với người dùng ("fix", "fix update", "fix và bổ sung 1 vài tính năng").</summary>
+    private static readonly HashSet<string> NoiseWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "fix", "fixed", "bug", "bugs", "sửa", "lỗi", "update", "updated", "cập", "nhật", "và", "&", "+", "bổ", "sung", "thêm",
+        "1", "một", "vài", "số", "các", "nhiều", "ít", "tính", "năng", "chức", "nhỏ", "linh", "tinh", "chỗ", "cái", "cải", "tiến",
+        "wip", "test", "tmp", "temp", "minor", "misc", "version", "phiên", "bản", "install", "bcode", "code", "data",
+    };
+
+    /// <summary>Commit → mục "Có gì mới": bỏ commit [internal]; có note thì dùng note thay tiêu đề; tách ý theo dấu phẩy; phân loại
+    /// Mới / Sửa lỗi / Cải tiến theo chữ đầu; bỏ ý vô nghĩa ("fix", "update"...) và ý trùng. Có ý bị bỏ vì vô nghĩa → thêm 1 dòng
+    /// "Một số sửa lỗi và cải tiến nhỏ khác". Thứ tự: mới nhất trước.</summary>
+    public static List<ChangeItem> Digest(IEnumerable<ChangeEntry> commits)
+    {
+        var items = new List<ChangeItem>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var noise = false;
+        foreach (var c in commits)
+        {
+            if (HiddenTag.IsMatch(c.Text)) continue;
+            var parts = c.Note.Length > 0
+                ? c.Note.Split(";;", StringSplitOptions.RemoveEmptyEntries)   // note do người viết soạn sẵn: không tách theo dấu phẩy
+                : ItemSplit.Split(c.Text);
+            var prevKind = "imp";   // ý không có từ khoá đầu câu theo loại của ý trước trong cùng commit ("bổ sung A, B" → B cũng là mới)
+            foreach (var raw in parts)
+            {
+                var t = Spaces.Replace(raw, " ").Trim().TrimEnd(',', ';', ' ');
+                if (t.Trim('.', ' ').Length == 0) continue;
+                var words = t.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (words.All(NoiseWords.Contains) || t.Length < 4) { noise = true; continue; }
+                var kind = FixWord.IsMatch(t) ? "fix" : NewWord.IsMatch(t) ? "new" : ImpWord.IsMatch(t) ? "imp" : prevKind;
+                prevKind = kind;
+                if (kind == "fix" && FixLead.Replace(t, "") is { Length: >= 2 } rest) t = rest;
+                if (!seen.Add(t)) continue;
+                items.Add(new ChangeItem(kind, char.ToUpper(t[0]) + t[1..], c.Hash, c.Date));
+            }
+        }
+        if (noise) items.Add(new ChangeItem("imp", "Một số sửa lỗi và cải tiến nhỏ khác", "", ""));
+        return items;
     }
 
     // ---------------------------------------------------------------- thư mục làm việc

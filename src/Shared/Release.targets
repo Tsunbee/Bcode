@@ -3,7 +3,7 @@
     Dữ liệu phát hành cho cơ chế cập nhật bản mới (Shared/AppUpdate.cs) — import ở CUỐI .csproj của Bcode.App và BcodeViewer.App.
     Mỗi app phát hành vào thư mục riêng (<BcodeReleaseFolder> của từng csproj), ghi 3 file cạnh exe:
       bcode-version.json   { built, commit, config, version, build } — build = số commit git (tăng dần), so trước; giờ build chỉ dùng khi thiếu.
-      bcode-changelog.txt  80 commit gần nhất "hash|ngày|nội dung" cho "Có gì mới" (ghi qua cmd > file để giữ UTF-8 tiếng Việt).
+      bcode-changelog.txt  80 commit gần nhất "hash|ngày|nội dung" (+ dòng "|note|..." từ trailer note:) cho "Có gì mới" (ghi qua cmd > file để giữ UTF-8 tiếng Việt).
       bcode-manifest.json  danh sách file + SHA-256 (chỉ Release, hoặc /p:BcodeManifest=true): máy cập nhật chỉ tải file khác hash, kiểm hash.
     $(BcodeStampPaths) = pathspec git (tính từ thư mục project) để "Có gì mới" + commit chỉ tính commit đụng tới app này
     (vd Viewer: ". ../Shared ../Bcode.Core"); trống = cả repo (Bcode).
@@ -22,7 +22,8 @@
     <Exec Command="git rev-list --count HEAD" ConsoleToMSBuild="true" StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true" IgnoreExitCode="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="BcodeBuildNo" />
     </Exec>
-    <Exec Command="git -c i18n.logOutputEncoding=UTF-8 log -80 --format=%25%25h^|%25%25cs^|%25%25s$(_BcodePathArgs) &gt; &quot;$(OutDir)bcode-changelog.txt&quot;" StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true" IgnoreExitCode="true" />
+    <!-- mỗi commit 2 dòng: "hash|ngày|tiêu đề" + "|note|<trailer note: trong thân commit, nhiều cái nối ;;>" (dòng note trống khi không có — bản cũ bỏ qua) -->
+    <Exec Command="git -c i18n.logOutputEncoding=UTF-8 log -80 --format=%25%25h^|%25%25cs^|%25%25s%25%25n^|note^|%25%25(trailers:key=note,valueonly,unfold,separator=%25%25x3B%25%25x3B)$(_BcodePathArgs) &gt; &quot;$(OutDir)bcode-changelog.txt&quot;" StandardOutputImportance="low" StandardErrorImportance="low" ContinueOnError="true" IgnoreExitCode="true" />
     <PropertyGroup>
       <BcodeBuiltUtc>$([System.DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))</BcodeBuiltUtc>
       <BcodeCommit Condition="$(BcodeCommit.Contains(' ')) Or $(BcodeCommit.Length) &gt; 12">unknown</BcodeCommit>

@@ -16,12 +16,16 @@
   Thứ tự an toàn cho máy đang kiểm tra cùng lúc:
     0. kiểm SHA-256 MỌI file trong thư mục build với bcode-manifest.json của chính nó (~6 giây / 3.700 file) — lệch thì DỪNG, chưa đụng server
        (v2.3-beta build 475: BcodeNote.App build sau Bcode.App chép đè BcodeNote.dll sau khi manifest đã sinh → máy cập nhật báo "sai mã kiểm tra")
-    1. xoá bcode-version.json ở đích  → các máy thấy "chưa có bản phát hành", không tải bản đang chép dở
+    1. KHÔNG xoá bcode-version.json ở đích (trước đây xoá → script dừng giữa chừng là server mất luôn dấu phiên bản, các máy báo
+       "chưa có bản phát hành"). Giữ dấu cũ tới bước 4: máy cập nhật kiểm SHA-256 từng file + đọc lại dấu sau khi tải nên không cài bản chép dở;
+       dừng giữa chừng thì máy đang ở bản cũ không thấy gì, chạy lại script là xong.
+    1b. thử mở GHI từng file sắp chép đè trên server — file đang bị khoá (máy khác mở Bcode thẳng từ thư mục phát hành, hoặc ĐANG TẢI cập nhật:
+       AppUpdate mở file FileShare.Read) thì đợi vài giây, vẫn khoá thì DỪNG khi chưa chép gì.
     2. chép file (KHÔNG /MIR — thư mục đích có thể chứa thứ khác; file thừa ở đích vô hại vì máy cập nhật đi theo manifest).
        Chép cả file trên server thiếu / khác cỡ với bản build dù manifest cũ ghi là giống (bản trước chép dở, sửa tay...).
-       File không ghi đè được (máy khác đang mở Bcode chạy thẳng từ thư mục phát hành, thiếu quyền...) → robocopy thử lại rồi DỪNG, in tên file + lỗi.
+       File không ghi đè được (bị khoá giữa chừng, thiếu quyền...) → robocopy thử lại rồi DỪNG, in tên file + lỗi.
     3. kiểm lại SHA-256 các file vừa chép NGAY TRÊN SERVER (-Full: mọi file) — lệch thì DỪNG, không chép dấu phiên bản
-    4. chép bcode-manifest.json, bcode-changelog.txt, rồi bcode-version.json SAU CÙNG
+    4. chép bcode-manifest.json, bcode-changelog.txt, rồi bcode-version.json SAU CÙNG (mỗi file thử lại vài lần — máy cập nhật đọc dấu chớp nhoáng)
   Bỏ qua *.WebView2\ (hồ sơ trình duyệt sinh ra khi chạy Bcode từ thư mục build).
 #>
 param(
@@ -47,7 +51,7 @@ foreach ($k in $apps.Keys) {
 }
 $Dest = [IO.Path]::GetFullPath($Dest).TrimEnd('\')
 $meta = 'bcode-version.json', 'bcode-manifest.json', 'bcode-changelog.txt'
-$stampRemoved = $false   # đã xoá bcode-version.json trên server (máy khác thấy "chưa có bản") hay còn dấu bản cũ — để báo đúng khi dừng giữa chừng
+$stampRemoved = $false   # server KHÔNG có bcode-version.json từ trước khi chạy (lần đầu / bản cũ của script dừng giữa chừng) — để báo đúng khi dừng
 
 function Get-Rel([string]$root, [string]$full) { return $full.Substring($root.Length).TrimStart('\') }
 # Như Shared/AppUpdate.cs: bỏ hồ sơ WebView2 (*.WebView2\) và thư mục con cấp 1 có bcode-version.json riêng (app khác tự cập nhật — Bcode: ScreenDesigner\)
@@ -67,8 +71,9 @@ function Get-FileMap([string]$root) {
     return $map
 }
 function Get-StopNote {
-    if ($stampRemoved) { return 'Bản phát hành CHƯA hoàn tất: trên server hiện không có bcode-version.json (đã gỡ trước khi chép) nên các máy tạm thấy "chưa có bản phát hành" — sửa lỗi rồi chạy lại script.' }
-    return 'Bản phát hành CHƯA hoàn tất: dấu phiên bản trên server vẫn là bản cũ (chưa chép bcode-version.json mới) nên các máy chưa thấy bản mới — sửa lỗi rồi chạy lại script.'
+    if ($stampRemoved) { return 'Bản phát hành CHƯA hoàn tất: trên server chưa có bcode-version.json (từ trước khi chạy) nên các máy thấy "chưa có bản phát hành" — sửa lỗi rồi chạy lại script.' }
+    return 'Bản phát hành CHƯA hoàn tất: bcode-version.json trên server vẫn là bản cũ (giữ nguyên) nên máy đang ở bản cũ chạy bình thường, chưa thấy bản mới; ' +
+           'máy ở bản cũ hơn bấm cập nhật lúc này có thể báo "sai mã kiểm tra" (không hỏng gì) — sửa lỗi rồi chạy lại script.'
 }
 # robocopy giữ lại dòng lỗi (ERROR nn ... + câu giải thích dòng sau) để báo đúng file nào không ghi đè được, thay vì chỉ "mã 8"
 function Invoke-Robocopy([string]$from, [string]$to, [string[]]$opts, [string]$where) {
@@ -86,8 +91,8 @@ function Invoke-Robocopy([string]$from, [string]$to, [string[]]$opts, [string]$w
         }
     }
     $detail = if ($lines.Count) { "`n" + ($lines -join "`n") } else { '' }
-    throw ("robocopy lỗi mã $code ở $where — có file KHÔNG ghi đè được lên server (thường do máy khác đang mở Bcode chạy thẳng từ thư mục phát hành, " +
-           "file đang bị khoá, hoặc tài khoản $env:USERNAME thiếu quyền ghi):$detail`n" + (Get-StopNote))
+    throw ("robocopy lỗi mã $code ở $where — có file KHÔNG ghi đè được lên server (thường do máy khác đang mở Bcode chạy thẳng từ thư mục phát hành " +
+           "hoặc đang tải cập nhật, file đang bị khoá, hoặc tài khoản $env:USERNAME thiếu quyền ghi):$detail`n" + (Get-StopNote))
 }
 
 foreach ($f in $exe, 'bcode-version.json', 'bcode-manifest.json') {
@@ -143,25 +148,47 @@ if (-not $Full -and (Test-Path -LiteralPath $oldManPath)) {
 }
 
 $destStamp = Join-Path $Dest 'bcode-version.json'
-$stampRemoved = $true   # server không có dấu phiên bản (lần đầu / lần chạy trước dừng giữa chừng) = như đã gỡ
-if (Test-Path -LiteralPath $destStamp) {
-    # Xoá dấu phiên bản trước khi chép để máy khác không thấy "bản mới" giữa chừng. Share chỉ cho GHI mà không cho XOÁ (file do người khác tạo...)
-    # thì giữ dấu cũ và ghi đè ở cuối — máy cập nhật vẫn kiểm SHA-256 từng file + đọc lại dấu sau khi tải nên không cài phải bản chép dở.
-    $removed = $false
-    try { Remove-Item -LiteralPath $destStamp -Force -ErrorAction Stop; $removed = $true } catch { }
-    if (-not $removed) {
-        try { (Get-Item -LiteralPath $destStamp -Force).Attributes = 'Normal'; Remove-Item -LiteralPath $destStamp -Force -ErrorAction Stop; $removed = $true } catch { }
+# KHÔNG xoá dấu phiên bản cũ (xem đầu file) — chỉ kiểm trước là ghi đè được, kẻo chép xong hết mới phát hiện thiếu quyền ở bước cuối.
+$stampRemoved = -not (Test-Path -LiteralPath $destStamp)
+if (-not $stampRemoved) {
+    try { $a = (Get-Item -LiteralPath $destStamp -Force); if ($a.Attributes -band [IO.FileAttributes]::ReadOnly) { $a.Attributes = 'Normal' } } catch { }
+    $canWrite = $false
+    for ($t = 1; $t -le 5 -and -not $canWrite; $t++) {
+        try { $fs = [IO.File]::Open($destStamp, 'Open', 'Write', 'ReadWrite'); $fs.Dispose(); $canWrite = $true } catch { if ($t -lt 5) { Start-Sleep -Seconds 1 } }
     }
-    if (-not $removed) {
-        $canWrite = $false
-        try { $fs = [IO.File]::Open($destStamp, 'Open', 'Write', 'ReadWrite'); $fs.Dispose(); $canWrite = $true } catch { }
-        if (-not $canWrite) {
-            throw "Không xoá cũng không ghi được $destStamp (máy này / tài khoản $env:USERNAME không có quyền). Chưa chép gì lên server. " +
-                  "Nhờ người quản lý share cấp quyền Sửa (Modify) cho thư mục $Dest, hoặc nhờ người tạo file xoá nó."
-        }
-        Write-Host "  Không xoá được bcode-version.json cũ (share không cho xoá) — giữ lại, sẽ ghi đè ở cuối." -ForegroundColor Yellow
+    if (-not $canWrite) {
+        throw "Không ghi được $destStamp (máy này / tài khoản $env:USERNAME không có quyền, hoặc file đang bị khoá). Chưa chép gì lên server. " +
+              "Nhờ người quản lý share cấp quyền Sửa (Modify) cho thư mục $Dest."
     }
-    $stampRemoved = $removed
+}
+
+# 1b) Thử mở GHI các file sắp chép đè đang có trên server (không đổi nội dung / giờ sửa). File bị khoá — máy khác mở Bcode thẳng từ thư mục
+#     phát hành, hoặc đang tải cập nhật (AppUpdate mở FileShare.Read) — thì đợi; vẫn khoá thì dừng khi CHƯA chép gì.
+$destMap = Get-FileMap $Dest
+$toWrite = if ($null -eq $oldMan) { @($newMan.Keys) } else {
+    @($newMan.Keys | Where-Object { -not $oldMan.ContainsKey($_) -or $oldMan[$_] -ne $newMan[$_] -or $null -eq $destMap[$_] -or $destMap[$_].Length -ne $srcLen[$_] })
+}
+$lockErr = @{}
+function Test-Locked([string[]]$rels) {
+    $res = @()
+    foreach ($rel in $rels) {
+        $fi = $destMap[$rel]
+        if ($null -eq $fi) { continue }
+        try { $fs = [IO.File]::Open($fi.FullName, 'Open', 'Write', 'ReadWrite'); $fs.Dispose() }
+        catch { $res += $rel; $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }; $lockErr[$rel] = $e.Message.Trim() }
+    }
+    return , $res
+}
+$locked = Test-Locked $toWrite
+for ($t = 1; $t -le 6 -and $locked.Count; $t++) {
+    Write-Host ("  {0} file trên server đang bị khoá — đợi 5 giây rồi thử lại ({1}/6)..." -f $locked.Count, $t) -ForegroundColor Yellow
+    Start-Sleep -Seconds 5
+    $locked = Test-Locked $locked
+}
+if ($locked.Count) {
+    $shown = ($locked | Select-Object -First 20 | ForEach-Object { "    $_   ($($lockErr[$_]))" }) -join "`n"
+    throw ("$($locked.Count) file trên server KHÔNG ghi đè được (đang bị khoá / thiếu quyền) — CHƯA chép gì, bcode-version.json trên server giữ nguyên.`n$shown`n" +
+           "Thường do máy khác đang mở $exe chạy thẳng từ $Dest, hoặc đang tải cập nhật. Đợi vài phút / nhờ đóng app rồi chạy lại script.")
 }
 
 if ($null -eq $oldMan) {
@@ -171,10 +198,7 @@ if ($null -eq $oldMan) {
     $copied = $newMan.Count; $bytes = 0
 } else {
     # File trên server thiếu / khác cỡ với bản build cũng chép lại dù manifest cũ ghi "giống" (bản trước chép dở, file bị sửa tay...)
-    $destMap = Get-FileMap $Dest
-    $changed = @($newMan.Keys | Where-Object {
-            -not $oldMan.ContainsKey($_) -or $oldMan[$_] -ne $newMan[$_] -or $null -eq $destMap[$_] -or $destMap[$_].Length -ne $srcLen[$_]
-        } | Sort-Object)
+    $changed = @($toWrite | Sort-Object)   # tính ở 1b
     $drift = @($changed | Where-Object { $oldMan.ContainsKey($_) -and $oldMan[$_] -eq $newMan[$_] })
     if ($drift.Count) { Write-Host ("  {0} file trên server thiếu / khác cỡ dù manifest cũ ghi giống — chép lại." -f $drift.Count) -ForegroundColor Yellow }
     $bytes = 0
@@ -222,8 +246,16 @@ foreach ($f in 'bcode-manifest.json', 'bcode-changelog.txt', 'bcode-version.json
     if ([IO.Directory]::Exists($target)) {
         throw ("Trên server, $target đang là THƯ MỤC chứ không phải file — xoá thư mục đó rồi chạy lại script.`n" + (Get-StopNote))
     }
-    # [IO.File]::Copy thay Copy-Item: không đoán đích là thư mục hay file
-    try { [IO.File]::Copy($p, $target, $true) }
-    catch { throw ("Không ghi được $f lên server: $($_.Exception.Message)`n" + (Get-StopNote)) }
+    # [IO.File]::Copy thay Copy-Item: không đoán đích là thư mục hay file. Thử lại vài lần: máy cập nhật đọc dấu phiên bản chớp nhoáng (FileShare.Read).
+    for ($t = 1; ; $t++) {
+        try {
+            if ([IO.File]::Exists($target)) { [IO.File]::SetAttributes($target, 'Normal') }
+            [IO.File]::Copy($p, $target, $true); break
+        }
+        catch {
+            if ($t -ge 8) { throw ("Không ghi được $f lên server: $($_.Exception.Message)`n" + (Get-StopNote)) }
+            Start-Sleep -Seconds 1
+        }
+    }
 }
 Write-Host ("Xong: chép {0} file trong {1:N1} giây. Các máy sẽ thấy bản mới ở lần kiểm tra kế tiếp (mở $($exe -replace '\.exe$',''), hoặc mỗi 4 giờ)." -f $copied, $sw.Elapsed.TotalSeconds) -ForegroundColor Green

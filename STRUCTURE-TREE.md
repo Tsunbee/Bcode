@@ -17,7 +17,7 @@ Bcode.App/
 │   ├── ssms/
 │   └── README.md  17
 ├── Controls/
-│   ├── AdvanceNoteControl.cs  880
+│   ├── AdvanceNoteControl.cs  893
 │   ├── AiWebPanel.cs  96
 │   ├── BbxnControl.cs  148
 │   ├── CashFlowCheckControl.cs  310
@@ -36,6 +36,7 @@ Bcode.App/
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  274
+│   ├── FolderCompareControl.cs  213
 │   ├── FsgRequirementReportControl.cs  351
 │   ├── GenUpdatePackageControl.cs  546
 │   ├── GoToBox.cs  288
@@ -49,7 +50,7 @@ Bcode.App/
 │   ├── MonacoPreviewControl.cs  294
 │   ├── MonacoPreviewControl.Native.cs  161
 │   ├── MultiResultView.cs  340
-│   ├── NativeAdvanceNoteControl.cs  1601
+│   ├── NativeAdvanceNoteControl.cs  1664
 │   ├── NativeCheckMailControl.cs  237
 │   ├── NativeCommandPanel.cs  115
 │   ├── NativeCompareObjectsControl.cs  279
@@ -149,7 +150,7 @@ Bcode.App/
 │   ├── ColumnDesignForm.cs  69
 │   ├── CommandPaletteForm.cs  120
 │   ├── CompareStructureForm.cs  64
-│   ├── CompareTextForm.cs  647
+│   ├── CompareTextForm.cs  662
 │   ├── ConnectionSettingsForm.cs  342
 │   ├── CopyMultiFileForm.cs  262
 │   ├── CopySourceStandardForm.cs  144
@@ -168,7 +169,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  5058
+│   ├── MainForm.cs  5081
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
@@ -213,7 +214,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  482
+│   ├── AppSettings.cs  484
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -311,6 +312,7 @@ Bcode.App/
 │   ├── FileLookupService.cs  1530
 │   ├── FileParseCache.cs  408
 │   ├── FileReferenceService.cs  46
+│   ├── FolderCompareService.cs  279
 │   ├── FsgNotifyService.cs  662
 │   ├── FsgProjectLookupService.cs  679
 │   ├── FSourceDecryptService.cs  83
@@ -419,7 +421,7 @@ Bcode.App/
 │   └── Shell/
 │       ├── actionbar.html  99
 │       ├── addsource.html  226
-│       ├── advnote.html  1020
+│       ├── advnote.html  1057
 │       ├── aihistory.html  128
 │       ├── apideclaration.html  906
 │       ├── apischema.html  676
@@ -453,6 +455,7 @@ Bcode.App/
 │       ├── filepreview.html  249
 │       ├── filereference.html  108
 │       ├── findbar.html  60
+│       ├── foldercompare.html  432
 │       ├── framehost.html  55
 │       ├── fsgnotify.html  151
 │       ├── fsgreq.html  765
@@ -505,7 +508,7 @@ Bcode.App/
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1351
-│       ├── update.html  392
+│       ├── update.html  390
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836
 │       ├── voucherview.html  88
@@ -684,7 +687,7 @@ Bcode.KeyGen/
 Shared/
 ├── AiWebHelper.cs  373
 ├── AppSwitchFocus.cs  86
-├── AppUpdate.cs  642
+├── AppUpdate.cs  705
 ├── AppUpdateDialog.cs  171
 ├── AppUpdateForm.cs  181
 ├── AppUpdateToast.cs  195

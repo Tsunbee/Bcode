@@ -41,7 +41,11 @@
   .title .hint { color: var(--text-muted); font-family: "Segoe UI", sans-serif; font-weight: normal; font-size: 11px; }
   #left { min-height: 0; }
   #listWrap { flex: 1 1 0; min-height: 80px; overflow: auto; }   /* y/c nhiều: cuộn xuống tìm */
-  .lfilter { flex: none; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  .lfilter { flex: none; padding: 5px 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+  .lfilter #listFilter { flex: 1 1 auto; min-width: 0; }
+  .lfilter .dbsw { flex: none; }
+  .lfilter .dbsw button { padding: 1px 8px; white-space: nowrap; }
+  tr.row.kept td { font-style: italic; opacity: .75; }   /* vừa đổi Done, không còn khớp lọc Done — giữ tới khi chọn y/c khác / đổi lọc */
   #pkgWrap { flex: none; max-height: 45%; display: none; flex-direction: column; border-top: 1px solid var(--border); }
   #pkgTree { overflow: auto; padding: 4px 6px 8px; font: 12px Consolas, monospace; }
   #pkgTree details { margin-left: 12px; } #pkgTree summary { cursor: pointer; padding: 1px 0; color: var(--accent); }
@@ -141,7 +145,8 @@
   <div id="main">
     <div id="left">
       <div class="title"><span id="listTitle">Request List</span><span class="hint">tick ✓ để Generate nhiều y/c cùng lúc</span></div>
-      <div class="lfilter"><input type="text" id="listFilter" placeholder="Lọc mã y/c (nhiều mã: cách nhau dấu cách / phẩy)…" spellcheck="false" autocomplete="off" title="Lọc Request List theo mã (tên) y/c — gõ một phần mã; nhiều mã cách nhau dấu cách hoặc dấu phẩy. Esc = xoá lọc." /></div>
+      <div class="lfilter"><input type="text" id="listFilter" placeholder="Lọc mã y/c (nhiều mã: cách nhau dấu cách / phẩy)…" spellcheck="false" autocomplete="off" title="Lọc Request List theo mã (tên) y/c — gõ một phần mã; nhiều mã cách nhau dấu cách hoặc dấu phẩy. Esc = xoá lọc." />
+        <div class="dbsw" id="doneSw" title="Lọc theo Done (kết hợp với ô lọc mã) — nhớ cho lần sau"><button data-m="" class="on">Tất cả</button><button data-m="open">Chưa Done</button><button data-m="done">Đã Done</button></div></div>
       <div id="listWrap"></div>
       <div id="pkgWrap">
         <div class="title"><span>Cây gói update</span><span class="hint" id="pkgHint">bấm đôi file để mở vào tab Query</span></div>
@@ -283,7 +288,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
 
-  const S = { ws: {}, requests: [], currentId: null, checked: new Set(), saveTimer: null, defaultFolder: '' };
+  const S = { ws: {}, requests: [], currentId: null, checked: new Set(), saveTimer: null, defaultFolder: '', listDone: '', kept: new Set() };
   const cur = () => S.requests.find((r) => r.id === S.currentId) || null;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmt = (iso) => {
@@ -332,16 +337,45 @@
   // Lọc theo mã (tên) y/c: không phân biệt hoa thường / dấu; nhiều mã cách nhau dấu cách / phẩy = khớp một trong các mã. Chỉ ẩn dòng — y/c đã tick vẫn giữ tick.
   const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
   const listTokens = () => fold($('listFilter').value).split(/[\s,;]+/).filter(Boolean);
+  // Lọc theo Done (Tất cả / Chưa Done / Đã Done), kết hợp với ô lọc mã; nhớ vào settings.json (NoteListDoneFilter, dùng chung chế độ App / BcodeNote).
+  // Y/c vừa đổi Done (ô Done ở danh sách hoặc trong khung Request) mà không còn khớp thì vẫn hiện (nghiêng, mờ) — S.kept — tới khi chọn y/c khác hoặc đổi lọc.
+  const doneOk = (r) => S.listDone === 'open' ? !r.done : S.listDone === 'done' ? !!r.done : true;
+  const DONE_LABEL = { open: 'chưa Done', done: 'đã Done' };
+  function newestId() {   // y/c mới nhất — ưu tiên y/c khớp lọc Done
+    const all = [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)));
+    return ((all.find(doneOk) || all[0]) || {}).id || null;
+  }
+  function paintDoneSw() {
+    const nOpen = S.requests.filter((r) => !r.done).length;
+    $('doneSw').querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.m === S.listDone);
+      b.title = b.dataset.m === 'open' ? nOpen + ' y/c chưa Done' : b.dataset.m === 'done' ? (S.requests.length - nOpen) + ' y/c đã Done' : 'Mọi y/c (' + S.requests.length + ')';
+    });
+  }
+  function setListDone(m, save) {
+    m = m === 'open' || m === 'done' ? m : '';
+    if (m === S.listDone) return;
+    S.listDone = m; S.kept.clear();
+    if (save) post('listDone', { mode: m });
+    renderList();
+  }
+  $('doneSw').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { if (S.saveTimer) flushSave(); setListDone(b.dataset.m, true); } });
   function renderList() {
+    paintDoneSw();
     const all0 = [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)));
     const tokens = listTokens();
-    const rows = tokens.length ? all0.filter((r) => tokens.some((t) => fold(r.name).includes(t))) : all0;
-    $('listTitle').textContent = 'Request List (' + (tokens.length ? rows.length + '/' : '') + all0.length + ')';
+    const rows = all0.filter((r) => (!tokens.length || tokens.some((t) => fold(r.name).includes(t))) && (doneOk(r) || S.kept.has(r.id)));
+    const filtered = tokens.length > 0 || !!S.listDone;
+    $('listTitle').textContent = 'Request List (' + (filtered ? rows.length + '/' : '') + all0.length + ')';
     if (!all0.length) { $('listWrap').innerHTML = '<div class="empty">Chưa có y/c nào. Bấm “＋ New Request”.</div>'; return; }
-    if (!rows.length) { $('listWrap').innerHTML = '<div class="empty">Không có y/c nào khớp “' + esc($('listFilter').value.trim()) + '”.</div>'; updateDeleteLabel(); return; }
+    if (!rows.length) {
+      const why = [tokens.length ? 'khớp “' + esc($('listFilter').value.trim()) + '”' : '', S.listDone ? DONE_LABEL[S.listDone] : ''].filter(Boolean).join(' và ');
+      $('listWrap').innerHTML = '<div class="empty">Không có y/c nào ' + why + '.</div>'; updateDeleteLabel(); return;
+    }
     refreshFolder();
     $('listWrap').innerHTML = '<table><thead><tr><th class="c"><input type="checkbox" id="gckAll" title="Tick / bỏ tick tất cả y/c đang hiện (theo ô lọc)"></th><th>Name</th><th class="c">Mobile</th><th>Begin</th><th class="c">Done</th><th>Updated</th></tr></thead><tbody>' +
-      rows.map((r) => '<tr class="row' + (r.id === S.currentId ? ' sel' : '') + (r.done ? ' done' : '') + '" data-id="' + r.id + '">' +
+      rows.map((r) => '<tr class="row' + (r.id === S.currentId ? ' sel' : '') + (r.done ? ' done' : '') + (doneOk(r) ? '' : ' kept') + '" data-id="' + r.id + '"' +
+        (doneOk(r) ? '' : ' title="Vừa đổi Done — không còn khớp lọc ' + DONE_LABEL[S.listDone] + ', sẽ ẩn khi chọn y/c khác"') + '>' +
         '<td class="c"><input type="checkbox" class="gck" ' + (S.checked.has(r.id) ? 'checked' : '') + '></td>' +
         '<td class="name">' + esc(r.name) + '</td>' +
         '<td class="c">' + (r.mobile ? '☑' : '☐') + '</td>' +
@@ -378,6 +412,7 @@
     if (S.saveTimer) flushSave();
     const r = S.requests.find((x) => x.id === id); if (!r) return;
     r.done = !r.done;
+    if (S.listDone) S.kept.add(r.id);   // không ẩn ngay dòng vừa bấm (bấm nhầm thì bấm lại được)
     if (r.id === S.currentId) $('fDone').checked = r.done;
     post('save', { request: r });
     renderList();
@@ -399,6 +434,7 @@
     // trước đây việc này làm đường link vừa tạo biến mất ngay sau khi hiện.
     const changed = id !== S.currentId;
     S.currentId = id;
+    if (changed) S.kept.clear();   // chọn y/c khác: y/c vừa đổi Done mà không còn khớp lọc giờ mới ẩn
     const r = cur();
     $('noSel').style.display = r ? 'none' : 'block';
     $('editor').style.display = r ? 'flex' : 'none';
@@ -518,6 +554,7 @@
     post('save', { request: r });
     renderList();
   }
+  $('fDone').addEventListener('change', () => { if (S.currentId && S.listDone) S.kept.add(S.currentId); });   // tick Done trong khung Request: y/c đang sửa không biến khỏi danh sách
   ['fName', 'fMobile', 'fDone', 'fContent', 'fNote', 'fGenAll', 'fFilePaths', 'fProcedures', 'fTopScript', 'fBottomScript'].forEach((id) => {
     $(id).addEventListener('input', scheduleSave);
     $(id).addEventListener('change', scheduleSave);
@@ -810,15 +847,15 @@
       $('btnTeam').style.display = state.team ? '' : 'none';
       S.me = state.me || ''; applyView(state.view);
       $('gDone').checked = state.doneAfterGen !== false;
+      S.listDone = state.listDone === 'open' || state.listDone === 'done' ? state.listDone : ''; S.kept.clear();
       setStatus(S.ws.name ? 'Workspace: ' + S.ws.name : 'Chưa chọn workspace', S.ws.name ? '' : 'err');
-      select(S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null);
+      select(newestId());
     },
     onList(list, selectId, view) {
       const viewChanged = applyView(view);
       S.requests = list || [];
       S.checked = new Set([...S.checked].filter((id) => S.requests.some((r) => r.id === id)));
-      const newest = () => S.requests.length ? [...S.requests].sort((a, b) => String(b.begin).localeCompare(String(a.begin)))[0].id : null;
-      const keep = selectId || (S.requests.some((r) => r.id === S.currentId) ? S.currentId : (viewChanged ? newest() : null));
+      const keep = selectId || (S.requests.some((r) => r.id === S.currentId) ? S.currentId : (viewChanged ? newestId() : null));
       if (viewChanged) { S.currentId = null; S.tblList = []; folderTouched = false; }   // đổi người xem: mở y/c mới nhất của danh sách mới
       select(keep);
       setBusy(false);

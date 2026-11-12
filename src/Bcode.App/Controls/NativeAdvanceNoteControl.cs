@@ -37,6 +37,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private readonly Label _listTitle = new() { Dock = DockStyle.Top, Height = NativeSkin.S(28), Padding = new Padding(10, 6, 0, 0), Text = "Request List", AutoEllipsis = true };
     private readonly RoundedInput _listFilter = NK.Input("Lọc mã y/c (nhiều mã: cách nhau dấu cách / phẩy)…");
     private readonly System.Windows.Forms.Timer _listFilterTimer = new() { Interval = 120 };
+    // Lọc theo Done (như advnote.html #doneSw): "" = Tất cả, "open" = Chưa Done, "done" = Đã Done — kết hợp ô lọc mã; nhớ ở AppSettings.NoteListDoneFilter.
+    // _kept = y/c vừa đổi Done mà không còn khớp lọc: vẫn hiện (nghiêng) tới khi chọn y/c khác hoặc đổi lọc.
+    private string _listDone = "";
+    private readonly HashSet<string> _kept = new();
+    private readonly (string Mode, PillButton Btn)[] _doneBtns;
+    private Font? _italicFont;   // chữ nghiêng cho dòng đang giữ lại (dùng lại, giải phóng khi đóng tab)
     private readonly DataGridView _list = new() { Dock = DockStyle.Fill };
     private readonly Panel _pkgPanel = new() { Dock = DockStyle.Bottom, Height = NativeSkin.S(260), Visible = false };
     private readonly TreeView _pkgTree = new() { Dock = DockStyle.Fill };
@@ -182,8 +188,16 @@ public sealed class NativeAdvanceNoteControl : UserControl
         var filterRow = new Panel { Dock = DockStyle.Top, Height = NativeSkin.RowHeight(this) + NativeSkin.S(10), Padding = new Padding(NativeSkin.S(8), NativeSkin.S(5), NativeSkin.S(8), NativeSkin.S(5)) };
         _listFilter.Dock = DockStyle.Fill;
         filterRow.Controls.Add(_listFilter);
+        _listDone = _settings?.NoteListDoneFilter is "open" or "done" ? _settings.NoteListDoneFilter : "";
+        _doneBtns = new[] { ("", "Tất cả"), ("open", "Chưa Done"), ("done", "Đã Done") }
+            .Select(x => (x.Item1, NK.Button(x.Item2, () => SetListDone(x.Item1)))).ToArray();
+        var doneRow = NK.Row(_doneBtns.Select(x => (Control)x.Btn).ToArray());
+        doneRow.Dock = DockStyle.Right; doneRow.WrapContents = false; doneRow.Padding = new Padding(NativeSkin.S(6), 0, 0, 0);
+        foreach (var (_, b) in _doneBtns) { b.Margin = new Padding(0, 0, NativeSkin.S(4), 0); b.Height = NativeSkin.RowHeight(this); }
+        _doneBtns[^1].Btn.Margin = new Padding(0);
+        filterRow.Controls.Add(doneRow);   // thêm sau ô lọc (Dock Fill) để được xếp mép phải trước
         _listFilterTimer.Tick += (_, _) => { _listFilterTimer.Stop(); RenderList(); };
-        Disposed += (_, _) => _listFilterTimer.Dispose();
+        Disposed += (_, _) => { _listFilterTimer.Dispose(); _italicFont?.Dispose(); };
         _listFilter.TextChanged += (_, _) => { _listFilterTimer.Stop(); _listFilterTimer.Start(); };
         _listFilter.InputKeyDown += (_, e) =>
         {
@@ -317,7 +331,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
         HandleCreated += (_, _) => BeginInvoke(new Action(() => { try { split.SplitterDistance = Math.Min(Math.Max(NativeSkin.S(430), (int)(Width * 0.3)), Width / 2); /* như #left 430px của trang web (nhân tỉ lệ) */ } catch { } Init(); }));
 
         foreach (var m in new[] { _fName, _fGenAll, _fFilePaths, _fProcedures, _fTop, _fBottom }) m.TextChanged += (_, _) => Dirty();
-        _fMobile.CheckedChanged += (_, _) => Dirty(); _fDone.CheckedChanged += (_, _) => Dirty();
+        _fMobile.CheckedChanged += (_, _) => Dirty();
+        _fDone.CheckedChanged += (_, _) =>
+        {
+            if (!_loading && _cur is not null && _listDone.Length > 0) _kept.Add(_cur.Id);   // tick Done trong khung Request: y/c đang sửa không biến khỏi danh sách
+            Dirty();
+        };
         // Gõ xong tên controller (rời ô Gen All) thì tự tải danh sách table — chỉ khi nội dung đổi (như sự kiện change của trang web), không tải lại mỗi lần rời ô.
         var genAllAtEnter = "";
         _fGenAll.Inner.Enter += (_, _) => genAllAtEnter = _fGenAll.Text;
@@ -446,7 +465,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         EnsureLoaded();   // nạp lại file; đang xem note người khác thì tự về note của mình
         ClearPreview();
         RenderList();
-        Select(_requests.Any(r => r.Id == id) ? id : _requests.OrderByDescending(r => r.Begin).FirstOrDefault()?.Id);
+        Select(_requests.Any(r => r.Id == id) ? id : NewestId());
         _ = PreviewThenSayAsync(message);
     }
 
@@ -498,7 +517,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
             ApplyView();
             ClearPreview();
             RenderList();
-            Select(selectId is not null && _requests.Any(r => r.Id == selectId) ? selectId : _requests.OrderByDescending(r => r.Begin).FirstOrDefault()?.Id);
+            Select(selectId is not null && _requests.Any(r => r.Id == selectId) ? selectId : NewestId());
             SetStatus($"Đang xem note của {owner} ({list.Count} y/c, sửa lần cuối {Fmt(modified)}" + (showPath ? $", file {path}" : "") + ") — chỉ đọc.", ok: true);
         }
         catch (Exception ex)
@@ -614,8 +633,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _loading = false;
         SetStatus(ws is null ? "Chưa chọn workspace" : "Workspace: " + ws.Name, ws is null);
         RenderList();
-        var first = _requests.OrderByDescending(r => r.Begin).FirstOrDefault();
-        Select(first?.Id);
+        Select(NewestId());
         _ = LoadTableNamesAsync();
         _inited = true;
         if (_pendingView is { } pv) { _pendingView = null; _ = ViewOwnerAsync(pv.Owner, pv.Id); }
@@ -688,10 +706,12 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _loading = true;
         try
         {
+            PaintDoneButtons();
             var all = _requests.OrderByDescending(r => r.Begin).ToList();
             var tokens = Fold(_listFilter.Text).Split(new[] { ' ', ',', ';', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-            var rows = tokens.Length == 0 ? all : all.Where(r => tokens.Any(t => Fold(r.Name).Contains(t, StringComparison.Ordinal))).ToList();
-            _listTitle.Text = $"Request List ({(tokens.Length > 0 ? rows.Count + "/" : "")}{all.Count})  — tick ✓ để Generate nhiều y/c cùng lúc";
+            var rows = all.Where(r => (tokens.Length == 0 || tokens.Any(t => Fold(r.Name).Contains(t, StringComparison.Ordinal))) && (DoneOk(r) || _kept.Contains(r.Id))).ToList();
+            var filtered = tokens.Length > 0 || _listDone.Length > 0;
+            _listTitle.Text = $"Request List ({(filtered ? rows.Count + "/" : "")}{all.Count})  — tick ✓ để Generate nhiều y/c cùng lúc";
             _list.Rows.Clear();
             foreach (var r in rows)
             {
@@ -699,6 +719,13 @@ public sealed class NativeAdvanceNoteControl : UserControl
                 _list.Rows[i].Tag = r.Id;
                 _list.Rows[i].Cells["name"].ToolTipText = r.Name + "\nBegin: " + Fmt(r.Begin) + (r.Updated is { } up ? "   ·   Updated: " + Fmt(up) : "") + (r.Mobile ? "\nMobile" : "") + (r.Done ? "\nDone" : "");
                 if (r.Done) _list.Rows[i].DefaultCellStyle.ForeColor = AppColors.TextMuted;
+                if (!DoneOk(r))   // y/c vừa đổi Done, đang được giữ lại
+                {
+                    if (_italicFont is null || !_italicFont.FontFamily.Equals(_list.Font.FontFamily) || _italicFont.Size != _list.Font.Size)
+                    { _italicFont?.Dispose(); _italicFont = new Font(_list.Font, FontStyle.Italic); }
+                    _list.Rows[i].DefaultCellStyle.Font = _italicFont;
+                    _list.Rows[i].Cells["name"].ToolTipText += $"\n(Vừa đổi Done — không còn khớp lọc {DoneLabel(_listDone)}, sẽ ẩn khi chọn y/c khác)";
+                }
                 if (r.Id == _cur?.Id) { _list.ClearSelection(); _list.Rows[i].Selected = true; try { _list.CurrentCell = _list.Rows[i].Cells[1]; } catch { } }
             }
             if (_cur is null || !rows.Contains(_cur)) _list.ClearSelection();   // y/c đang mở bị ô lọc ẩn: không tô nhầm dòng đầu
@@ -712,6 +739,40 @@ public sealed class NativeAdvanceNoteControl : UserControl
     }
 
     private static string Fmt(DateTime d) => d.ToString("dd/MM/yy HH:mm");
+
+    private bool DoneOk(AdvanceRequest r) => _listDone switch { "open" => !r.Done, "done" => r.Done, _ => true };
+    private static string DoneLabel(string mode) => mode == "open" ? "chưa Done" : "đã Done";
+
+    /// <summary>Y/c mới nhất — ưu tiên y/c khớp lọc Done (mở tab / đổi người xem / xoá y/c đang mở).</summary>
+    private string? NewestId()
+    {
+        var all = _requests.OrderByDescending(r => r.Begin).ToList();
+        return (all.FirstOrDefault(DoneOk) ?? all.FirstOrDefault())?.Id;
+    }
+
+    private void PaintDoneButtons()
+    {
+        var nOpen = _requests.Count(r => !r.Done);
+        foreach (var (mode, b) in _doneBtns)
+        {
+            b.IsPrimary = mode == _listDone; b.Invalidate();
+            NK.Tip(b, mode == "open" ? $"{nOpen} y/c chưa Done" : mode == "done" ? $"{_requests.Count - nOpen} y/c đã Done" : $"Mọi y/c ({_requests.Count})");
+        }
+    }
+
+    /// <summary>Đổi lọc Done của Request List (kết hợp ô lọc mã y/c) — nhớ vào settings.json, dùng chung với trang web / BcodeNote.</summary>
+    private void SetListDone(string mode)
+    {
+        if (mode == _listDone) return;
+        if (_saveTimer.Enabled) Flush();   // cất phần đang gõ trước
+        _listDone = mode; _kept.Clear();
+        if (_settings is not null && _settings.NoteListDoneFilter != mode)
+        {
+            _settings.NoteListDoneFilter = mode;
+            try { _settings.Save(); } catch { /* không lưu được thì lần sau về mặc định */ }
+        }
+        RenderList();
+    }
 
     /// <summary>Id các y/c đang hiện trong danh sách (sau ô lọc mã y/c).</summary>
     private List<string> VisibleIds() => _list.Rows.Cast<DataGridViewRow>().Select(r => r.Tag as string).OfType<string>().ToList();
@@ -809,7 +870,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _store.Save(_workspace(), _settings, _requests);
         _cur = null;
         RenderList();
-        Select(_requests.OrderByDescending(r => r.Begin).FirstOrDefault()?.Id);
+        Select(NewestId());
     }
 
     // =====================================================================  chọn / lưu y/c
@@ -817,6 +878,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
     private void Select(string? id)
     {
         var changed = id != _cur?.Id;
+        if (changed) _kept.Clear();   // chọn y/c khác: y/c vừa đổi Done mà không còn khớp lọc giờ mới ẩn
         _cur = id is null ? null : _requests.FirstOrDefault(r => r.Id == id);
         _noSel.Visible = _cur is null;
         _stack.Visible = _cur is not null;
@@ -905,6 +967,7 @@ public sealed class NativeAdvanceNoteControl : UserControl
         var r = _requests.FirstOrDefault(x => x.Id == id);
         if (r is null) return;
         r.Done = !r.Done;
+        if (_listDone.Length > 0) _kept.Add(r.Id);   // không ẩn ngay dòng vừa bấm (bấm nhầm thì bấm lại được)
         if (r == _cur) { _loading = true; _fDone.Checked = r.Done; _loading = false; }
         _store.Save(_workspace(), _settings, _requests);
         BeginInvoke(new Action(RenderList));   // đang trong sự kiện của lưới — dựng lại sau

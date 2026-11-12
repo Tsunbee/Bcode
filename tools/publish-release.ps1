@@ -217,7 +217,13 @@ if ($verify.Count) {
 foreach ($f in 'bcode-manifest.json', 'bcode-changelog.txt', 'bcode-version.json') {
     $p = Join-Path $Source $f
     if (-not (Test-Path -LiteralPath $p)) { continue }
-    try { Copy-Item -LiteralPath $p -Destination (Join-Path $Dest $f) -Force -ErrorAction Stop }
+    $target = Join-Path $Dest $f
+    # Đích là THƯ MỤC trùng tên (vd robocopy cũ tạo nhầm) thì Copy-Item chép VÀO trong nó → lỗi khó hiểu "...\$f\$f" — báo rõ
+    if ([IO.Directory]::Exists($target)) {
+        throw ("Trên server, $target đang là THƯ MỤC chứ không phải file — xoá thư mục đó rồi chạy lại script.`n" + (Get-StopNote))
+    }
+    # [IO.File]::Copy thay Copy-Item: không đoán đích là thư mục hay file
+    try { [IO.File]::Copy($p, $target, $true) }
     catch { throw ("Không ghi được $f lên server: $($_.Exception.Message)`n" + (Get-StopNote)) }
 }
 Write-Host ("Xong: chép {0} file trong {1:N1} giây. Các máy sẽ thấy bản mới ở lần kiểm tra kế tiếp (mở $($exe -replace '\.exe$',''), hoặc mỗi 4 giờ)." -f $copied, $sw.Elapsed.TotalSeconds) -ForegroundColor Green

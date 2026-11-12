@@ -258,6 +258,7 @@ public class AdvanceNoteControl : UserControl
             team = TeamRequested is not null,         // nút "👥 Cả nhóm": note người khác + gói update trong thư mục update của dự án
             me = AdvanceNoteService.Owner,
             doneAfterGen = _settings?.NoteDoneAfterGen ?? true,   // ô "Done sau khi gen"
+            listDone = _settings?.NoteListDoneFilter ?? "",       // lọc Request List theo Done: "" / "open" / "done"
             view = ViewState(),                       // null = note của mình; khác null = đang xem note người khác (chỉ đọc)
             requests = _requests,
         })})");
@@ -436,6 +437,18 @@ public class AdvanceNoteControl : UserControl
                     if (_settings is not null && _settings.NoteDoneAfterGen != on)
                     {
                         _settings.NoteDoneAfterGen = on;
+                        try { _settings.Save(); } catch { /* không lưu được thì lần sau về mặc định */ }
+                    }
+                    break;
+                }
+
+                case "listDone":   // lọc Request List theo Done — nhớ chung settings.json với chế độ App / BcodeNote
+                {
+                    var mode = root.TryGetProperty("mode", out var mEl) ? mEl.GetString() ?? "" : "";
+                    if (mode is not ("open" or "done")) mode = "";
+                    if (_settings is not null && _settings.NoteListDoneFilter != mode)
+                    {
+                        _settings.NoteListDoneFilter = mode;
                         try { _settings.Save(); } catch { /* không lưu được thì lần sau về mặc định */ }
                     }
                     break;

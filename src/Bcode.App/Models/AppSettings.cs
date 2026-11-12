@@ -254,6 +254,8 @@ public class AppSettings
     public bool NoteSplit { get; set; } = true;
     /// <summary>Note (New) (Web + App, cả BcodeNote.exe): ô "Done sau khi gen" — Generate Update xong thì tự đánh dấu Done các y/c vừa gen (không áp khi đang xem note người khác).</summary>
     public bool NoteDoneAfterGen { get; set; } = true;
+    /// <summary>Note (New) (Web + App, cả BcodeNote.exe): lọc Request List theo Done — "" = Tất cả, "open" = Chưa Done, "done" = Đã Done (kết hợp ô lọc mã y/c).</summary>
+    public string NoteListDoneFilter { get; set; } = "";
 
     /// <summary>Gen Update / Note (New) (cả BcodeNote.exe): khi <see cref="PackageToNetwork"/> thì đưa lên mạng file &lt;Folder Name&gt;.zip thay cho thư mục gói
     /// (Save At Path vẫn chỉ có thư mục gói).</summary>

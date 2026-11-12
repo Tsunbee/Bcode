@@ -341,7 +341,10 @@ WHERE i.object_id = OBJECT_ID(@t) AND i.type IN (1, 2) ORDER BY i.index_id, ic.i
         }
 
         // sysgendata: các bảng gốc $000000 để FastBusiness sinh kỳ; rồi tạo luôn các kỳ trong khoảng ngày khoá sổ.
-        var bases = sourceTables.Where(t => t.EndsWith("$000000", StringComparison.OrdinalIgnoreCase)).Select(t => NewName(t, s.SrcTableNo, s.DstTableNo)).ToList();
+        // Chỉ bảng nguồn thật sự phân kỳ (m, d, i, t...): c / a{số}$000000 là bảng dữ liệu chung mọi kỳ (store chuẩn đọc thẳng c94$000000),
+        // đưa vào sysgendata sẽ sinh thêm c{số}$yyyymm thừa.
+        var partitioned = await PartitionedBasesAsync(conn, sourceTables, s.SrcTableNo);
+        var bases = partitioned.Select(t => NewName(t, s.SrcTableNo, s.DstTableNo)).ToList();
         if (bases.Count > 0)
         {
             // Lọc đúng danh sách bảng mới: LIKE '%70%' sẽ khớp cả m170$000000 của chứng từ khác.
@@ -368,6 +371,39 @@ WHERE i.object_id = OBJECT_ID(@t) AND i.type IN (1, 2) ORDER BY i.index_id, ic.i
             sb.AppendLine("GO");
         }
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Bảng $000000 của chứng từ nguồn có phân kỳ: đã khai trong sysgendata của nguồn, hoặc đã có bảng kỳ [chữ]{số}$yyyymm.
+    /// Không xác định được (DB chưa sinh kỳ, chưa khai) thì bỏ c / a — 2 bảng không phân kỳ của chứng từ.
+    /// </summary>
+    private static async Task<List<string>> PartitionedBasesAsync(SqlConnection conn, IReadOnlyList<string> sourceTables, string srcNo)
+    {
+        var bases = sourceTables.Where(t => t.EndsWith("$000000", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (bases.Count == 0) return bases;
+        var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            await using (var cmd = new SqlCommand("IF OBJECT_ID('dbo.sysgendata') IS NOT NULL SELECT basetable FROM sysgendata WHERE primefilegroup = 'Voucher' AND basetable LIKE @p", conn))
+            {
+                cmd.Parameters.AddWithValue("@p", "%" + srcNo + "$000000");
+                await using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync()) found.Add(r.GetString(0).Trim());
+            }
+            var period = new Regex("^([a-z]{1,3}" + Regex.Escape(srcNo) + @")\$\d{6}$", RegexOptions.IgnoreCase);
+            await using (var cmd = new SqlCommand("SELECT name FROM sys.tables WHERE name LIKE @p", conn))
+            {
+                cmd.Parameters.AddWithValue("@p", "%" + srcNo + "$[0-9][0-9][0-9][0-9][0-9][0-9]");
+                await using var r = await cmd.ExecuteReaderAsync();
+                while (await r.ReadAsync())
+                    if (period.Match(r.GetString(0)) is { Success: true } m && !r.GetString(0).EndsWith("$000000")) found.Add(m.Groups[1].Value + "$000000");
+            }
+        }
+        catch { /* không đọc được: dùng quy tắc bỏ c / a */ }
+        var result = bases.Where(found.Contains).ToList();
+        return result.Count > 0
+            ? result
+            : bases.Where(t => !Regex.IsMatch(t, "^[ca]" + Regex.Escape(srcNo) + @"\$", RegexOptions.IgnoreCase)).ToList();
     }
 
     /// <summary>Loại duyệt (loai_duyet) của chứng từ nguồn trong gndmloaiduyet / sodmloaiduyet / dmloaiduyet, nếu có.</summary>

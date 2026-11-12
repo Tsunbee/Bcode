@@ -362,6 +362,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("sql_profiler", "SQL Profiler", null, (_, _) => OpenSqlProfilerTab()));
         _toolSpecs.Add(("open_ssms", "Mở SSMS", null, (_, _) => _ = OpenSsmsAsync()));
         _toolSpecs.Add(("giai_lao", "Giải lao (game LAN)", null, (_, _) => LaunchGame()));
+        _toolSpecs.Add(("xem_chung", "Xem chung (rạp phim LAN)", null, (_, _) => LaunchWatch()));
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm(_settings.Workspaces, _connections.Current).ShowDialog(this); }));
         _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, _connections.Current, _tableMenu).ShowDialog(this); }));
         _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
@@ -1294,7 +1295,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail", "tk2_help", "tk2_forum" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms", "folder_compare", "giai_lao" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms", "folder_compare", "giai_lao", "xem_chung" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
@@ -2484,22 +2485,28 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
     /// <summary>"Giải lao" (Tool mở rộng): game LAN Đêm Go-Live — exe riêng src/Bcode.Game, build tự chép ra Game\ cạnh Bcode.exe; bản dev thì tìm bin của project.
     /// Bcode chỉ mở tiến trình, không nạp gì của game.</summary>
-    private void LaunchGame()
+    private void LaunchGame() => LaunchSideApp("Game", "BcodeGame.exe", "Bcode.Game", "Giải lao");
+
+    /// <summary>"Xem chung" (Tool mở rộng): phòng chiếu phim qua LAN — exe riêng src/Bcode.Watch, build tự chép ra Watch\ cạnh Bcode.exe.</summary>
+    private void LaunchWatch() => LaunchSideApp("Watch", "BcodeWatch.exe", "Bcode.Watch", "Xem chung");
+
+    /// <summary>Mở exe riêng build kèm Bcode: &lt;thư mục&gt;\&lt;exe&gt; cạnh Bcode.exe, cạnh Bcode.exe, rồi bin của project (bản dev).</summary>
+    private void LaunchSideApp(string folder, string exeName, string project, string title)
     {
-        var exe = new[] { Path.Combine(AppContext.BaseDirectory, "Game", "BcodeGame.exe"), Path.Combine(AppContext.BaseDirectory, "BcodeGame.exe") }.FirstOrDefault(File.Exists);
+        var exe = new[] { Path.Combine(AppContext.BaseDirectory, folder, exeName), Path.Combine(AppContext.BaseDirectory, exeName) }.FirstOrDefault(File.Exists);
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); exe is null && dir != null; dir = dir.Parent)
             foreach (var cfg in new[] { "Release", "Debug" })
             {
-                var c = Path.Combine(dir.FullName, "src", "Bcode.Game", "bin", cfg, "net8.0-windows", "BcodeGame.exe");
+                var c = Path.Combine(dir.FullName, "src", project, "bin", cfg, "net8.0-windows", exeName);
                 if (File.Exists(c)) { exe = c; break; }
             }
         if (exe is null)
         {
-            MessageBox.Show(this, "Chưa thấy BcodeGame.exe (thư mục Game\\ cạnh Bcode.exe). Build lại Bcode (hoặc project src\\Bcode.Game) rồi thử lại.", "Bcode — Giải lao");
+            MessageBox.Show(this, $"Chưa thấy {exeName} (thư mục {folder}\\ cạnh Bcode.exe). Build lại Bcode (hoặc project src\\{project}) rồi thử lại.", "Bcode — " + title);
             return;
         }
         try { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! }); }
-        catch (Exception ex) { MessageBox.Show(this, "Không mở được game:\n" + ex.Message, "Bcode — Giải lao"); }
+        catch (Exception ex) { MessageBox.Show(this, $"Không mở được {title}:\n" + ex.Message, "Bcode — " + title); }
     }
 
     /// <summary>BcodeNote.exe (src/BcodeNote.App, build tự chép cạnh Bcode.exe): cạnh Bcode.exe, không có thì thư mục BcodeNote\ cạnh đó.</summary>

@@ -1159,6 +1159,7 @@ Lưu ý:
 | **Tạo chứng từ** | Nhân bản chứng từ có sẵn sang mã mới, xem [Tạo chứng từ](#tao-chung-tu). Cần key. |
 | **Note (New) nhiều dự án** | Mở **BcodeNote.exe** vào dự án đang chọn: Note (New) chuyển qua lại nhiều dự án, chọn menu để gợi ý Gen All / File Path / SQL Object / Table liên quan. Dùng chung dữ liệu với Note (New). Xem [BcodeNote](#bcodenote). |
 | **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–8 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
+| **Xem chung (rạp phim LAN)** | Mở **Rạp Bcode** — xem chung YouTube / MP4 / MP3 với cả phòng qua mạng LAN, có bình luận. Xem [Xem chung](#xem-chung). |
 
 <a id="giai-lao"></a>
 ### Giải lao — game LAN "Đêm Go-Live"
@@ -1186,6 +1187,38 @@ Game suy luận xã hội chơi chung qua mạng LAN, chủ đề đêm trước
 **Phím**: `WASD` / mũi tên đi · `E` dùng · `R` báo cáo · `Q` hạ gục / xử lý · `B` report lỗi · `H` bàn giao · `M` bản đồ nhỏ · `Enter` chat (khi họp / khi là "ma") · `Esc` đóng câu hỏi. Người bị loại thành "ma": vẫn đi xuyên tường, Triển khai vẫn làm khảo sát được, chỉ chat với ma khác.
 
 **Lỗi hay gặp**: *"Không nối được tới … sau 4 giây"* — gần như luôn do **tường lửa máy chủ phòng** chặn (lần đầu bấm Huỷ / không có quyền admin ở hộp hỏi tường lửa thì Windows tự tạo luật chặn). Phòng chờ của chủ phòng tự kiểm tra tường lửa và báo ⛔ / ⚠ / ✅; bấm **🛡 Mở tường lửa** → đồng ý hộp quyền admin → game gỡ luật chặn cũ và mở cổng TCP 47811–47820, UDP 47810. Máy không có quyền admin hoặc công ty khoá tường lửa → nhờ IT, hoặc để máy khác (tường lửa đã mở) làm chủ phòng. *Không thấy phòng trong danh sách* — mạng chặn broadcast UDP (cổng 47810): gõ IP. Cổng chơi mặc định TCP 47811 (bận thì game tự lấy 47812…, IP kèm `:cổng` hiện ở phòng chờ). Game nhớ tên, IP và đường dẫn file lần trước ở `%AppData%\Bcode\game-lan.json` (không lưu nội dung câu hỏi).
+
+<a id="xem-chung"></a>
+### Xem chung — rạp phim LAN "Rạp Bcode"
+
+Xem chung video / nhạc với cả phòng qua mạng LAN văn phòng: mọi máy chiếu cùng một đoạn, theo đúng chủ phòng. Là chương trình riêng (`Watch\BcodeWatch.exe` cạnh Bcode.exe) — Bcode chỉ mở nó.
+
+**Mở phòng / vào phòng**
+
+1. **Tool mở rộng → Xem chung (rạp phim LAN)**. Gõ tên của bạn.
+2. Một người bấm **Mở phòng** → thành **chủ phòng**. Lần đầu Windows có thể hỏi tường lửa — chọn **cho phép trên mạng Private**. Dòng đầu rạp của chủ phòng tự kiểm tra tường lửa (⛔ / ⚠ / ✅); bị chặn thì bấm **🛡 Mở tường lửa** (cần quyền admin — mở cổng TCP 47831–47850, UDP 47830).
+3. Người khác: phòng hiện trong danh sách **Phòng chiếu trong mạng LAN** → **Vào xem**; không thấy thì gõ **IP chủ phòng** → **Vào**.
+
+**Chiếu gì** (tab **📃 Danh sách** ở cột bên phải)
+
+| Nguồn | Cách thêm | Ghi chú |
+|---|---|---|
+| YouTube | Dán link (`youtube.com/watch?v=…`, `youtu.be/…`, `shorts/…`) → **Thêm** | Mỗi máy tự tải từ YouTube — máy nào cũng cần Internet. Video chủ kênh tắt "cho phép nhúng" thì không phát được (hiện nút **Mở bằng trình duyệt**). |
+| Link MP4 / MP3 / WebM trên mạng | Dán link `http(s)://…` → **Thêm** | Mỗi máy tự tải. MKV / AVI / HEVC thường không phát được — dùng MP4 (H.264) hoặc WebM. |
+| File trên máy chủ phòng | **📂 Chiếu file trên máy…** (chọn được nhiều file) | Máy chủ phòng phát qua LAN cho cả phòng (tua được). File trên ổ chung cũng chọn được. |
+
+**Chỉ chủ phòng điều khiển**: ⏯ chiếu / dừng (`Space`), tua (kéo thanh thời gian, `←` / `→` 10 giây), ⏮ ⏭ chuyển bài, ▶ ↑ ↓ ✕ trong danh sách; hết bài tự sang bài kế. Người xem bấm **Đề xuất** để gửi link — mục hiện "đề xuất", chủ phòng bấm ✓ duyệt hoặc ▶ chiếu luôn. Người vào giữa chừng tự nhảy tới đúng đoạn đang chiếu; máy nào lệch quá 1 giây tự tua lại (🔄 để đồng bộ ngay). Âm lượng mỗi người tự chỉnh.
+
+**Chế độ xem**
+
+- **🎭 Rạp**: màn chiếu trong rạp, mọi người ngồi trên 3 dãy ghế (nhìn từ sau lưng); bình luận hiện thành bong bóng trên đầu người viết, cảm xúc bay lên từ chỗ ngồi. Bấm ghế trống để đổi chỗ.
+- **🖥 Màn hình**: chỉ video, không hiện nhân vật; bình luận bay ngang màn hình (tắt bằng nút 💬 ở thanh dưới).
+- **⛶ Toàn màn hình** (`F`, hoặc nhấp đúp màn chiếu): chỉ còn video; `Enter` để gõ bình luận, `Esc` thoát.
+- **💬 Ẩn / Hiện bình luận** (`C`): ẩn cột bình luận bên phải cho màn chiếu rộng hơn — bình luận vẫn hiện trên đầu nhân vật / bay trên màn hình.
+
+**Cột bình luận**: tab **💬 Bình luận** — gõ rồi `Enter`, hàng nút cảm xúc 😂 👏 ❤️ 😮 😢 🔥 👍 🎉; mỗi bình luận kèm thời điểm trong video (chủ phòng bấm vào để tua tới đó). Tab **👥** — ai đang xem, ngồi ghế nào.
+
+**Lỗi hay gặp**: *"Không nối được … sau 4 giây"* — tường lửa máy chủ phòng chặn: chủ phòng bấm **🛡 Mở tường lửa**, hoặc đổi máy khác làm chủ phòng. *YouTube không phát* — máy đó không vào được youtube.com, hoặc video không cho nhúng. *File không phát* — định dạng trình duyệt không hỗ trợ (đổi sang MP4 H.264). Rạp nhớ tên, IP, thư mục chọn file, âm lượng và chế độ xem ở `%AppData%\Bcode\watch-lan.json`.
 
 <a id="tao-nhanh-bang-moi"></a>
 ### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script
@@ -1935,6 +1968,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\Notes\`, `AdvanceNotes\` | Bcode (AdvanceNotes dùng chung với BcodeNote) | Note, Note (New) |
 | `%AppData%\Bcode\bcodenote.json` | BcodeNote | Dự án mở gần nhất, bố cục khung trái |
 | `%AppData%\Bcode\game-lan.json` | Giải lao (game) | Tên người chơi, tên phòng, IP gõ tay, đường dẫn file câu hỏi lần trước |
+| `%AppData%\Bcode\watch-lan.json` | Xem chung (rạp phim) | Tên, tên phòng, IP gõ tay, thư mục chọn file, âm lượng, chế độ xem, ẩn / hiện cột bình luận |
 | `%AppData%\Bcode\FileLookupCache\` | Bcode | Cache phân tích file / menu (xoá được) |
 | `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" (hoặc Create RPT ghi thẳng vào site) |
 | `%AppData%\Bcode\license.key` | Bcode | Key bản quyền |

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- "Xem chung" — phòng chiếu phim qua LAN văn phòng: link YouTube / MP4 / MP3 trên mạng, hoặc file trên máy chủ phòng phát qua LAN.
+       Exe RIÊNG (module tách khỏi game Giải lao): Bcode chỉ build kèm, chép ra thư mục Watch\ cạnh Bcode.exe, mở từ menu "Tool mở rộng → Xem chung".
+       Không có thư viện ngoài ngoài WebView2: mạng bằng TcpListener / UdpClient (không HttpListener — bind ra ngoài localhost cần quyền admin). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bcode.Watch</RootNamespace>
+    <AssemblyName>BcodeWatch</AssemblyName>
+    <Product>Bcode — Xem chung</Product>
+    <Authors>HaoTN</Authors>
+    <Description>Rạp Bcode — xem chung video / nhạc qua LAN văn phòng, đồng bộ theo chủ phòng.</Description>
+    <Version>1.0.0</Version>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Web\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -213,6 +213,16 @@
     <Copy SourceFiles="@(GameOutput)" DestinationFiles="@(GameOutput->'$(OutDir)Game\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
   <ItemGroup>
+    <!-- "Xem chung" (rạp phim LAN): exe riêng src/Bcode.Watch — Bcode chỉ build kèm, chép ra Watch\ cạnh Bcode.exe và mở bằng Process.Start. -->
+    <ProjectReference Include="..\Bcode.Watch\Bcode.Watch.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <Target Name="CopyWatch" AfterTargets="Build">
+    <ItemGroup>
+      <WatchOutput Include="..\Bcode.Watch\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.Watch\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WatchOutput)" DestinationFiles="@(WatchOutput->'$(OutDir)Watch\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <ItemGroup>
     <!-- Đọc chữ trên ảnh (Tra ảnh lỗi): exe riêng src/Bcode.Ocr dùng OCR có sẵn của Windows (WinRT cần TargetFramework windows10.x) — build kèm, chép ra Ocr\. -->
     <ProjectReference Include="..\Bcode.Ocr\Bcode.Ocr.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net8.0-windows10.0.19041.0" />
   </ItemGroup>

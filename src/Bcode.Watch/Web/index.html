@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rạp Bcode</title>
+<link rel="stylesheet" href="watch.css">
+</head>
+<body>
+
+<!-- ═══════════ Màn chính: tìm / mở phòng ═══════════ -->
+<section id="scrHome" class="screen">
+  <div class="home">
+    <header class="brand">
+      <div class="logo"><span class="reel"></span><span class="beam"></span></div>
+      <div>
+        <h1>RẠP BCODE</h1>
+        <p class="sub">Xem chung video / nhạc qua mạng LAN văn phòng — YouTube, link MP4 / MP3, hoặc file trên máy chủ phòng</p>
+      </div>
+    </header>
+    <div class="name-row">
+      <label for="inName">Tên của bạn</label>
+      <input id="inName" maxlength="18" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="cards">
+      <div class="card">
+        <h2>🎟 Phòng chiếu trong mạng LAN</h2>
+        <ul id="roomList" class="room-list"><li class="muted">Đang tìm phòng…</li></ul>
+        <p id="findErr" class="err"></p>
+        <div class="row">
+          <input id="inIp" placeholder="IP chủ phòng, vd 192.168.1.20 (hoặc 192.168.1.20:47831)" spellcheck="false">
+          <button id="btnJoinIp">Vào</button>
+        </div>
+        <p class="hint">Không thấy phòng? Mạng khác VLAN / subnet thì gói tìm phòng không qua được — hỏi chủ phòng IP rồi gõ vào ô trên.</p>
+      </div>
+      <div class="card">
+        <h2>🎬 Mở phòng chiếu</h2>
+        <div class="row"><input id="inRoom" maxlength="28" spellcheck="false"><button id="btnHost" class="primary">Mở phòng</button></div>
+        <p class="hint"><b>Chỉ chủ phòng điều khiển</b>: chiếu, dừng, tua, chuyển bài. Người xem bình luận, thả cảm xúc, đổi ghế và đề xuất link.</p>
+        <p class="hint">YouTube / link trên mạng: mỗi máy tự tải (cần Internet). File trên máy chủ phòng: phát qua LAN cho cả phòng.</p>
+        <p class="hint">Lần đầu mở phòng, Windows có thể hỏi tường lửa: chọn cho phép trên mạng <b>Private</b>.</p>
+      </div>
+    </div>
+    <p id="homeErr" class="err big"></p>
+    <footer id="ver" class="muted"></footer>
+  </div>
+</section>
+
+<!-- ═══════════ Rạp ═══════════ -->
+<section id="scrRoom" class="screen hidden">
+  <div class="room">
+    <div class="stage" id="stage">
+      <header class="topbar">
+        <div class="tb-title">
+          <h1 id="rmName">Rạp</h1>
+          <p id="rmAddr" class="muted"></p>
+          <p id="rmFw" class="fw hidden"><span id="rmFwText"></span> <button class="ghost-btn small" id="btnFw" title="Hiện hộp xin quyền admin của Windows rồi thêm luật cho phép BcodeWatch (cổng TCP 47831–47850, UDP 47830) — gỡ luật chặn cũ nếu có">🛡 Mở tường lửa</button></p>
+        </div>
+        <div class="spacer"></div>
+        <div class="seg" role="group" aria-label="Chế độ xem">
+          <button id="btnModeTheater" title="Rạp chiếu: màn hình + ghế ngồi + mọi người (T)">🎭 Rạp</button>
+          <button id="btnModeScreen" title="Chỉ màn hình, không hiện nhân vật (T)">🖥 Màn hình</button>
+        </div>
+        <button class="ghost-btn" id="btnSide" title="Ẩn / hiện cột bình luận (C)">💬 Ẩn bình luận</button>
+        <button class="ghost-btn" id="btnLeave">↩ Rời phòng</button>
+      </header>
+
+      <div class="hall" id="hall">
+        <canvas id="cv"></canvas>
+        <div class="screenbox" id="screenBox">
+          <video id="vid" playsinline preload="auto"></video>
+          <div id="ytWrap" class="hidden"><div id="yt"></div></div>
+          <div id="audioArt" class="audio-art hidden"><div class="disc"></div><div id="audioTitle"></div></div>
+          <div id="idle" class="idle"><div class="idle-in"><b>Chưa chiếu gì</b><span id="idleHint"></span></div></div>
+          <div id="perr" class="perr hidden"></div>
+          <div class="shield" id="shield" title="Nhấp đúp: toàn màn hình"></div>
+          <div class="danmaku" id="danmaku"></div>
+          <div class="fx" id="fx"></div>
+          <button id="needClick" class="needclick hidden">▶ Bấm để xem cùng mọi người</button>
+          <div class="fs-chat hidden" id="fsChat"><input id="fsInput" maxlength="300" placeholder="Bình luận… (Enter gửi, Esc ẩn)" spellcheck="false"></div>
+        </div>
+        <div id="seatTip" class="seat-tip hidden"></div>
+      </div>
+
+      <div class="controls">
+        <div class="host-only cbtns">
+          <button id="btnPrev" title="Bài trước / về đầu bài">⏮</button>
+          <button id="btnPlay" class="playbtn" title="Chiếu / dừng (Space)">▶</button>
+          <button id="btnNext" title="Bài kế">⏭</button>
+        </div>
+        <span id="tCur" class="time">0:00</span>
+        <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Vị trí">
+        <span id="tDur" class="time">0:00</span>
+        <span id="nowTitle" class="now-title"></span>
+        <div class="spacer"></div>
+        <button id="btnMute" class="icon" title="Tắt / bật tiếng (M)">🔊</button>
+        <input type="range" id="vol" min="0" max="100" value="80" aria-label="Âm lượng" class="vol">
+        <button id="btnDanmaku" class="icon" title="Bình luận bay trên màn hình">💬</button>
+        <button id="btnSync" class="icon" title="Đồng bộ lại với chủ phòng">🔄</button>
+        <button id="btnFull" class="icon" title="Toàn màn hình (F)">⛶</button>
+      </div>
+    </div>
+
+    <aside class="side" id="side">
+      <nav class="tabs">
+        <button data-tab="chat" class="on">💬 Bình luận</button>
+        <button data-tab="queue">📃 Danh sách <span id="qCount" class="pill">0</span></button>
+        <button data-tab="people">👥 <span id="pCount" class="pill">0</span></button>
+      </nav>
+
+      <div class="panel" id="tab-chat">
+        <ul id="chatList" class="chat-list"></ul>
+        <div class="reacts" id="reacts"></div>
+        <div class="row chat-row"><input id="chatIn" maxlength="300" placeholder="Viết bình luận… (Enter)" spellcheck="false"><button id="btnSend">Gửi</button></div>
+      </div>
+
+      <div class="panel hidden" id="tab-queue">
+        <div class="row"><input id="addIn" placeholder="Dán link YouTube hoặc link MP4 / MP3…" spellcheck="false"><button id="btnAdd" class="primary">Thêm</button></div>
+        <div class="row host-only"><button id="btnFile" class="wide">📂 Chiếu file trên máy…</button></div>
+        <p id="qErr" class="err"></p>
+        <ul id="queue" class="queue"></ul>
+      </div>
+
+      <div class="panel hidden" id="tab-people">
+        <ul id="people" class="people"></ul>
+        <p class="hint">Bấm vào một ghế trống trong rạp để đổi chỗ.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="theater.js"></script>
+<script src="watch.js"></script>
+</body>
+</html>

@@ -3,7 +3,8 @@
   Mỗi app một cơ chế cập nhật riêng, thư mục phát hành RIÊNG (không trùng nhau).
 
   Cách dùng (từ gốc repo, sau khi build Release):
-      powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1 -Dest "\\máy\thư mục phát hành"
+      powershell -ExecutionPolicy Bypass -File tools\publish-release.ps1 [-Dest "\\máy\thư mục phát hành"]
+      -Dest                    bỏ trống = <BcodeReleaseFolder> trong csproj của app; khác csproj thì DỪNG (thêm -AnyDest nếu cố ý)
       -App Viewer | Designer   phát hành BcodeViewer / Screen Designer (mặc định: Bcode)
                                Bcode build kèm ScreenDesigner\ (bản khởi đầu cho máy mới) nhưng manifest của Bcode bỏ thư mục đó —
                                Designer cập nhật bằng -App Designer.
@@ -11,7 +12,7 @@
       -Full                    chép lại toàn bộ (khi nghi file trên server bị sửa tay / thiếu)
 
   Nhanh: chỉ đọc 1 file bcode-manifest.json đang có trên server, so SHA-256 với bản mới → chỉ chép file KHÁC (thường vài chục file,
-  không đụng 3.000+ file mẫu Templates\). Server chưa có manifest (lần đầu) hoặc -Full → robocopy toàn bộ, đa luồng (/MT:16).
+  không đụng 3.000+ file mẫu Templates\). Server chưa có manifest (lần đầu) hoặc -Full → chép toàn bộ.
 
   Thứ tự an toàn cho máy đang kiểm tra cùng lúc:
     0. kiểm SHA-256 MỌI file trong thư mục build với bcode-manifest.json của chính nó (~6 giây / 3.700 file) — lệch thì DỪNG, chưa đụng server
@@ -23,13 +24,16 @@
        AppUpdate mở file FileShare.Read) thì đợi vài giây, vẫn khoá thì DỪNG khi chưa chép gì.
     2. chép file (KHÔNG /MIR — thư mục đích có thể chứa thứ khác; file thừa ở đích vô hại vì máy cập nhật đi theo manifest).
        Chép cả file trên server thiếu / khác cỡ với bản build dù manifest cũ ghi là giống (bản trước chép dở, sửa tay...).
-       File không ghi đè được (bị khoá giữa chừng, thiếu quyền...) → robocopy thử lại rồi DỪNG, in tên file + lỗi.
+       Mỗi file thay TRỌN VẸN: chép ra <tên>.bcode-tmp rồi đổi tên đè (Write-Atomic) — ngắt giữa chừng thì file thật vẫn bản cũ nguyên vẹn.
+       Cần quyền Modify trên thư mục phát hành (kiểm trước khi chép — thiếu thì dừng). KHÔNG robocopy: nó bỏ qua file cùng cỡ + giờ sửa
+       mà khác nội dung và trả mã 0. Lỗi → thử lại rồi DỪNG, in tên file + lỗi.
     3. kiểm lại SHA-256 các file vừa chép NGAY TRÊN SERVER (-Full: mọi file) — lệch thì DỪNG, không chép dấu phiên bản
     4. chép bcode-manifest.json, bcode-changelog.txt, rồi bcode-version.json SAU CÙNG (mỗi file thử lại vài lần — máy cập nhật đọc dấu chớp nhoáng)
   Bỏ qua *.WebView2\ (hồ sơ trình duyệt sinh ra khi chạy Bcode từ thư mục build).
 #>
 param(
-    [Parameter(Mandatory = $true)][string]$Dest,
+    [string]$Dest,   # trống = <BcodeReleaseFolder> trong csproj của app (thư mục các máy đọc); khác csproj thì DỪNG
+    [switch]$AnyDest,   # cho phép -Dest khác csproj (thử nghiệm / thư mục tạm)
     [ValidateSet('Bcode', 'Viewer', 'Designer')][string]$App = 'Bcode',
     [string]$Source,
     [switch]$Full
@@ -43,6 +47,24 @@ if (-not $Source) {
     $Source = Join-Path $here "..\src\$proj\bin\Release\net8.0-windows"
 }
 $Source = (Resolve-Path -LiteralPath $Source).ProviderPath.TrimEnd('\')   # ProviderPath: không dính tiền tố "FileSystem::" khi là đường dẫn UNC
+
+# Thư mục phát hành phải đúng thư mục các máy đọc = <BcodeReleaseFolder> trong csproj (nhúng vào exe lúc build).
+# Trước đây build.bat ghi cứng đường dẫn, csproj đổi bố cục mà build.bat không đổi → phát hành 1 nơi, máy đọc nơi khác.
+$csproj = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "..\src\$proj\$proj.csproj"
+$relFolder = ''
+if (Test-Path -LiteralPath $csproj) {
+    $m = [regex]::Match([IO.File]::ReadAllText($csproj), '<BcodeReleaseFolder>\s*([^<]*?)\s*</BcodeReleaseFolder>')
+    if ($m.Success) { $relFolder = $m.Groups[1].Value }
+}
+if (-not $Dest) {
+    if (-not $relFolder) { throw "Không đọc được <BcodeReleaseFolder> trong $csproj — truyền -Dest." }
+    $Dest = $relFolder
+}
+elseif ($relFolder -and -not $AnyDest -and
+        -not [string]::Equals([IO.Path]::GetFullPath($Dest).TrimEnd('\'), [IO.Path]::GetFullPath($relFolder).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)) {
+    throw ("-Dest $Dest KHÁC thư mục phát hành mà $App đọc (<BcodeReleaseFolder> trong $proj.csproj = $relFolder) — các máy sẽ không thấy bản này. " +
+           "Bỏ -Dest (dùng thư mục trong csproj), hoặc sửa csproj rồi build lại; cố ý phát hành chỗ khác thì thêm -AnyDest. Chưa chép gì.")
+}
 if (-not (Test-Path -LiteralPath (Join-Path $Source $exe))) { throw "Không thấy $exe trong $Source — sai -App hoặc -Source?" }
 # Chặn phát hành nhầm app vào thư mục đang chứa app khác (mỗi app phải có thư mục phát hành riêng)
 foreach ($k in $apps.Keys) {
@@ -70,31 +92,62 @@ function Get-FileMap([string]$root) {
     Get-ChildItem -LiteralPath $root -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object { $map[(Get-Rel $root $_.FullName)] = $_ }
     return $map
 }
+# Thay file đích TRỌN VẸN: chép ra "<tên>.bcode-tmp" cạnh nó rồi đổi tên đè lên (MoveFileEx REPLACE_EXISTING — 1 thao tác đổi tên trên server).
+# Ngắt giữa chừng thì chỉ file tạm dở, file thật vẫn bản cũ nguyên vẹn. Cần quyền Modify (tạo / đổi tên / xoá) trên thư mục phát hành —
+# kiểm ở Test-ModifyRight trước khi chép. KHÔNG dùng robocopy: nó bỏ qua file đích cùng cỡ + giờ sửa mà khác nội dung và trả mã 0
+# (v2.5-beta build 497: 188 file "chép xong" nhưng server vẫn bản cũ).
+Add-Type -Namespace BcodePublish -Name Native -MemberDefinition @'
+[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+public static extern bool MoveFileEx(string existing, string target, int flags);
+'@
+$TmpExt = '.bcode-tmp'
+function Move-Replace([string]$from, [string]$to) {
+    if (-not [BcodePublish.Native]::MoveFileEx($from, $to, 1 -bor 8)) {   # MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH
+        throw (New-Object ComponentModel.Win32Exception([Runtime.InteropServices.Marshal]::GetLastWin32Error()))
+    }
+}
+function Write-Atomic([string]$from, [string]$to, [string]$rel, [int]$tries = 4, [int]$waitSec = 2) {
+    $tmp = $to + $TmpExt
+    for ($t = 1; ; $t++) {
+        try {
+            $dir = Split-Path -Parent $to
+            if (-not [IO.Directory]::Exists($dir)) { [IO.Directory]::CreateDirectory($dir) | Out-Null }
+            [IO.File]::Copy($from, $tmp, $true)   # giữ giờ sửa như bản build
+            if ([IO.File]::Exists($to)) { [IO.File]::SetAttributes($to, 'Normal') }   # đích chỉ-đọc thì đổi tên đè không được
+            Move-Replace $tmp $to
+            return
+        }
+        catch {
+            if ($t -ge $tries) {
+                try { [IO.File]::Delete($tmp) } catch { }
+                $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+                throw ("Không ghi được $rel lên server: $($e.Message)`n" +
+                       "Thường do máy khác đang mở $exe chạy thẳng từ thư mục phát hành hoặc đang tải cập nhật, hoặc tài khoản $env:USERNAME thiếu quyền Sửa (Modify).`n" + (Get-StopNote))
+            }
+            Start-Sleep -Seconds $waitSec
+        }
+    }
+}
+# Thử tạo / đổi tên đè / xoá 1 file tạm trong thư mục phát hành — thiếu quyền Modify thì dừng TRƯỚC khi chép gì.
+function Test-ModifyRight([string]$dir) {
+    $a = Join-Path $dir ('~bcode-probe-a' + $TmpExt); $b = Join-Path $dir ('~bcode-probe-b' + $TmpExt)
+    try {
+        [IO.File]::WriteAllText($a, 'a'); [IO.File]::WriteAllText($b, 'b')
+        Move-Replace $a $b
+        [IO.File]::Delete($b)
+    }
+    catch {
+        try { [IO.File]::Delete($a) } catch { }; try { [IO.File]::Delete($b) } catch { }
+        $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+        throw ("Tài khoản $env:USERNAME chưa có quyền Sửa (Modify: tạo / đổi tên / xoá file) trên $dir — $($e.Message)`n" +
+               "Nhờ người quản lý NAS cấp quyền Modify cho thư mục này. CHƯA chép gì, bcode-version.json trên server giữ nguyên.")
+    }
+}
 function Get-StopNote {
     if ($stampRemoved) { return 'Bản phát hành CHƯA hoàn tất: trên server chưa có bcode-version.json (từ trước khi chạy) nên các máy thấy "chưa có bản phát hành" — sửa lỗi rồi chạy lại script.' }
     return 'Bản phát hành CHƯA hoàn tất: bcode-version.json trên server vẫn là bản cũ (giữ nguyên) nên máy đang ở bản cũ chạy bình thường, chưa thấy bản mới; ' +
            'máy ở bản cũ hơn bấm cập nhật lúc này có thể báo "sai mã kiểm tra" (không hỏng gì) — sửa lỗi rồi chạy lại script.'
 }
-# robocopy giữ lại dòng lỗi (ERROR nn ... + câu giải thích dòng sau) để báo đúng file nào không ghi đè được, thay vì chỉ "mã 8"
-function Invoke-Robocopy([string]$from, [string]$to, [string[]]$opts, [string]$where) {
-    $out = @(& robocopy $from $to @opts)
-    $code = $LASTEXITCODE
-    if ($code -lt 8) { return }
-    $lines = New-Object System.Collections.Generic.List[string]
-    $seen = New-Object System.Collections.Generic.HashSet[string]   # robocopy in lại cùng lỗi ở mỗi lần thử (/R) — chỉ giữ 1
-    for ($i = 0; $i -lt $out.Count -and $lines.Count -lt 24; $i++) {
-        if ($out[$i] -match 'ERROR \d+.*$') {
-            $msg = $Matches[0].Trim()   # bỏ ngày giờ đầu dòng
-            if (-not $seen.Add($msg)) { continue }
-            $lines.Add('    ' + $msg)
-            if ($i + 1 -lt $out.Count -and $out[$i + 1].Trim() -and $out[$i + 1] -notmatch 'ERROR \d+|Waiting|Retrying') { $lines.Add('      ' + $out[$i + 1].Trim()) }
-        }
-    }
-    $detail = if ($lines.Count) { "`n" + ($lines -join "`n") } else { '' }
-    throw ("robocopy lỗi mã $code ở $where — có file KHÔNG ghi đè được lên server (thường do máy khác đang mở Bcode chạy thẳng từ thư mục phát hành " +
-           "hoặc đang tải cập nhật, file đang bị khoá, hoặc tài khoản $env:USERNAME thiếu quyền ghi):$detail`n" + (Get-StopNote))
-}
-
 foreach ($f in $exe, 'bcode-version.json', 'bcode-manifest.json') {
     if (-not (Test-Path -LiteralPath (Join-Path $Source $f))) {
         throw "Thiếu $f trong $Source — build Release trước (bcode-manifest.json chỉ sinh ở Release, hoặc build thêm /p:BcodeManifest=true)."
@@ -147,6 +200,8 @@ if (-not $Full -and (Test-Path -LiteralPath $oldManPath)) {
     try { $oldMan = Read-Manifest $oldManPath } catch { Write-Host "  manifest trên server hỏng — chép toàn bộ." -ForegroundColor Yellow }
 }
 
+Test-ModifyRight $Dest   # thiếu quyền Modify (vd share chỉ cho Read + Write) → dừng ngay, chưa chép gì
+
 $destStamp = Join-Path $Dest 'bcode-version.json'
 # KHÔNG xoá dấu phiên bản cũ (xem đầu file) — chỉ kiểm trước là ghi đè được, kẻo chép xong hết mới phát hiện thiếu quyền ở bước cuối.
 $stampRemoved = -not (Test-Path -LiteralPath $destStamp)
@@ -192,10 +247,8 @@ if ($locked.Count) {
 }
 
 if ($null -eq $oldMan) {
-    Write-Host ("  chép toàn bộ ({0} file)..." -f $newMan.Count)
-    Invoke-Robocopy $Source $Dest (@('/E', '/MT:16', '/XD', '*.WebView2', '/XF') + $meta + @('/R:3', '/W:2', '/NP', '/NFL', '/NDL', '/NJH', '/NJS')) '(toàn bộ)'
-    $verify = @($newMan.Keys)
-    $copied = $newMan.Count; $bytes = 0
+    $changed = @($newMan.Keys | Sort-Object)
+    Write-Host ("  chép toàn bộ ({0} file)..." -f $changed.Count)
 } else {
     # File trên server thiếu / khác cỡ với bản build cũng chép lại dù manifest cũ ghi "giống" (bản trước chép dở, file bị sửa tay...)
     $changed = @($toWrite | Sort-Object)   # tính ở 1b
@@ -204,34 +257,39 @@ if ($null -eq $oldMan) {
     $bytes = 0
     foreach ($rel in $changed) { $bytes += $srcLen[$rel] }
     Write-Host ("  {0} / {1} file khác bản trên server ({2:N1} MB) — chỉ chép các file này." -f $changed.Count, $newMan.Count, ($bytes / 1MB))
-    # gom theo thư mục, mỗi lần robocopy tối đa 40 file (giới hạn độ dài dòng lệnh); /IS = chép cả khi cỡ + giờ trùng
-    $groups = $changed | Group-Object { Split-Path -Parent $_ }
-    foreach ($g in $groups) {
-        $sub = $g.Name
-        $names = @($g.Group | ForEach-Object { Split-Path -Leaf $_ })
-        for ($i = 0; $i -lt $names.Count; $i += 40) {
-            $batch = $names[$i..([Math]::Min($i + 39, $names.Count - 1))]
-            $from = if ($sub) { Join-Path $Source $sub } else { $Source }
-            $to = if ($sub) { Join-Path $Dest $sub } else { $Dest }
-            $where = if ($sub) { $sub } else { '(gốc)' }
-            Invoke-Robocopy $from $to (@($batch) + @('/IS', '/IT', '/MT:8', '/R:3', '/W:2', '/NP', '/NFL', '/NDL', '/NJH', '/NJS')) $where
-        }
-        if ($changed.Count -le 30) { $g.Group | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray } }
-    }
-    $verify = $changed
-    $copied = $changed.Count
 }
+# Thay từng file trọn vẹn (Write-Atomic: file tạm + đổi tên đè), không robocopy:
+#  - robocopy bỏ qua file đích cùng cỡ + cùng giờ sửa mà khác nội dung (loại "Modified", /IS /IT không gồm) và trả mã 0 như đã chép
+#    → v2.5-beta build 497: 188 file "chép xong" nhưng server vẫn bản cũ;
+#  - 1 robocopy cho mỗi thư mục (100 thư mục Templates qua share) = mấy phút "đứng".
+$doneFiles = 0
+foreach ($rel in $changed) {
+    if (($doneFiles % 5) -eq 0) {
+        Write-Progress -Activity "Chép lên $Dest" -Status ("{0}/{1} file: {2}" -f $doneFiles, $changed.Count, $rel) -PercentComplete ([int](100 * $doneFiles / [Math]::Max(1, $changed.Count)))
+    }
+    try { Write-Atomic (Join-Path $Source $rel) (Join-Path $Dest $rel) $rel }
+    catch { Write-Progress -Activity "Chép lên $Dest" -Completed; throw }
+    $doneFiles++
+    if ($changed.Count -le 30) { Write-Host "    $rel" -ForegroundColor DarkGray }
+}
+Write-Progress -Activity "Chép lên $Dest" -Completed
+if ($changed.Count -gt 30) { Write-Host ("  đã chép {0} file." -f $changed.Count) }
+$verify = $changed
+$copied = $changed.Count
 
 # 3) đọc lại NGAY TRÊN SERVER các file vừa chép: robocopy báo xong nhưng file vẫn là bản cũ / chép dở thì dừng trước khi chép dấu phiên bản
 if ($verify.Count) {
     Write-Host ("  kiểm lại SHA-256 {0} file trên server..." -f $verify.Count)
     $wrong = New-Object System.Collections.Generic.List[string]
+    $vi = 0
     foreach ($rel in $verify) {
+        if (($vi++ % 20) -eq 0) { Write-Progress -Activity 'Kiểm lại SHA-256 trên server' -Status "$vi/$($verify.Count) file" -PercentComplete ([int](100 * $vi / $verify.Count)) }
         $p = Join-Path $Dest $rel
         if (-not [IO.File]::Exists($p)) { $wrong.Add("thiếu file  $rel"); continue }
         $h = Get-Sha $p
         if ($h -ne $newMan[$rel]) { $wrong.Add("khác hash   $rel   cần $($newMan[$rel]), server $h") }
     }
+    Write-Progress -Activity 'Kiểm lại SHA-256 trên server' -Completed
     if ($wrong.Count) {
         $shown = ($wrong | Select-Object -First 20 | ForEach-Object { "    $_" }) -join "`n"
         throw ("$($wrong.Count) file trên server không khớp bản build sau khi chép (file bị khoá / ghi đè không được / bị chép đè giữa chừng):`n$shown`n" + (Get-StopNote))
@@ -246,16 +304,7 @@ foreach ($f in 'bcode-manifest.json', 'bcode-changelog.txt', 'bcode-version.json
     if ([IO.Directory]::Exists($target)) {
         throw ("Trên server, $target đang là THƯ MỤC chứ không phải file — xoá thư mục đó rồi chạy lại script.`n" + (Get-StopNote))
     }
-    # [IO.File]::Copy thay Copy-Item: không đoán đích là thư mục hay file. Thử lại vài lần: máy cập nhật đọc dấu phiên bản chớp nhoáng (FileShare.Read).
-    for ($t = 1; ; $t++) {
-        try {
-            if ([IO.File]::Exists($target)) { [IO.File]::SetAttributes($target, 'Normal') }
-            [IO.File]::Copy($p, $target, $true); break
-        }
-        catch {
-            if ($t -ge 8) { throw ("Không ghi được $f lên server: $($_.Exception.Message)`n" + (Get-StopNote)) }
-            Start-Sleep -Seconds 1
-        }
-    }
+    # thử lại tới 8 lần: máy cập nhật đọc dấu phiên bản chớp nhoáng (FileShare.Read) — đổi tên đè lúc đó bị từ chối
+    Write-Atomic $p $target $f 8 1
 }
 Write-Host ("Xong: chép {0} file trong {1:N1} giây. Các máy sẽ thấy bản mới ở lần kiểm tra kế tiếp (mở $($exe -replace '\.exe$',''), hoặc mỗi 4 giờ)." -f $copied, $sw.Elapsed.TotalSeconds) -ForegroundColor Green

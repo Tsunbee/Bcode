@@ -35,7 +35,7 @@
     <!-- Cập nhật BcodeViewer (Shared/AppUpdate.cs, cơ chế riêng — không đi theo Bcode): thư mục phát hành mặc định của RIÊNG Viewer
          (người phát hành: tools\publish-release.ps1 -App Viewer -Dest <thư mục này>). Mỗi máy đổi được ở Help → Cập nhật BcodeViewer → Đổi…
          KHÔNG trùng thư mục phát hành của Bcode. -->
-    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN\Bcode\Bcodeviewer</BcodeReleaseFolder>
+    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN\Bcodeviewer</BcodeReleaseFolder>
     <!-- "Có gì mới" + commit trong bcode-version.json chỉ tính commit đụng tới Viewer (pathspec git, tính từ thư mục project) — Shared/Release.targets. -->
     <BcodeStampPaths>. ../Shared ../Bcode.Core</BcodeStampPaths>
   </PropertyGroup>

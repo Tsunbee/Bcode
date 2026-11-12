@@ -698,7 +698,7 @@ public partial class FileLookupControl : UserControl
             {
                 var root = menuMode
                     ? _service.BuildTreeForMenuItem(path, menuLink, menuSysId, onlyF: onlyShow, onlyExtension: extension)
-                    : _service.BuildTree(path, extension, search, onlyShow);
+                    : _service.BuildTree(path, extension, search, onlyShow, expandAspx: true);
                 return (ToTreeNode(root), CountFiles(root));
             });
         }

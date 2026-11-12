@@ -23,8 +23,9 @@
     <Version>2.5-beta</Version>
     <!-- Thư mục phát hành MẶC ĐỊNH cho "Kiểm tra bản Bcode mới" (Shared/AppUpdate.cs): máy chưa khai Settings → Thư mục phát hành bản mới
          thì dùng thư mục này (thư mục build có bcode-version.json). Người dùng vẫn khai đè được; gõ "-" = tắt kiểm tra. Để trống = không có mặc định. -->
-    <!-- Bố cục phát hành: HAOTN\Bcode\{Bcode, Bcodeviewer, BcodeScreenDesigner} — mỗi app 1 thư mục con riêng. -->
-    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN\Bcode\Bcode</BcodeReleaseFolder>
+    <!-- Bố cục phát hành: HAOTN\Bcode · HAOTN\Bcodeviewer · HAOTN\BcodeScreenDesigner (mỗi app 1 thư mục riêng, ngang hàng).
+         tools/publish-release.ps1 đọc giá trị này làm đích mặc định và DỪNG nếu -Dest khác (build.bat từng phát hành lệch thư mục các app đọc). -->
+    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN\Bcode</BcodeReleaseFolder>
     <!-- Thư mục con trong bản build là APP KHÁC tự cập nhật riêng: không vào bcode-manifest.json của Bcode (Shared/Release.targets) và
          cập nhật Bcode không đụng (UpdateCheckService.Configure keepDirs). Screen Designer: thư mục phát hành riêng, xem Bcode.ScreenDesigner.csproj. -->
     <BcodeNestedApps>ScreenDesigner</BcodeNestedApps>

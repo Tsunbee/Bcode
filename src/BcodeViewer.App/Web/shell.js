@@ -843,6 +843,10 @@ class BcodeShell {
     const items = n.kind === 'file' ? [
       { label: 'Mở', run: () => this.cmd('tree.open', n.path) },
       { label: 'Mở thư mục chứa file', run: () => this.cmd('tree.openFolder', n.path) },
+      { label: 'Copy tên file', run: () => {
+        const name = String(n.path || '').split(/[\\/]/).pop();
+        navigator.clipboard.writeText(name).then(() => this.bcode.showToast('Đã copy: ' + name, 2500), () => {});
+      } },
       { label: 'Copy đường dẫn (.f nếu có)', run: () => this.cmd('tree.copy', n.key) },
       ...(this.selKeys.size > 1 || (this.selKeys.size === 1 && !this.selKeys.has(n.key))
         ? [{ label: 'Copy đường dẫn ' + this.selKeys.size + ' file đã chọn', shortcut: 'Ctrl+C', run: () => this.cmd('tree.copyMany', this.selectedKeysInOrder().join('\n')) }] : []),

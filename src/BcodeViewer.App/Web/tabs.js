@@ -205,11 +205,15 @@ class BcodeTabs {
         if (!this.bcode.editorSecondary) this.bcode.toggleSplit();
         this.bcode.showInSplit(path);
       }],
+      ['Copy tên file', () => {
+        const name = path.split(/[\\/]/).pop();
+        navigator.clipboard.writeText(name).then(() => this.bcode.showToast('Đã copy: ' + name, 2500), () => {});
+      }],
       ['Copy đường dẫn', () => navigator.clipboard.writeText(path)],
       ['Mở thư mục chứa file', () => window.chrome.webview.hostObjects.host.OpenFolder(path)],
     ];
-    // Tab chưa đặt tên: chưa có đường dẫn / thư mục thật để copy hay mở.
-    if (isUntitledPath(path)) items.splice(items.length - 2, 2);
+    // Tab chưa đặt tên: chưa có tên file / đường dẫn / thư mục thật để copy hay mở.
+    if (isUntitledPath(path)) items.splice(items.length - 3, 3);
 
     // Reuses the context-menu look already defined for the editor's own right-click menu
     // (contextmenu.js / .ctxMenu in style.css) so there is one menu style in the app.

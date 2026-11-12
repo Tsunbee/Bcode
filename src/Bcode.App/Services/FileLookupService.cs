@@ -147,7 +147,9 @@ public class FileLookupService
         if (!string.IsNullOrWhiteSpace(sourceRootPath)) FileParseCache.Reset(sourceRootPath);
     }
 
-    public FileLookupNode BuildTree(string sourceRootPath, string extensionFilter = ".f", string? searchText = null, bool onlyShowFiltered = true)
+    /// <param name="expandAspx">Tìm theo tên (File Lookup): trang Main\*.aspx khớp ô tìm thì lấy thêm file của controller trang đó khai
+    /// (Controller="..." — như khi bấm menu trỏ tới trang này: Dir/Filter/Grid/Report/Templates...), không chỉ file trùng tên.</param>
+    public FileLookupNode BuildTree(string sourceRootPath, string extensionFilter = ".f", string? searchText = null, bool onlyShowFiltered = true, bool expandAspx = false)
     {
         var root = new FileLookupNode { Name = Path.GetFileName(sourceRootPath.TrimEnd('\\', '/')), FullPath = sourceRootPath, IsDirectory = true };
         var rootKey = NormalizeDir(sourceRootPath);
@@ -164,9 +166,43 @@ public class FileLookupService
                 return false;
             return string.IsNullOrWhiteSpace(searchText)
                 || Path.GetFileName(file).IndexOf(searchText, StringComparison.OrdinalIgnoreCase) >= 0;
-        });
-        FillFromPaths(root, rootKey, pruneEmptyFolders ? Array.Empty<string>() : index.Dirs, files);
+        }).ToList();
+        if (expandAspx && !string.IsNullOrWhiteSpace(searchText))
+            files.AddRange(AspxControllerFiles(sourceRootPath, rootKey, files, onlyShowFiltered, extensionFilter));
+        FillFromPaths(root, rootKey, pruneEmptyFolders ? Array.Empty<string>() : index.Dirs, files.Distinct(StringComparer.OrdinalIgnoreCase));
         return root;
+    }
+
+    /// <summary>File dưới App_Data\Controllers mà các trang Main\*.aspx trong <paramref name="matched"/> kéo theo qua Controller="..." — dựng y như
+    /// cây menu có link = trang đó (sysid trống). Tối đa 10 trang để gõ ".aspx" không dựng cây cho cả trăm trang.</summary>
+    private List<string> AspxControllerFiles(string sourceRootPath, string rootKey, List<string> matched, bool onlyShowFiltered, string extensionFilter)
+    {
+        var mainPrefix = Path.Combine(rootKey, "Main") + Path.DirectorySeparatorChar;
+        var pages = matched.Where(f => f.StartsWith(mainPrefix, StringComparison.OrdinalIgnoreCase)
+                                       && Path.GetExtension(f).Equals(".aspx", StringComparison.OrdinalIgnoreCase)
+                                       && f.IndexOf(Path.DirectorySeparatorChar, mainPrefix.Length) < 0)
+            .Take(10).ToList();
+        var result = new List<string>();
+        if (pages.Count == 0) return result;
+        var controllersPrefix = Path.Combine(rootKey, "App_Data", "Controllers") + Path.DirectorySeparatorChar;
+        var onlyF = onlyShowFiltered && !string.IsNullOrEmpty(extensionFilter);
+        foreach (var page in pages)
+        {
+            FileLookupNode tree;
+            try { tree = BuildTreeForMenuItem(sourceRootPath, Path.GetFileName(page), "", onlyF: onlyF, onlyExtension: string.IsNullOrEmpty(extensionFilter) ? ".*" : extensionFilter); }
+            catch { continue; }
+            void Collect(FileLookupNode n)
+            {
+                if (!n.IsDirectory)
+                {
+                    if (n.FullPath.StartsWith(controllersPrefix, StringComparison.OrdinalIgnoreCase)) result.Add(n.FullPath);
+                    return;
+                }
+                foreach (var c in n.Children) Collect(c);
+            }
+            Collect(tree);
+        }
+        return result;
     }
 
     /// <summary>

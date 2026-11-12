@@ -16,7 +16,7 @@
     <!-- Cập nhật Screen Designer — cơ chế RIÊNG (Shared/AppUpdate.cs), không đi theo Bcode dù Designer nằm trong thư mục ScreenDesigner\ của Bcode
          (bản cập nhật của Bcode bỏ qua thư mục đó). Người phát hành: tools\publish-release.ps1 -App Designer -Dest <thư mục này>.
          Mỗi máy đổi được ở nút "⬆ Cập nhật" → Đổi… KHÔNG trùng thư mục phát hành của Bcode / BcodeViewer. -->
-    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN\Bcode\BcodeScreenDesigner</BcodeReleaseFolder>
+    <BcodeReleaseFolder>\\172.168.5.17\Users\HAOTN\BcodeScreenDesigner</BcodeReleaseFolder>
     <!-- "Có gì mới" + commit chỉ tính commit đụng tới Designer + file dùng lại của Viewer (pathspec git) — Shared/Release.targets. -->
     <BcodeStampPaths>. ../Shared ../BcodeViewer.App/Web/dirpreview.js ../BcodeViewer.App/Web/entity.js ../BcodeViewer.App/Web/hostcall.js ../BcodeViewer.App/Host/IncludeTree.cs</BcodeStampPaths>
   </PropertyGroup>

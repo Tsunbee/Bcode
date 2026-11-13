@@ -36,6 +36,9 @@ public sealed class WatchServer : IDisposable
     private int _nextViewer = 1, _nextItem = 1;
     private string? _cur;
     private bool _playing;
+    /// <summary>Người đang chia sẻ màn hình (Id người xem, 0 = không ai). Mỗi lúc chỉ 1 người; hình / tiếng đi thẳng máy-máy bằng WebRTC,
+    /// máy chủ phòng chỉ chuyển tin bắt tay ("rtc": offer / answer / ice) giữa người chia sẻ và từng người xem.</summary>
+    private int _sharer;
     private double _pos, _anchor;   // vị trí (giây) tại thời điểm _anchor (giây của _clock)
 
     public string RoomName { get; }
@@ -148,6 +151,7 @@ public sealed class WatchServer : IDisposable
         conn.Send(new { t = "welcome", id = v.Id, host = v.Host, name = v.Name, room = RoomName, maxSeats = MaxViewers, mediaPort = MediaPort });
         BroadcastViewers();
         conn.Send(StateMsg());
+        if (_sharer != 0) conn.Send(ShareMsg());
         Sys($"{v.Name} đã vào phòng.");
     }
 
@@ -160,6 +164,7 @@ public sealed class WatchServer : IDisposable
             _viewers.Remove(v);
             BroadcastViewers();
             Sys($"{v.Name} đã rời phòng.");
+            if (_sharer == v.Id) StopShare(null, v.Name);
         }
     }
 
@@ -200,7 +205,7 @@ public sealed class WatchServer : IDisposable
                 var announce = v.Host ? null : $"{v.Name} đề xuất: ";
                 if (item.Kind == "yt") _ = FetchYoutubeTitleAsync(item, announce);   // báo đề xuất sau khi có tên video thật
                 else if (announce != null) Sys(announce + item.Title);
-                if (v.Host && _cur is null) Select(item.Id);
+                if (v.Host && _cur is null && _sharer == 0) Select(item.Id);
                 else BroadcastState();
                 return;
             }
@@ -216,9 +221,40 @@ public sealed class WatchServer : IDisposable
                 if (changed) BroadcastState();
                 return;
             }
+            case "share.start":
+            {
+                // Ai trong phòng cũng chia sẻ được (như Discord), nhưng mỗi lúc 1 người. Đang chiếu thì dừng danh sách lại để khỏi đè tiếng.
+                if (_sharer == v.Id) return;
+                if (_sharer != 0) { v.Conn.Send(new { t = "error", text = $"{SharerName()} đang chia sẻ màn hình — chờ họ dừng (chủ phòng tắt được)." }); return; }
+                _sharer = v.Id;
+                if (_playing) { _pos = Position; _playing = false; BroadcastState(); }
+                Broadcast(ShareMsg());
+                Sys($"{v.Name} đang chia sẻ màn hình.");
+                return;
+            }
+            case "share.stop":
+                if (_sharer == 0) return;
+                if (_sharer != v.Id && !v.Host) { v.Conn.Send(new { t = "error", text = "Chỉ người đang chia sẻ hoặc chủ phòng tắt được." }); return; }
+                StopShare(_sharer == v.Id ? null : v.Name);
+                return;
+            case "rtc":
+            {
+                // Chuyển tin bắt tay WebRTC — chỉ giữa người đang chia sẻ và người xem (không cho dùng làm kênh nhắn riêng).
+                var to = (int?)m["to"] ?? 0;
+                if (_sharer == 0 || (v.Id != _sharer && to != _sharer)) return;
+                var target = _viewers.FirstOrDefault(x => x.Id == to);
+                if (target is null || target == v || m["data"] is not JsonObject data) return;
+                target.Conn.Send(new { t = "rtc", from = v.Id, data });
+                return;
+            }
         }
 
         if (!v.Host) { v.Conn.Send(new { t = "error", text = "Chỉ chủ phòng được điều khiển." }); return; }
+        if (_sharer != 0 && t is "play" or "select" or "next" or "prev")
+        {
+            v.Conn.Send(new { t = "error", text = $"{SharerName()} đang chia sẻ màn hình — dừng chia sẻ trước rồi chiếu." });
+            return;
+        }
         switch (t)
         {
             case "addfile":
@@ -226,7 +262,7 @@ public sealed class WatchServer : IDisposable
                 var item = new Item { Id = "i" + _nextItem++, Kind = "file", Src = Clean((string?)m["media"], 40), Title = Clean((string?)m["title"], 160), By = v.Name };
                 if (item.Src.Length == 0) return;
                 _queue.Add(item);
-                if (_cur is null) Select(item.Id); else BroadcastState();
+                if (_cur is null && _sharer == 0) Select(item.Id); else BroadcastState();
                 break;
             }
             case "play":
@@ -370,6 +406,20 @@ public sealed class WatchServer : IDisposable
     };
 
     private void BroadcastState() => Broadcast(StateMsg());
+
+    private string SharerName() => _viewers.FirstOrDefault(x => x.Id == _sharer)?.Name ?? "Người khác";
+
+    private object ShareMsg() => new { t = "share", id = _sharer, name = _sharer == 0 ? "" : SharerName() };
+
+    /// <param name="by">Chủ phòng tắt hộ (null = người chia sẻ tự dừng / rời phòng).</param>
+    /// <param name="name">Tên người chia sẻ khi họ đã bị gỡ khỏi danh sách (rời phòng).</param>
+    private void StopShare(string? by, string? name = null)
+    {
+        name ??= SharerName();
+        _sharer = 0;
+        Broadcast(ShareMsg());
+        Sys(by is null ? $"{name} đã dừng chia sẻ màn hình." : $"{by} đã tắt chia sẻ màn hình của {name}.");
+    }
 
     private void BroadcastViewers() =>
         Broadcast(new { t = "viewers", list = _viewers.OrderBy(x => x.Seat).Select(x => new { x.Id, x.Name, x.Color, x.Seat, x.Host }).ToList() });

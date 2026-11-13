@@ -38,6 +38,7 @@
         <div class="row"><input id="inRoom" maxlength="28" spellcheck="false"><button id="btnHost" class="primary">Mở phòng</button></div>
         <p class="hint"><b>Chỉ chủ phòng điều khiển</b>: chiếu, dừng, tua, chuyển bài. Người xem bình luận, thả cảm xúc, đổi ghế và đề xuất link.</p>
         <p class="hint">YouTube / link trên mạng: mỗi máy tự tải (cần Internet). File trên máy chủ phòng: phát qua LAN cho cả phòng.</p>
+        <p class="hint">Trang web không có link video thẳng (web phim…)? Mở trên máy bạn rồi bấm <b>📡 Chia sẻ màn hình</b> trong phòng — cả phòng xem qua LAN.</p>
         <p class="hint">Lần đầu mở phòng, Windows có thể hỏi tường lửa: chọn cho phép trên mạng <b>Private</b>.</p>
       </div>
     </div>
@@ -61,6 +62,7 @@
           <button id="btnModeTheater" title="Rạp chiếu: màn hình + ghế ngồi + mọi người (T)">🎭 Rạp</button>
           <button id="btnModeScreen" title="Chỉ màn hình, không hiện nhân vật (T)">🖥 Màn hình</button>
         </div>
+        <button class="ghost-btn" id="btnShare" title="Cho cả phòng xem màn hình / cửa sổ / tab bạn đang mở (như Discord) — hình và tiếng đi thẳng qua mạng LAN">📡 Chia sẻ màn hình</button>
         <button class="ghost-btn" id="btnSide" title="Ẩn / hiện cột bình luận (C)">💬 Ẩn bình luận</button>
         <button class="ghost-btn" id="btnLeave">↩ Rời phòng</button>
       </header>
@@ -72,6 +74,11 @@
           <div id="ytWrap" class="hidden"><div id="yt"></div></div>
           <div id="audioArt" class="audio-art hidden"><div class="disc"></div><div id="audioTitle"></div></div>
           <div id="idle" class="idle"><div class="idle-in"><b>Chưa chiếu gì</b><span id="idleHint"></span></div></div>
+          <div id="shareBox" class="sharebox hidden">
+            <video id="shareVid" playsinline autoplay></video>
+            <div id="shareTag" class="share-tag"></div>
+            <div id="shareMsg" class="share-msg hidden"></div>
+          </div>
           <div id="perr" class="perr hidden"></div>
           <div class="shield" id="shield" title="Nhấp đúp: toàn màn hình"></div>
           <div class="danmaku" id="danmaku"></div>

@@ -158,6 +158,7 @@ function pRate(r) { if (P.kind === "media" && Math.abs(V.playbackRate - r) > 0.0
 function applyVolume() {
   const v = S.muted ? 0 : S.volume;
   V.volume = v; V.muted = S.muted;
+  if (SH.id !== S.me) { SV.volume = v; SV.muted = S.muted; }   // màn hình người khác chia sẻ (của mình thì luôn tắt tiếng)
   if (P.yt && P.ytReady) { P.yt.setVolume(Math.round(v * 100)); if (S.muted) P.yt.mute(); else P.yt.unMute(); }
   $("btnMute").textContent = S.muted || v === 0 ? "🔇" : v < 0.4 ? "🔉" : "🔊";
 }
@@ -211,7 +212,7 @@ function updateBar(pos, dur) {
   if (!seekDrag) $("seek").value = dur > 0 ? Math.round((pos / dur) * 1000) : 0;
   $("btnPlay").textContent = S.st?.playing ? "⏸" : "▶";
   const it = curItem();
-  $("nowTitle").textContent = it ? it.title : "";
+  $("nowTitle").textContent = sharing() ? (SH.id === S.me ? "📡 Bạn đang chia sẻ màn hình" : `📡 ${SH.name} đang chia sẻ màn hình`) + (it ? " · danh sách tạm dừng" : "") : it ? it.title : "";
 }
 $("seek").addEventListener("input", () => { seekDrag = true; const it = curItem(); const dur = it?.dur || pDur(); $("tCur").textContent = fmt(($("seek").value / 1000) * dur); });
 $("seek").addEventListener("change", () => {
@@ -232,6 +233,265 @@ $("btnFull").onclick = toggleFull;
 $("shield").ondblclick = toggleFull;
 function toggleFull() { if (document.fullscreenElement) document.exitFullscreen(); else $("stage").requestFullscreen().catch(() => { }); }
 document.addEventListener("fullscreenchange", () => { $("fsChat").classList.add("hidden"); layoutStage(); });
+
+// ═══════════════════════ Chia sẻ màn hình (WebRTC máy-máy trong LAN, như Discord) ═══════════════════════
+// Người chia sẻ: getDisplayMedia (hộp chọn màn hình / cửa sổ / tab của Chromium) → mỗi người xem 1 RTCPeerConnection riêng.
+// Người xem xin luồng ({k:"want"}) → người chia sẻ gửi offer → người xem trả answer; hai bên gửi nhau ứng viên ICE. Máy chủ phòng chỉ chuyển
+// các tin này ("rtc"), hình / tiếng đi thẳng giữa hai máy. Không dùng STUN / TURN: cùng LAN thì IP LAN là đủ (C# tắt giấu IP bằng mDNS).
+// Mỗi lần gửi offer có mã sid riêng — tin cũ của kết nối đã bỏ thì lờ đi.
+
+const SV = $("shareVid");
+const SH = { id: 0, name: "", local: null, pcs: new Map(), pc: null, seq: 0, fake: false, got: false, fail: false, tries: 0, waitTimer: 0, startTimer: 0, fakeStop: null };
+const RTC_CFG = { iceServers: [] };
+const sharing = () => SH.id !== 0;
+
+async function startShare() {
+  if (SH.local) return;
+  let stream;
+  try {
+    stream = SH.fake ? fakeStream() : await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 30, max: 30 }, width: { max: 2560 }, height: { max: 1440 } },   // tới 1440p: xem toàn màn hình 27" vẫn nét
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      systemAudio: "include", surfaceSwitching: "include", selfBrowserSurface: "exclude",
+    });
+  } catch (e) {
+    // Bấm Huỷ trong hộp chọn → NotAllowedError / AbortError: im lặng
+    if (e?.name !== "NotAllowedError" && e?.name !== "AbortError") toast("Không chụp được màn hình: " + (e?.message || e), 5000);
+    return;
+  }
+  if (SH.local || S.screen !== "room") { stream.getTracks().forEach((t) => t.stop()); return; }
+  SH.local = stream;
+  for (const t of stream.getVideoTracks()) {
+    try { t.contentHint = "motion"; } catch { }   // phim: ưu tiên đủ khung hình hơn nét chữ
+    t.onended = () => stopShare();                 // bấm "Dừng chia sẻ" trên thanh của Chromium / đóng cửa sổ đang chia sẻ
+  }
+  if (!stream.getAudioTracks().length && !SH.fake) toast("Đang chia sẻ KHÔNG kèm tiếng — muốn có tiếng: dừng rồi chia sẻ lại, chọn tab \"Entire Screen\" (cả màn hình) và bật \"Share with system audio\". Chia sẻ 1 cửa sổ thì Windows không cho lấy tiếng.", 8000);
+  send({ t: "share.start" });
+  clearTimeout(SH.startTimer);
+  // Máy chủ phòng bản cũ không biết "share.start" → không ai trả lời; người khác đang chia sẻ → máy chủ đã báo lỗi.
+  SH.startTimer = setTimeout(() => {
+    if (SH.local && SH.id !== S.me) { dropLocal(); if (!sharing()) toast("Máy chủ phòng chưa có chia sẻ màn hình (Bcode bản cũ) — chủ phòng cập nhật Bcode.", 5000); }
+  }, 4000);
+}
+
+/** Bấm nút dừng: người chia sẻ tự dừng, hoặc chủ phòng tắt chia sẻ của người khác. */
+function stopShare() {
+  if (SH.id === S.me || (S.host && sharing())) send({ t: "share.stop" });
+  dropLocal();
+}
+
+function dropLocal() {
+  clearTimeout(SH.startTimer);
+  for (const pc of SH.pcs.values()) try { pc.close(); } catch { }
+  SH.pcs.clear();
+  if (SH.local) { SH.local.getTracks().forEach((t) => { t.onended = null; t.stop(); }); SH.local = null; }
+  if (SH.fakeStop) { SH.fakeStop(); SH.fakeStop = null; }
+  if (SV.srcObject && SH.id === S.me) SV.srcObject = null;
+}
+
+function closeViewerPc() {
+  if (SH.pc) { try { SH.pc.close(); } catch { } SH.pc = null; }
+  clearTimeout(SH.waitTimer);
+}
+
+/** Tin "share" từ máy chủ phòng: ai đang chia sẻ (id 0 = không ai). */
+function onShare(m) {
+  const prev = SH.id;
+  SH.id = m.id; SH.name = m.name || "";
+  if (m.id !== prev) {
+    closeViewerPc();
+    for (const pc of SH.pcs.values()) try { pc.close(); } catch { }
+    SH.pcs.clear();
+    SV.srcObject = null;
+    SH.got = false; SH.tries = 0;
+  }
+  if (m.id === S.me) {
+    clearTimeout(SH.startTimer);
+    if (!SH.local) { send({ t: "share.stop" }); return; }   // đã huỷ ở máy này trước khi máy chủ kịp nhận
+    SV.srcObject = SH.local; SV.muted = true;                 // xem trước màn hình của mình, không phát lại tiếng
+    SV.play().catch(() => { });
+  } else {
+    if (SH.local) dropLocal();                                // người khác giành trước
+    if (m.id !== 0 && m.id !== prev) wantStream();
+  }
+  renderShare();
+}
+
+function wantStream() {
+  closeViewerPc();
+  SH.got = false; SH.fail = false;
+  send({ t: "rtc", to: SH.id, data: { k: "want" } });
+  renderShare();
+  SH.waitTimer = setTimeout(() => {
+    if (!sharing() || SH.id === S.me || SH.got) return;
+    if (++SH.tries < 3) { wantStream(); return; }
+    SH.fail = true;
+    shareMsg(`Không nhận được hình từ máy ${SH.name}`,
+      "Hai máy không nối thẳng được với nhau — thường do tường lửa (một trong hai máy bấm 🛡 Mở tường lửa trong phòng, hoặc cho phép BcodeWatch trên mạng Private) hoặc khác mạng LAN / VPN.", true, true);
+  }, 9000);
+}
+
+function iceOut(pc, peer) {
+  pc.onicecandidate = (e) => { if (e.candidate) send({ t: "rtc", to: peer, data: { k: "ice", sid: pc.sid, c: e.candidate.toJSON() } }); };
+}
+async function addIce(pc, d) {
+  if (!pc || d.sid !== pc.sid || !d.c) return;
+  if (!pc.remoteDescription) { pc.q.push(d.c); return; }
+  try { await pc.addIceCandidate(d.c); } catch { }
+}
+async function flushIce(pc) {
+  const q = pc.q.splice(0);
+  for (const c of q) try { await pc.addIceCandidate(c); } catch { }
+}
+
+/** Ưu tiên H.264 (Windows có bộ nén phần cứng / nhanh hơn): VP8 mặc định nén bằng CPU, đo trên máy văn phòng 1440p chỉ ~16 khung/giây
+ *  rồi tự tụt về 1080p (qualityLimitationReason = cpu). Trình duyệt không có H.264 thì giữ thứ tự cũ. */
+function preferH264(pc) {
+  try {
+    const caps = RTCRtpSender.getCapabilities("video")?.codecs || [];
+    const rank = (c) => c.mimeType === "video/H264" ? (/packetization-mode=1/.test(c.sdpFmtpLine || "") ? 0 : 1) : 2;
+    const sorted = [...caps].sort((a, b) => rank(a) - rank(b));
+    if (!sorted.length || rank(sorted[0]) !== 0) return;
+    for (const tr of pc.getTransceivers()) if (tr.sender.track?.kind === "video") tr.setCodecPreferences(sorted);
+  } catch { }
+}
+
+/** Người chia sẻ: mở kết nối tới 1 người xem và gửi offer. */
+async function offerTo(peer) {
+  if (!SH.local || SH.id !== S.me) return;
+  SH.pcs.get(peer)?.close();
+  const pc = new RTCPeerConnection(RTC_CFG);
+  pc.sid = ++SH.seq; pc.q = [];
+  SH.pcs.set(peer, pc);
+  for (const t of SH.local.getTracks()) pc.addTrack(t, SH.local);
+  preferH264(pc);
+  iceOut(pc, peer);
+  pc.onconnectionstatechange = () => { if (["failed", "closed"].includes(pc.connectionState) && SH.pcs.get(peer) === pc) SH.pcs.delete(peer); };
+  try {
+    await pc.setLocalDescription(await pc.createOffer());
+    send({ t: "rtc", to: peer, data: { k: "offer", sid: pc.sid, sdp: pc.localDescription.sdp } });
+    // Mỗi người xem máy này nén riêng 1 luồng — đông người thì hạ bitrate cho máy đỡ nặng / LAN đỡ nghẽn.
+    const n = SH.pcs.size;
+    const br = n <= 3 ? 12e6 : n <= 8 ? 6e6 : 3e6;   // 1440p30 phim cần ~10–12 Mbps; LAN 100 Mbps chịu được 8 người × 6 Mbps
+    for (const s of pc.getSenders()) {
+      if (s.track?.kind !== "video") continue;
+      const p = s.getParameters();
+      if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+      p.encodings[0].maxBitrate = br;
+      p.encodings[0].maxFramerate = 30;
+      await s.setParameters(p).catch(() => { });
+    }
+  } catch (e) { console.error("offer", e); }
+}
+
+/** Người xem: nhận offer của người chia sẻ, trả answer. */
+async function acceptOffer(from, d) {
+  closeViewerPc();
+  const pc = new RTCPeerConnection(RTC_CFG);
+  pc.sid = d.sid; pc.q = [];
+  SH.pc = pc;
+  pc.ontrack = (e) => {
+    if (SH.pc !== pc) return;
+    const ms = e.streams[0] || new MediaStream([e.track]);
+    if (SV.srcObject !== ms) SV.srcObject = ms;
+    SV.muted = false; applyVolume();
+    SV.play().catch(() => { });
+  };
+  iceOut(pc, from);
+  pc.onconnectionstatechange = () => {
+    if (SH.pc !== pc) return;
+    if (pc.connectionState === "failed" && SH.tries < 3) { SH.tries++; setTimeout(() => { if (SH.pc === pc) wantStream(); }, 1000); }
+  };
+  try {
+    await pc.setRemoteDescription({ type: "offer", sdp: d.sdp });
+    await flushIce(pc);
+    await pc.setLocalDescription(await pc.createAnswer());
+    send({ t: "rtc", to: from, data: { k: "answer", sid: pc.sid, sdp: pc.localDescription.sdp } });
+  } catch (e) { console.error("answer", e); }
+}
+
+async function onRtc(from, d) {
+  if (!d || !sharing()) return;
+  if (SH.id === S.me) {
+    if (d.k === "want") offerTo(from);
+    else if (d.k === "answer") {
+      const pc = SH.pcs.get(from);
+      if (!pc || pc.sid !== d.sid || pc.signalingState !== "have-local-offer") return;
+      try { await pc.setRemoteDescription({ type: "answer", sdp: d.sdp }); await flushIce(pc); } catch (e) { console.error("setAnswer", e); }
+    } else if (d.k === "ice") addIce(SH.pcs.get(from), d);
+  } else if (from === SH.id) {
+    if (d.k === "offer") acceptOffer(from, d);
+    else if (d.k === "ice") addIce(SH.pc, d);
+  }
+}
+
+/** Người chia sẻ: ai rời phòng thì đóng kết nối tới người đó. */
+function sharePeersGone() {
+  for (const [peer, pc] of SH.pcs) if (!S.viewers.some((v) => v.id === peer)) { try { pc.close(); } catch { } SH.pcs.delete(peer); }
+}
+
+SV.addEventListener("loadeddata", () => { if (SH.id !== S.me) { SH.got = true; SH.tries = 0; clearTimeout(SH.waitTimer); renderShare(); } });
+
+function shareMsg(title, text, bad, retry) {
+  const el = $("shareMsg");
+  el.className = "share-msg" + (bad ? " bad" : "");
+  el.innerHTML = `<b>${esc(title)}</b>` + (text ? `<span>${esc(text)}</span>` : "") + (retry ? `<button id="btnShareRetry">Thử lại</button>` : "");
+  if (retry) $("btnShareRetry").onclick = () => { SH.tries = 0; wantStream(); };
+}
+
+function renderShare() {
+  const on = sharing(), me = SH.id === S.me;
+  $("shareBox").classList.toggle("hidden", !on);
+  const b = $("btnShare");
+  b.classList.toggle("on", me);
+  b.disabled = on && !me && !S.host;
+  b.textContent = me ? "⏹ Dừng chia sẻ" : on && S.host ? `⏹ Tắt chia sẻ của ${SH.name}` : "📡 Chia sẻ màn hình";
+  b.title = me ? "Dừng chia sẻ màn hình" : on ? (S.host ? `Tắt chia sẻ màn hình của ${SH.name}` : `${SH.name} đang chia sẻ — mỗi lúc chỉ 1 người`)
+    : "Cho cả phòng xem màn hình / cửa sổ / tab bạn đang mở (như Discord) — hình và tiếng đi thẳng qua mạng LAN";
+  if (!on) { $("shareMsg").classList.add("hidden"); return; }
+  const tag = $("shareTag");
+  tag.classList.toggle("me", me);
+  const n = [...SH.pcs.values()].filter((pc) => pc.connectionState === "connected").length;
+  tag.textContent = me ? `📡 Bạn đang chia sẻ màn hình · ${n ? n + " người đang xem" : "chờ người xem kết nối"}` : `📡 ${SH.name} đang chia sẻ màn hình`;
+  if (me || SH.got) $("shareMsg").classList.add("hidden");
+  else {
+    if (!SH.fail) shareMsg(`Đang kết nối tới màn hình của ${SH.name}…`);
+    $("shareMsg").classList.remove("hidden");
+  }
+}
+setInterval(() => { if (SH.id && SH.id === S.me) renderShare(); }, 2000);   // số người đang xem
+
+function resetShare() {
+  dropLocal(); closeViewerPc();
+  SH.id = 0; SH.name = ""; SV.srcObject = null;
+  renderShare();
+}
+
+$("btnShare").onclick = () => { if (SH.id === S.me || (S.host && sharing())) stopShare(); else startShare(); };
+
+/** --fakeshare: hình vẽ chạy (đồng hồ + ô màu) + tiếng bíp thay cho chụp màn hình thật — để thử WebRTC tự động khi chạy ngầm. */
+function fakeStream() {
+  const c = document.createElement("canvas"); c.width = 2560; c.height = 1440;
+  const g = c.getContext("2d");
+  const t0 = performance.now();
+  const timer = setInterval(() => {
+    const t = (performance.now() - t0) / 1000;
+    g.fillStyle = `hsl(${(t * 40) % 360} 45% 18%)`; g.fillRect(0, 0, 2560, 1440);
+    g.fillStyle = "#ffc94a"; g.fillRect(200 + ((t * 600) % 2000), 600, 240, 240);
+    g.fillStyle = "#fff"; g.font = "bold 128px Segoe UI"; g.fillText(`Chia sẻ thử · ${t.toFixed(1)} s`, 120, 240);
+    g.font = "28px Segoe UI"; g.fillText("Chữ nhỏ để kiểm tra độ nét: SELECT ma_kh, ten_kh FROM dmkh WHERE status = '1'", 120, 1300);
+  }, 33);
+  const ms = c.captureStream(30);
+  let ac = null;
+  try {
+    ac = new AudioContext();
+    const o = ac.createOscillator(), dst = ac.createMediaStreamDestination();
+    o.frequency.value = 440; o.connect(dst); o.start();
+    ms.addTrack(dst.stream.getAudioTracks()[0]);
+  } catch { }
+  SH.fakeStop = () => { clearInterval(timer); try { ac?.close(); } catch { } };
+  return ms;
+}
 
 // ═══════════════════════ Rạp (canvas) + chế độ xem ═══════════════════════
 
@@ -463,6 +723,7 @@ function handle(m) {
       S.volume = m.volume ?? 0.8; $("vol").value = Math.round(S.volume * 100);
       S.mode = m.mode === "screen" ? "screen" : "theater";
       S.side = m.side !== false;
+      SH.fake = !!m.fakeShare;
       $("ver").textContent = `Rạp Bcode v${m.version} · máy ${m.machine} · IP: ${m.ips.join(", ") || "?"}`;
       show("home");
       if (m.auto === "host") post({ t: "ui.host", name: m.name, room: m.autoRoom || m.room });
@@ -490,10 +751,10 @@ function handle(m) {
       $("btnFw").textContent = m.level === "ok" ? "🛡 Mở lại tường lửa" : "🛡 Mở tường lửa";
       break;
     case "ui.left":
-      unload(); S.st = null; S.viewers = []; show("home");
+      unload(); resetShare(); S.st = null; S.viewers = []; show("home");
       break;
     case "ui.closed":
-      unload(); S.st = null; S.viewers = []; show("home");
+      unload(); resetShare(); S.st = null; S.viewers = []; show("home");
       $("homeErr").textContent = S.rejected || "Mất kết nối với phòng: " + m.reason;
       S.rejected = null;
       break;
@@ -501,8 +762,11 @@ function handle(m) {
     // ── từ máy chủ phòng ──
     case "welcome":
       S.me = m.id; S.host = m.host; S.name = m.name; S.room = m.room; S.mediaPort = m.mediaPort;
+      resetShare();
       enterRoom();
       break;
+    case "share": onShare(m); syncTick(); break;
+    case "rtc": onRtc(m.from, m.data); break;
     case "reject": S.rejected = m.text; break;
     case "state":
       S.st = m; S.recv = performance.now();
@@ -514,6 +778,7 @@ function handle(m) {
       S.viewers = m.list;
       for (const id of old) if (!m.list.some((v) => v.id === id)) Theater.forget(id);
       renderPeople();
+      sharePeersGone();
       break;
     }
     case "chat":

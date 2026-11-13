@@ -175,7 +175,7 @@ Bcode.App/
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  372
 │   ├── MainForm.ToolGroups.cs  101
-│   ├── MainForm.Update.cs  165
+│   ├── MainForm.Update.cs  191
 │   ├── MenuPickerForm.cs  95
 │   ├── MessageBoxForm.cs  194
 │   ├── NativeProjectPickerForm.cs  193
@@ -200,7 +200,8 @@ Bcode.App/
 │   ├── StringBeautyForm.cs  170
 │   ├── StubForm.cs  91
 │   ├── TabSwitcherForm.cs  191
-│   ├── Tk2HelpForm.cs  396
+│   ├── Tk2HelpForm.cs  448
+│   ├── Tk2HelpUrls.cs  78
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
 │   ├── UiTemplateForm.cs  956
@@ -508,7 +509,7 @@ Bcode.App/
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1351
-│       ├── update.html  390
+│       ├── update.html  396
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836
 │       ├── voucherview.html  88
@@ -628,7 +629,7 @@ BcodeViewer.App/
 ├── BcodeViewer.App.csproj  110
 ├── HintCodeForm.cs  520
 ├── MainForm.cs  2884
-├── MainForm.Update.cs  155
+├── MainForm.Update.cs  156
 └── Program.cs  231
 ```
 ```
@@ -688,8 +689,8 @@ Bcode.KeyGen/
 Shared/
 ├── AiWebHelper.cs  373
 ├── AppSwitchFocus.cs  86
-├── AppUpdate.cs  774
-├── AppUpdateDialog.cs  171
+├── AppUpdate.cs  1023
+├── AppUpdateDialog.cs  184
 ├── AppUpdateForm.cs  181
 ├── AppUpdateToast.cs  195
 ├── DpapiText.cs  134

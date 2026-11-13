@@ -77,8 +77,13 @@ public sealed class WatchForm : Form
             var profile = Path.Combine(Path.GetTempPath(), "BcodeWatch.WebView2", Environment.ProcessId.ToString());
             // Local Network Access / Private Network Access: trang watch.local (không có IP thật) tải video từ IP LAN / 127.0.0.1 của chủ phòng — tắt kiểm tra
             // để Chromium không chặn hay hỏi quyền. Phát tự động không cần bấm (đồng bộ theo chủ phòng).
+            // WebRtcHideLocalIpsWithMdns: chia sẻ màn hình (WebRTC) đi thẳng máy-máy trong LAN — để mặc định Chromium giấu IP LAN thành tên *.local (mDNS),
+            // mạng văn phòng hay chặn mDNS → hai máy không thấy nhau. Không dùng máy chủ STUN / TURN ngoài Internet.
+            // unsafely-treat-insecure-origin-as-secure: navigator.mediaDevices (getDisplayMedia — chia sẻ màn hình) chỉ có ở trang "an toàn" (https / localhost);
+            // trang phải ở http://watch.local (xem ghi chú lớp) nên chỉ coi RIÊNG nguồn này là an toàn.
             var args = $"--host-resolver-rules=\"MAP {VirtualHost} ~NOTFOUND\" --autoplay-policy=no-user-gesture-required " +
-                       "--disable-features=BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults,LocalNetworkAccessChecks";
+                       $"--unsafely-treat-insecure-origin-as-secure=http://{VirtualHost} " +
+                       "--disable-features=BlockInsecurePrivateNetworkRequests,PrivateNetworkAccessSendPreflights,PrivateNetworkAccessRespectPreflightResults,LocalNetworkAccessChecks,WebRtcHideLocalIpsWithMdns";
             CoreWebView2Environment env;
             try { env = await CoreWebView2Environment.CreateAsync(null, profile, new CoreWebView2EnvironmentOptions(args)); }
             catch { env = await CoreWebView2Environment.CreateAsync(userDataFolder: profile); }
@@ -152,6 +157,7 @@ public sealed class WatchForm : Form
                     auto = _opts.ContainsKey("host") ? "host" : _opts.ContainsKey("join") ? "join" : null,
                     autoJoin = _opts.GetValueOrDefault("join"), autoRoom = _opts.GetValueOrDefault("room"),
                     volume = _prefs.Volume, mode = _prefs.Mode, side = _prefs.Side,
+                    fakeShare = _opts.ContainsKey("fakeshare") ? true : (bool?)null,
                 });
                 break;
             case "ui.find":

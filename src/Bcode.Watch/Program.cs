@@ -14,6 +14,7 @@ internal static class Program
     ///   --hidden                    chạy ngầm (ngoài màn hình, không taskbar, không giành focus) — thử tự động bằng CDP
     ///   --loopback                 phòng chỉ nghe 127.0.0.1 (thử trên 1 máy, không bật hộp hỏi tường lửa)
     ///   --muted                     tắt tiếng (thử tự động)
+    ///   --fakeshare                 nút chia sẻ màn hình phát hình vẽ thử (canvas + tiếng bíp) thay vì chụp màn hình thật (thử WebRTC tự động)
     /// </summary>
     [STAThread]
     private static void Main(string[] args)

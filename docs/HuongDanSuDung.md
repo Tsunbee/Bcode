@@ -1178,7 +1178,7 @@ Nút **Giải trí ▾** trên thanh trên (giữa **Gemini** và **Trợ giúp*
 | Mục | Dùng để |
 |---|---|
 | **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–8 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
-| **Xem chung (rạp phim LAN)** | Mở **Rạp Bcode** — xem chung YouTube / MP4 / MP3 với cả phòng qua mạng LAN, có bình luận. Xem [Xem chung](#xem-chung). |
+| **Xem chung (rạp phim LAN)** | Mở **Rạp Bcode** — xem chung YouTube / MP4 / MP3 với cả phòng qua mạng LAN, hoặc **chia sẻ màn hình** cho cả phòng xem (như Discord), có bình luận. Xem [Xem chung](#xem-chung). |
 
 <a id="giai-lao"></a>
 ### Giải lao — game LAN "Đêm Go-Live"
@@ -1210,7 +1210,7 @@ Game suy luận xã hội chơi chung qua mạng LAN, chủ đề đêm trước
 <a id="xem-chung"></a>
 ### Xem chung — rạp phim LAN "Rạp Bcode"
 
-Xem chung video / nhạc với cả phòng qua mạng LAN văn phòng: mọi máy chiếu cùng một đoạn, theo đúng chủ phòng. Là chương trình riêng (`Watch\BcodeWatch.exe` cạnh Bcode.exe) — Bcode chỉ mở nó.
+Xem chung video / nhạc với cả phòng qua mạng LAN văn phòng: mọi máy chiếu cùng một đoạn, theo đúng chủ phòng — hoặc một người **chia sẻ màn hình** cho cả phòng xem. Là chương trình riêng (`Watch\BcodeWatch.exe` cạnh Bcode.exe) — Bcode chỉ mở nó.
 
 **Mở phòng / vào phòng**
 
@@ -1226,6 +1226,18 @@ Xem chung video / nhạc với cả phòng qua mạng LAN văn phòng: mọi má
 | Link MP4 / MP3 / WebM trên mạng | Dán link `http(s)://…` → **Thêm** | Mỗi máy tự tải. MKV / AVI / HEVC thường không phát được — dùng MP4 (H.264) hoặc WebM. |
 | File trên máy chủ phòng | **📂 Chiếu file trên máy…** (chọn được nhiều file) | Máy chủ phòng phát qua LAN cho cả phòng (tua được). File trên ổ chung cũng chọn được. |
 
+Trang web xem phim không có link file video thẳng (link dạng `…/xem-phim/…/tap-1.html`) thì **không** thêm vào danh sách được — dùng **📡 Chia sẻ màn hình** bên dưới.
+
+**📡 Chia sẻ màn hình** (nút trên thanh đầu rạp — như "Go Live" của Discord)
+
+1. Mở thứ muốn cho mọi người xem trên máy bạn (trang phim trong Chrome, slide, ứng dụng…), rồi bấm **📡 Chia sẻ màn hình** trong rạp.
+2. Hộp **Choose what to share** hiện ra: tab **Window** (một cửa sổ) hoặc **Entire Screen** (cả màn hình) → chọn → **Share**.
+   - **Muốn có tiếng** (xem phim): chọn **Entire Screen** và bật **Share with system audio**. Chia sẻ một cửa sổ thì Windows không cho lấy tiếng — rạp sẽ nhắc.
+3. Cả phòng thấy màn hình của bạn trên màn chiếu (tag "📡 … đang chia sẻ màn hình"), vẫn bình luận / thả cảm xúc / toàn màn hình như thường; người vào giữa chừng tự thấy luôn. Danh sách chiếu tạm dừng (chủ phòng không chiếu bài được cho tới khi dừng chia sẻ).
+4. Dừng: bấm **⏹ Dừng chia sẻ** (hoặc "Dừng chia sẻ" trên thanh nhỏ Windows hiện ra, hay đóng cửa sổ đang chia sẻ). Chủ phòng tắt được chia sẻ của người khác (**⏹ Tắt chia sẻ của …**).
+
+Ai trong phòng cũng chia sẻ được, mỗi lúc **một người**. Hình và tiếng đi **thẳng từ máy bạn tới từng máy** trong LAN (WebRTC) — không qua Internet, máy xem không cần vào trang web đó. Hình gửi tới **2560×1440** (màn 2K / 27 inch xem toàn màn hình `F` vẫn nét), khoảng 30 khung/giây; màn máy chia sẻ nhỏ hơn thì gửi đúng cỡ màn đó. Máy chia sẻ nén riêng cho từng người xem: phòng đông (> 8 người) rạp tự hạ chất lượng; Wi-Fi yếu có thể bị vỡ hình. Xem toàn màn hình trên màn nào thì kéo cửa sổ Rạp sang màn đó trước.
+
 **Chỉ chủ phòng điều khiển**: ⏯ chiếu / dừng (`Space`), tua (kéo thanh thời gian, `←` / `→` 10 giây), ⏮ ⏭ chuyển bài, ▶ ↑ ↓ ✕ trong danh sách; hết bài tự sang bài kế. Người xem bấm **Đề xuất** để gửi link — mục hiện "đề xuất", chủ phòng bấm ✓ duyệt hoặc ▶ chiếu luôn. Người vào giữa chừng tự nhảy tới đúng đoạn đang chiếu; máy nào lệch quá 1 giây tự tua lại (🔄 để đồng bộ ngay). Âm lượng mỗi người tự chỉnh.
 
 **Chế độ xem**
@@ -1237,7 +1249,7 @@ Xem chung video / nhạc với cả phòng qua mạng LAN văn phòng: mọi má
 
 **Cột bình luận**: tab **💬 Bình luận** — gõ rồi `Enter`, hàng nút cảm xúc 😂 👏 ❤️ 😮 😢 🔥 👍 🎉; mỗi bình luận kèm thời điểm trong video (chủ phòng bấm vào để tua tới đó). Tab **👥** — ai đang xem, ngồi ghế nào.
 
-**Lỗi hay gặp**: *"Không nối được … sau 4 giây"* — tường lửa máy chủ phòng chặn: chủ phòng bấm **🛡 Mở tường lửa**, hoặc đổi máy khác làm chủ phòng. *YouTube không phát* — máy đó không vào được youtube.com, hoặc video không cho nhúng. *File không phát* — định dạng trình duyệt không hỗ trợ (đổi sang MP4 H.264). Rạp nhớ tên, IP, thư mục chọn file, âm lượng và chế độ xem ở `%AppData%\Bcode\watch-lan.json`.
+**Lỗi hay gặp**: *"Không nối được … sau 4 giây"* — tường lửa máy chủ phòng chặn: chủ phòng bấm **🛡 Mở tường lửa**, hoặc đổi máy khác làm chủ phòng. *YouTube không phát* — máy đó không vào được youtube.com, hoặc video không cho nhúng. *File không phát* — định dạng trình duyệt không hỗ trợ (đổi sang MP4 H.264). *"Không nhận được hình từ máy …"* (chia sẻ màn hình) — hai máy không nối thẳng được: một trong hai máy bấm **🛡 Mở tường lửa** / cho phép BcodeWatch trên mạng Private, hoặc hai máy khác mạng LAN / VPN; bấm **Thử lại**. *Chia sẻ không có tiếng* — đã chọn một cửa sổ: dừng rồi chia sẻ lại bằng **Entire Screen** + **Share with system audio**. Rạp nhớ tên, IP, thư mục chọn file, âm lượng và chế độ xem ở `%AppData%\Bcode\watch-lan.json`.
 
 <a id="tao-nhanh-bang-moi"></a>
 ### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script

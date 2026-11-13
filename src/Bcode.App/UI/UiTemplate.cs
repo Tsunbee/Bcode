@@ -168,7 +168,7 @@ public sealed class UiTemplate
     /// <summary>Các nút cố định khác của thanh trên (sau nút Script) — topbar.html đặt data-top theo id này. Style riêng lưu ở Items["script:" + id] như nút Script.</summary>
     public static readonly (string Id, string Text)[] TopFixedButtons =
     {
-        ("deploy", "Triển khai ▾"), ("ext", "Tool mở rộng ▾"), ("claude", "Claude"), ("gemini", "Gemini"), ("help", "Trợ giúp"),
+        ("deploy", "Triển khai ▾"), ("ext", "Tool mở rộng ▾"), ("claude", "Claude"), ("gemini", "Gemini"), ("fun", "Giải trí ▾"), ("help", "Trợ giúp"),
     };
 
     /// <summary>Mọi nút có sẵn của thanh trên, theo thứ tự mặc định.</summary>
@@ -182,15 +182,24 @@ public sealed class UiTemplate
     public const string TopDownPrefix = "top:";
 
     /// <summary>Thứ tự đầy đủ của thanh trên: các id hợp lệ trong <see cref="ScriptOrder"/> (nút công cụ chỉ giữ khi <paramref name="isTool"/>(key) đúng),
-    /// nút có sẵn còn thiếu (file cũ chỉ lưu 5 nút Script) thêm vào cuối theo thứ tự mặc định.</summary>
+    /// nút có sẵn còn thiếu (file cũ chỉ lưu 5 nút Script, hoặc nút mới thêm sau như "Giải trí") chèn ngay sau nút đứng trước nó theo thứ tự mặc định
+    /// (không có thì thêm vào cuối) — người đã đổi thứ tự vẫn thấy nút mới đúng chỗ (Giải trí giữa Gemini và Trợ giúp).</summary>
     public List<string> TopOrder(Func<string, bool> isTool, ICollection<string>? movedDown = null)
     {
-        var known = TopButtons.Select(b => b.Id).Where(id => movedDown is null || !movedDown.Contains(id)).ToList();
+        var defaults = TopButtons.Select(b => b.Id).ToList();
+        var known = defaults.Where(id => movedDown is null || !movedDown.Contains(id)).ToList();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var ids = ScriptOrder.Where(id => !string.IsNullOrEmpty(id)
                 && (known.Contains(id) || id.StartsWith(TopToolPrefix, StringComparison.OrdinalIgnoreCase) && isTool(id[TopToolPrefix.Length..]))
                 && seen.Add(id)).ToList();
-        ids.AddRange(known.Where(id => !seen.Contains(id)));
+        foreach (var id in known.Where(id => !seen.Contains(id)))
+        {
+            var at = -1;
+            for (var k = defaults.IndexOf(id) - 1; k >= 0 && at < 0; k--)
+                at = ids.FindIndex(x => x.Equals(defaults[k], StringComparison.OrdinalIgnoreCase));
+            if (at < 0) ids.Add(id); else ids.Insert(at + 1, id);
+            seen.Add(id);
+        }
         return ids;
     }
 

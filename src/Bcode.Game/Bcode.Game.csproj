@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- "Giải lao" — game suy luận xã hội chơi chung qua LAN văn phòng (chủ đề triển khai dự án ERP Fast).
-       Exe RIÊNG: Bcode chỉ build kèm, chép ra thư mục Game\ cạnh Bcode.exe và mở từ menu "Tool mở rộng → Giải lao" — Bcode không nạp gì của game.
+       Exe RIÊNG: Bcode chỉ build kèm, chép ra thư mục Game\ cạnh Bcode.exe và mở từ menu "Giải trí → Giải lao" — Bcode không nạp gì của game.
        Không có thư viện ngoài ngoài WebView2: đọc .xlsx bằng ZipArchive + XmlReader (Data/XlsxReader.cs), mạng bằng TcpListener / UdpClient.
        ⚠ Bộ câu hỏi là tài liệu NỘI BỘ — KHÔNG đưa file Excel / câu hỏi / đáp án vào repo hay bộ cài: chủ phòng chọn file lúc mở phòng. -->
   <PropertyGroup>

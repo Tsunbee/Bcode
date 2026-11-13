@@ -34,6 +34,7 @@ public partial class MainForm
         if (key.StartsWith("plugin:", StringComparison.Ordinal)) return "Thanh trên → Tool mở rộng ▾ (plugin)";
         if (DeployToolKeys.Contains(key)) return "Thanh trên → Triển khai ▾";
         if (ExtToolKeys.Contains(key)) return "Thanh trên → Tool mở rộng ▾";
+        if (FunToolKeys.Contains(key)) return "Thanh trên → Giải trí ▾";
         if (TopBarToolKeys.Contains(key)) return $"Thanh trên → nút {label}";
         if (TopToolKeys().Contains(key)) return "Thanh trên (đã kéo lên ở Template → Bố cục)";
         if (_settings.HiddenToolKeys.Contains(key)) return "Đang ẩn khỏi thanh công cụ (★ Quick Access để hiện lại)";

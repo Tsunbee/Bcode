@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- "Xem chung" — phòng chiếu phim qua LAN văn phòng: link YouTube / MP4 / MP3 trên mạng, hoặc file trên máy chủ phòng phát qua LAN.
-       Exe RIÊNG (module tách khỏi game Giải lao): Bcode chỉ build kèm, chép ra thư mục Watch\ cạnh Bcode.exe, mở từ menu "Tool mở rộng → Xem chung".
+       Exe RIÊNG (module tách khỏi game Giải lao): Bcode chỉ build kèm, chép ra thư mục Watch\ cạnh Bcode.exe, mở từ menu "Giải trí → Xem chung".
        Không có thư viện ngoài ngoài WebView2: mạng bằng TcpListener / UdpClient (không HttpListener — bind ra ngoài localhost cần quyền admin). -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>

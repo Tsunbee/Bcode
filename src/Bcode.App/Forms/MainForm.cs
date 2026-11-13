@@ -657,6 +657,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 if (WebMenu.JustDismissed) break;
                 ShowExtMenu();
                 break;
+            case "fun":
+                if (WebMenu.JustDismissed) break;
+                ShowFunMenu();
+                break;
             case "tool":
             {
                 // Claude / Gemini / Trợ giúp, hoặc nút thanh công cụ đã kéo lên thanh trên (Template → Bố cục & font).
@@ -918,6 +922,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             "add" or "view" or "clear" or "save" or "copy" => (_, _) => OnTopBarCommand("script", which: id),
             "deploy" => (_, _) => ShowDeployMenu(),
             "ext" => (_, _) => ShowExtMenu(),
+            "fun" => (_, _) => ShowFunMenu(),
             _ => (_, _) =>
             {
                 var key = id switch { "claude" => "claude_web", "gemini" => "gemini_web", _ => id };
@@ -925,7 +930,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 spec.action?.Invoke(this, EventArgs.Empty);
             },
         };
-        return (token, id is "deploy" or "ext" ? label + " ▾" : label, null, act);
+        return (token, id is "deploy" or "ext" or "fun" ? label + " ▾" : label, null, act);
     }
 
     private HashSet<string> TopToolKeys()
@@ -1295,13 +1300,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private static readonly string[] DeployToolKeys = { "check_cfs", "bbxn", "screen_designer", "api_config", "api_schema_builder", "fsg_req_report", "weekly_mail", "tk2_help", "tk2_forum" };
 
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
-    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms", "folder_compare", "giai_lao", "xem_chung" };
+    private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms", "folder_compare" };
+
+    // Menu "Giải trí" (thanh trên, giữa Gemini và Trợ giúp): game LAN + rạp phim xem chung — exe riêng, Bcode chỉ mở tiến trình.
+    private static readonly string[] FunToolKeys = { "giai_lao", "xem_chung" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
     private readonly List<string> _pluginToolKeys = new();   // tool do plugin ngoài khai (mục 4) — nằm trong menu "Tool mở rộng", không ra thanh nút chính
 
-    private static bool IsMenuTool(string key) => key.StartsWith("plugin:", StringComparison.Ordinal) || DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key) || TopBarToolKeys.Contains(key);
+    private static bool IsMenuTool(string key) => key.StartsWith("plugin:", StringComparison.Ordinal) || DeployToolKeys.Contains(key) || ExtToolKeys.Contains(key) || FunToolKeys.Contains(key) || TopBarToolKeys.Contains(key);
 
     /// <summary>Khoá các nút mặc định của thanh công cụ (không gồm các công cụ trong menu Triển khai).</summary>
     private List<string> BarToolKeys() => _toolSpecs.Where(t => !IsMenuTool(t.key)).Select(t => t.key).ToList();
@@ -1309,6 +1317,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void ShowDeployMenu() => ShowToolMenu("Triển khai", DeployToolKeys);
 
     private void ShowExtMenu() => ShowToolMenu("Tool mở rộng", ExtToolKeys.Concat(_pluginToolKeys).ToArray());
+
+    private void ShowFunMenu() => ShowToolMenu("Giải trí", FunToolKeys);
 
     private void ShowToolMenu(string caption, string[] keys)
     {

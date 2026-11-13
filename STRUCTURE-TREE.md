@@ -91,7 +91,7 @@ Bcode.App/
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  351
 │   ├── NativeResultPane.cs  474
-│   ├── NativeShellBars.cs  383
+│   ├── NativeShellBars.cs  384
 │   ├── NativeSqlControl.cs  2528
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
@@ -168,8 +168,8 @@ Bcode.App/
 │   ├── LicenseKeyForm.cs  131
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
-│   ├── MainForm.BcodeFeatures.cs  107
-│   ├── MainForm.cs  5088
+│   ├── MainForm.BcodeFeatures.cs  108
+│   ├── MainForm.cs  5098
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  105
 │   ├── MainForm.Hibernate.cs  64
@@ -309,7 +309,7 @@ Bcode.App/
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
 │   ├── FieldGridDocument.cs  824
-│   ├── FileLookupService.cs  1530
+│   ├── FileLookupService.cs  1566
 │   ├── FileParseCache.cs  408
 │   ├── FileReferenceService.cs  46
 │   ├── FolderCompareService.cs  279
@@ -380,7 +380,7 @@ Bcode.App/
 │   ├── ViewerLauncher.cs  51
 │   ├── VoucherCloneService.cs  1367
 │   ├── VoucherOverlay.cs  62
-│   ├── VoucherSqlScriptService.cs  391
+│   ├── VoucherSqlScriptService.cs  427
 │   ├── WCommandService.cs  934
 │   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
@@ -414,7 +414,7 @@ Bcode.App/
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
 │   ├── UiScale.cs  69
-│   ├── UiTemplate.cs  574
+│   ├── UiTemplate.cs  583
 │   ├── UiThemes.cs  341
 │   └── WebViewEnvironment.cs  426
 ├── Web/
@@ -488,9 +488,9 @@ Bcode.App/
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  195
 │       ├── shell.css  249
-│       ├── sqleditor.html  1720
+│       ├── sqleditor.html  1741
 │       ├── sqlhints-help.html  109
-│       ├── sqlhints.js  609
+│       ├── sqlhints.js  624
 │       ├── sqlhistory.html  330
 │       ├── sqlmessages.html  93
 │       ├── sqlobjectbar.html  75
@@ -504,7 +504,7 @@ Bcode.App/
 │       ├── tablebar.html  326
 │       ├── tablestruct.html  139
 │       ├── teamnotes.html  275
-│       ├── topbar.html  213
+│       ├── topbar.html  215
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1351
@@ -516,7 +516,7 @@ Bcode.App/
 │       ├── wcommandduplicate.html  37
 │       ├── wcommandedit.html  193
 │       └── weeklymail.html  556
-├── Bcode.App.csproj  261
+├── Bcode.App.csproj  262
 ├── BcodePaths.cs  48
 └── Program.cs  45
 ```
@@ -613,10 +613,10 @@ BcodeViewer.App/
 │   ├── quickopen.js  184
 │   ├── search.js  335
 │   ├── settings.js  802
-│   ├── shell.js  874
+│   ├── shell.js  878
 │   ├── sqlrun.js  635
 │   ├── style.css  1056
-│   ├── tabs.js  249
+│   ├── tabs.js  253
 │   ├── tabswitcher.js  228
 │   ├── templates.js  433
 │   ├── theme.js  227
@@ -687,7 +687,7 @@ Bcode.KeyGen/
 Shared/
 ├── AiWebHelper.cs  373
 ├── AppSwitchFocus.cs  86
-├── AppUpdate.cs  705
+├── AppUpdate.cs  774
 ├── AppUpdateDialog.cs  171
 ├── AppUpdateForm.cs  181
 ├── AppUpdateToast.cs  195

@@ -716,5 +716,5 @@ if (wv) {
   wv.addEventListener("message", (e) => { try { handle(e.data); } catch (err) { console.error(err); } });
   post({ t: "ui.init" });
 } else {
-  $("homeErr").textContent = "Trang này chạy trong cửa sổ game của Bcode (WebView2) — mở từ Bcode → Tool mở rộng → Giải lao.";
+  $("homeErr").textContent = "Trang này chạy trong cửa sổ game của Bcode (WebView2) — mở từ Bcode → Giải trí → Giải lao.";
 }

@@ -17,7 +17,7 @@ Trong Bcode, tài liệu này mở bằng nút **Trợ giúp** trên thanh trên
   - [Table](#table) · [Lookup](#command-lookup) · [SQL Object, Ai đang dùng, So sánh](#sql-object)
   - [WCommand](#wcommand) · [Mobile](#mobile) · [File Lookup](#file-lookup) · [Cấp source, Copy to, Clone](#cap-source)
   - [Gen Update](#gen-update) · [Note và Note (New)](#note) · [BcodeNote (nhiều dự án)](#bcodenote) · [Create RPT & XML, Tạo báo cáo](#create-rpt)
-  - [Menu Triển khai](#trien-khai) · [Menu Tool mở rộng](#tool-mo-rong) · [Tiện ích khác](#tien-ich)
+  - [Menu Triển khai](#trien-khai) · [Menu Tool mở rộng](#tool-mo-rong) · [Menu Giải trí](#giai-tri) · [Tiện ích khác](#tien-ich)
   - [Template giao diện](#template) · [Phím tắt và Settings phím tắt](#phim-tat) · [Key bản quyền](#key-ban-quyen) · [Lỗi hay gặp](#loi-thuong-gap)
 - **Phần II — BcodeViewer**
   - [Màn hình chính](#viewer-giao-dien) · [Mở, lưu file và lịch sử](#viewer-mo-file) · [IntelliSense](#viewer-intellisense)
@@ -177,6 +177,7 @@ Trên ảnh: **①** ⚙ Settings · **②** Actions · **③** giỏ script: Ad
 | **Add / View / Clear / Save / Copy Script** | Giỏ script (Script Cart) — xem dưới |
 | **Triển khai ▾**, **Tool mở rộng ▾** | Các công cụ triển khai và mở rộng (xem [Menu Triển khai](#trien-khai), [Menu Tool mở rộng](#tool-mo-rong)) |
 | **Claude**, **Gemini** | Mở claude.ai / gemini trong một tab (đăng nhập bằng tài khoản web, không cần API key) |
+| **Giải trí ▾** | Game LAN **Giải lao** và rạp phim **Xem chung** (xem [Menu Giải trí](#giai-tri)) |
 | **Trợ giúp** | Tab hướng dẫn này — mở đúng mục của tab đang dùng (`Ctrl+F1`) |
 | **WS:** · ⟳ · **Sys / App** | Chọn database, Refresh database (xem [Chọn dự án](#du-an)) |
 | ☀/☾ | Đổi giao diện sáng / tối — Bcode nhớ lựa chọn, lần mở sau (cả chế độ App lẫn Web) vẫn đúng sáng / tối đã chọn; chưa chọn bao giờ thì mặc định tối |
@@ -1158,6 +1159,14 @@ Lưu ý:
 | **So sánh thư mục** | So 2 thư mục (vd 2 thư mục `bin`) để tìm file khác nhau, tick file để chép từ A sang B. Xem [So sánh thư mục](#so-sanh-thu-muc). |
 | **Tạo chứng từ** | Nhân bản chứng từ có sẵn sang mã mới, xem [Tạo chứng từ](#tao-chung-tu). Cần key. |
 | **Note (New) nhiều dự án** | Mở **BcodeNote.exe** vào dự án đang chọn: Note (New) chuyển qua lại nhiều dự án, chọn menu để gợi ý Gen All / File Path / SQL Object / Table liên quan. Dùng chung dữ liệu với Note (New). Xem [BcodeNote](#bcodenote). |
+
+<a id="giai-tri"></a>
+## Menu Giải trí
+
+Nút **Giải trí ▾** trên thanh trên (giữa **Gemini** và **Trợ giúp**) — giải trí cùng đồng nghiệp qua mạng LAN văn phòng. Mỗi mục là chương trình riêng, Bcode chỉ mở nó, không nặng thêm.
+
+| Mục | Dùng để |
+|---|---|
 | **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–8 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
 | **Xem chung (rạp phim LAN)** | Mở **Rạp Bcode** — xem chung YouTube / MP4 / MP3 với cả phòng qua mạng LAN, có bình luận. Xem [Xem chung](#xem-chung). |
 
@@ -1168,7 +1177,7 @@ Game suy luận xã hội chơi chung qua mạng LAN, chủ đề đêm trước
 
 **Mở phòng / vào phòng**
 
-1. **Tool mở rộng → Giải lao (game LAN)**. Gõ tên của bạn.
+1. **Giải trí → Giải lao (game LAN)**. Gõ tên của bạn.
 2. Một người bấm **Mở phòng** (máy này giữ toàn bộ ván: vai, đáp án, lỗi). Lần đầu Windows có thể hỏi tường lửa — chọn **cho phép trên mạng Private**, không thì máy khác không vào được.
 3. Trong phòng chờ, chủ phòng bấm **📂 Chọn file câu hỏi (Excel)**: file trắc nghiệm, mỗi sheet có cột `Câu hỏi`, `PA1..PA5`, `ĐA1..ĐA5` (1 = đúng) là một **phân hệ** (một phòng trên bản đồ); sheet không có cột "Câu hỏi" tự bỏ qua. Lần sau mở phòng game **tự nạp lại file lần trước**; máy chưa chọn bao giờ thì tự lấy file `.xlsx` đặt sẵn trong thư mục `Game\CauHoi\` (hoặc cạnh `BcodeGame.exe`), không có nữa thì lấy ở thư mục dùng chung `\\172.168.5.17\Users\HAOTN\BcodeGame\CauHoi\` trên mạng văn phòng (đổi thư mục khác bằng `"BankDir"` trong `game-lan.json`) — để file ở đó thì máy nào mở phòng cũng có câu hỏi. File chỉ đọc trên máy chủ phòng — người chơi khác **không** nhận file hay đáp án. Chỉnh hạn dự án, số nhiệm vụ, giờ thảo luận / bỏ phiếu… rồi **▶ Bắt đầu** (cần 5–8 người).
 4. Người khác: phòng hiện trong danh sách **Phòng trong mạng LAN** → **Vào**. Không thấy (khác VLAN / subnet) thì gõ **IP chủ phòng** (hiện ở dòng đầu phòng chờ của chủ phòng) vào ô dưới → **Vào**.
@@ -1195,7 +1204,7 @@ Xem chung video / nhạc với cả phòng qua mạng LAN văn phòng: mọi má
 
 **Mở phòng / vào phòng**
 
-1. **Tool mở rộng → Xem chung (rạp phim LAN)**. Gõ tên của bạn.
+1. **Giải trí → Xem chung (rạp phim LAN)**. Gõ tên của bạn.
 2. Một người bấm **Mở phòng** → thành **chủ phòng**. Lần đầu Windows có thể hỏi tường lửa — chọn **cho phép trên mạng Private**. Dòng đầu rạp của chủ phòng tự kiểm tra tường lửa (⛔ / ⚠ / ✅); bị chặn thì bấm **🛡 Mở tường lửa** (cần quyền admin — mở cổng TCP 47831–47850, UDP 47830).
 3. Người khác: phòng hiện trong danh sách **Phòng chiếu trong mạng LAN** → **Vào xem**; không thấy thì gõ **IP chủ phòng** → **Vào**.
 
@@ -1498,6 +1507,12 @@ Góc phải thanh menu có nút **💡 Hint** (bóng đèn) — mở Hint Code (
 ### Thanh công cụ (mặc định)
 
 Save (`Ctrl+S`) · Save As · ⚠ Check (so `<fields>` với `<views>` của Dir/Grid) · Undo · Redo · Comment (`Ctrl+/`) · Bookmark · ● Next · Refresh (tải lại file từ đĩa) · Hint (Hint Code) · Tìm project · Problems · Outline · Xem Dir · Chạy SQL · Tách đôi · Wrap (`Alt+Z`) · 🤖 Claude Sidebar · ✨ Gemini Sidebar · 📎 Đính kèm file · Clear Structure · Reset WebConfig · Open WebConfig (mở web.config của site).
+
+**Comment** (`Ctrl+/`, bấm lại để bỏ comment) với file XML của Fast tự chọn kiểu theo chỗ con trỏ đứng, comment trọn các dòng đang chọn:
+- Trong `<![CDATA[ ... ]]>` (SQL, JS, CSS) → `/* ... */`. Cũng dùng `/* */` cho dòng `&Entity;` nằm trong `<text>` của `<script>` / `<command>` / `<action>` / `<css>` (entity ở đó bung ra JS / SQL), cho giá trị `<!ENTITY Ten "...">` và cho file include chỉ chứa code (vd `Include\Javascript\*.txt`).
+- Thẻ XML và `&Entity;` đứng giữa các thẻ (vd `&XMLGetTaxRate;` trong `<response>`, bung ra `<action>…</action>`) → `<!-- ... -->`.
+- Dòng đang có `--` / `//` (kiểu comment cũ) hoặc `<!-- -->` trong vùng code thì Ctrl+/ gỡ ra. Vùng chọn vắt từ thẻ XML vào giữa CDATA, hoặc JS đã có `*/` bên trong (JS không lồng comment được), thì Bcode báo chứ không sửa.
+- File `.js` / `.sql` / `.css` riêng vẫn comment theo kiểu của ngôn ngữ đó (`//`, `--`, `/* */`).
 
 Đầu bên phải thanh công cụ là ô **cỡ chữ** `100%  −  +  Đặt lại` (gõ số % rồi Enter, hoặc `Ctrl` + lăn chuột). Ẩn thanh công cụ (Settings → Bố cục, hoặc *Tự ẩn Menu/Toolbar*) thì ô này ẩn theo — `Ctrl` + lăn chuột vẫn đổi cỡ chữ.
 

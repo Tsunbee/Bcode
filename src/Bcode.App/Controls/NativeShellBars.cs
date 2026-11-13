@@ -92,7 +92,7 @@ public sealed class NativeTopBar : Panel
     private string _sysName = "", _appName = "";
     private bool _sysView;
 
-    /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | quickaccess | theme | refresh-db | notify.</summary>
+    /// <summary>Nút bấm trong thanh: settings | actions | deploy | ext | fun | quickaccess | theme | refresh-db | notify.</summary>
     public event Action<string>? Action;
     public event Action<string>? ToolClicked;      // claude_web / gemini_web / help / key nút công cụ đã kéo lên thanh trên
     public event Action<string>? ScriptClicked;    // add | view | clear | save | copy
@@ -127,6 +127,7 @@ public sealed class NativeTopBar : Panel
         Fixed("ext", "Tool mở rộng ▾", "Công cụ mở rộng: Check Include, Tạo báo cáo, Tạo nhanh danh mục", () => Action?.Invoke("ext"));
         Fixed("claude", "Claude", "Mở Claude trong một tab", () => ToolClicked?.Invoke("claude_web"));
         Fixed("gemini", "Gemini", "Mở Gemini trong một tab", () => ToolClicked?.Invoke("gemini_web"));
+        Fixed("fun", "Giải trí ▾", "Giải trí qua mạng LAN văn phòng: game Đêm Go-Live, rạp phim xem chung", () => Action?.Invoke("fun"));
         Fixed("help", "Trợ giúp", "Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)", () => ToolClicked?.Invoke("help"));
 
         _ws.SelectionChanged += i => WorkspaceSelected?.Invoke(i);

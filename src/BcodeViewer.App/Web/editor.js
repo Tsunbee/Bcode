@@ -1298,11 +1298,13 @@ class BcodeEditor {
     this.editor.focus();
   }
 
-  /// Monaco's own built-in "Toggle Line Comment" action — works out of the box per
-  /// language (XML's comment rules give <!-- --> block comments; there's no dedicated
-  /// FastBusiness "--" toggle here, unlike FCode's own, but it's the same underlying idea).
+  /// Comment / bỏ comment dòng. File FCode XML: chọn kiểu theo vùng (fcodecomment.js) — trong CDATA / chữ của <text>
+  /// thuộc <script>/<command>/<action>/<css>... / giá trị <!ENTITY> là /* */, còn lại <!-- -->. Ngôn ngữ khác (.js, .sql...)
+  /// dùng lệnh "Toggle Line Comment" gốc của Monaco.
   toggleComment() {
-    this.editor.getAction('editor.action.commentLine')?.run();
+    const ed = typeof bcodeFocusedEditor === 'function' ? bcodeFocusedEditor(this) : this.editor;
+    if (window.fcodeToggleComment && window.fcodeToggleComment(ed, (m) => this.showToast(m, 4000))) return;
+    ed.getAction('editor.action.commentLine')?.run();
   }
 
   toggleBookmark() {

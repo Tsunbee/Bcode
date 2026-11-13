@@ -63,6 +63,7 @@
     <button class="btn" data-top="ext" id="btnExt" title="Công cụ mở rộng: Check Include, Tạo báo cáo, Tạo nhanh danh mục">Tool mở rộng ▾</button>
     <button class="btn" data-top="claude" id="btnClaude" data-tool="claude_web" title="Mở Claude trong một tab">Claude</button>
     <button class="btn" data-top="gemini" id="btnGemini" data-tool="gemini_web" title="Mở Gemini trong một tab">Gemini</button>
+    <button class="btn" data-top="fun" id="btnFun" title="Giải trí qua mạng LAN văn phòng: game Đêm Go-Live, rạp phim xem chung">Giải trí ▾</button>
     <button class="btn" data-top="help" id="btnHelp" data-tool="help" title="Hướng dẫn sử dụng từng tính năng (Ctrl+F1 — mở đúng mục của tab đang dùng)">Trợ giúp</button>
   </div>
   <div class="spacer"></div>
@@ -104,6 +105,7 @@
   document.getElementById('btnActions').addEventListener('click', () => post({ action: 'show-actions-menu' }));
   document.getElementById('btnDeploy').addEventListener('click', () => post({ action: 'deploy' }));
   document.getElementById('btnExt').addEventListener('click', () => post({ action: 'ext' }));
+  document.getElementById('btnFun').addEventListener('click', () => post({ action: 'fun' }));
   document.getElementById('btnQuickAccess').addEventListener('click', () => post({ action: 'quickaccess' }));
   document.getElementById('btnTheme').addEventListener('click', () => post({ action: 'theme' }));
   document.getElementById('btnNotify').addEventListener('click', () => post({ action: 'notify' }));

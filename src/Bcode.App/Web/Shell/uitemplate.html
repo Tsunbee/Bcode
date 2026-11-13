@@ -500,6 +500,14 @@
     <div class="swatches" id="swatches"></div>
   </div>
   <div class="panel">
+    <h3>Thú cưng &amp; hiệu ứng 🐝🌸</h3>
+    <div class="row"><label>Thú cưng</label><div class="ctl"><button class="btn btn-border" id="btnPets">Thú cưng (thanh trạng thái, SQL Query)...</button><span class="muted" style="font-size:11.5px">loài, số con, tên, mùa, báo việc, nhắc nghỉ, DB khách, trong editor SQL</span></div></div>
+    <div class="row"><label>Hoa đào rơi</label><div class="ctl"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="petalRain"> Cánh hoa hồng / trắng rơi dọc mép trái và phải cửa sổ (chuột bấm xuyên qua)</label></div></div>
+    <div class="row"><label>Mật độ</label><div class="ctl"><select id="petalDensity"><option value="1">Thưa</option><option value="2">Vừa</option><option value="3">Dày</option></select></div></div>
+    <div class="row"><label>Thanh trên</label><div class="ctl"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="petalBar"> Tô thanh trên + dải công cụ màu hoa đào (khi bật hoa đào rơi)</label></div></div>
+    <div class="muted" style="font-size:11.5px">Hoa đào: đổi là áp và lưu ngay (không cần bấm Lưu). Tự ẩn khi chia sẻ màn hình theo danh sách trong cửa sổ Thú cưng.</div>
+  </div>
+  <div class="panel">
     <h3>Màu chi tiết (chỉnh tay chồng lên theme)</h3>
     <div class="pal" id="pal"></div>
     <div class="ctl" style="margin-top:10px"><button class="btn btn-border" id="btnResetColors">Đặt lại các màu đã chỉnh</button></div>
@@ -848,6 +856,14 @@
   $('btnHistBrowse').onclick = () => post('browse-history', { path: S.historyPath });
   $('btnHistOpen').onclick = () => post('open-history', { path: S.historyPath });
   // ---- khôi phục phiên (lưu ngay vào AppSettings) ----
+  // Hiệu ứng hoa đào (tab Theme & màu) — áp + lưu ngay như Khôi phục phiên (C#: petal-get / petal-set → StatusPetSettings.PetalRain / PetalDensity / PetalBar).
+  window.setPetal = (p) => {
+    $('petalRain').checked = !!p.rain; $('petalDensity').value = String(p.density || 2); $('petalBar').checked = p.bar !== false;
+    $('petalDensity').disabled = !p.rain; $('petalBar').disabled = !p.rain;
+  };
+  const petalSet = () => post('petal-set', { rain: $('petalRain').checked, density: +$('petalDensity').value, bar: $('petalBar').checked });
+  $('btnPets').onclick = () => post('open-pets');
+  $('petalRain').onchange = petalSet; $('petalDensity').onchange = petalSet; $('petalBar').onchange = petalSet;
   window.setSession = (on, ask, mode) => { $('sesOn').checked = !!on; $('sesAsk').checked = ask !== false; $('sesMode').value = mode || 'all'; };
   const sendSession = () => post('session-set', { on: $('sesOn').checked, ask: $('sesAsk').checked, mode: $('sesMode').value });
   const PERF_NAMES = { low: 'Thấp', medium: 'Trung bình', high: 'Cao' };
@@ -1314,6 +1330,7 @@ $('swCopyX').onclick = () => sendSwCopy('');
     $('tabStruct').style.display = name === 'struct' ? 'block' : 'none';
     $('tabEditor').style.display = name === 'editor' ? 'block' : 'none';
     $('tabWindow').style.display = name === 'window' ? 'block' : 'none';
+    if (name === 'theme') post('petal-get');
     if (name === 'window') { post('session-get'); post('perf-get'); post('profiler-mode-get'); }
     $('tabKeys').style.display = name === 'keys' ? 'block' : 'none';
     $('tabBtnEditor').classList.toggle('active', name === 'editor'); $('tabBtnWindow').classList.toggle('active', name === 'window');

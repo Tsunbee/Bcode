@@ -91,6 +91,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
     public event Action<DataTable>? ResultReady;
     public event Action<string>? CreateRptRequested;
     public event Action<string, bool, bool, int, int>? ScriptExecuted;
+    public event Action<bool>? RunningChanged;
     public event Action<string, bool>? SaveHistoryRequested;
     public Func<string>? CurrentProject { get; set; }
 
@@ -1783,6 +1784,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             if (string.IsNullOrWhiteSpace(script)) { SetStatus("", null); return; }
             var useSys = _useSys;
             ranScript = script; ranSys = useSys;
+            RunningChanged?.Invoke(true);
             var tracked = await Task.Run(() => SqlHistoryService.Detect(script));
             if (tracked.Count > 0) await CaptureHistoryBaselineAsync(tracked, useSys);
             var results = _resetConnOn
@@ -1844,6 +1846,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
             tick.Stop(); tick.Dispose();
             _running = false;
             SetRunningUi(false);
+            if (ranScript is not null) RunningChanged?.Invoke(false);
         }
     }
 

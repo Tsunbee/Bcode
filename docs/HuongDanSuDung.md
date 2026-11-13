@@ -172,7 +172,7 @@ Trên ảnh: **①** ⚙ Settings · **②** Actions · **③** giỏ script: Ad
 
 | Mục | Dùng để |
 |---|---|
-| ⚙ (bánh răng) | Menu **Settings**: Choose Server / Workspaces · Tỉ lệ giao diện · Khôi phục các tab · Tự lưu phiên · Claude/Gemini nhúng vào tab SQL Query · **Thú cưng (thanh trạng thái, SQL Query)...** (mặc định tắt: chọn ong, bướm, chim, bọ rùa, mèo, ốc sên — số con mỗi loại, tốc độ, phản ứng với chuột, hoa, vệt; có khung xem trước. Mục **Trong editor SQL Query** cho 1 con thú thay con trỏ chuột trong editor — xem [Thú cưng trong editor SQL Query](#sql-pet)) · **Giao diện (Template)...** · Kiểu giao diện (Mềm / Gọn / Thoáng / Vuông vức) · Chế độ giao diện · Cây menu: bỏ qua file theo tên · Hướng dẫn gợi ý code SQL · **Key bản quyền** · Backup / Restore / Attach Database · Exit |
+| ⚙ (bánh răng) | Menu **Settings**: Choose Server / Workspaces · Tỉ lệ giao diện · Khôi phục các tab · Tự lưu phiên · Claude/Gemini nhúng vào tab SQL Query · **Giao diện (Template)...** (tab **Theme & màu** có nút **Thú cưng...** và khung **Hoa đào rơi** — xem [Thú cưng trên thanh trạng thái](#status-pet), [Hoa đào rơi](#petal-rain)) · Kiểu giao diện (Mềm / Gọn / Thoáng / Vuông vức) · Chế độ giao diện · Cây menu: bỏ qua file theo tên · Hướng dẫn gợi ý code SQL · **Key bản quyền** · Backup / Restore / Attach Database · Exit |
 | **Actions ▾** | Choose Server (`Ctrl+O`) · Projects (`Ctrl+Shift+P`) · New Bcode window (`Ctrl+Shift+N`) · Switch Database (`Ctrl+1`) · SQL Profiler (`Ctrl+3`) · **SQL SMS (Mở SSMS)** · Open Program Path (`Ctrl+5`) · Script ▸ · **Tools ▸** (mọi công cụ kèm phím tắt) · **Tab & cửa sổ ▸** (Close Tab, Close All But This, Close Tabs to the Right, Close All Tab, Hide / Show cây menu, Tuỳ chỉnh giao diện web) · Clear Structure App · **Clear Structure ▸** (Clear App / Sys / Ext / Dir / Filter / Grid / Lookup · All · Open Structure Folder) · **Open Web.config** · Refresh Web.config · Create Menu |
 | **Add / View / Clear / Save / Copy Script** | Giỏ script (Script Cart) — xem dưới |
 | **Triển khai ▾**, **Tool mở rộng ▾** | Các công cụ triển khai và mở rộng (xem [Menu Triển khai](#trien-khai), [Menu Tool mở rộng](#tool-mo-rong)) |
@@ -227,6 +227,25 @@ Hàng nút dưới thanh trên, chia vùng bằng dấu "|": SQL (SQL Query, Loo
 ### Thanh trạng thái
 
 Bên trái: workspace + server đang dùng. Bên phải: **Login WLink** (bấm để mở web đăng nhập), nút **▾ Project** (mở nhanh thư mục Program / Source / Working / Mobile, **Copy Project Info**) và tên máy.
+
+<a id="status-pet"></a>
+**Thú cưng trên thanh trạng thái** (trang trí, mặc định tắt): ⚙ Settings → **Giao diện (Template)...** → tab **Theme & màu** → nút **Thú cưng (thanh trạng thái, SQL Query)...** → tick **Bật thú cưng trên thanh trạng thái**. Mọi thay đổi trong cửa sổ áp ngay (khung **Xem trước** để thử, bấm vào con thú trong đó để thấy bong bóng mẹo); **Hủy** trả lại như cũ.
+
+| Tuỳ chọn | Tác dụng |
+|---|---|
+| **Con vật** | Ong, bướm, chim, bọ rùa, mèo, ốc sên, **cá** (bơi lượn, nhả bong bóng, chuột lại gần thì bơi vụt đi), **đom đóm** (đuôi sáng nhấp nháy, đẹp nhất với theme tối) — tối đa 5 con mỗi loài. Ô bên phải mỗi dòng: **tên** con thú (để trống = tên mặc định như *Mướp*, *Ong Vàng*) |
+| **Tốc độ**, **Phản ứng với chuột**, **Hoa**, **Vệt** | Như trước: rê chuột trên thanh — ong / bướm bay theo thả tim, mèo vồ, chim bay mất, ốc rụt vỏ |
+| **Trang trí theo mùa** + ô **Mùa** | Mỗi mùa có **cây** đứng trên thanh, **hoa** đúng màu mùa (mọc cả khi không nuôi ong / bướm) và hạt rơi / bay: **Tết** chậu mai + hoa mai vàng + cánh mai rơi · **Trung thu** cột tre treo 3 đèn lồng đung đưa + hoa cúc + đèn lồng bay lên · **Noel** cây thông đèn nháy + hoa trạng nguyên + tuyết rơi + thú đội mũ. Ô **Mùa**: *Tự động theo ngày* (Tết = 23 tháng Chạp → rằm tháng Giêng âm lịch, Trung thu = 8 → 20 tháng Tám âm lịch, Noel = 15 → 26/12; ngày thường thì không có cây, hoa hồng như cũ) hoặc chọn cố định **Tết / Trung thu / Noel** để giữ cây + hoa mùa đó quanh năm. Sau 18h mèo buồn ngủ hơn |
+| **Phản ứng khi chạy SQL Query** | Chạy xong không lỗi: thú thả tim (chạy lâu hơn 10 giây thì thả nhiều tim), ong nhào lộn. Lỗi (hoặc bấm Cancel): thú giơ **!** đỏ, chim bay mất, ốc rụt vỏ, mèo giật mình. Đang chạy quá 5 giây: mèo nằm ngủ zZ chờ, chạy xong thì thức dậy — đang làm việc khác vẫn liếc thanh trạng thái là biết kết quả |
+| **Bấm vào con thú để xem mẹo** | Bấm vào con thú (con trỏ thành bàn tay): bong bóng hiện 1 mẹo — phím tắt đang dùng (theo Settings → Phím tắt) hoặc cách dùng Bcode; bấm tiếp ra mẹo khác. Rê chuột lên con thú một lúc: hiện tên và "ở với bạn N ngày" (tính từ lần đầu bật thú cưng) |
+| **Nhắc nghỉ sau** | Tắt / 45 / 60 / 90 / 120 phút dùng Bcode liên tục (chỉ tính lúc cửa sổ Bcode đang được dùng). Đến giờ, mèo (hoặc con đầu tiên) ngồi nhắc "nghỉ chút nhé" — **bấm vào nó để mở Giải lao**. Rời máy từ 5 phút trở lên (không chạm chuột / phím) thì tính lại từ đầu và lời nhắc tự tắt |
+| **Database thật của khách** | Tick các workspace là DB thật của khách. Đang chọn workspace đó thì thanh trạng thái có **vạch đỏ** ở mép trên và thú cưng thỉnh thoảng giơ **!** — nhắc cẩn thận trước khi chạy `DELETE` / `UPDATE` |
+| **Khi chia sẻ màn hình** | Tick **Tạm ẩn thú cưng khi đang chạy chương trình** + danh sách tên tiến trình (cách nhau dấu phẩy). Mặc định `BcodeWatch, CptHost`: đang mở **Xem chung** hoặc Zoom **đang chia sẻ màn hình** thì thú cưng ẩn, tắt chương trình đó thì hiện lại (kiểm mỗi 10 giây). Thêm `UltraViewer_Desktop`, `AnyDesk`, `TeamViewer`… nếu muốn ẩn cả khi các chương trình hỗ trợ từ xa đang mở |
+
+<a id="petal-rain"></a>
+**Hoa đào rơi hai bên màn hình** 🌸 (hiệu ứng, mặc định tắt): ⚙ Settings → **Giao diện (Template)** → tab **Theme & màu** → khung **Thú cưng & hiệu ứng 🐝🌸** → **Hoa đào rơi** (chọn thêm **Mật độ**: Thưa / Vừa / Dày; đổi là áp và lưu ngay). Cánh hoa đào hồng và trắng, thon dẹt (thỉnh thoảng một bông 5 cánh nhìn nghiêng) rơi chéo theo gió, lật và xoay dọc mép trái và mép phải cửa sổ Bcode, nhạt dần về phía giữa. Chuột bấm xuyên qua cánh hoa nên không vướng thao tác. Kèm theo, **thanh trên và dải công cụ ngay dưới nhuốm hồng đào** (nền, nút, viền pha hồng theo theme sáng / tối; nút chính như Quick Access thành hồng đào) — bỏ tick **Thanh trên** ở khung Thú cưng & hiệu ứng (Giao diện (Template) → Theme & màu) nếu chỉ muốn hoa rơi. Không phụ thuộc công tắc thú cưng; chạy cả chế độ Web và App; thu nhỏ Bcode thì dừng, đang dùng chương trình khác thì vẽ thưa lại; tự ẩn khi chia sẻ màn hình theo cùng danh sách chương trình ở trên.
+
+**Mặc định** trả các tuỳ chọn trang trí về gốc, giữ nguyên tên thú cưng, danh sách DB khách và thời gian nhắc nghỉ. Thú cưng tự vẽ thưa lại khi bạn đang dùng chương trình khác (khoảng 20 hình / giây) và dừng hẳn khi Bcode thu nhỏ — không làm nặng máy. Cùng bộ thú cưng (loài, tên, mùa, vạch đỏ DB khách theo project đang mở, ẩn khi chia sẻ màn hình) cũng chạy trên **thanh menu của BcodeViewer** — xem [Tab và thanh trạng thái](#viewer-tab-status).
 
 **Copy Project Info** ở đây chép ID, dòng `SQL: Server | User | Password | Sys Data | App Data`, link web và các đường dẫn để dán cho đồng nghiệp. Dòng SQL có **mật khẩu SQL** của dự án; dự án dùng Windows Authentication thì ô User ghi `Windows Authentication` và ô Password để trống. (Nút ⧉ Copy Project Info ở màn Projects thì không chép mật khẩu.)
 
@@ -337,14 +356,14 @@ Chuột phải trong editor: snippet theo nhóm (Library), Cut / Copy / Paste, B
 > **Lưu ý:** `Ctrl` + lăn chuột (hoặc ⚙ Tùy chọn → Tăng / Giảm cỡ chữ) đổi cỡ chữ editor, `Ctrl+0` về mặc định.
 
 <a id="sql-pet"></a>
-**Thú cưng trong editor SQL Query** (trang trí, mặc định tắt): ⚙ Settings → **Thú cưng (thanh trạng thái, SQL Query)...** → mục **Trong editor SQL Query**. Không phụ thuộc công tắc thú cưng trên thanh trạng thái.
+**Thú cưng trong editor SQL Query** (trang trí, mặc định tắt): ⚙ Settings → **Giao diện (Template)...** → tab **Theme & màu** → **Thú cưng (thanh trạng thái, SQL Query)...** → mục **Trong editor SQL Query**. Không phụ thuộc công tắc thú cưng trên thanh trạng thái.
 
 | Tuỳ chọn | Tác dụng |
 |---|---|
 | Kiểu **Tắt** | Editor giữ con trỏ chuột bình thường (mặc định) |
 | Kiểu **Chạy theo chuột (giữ chữ I)** | 1 con chạy / bay theo chuột, đứng lệch xuống dưới bên phải mũi chuột. Con trỏ chữ I giữ nguyên nên đặt con trỏ, bôi chọn vẫn chính xác; con thú không nhận chuột (bấm / kéo xuyên qua được). Chuột đứng yên thì nghỉ (ong / bướm đậu, chim mổ thóc), mèo ngủ zZ sau khoảng 20 giây, rê chuột thì thức dậy |
 | Kiểu **Thay hẳn con trỏ chuột** | Con trỏ chuột trong vùng chữ thành hình con thú, quay theo hướng rê chuột; **chấm đỏ ở mũi con thú là điểm bấm**. Lề số dòng và thanh cuộn vẫn dùng con trỏ thường |
-| **Con vật** | Ong, bướm, chim, bọ rùa, mèo, ốc sên (ốc sên đi rất chậm) |
+| **Con vật** | Ong, bướm, chim, bọ rùa, mèo, ốc sên (ốc sên đi rất chậm). Cá và đom đóm chỉ có trên thanh trạng thái |
 | **Cỡ** | 100–250% hình gốc; kiểu *Thay hẳn con trỏ* tối đa 32 px |
 
 Đổi trong cửa sổ là áp ngay cho mọi tab SQL Query đang mở (khung chữ mẫu trong cửa sổ để thử); **Hủy** trả lại như cũ, **Mặc định** không đụng tới mục này. Có ở cả chế độ Web và App. Con trỏ nhấp nháy chỗ gõ chữ không đổi, gõ phím không bị chậm.
@@ -1333,7 +1352,7 @@ Mở: ⚙ Settings → **Giao diện (Template)...** (cả 2 chế độ đều 
 | Tab | Chỉnh gì |
 |---|---|
 | Bố cục & font | Font gốc, cỡ chữ, font / màu từng vùng, vị trí nút |
-| Theme & màu | Chọn theme cho ô Tối và ô Sáng (nút ☀/☾ đổi giữa 2 ô), **Nhập theme VS Code (.json / .vsix)**, đặt lại màu đã chỉnh. Theme nhập ở BcodeViewer cũng hiện ở đây. |
+| Theme & màu | Chọn theme cho ô Tối và ô Sáng (nút ☀/☾ đổi giữa 2 ô), **Nhập theme VS Code (.json / .vsix)**, đặt lại màu đã chỉnh. Theme nhập ở BcodeViewer cũng hiện ở đây. Khung **Thú cưng & hiệu ứng 🐝🌸**: nút **Thú cưng...** (mở cửa sổ thú cưng), bật hoa đào rơi hai bên màn hình, mật độ, tô thanh trên + dải công cụ màu hoa đào — xem [Hoa đào rơi](#petal-rain). |
 | Cấu trúc | Mật độ (Gọn / Vừa / Thoáng), bo góc, độ dày viền |
 | Editor & lưới | Giãn dòng, minimap, số dòng, khoảng trắng, sọc lưới, màu chọn, cách hiện NULL |
 | Cửa sổ | Vị trí / độ rộng cây, ẩn cây khi mở, khôi phục phiên, **SQL Profiler: công cụ Ctrl+3 (SQL Profiler / SqlWatch) + chế độ mở Thủ công / Tự động**, **Hiệu năng (máy cấu hình thấp)**, thanh tab trên / dưới, con trỏ chuột, **Ctrl+Tab** bấm nhanh, thanh công cụ xuống dòng / một dòng |
@@ -1584,8 +1603,10 @@ Giống Quick Access + nhóm công cụ của Bcode. Chưa chỉnh gì thì than
 - Chuột phải file: Mở · Mở thư mục chứa file · Copy tên file · Copy đường dẫn (.f nếu có) · Bỏ khỏi danh sách. Chuột phải dự án: Ẩn/Hiện file của dự án · Đóng mọi tab đang mở của dự án này (chỉ đóng tab, file vẫn ở trong cây) · Copy đường dẫn tất cả file · Bỏ tất cả file của dự án khỏi danh sách (như nút ✕).
 - `Ctrl+B` ẩn / hiện cây. Khi cây ẩn, thanh tab liệt kê mọi file của cây. Khi cây **đang hiện**, thanh tab trên editor được ẩn (cây đã đánh dấu file đang mở / đang xem); chỉ file đang mở mà cây không liệt kê mới còn tab. Muốn giữ thanh tab như cũ: Settings → Bố cục → bật **"Vẫn hiện thanh tab khi đang hiện cây file bên trái"**.
 
+<a id="viewer-tab-status"></a>
 ### Tab và thanh trạng thái
 
+- **Thú cưng**: bật thú cưng ở Bcode (⚙ Settings → Giao diện (Template) → Theme & màu → Thú cưng — xem [Thú cưng trên thanh trạng thái](#status-pet)) thì cùng bộ thú cưng chạy trên thanh menu của Viewer: cùng loài, số con, tên, trang trí theo mùa; vạch đỏ khi project đang mở là DB thật của khách; ẩn khi đang chia sẻ màn hình. Bấm vào con thú để xem mẹo dùng Viewer. Viewer chỉ đọc cài đặt của Bcode (đổi ở Bcode, Viewer theo sau tối đa 10 giây); phản ứng khi chạy SQL và nhắc nghỉ chỉ có ở Bcode.
 - Bấm chuột giữa để đóng tab; chuột phải tab: Đóng · Đóng các tab khác · Đóng tất cả · Mở ở khung tách · Copy tên file · Copy đường dẫn · Mở thư mục chứa file.
 - Thanh trạng thái: dòng/cột, ngôn ngữ, giờ sửa, trạng thái AI, và nút dự án (Login WLink, Program / Source / Working / Mobile path, Copy Project Info — dòng SQL có cả user và mật khẩu SQL như bên Bcode).
 

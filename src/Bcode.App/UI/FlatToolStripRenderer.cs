@@ -101,6 +101,8 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
         var fill = isPrimary
             ? (e.Item.Pressed || e.Item.Selected ? AppColors.AccentHover : AppColors.Accent)
             : (e.Item.Pressed ? AppColors.Selection : AppColors.ButtonBack);
+        if (PeachTheme.Applies(e.ToolStrip))   // dải công cụ dưới thanh trên lúc bật hoa đào: rê chuột = hồng đào
+            fill = isPrimary ? (e.Item.Pressed || e.Item.Selected ? PeachTheme.AccentHover : PeachTheme.Accent) : PeachTheme.Hover;
 
         var g = e.Graphics;
         var oldMode = g.SmoothingMode;
@@ -116,5 +118,28 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
     protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e)
     {
         // no extra border line — keeps the flat look
+    }
+
+    /// <summary>Thanh được đánh dấu (PeachTheme.MarkBar — dải công cụ của MainForm) lúc bật hoa đào: nền hồng đào thay PanelAlt.</summary>
+    protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
+    {
+        if (e.ToolStrip is not ToolStripDropDown && PeachTheme.Applies(e.ToolStrip))
+        {
+            using var b = new SolidBrush(PeachTheme.Bar);
+            e.Graphics.FillRectangle(b, e.AffectedBounds);
+            using var p = new Pen(PeachTheme.Line);
+            e.Graphics.DrawLine(p, 0, e.ToolStrip.Height - 1, e.ToolStrip.Width, e.ToolStrip.Height - 1);
+            return;
+        }
+        base.OnRenderToolStripBackground(e);
+    }
+
+    protected override void OnRenderSeparator(ToolStripSeparatorRenderEventArgs e)
+    {
+        if (!PeachTheme.Applies(e.ToolStrip)) { base.OnRenderSeparator(e); return; }
+        var r = e.Item.ContentRectangle;
+        using var p = new Pen(PeachTheme.Line);
+        if (e.Vertical) { var x = r.Left + r.Width / 2; e.Graphics.DrawLine(p, x, r.Top + 3, x, r.Bottom - 3); }
+        else { var y = r.Top + r.Height / 2; e.Graphics.DrawLine(p, r.Left + 4, y, r.Right - 4, y); }
     }
 }

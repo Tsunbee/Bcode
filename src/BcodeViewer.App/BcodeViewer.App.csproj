@@ -71,6 +71,8 @@
     <Compile Include="..\Shared\AppSwitchFocus.cs" Link="Shared\AppSwitchFocus.cs" />
     <!-- Giao thức pipe liên-tiến-trình có phiên bản (Bcode ↔ BcodeViewer) — Shared/PipeProtocol.cs, link vào cả hai. -->
     <Compile Include="..\Shared\PipeProtocol.cs" Link="Shared\PipeProtocol.cs" />
+    <!-- Thú cưng: cài đặt đọc từ settings.json của Bcode (Bcode ghi, Viewer chỉ đọc) — cùng lớp model với Bcode.App, link không chép. -->
+    <Compile Include="..\Bcode.App\Models\StatusPetSettings.cs" Link="Shared\StatusPetSettings.cs" />
     <!-- Cập nhật bản mới — cùng lõi với Bcode.App (kiểm tra / tải trước / cài / quay lại + xử lý hộp update.html), thư mục phát hành riêng. -->
     <Compile Include="..\Shared\AppUpdate.cs" Link="Shared\AppUpdate.cs" />
     <Compile Include="..\Shared\AppUpdateDialog.cs" Link="Shared\AppUpdateDialog.cs" />
@@ -90,6 +92,8 @@
     <None Include="Web\**" CopyToOutputDirectory="PreserveNewest" />
     <!-- Hộp "Cập nhật BcodeViewer" (Shared/AppUpdateForm.cs): CHÍNH trang update.html + shell.css/dialog.css của Bcode — link, không chép. -->
     <None Include="..\Bcode.App\Web\Shell\update.html;..\Bcode.App\Web\Shell\shell.css;..\Bcode.App\Web\Shell\dialog.css" LinkBase="Web\update" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Thú cưng trên thanh menu (Web/viewerpets.js): CHÍNH engine statuspets.js của Bcode — link, không chép (sửa 1 chỗ, 2 app cùng đổi). -->
+    <None Include="..\Bcode.App\Web\Shell\statuspets.js" Link="Web\statuspets.js" CopyToOutputDirectory="PreserveNewest" />
     <!-- ApplicationIcon alone only sets the .exe file's own icon (Explorer/taskbar
          pinning) — the running window's titlebar icon needs Form.Icon set explicitly
          at runtime (see MainForm's constructor), which needs the file alongside the exe. -->

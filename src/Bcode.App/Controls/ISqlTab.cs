@@ -48,6 +48,8 @@ internal interface ISqlTab
     event Action<DataTable>? ResultReady;
     event Action<string>? CreateRptRequested;
     event Action<string, bool, bool, int, int>? ScriptExecuted;
+    /// <summary>true = bắt đầu chạy script (đã có nội dung), false = chạy xong / lỗi / huỷ — thú cưng trên thanh trạng thái dùng (mèo ngủ khi chạy lâu).</summary>
+    event Action<bool>? RunningChanged;
     event Action<string, bool>? SaveHistoryRequested;
     Func<string>? CurrentProject { get; set; }
     event Action<List<DataTable>, string>? OpenResultInNewTabRequested;

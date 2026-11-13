@@ -6,7 +6,7 @@ namespace Bcode.App.Controls;
 internal sealed class BarFlow : FlowLayoutPanel
 {
     public BarFlow() { DoubleBuffered = true; }
-    protected override void OnPaintBackground(PaintEventArgs e) { using var b = new SolidBrush(AppColors.PanelAlt); e.Graphics.FillRectangle(b, ClientRectangle); }
+    protected override void OnPaintBackground(PaintEventArgs e) { using var b = new SolidBrush(PeachTheme.BarOr(this, AppColors.PanelAlt)); e.Graphics.FillRectangle(b, ClientRectangle); }   // trong thanh trên + bật hoa đào: hồng đào
 }
 
 /// <summary>Label luôn dùng màu chữ phụ của theme (ThemeManager.Apply đặt ForeColor = Text cho mọi Label nên phải chặn ở đây).
@@ -79,7 +79,7 @@ public sealed class AccentLabel : Label
 /// (không WebView2): nhóm trái xuống dòng khi hẹp (thanh cao thêm, báo qua <see cref="BarHeightChanged"/>), nhóm phải (WS, Sys/App, theme, Quick Access) bám mép phải.
 /// MainForm chỉ nghe sự kiện và gọi Set*; cách đưa dữ liệu vào y hệt các hàm Push* dành cho trang web.
 /// </summary>
-public sealed class NativeTopBar : Panel
+public sealed class NativeTopBar : Panel, PeachTheme.IBar   // IBar: nhuốm hồng đào khi bật hoa đào rơi (UI/PeachTheme.cs)
 {
     private readonly BarFlow _left = new() { Dock = DockStyle.Fill, WrapContents = true, AutoSize = false, Padding = new Padding(8, 4, 0, 4) };
     private readonly BarFlow _right = new() { Dock = DockStyle.Right, WrapContents = false, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(0, 4, 8, 4) };
@@ -172,11 +172,25 @@ public sealed class NativeTopBar : Panel
 
     protected override void OnPaintBackground(PaintEventArgs e)
     {
-        using var b = new SolidBrush(AppColors.PanelAlt);
+        using var b = new SolidBrush(PeachTheme.BarOr(this, AppColors.PanelAlt));
         e.Graphics.FillRectangle(b, ClientRectangle);
-        using var p = new Pen(AppColors.Border);
+        using var p = new Pen(PeachTheme.Applies(this) ? PeachTheme.Line : AppColors.Border);
         e.Graphics.DrawLine(p, 0, Height - 1, Width, Height - 1);
     }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        PeachTheme.Changed += OnPeach;
+    }
+
+    protected override void OnHandleDestroyed(EventArgs e)
+    {
+        PeachTheme.Changed -= OnPeach;
+        base.OnHandleDestroyed(e);
+    }
+
+    private void OnPeach() { if (!IsDisposed) Invalidate(true); }
 
     protected override void OnLayout(LayoutEventArgs levent)
     {
@@ -236,7 +250,7 @@ public sealed class NativeTopBar : Panel
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            using (var bg = new SolidBrush(AppColors.PanelAlt)) g.FillRectangle(bg, ClientRectangle);
+            using (var bg = new SolidBrush(PeachTheme.BarOr(this, AppColors.PanelAlt))) g.FillRectangle(bg, ClientRectangle);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var f = SmallFont();
             var th = TextRenderer.MeasureText("Ag", f, Size.Empty, TextFormatFlags.NoPadding).Height;
@@ -344,13 +358,28 @@ public sealed class NativeStatusBar : Panel
         Disposed += (_, _) => ThemeManager.ThemeChanged -= Recolor;
         Recolor();
         _pets = new StatusPets(this);
+        _pets.RestClicked += () => PetRestClicked?.Invoke();
         Disposed += (_, _) => _pets.Dispose();
+        // Bấm / rê lên con thú: thú vẽ đè lên chữ trạng thái (label nền trong suốt) nên bắt chuột ở cả thanh lẫn label đó.
+        foreach (var c in new Control[] { this, _text })
+        {
+            var src = c;
+            src.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) _pets.Click(ToBar(src, e.Location)); };
+            src.MouseMove += (_, e) => src.Cursor = _pets.IsOverPet(ToBar(src, e.Location)) ? Cursors.Hand : Cursors.Default;
+        }
     }
+
+    private Point ToBar(Control src, Point p) => src == this ? p : PointToClient(src.PointToScreen(p));
 
     // ---- Thú cưng (Settings → "Thú cưng trên thanh trạng thái...", mặc định tắt) — Controls/StatusPets.cs, tương đương statuspets.js. ----
     private readonly StatusPets _pets;
 
+    /// <summary>Bấm vào con thú lúc đang nhắc nghỉ → MainForm mở Giải lao.</summary>
+    public event Action? PetRestClicked;
+
     public void SetPets(Bcode.App.Models.StatusPetSettings s) => _pets.Set(s);
+    public void SetPetsEnv(Bcode.App.Models.StatusPetEnv e) { _pets.SetEnv(e); Invalidate(true); }
+    public void PetEvent(string name, int ms = 0) => _pets.OnEvent(name, ms);
 
     protected override void OnPaint(PaintEventArgs e)
     {

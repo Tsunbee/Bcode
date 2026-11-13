@@ -283,6 +283,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             _topNative.DatabaseSelected += sys => OnTopBarCommand("select-db", which: sys ? "sys" : "app");
             _statusNative.ProjectWebClicked += () => BeginInvoke(new Action(OpenProjectWeb));
             _statusNative.ProjectMenuRequested += pt => BeginInvoke(new Action(() => ShowProjectMenu(pt)));
+            InitPets();   // thú cưng: môi trường, nhắc nghỉ, phản ứng SQL (MainForm.Pets.cs)
         }
         else
         {
@@ -302,7 +303,6 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
             .Add("Cây SQL / Object: bấm 1 lần nạp vào tab đang dùng (tắt = mỗi object 1 tab)", ToggleSqlObjectOpenInCurrentTab, @checked: _settings.SqlObjectOpenInCurrentTab)
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
-            .Add("Thú cưng (thanh trạng thái, SQL Query) 🐝🦋🐱...", () => BeginInvoke(new Action(OpenStatusPets)))
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .AddSub("Kiểu giao diện (bo góc, mật độ)", sub => { foreach (var pr in Bcode.App.UI.NativeSkin.Presets) { var id = pr.Id; sub.Add(pr.Label, () => Bcode.App.UI.NativeSkin.ApplyPreset(id), @checked: Bcode.App.UI.NativeSkin.IsPreset(id)); } })
             .Add($"Chế độ giao diện: {Bcode.App.UI.UiMode.Label(Bcode.App.UI.UiMode.Current)} — đổi...", () => BeginInvoke(new Action(ChangeUiMode)))
@@ -600,6 +600,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     PushWorkspacesToTopBar();
                     PushThemeToShell();
                     PushNotifyCount();
+                    if (Bcode.App.UI.PeachTheme.On) PushPeach();   // thanh trên màu hoa đào (MainForm.Pets.cs)
                     // Nhãn phiên bản góc phải (Beta v1.9) — số ở <Version> trong Bcode.App.csproj; bản App: NativeTopBar tự đọc.
                     _ = _topBarWeb.CoreWebView2.ExecuteScriptAsync("window.setVersion && window.setVersion("
                         + System.Text.Json.JsonSerializer.Serialize(Bcode.App.Services.ErrorLog.VersionLabel) + ", "
@@ -613,6 +614,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                     switch (root.GetProperty("action").GetString())
                     {
                         case "project-web": BeginInvoke(new Action(OpenProjectWeb)); break;
+                        case "pet-rest": BeginInvoke(new Action(OnPetRestClicked)); break;   // bấm con thú lúc nhắc nghỉ → Giải lao
                         case "status-link":
                             var which = root.TryGetProperty("id", out var lp) ? lp.GetString() : null;
                             if (_statusFile is { } sf) BeginInvoke(new Action(() => { if (which == "folder") ResultExport.OpenFolder(sf); else ResultExport.OpenFile(sf); }));
@@ -638,6 +640,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 _topBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("topbar.html"));
                 _iconRailWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("iconrail.html"));
                 _statusBarWeb.CoreWebView2.Navigate(Bcode.App.UI.UiOverrides.UrlFor("statusbar.html"));
+                InitPets();   // thú cưng: môi trường, nhắc nghỉ, phản ứng SQL (MainForm.Pets.cs)
             }
             catch (Exception ex)
             {
@@ -1764,14 +1767,18 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
     }
 
-    /// <summary>Settings → "Thú cưng (thanh trạng thái, SQL Query)...": đổi là áp ngay lên thanh trạng thái + editor SQL Query; Hủy thì trả lại như cũ.</summary>
-    private void OpenStatusPets()
+    /// <summary>Giao diện (Template) → Theme & màu → "Thú cưng (thanh trạng thái, SQL Query)...": đổi là áp ngay lên thanh trạng thái + editor SQL Query; Hủy thì trả lại như cũ.</summary>
+    private void OpenStatusPets() => OpenStatusPets(null);
+
+    private void OpenStatusPets(IWin32Window? owner)
     {
         var before = (_settings.StatusPets ?? new StatusPetSettings()).Clone();
-        using var dlg = new StatusPetsForm(before, PushPets);
-        if (dlg.ShowDialog(this) == DialogResult.OK)
+        using var dlg = new StatusPetsForm(before, PushPets, _settings.Workspaces.Select(w => w.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList(), _connections.Current?.Name);
+        if (dlg.ShowDialog(owner ?? this) == DialogResult.OK)
         {
-            _settings.StatusPets = dlg.Result;
+            var r = dlg.Result;
+            if (r.Enabled && r.AdoptedOn is null) r.AdoptedOn = DateTime.Today;   // ngày bắt đầu nuôi — "ở với bạn N ngày"
+            _settings.StatusPets = r;
             try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
         }
         PushPets(_settings.StatusPets ?? before);
@@ -1783,10 +1790,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void PushPets(StatusPetSettings s)
     {
         EditorPets.Apply(s);   // thú cưng trong editor SQL Query — đổi thì các tab SQL Query áp ngay (EditorPets.Changed)
-        if (_statusNative is not null) { _statusNative.SetPets(s); return; }
+        if (_statusNative is not null) { _statusNative.SetPets(s); PushPetsEnvFor(s); return; }
         if (_statusBarWeb.CoreWebView2 is null) return;
         var json = System.Text.Json.JsonSerializer.Serialize(s, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
         _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setPets && window.setPets({json})");
+        PushPetsEnvFor(s);
     }
 
     private void ToggleSqlObjectOpenInCurrentTab()
@@ -2870,6 +2878,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         control.ResultReady += table => _lastQueryResult = table;
         // mỗi lần chạy: script tạo / sửa store, function, view, trigger → tên tab = tên object đó (biết tab nào đang làm store nào)
         control.ScriptExecuted += (script, _, _, _, _) => BeginInvoke(() => RenameTabByScript(control, script));
+        HookPetsToSqlTab(control);   // thú cưng: chạy xong thả tim, lỗi thì giật mình, chạy lâu mèo ngủ
         control.CurrentProject = () => _connections.Current?.Name ?? "";
         control.SaveHistoryRequested += (script, sys) => QueryHistoryService.Instance.Save(_connections.Current?.Name ?? "", sys, script);   // chỉ lưu khi người dùng bấm "Lưu lịch sử"
         control.CreateRptRequested += sql => OpenCreateRptTab(sql, pivot: true);
@@ -3647,6 +3656,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     private void OpenUiTemplate()
     {
         using var form = new UiTemplateForm(_settings, OrderedToolSpecs().Where(t => !t.key.StartsWith(Bcode.App.UI.UiTemplate.TopDownPrefix, StringComparison.Ordinal)).Select(t => (t.key, t.label)).ToList(), BarToolKeys(), _wcommandTree.TopGroups());
+        form.PetalChanged = () => PushPets();   // tab Theme & màu: hoa đào rơi / thanh trên màu hoa đào áp ngay
+        form.OpenPets = owner => OpenStatusPets(owner);   // tab Theme & màu: nút "Thú cưng..." (đã bỏ khỏi menu Settings)
         form.ShowDialog(this);
         ApplySparePolicy();
     }
@@ -5134,4 +5145,4 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         return menu;
     }
-}
+}

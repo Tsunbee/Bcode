@@ -11,9 +11,14 @@
   .chk { display: flex; align-items: center; gap: 8px; margin: 4px 0; cursor: pointer; }
   .chk input { margin: 0; }
   .sec { margin: 14px 0 6px; font-weight: 600; }
-  .kinds { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px; align-items: center; }
+  .kinds { display: grid; grid-template-columns: auto 1fr auto auto; gap: 6px 12px; align-items: center; }
   .kinds .lbl { white-space: nowrap; }
   .kinds .h { color: var(--text-muted); font-size: 12px; }
+  .kinds input.nm { width: 96px; }
+  .wslist { display: flex; flex-direction: column; gap: 2px; max-height: 132px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; }
+  .wslist .cur { color: var(--accent); font-size: 12px; }
+  .hint { color: var(--text-muted); font-size: 12px; }
+  #shareApps { flex: 1; min-width: 200px; }
   .stepper { display: inline-flex; align-items: center; gap: 4px; }
   .stepper button { width: 24px; height: 22px; padding: 0; line-height: 1; }
   .stepper span { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -33,16 +38,30 @@
 <div class="dlg-main">
   <label class="chk"><input type="checkbox" id="enabled"> <b>Bật thú cưng trên thanh trạng thái</b></label>
   <div id="opts">
-    <div class="sec">Con vật (số con mỗi loại)</div>
+    <div class="sec">Con vật (số con mỗi loại · tên)</div>
     <div class="kinds" id="kinds"></div>
     <div class="sec">Tuỳ chọn</div>
     <div class="row"><span>Tốc độ</span><input type="range" id="speed" min="25" max="300" step="25"><span id="speedLbl"></span></div>
     <label class="chk"><input type="checkbox" id="mouse"> Phản ứng với chuột (rê chuột trên thanh trạng thái: ong/bướm bay theo, mèo vồ, chim bay mất, ốc rụt vỏ)</label>
     <label class="chk"><input type="checkbox" id="flowers"> Mọc hoa cho ong / bướm hút mật</label>
     <label class="chk"><input type="checkbox" id="trail"> Vệt phấn hoa / vệt nhớt</label>
+    <label class="chk"><input type="checkbox" id="seasonal"> Trang trí theo mùa: cây + hoa + hạt rơi / bay (Tết: cây mai, cánh mai rơi · Trung thu: đèn lồng, hoa cúc · Noel: cây thông, tuyết, mũ) và theo giờ (tối mèo buồn ngủ hơn)</label>
+    <div class="row" id="seasonRow"><span>Mùa</span><select id="seasonMode"></select><span class="hint" id="seasonHint"></span></div>
+    <div class="sec">Báo việc</div>
+    <label class="chk"><input type="checkbox" id="reactSql"> Phản ứng khi chạy SQL Query: xong thì thả tim, lỗi thì giật mình (chim bay, ốc rụt vỏ), chạy quá 5 giây thì mèo ngủ chờ</label>
+    <label class="chk"><input type="checkbox" id="tips"> Bấm vào con thú để xem mẹo dùng Bcode; rê chuột lên để xem tên</label>
+    <div class="row"><span>Nhắc nghỉ sau</span><select id="rest"></select><span class="hint">dùng Bcode liên tục — mèo ra nhắc, bấm vào nó để mở Giải lao. Rời máy ≥ 5 phút thì tính lại.</span></div>
+    <div class="sec">Database thật của khách</div>
+    <div class="hint">Đánh dấu workspace là DB thật: khi đang chọn workspace đó, thanh trạng thái có vạch đỏ và thú cưng thỉnh thoảng giơ "!" — nhắc cẩn thận DELETE / UPDATE.</div>
+    <div class="wslist" id="wsList"></div>
+    <div class="sec">Khi chia sẻ màn hình</div>
+    <label class="chk"><input type="checkbox" id="hideOnShare"> Tạm ẩn thú cưng khi đang chạy chương trình:</label>
+    <div class="row"><input type="text" id="shareApps" spellcheck="false"></div>
+    <div class="hint">Tên tiến trình, cách nhau dấu phẩy. Mặc định: BcodeWatch (Xem chung), CptHost (Zoom đang chia sẻ màn hình). Có thể thêm UltraViewer_Desktop, AnyDesk, TeamViewer…</div>
   </div>
   <div class="sec">Xem trước <span class="hint" style="font-weight:normal">— rê chuột vào đây để thử</span></div>
   <div class="preview" id="preview">Workspace: … — Server: …</div>
+  <div class="hint" style="margin-top:14px">🌸 Hoa đào rơi hai bên màn hình + thanh trên màu hoa đào: chỉnh ở ⚙ Settings → Giao diện (Template) → tab Theme &amp; màu.</div>
   <div class="sec" style="margin-top:22px">Trong editor SQL Query</div>
   <div class="ed-styles" id="edStyles"></div>
   <div class="row" id="edOpts" style="margin-top:6px">
@@ -69,17 +88,33 @@
     follow: 'Con thú chạy / bay theo chuột, đứng lệch dưới-phải mũi chuột; chữ I giữ nguyên nên đặt con trỏ / bôi chọn vẫn chính xác. Chuột đứng yên thì nghỉ (mèo ngủ zZ).',
     cursor: 'Con trỏ chuột trong vùng chữ thành hình con thú; chấm đỏ ở mũi là điểm bấm. Lề số dòng / thanh cuộn vẫn dùng con trỏ thường.',
   };
-  let S = null, kinds = [], max = 5, styles = [];
+  let previewEnv = {};
+  let seasonModes = [];
+  let S = null, kinds = [], max = 5, styles = [], editorKinds = [], restChoices = [0], workspaces = [], currentWs = '';
 
   function value() { return JSON.parse(JSON.stringify(S)); }
   function changed() { render(); post('change', { value: value() }); }
+  function isWarn(name) { return (S.warnWorkspaces || []).some((w) => w.toLowerCase() === name.toLowerCase()); }
   function render() {
     $('enabled').checked = !!S.enabled;
     $('opts').classList.toggle('disabled', !S.enabled);
     $('speed').value = S.speed; $('speedLbl').textContent = S.speed + '%';
     $('mouse').checked = !!S.mouse; $('flowers').checked = !!S.flowers; $('trail').checked = !!S.trail;
-    kinds.forEach((k) => { const el = $('n_' + k.key); if (el) el.textContent = S.counts[k.key] || 0; });
+    $('seasonal').checked = !!S.seasonal; $('reactSql').checked = !!S.reactSql; $('tips').checked = !!S.tips; $('hideOnShare').checked = !!S.hideOnShare;
+    $('rest').value = String(S.restMinutes || 0);
+    $('seasonMode').value = S.seasonMode || 'auto';
+    $('seasonRow').classList.toggle('disabled', !S.seasonal);
+    const autoName = { tet: 'Tết', trungthu: 'Trung thu', noel: 'Noel' }[previewEnv.season];
+    $('seasonHint').textContent = (S.seasonMode || 'auto') === 'auto' ? (autoName ? 'hôm nay: ' + autoName : 'hôm nay không rơi vào mùa nào — chưa có cây / hoa theo mùa') : 'cố định quanh năm';
+    if (document.activeElement !== $('shareApps')) $('shareApps').value = S.shareApps || '';
+    workspaces.forEach((w, i) => { const c = $('ws_' + i); if (c) c.checked = isWarn(w); });
+    kinds.forEach((k) => {
+      const el = $('n_' + k.key); if (el) el.textContent = S.counts[k.key] || 0;
+      const nm = $('nm_' + k.key); if (nm && document.activeElement !== nm) nm.value = (S.names || {})[k.key] || '';
+    });
     preview.set(Object.assign(value(), { enabled: true }));   // khung xem trước luôn chạy
+    const season = !S.seasonal ? '' : (S.seasonMode && S.seasonMode !== 'auto' ? S.seasonMode : (previewEnv.season || ''));
+    preview.env(Object.assign({}, previewEnv, { season, warn: !!currentWs && isWarn(currentWs), tips: ['Mẹo sẽ hiện ở đây khi bấm vào con thú trên thanh trạng thái.'] }));
     document.querySelectorAll('input[name=edStyle]').forEach((r) => { r.checked = r.value === S.editorStyle; });
     $('edKind').value = S.editorKind; $('edScale').value = String(S.editorScale);
     $('edOpts').classList.toggle('disabled', S.editorStyle === 'off');
@@ -98,7 +133,28 @@
       const bump = (d) => { S.counts[k.key] = Math.max(0, Math.min(max, (S.counts[k.key] || 0) + d)); changed(); };
       minus.onclick = () => bump(-1); plus.onclick = () => bump(1);
       st.append(minus, n, plus);
-      $('kinds').append(lbl, h, st);
+      const nm = document.createElement('input'); nm.type = 'text'; nm.className = 'nm'; nm.id = 'nm_' + k.key; nm.placeholder = k.name || ''; nm.maxLength = 24;
+      nm.title = 'Tên (hiện khi rê chuột lên con thú) — để trống = ' + (k.name || '');
+      nm.oninput = () => { S.names = Object.assign({}, S.names); if (nm.value.trim()) S.names[k.key] = nm.value; else delete S.names[k.key]; changed(); };
+      $('kinds').append(lbl, h, st, nm);
+    });
+    $('seasonMode').innerHTML = '';
+    seasonModes.forEach((m) => { const o = document.createElement('option'); o.value = m.key; o.textContent = m.label; $('seasonMode').append(o); });
+    $('rest').innerHTML = '';
+    restChoices.forEach((v) => { const o = document.createElement('option'); o.value = String(v); o.textContent = v ? v + ' phút' : 'Tắt'; $('rest').append(o); });
+    $('wsList').innerHTML = '';
+    if (!workspaces.length) { const e = document.createElement('span'); e.className = 'hint'; e.textContent = '(chưa có workspace nào)'; $('wsList').append(e); }
+    workspaces.forEach((w, i) => {
+      const l = document.createElement('label'); l.className = 'chk';
+      const c = document.createElement('input'); c.type = 'checkbox'; c.id = 'ws_' + i;
+      c.onchange = () => {
+        const list = (S.warnWorkspaces || []).filter((x) => x.toLowerCase() !== w.toLowerCase());
+        if (c.checked) list.push(w);
+        S.warnWorkspaces = list; changed();
+      };
+      l.append(c, ' ' + w);
+      if (currentWs && w.toLowerCase() === currentWs.toLowerCase()) { const cur = document.createElement('span'); cur.className = 'cur'; cur.textContent = '(đang chọn)'; l.append(' ', cur); }
+      $('wsList').append(l);
     });
     $('edStyles').innerHTML = '';
     styles.forEach((s) => {
@@ -109,7 +165,7 @@
       $('edStyles').append(l);
     });
     $('edKind').innerHTML = '';
-    kinds.forEach((k) => { const o = document.createElement('option'); o.value = k.key; o.textContent = k.label; $('edKind').append(o); });
+    kinds.filter((k) => !editorKinds.length || editorKinds.indexOf(k.key) >= 0).forEach((k) => { const o = document.createElement('option'); o.value = k.key; o.textContent = k.label; $('edKind').append(o); });
     $('edScale').innerHTML = '';
     SCALES.forEach((v) => { const o = document.createElement('option'); o.value = String(v); o.textContent = v + '%'; $('edScale').append(o); });
   }
@@ -119,10 +175,20 @@
   $('mouse').onchange = (e) => { S.mouse = e.target.checked; changed(); };
   $('flowers').onchange = (e) => { S.flowers = e.target.checked; changed(); };
   $('trail').onchange = (e) => { S.trail = e.target.checked; changed(); };
+  $('seasonal').onchange = (e) => { S.seasonal = e.target.checked; changed(); };
+  $('seasonMode').onchange = (e) => { S.seasonMode = e.target.value; changed(); };
+  $('reactSql').onchange = (e) => { S.reactSql = e.target.checked; changed(); };
+  $('tips').onchange = (e) => { S.tips = e.target.checked; changed(); };
+  $('hideOnShare').onchange = (e) => { S.hideOnShare = e.target.checked; changed(); };
+  $('rest').onchange = (e) => { S.restMinutes = +e.target.value; changed(); };
+  $('shareApps').oninput = (e) => { S.shareApps = e.target.value; changed(); };
   $('edKind').onchange = (e) => { S.editorKind = e.target.value; changed(); };
   $('edScale').onchange = (e) => { S.editorScale = +e.target.value; changed(); };
-  // Mặc định: trả các tuỳ chọn thanh trạng thái về gốc, giữ nguyên 2 công tắc bật/tắt (thanh trạng thái, editor) + loài / cỡ trong editor.
+  // Mặc định: trả các tuỳ chọn thanh trạng thái về gốc, giữ nguyên 2 công tắc bật/tắt (thanh trạng thái, editor) + loài / cỡ trong editor,
+  // tên thú cưng, ngày bắt đầu nuôi, danh sách DB khách và thời gian nhắc nghỉ (là lựa chọn của bạn, không phải "kiểu trang trí").
   $('bDefault').onclick = () => { S = { enabled: S.enabled, counts: { bee: 1 }, speed: 100, mouse: true, flowers: true, trail: true,
+    reactSql: true, tips: true, seasonal: true, seasonMode: 'auto', hideOnShare: true, shareApps: 'BcodeWatch, CptHost',
+    warnWorkspaces: S.warnWorkspaces, restMinutes: S.restMinutes, petalRain: S.petalRain, petalDensity: S.petalDensity, petalBar: S.petalBar, names: S.names, adoptedOn: S.adoptedOn,
     editorStyle: S.editorStyle, editorKind: S.editorKind, editorScale: S.editorScale }; changed(); };
   $('bOk').onclick = () => post('ok', { value: value() });
   $('bCancel').onclick = () => post('cancel');
@@ -130,9 +196,14 @@
 
   window.pets = {
     init(d) {
-      kinds = d.kinds || []; max = d.max || 5; styles = d.styles || [];
-      S = Object.assign({ enabled: false, counts: {}, speed: 100, mouse: true, flowers: true, trail: true, editorStyle: 'off', editorKind: 'cat', editorScale: 150 }, d.settings || {});
-      S.counts = Object.assign({}, S.counts);
+      kinds = d.kinds || []; max = d.max || 5; styles = d.styles || []; editorKinds = d.editorKinds || [];
+      restChoices = d.rest || [0]; seasonModes = d.seasons || [{ key: 'auto', label: 'Tự động theo ngày' }]; workspaces = d.workspaces || []; currentWs = d.current || '';
+      S = Object.assign({ enabled: false, counts: {}, speed: 100, mouse: true, flowers: true, trail: true, reactSql: true, tips: true, seasonal: true, seasonMode: 'auto', petalRain: false, petalDensity: 2, petalBar: true,
+        hideOnShare: true, shareApps: 'BcodeWatch, CptHost', warnWorkspaces: [], restMinutes: 0, names: {}, adoptedOn: null,
+        editorStyle: 'off', editorKind: 'cat', editorScale: 150 }, d.settings || {});
+      S.counts = Object.assign({}, S.counts); S.names = Object.assign({}, S.names); S.warnWorkspaces = (S.warnWorkspaces || []).slice();
+      // Khung xem trước: theo mùa / giờ hiện tại; "DB khách" theo workspace đang chọn để thấy vạch đỏ khi đánh dấu.
+      previewEnv = Object.assign({ active: true }, d.env || {});
       build(); render();
     },
   };

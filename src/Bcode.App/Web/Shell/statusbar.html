@@ -26,7 +26,7 @@
   #statusLinks { flex: 0 0 auto; display: none; gap: 10px; margin-left: 10px; white-space: nowrap; }
   #statusLinks a { color: var(--accent); cursor: pointer; text-decoration: none; }
   #statusLinks a:hover { text-decoration: underline; }
-  /* Thú cưng (statuspets.js) vẽ trên canvas phủ lên thanh — không chặn chuột. */
+  /* Thú cưng (statuspets.js) vẽ trên canvas phủ lên thanh — không chặn chuột (bấm vào con thú: statuspets.js bắt click của body). */
   body { position: relative; overflow: hidden; }
 </style>
 </head>
@@ -71,8 +71,11 @@
   });
 
   // ---- Thú cưng (Settings → "Thú cưng trên thanh trạng thái...", mặc định tắt) — gọi từ C# (MainForm.PushPets) ----
-  var pets = StatusPets.create(document.body);
+  // Bấm con thú lúc đang nhắc nghỉ → C# mở Giải lao (action 'pet-rest').
+  var pets = StatusPets.create(document.body, function (name) { if (name === 'rest') post({ action: 'pet-rest' }); });
   window.setPets = function (s) { pets.set(s); };
+  window.setPetsEnv = function (e) { pets.env(e); };          // MainForm.PushPetsEnv
+  window.petEvent = function (name, data) { pets.event(name, data); };   // MainForm.PetEvent
 
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

@@ -1369,6 +1369,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public event Action<string>? CreateRptRequested;
     /// <summary>Một lần Execute xong (kể cả lỗi): script, dùng Sys Data, thành công?, mili giây, số dòng kết quả — để ghi vào Lịch sử SQL.</summary>
     public event Action<string, bool, bool, int, int>? ScriptExecuted;
+    public event Action<bool>? RunningChanged;
     /// <summary>Bấm "Lưu lịch sử" ở thanh Execute: script (phần chọn, không có thì cả script) + đang dùng Sys Data. Chỉ lưu khi người dùng bấm.</summary>
     public event Action<string, bool>? SaveHistoryRequested;
     /// <summary>Tên dự án (workspace) hiện tại — menu chuột phải chỉ hiện snippet chung + snippet của dự án này.</summary>
@@ -2243,6 +2244,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
 
             var useSys = UseSysDatabase;
             ranScript = script; ranSys = useSys;
+            RunningChanged?.Invoke(true);
             var tracked = await Task.Run(() => Bcode.App.Services.SqlHistoryService.Detect(script)); // CREATE/ALTER procedure/function/view/trigger trong script (script lớn: regex không chặn giao diện)
             if (tracked.Count > 0) await CaptureHistoryBaselineAsync(tracked, useSys);
             var results = _resetConnOn
@@ -2349,6 +2351,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
             tick.Stop(); tick.Dispose();
             _running = false;
             PushRunningToBar(false);
+            if (ranScript is not null) RunningChanged?.Invoke(false);
         }
     }
 
@@ -2919,4 +2922,4 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         }
         catch { }
     }
-}
+}

@@ -79,6 +79,18 @@ public class UiTemplateForm : ThemedForm
     /// <param name="defaultToolKeys">Thứ tự mặc định của các nút công cụ — thứ tự lưu trùng cái này thì lưu rỗng.</param>
     private readonly IReadOnlyList<(string Code, string Name)> _wcGroups;
 
+    /// <summary>Tab Theme & màu đổi hiệu ứng hoa đào (đã lưu vào settings) — MainForm áp ngay (PushPets).</summary>
+    public Action? PetalChanged { get; set; }
+
+    /// <summary>Nút "Thú cưng..." ở tab Theme & màu — MainForm mở cửa sổ Thú cưng (owner = cửa sổ này).</summary>
+    public Action<IWin32Window>? OpenPets { get; set; }
+
+    private void PushPetal()
+    {
+        var ps = _settings.StatusPets ?? new StatusPetSettings();
+        Js($"window.setPetal && window.setPetal({JsonSerializer.Serialize(new { rain = ps.PetalRain, density = ps.PetalDensity, bar = ps.PetalBar })})");
+    }
+
     public UiTemplateForm(AppSettings settings, IReadOnlyList<(string key, string label)> tools, IReadOnlyList<string> defaultToolKeys,
         IReadOnlyList<(string Code, string Name)>? wcGroups = null)
     {
@@ -151,6 +163,19 @@ public class UiTemplateForm : ThemedForm
                     Process.Start(new ProcessStartInfo("explorer.exe", $"\"{UiOverrides.Folder}\"") { UseShellExecute = true });
                     break;
                 case "import-theme": BeginInvoke(new Action(ImportTheme)); break;
+                case "petal-get": PushPetal(); break;
+                case "open-pets": BeginInvoke(new Action(() => { OpenPets?.Invoke(this); PushPetal(); })); break;
+                case "petal-set":
+                {
+                    var ps = _settings.StatusPets ??= new StatusPetSettings();
+                    ps.PetalRain = data.TryGetProperty("rain", out var pr) && pr.ValueKind == JsonValueKind.True;
+                    ps.PetalBar = !data.TryGetProperty("bar", out var pb) || pb.ValueKind != JsonValueKind.False;
+                    if (data.TryGetProperty("density", out var pd) && pd.TryGetInt32(out var dv)) ps.PetalDensity = Math.Clamp(dv, 1, 3);
+                    try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+                    PetalChanged?.Invoke();
+                    PushPetal();
+                    break;
+                }
                 case "session-get": Js($"window.setSession({(_settings.RestoreSession ? "true" : "false")}, {(_settings.SessionAsk ? "true" : "false")}, {System.Text.Json.JsonSerializer.Serialize(_settings.SessionMode)})"); break;
                 case "session-set":
                     _settings.RestoreSession = data.TryGetProperty("on", out var son) && son.ValueKind == JsonValueKind.True;

@@ -716,6 +716,10 @@ public class EditorBridge
     public void BeginReadFile(string requestId, string path) =>
         _async.Begin(requestId, () => ReadFileDetectEncoding(path));
 
+    /// <summary>Thú cưng trên thanh menu (Web/viewerpets.js): cài đặt của Bcode + môi trường — xem <see cref="ViewerPets"/>.</summary>
+    public void BeginGetStatusPets(string requestId) =>
+        _async.Begin(requestId, ViewerPets.Json);
+
     /// <summary>Đọc HÀNG LOẠT file include (entity.js prefetchIncludes) trong 1 lần gọi — xem <see cref="IncludeTree.ReadMany"/> (cache đĩa: <see cref="ReadIncludeCached"/>).</summary>
     public void BeginReadFiles(string requestId, string pathsJson) =>
         _async.Begin(requestId, () => JsonSerializer.Serialize(IncludeTree.ReadMany(JsonSerializer.Deserialize<string[]>(pathsJson) ?? Array.Empty<string>(), ReadIncludeCached)));
@@ -1693,4 +1697,4 @@ public class EditorBridge
         catch (TimeoutException) { return "Bcode chưa mở (hoặc bản Bcode cũ chưa hỗ trợ) — mở Bcode rồi thử lại."; }
         catch (Exception ex) { return "Không gửi được sang Bcode: " + ex.Message; }
     }
-}
+}

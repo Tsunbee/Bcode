@@ -206,6 +206,14 @@
     el.textContent = text || '';
     el.title = tip || '';
   };
+  // Thanh trên màu hoa đào (bật hiệu ứng hoa đào rơi) — C# MainForm.PushPeach gửi màu đã pha theo theme (UI/PeachTheme.cs, giống bản App).
+  // null = tắt: bỏ các biến ghi đè, trở lại màu của theme.
+  window.setPeach = function (c) {
+    var st = document.body.style, vars = { '--panel-alt': 'bar', '--button-back': 'hover', '--input': 'button', '--border': 'line',
+      '--accent': 'accent', '--accent-hover': 'accentHover', '--on-accent': 'onAccent' };
+    Object.keys(vars).forEach(function (k) { if (c) st.setProperty(k, c[vars[k]]); else st.removeProperty(k); });
+  };
+
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     document.getElementById('themeIcon').classList.toggle('dark', isDark);

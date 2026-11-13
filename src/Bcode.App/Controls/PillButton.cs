@@ -129,7 +129,7 @@ public class PillButton : Button
 
         // Tô nền dưới góc bo trước: control tự vẽ hoàn toàn nên nếu không, 4 góc giữ lại rác của lần vẽ trước (vết viền màu ở góc nút).
         if (Bcode.App.UI.UiMode.IsNative && !OnPanelAlt && Parent is { } host && PaintParentUnder(g, host)) { }
-        else using (var under = new SolidBrush(OnPanelAlt ? Bcode.App.UI.AppColors.PanelAlt : (Parent?.BackColor ?? BackColor))) g.FillRectangle(under, ClientRectangle);
+        else using (var under = new SolidBrush(OnPanelAlt ? Bcode.App.UI.PeachTheme.BarOr(this, Bcode.App.UI.AppColors.PanelAlt) : (Parent?.BackColor ?? BackColor))) g.FillRectangle(under, ClientRectangle);
         var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
         var radius = CornerRadius is null ? Height / 2 : Bcode.App.UI.UiMode.IsNative ? Bcode.App.UI.NativeSkin.ButtonRadius(this) : CornerRadius.Value;   // chế độ App: bo góc theo Template giao diện
         // Đường kính bo phải NHỎ HƠN cạnh ngắn: RoundedRect gặp 2×bán kính ≥ chiều cao thì vẽ hình chữ nhật thường → nút thấp + bo góc lớn
@@ -142,10 +142,19 @@ public class PillButton : Button
         // Hover moves the border to the accent on a secondary button — same cue as the HTML
         // .btn:hover rule, which is what tells you the thing is clickable at all.
         var borderColor = IsPrimary || _hovered ? Bcode.App.UI.AppColors.Accent : Bcode.App.UI.AppColors.Border;
-        var textColor = IsPrimary ? Bcode.App.UI.AppColors.OnAccent : Bcode.App.UI.AppColors.Text;
+        // Nút trên thanh trên lúc bật hoa đào (UI/PeachTheme.cs): nền / viền pha hồng, nút chính màu hồng đào thay màu nhấn.
+        var peach = Bcode.App.UI.PeachTheme.Applies(this);
+        if (peach)
+        {
+            var pa = Bcode.App.UI.PeachTheme.Accent;
+            fill = IsPrimary ? (_hovered && !_pressed ? Bcode.App.UI.PeachTheme.AccentHover : pa)
+                : (_pressed ? Bcode.App.UI.PeachTheme.Hover : _hovered ? Bcode.App.UI.PeachTheme.Hover : Bcode.App.UI.PeachTheme.Button);
+            borderColor = IsPrimary || _hovered ? pa : Bcode.App.UI.PeachTheme.Line;
+        }
+        var textColor = IsPrimary ? (peach ? Color.White : Bcode.App.UI.AppColors.OnAccent) : Bcode.App.UI.AppColors.Text;
         if (!IsPrimary)
         {
-            if (BackOverride is { } bo && !_hovered && !_pressed) fill = bo;
+            if (BackOverride is { } bo && !_hovered && !_pressed) fill = peach ? Bcode.App.UI.PeachTheme.Mix(bo, Bcode.App.UI.PeachTheme.Button, 0.5f) : bo;
             if (ForeOverride is { } fo) textColor = fo;
         }
 

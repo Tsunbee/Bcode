@@ -24,6 +24,8 @@ public sealed partial class StatusPets
             case "ladybug": DrawLadybug(p); break;
             case "cat": DrawCat(p); break;
             case "snail": DrawSnail(p); break;
+            case "fish": DrawFish(p); break;
+            case "firefly": DrawFirefly(p); break;
         }
     }
 

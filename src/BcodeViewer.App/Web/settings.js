@@ -645,6 +645,32 @@ class BcodeSettingsDialog {
     section('File đang để Chỉ đọc (Read-only)');
     const autoClearRo = row('', check('Tự bỏ Chỉ đọc rồi lưu, không hỏi', s.autoClearReadOnly === true));
     note('File chép từ bộ source chuẩn / gói cài hay mang thuộc tính Chỉ đọc (Read-only) — Windows không cho ghi đè, trước đây Ctrl+S báo "Access to the path ... is denied". Tắt (mặc định): Ctrl+S / F5 / Save As / lưu khi thoát gặp file Chỉ đọc thì hỏi "Bỏ Chỉ đọc rồi lưu?". Bật: tự bỏ Chỉ đọc của file đó rồi lưu luôn. File sau khi lưu không còn Chỉ đọc.');
+    // Giống Bcode → Template → Lịch sử SQL → "Thư mục lưu": trống = mặc định trong dự án; khai thư mục riêng thì thêm tầng tên dự án.
+    section('Lịch sử chung của file (Ctrl+Shift+H)');
+    const histPath = input(s.sharedHistoryPath || '');
+    histPath.placeholder = '(mặc định) <gốc dự án>\\History\\_files';
+    const histStatus = document.createElement('div');
+    histStatus.className = 'setNote';
+    row('Thư mục lưu:', histPath, button('Chọn...', async () => {
+      const p = await window.bcodeHost.call('BeginChooseFolder', histPath.value);
+      if (p) histPath.value = p;
+    }));
+    const histBtns = document.createElement('div');
+    histBtns.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+    for (const b of [
+      button('Mặc định', () => { histPath.value = ''; histStatus.textContent = 'Đã đặt lại mặc định — bấm OK để lưu.'; }),
+      button('Kiểm tra', async () => {
+        histStatus.textContent = 'Đang kiểm tra…';
+        try { histStatus.textContent = await window.bcodeHost.call('BeginCheckSharedHistoryPath', histPath.value, (window.bcodeViewer && window.bcodeViewer.activePath) || ''); }
+        catch (e) { histStatus.textContent = '✘ ' + (e && e.message || e); }
+      }),
+    ]) { b.style.width = 'auto'; histBtns.appendChild(b); }
+    row('', histBtns);
+    lastRow.appendChild(histStatus);
+    note('Mỗi lần Ctrl+S, BcodeViewer lưu 1 bản kèm người sửa (máy, tài khoản Windows, IP) vào lịch sử CHUNG của dự án. Trống (mặc định) = <gốc dự án>\\History\\_files\\… — gốc dự án là thư mục chứa App_Data, cùng thư mục History mà Bcode dùng cho lịch sử procedure. '
+      + 'Khai thư mục riêng (ổ khác, ổ mạng chung…) thì giống Bcode: thêm 1 tầng tên dự án — <thư mục>\\<dự án>\\_files\\… — <dự án> = ProjectId của workspace Bcode chứa file (trống thì tên workspace), nên nhiều dự án dùng chung 1 thư mục không trộn nhau. '
+      + 'Thiết lập này RIÊNG MÁY NÀY: muốn cả nhóm thấy chung lịch sử thì mọi máy phải đặt cùng 1 thư mục mạng (hoặc cùng để trống); máy đặt chỗ khác sẽ không thấy bản của nhau. '
+      + 'Đổi nơi lưu không di chuyển / xoá lịch sử cũ: mở Ctrl+Shift+H ở 1 file của dự án, nếu chỗ cũ còn bản chưa chép thì có nút "Chép sang chỗ mới". Thư mục không vào được (mất mạng, thiếu quyền) thì Ctrl+S vẫn lưu file nhưng báo KHÔNG ghi được lịch sử chung — không tự ghi về chỗ cũ.');
 
     // ===== Sao lưu =====
     customPage('backup', 'Sao lưu / chuyển máy', (h) => {
@@ -752,7 +778,7 @@ class BcodeSettingsDialog {
         matchHighlightColor: mhMode.value === 'theme' ? 'theme' : (mhMode.value === 'custom' ? mhColor.value : ''),
         showMinimap: showMinimap.box.checked, aiSidebarPosition: aiPos.value, autoFitFont: autoFit.box.checked, autoFitMinFont: parseInt(minFont.value, 10) || 9, lightMode: lite.value, wordWrap: wrap.box.checked, autoCloseSingleQuote: quoteClose.box.checked,
         f5ReuseTab: f5Reuse.box.checked, f5Browser: f5Browser.value,
-        autoClearReadOnly: autoClearRo.box.checked,
+        autoClearReadOnly: autoClearRo.box.checked, sharedHistoryPath: histPath.value,
         autoViewOnFieldDeclare: autoView.box.checked,
       };
       try {

@@ -127,9 +127,42 @@ class BcodeHistory {
     filterRow.appendChild(filter);
     const note = document.createElement('div');
     note.className = 'histNote';
+    // Đã đổi nơi lưu ở Settings → Lưu file mà chỗ mặc định cũ (<gốc dự án>\History\_files) còn bản chưa chép: báo + chỉ chép khi người dùng bấm.
+    const oldBar = document.createElement('div');
+    oldBar.className = 'histNote';
+    oldBar.style.display = 'none';
     head.appendChild(tabs);
     head.appendChild(filterRow);
     head.appendChild(note);
+    head.appendChild(oldBar);
+    const showOldHistory = async (my) => {
+      oldBar.style.display = 'none';
+      oldBar.textContent = '';
+      if (st.mode === 'local') return;
+      const scope = st.mode;
+      let info;
+      try { info = JSON.parse(await window.bcodeHost.call('BeginSharedHistoryOldInfo', path, scope)); } catch { return; }
+      if (my !== st.token || !this.overlay || !info || !info.count) return;
+      const mb = (info.bytes / 1048576).toFixed(2);
+      const what = scope === 'project' ? 'của dự án' : 'của file này';
+      oldBar.append('Còn ' + info.count + ' bản lịch sử ' + what + ' ở chỗ cũ (' + info.oldFolder + ') chưa có ở thư mục lưu mới. ');
+      const btn = document.createElement('button');
+      btn.className = 'dlgButton';
+      btn.textContent = 'Chép sang chỗ mới…';
+      btn.onclick = async () => {
+        if (!(await window.bcodeUi.confirm('Chép ' + info.count + ' bản (khoảng ' + mb + ' MB) lịch sử ' + what + '\n\n  từ:   ' + info.oldFolder
+          + '\n  sang: thư mục lưu đặt ở Settings → Lưu file\n\nChỉ chép bản chưa có ở chỗ mới; chỗ cũ giữ nguyên, không xoá.', { okText: 'Chép' }))) return;
+        btn.disabled = true;
+        let r;
+        try { r = JSON.parse(await window.bcodeHost.call('BeginCopySharedHistoryOld', path, scope)); }
+        catch (e) { r = { count: 0, error: String(e) }; }
+        if (r.error) alert('Chép được ' + r.count + ' bản rồi dừng: ' + r.error);
+        else if (bcode.showToast) bcode.showToast('Đã chép ' + r.count + ' bản lịch sử sang chỗ mới', 3000);
+        load();
+      };
+      oldBar.appendChild(btn);
+      oldBar.style.display = '';
+    };
 
     this.openDiff({
       title: 'Lịch sử file',
@@ -248,7 +281,7 @@ class BcodeHistory {
       filterRow.style.display = st.mode === 'project' ? '' : 'none';
       note.textContent = 'Đang đọc...';
       this.renderEntries([], () => {}, rowText);
-      let entries = [], err = '', sharedRoot = null;
+      let entries = [], err = '', sharedRoot = null, sharedFolder = '', custom = false;
       try {
         if (st.mode === 'local') {
           entries = JSON.parse(await window.bcodeHost.call('BeginGetFileHistory', path));
@@ -257,6 +290,8 @@ class BcodeHistory {
           entries = r.entries || [];
           err = r.error || '';
           sharedRoot = r.root;
+          sharedFolder = r.folder || '';
+          custom = !!r.custom;
         }
       } catch (e) { err = String(e); }
       if (my !== st.token || !this.overlay) return;
@@ -266,7 +301,7 @@ class BcodeHistory {
         note.textContent = st.mode === 'local'
           ? 'File này chưa có bản sao lưu cục bộ.'
           : (st.mode === 'file'
-            ? 'File này chưa có lịch sử chung. Mỗi lần Save bằng BcodeViewer sẽ ghi vào ' + sharedRoot + '\\History\\_files\\...'
+            ? 'File này chưa có lịch sử chung. Mỗi lần Save bằng BcodeViewer sẽ ghi vào ' + (sharedFolder || sharedRoot + '\\History\\_files') + '\\...'
             : 'Chưa có bản nào trong ' + (st.days ? st.days + ' ngày gần đây' : 'dự án này') + '.');
       } else {
         const ext = entries.filter(isExt).length;
@@ -279,6 +314,7 @@ class BcodeHistory {
       const firstRow = list && list.querySelector('.histRow');
       if (firstRow) firstRow.click();
       else { this.setOriginal('', 'Bản đã chọn'); this.setModified(bcode.currentModel.getValue(), 'Hiện tại' + (bcode.dirty ? ' (chưa lưu)' : '')); }
+      if (custom && sharedRoot && !err) showOldHistory(my); else { oldBar.style.display = 'none'; }
     };
     load();
   }

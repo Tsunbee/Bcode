@@ -180,6 +180,28 @@ internal static class WorkspaceConnection
         return FromWorkspaces(workspaces, normalizedFile) ?? InferProjectFromPath(filePath);
     }
 
+    /// <summary>Tên dự án theo đúng cách Bcode đặt tầng thư mục lịch sử khi dùng thư mục lưu riêng (Bcode SqlHistoryService.ProjectOf):
+    /// ProjectId của workspace, trống thì tên workspace. Workspace = cái có Source Path (không có thì Program Path) là thư mục cha
+    /// sâu nhất của file. Trả thêm thư mục gốc (đã chuẩn hoá, có \ cuối) của workspace đó. Không workspace nào khớp thì null.</summary>
+    public static (string Project, string Root)? ResolveHistoryProject(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) return null;
+        string normalizedFile;
+        try { normalizedFile = Path.GetFullPath(filePath); }
+        catch { return null; }
+        var all = LoadAllWorkspaces();
+        if (all is null) return null;
+        foreach (var x in all
+            .Select(w => (Ws: w, Root: NormalizeRoot(!string.IsNullOrWhiteSpace(w.SourcePath) ? w.SourcePath : w.ProgramPath ?? "")))
+            .Where(x => x.Root.Length > 1 && normalizedFile.StartsWith(x.Root, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(x => x.Root.Length))
+        {
+            var name = !string.IsNullOrWhiteSpace(x.Ws.ProjectId) ? x.Ws.ProjectId.Trim() : x.Ws.Name.Trim();
+            if (name.Length > 0) return (name, x.Root);
+        }
+        return null;
+    }
+
     /// <summary>Suy tên project từ chính đường dẫn khi KHÔNG workspace nào đã khai báo chứa file đó (vd mở file của project
     /// chưa có trong Bcode bằng FCode). Cấu trúc site FastBusiness: &lt;...&gt;\&lt;Project&gt;\&lt;FBISPxxx&gt;\App_Data\... hoặc
     /// \Main\... → project là thư mục đứng TRƯỚC thư mục phiên bản (FBISPxxx). Không nhận ra cấu trúc thì null.</summary>

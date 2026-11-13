@@ -111,6 +111,11 @@ public class ViewerSettings
     /// true = tự bỏ Chỉ đọc rồi lưu, không hỏi. Settings → "Lưu file".</summary>
     public bool AutoClearReadOnly { get; set; } = false;
 
+    /// <summary>Thư mục lưu LỊCH SỬ CHUNG của file (Settings → "Lưu file", giống "Thư mục lưu" lịch sử SQL của Bcode ở Template → Lịch sử SQL).
+    /// "" (mặc định) = &lt;gốc dự án&gt;\History\_files như cũ; khai thư mục riêng thì thêm tầng tên dự án:
+    /// &lt;thư mục&gt;\&lt;dự án&gt;\_files\... (xem <see cref="SharedHistoryStore"/>). Riêng máy này — muốn cả nhóm thấy chung thì mọi máy phải đặt cùng thư mục.</summary>
+    public string SharedHistoryPath { get; set; } = "";
+
     /// <summary>Đường dẫn Config.xml của FCode (vd D:\Tool\FCode\Config\Config.xml). Chỉ dùng khi
     /// Bcode CHƯA có workspace nào (chưa có settings.json) — "Chạy SQL" và gợi ý SQL khi đó tự kết
     /// nối theo project trong file này (xem WorkspaceConnection.LoadFromFcodeConfig).</summary>

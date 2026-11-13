@@ -75,6 +75,7 @@ public class EditorBridge
         _async = new AsyncHostCall(postJson);
         LoadSharedSnippetsInBackground();
         FastSource.ViewerKnowledge.Configure(settings.KnowledgeDir);
+        SharedHistoryStore.CustomRoot = settings.SharedHistoryPath ?? "";
         Fast = new FastSource.FastSourceService(settings);
         Fast.Warmup();
     }
@@ -292,6 +293,7 @@ public class EditorBridge
         f5HasChrome = BrowserTabLauncher.FindExe("chrome") is not null,
         f5HasEdge = BrowserTabLauncher.FindExe("edge") is not null,
         autoClearReadOnly = _settings.AutoClearReadOnly,
+        sharedHistoryPath = _settings.SharedHistoryPath,
     });
 
     /// <summary>Saves what the page's Settings dialog sends back, then reloads what depends on
@@ -303,6 +305,11 @@ public class EditorBridge
             var r = doc.RootElement;
             string S(string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
             bool B(string name) => r.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.True;
+
+            // Kiểm trước khi đổi bất cứ mục nào: sai thì trang báo lỗi, hộp Settings vẫn mở để sửa.
+            var hist = r.TryGetProperty("sharedHistoryPath", out _) ? S("sharedHistoryPath").Trim().Trim('"') : null;
+            if (hist is { Length: > 0 } && !Path.IsPathFullyQualified(hist))
+                throw new InvalidOperationException("Thư mục lưu lịch sử chung phải là đường dẫn đầy đủ (vd D:\\BcodeHistory hoặc \\\\server\\share\\History).");
 
             _settings.AnthropicApiKey = S("anthropicApiKey").Trim();
             _settings.GeminiApiKey = S("geminiApiKey").Trim();
@@ -339,6 +346,11 @@ public class EditorBridge
             if (r.TryGetProperty("f5ReuseTab", out _)) _settings.F5ReuseTab = B("f5ReuseTab");
             if (r.TryGetProperty("f5Browser", out _)) _settings.F5Browser = S("f5Browser") is "chrome" or "edge" or "bcode" ? S("f5Browser") : "default";
             if (r.TryGetProperty("autoClearReadOnly", out _)) _settings.AutoClearReadOnly = B("autoClearReadOnly");
+            if (hist is not null)
+            {
+                _settings.SharedHistoryPath = hist;
+                SharedHistoryStore.CustomRoot = hist;
+            }
             if (r.TryGetProperty("autoViewOnFieldDeclare", out _)) _settings.AutoViewOnFieldDeclare = B("autoViewOnFieldDeclare");
             if (r.TryGetProperty("autoFitMinFont", out var minFont) && minFont.TryGetInt32(out var mf)) _settings.AutoFitMinFont = Math.Clamp(mf, 6, 14);
             var fcodeStyle = S("fcodeThemeStyle") == "fcode" ? "fcode" : "bcode";
@@ -970,6 +982,37 @@ public class EditorBridge
         {
             var r = SharedHistoryStore.Purge(path, scope, days, dryRun);
             return JsonSerializer.Serialize(new { count = r.Count, bytes = r.Bytes, error = r.Error });
+        });
+
+    /// <summary>Lịch sử chung còn ở chỗ mặc định cũ (&lt;gốc dự án&gt;\History\_files) mà chưa chép sang thư mục lưu riêng ở Settings.
+    /// scope = "file" | "project". JSON {oldFolder,count,bytes,error}.</summary>
+    public void BeginSharedHistoryOldInfo(string requestId, string path, string scope) =>
+        _async.Begin(requestId, () => SharedHistoryStore.OldInfoJson(path, scope));
+
+    /// <summary>Chép lịch sử chung ở chỗ cũ sang thư mục lưu riêng — chỉ chạy khi người dùng đã đồng ý ở trang Lịch sử; không xoá chỗ cũ. JSON {count,error}.</summary>
+    public void BeginCopySharedHistoryOld(string requestId, string path, string scope) =>
+        _async.Begin(requestId, () => SharedHistoryStore.CopyOldJson(path, scope));
+
+    /// <summary>Settings → "Kiểm tra" thư mục lưu lịch sử chung: tạo được thư mục + ghi/xoá được 1 file thử không; cho biết thư mục của
+    /// dự án đang mở sẽ là đâu. Trả câu báo cho người dùng.</summary>
+    public void BeginCheckSharedHistoryPath(string requestId, string dir, string activePath) =>
+        _async.Begin(requestId, () =>
+        {
+            dir = (dir ?? "").Trim().Trim('"');
+            string? root = string.IsNullOrWhiteSpace(activePath) ? null : SharedHistoryStore.FindProjectRoot(activePath);
+            if (dir.Length == 0)
+                return "Đang để trống = mặc định: <gốc dự án>\\History\\_files" + (root is null ? "" : " — dự án đang mở: " + Path.Combine(root, SharedHistoryStore.Dir, SharedHistoryStore.SubDir));
+            if (!Path.IsPathFullyQualified(dir)) return "✘ Phải là đường dẫn đầy đủ (vd D:\\BcodeHistory hoặc \\\\server\\share\\History).";
+            try
+            {
+                Directory.CreateDirectory(dir);
+                var probe = Path.Combine(dir, ".bcode-write-test-" + Guid.NewGuid().ToString("N") + ".tmp");
+                File.WriteAllText(probe, "test");
+                File.Delete(probe);
+            }
+            catch (Exception ex) { return "✘ Không ghi được vào " + dir + ": " + ex.Message; }
+            var where = root is null ? "" : " — dự án đang mở sẽ lưu ở " + Path.Combine(dir, SharedHistoryStore.ProjectKey(root), SharedHistoryStore.SubDir);
+            return "✔ Ghi được vào " + dir + where;
         });
 
     /// <summary>Mở thư mục lịch sử chung (của file nếu có rel, không thì của cả dự án) trong Explorer.</summary>

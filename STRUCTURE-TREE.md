@@ -65,7 +65,7 @@ Bcode.App/
 │   ├── NativePages.Bbxn.cs  440
 │   ├── NativePages.Catalog.cs  271
 │   ├── NativePages.CfsDiag.cs  449
-│   ├── NativePages.Commands.cs  320
+│   ├── NativePages.Commands.cs  337
 │   ├── NativePages.Connections.cs  184
 │   ├── NativePages.Decrypt.cs  131
 │   ├── NativePages.Dialogs.cs  486
@@ -125,11 +125,11 @@ Bcode.App/
 │   ├── SqlWatchControl.Form.cs  39
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
-│   ├── TableEditControl.cs  2346
+│   ├── TableEditControl.cs  2361
 │   ├── TeamNotesControl.cs  196
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
-│   ├── WCommandTreeControl.cs  968
+│   ├── WCommandTreeControl.cs  1007
 │   ├── WebActionBar.cs  264
 │   ├── WebBarHost.cs  228
 │   ├── WebFrameHost.cs  215
@@ -169,7 +169,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  108
-│   ├── MainForm.cs  5106
+│   ├── MainForm.cs  5107
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  112
 │   ├── MainForm.Hibernate.cs  64
@@ -208,7 +208,7 @@ Bcode.App/
 │   ├── VoucherCloneForm.cs  536
 │   ├── VoucherPreviewForm.cs  64
 │   ├── WCommandDuplicateForm.cs  29
-│   ├── WCommandEditForm.cs  375
+│   ├── WCommandEditForm.cs  447
 │   ├── WCommandScriptForm.cs  137
 │   └── WebDialogForm.cs  81
 ├── Models/
@@ -381,7 +381,7 @@ Bcode.App/
 │   ├── VoucherCloneService.cs  1367
 │   ├── VoucherOverlay.cs  62
 │   ├── VoucherSqlScriptService.cs  427
-│   ├── WCommandService.cs  934
+│   ├── WCommandService.cs  985
 │   ├── WebConfigConnectionReader.cs  141
 │   ├── WeeklyMailHistory.cs  483
 │   ├── WeeklyMailStore.cs  77
@@ -514,7 +514,7 @@ Bcode.App/
 │       ├── voucherview.html  88
 │       ├── wcommandbar.html  43
 │       ├── wcommandduplicate.html  37
-│       ├── wcommandedit.html  193
+│       ├── wcommandedit.html  204
 │       └── weeklymail.html  556
 ├── Bcode.App.csproj  262
 ├── BcodePaths.cs  48
@@ -552,13 +552,13 @@ BcodeViewer.App/
 │   ├── BrowserTabLauncher.cs  342
 │   ├── CaptionTranslator.cs  225
 │   ├── ClaudeChatService.cs  693
-│   ├── EditorBridge.cs  1651
+│   ├── EditorBridge.cs  1694
 │   ├── IncludeTree.cs  190
 │   ├── MenuLauncher.cs  115
 │   ├── SearchFileCache.cs  139
 │   ├── SqlRunnerService.cs  568
 │   ├── SqlSchemaService.cs  261
-│   ├── WorkspaceConnection.cs  324
+│   ├── WorkspaceConnection.cs  346
 │   └── WorkspaceSearchService.cs  336
 ├── Settings/
 │   ├── CompletionPromptConfig.cs  150
@@ -570,10 +570,10 @@ BcodeViewer.App/
 │   ├── LocalHistoryStore.cs  169
 │   ├── RecentFilesStore.cs  187
 │   ├── SettingsForm.cs  244
-│   ├── SharedHistoryStore.cs  317
+│   ├── SharedHistoryStore.cs  460
 │   ├── TemplatePickerForm.cs  79
 │   ├── TranslateDictionary.cs  370
-│   └── ViewerSettings.cs  247
+│   └── ViewerSettings.cs  252
 ├── UI/
 │   ├── AppTheme.cs  397
 │   ├── CodeHighlighter.cs  100
@@ -597,12 +597,12 @@ BcodeViewer.App/
 │   ├── editor.js  1984
 │   ├── entity.js  2027
 │   ├── fastask.js  356
-│   ├── fcode-language.js  561
+│   ├── fcode-language.js  637
 │   ├── fcodecomment.js  330
 │   ├── fieldnotes.js  291
 │   ├── goto.js  296
 │   ├── hint-editor.html  74
-│   ├── history.js  489
+│   ├── history.js  525
 │   ├── hostcall.js  106
 │   ├── index.html  242
 │   ├── keys.js  226
@@ -613,14 +613,14 @@ BcodeViewer.App/
 │   ├── problems.js  1070
 │   ├── quickopen.js  184
 │   ├── search.js  335
-│   ├── settings.js  802
+│   ├── settings.js  828
 │   ├── shell.js  878
 │   ├── sqlrun.js  635
 │   ├── style.css  1056
 │   ├── tabs.js  253
 │   ├── tabswitcher.js  228
 │   ├── templates.js  433
-│   ├── theme.js  275
+│   ├── theme.js  277
 │   ├── toolbar.js  599
 │   ├── ui.js  134
 │   └── zoombar.js  102

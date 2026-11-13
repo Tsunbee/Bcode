@@ -1572,14 +1572,19 @@ Giống Quick Access + nhóm công cụ của Bcode. Chưa chỉnh gì thì than
 ### Lưu
 
 - `Ctrl+S` → "Đã lưu file thành công". Encoding gốc được giữ nguyên (file `.f` UTF-16 vẫn là UTF-16).
-- Mỗi lần lưu ghi thêm **lịch sử**: lịch sử máy này (`%AppData%\Bcode\history`, tối đa 50 bản/file) và **lịch sử chung của dự án** (`<thư mục dự án>\History\…`, ghi kèm máy, user, IP, giờ; tối đa 100 bản/file). Ghi lịch sử chung lỗi thì báo "Đã lưu file, nhưng KHÔNG ghi được lịch sử chung…".
+- Mỗi lần lưu ghi thêm **lịch sử**: lịch sử máy này (`%AppData%\Bcode\history`, tối đa 50 bản/file) và **lịch sử chung của dự án** (mặc định `<thư mục dự án>\History\_files\…`, ghi kèm máy, user, IP, giờ; tối đa 100 bản/file). Ghi lịch sử chung lỗi thì báo "Đã lưu file, nhưng KHÔNG ghi được lịch sử chung…".
+- **Đổi nơi lưu lịch sử chung**: Settings → **Lưu file** → **Thư mục lưu** (giống "Thư mục lưu" lịch sử SQL của Bcode ở Template → Lịch sử SQL). Để trống = mặc định như trên. Khai thư mục riêng (ổ khác, ổ mạng chung…) thì thêm 1 tầng tên dự án: `<thư mục>\<dự án>\_files\…` — `<dự án>` là ProjectId của workspace Bcode chứa file (trống thì tên workspace), nên nhiều dự án dùng chung 1 thư mục không trộn nhau. File không thuộc workspace nào thì `<thư mục cha>_<thư mục site>` (vd `KOG_FBISP24`). Nút **Kiểm tra** thử ghi vào thư mục và cho biết dự án đang mở sẽ lưu ở đâu; **Mặc định** xoá ô về trống.
+  - Thiết lập này **riêng từng máy**: muốn cả nhóm thấy chung lịch sử thì mọi máy phải đặt cùng 1 thư mục mạng (hoặc cùng để trống). Máy đặt chỗ khác sẽ không thấy bản của nhau.
+  - Đổi nơi lưu **không di chuyển / xoá** lịch sử cũ. Mở `Ctrl+Shift+H` ở 1 file của dự án: chỗ cũ (`<thư mục dự án>\History\_files`) còn bản chưa có ở chỗ mới thì có dòng báo + nút **Chép sang chỗ mới…** (hỏi trước, chỉ chép bản chưa có, chỗ cũ giữ nguyên).
+  - Thư mục lưu không vào được (mất mạng, thiếu quyền, ổ không có): `Ctrl+S` vẫn lưu file nhưng báo "KHÔNG ghi được lịch sử chung: Không ghi được vào thư mục lưu lịch sử chung …"; `Ctrl+Shift+H` / Dọn bản cũ báo "Không truy cập được thư mục lưu lịch sử chung …". Viewer không tự ghi về chỗ cũ.
 - Đóng tab / thoát khi còn file chưa lưu: Viewer hỏi lưu hay bỏ.
 
 ### Lịch sử file (`Ctrl+Shift+H`)
 
 - 3 tab: **File này** (lịch sử chung của file) · **Cả dự án** (lọc 1 / 7 / 30 ngày, lọc theo file / người / máy) · **Máy này**.
 - Bên phải là so sánh "Bản đã chọn" ↔ "Hiện tại". Dòng "⚠ SỬA NGOÀI VIEWER" là bản bị sửa bằng công cụ khác.
-- **Khôi phục bản này** chỉ đưa nội dung cũ vào editor — phải `Ctrl+S` mới ghi ra đĩa. "Dọn bản cũ…" xoá bản cũ hơn N ngày (luôn giữ bản mới nhất).
+- **Khôi phục bản này** chỉ đưa nội dung cũ vào editor — phải `Ctrl+S` mới ghi ra đĩa. "Dọn bản cũ…" xoá bản cũ hơn N ngày (luôn giữ bản mới nhất). "Mở thư mục lịch sử", "Dọn bản cũ…" đều làm ở nơi lưu đang đặt trong Settings → Lưu file (xem mục Lưu ở trên).
+- Đã đổi nơi lưu mà chỗ cũ còn lịch sử chưa chép: dòng báo "Còn N bản lịch sử … ở chỗ cũ" + nút **Chép sang chỗ mới…**.
 
 ### File bị sửa từ nơi khác
 
@@ -2004,7 +2009,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\history\` | BcodeViewer | Lịch sử file của máy này |
 | `<Thư mục kiến thức>\viewer\` (mặc định `%AppData%\Bcode\viewer\`) | BcodeViewer | Gợi ý Fast + Hỏi Fast học từ source dự án / source Fast các phiên bản (`ghost\`, `ask\`, `versions\`), ✔ ✘ ✎ của Hỏi Fast (`ask\feedback.json`) — xoá được, tự học lại |
 | `%AppData%\Bcode\viewer-fastask\` | BcodeViewer | Lịch sử các phiên Hỏi Fast (luôn ở máy này) |
-| `<thư mục dự án>\History\` | BcodeViewer | Lịch sử chung của dự án (ai sửa gì) |
+| `<thư mục dự án>\History\_files\` (hoặc `<Thư mục lưu>\<dự án>\_files\` nếu đặt ở Settings → Lưu file) | BcodeViewer | Lịch sử chung của dự án (ai sửa gì) |
 | `<BcodeViewer.exe>\Config\*.txt` | BcodeViewer | Prompt AI ghost text |
 | `<Bcode.exe>\Templates\` | Bcode | Mẫu file (Tạo nhanh danh mục, Tạo báo cáo, Clone danh mục, LCTT…) |
 | `<Bcode.exe>\Help\HuongDanSuDung.md` | Bcode | Tài liệu này (tab Trợ giúp) |

@@ -167,3 +167,7 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 .pass-card h2 { margin: 0 0 4px; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pass-card input { width: 100%; margin-top: 10px; }
 .pass-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.auto-next { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: .86rem; color: var(--muted); cursor: pointer; user-select: none; }
+.auto-next input { width: auto; margin: 0; accent-color: #ffc94a; }
+/* trình phát ẩn chỉ để lấy danh sách Mix của YouTube (Tự phát tiếp) */
+.yt-mix { position: fixed; left: -10000px; top: 0; width: 160px; height: 90px; overflow: hidden; pointer-events: none; opacity: 0; }

@@ -164,7 +164,7 @@ public sealed class WatchForm : Form
                     ips = RoomFinder.LocalIPv4(), machine = Environment.MachineName, version = Application.ProductVersion.Split('+')[0],
                     auto = _opts.ContainsKey("host") ? "host" : _opts.ContainsKey("join") ? "join" : null,
                     autoJoin = _opts.GetValueOrDefault("join"), autoRoom = _opts.GetValueOrDefault("room"),
-                    volume = _prefs.Volume, mode = _prefs.Mode, side = _prefs.Side,
+                    volume = _prefs.Volume, mode = _prefs.Mode, side = _prefs.Side, autoNext = _prefs.AutoNext,
                     fakeShare = _opts.ContainsKey("fakeshare") ? true : (bool?)null,
                 });
                 break;
@@ -202,6 +202,7 @@ public sealed class WatchForm : Form
                 if ((double?)m["volume"] is double vol) _prefs.Volume = Math.Clamp(vol, 0, 1);
                 if ((string?)m["mode"] is "theater" or "screen") _prefs.Mode = (string)m["mode"]!;
                 if ((bool?)m["side"] is bool side) _prefs.Side = side;
+                if ((bool?)m["autoNext"] is bool an) _prefs.AutoNext = an;
                 _prefs.Save();
                 break;
             case "ui.open":
@@ -211,6 +212,11 @@ public sealed class WatchForm : Form
             case "ui.leave":
                 LeaveRoom();
                 Post(new { t = "ui.left" });
+                break;
+            case "ui.related":
+                // Tự phát tiếp: video không có Mix (YouTube báo lỗi 150 cho playlist RD…) → đọc mã video liên quan ở trang xem video
+                if ((string?)m["id"] is { } vid && System.Text.RegularExpressions.Regex.IsMatch(vid, "^[A-Za-z0-9_-]{11}$"))
+                    _ = Task.Run(async () => { var ids = await RelatedYoutubeAsync(vid); UI(() => Post(new { t = "ui.related", id = vid, ids })); });
                 break;
             case "ui.copy":
                 // link mời → clipboard (Clipboard của WinForms: trang watch.local không chắc có quyền navigator.clipboard)
@@ -377,6 +383,35 @@ public sealed class WatchForm : Form
         await CheckFirewallAsync();
     }
 
+    private static readonly HttpClient YtHttp = CreateYtHttp();
+
+    private static HttpClient CreateYtHttp()
+    {
+        var h = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+        h.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
+        h.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "vi,en;q=0.8");
+        return h;
+    }
+
+    /// <summary>Mã các video "liên quan" trên trang youtube.com/watch (theo thứ tự xuất hiện, bỏ chính video đó; tối đa 40). Dự phòng cho Tự phát tiếp khi
+    /// video không có Mix — đọc chuỗi "videoId" trong trang, không phụ thuộc cấu trúc ytInitialData (YouTube hay đổi). Lỗi / không mạng → rỗng.</summary>
+    private static async Task<List<string>> RelatedYoutubeAsync(string id)
+    {
+        var list = new List<string>();
+        try
+        {
+            var html = await YtHttp.GetStringAsync("https://www.youtube.com/watch?v=" + id);
+            foreach (System.Text.RegularExpressions.Match x in System.Text.RegularExpressions.Regex.Matches(html, "\"videoId\":\"([A-Za-z0-9_-]{11})\""))
+            {
+                var v = x.Groups[1].Value;
+                if (v != id && !list.Contains(v)) list.Add(v);
+                if (list.Count >= 40) break;
+            }
+        }
+        catch { }
+        return list;
+    }
+
     private static string Clean(string? s, string fallback)
     {
         s = (s ?? "").Trim();
@@ -399,6 +434,8 @@ internal sealed class Prefs
     public string Mode { get; set; } = "theater";
     /// <summary>Hiện cột bình luận bên phải.</summary>
     public bool Side { get; set; } = true;
+    /// <summary>Chủ phòng: hết danh sách mà bài cuối là YouTube thì tự phát tiếp video liên quan (như "Tự phát" của YouTube).</summary>
+    public bool AutoNext { get; set; } = true;
     private string _path = "";
 
     public static Prefs Load(string? dir)

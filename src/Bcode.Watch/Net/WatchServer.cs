@@ -15,7 +15,7 @@ public sealed class Item
     public string Kind { get; init; } = "";
     public string Src { get; init; } = "";
     public string Title { get; set; } = "";
-    public string By { get; init; } = "";
+    public string By { get; set; } = "";
     public double Dur { get; set; }
     public bool Suggested { get; set; }
 }
@@ -255,6 +255,8 @@ public sealed class WatchServer : IDisposable
                 if (item is null) { v.Conn.Send(new { t = "error", text = err }); return; }
                 if (_queue.Count >= 200) { v.Conn.Send(new { t = "error", text = "Danh sách đã đủ 200 mục." }); return; }
                 item.Suggested = !v.Host;
+                // "auto": trang chủ phòng tự thêm video liên quan khi hết danh sách (Tự phát tiếp — watch.js autoNextPick)
+                if (v.Host && (bool?)m["auto"] == true && item.Kind == "yt") item.By = "🔁 Tự phát tiếp";
                 _queue.Add(item);
                 var announce = v.Host ? null : $"{v.Name} đề xuất: ";
                 if (item.Kind == "yt") _ = FetchYoutubeTitleAsync(item, announce);   // báo đề xuất sau khi có tên video thật

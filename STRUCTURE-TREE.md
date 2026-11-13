@@ -172,7 +172,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  108
-│   ├── MainForm.cs  5136
+│   ├── MainForm.cs  5137
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  112
 │   ├── MainForm.Hibernate.cs  64
@@ -314,7 +314,7 @@ Bcode.App/
 │   ├── FboSampleTemplateService.cs  136
 │   ├── FCodeConfigImportService.cs  89
 │   ├── FieldDictionaryService.cs  115
-│   ├── FieldGridDocument.cs  824
+│   ├── FieldGridDocument.cs  831
 │   ├── FileLookupService.cs  1566
 │   ├── FileParseCache.cs  408
 │   ├── FileReferenceService.cs  46
@@ -356,7 +356,7 @@ Bcode.App/
 │   ├── ResultFieldChecker.cs  161
 │   ├── ResultSourceKeys.cs  138
 │   ├── SchemaCompareService.cs  79
-│   ├── ScriptFileService.cs  110
+│   ├── ScriptFileService.cs  113
 │   ├── SessionStore.cs  69
 │   ├── SnippetLibraryService.cs  67
 │   ├── SourceCopyRenamer.cs  171
@@ -560,14 +560,14 @@ BcodeViewer.App/
 │   ├── BrowserTabLauncher.cs  342
 │   ├── CaptionTranslator.cs  225
 │   ├── ClaudeChatService.cs  693
-│   ├── EditorBridge.cs  1694
+│   ├── EditorBridge.cs  1696
 │   ├── IncludeTree.cs  190
 │   ├── MenuLauncher.cs  115
 │   ├── SearchFileCache.cs  139
 │   ├── SqlRunnerService.cs  568
 │   ├── SqlSchemaService.cs  261
 │   ├── WorkspaceConnection.cs  346
-│   └── WorkspaceSearchService.cs  336
+│   └── WorkspaceSearchService.cs  338
 ├── Settings/
 │   ├── CompletionPromptConfig.cs  150
 │   ├── FcodeFieldDictionary.cs  40
@@ -635,7 +635,7 @@ BcodeViewer.App/
 ├── BcodePaths.cs  45
 ├── BcodeViewer.App.csproj  110
 ├── HintCodeForm.cs  520
-├── MainForm.cs  2884
+├── MainForm.cs  2886
 ├── MainForm.Update.cs  156
 └── Program.cs  231
 ```

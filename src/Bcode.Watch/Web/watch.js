@@ -127,10 +127,16 @@ function ytCreate(id) {
     playerVars: { controls: 0, disablekb: 1, rel: 0, modestbranding: 1, playsinline: 1, iv_load_policy: 3, fs: 0, autoplay: 0, origin: location.origin },
     events: {
       onReady: () => { P.ytReady = true; P.ready = true; applyVolume(); },
-      onStateChange: (e) => { if (e.data === 0) onEnded(); if (e.data === 1) clearErr(); },
+      onStateChange: (e) => { if (e.data === 0) onEnded(); if (e.data === 1) { clearErr(); AUTO.fails = 0; } },
       onError: (e) => {
         const why = { 2: "link video không hợp lệ", 5: "trình phát HTML5 lỗi", 100: "video không tồn tại / đã bị xoá / riêng tư", 101: "chủ video không cho phát nhúng", 150: "chủ video không cho phát nhúng", 153: "YouTube từ chối trình phát nhúng (thiếu thông tin trang)" }[e.data] || "mã lỗi " + e.data;
         playerError(`YouTube không phát được: ${why}.`, `https://www.youtube.com/watch?v=${P.item?.src}`);
+        // mục do Tự phát tiếp thêm mà không phát được → chủ phòng tự bỏ qua sang video khác (tối đa 3 lần liền)
+        const it = P.item;
+        if (S.host && it && it.by === AUTO_BY && AUTO.on && AUTO.fails < 3) {
+          AUTO.fails++;
+          setTimeout(() => { if (P.item === it && P.err) onEnded(); }, 2500);
+        }
       },
     },
   });
@@ -192,8 +198,92 @@ function clearErr() { P.err = null; $("perr").classList.add("hidden"); }
 function onEnded() {
   if (!S.host || !P.item || P.endSent) return;
   P.endSent = true;
-  send({ t: "ended", id: P.item.id });
+  const it = P.item;
+  if (autoNextWanted(it)) {
+    // bài YouTube cuối danh sách: thêm video liên quan TRƯỚC rồi mới báo hết bài → máy chủ phòng chiếu luôn mục vừa thêm cho cả phòng
+    autoPick(it).then((vid) => {
+      if (S.st?.cur !== it.id) return;   // chủ phòng đã tự chọn bài khác trong lúc chờ
+      if (vid) { AUTO.seen.add(vid); send({ t: "add", url: vid, auto: true }); }
+      send({ t: "ended", id: it.id });
+    });
+    return;
+  }
+  send({ t: "ended", id: it.id });
 }
+
+// ───────────── 🔁 Tự phát tiếp (như nút "Tự phát" của YouTube) ─────────────
+// Hết danh sách mà bài cuối là YouTube: trang CHỦ PHÒNG lấy danh sách Mix "RD<mã video>" của YouTube bằng 1 trình phát ẩn (getPlaylist — API
+// chính thức, không đọc trang web), chọn video đầu tiên chưa có trong danh sách / chưa tự phát, gửi "add" (auto) rồi "ended" → máy chủ phòng
+// chiếu cho cả phòng như mục chủ phòng tự thêm (mọi máy cùng xem 1 video). Lấy Mix sẵn ngay khi bài cuối bắt đầu chiếu → hết bài là chuyển luôn.
+// Mục tự thêm mà không phát được (chủ video cấm nhúng…) thì tự bỏ qua — tối đa 3 lần liền, rồi dừng chờ chủ phòng.
+const AUTO_BY = "🔁 Tự phát tiếp";   // = By máy chủ phòng ghi cho mục "add" có auto (WatchServer)
+const AUTO = { on: true, for: null, wait: null, pool: [], seen: new Set(), fails: 0 };
+
+function autoNextWanted(item) {
+  const q = S.st?.queue || [];
+  return AUTO.on && S.host && !sharing() && item && item.kind === "yt" && q.length > 0 && q[q.length - 1].id === item.id;
+}
+
+/** Mã các video trong Mix của YouTube cho video này ([] nếu không lấy được trong 10 s). */
+function ytMixIds(id) {
+  return new Promise((resolve) => {
+    if (!(window.YT && YT.Player)) { resolve([]); return; }
+    const box = document.createElement("div");
+    box.className = "yt-mix";
+    const el = document.createElement("div");
+    el.id = "ytMix" + Date.now();
+    box.appendChild(el);
+    document.body.appendChild(box);
+    let p = null, done = false;
+    const list = () => { try { return p?.getPlaylist?.() || []; } catch { return []; } };
+    const finish = (ids) => { if (done) return; done = true; clearTimeout(timer); try { p?.destroy(); } catch { } box.remove(); resolve(ids || []); };
+    const timer = setTimeout(() => finish(list()), 10000);
+    try {
+      p = new YT.Player(el.id, {
+        width: 160, height: 90,
+        playerVars: { listType: "playlist", list: "RD" + id, autoplay: 0, mute: 1, controls: 0, origin: location.origin },
+        events: {
+          onReady: () => { const l = list(); if (l.length) finish(l); else setTimeout(() => finish(list()), 2500); },
+          onError: () => finish(list()),
+        },
+      });
+    } catch { finish([]); }
+  });
+}
+
+/** Dự phòng: C# đọc mã video liên quan ở trang youtube.com/watch (video không có Mix). */
+const relatedWaits = new Map();
+function hostRelated(id) {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => { relatedWaits.delete(id); resolve([]); }, 10000);
+    relatedWaits.set(id, (ids) => { clearTimeout(t); relatedWaits.delete(id); resolve(ids || []); });
+    post({ t: "ui.related", id });
+  });
+}
+
+function autoPrefetch(item) {
+  AUTO.for = item.id;
+  AUTO.wait = ytMixIds(item.src)
+    .then((ids) => ids.length ? ids : hostRelated(item.src))
+    .then((ids) => { if (ids.length) AUTO.pool = ids; return ids; });
+}
+
+/** Video kế: trong Mix của bài vừa hết; Mix rỗng (video lỗi / mạng) thì lấy tiếp từ Mix lần trước. null = không có. */
+function autoPick(item) {
+  if (AUTO.for !== item.id || !AUTO.wait) autoPrefetch(item);
+  return AUTO.wait.then((ids) => {
+    const have = new Set((S.st?.queue || []).filter((q) => q.kind === "yt").map((q) => q.src));
+    const ok = (v) => /^[A-Za-z0-9_-]{11}$/.test(v) && v !== item.src && !have.has(v) && !AUTO.seen.has(v);
+    return ids.find(ok) || AUTO.pool.find(ok) || null;
+  });
+}
+
+function setAutoNext(on, save) {
+  AUTO.on = on;
+  $("chkAutoNext").checked = on;
+  if (save) { post({ t: "ui.prefs", autoNext: on }); toast(on ? "Bật tự phát tiếp: hết danh sách sẽ chiếu tiếp video YouTube liên quan." : "Tắt tự phát tiếp: hết danh sách thì dừng."); }
+}
+$("chkAutoNext").onchange = () => setAutoNext($("chkAutoNext").checked, true);
 
 const pTime = () => P.kind === "yt" ? (P.ytReady ? P.yt.getCurrentTime() || 0 : 0) : V.currentTime || 0;
 const pDur = () => P.kind === "yt" ? (P.ytReady ? P.yt.getDuration() || 0 : 0) : (isFinite(V.duration) ? V.duration : 0);
@@ -240,6 +330,7 @@ function syncTick() {
   updateBar(exp, dur);
   $("audioArt").classList.toggle("playing", st.playing);
   if (!P.ready || P.err) return;
+  if (autoNextWanted(item) && AUTO.for !== item.id) autoPrefetch(item);   // bài YouTube cuối danh sách: lấy sẵn Mix cho Tự phát tiếp
   // YouTube: trình phát dùng lại (cueVideoById) vẫn trả độ dài / tên video CŨ tới khi tải xong video mới — chờ đúng mã video mới báo
   const ytStale = P.kind === "yt" && P.yt.getVideoData && (P.yt.getVideoData() || {}).video_id !== P.item.src;
   if (S.host && !P.metaSent && pDur() > 0 && !ytStale) {
@@ -788,6 +879,7 @@ function handle(m) {
       S.volume = m.volume ?? 0.8; $("vol").value = Math.round(S.volume * 100);
       S.mode = m.mode === "screen" ? "screen" : "theater";
       S.side = m.side !== false;
+      setAutoNext(m.autoNext !== false, false);
       SH.fake = !!m.fakeShare;
       $("ver").textContent = `Rạp Bcode v${m.version} · máy ${m.machine} · IP: ${m.ips.join(", ") || "?"}`;
       show("home");
@@ -812,6 +904,7 @@ function handle(m) {
       $("btnInvite").title = S.invite ? `Chép link mời: ${S.invite}\nDán vào Zalo / Teams / mail — người cùng mạng LAN bấm link là vào phòng` : "Máy chủ phòng không có IP mạng LAN";
       break;
     case "ui.connected": S.hostAddr = m.host; S.hostPort = m.port; break;
+    case "ui.related": relatedWaits.get(m.id)?.(m.ids); break;
     case "ui.copied": toast(`Đã chép link mời ${S.invite} — dán vào Zalo / Teams / mail cho mọi người cùng mạng LAN bấm vào.`, 5000); break;
     case "ui.fw":
       $("rmFw").classList.remove("hidden");

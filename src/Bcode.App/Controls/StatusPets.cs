@@ -9,7 +9,7 @@ namespace Bcode.App.Controls;
 /// cùng tên hàm, cùng con số). Gắn vào 1 control chủ: chủ gọi <see cref="Paint"/> trong OnPaint (hình hiện xuyên qua các label nền trong suốt);
 /// bộ đếm giờ tự cập nhật + Invalidate vùng có thú. Toạ độ tính theo px thiết kế, nhân <c>_k</c> (mật độ giao diện) khi vẽ.
 /// </summary>
-public sealed class StatusPets : IDisposable
+public sealed partial class StatusPets : IDisposable   // phần thú cưng trong editor SQL Query: StatusPets.Editor.cs
 {
     private static readonly string[] Order = { "snail", "ladybug", "cat", "bird", "butterfly", "bee" };
     private static readonly Dictionary<string, (float W, float H)> Size = new()
@@ -24,6 +24,7 @@ public sealed class StatusPets : IDisposable
     {
         public string Kind = "", Mode = "fly", C1 = "", C2 = "", Eye = "";
         public float W, H, X, Y, Vx, Vy, ModeT, Ph, Tx, Ty, Cd, TrailCd, HeartCd, Tilt, Jump, Peck, LoopA, LoopCx, LoopCy, LandX;
+        public float Rest, AccX;   // chỉ thú cưng trong editor dùng
         public int Face = 1;
         public bool Moving;
     }

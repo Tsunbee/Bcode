@@ -185,6 +185,7 @@ public sealed class NativeSqlControl : UserControl, ISqlTab
         };
         ThemeManager.ThemeChanged += ApplyEditorTheme;
         _themeHooked = true;
+        EditorPets.Attach(_ed, EditorPets.ScintillaTextArea(_ed));   // thú cưng trong editor (Settings → Thú cưng...), mặc định tắt
         Disposed += (_, _) =>
         {
             if (_themeHooked) ThemeManager.ThemeChanged -= ApplyEditorTheme;

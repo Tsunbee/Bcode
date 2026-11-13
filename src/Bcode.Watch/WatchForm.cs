@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using Bcode.Shared;
 using Bcode.Watch.Net;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -67,7 +69,13 @@ public sealed class WatchForm : Form
         Controls.Add(_web);
         Load += async (_, _) => await InitAsync();
         FormClosing += OnClosing;
-        FormClosed += (_, _) => { LeaveRoom(); try { _web.Dispose(); } catch { } };
+        FormClosed += (_, _) =>
+        {
+            // chờ (≤ 1,6 s) người xem nhận được "Chủ phòng đã kết thúc buổi chiếu" — thoát ngay thì tin chưa kịp gửi, họ chỉ thấy "Mất kết nối"
+            var closing = LeaveRoom();
+            try { closing.Wait(1600); } catch { }
+            try { _web.Dispose(); } catch { }
+        };
     }
 
     private async Task InitAsync()
@@ -133,7 +141,7 @@ public sealed class WatchForm : Form
 
     private void OnClosing(object? sender, FormClosingEventArgs e)
     {
-        if (_server is null || _server.ViewerCount <= 1) return;
+        if (_hidden || _server is null || _server.ViewerCount <= 1) return;   // --hidden (thử tự động): không bật hộp hỏi lên màn hình người dùng
         var ans = MessageBox.Show(this, "Bạn đang làm chủ phòng — đóng sẽ kết thúc buổi chiếu cho mọi người. Đóng?", Title, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (ans != DialogResult.Yes) e.Cancel = true;
     }
@@ -152,7 +160,7 @@ public sealed class WatchForm : Form
             case "ui.init":
                 Post(new
                 {
-                    t = "ui.init", name = _prefs.Name, room = _prefs.Room, lastIp = _prefs.LastIp,
+                    t = "ui.init", name = _prefs.Name, room = _prefs.Room, lastIp = _prefs.LastIp, roomPass = _prefs.RoomPass,
                     ips = RoomFinder.LocalIPv4(), machine = Environment.MachineName, version = Application.ProductVersion.Split('+')[0],
                     auto = _opts.ContainsKey("host") ? "host" : _opts.ContainsKey("join") ? "join" : null,
                     autoJoin = _opts.GetValueOrDefault("join"), autoRoom = _opts.GetValueOrDefault("room"),
@@ -175,7 +183,11 @@ public sealed class WatchForm : Form
                 _finder?.Dispose(); _finder = null;
                 break;
             case "ui.host":
-                _ = HostAsync((string?)m["name"], (string?)m["room"]);
+                _ = HostAsync((string?)m["name"], (string?)m["room"], (string?)m["pass"]);
+                break;
+            case "ui.pass":
+                // mật khẩu người vào phòng gõ ở hộp 🔒 — chỉ giữ trong RoomKeyClient tới khi vào được, không lưu, không log
+                if ((string?)m["pass"] is { Length: > 0 } pw) _client?.SubmitPassword(pw);
                 break;
             case "ui.join":
                 _ = JoinAsync((string?)m["name"], (string?)m["ip"]);
@@ -200,6 +212,12 @@ public sealed class WatchForm : Form
                 LeaveRoom();
                 Post(new { t = "ui.left" });
                 break;
+            case "ui.copy":
+                // link mời → clipboard (Clipboard của WinForms: trang watch.local không chắc có quyền navigator.clipboard)
+                if ((string?)m["text"] is { Length: > 0 and < 2000 } text)
+                    try { if (!_hidden) Clipboard.SetText(text); Post(new { t = "ui.copied" }); }   // --hidden (thử tự động): không đè clipboard người dùng
+                    catch (Exception ex) { Post(new { t = "ui.error", text = "Không chép được vào clipboard: " + ex.Message }); }
+                break;
         }
     }
 
@@ -223,23 +241,31 @@ public sealed class WatchForm : Form
 
     // ───────────────────────── Phòng ─────────────────────────
 
-    private async Task HostAsync(string? name, string? room)
+    private async Task HostAsync(string? name, string? room, string? pass)
     {
         LeaveRoom();
         _prefs.Name = Clean(name, _prefs.Name);
         _prefs.Room = Clean(room, _prefs.Room);
+        // --pass (thử tự động) thắng ô trên trang. Nhớ mật khẩu phòng của chủ phòng — trong file là bản DPAPI (Prefs.RoomPassStored).
+        pass = _opts.TryGetValue("pass", out var op) ? op : (pass ?? "");
+        if (pass.Length > 64) pass = pass[..64];
+        _prefs.RoomPass = pass;
         _prefs.Save();
         var loop = _opts.ContainsKey("loopback");
         var port = _opts.TryGetValue("port", out var ps) && int.TryParse(ps, out var pp) ? pp : Wire.DefaultPort;
         try
         {
-            _server = WatchServer.Start(_prefs.Room, port, loop);
+            _server = WatchServer.Start(_prefs.Room, port, loop, pass);
             _media = MediaServer.Start(Wire.MediaPort + (port - Wire.DefaultPort), loop);
             _server.MediaPort = _media.Port;
         }
         catch (Exception ex) { LeaveRoom(); Post(new { t = "ui.error", text = ex.Message }); return; }
         _server.Log += s => Debug.WriteLine(s);
-        Post(new { t = "ui.hosted", port = _server.Port, ips = RoomFinder.LocalIPv4(), warn = _server.BeaconError });
+        var srv = _server;
+        _media.Invite = () => new MediaServer.InviteInfo(srv.RoomName, Environment.MachineName, srv.Port, srv.Locked);
+        var inviteIp = loop ? "127.0.0.1" : RoomFinder.PrimaryIPv4();
+        var invite = inviteIp is null ? null : MediaServer.InviteUrl(inviteIp, _media.Port, _server.Port);
+        Post(new { t = "ui.hosted", port = _server.Port, ips = RoomFinder.LocalIPv4(), warn = _server.BeaconError, locked = _server.Locked, invite });
         await ConnectAsync("127.0.0.1", _server.Port, _server.HostToken);
         if (!loop) _ = CheckFirewallAsync();
         // --file <đường dẫn>: chiếu luôn file trên máy (thử tự động — hộp chọn file không bấm được khi chạy ngầm)
@@ -251,32 +277,46 @@ public sealed class WatchForm : Form
     {
         LeaveRoom();
         _prefs.Name = Clean(name, _prefs.Name);
-        ip = (ip ?? "").Trim();
+        ip = Invite.Parse(ip ?? "");   // dán link mời (http://…/join hoặc bcwatch://join/…) cũng được
         if (ip.Length == 0) { Post(new { t = "ui.error", text = "Nhập IP máy chủ phòng." }); return; }
         _prefs.LastIp = ip;
         _prefs.Save();
         var host = ip; var port = Wire.DefaultPort;
         var colon = ip.LastIndexOf(':');
         if (colon > 0 && int.TryParse(ip[(colon + 1)..], out var p)) { host = ip[..colon]; port = p; }
-        await ConnectAsync(host, port, null);
+        await ConnectAsync(host, port, null, _opts.GetValueOrDefault("pass"));
     }
 
-    private async Task ConnectAsync(string host, int port, string? token)
+    private async Task ConnectAsync(string host, int port, string? token, string? password = null)
     {
         try
         {
-            var c = await WatchClient.ConnectAsync(host, port, _prefs.Name, token);
+            var c = await WatchClient.ConnectAsync(host, port, _prefs.Name, token, password);
+            var answered = 0;
+            c.NeedPassword += (text, room) => { answered = 1; UI(() => { if (_client == c) Post(new { t = "ui.needpass", text, room }); }); };
             _client = c;
             _leaving = false;
-            c.Message += data => { var s = Encoding.UTF8.GetString(data); UI(() => PostRaw(s)); };
+            c.Message += data => { answered = 1; var s = Encoding.UTF8.GetString(data); UI(() => PostRaw(s)); };
             c.Closed += reason => UI(() =>
             {
                 if (_client != c) return;
                 _client = null;
-                if (!_leaving) Post(new { t = "ui.closed", reason });
+                if (_leaving) return;
+                // Chủ phòng mất kết nối tới chính phòng mình: trang về sảnh nhưng máy chủ vẫn chạy → phòng "ma" (vẫn hiện trong danh sách,
+                // không ai điều khiển). Đóng luôn phòng, người xem được báo kết thúc.
+                if (_server != null) { LeaveRoom(); reason += " — đã đóng phòng của bạn"; }
+                Post(new { t = "ui.closed", reason });
             });
-            // Địa chỉ chủ phòng như máy này thấy — trang dựng link file http://host:cổng/m/mã từ đây (cổng có trong "welcome").
-            Post(new { t = "ui.connected", host });
+            // Kết nối được mà phòng không trả lời gì (máy chủ phòng treo / bản lỗi): báo rõ thay vì đứng im ở sảnh.
+            _ = Task.Delay(8000).ContinueWith(_ => UI(() =>
+            {
+                if (Volatile.Read(ref answered) != 0 || _client != c) return;
+                LeaveRoom();
+                Post(new { t = "reject", text = $"Phòng {host}:{port} không trả lời — chủ phòng có thể đã đóng phòng / treo. Thử lại sau, hoặc hỏi chủ phòng." });
+                Post(new { t = "ui.closed", reason = "không trả lời" });
+            }));
+            // Địa chỉ chủ phòng như máy này thấy — trang dựng link file http://host:cổng/m/mã từ đây (cổng có trong "welcome"), và link mời.
+            Post(new { t = "ui.connected", host, port });
         }
         catch (Exception ex)
         {
@@ -285,15 +325,19 @@ public sealed class WatchForm : Form
         }
     }
 
-    private void LeaveRoom()
+    /// <summary>Rời phòng; là chủ phòng thì đóng phòng: tắt tìm phòng UDP + cổng TCP + cổng phát file, báo người xem. Trả về việc gửi lời báo
+    /// (đóng chương trình thì chờ nó).</summary>
+    private Task LeaveRoom()
     {
         _leaving = true;
         try { _client?.Dispose(); } catch { }
         _client = null;
-        try { _server?.Dispose(); } catch { }
+        var closing = Task.CompletedTask;
+        try { _server?.Dispose(); closing = _server?.Closing ?? closing; } catch { }
         _server = null;
         try { _media?.Dispose(); } catch { }
         _media = null;
+        return closing;
     }
 
     private void PickFile()
@@ -347,6 +391,10 @@ internal sealed class Prefs
     public string Room { get; set; } = "Rạp của " + Environment.UserName;
     public string LastIp { get; set; } = "";
     public string LastDir { get; set; } = "";
+    /// <summary>Mật khẩu phòng lần trước của chủ phòng — trong file chỉ có bản DPAPI ("dpapi:…", chỉ đúng tài khoản Windows này giải được).</summary>
+    private readonly ProtectedText _roomPass = new();
+    [JsonIgnore] public string RoomPass { get => _roomPass.Plain; set => _roomPass.Plain = value; }
+    [JsonPropertyName("RoomPass")] public string RoomPassStored { get => _roomPass.Stored; set => _roomPass.Stored = value; }
     public double Volume { get; set; } = 0.8;
     public string Mode { get; set; } = "theater";
     /// <summary>Hiện cột bình luận bên phải.</summary>

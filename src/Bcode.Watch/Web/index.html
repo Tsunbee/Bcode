@@ -28,7 +28,7 @@
         <ul id="roomList" class="room-list"><li class="muted">Đang tìm phòng…</li></ul>
         <p id="findErr" class="err"></p>
         <div class="row">
-          <input id="inIp" placeholder="IP chủ phòng, vd 192.168.1.20 (hoặc 192.168.1.20:47831)" spellcheck="false">
+          <input id="inIp" placeholder="IP chủ phòng (vd 192.168.1.20) hoặc dán link mời" spellcheck="false">
           <button id="btnJoinIp">Vào</button>
         </div>
         <p class="hint">Không thấy phòng? Mạng khác VLAN / subnet thì gói tìm phòng không qua được — hỏi chủ phòng IP rồi gõ vào ô trên.</p>
@@ -36,6 +36,7 @@
       <div class="card">
         <h2>🎬 Mở phòng chiếu</h2>
         <div class="row"><input id="inRoom" maxlength="28" spellcheck="false"><button id="btnHost" class="primary">Mở phòng</button></div>
+        <div class="pass-row"><input id="inRoomPass" type="password" maxlength="64" autocomplete="new-password" spellcheck="false" placeholder="🔒 Mật khẩu phòng (để trống = ai cũng vào được)"></div>
         <p class="hint"><b>Chỉ chủ phòng điều khiển</b>: chiếu, dừng, tua, chuyển bài. Người xem bình luận, thả cảm xúc, đổi ghế và đề xuất link.</p>
         <p class="hint">YouTube / link trên mạng: mỗi máy tự tải (cần Internet). File trên máy chủ phòng: phát qua LAN cho cả phòng.</p>
         <p class="hint">Trang web không có link video thẳng (web phim…)? Mở trên máy bạn rồi bấm <b>📡 Chia sẻ màn hình</b> trong phòng — cả phòng xem qua LAN.</p>
@@ -62,6 +63,7 @@
           <button id="btnModeTheater" title="Rạp chiếu: màn hình + ghế ngồi + mọi người (T)">🎭 Rạp</button>
           <button id="btnModeScreen" title="Chỉ màn hình, không hiện nhân vật (T)">🖥 Màn hình</button>
         </div>
+        <button class="ghost-btn" id="btnInvite" title="Chép link mời vào clipboard — dán vào Zalo / Teams / mail, người cùng mạng LAN bấm link là vào phòng">🔗 Link mời</button>
         <button class="ghost-btn" id="btnShare" title="Cho cả phòng xem màn hình / cửa sổ / tab bạn đang mở (như Discord) — hình và tiếng đi thẳng qua mạng LAN">📡 Chia sẻ màn hình</button>
         <button class="ghost-btn" id="btnSide" title="Ẩn / hiện cột bình luận (C)">💬 Ẩn bình luận</button>
         <button class="ghost-btn" id="btnLeave">↩ Rời phòng</button>
@@ -137,6 +139,18 @@
 </section>
 
 <div id="toast" class="toast hidden"></div>
+
+<!-- Hộp nhập mật khẩu khi vào phòng có khoá (C# gửi "ui.needpass"; mật khẩu không bao giờ đi trên mạng — chỉ bằng chứng HMAC) -->
+<div id="passBox" class="pass-modal hidden">
+  <form class="pass-card" id="passForm" autocomplete="off">
+    <h2>🔒 <span id="passRoom">Phòng có mật khẩu</span></h2>
+    <p class="hint">Phòng này có mật khẩu — hỏi chủ phòng rồi nhập vào đây.</p>
+    <input id="inPass" type="password" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Mật khẩu phòng">
+    <p id="passErr" class="err"></p>
+    <div class="pass-btns"><button type="button" id="passCancel">Huỷ</button><button type="submit" class="primary" id="passOk">Vào phòng</button></div>
+  </form>
+</div>
+
 
 <script src="theater.js"></script>
 <script src="watch.js"></script>

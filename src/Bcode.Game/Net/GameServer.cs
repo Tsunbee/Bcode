@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Bcode.Game.Logic;
+using Bcode.Shared;
 
 namespace Bcode.Game.Net;
 
@@ -20,14 +21,15 @@ public sealed class GameServer : IDisposable
         _listener = listener;
         Port = port;
         Room = room;
-        try { _beacon = new RoomBeacon(bind, () => new RoomInfo(Wire.Protocol, room.RoomName, Environment.MachineName, Port, room.PlayerCount, GameRoom.MaxPlayers, room.Phase == Phase.Lobby ? "lobby" : "playing")); }
+        try { _beacon = new RoomBeacon(bind, () => new RoomInfo(Wire.Protocol, room.RoomName, Environment.MachineName, Port, room.PlayerCount, GameRoom.MaxPlayers, room.Phase == Phase.Lobby ? "lobby" : "playing", Lock: room.Locked)); }
         catch (SocketException ex) { BeaconError = $"Không mở được cổng UDP {Wire.DiscoveryPort} để người khác tìm thấy phòng ({ex.SocketErrorCode}) — người chơi vẫn vào được bằng cách gõ IP."; }
         _ = Task.Run(AcceptLoop);
     }
 
     /// <summary>Mở phòng ở cổng <paramref name="port"/> (bận thì thử 10 cổng kế tiếp).</summary>
     /// <param name="loopbackOnly">Chỉ nghe 127.0.0.1 (thử nhiều bản trên 1 máy — không bật hộp hỏi tường lửa).</param>
-    public static GameServer Start(string roomName, int port = Wire.DefaultGamePort, int minPlayers = 5, bool loopbackOnly = false)
+    /// <param name="password">Mật khẩu phòng (rỗng = phòng mở).</param>
+    public static GameServer Start(string roomName, int port = Wire.DefaultGamePort, int minPlayers = 5, bool loopbackOnly = false, string? password = null)
     {
         SocketException? last = null;
         var bind = loopbackOnly ? IPAddress.Loopback : IPAddress.Any;
@@ -37,7 +39,7 @@ public sealed class GameServer : IDisposable
             l.Server.ExclusiveAddressUse = true;
             try { l.Start(); }
             catch (SocketException ex) { last = ex; continue; }
-            return new GameServer(l, p, new GameRoom(roomName, minPlayers), bind);
+            return new GameServer(l, p, new GameRoom(roomName, minPlayers, password), bind);
         }
         throw new InvalidOperationException(last?.SocketErrorCode == SocketError.AccessDenied
             ? $"Windows không cho mở cổng {port} (AccessDenied) — có thể do chính sách tường lửa / phần mềm bảo mật."
@@ -73,10 +75,14 @@ public sealed class GameServer : IDisposable
 public sealed class GameClient : IDisposable
 {
     private FramedConnection? _conn;
+    private RoomKeyClient? _key;
     public event Action<byte[]>? Message;
     public event Action<string>? Closed;
+    /// <summary>Phòng có mật khẩu mà chưa có / sai mật khẩu: (lời báo hoặc null, tên phòng) — trang hỏi người dùng rồi gọi <see cref="SubmitPassword"/>.</summary>
+    public event Action<string?, string>? NeedPassword { add => _key!.NeedPassword += value; remove => _key!.NeedPassword -= value; }
 
-    public static async Task<GameClient> ConnectAsync(string host, int port, string name, string? hostToken, int timeoutMs = 4000)
+    /// <param name="password">Mật khẩu biết trước (null = chờ phòng hỏi thì báo <see cref="NeedPassword"/>).</param>
+    public static async Task<GameClient> ConnectAsync(string host, int port, string name, string? hostToken, string? password = null, int timeoutMs = 4000)
     {
         var tcp = new TcpClient();
         using var cts = new CancellationTokenSource(timeoutMs);
@@ -99,13 +105,16 @@ public sealed class GameClient : IDisposable
         }
         var c = new GameClient();
         var conn = new FramedConnection(tcp);
-        conn.Received += d => c.Message?.Invoke(d);
+        var key = c._key = new RoomKeyClient(Wire.Protocol, password, conn.Send);
+        conn.Received += d => { if (!key.Intercept(d)) c.Message?.Invoke(d); };
         conn.Closed += r => c.Closed?.Invoke(r);
         c._conn = conn;
         conn.Start();
-        conn.Send(new { t = "hello", proto = Wire.Protocol, name, token = hostToken });
+        conn.Send(new { t = "hello", proto = Wire.Protocol, name, token = hostToken, auth = RoomAuth.Cap });
         return c;
     }
+
+    public void SubmitPassword(string password) => _key?.Submit(password);
 
     public void SendRaw(byte[] json) => _conn?.SendRaw(json);
     public void Send(object msg) => _conn?.Send(msg);

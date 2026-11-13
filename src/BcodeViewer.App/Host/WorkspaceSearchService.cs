@@ -251,7 +251,9 @@ internal static class WorkspaceSearchService
                 try { Settings.LocalHistoryStore.Snapshot(path, original); }
                 catch { /* a missing backup must not block the edit the user asked for */ }
 
-                File.WriteAllText(path, updated);
+                // File nguồn Fast (.xml/.f/.ent) ghi như FCode: UTF-8 có BOM + encoding="utf-8" — trước đây ghi UTF-8 KHÔNG BOM (bỏ cả BOM lẫn UTF-16
+                // của file gốc) làm Fast biên dịch .xml → .f ra chữ Trung Quốc (Bcode.Core.FastFileEncoding). File khác: UTF-8 không BOM như cũ.
+                File.WriteAllText(path, Bcode.Core.FastFileEncoding.PrepareText(path, updated), Bcode.Core.FastFileEncoding.ForWrite(path, new UTF8Encoding(false)));
                 filesChanged++;
                 replacements += count;
             }

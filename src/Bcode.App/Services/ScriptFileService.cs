@@ -19,7 +19,10 @@ public class ScriptFileService
     public void WriteFile(string path, string content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, content, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        // File nguồn Fast (.xml/.f/.ent) ghi như FCode: UTF-8 có BOM + <?xml ... encoding="utf-8"?> — thiếu BOM thì Fast biên dịch .xml → .f
+        // ra chữ Trung Quốc (xem Bcode.Core.FastFileEncoding). File khác giữ như cũ: UTF-8 không BOM, nội dung nguyên văn.
+        File.WriteAllText(path, Bcode.Core.FastFileEncoding.PrepareText(path, content),
+            Bcode.Core.FastFileEncoding.ForWrite(path, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)));
     }
 
     public void AddToCart(string path)

@@ -131,12 +131,49 @@ public sealed class UpdateDialogLogic
         Push("downloading", null, new { stage = "scan", done = 0, total = 0, bytes = 0, totalBytes = 0, file = "", speed = 0 });
         try
         {
-            Plan = await UpdateCheckService.PrepareAsync(folder, _remote, progress, cts.Token);
+            for (var attempt = 0; ; attempt++)
+            {
+                try
+                {
+                    Plan = await UpdateCheckService.PrepareAsync(folder, _remote, progress, cts.Token);
+                    break;
+                }
+                catch (ReleaseChangedException ex) when (attempt < RetryWaits.Length && !_gone())
+                {
+                    // bản phát hành đang được thay (vd vừa build lại rồi publish đè) → chờ chép xong, đọc lại dấu phiên bản (+ "Có gì mới" nếu đổi bản),
+                    // rồi chuẩn bị lại từ đầu: Prepare đọc lại manifest mới, staging làm lại (hiếm gặp nên chấp nhận tải lại phần đã đổi)
+                    var wait = RetryWaits[attempt];
+                    for (var left = wait; left > 0; left--)
+                    {
+                        Push("downloading", null, new { stage = "wait", done = attempt + 1, total = RetryWaits.Length, bytes = 0, totalBytes = 0,
+                            file = $"{ex.Message} Đọc lại sau {left} giây (lần {attempt + 1}/{RetryWaits.Length}).", speed = 0 });
+                        await Task.Delay(1000, cts.Token);
+                    }
+                    var (remote, _, _) = await UpdateCheckService.CheckDetailedAsync(folder);
+                    if (_gone()) return;
+                    if (remote is null) continue;   // thư mục phát hành chưa đọc được (đang chép dấu?) → lần chờ sau đọc lại
+                    if (!UpdateCheckService.IsNewer(remote, UpdateCheckService.Local)) { _remote = remote; Push("latest"); return; }
+                    if (remote.BuiltUtc != _remote!.BuiltUtc)
+                    {
+                        _remote = remote;
+                        _changes = UpdateCheckService.NewSince(await UpdateCheckService.ReadChangelogAsync(folder), UpdateCheckService.Local);
+                    }
+                    started.Restart();
+                }
+            }
             if (!_gone()) Push("ready");
         }
         catch (OperationCanceledException) { if (!_gone()) Push("available", "Đã dừng tải."); }
+        catch (ReleaseChangedException ex)
+        {
+            if (!_gone()) Push("failed", ex.Message + $" Đã tự đọc lại {RetryWaits.Length} lần mà vẫn chưa khớp — nếu bản phát hành không còn ai đang chép, "
+                + "báo người phát hành chạy lại tools\\publish-release.ps1.");
+        }
         catch (Exception ex) { if (!_gone()) Push("failed", ex.Message); }
     }
+
+    /// <summary>Số giây chờ trước mỗi lần tự đọc lại khi bản phát hành đang bị thay (publish-release chép vài nghìn file lên thư mục mạng mất vài phút).</summary>
+    private static readonly int[] RetryWaits = { 15, 30, 60, 90 };
 
     /// <summary>Action trang gửi lên (trừ "close" / "cancel" — form tự đóng).</summary>
     public async Task HandleAsync(string action, JsonElement msg)

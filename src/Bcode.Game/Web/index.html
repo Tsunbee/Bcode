@@ -37,6 +37,7 @@
       <div class="card">
         <h2>🏢 Mở phòng mới</h2>
         <div class="row"><input id="inRoom" maxlength="24" spellcheck="false"><button id="btnHost" class="primary">Mở phòng</button></div>
+        <div class="pass-row"><input id="inRoomPass" type="password" maxlength="64" autocomplete="new-password" spellcheck="false" placeholder="🔒 Mật khẩu phòng (để trống = ai cũng vào được)"></div>
         <p class="hint">Máy mở phòng giữ toàn bộ trạng thái ván (vai trò, đáp án, lỗi). Bạn sẽ chọn file câu hỏi Excel trong phòng chờ — file chỉ đọc trên máy bạn, không gửi cho ai.</p>
         <p class="hint">Lần đầu mở phòng, Windows có thể hỏi tường lửa: chọn cho phép trên mạng <b>Private</b>.</p>
       </div>
@@ -179,6 +180,17 @@
       <tr><td>7</td><td>4</td><td>1</td><td>1</td><td>1</td></tr>
       <tr><td>8</td><td>4</td><td>1</td><td>2</td><td>1</td></tr></table>
   </div>
+</div>
+
+<!-- Hộp nhập mật khẩu khi vào phòng có khoá (C# gửi "ui.needpass"; mật khẩu không bao giờ đi trên mạng — chỉ bằng chứng HMAC) -->
+<div id="passBox" class="pass-modal hidden">
+  <form class="pass-card" id="passForm" autocomplete="off">
+    <h2>🔒 <span id="passRoom">Phòng có mật khẩu</span></h2>
+    <p class="hint">Phòng này có mật khẩu — hỏi chủ phòng rồi nhập vào đây.</p>
+    <input id="inPass" type="password" maxlength="64" autocomplete="off" spellcheck="false" placeholder="Mật khẩu phòng">
+    <p id="passErr" class="err"></p>
+    <div class="pass-btns"><button type="button" id="passCancel">Huỷ</button><button type="submit" class="primary" id="passOk">Vào phòng</button></div>
+  </form>
 </div>
 
 <div id="sound" class="sound" title="Bật / tắt âm thanh">🔊</div>

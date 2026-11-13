@@ -2870,7 +2870,9 @@ public partial class MainForm : DpiForm
 
         try
         {
-            File.WriteAllText(save.FileName, template.Render(save.FileName, _projectName));
+            // File nguồn Fast (.xml/.f/.ent) → như FCode: UTF-8 có BOM + encoding="utf-8" (Bcode.Core.FastFileEncoding); file khác UTF-8 không BOM như cũ.
+            File.WriteAllText(save.FileName, Bcode.Core.FastFileEncoding.PrepareText(save.FileName, template.Render(save.FileName, _projectName)),
+                Bcode.Core.FastFileEncoding.ForWrite(save.FileName, new System.Text.UTF8Encoding(false)));
         }
         catch (Exception ex)
         {

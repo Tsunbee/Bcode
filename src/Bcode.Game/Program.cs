@@ -12,6 +12,7 @@ internal static class Program
     ///   --data &lt;thư mục&gt;          nơi lưu game-lan.json (mặc định %AppData%\Bcode)
     ///   --pos x,y,w,h               vị trí cửa sổ (xếp nhiều bản cạnh nhau khi thử)
     ///   --hidden                    chạy ngầm (ngoài màn hình, không taskbar, không giành focus) — thử tự động bằng CDP
+    ///   --pass &lt;mật khẩu&gt;       (thử tự động) mật khẩu phòng khi --host / mật khẩu nhập sẵn khi --join — chỉ để thử: lộ trong danh sách tiến trình
     ///   --loopback                 phòng chỉ nghe 127.0.0.1 (thử trên 1 máy, không bật hộp hỏi tường lửa)
     /// </summary>
     [STAThread]

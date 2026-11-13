@@ -312,7 +312,14 @@
         buttons(['bStop']); show('bLater', false);
         const p = s.progress || {};
         const bar = $('bar'), i = $('barI');
-        if (p.stage === 'scan') {
+        if (p.stage === 'wait') {
+          // bản phát hành đang bị thay trong lúc tải → tự chờ rồi đọc lại (UpdateDialogLogic.DownloadAsync)
+          $('progH').textContent = 'Bản phát hành đang được thay — chờ chép xong';
+          bar.classList.add('indet');
+          i.style.width = '0';
+          $('progL').textContent = 'Tự đọc lại lần ' + p.done + ' / ' + p.total;
+          $('progR').textContent = '';
+        } else if (p.stage === 'scan') {
           $('progH').textContent = 'So sánh file ở máy';
           bar.classList.toggle('indet', !p.total);
           i.style.width = p.total ? (100 * p.done / p.total) + '%' : '0';

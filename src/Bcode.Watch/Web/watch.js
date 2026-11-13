@@ -23,6 +23,9 @@ const S = {
 };
 
 function show(name) {
+  // Từ phòng về sảnh: xoá danh sách phòng cũ. C# mở bộ tìm phòng MỚI và chỉ báo khi có phòng trả lời — không còn phòng nào thì không báo gì,
+  // danh sách cũ (vd "Rạp của X · 1/24 người" lúc bấm Vào xem) nằm mãi dù phòng đã đóng, bấm vào thì treo.
+  if (name === "home" && S.screen !== "home") renderRooms([]);
   S.screen = name;
   $("scrHome").classList.toggle("hidden", name !== "home");
   $("scrRoom").classList.toggle("hidden", name !== "room");
@@ -41,13 +44,38 @@ function renderRooms(rooms, error) {
   $("findErr").textContent = error || "";
   const ul = $("roomList");
   if (!rooms.length) { ul.innerHTML = `<li class="muted">Đang tìm phòng… (chưa thấy phòng chiếu nào)</li>`; return; }
-  ul.innerHTML = rooms.map((r, i) => `<li><div class="ri"><div class="rn">${esc(r.name)}</div><div class="rm">${esc(r.host)} · ${esc(r.ip)}${r.port !== 47831 ? ":" + r.port : ""} · ${r.players}/${r.max} người · ${esc(r.state)}</div></div><button data-i="${i}">Vào xem</button></li>`).join("");
+  ul.innerHTML = rooms.map((r, i) => `<li><div class="ri"><div class="rn">${r.lock ? `<span class="lock" title="Phòng có mật khẩu">🔒</span>` : ""}${esc(r.name)}</div><div class="rm">${esc(r.host)} · ${esc(r.ip)}${r.port !== 47831 ? ":" + r.port : ""} · ${r.players}/${r.max} người · ${esc(r.state)}</div></div><button data-i="${i}">Vào xem</button></li>`).join("");
   ul.querySelectorAll("button").forEach((b) => b.onclick = () => { const r = rooms[+b.dataset.i]; join(r.ip + (r.port !== 47831 ? ":" + r.port : "")); });
 }
 function join(ip) { $("homeErr").textContent = ""; post({ t: "ui.join", name: $("inName").value, ip }); }
 $("btnJoinIp").onclick = () => join($("inIp").value);
 $("inIp").onkeydown = (e) => { if (e.key === "Enter") join($("inIp").value); };
-$("btnHost").onclick = () => { $("homeErr").textContent = ""; post({ t: "ui.host", name: $("inName").value, room: $("inRoom").value }); };
+$("btnHost").onclick = () => { $("homeErr").textContent = ""; post({ t: "ui.host", name: $("inName").value, room: $("inRoom").value, pass: $("inRoomPass").value }); };
+$("inRoomPass").onkeydown = (e) => { if (e.key === "Enter") $("btnHost").click(); };
+
+// ───────────── Mật khẩu phòng ─────────────
+// Vào phòng có khoá: C# báo "ui.needpass" (lần đầu text = null, sai thì text = lời báo) → hỏi ở hộp passBox → "ui.pass".
+// C# tự tính HMAC trên nonce chủ phòng gửi — trang không giữ mật khẩu sau khi gửi.
+function showPass(room, text) {
+  $("passRoom").textContent = room || "Phòng có mật khẩu";
+  $("passErr").textContent = text || "";
+  $("passOk").disabled = false; $("passOk").textContent = "Vào phòng";
+  $("passBox").classList.remove("hidden");
+  $("inPass").value = "";
+  setTimeout(() => $("inPass").focus(), 0);
+}
+function hidePass() { $("passBox").classList.add("hidden"); $("inPass").value = ""; }
+$("passForm").onsubmit = (e) => {
+  e.preventDefault();
+  const pass = $("inPass").value;
+  if (!pass) { $("passErr").textContent = "Nhập mật khẩu."; return; }
+  $("passOk").disabled = true; $("passOk").textContent = "Đang kiểm tra…";
+  post({ t: "ui.pass", pass });
+  $("inPass").value = "";
+};
+$("passCancel").onclick = () => { hidePass(); post({ t: "ui.leave" }); };
+$("inPass").onkeydown = (e) => { if (e.key === "Escape") $("passCancel").click(); };
+
 
 // ═══════════════════════ Trình phát (video / audio / YouTube) ═══════════════════════
 
@@ -61,13 +89,34 @@ function mediaUrl(item) {
 }
 const isAudio = (item) => /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac)(\?|$)/i.test(item.kind === "file" ? item.title : item.src);
 
+// Tải YouTube IFrame API, lỗi thì TỰ THỬ LẠI (4 lần, cách 1,5 / 3 / 4,5 s) rồi mới báo kèm nút Thử lại. Trước đây chỉ thử 1 lần: mạng văn phòng
+// chập chờn / proxy chưa sẵn lúc WebView2 vừa mở → báo "Không tải được trình phát YouTube" và kẹt tới khi rời phòng.
+// iframe_api tải xong lại tải tiếp widgetapi — phần này hỏng thì onYouTubeIframeAPIReady không bao giờ gọi (màn đen im lặng) → hết 20 s coi như lỗi.
 function loadYtApi() {
   if (P.ytApi) return;
   P.ytApi = true;
-  window.onYouTubeIframeAPIReady = () => { P.ytApiReady = true; if (P.kind === "yt" && P.item) ytCreate(P.item.src); };
+  const attempt = P.ytTry = (P.ytTry || 0) + 1;
+  window.onYouTubeIframeAPIReady = () => {
+    P.ytApiReady = true; P.ytTry = 0; clearTimeout(P.ytTimer);
+    if (P.kind === "yt" && P.item) { clearErr(); ytCreate(P.item.src); }
+  };
+  if (window.YT && !YT.Player) { try { delete window.YT; } catch { window.YT = undefined; } }   // lần trước dở dang: cho iframe_api tải lại widgetapi
   const s = document.createElement("script");
-  s.src = "https://www.youtube.com/iframe_api";
-  s.onerror = () => { P.ytApi = false; playerError("Không tải được trình phát YouTube — máy này có vào được Internet / youtube.com không?"); };
+  s.src = "https://www.youtube.com/iframe_api" + (attempt > 1 ? "?r=" + attempt : "");
+  let done = false;
+  const fail = () => {
+    if (done || (window.YT && YT.Player)) return;
+    done = true; clearTimeout(P.ytTimer); s.remove(); P.ytApi = false;
+    if (attempt < 4) {
+      if (P.kind === "yt") playerError(`Đang tải lại trình phát YouTube (lần ${attempt + 1})…`);
+      setTimeout(() => { if (P.kind === "yt" && !P.ytApi) loadYtApi(); }, 1500 * attempt);
+    } else {
+      P.ytTry = 0;
+      if (P.kind === "yt") playerError("Không tải được trình phát YouTube (đã thử 4 lần) — máy này có vào được youtube.com không (mạng / proxy / tường lửa)?", null, () => loadYtApi());
+    }
+  };
+  s.onerror = fail;
+  P.ytTimer = setTimeout(fail, 20000);
   document.head.appendChild(s);
 }
 
@@ -129,12 +178,14 @@ V.addEventListener("error", () => {
   playerError(`Không phát được "${P.item.title}": ${why}.`, P.item.kind === "url" ? P.item.src : null);
 });
 
-function playerError(text, openUrl) {
+function playerError(text, openUrl, retry) {
   P.err = text;
   const box = $("perr");
-  box.innerHTML = `<div>⚠ ${esc(text)}</div>` + (openUrl ? `<button id="btnOpenExt">Mở bằng trình duyệt</button>` : "") + (S.host ? `<div class="muted">Chủ phòng có thể bấm ⏭ để chuyển bài.</div>` : "");
+  box.innerHTML = `<div>⚠ ${esc(text)}</div>` + (openUrl ? `<button id="btnOpenExt">Mở bằng trình duyệt</button>` : "") + (retry ? `<button id="btnRetry">Thử lại</button>` : "") +
+    (S.host ? `<div class="muted">Chủ phòng có thể bấm ⏭ để chuyển bài.</div>` : "");
   box.classList.remove("hidden");
   if (openUrl) $("btnOpenExt").onclick = () => post({ t: "ui.open", url: openUrl });
+  if (retry) $("btnRetry").onclick = () => { clearErr(); retry(); };
 }
 function clearErr() { P.err = null; $("perr").classList.add("hidden"); }
 
@@ -189,7 +240,9 @@ function syncTick() {
   updateBar(exp, dur);
   $("audioArt").classList.toggle("playing", st.playing);
   if (!P.ready || P.err) return;
-  if (S.host && !P.metaSent && pDur() > 0) {
+  // YouTube: trình phát dùng lại (cueVideoById) vẫn trả độ dài / tên video CŨ tới khi tải xong video mới — chờ đúng mã video mới báo
+  const ytStale = P.kind === "yt" && P.yt.getVideoData && (P.yt.getVideoData() || {}).video_id !== P.item.src;
+  if (S.host && !P.metaSent && pDur() > 0 && !ytStale) {
     P.metaSent = true;
     send({ t: "meta", id: item.id, dur: pDur(), title: P.kind === "yt" ? (P.yt.getVideoData?.().title || "") : "" });
   }
@@ -673,6 +726,17 @@ function addLink() {
 $("btnAdd").onclick = addLink;
 $("addIn").onkeydown = (e) => { if (e.key === "Enter" || e.code === "Enter") addLink(); };
 $("btnFile").onclick = () => post({ t: "ui.pickfile" });
+// Link mời: chủ phòng — C# dựng từ IP LAN chính (ui.hosted); người xem — từ địa chỉ chủ phòng máy này đã nối được (ui.connected + welcome).
+// Link http://ip:cổng-phát-file/join mở trang nhỏ ở máy chủ phòng có nút mở Rạp Bcode (bcwatch://); dán link vào ô IP ở sảnh cũng vào được.
+function viewerInvite() {
+  if (!S.mediaPort || !S.hostAddr || /^127\.|^localhost$/i.test(S.hostAddr)) return "";
+  const h = S.hostAddr.includes(":") ? "[" + S.hostAddr + "]" : S.hostAddr;
+  return `http://${h}:${S.mediaPort}/join` + (S.hostPort && S.hostPort !== 47831 ? "?p=" + S.hostPort : "");
+}
+$("btnInvite").onclick = () => {
+  if (!S.invite) { toast("Chưa có link mời — máy chủ phòng không có IP mạng LAN.", 4000); return; }
+  post({ t: "ui.copy", text: S.invite });
+};
 $("btnFw").onclick = () => post({ t: "ui.firewall" });
 $("btnLeave").onclick = () => {
   if (S.host && S.viewers.length > 1 && !confirm("Bạn là chủ phòng — rời phòng sẽ kết thúc buổi chiếu cho mọi người. Rời?")) return;
@@ -720,16 +784,18 @@ function handle(m) {
       $("inName").value = m.name || "";
       $("inRoom").value = m.room || "";
       $("inIp").value = m.lastIp || "";
+      $("inRoomPass").value = m.roomPass || "";
       S.volume = m.volume ?? 0.8; $("vol").value = Math.round(S.volume * 100);
       S.mode = m.mode === "screen" ? "screen" : "theater";
       S.side = m.side !== false;
       SH.fake = !!m.fakeShare;
       $("ver").textContent = `Rạp Bcode v${m.version} · máy ${m.machine} · IP: ${m.ips.join(", ") || "?"}`;
       show("home");
-      if (m.auto === "host") post({ t: "ui.host", name: m.name, room: m.autoRoom || m.room });
+      if (m.auto === "host") post({ t: "ui.host", name: m.name, room: m.autoRoom || m.room, pass: m.roomPass || "" });
       else if (m.auto === "join") post({ t: "ui.join", name: m.name, ip: m.autoJoin });
       break;
     case "ui.rooms": renderRooms(m.rooms || [], m.error); break;
+    case "ui.needpass": showPass(m.room, m.text); break;
     case "ui.error":
       if (S.screen === "room") { $("qErr").textContent = m.text; toast(m.text, 4000); } else $("homeErr").textContent = m.text;
       break;
@@ -737,12 +803,16 @@ function handle(m) {
       {
         const addrs = m.ips.map((ip) => ip + (m.port !== 47831 ? ":" + m.port : ""));
         $("rmAddr").textContent = `Người khác vào bằng danh sách phòng, hoặc gõ IP: ${addrs.join("  ·  ") || "(không có IP LAN)"}`;
+        if (m.locked) $("rmAddr").textContent += "  ·  🔒 có mật khẩu";
         $("rmAddr").title = addrs.join("\n");
       }
       $("rmFw").classList.add("hidden");
       if (m.warn) toast(m.warn, 5000);
+      S.invite = m.invite || "";
+      $("btnInvite").title = S.invite ? `Chép link mời: ${S.invite}\nDán vào Zalo / Teams / mail — người cùng mạng LAN bấm link là vào phòng` : "Máy chủ phòng không có IP mạng LAN";
       break;
-    case "ui.connected": S.hostAddr = m.host; break;
+    case "ui.connected": S.hostAddr = m.host; S.hostPort = m.port; break;
+    case "ui.copied": toast(`Đã chép link mời ${S.invite} — dán vào Zalo / Teams / mail cho mọi người cùng mạng LAN bấm vào.`, 5000); break;
     case "ui.fw":
       $("rmFw").classList.remove("hidden");
       $("rmFw").dataset.level = m.level;
@@ -751,9 +821,11 @@ function handle(m) {
       $("btnFw").textContent = m.level === "ok" ? "🛡 Mở lại tường lửa" : "🛡 Mở tường lửa";
       break;
     case "ui.left":
+      hidePass();
       unload(); resetShare(); S.st = null; S.viewers = []; show("home");
       break;
     case "ui.closed":
+      hidePass();
       unload(); resetShare(); S.st = null; S.viewers = []; show("home");
       $("homeErr").textContent = S.rejected || "Mất kết nối với phòng: " + m.reason;
       S.rejected = null;
@@ -761,7 +833,9 @@ function handle(m) {
 
     // ── từ máy chủ phòng ──
     case "welcome":
+      hidePass();
       S.me = m.id; S.host = m.host; S.name = m.name; S.room = m.room; S.mediaPort = m.mediaPort;
+      if (!S.host) { S.invite = viewerInvite(); $("btnInvite").title = S.invite ? `Chép link mời: ${S.invite}` : "Không dựng được link mời"; }
       resetShare();
       enterRoom();
       break;

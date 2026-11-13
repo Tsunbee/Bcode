@@ -85,14 +85,15 @@ Bcode.App/
 │   ├── NativePages.PartitionCheck.cs  43
 │   ├── NativePages.Profiler.cs  108
 │   ├── NativePages.QuickAccess.cs  215
-│   ├── NativePages.Register.cs  53
+│   ├── NativePages.Register.cs  54
 │   ├── NativePages.RptSchema.cs  186
 │   ├── NativePages.SqlHistory.cs  315
+│   ├── NativePages.StatusPets.cs  205
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  351
 │   ├── NativeResultPane.cs  474
-│   ├── NativeShellBars.cs  384
-│   ├── NativeSqlControl.cs  2528
+│   ├── NativeShellBars.cs  397
+│   ├── NativeSqlControl.cs  2529
 │   ├── NativeSqlHints.cs  366
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
@@ -102,7 +103,7 @@ Bcode.App/
 │   ├── PillButton.cs  190
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  533
-│   ├── RawSqlControl.cs  2905
+│   ├── RawSqlControl.cs  2922
 │   ├── RelativeTablesControl.cs  145
 │   ├── ResultExport.cs  146
 │   ├── ResultGridMenu.cs  682
@@ -123,6 +124,8 @@ Bcode.App/
 │   ├── SqlTabSnapshot.cs  19
 │   ├── SqlWatchControl.cs  185
 │   ├── SqlWatchControl.Form.cs  39
+│   ├── StatusPets.cs  655
+│   ├── StatusPets.Editor.cs  560
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
 │   ├── TableEditControl.cs  2361
@@ -169,7 +172,7 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  108
-│   ├── MainForm.cs  5107
+│   ├── MainForm.cs  5136
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  112
 │   ├── MainForm.Hibernate.cs  64
@@ -196,6 +199,7 @@ Bcode.App/
 │   ├── SourceViewForm.cs  226
 │   ├── SqlAiEditForm.cs  108
 │   ├── SqlHistoryForm.cs  364
+│   ├── StatusPetsForm.cs  40
 │   ├── StepParamsForm.cs  134
 │   ├── StringBeautyForm.cs  170
 │   ├── StubForm.cs  91
@@ -215,13 +219,14 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  505
+│   ├── AppSettings.cs  508
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
 │   ├── Snippet.cs  15
 │   ├── SqlBarLayout.cs  40
 │   ├── SqlObjectInfo.cs  20
+│   ├── StatusPetSettings.cs  79
 │   ├── ToolBarGroup.cs  17
 │   ├── WCommandItem.cs  45
 │   ├── WeeklyMailSent.cs  68
@@ -489,7 +494,7 @@ Bcode.App/
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  195
 │       ├── shell.css  249
-│       ├── sqleditor.html  1741
+│       ├── sqleditor.html  1766
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  624
 │       ├── sqlhistory.html  330
@@ -499,7 +504,9 @@ Bcode.App/
 │       ├── sqlprofilerbar.html  170
 │       ├── sqlquerybar.html  415
 │       ├── sqlresulttabs.html  53
-│       ├── statusbar.html  75
+│       ├── statusbar.html  82
+│       ├── statuspets.html  144
+│       ├── statuspets.js  695
 │       ├── stepparams.html  43
 │       ├── stringbeauty.html  189
 │       ├── tablebar.html  326
@@ -509,7 +516,7 @@ Bcode.App/
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
 │       ├── uitemplate.html  1351
-│       ├── update.html  396
+│       ├── update.html  403
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836
 │       ├── voucherview.html  88
@@ -689,12 +696,13 @@ Bcode.KeyGen/
 Shared/
 ├── AiWebHelper.cs  373
 ├── AppSwitchFocus.cs  86
-├── AppUpdate.cs  1023
-├── AppUpdateDialog.cs  184
+├── AppUpdate.cs  1048
+├── AppUpdateDialog.cs  221
 ├── AppUpdateForm.cs  181
 ├── AppUpdateToast.cs  195
 ├── DpapiText.cs  134
 ├── KnowledgeMover.cs  166
 ├── LicenseCodec.cs  104
 ├── PipeProtocol.cs  44
+└── RoomAuth.cs  211
 ```

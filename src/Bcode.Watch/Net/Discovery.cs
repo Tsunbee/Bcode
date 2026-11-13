@@ -6,8 +6,9 @@ using System.Text.Json;
 
 namespace Bcode.Watch.Net;
 
-/// <summary>Thông tin phòng chiếu chủ phòng trả lời khi được hỏi qua UDP.</summary>
-public sealed record RoomInfo(string Proto, string Name, string Host, int Port, int Players, int Max, string State, string Ip = "");
+/// <summary>Thông tin phòng chiếu chủ phòng trả lời khi được hỏi qua UDP. Lock = phòng có mật khẩu — gói này KHÔNG mang mật khẩu / salt / hash (xem Shared/RoomAuth.cs).
+/// Bản cũ đọc gói mới vẫn được (bỏ qua trường lạ).</summary>
+public sealed record RoomInfo(string Proto, string Name, string Host, int Port, int Players, int Max, string State, string Ip = "", bool Lock = false);
 
 /// <summary>Chủ phòng: nghe UDP <see cref="Wire.DiscoveryPort"/>, ai gửi "bcwatch1?" thì trả lời (unicast) thông tin phòng.
 /// Bind ReuseAddress để nhiều bản trên cùng máy (thử nghiệm) cùng nghe được.</summary>
@@ -104,13 +105,37 @@ public sealed class RoomFinder : IDisposable
         return list.Distinct().ToList();
     }
 
+    /// <summary>IP LAN "chính" để dựng link mời: card có default gateway (mạng văn phòng thật) — card ảo Hyper-V / VMware / WSL thường không có;
+    /// Ethernet / Wi-Fi trước, VPN sau. Không có thì IP đầu tiên; không có IP LAN nào thì null.</summary>
+    public static string? PrimaryIPv4()
+    {
+        try
+        {
+            var best = SafeNics()
+                .Select(n => (Nic: n, Props: n.GetIPProperties()))
+                .Where(x => x.Props.GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork && !g.Address.Equals(IPAddress.Any)))
+                .OrderBy(x => x.Nic.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211 ? 0 : 1)
+                .SelectMany(x => x.Props.UnicastAddresses)
+                .Select(u => u.Address)
+                .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
+            if (best != null) return best.ToString();
+        }
+        catch { }
+        return LocalIPv4().FirstOrDefault();
+    }
+
     private async Task ProbeLoop()
     {
         var probe = Encoding.ASCII.GetBytes(Wire.Protocol + "?");
         while (!_cts.IsCancellationRequested)
         {
             var sent = 0;
-            foreach (var t in Targets().Distinct())
+            // Liệt kê card mạng có thể ném lỗi (card vừa tắt / VPN đang nối) — trước đây ngoài try nên vòng hỏi chết hẳn:
+            // không gửi gói hỏi, không bỏ phòng cũ nữa → danh sách giữ mãi phòng đã đóng.
+            List<IPAddress> targets;
+            try { targets = Targets().Distinct().ToList(); }
+            catch { targets = new() { IPAddress.Broadcast, IPAddress.Loopback }; }
+            foreach (var t in targets)
             {
                 try { await _udp.SendAsync(probe, new IPEndPoint(t, Wire.DiscoveryPort)); sent++; }
                 catch { /* mạng con không gửi được: bỏ qua */ }

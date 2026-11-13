@@ -179,3 +179,13 @@ body.guest .hostonly { display: none; } body:not(.guest) .guestonly { display: n
 .sound { position: fixed; right: 12px; top: 10px; z-index: 20; cursor: pointer; opacity: .7; font-size: 1.1rem; }
 #scrGame:not(.hidden) ~ .sound { top: 18px; right: auto; left: 326px; }
 @media (max-width: 1100px) { .lobby-grid { grid-template-columns: 1fr 1fr; } .cards { grid-template-columns: 1fr; } }
+
+/* Mật khẩu phòng */
+.pass-row { margin-top: 8px; }
+.pass-row input { width: 100%; }
+.lock { margin-right: 4px; }
+.pass-modal { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); display: flex; align-items: center; justify-content: center; z-index: 60; }
+.pass-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; width: min(420px, 92vw); }
+.pass-card h2 { margin: 0 0 4px; font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pass-card input { width: 100%; margin-top: 10px; }
+.pass-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }

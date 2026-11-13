@@ -6,8 +6,9 @@ using System.Text.Json;
 
 namespace Bcode.Game.Net;
 
-/// <summary>Thông tin phòng chủ phòng trả lời khi được hỏi qua UDP.</summary>
-public sealed record RoomInfo(string Proto, string Name, string Host, int Port, int Players, int Max, string State, string Ip = "");
+/// <summary>Thông tin phòng chủ phòng trả lời khi được hỏi qua UDP. Lock = phòng có mật khẩu — gói này KHÔNG mang mật khẩu / salt / hash (xem Shared/RoomAuth.cs).
+/// Bản cũ đọc gói mới vẫn được (bỏ qua trường lạ).</summary>
+public sealed record RoomInfo(string Proto, string Name, string Host, int Port, int Players, int Max, string State, string Ip = "", bool Lock = false);
 
 /// <summary>Chủ phòng: nghe UDP <see cref="Wire.DiscoveryPort"/>, ai gửi "bcgame1?" thì trả lời (unicast) thông tin phòng.
 /// Bind ReuseAddress để nhiều bản game trên cùng máy (thử nghiệm) cùng nghe được.</summary>

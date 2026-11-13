@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bcode.Game.Data;
 using Bcode.Game.Net;
+using Bcode.Shared;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -117,7 +118,7 @@ public sealed class GameForm : Form
             case "ui.init":
                 Post(new
                 {
-                    t = "ui.init", name = _prefs.Name, room = _prefs.Room, lastIp = _prefs.LastIp, lastFile = _prefs.LastFile,
+                    t = "ui.init", name = _prefs.Name, room = _prefs.Room, lastIp = _prefs.LastIp, lastFile = _prefs.LastFile, roomPass = _prefs.RoomPass,
                     ips = RoomFinder.LocalIPv4(), machine = Environment.MachineName, version = Application.ProductVersion.Split('+')[0],
                     auto = _opts.ContainsKey("host") ? "host" : _opts.ContainsKey("join") ? "join" : null,
                     autoJoin = _opts.GetValueOrDefault("join"), autoRoom = _opts.GetValueOrDefault("room"),
@@ -138,7 +139,11 @@ public sealed class GameForm : Form
                 _finder?.Dispose(); _finder = null;
                 break;
             case "ui.host":
-                _ = HostAsync((string?)m["name"], (string?)m["room"]);
+                _ = HostAsync((string?)m["name"], (string?)m["room"], (string?)m["pass"]);
+                break;
+            case "ui.pass":
+                // mật khẩu người vào phòng gõ ở hộp 🔒 — chỉ giữ trong RoomKeyClient tới khi vào được, không lưu, không log
+                if ((string?)m["pass"] is { Length: > 0 } pw) _client?.SubmitPassword(pw);
                 break;
             case "ui.join":
                 _ = JoinAsync((string?)m["name"], (string?)m["ip"]);
@@ -176,18 +181,22 @@ public sealed class GameForm : Form
 
     // ───────────────────────── Phòng ─────────────────────────
 
-    private async Task HostAsync(string? name, string? room)
+    private async Task HostAsync(string? name, string? room, string? pass)
     {
         LeaveRoom();
         _prefs.Name = Clean(name, _prefs.Name);
         _prefs.Room = Clean(room, _prefs.Room);
+        // --pass (thử tự động) thắng ô trên trang. Nhớ mật khẩu phòng của chủ phòng — trong file là bản DPAPI (Prefs.RoomPassStored).
+        pass = _opts.TryGetValue("pass", out var op) ? op : (pass ?? "");
+        if (pass.Length > 64) pass = pass[..64];
+        _prefs.RoomPass = pass;
         _prefs.Save();
         var port = _opts.TryGetValue("port", out var ps) && int.TryParse(ps, out var pp) ? pp : Wire.DefaultGamePort;
         var min = _opts.TryGetValue("min-players", out var mp) && int.TryParse(mp, out var mpi) ? mpi : 5;
-        try { _server = GameServer.Start(_prefs.Room, port, min, _opts.ContainsKey("loopback")); }
+        try { _server = GameServer.Start(_prefs.Room, port, min, _opts.ContainsKey("loopback"), pass); }
         catch (Exception ex) { Post(new { t = "ui.error", text = ex.Message }); return; }
         _server.Room.Log += s => Debug.WriteLine(s);
-        Post(new { t = "ui.hosted", port = _server.Port, ips = RoomFinder.LocalIPv4(), warn = _server.BeaconError });
+        Post(new { t = "ui.hosted", port = _server.Port, ips = RoomFinder.LocalIPv4(), warn = _server.BeaconError, locked = _server.Room.Locked });
         await ConnectAsync("127.0.0.1", _server.Port, _server.Room.HostToken);
         if (!_opts.ContainsKey("loopback")) _ = CheckFirewallAsync();
         var file = _opts.GetValueOrDefault("file") ?? _prefs.LastFile;
@@ -247,14 +256,15 @@ public sealed class GameForm : Form
         var host = ip; var port = Wire.DefaultGamePort;
         var colon = ip.LastIndexOf(':');
         if (colon > 0 && int.TryParse(ip[(colon + 1)..], out var p)) { host = ip[..colon]; port = p; }
-        await ConnectAsync(host, port, null);
+        await ConnectAsync(host, port, null, _opts.GetValueOrDefault("pass"));
     }
 
-    private async Task ConnectAsync(string host, int port, string? token)
+    private async Task ConnectAsync(string host, int port, string? token, string? password = null)
     {
         try
         {
-            var c = await GameClient.ConnectAsync(host, port, _prefs.Name, token);
+            var c = await GameClient.ConnectAsync(host, port, _prefs.Name, token, password);
+            c.NeedPassword += (text, room) => UI(() => { if (_client == c) Post(new { t = "ui.needpass", text, room }); });
             _leaving = false;
             c.Message += bytes => { var s = Encoding.UTF8.GetString(bytes); UI(() => PostRaw(s)); };
             c.Closed += reason => UI(() => { if (!_leaving && _client == c) { _client = null; Post(new { t = "ui.closed", reason }); } });
@@ -320,6 +330,10 @@ internal sealed class Prefs
     public string LastFile { get; set; } = "";
     /// <summary>Thư mục câu hỏi dùng chung (trống = GameForm.SharedBankDir).</summary>
     public string BankDir { get; set; } = "";
+    /// <summary>Mật khẩu phòng lần trước của chủ phòng — trong file chỉ có bản DPAPI ("dpapi:…", chỉ đúng tài khoản Windows này giải được).</summary>
+    private readonly ProtectedText _roomPass = new();
+    [System.Text.Json.Serialization.JsonIgnore] public string RoomPass { get => _roomPass.Plain; set => _roomPass.Plain = value; }
+    [System.Text.Json.Serialization.JsonPropertyName("RoomPass")] public string RoomPassStored { get => _roomPass.Stored; set => _roomPass.Stored = value; }
     private string _path = "";
 
     public static Prefs Load(string? dir)

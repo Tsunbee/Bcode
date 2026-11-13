@@ -3,8 +3,8 @@ using Bcode.App.Models;
 
 namespace Bcode.App.Forms;
 
-/// <summary>Cửa sổ "Thú cưng trên thanh trạng thái" (Web/Shell/statuspets.html; chế độ App: Controls/NativePages.StatusPets.cs).
-/// Mỗi lần đổi gọi <c>preview</c> để thanh trạng thái áp ngay; OK → <see cref="Result"/>, Hủy → bên gọi trả lại cài đặt cũ.</summary>
+/// <summary>Cửa sổ "Thú cưng (thanh trạng thái, SQL Query)" (Web/Shell/statuspets.html; chế độ App: Controls/NativePages.StatusPets.cs).
+/// Mỗi lần đổi gọi <c>preview</c> để thanh trạng thái + editor SQL Query áp ngay; OK → <see cref="Result"/>, Hủy → bên gọi trả lại cài đặt cũ.</summary>
 public sealed class StatusPetsForm : WebDialogForm
 {
     private readonly Action<StatusPetSettings> _preview;
@@ -12,7 +12,7 @@ public sealed class StatusPetsForm : WebDialogForm
     public StatusPetSettings Result { get; private set; }
 
     public StatusPetsForm(StatusPetSettings current, Action<StatusPetSettings> preview)
-        : base("Thú cưng trên thanh trạng thái", "statuspets.html", 640, 600, 480, 460)
+        : base("Thú cưng (thanh trạng thái, SQL Query)", "statuspets.html", 660, 780, 480, 480)
     {
         Result = current.Clone().Normalize();
         _preview = preview;
@@ -24,6 +24,7 @@ public sealed class StatusPetsForm : WebDialogForm
             settings = Result,
             kinds = StatusPetSettings.Kinds.Select(k => new { key = k.Key, label = k.Label, hint = k.Hint }),
             max = StatusPetSettings.MaxPerKind,
+            styles = StatusPetSettings.EditorStyles.Select(s => new { key = s.Key, label = s.Label }),
         })})");
 
     protected override Task OnActionAsync(string action, JsonElement msg)

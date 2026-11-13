@@ -460,8 +460,236 @@
         sync();
         if (!raf) { last = 0; raf = requestAnimationFrame(frame); }
       },
+      // Vẽ 1 con lên ctx khác (toạ độ cục bộ, quay mặt sang phải) — thú cưng trong editor (editorPet bên dưới) mượn hình vẽ ở đây.
+      drawPet: function (ctx, p, time) {
+        var g0 = g, t0 = t;
+        g = ctx; t = time;
+        try { DRAW[p.kind](p); } finally { g = g0; t = t0; }
+      },
     };
   }
 
-  window.StatusPets = { create: create };
+  // ---------- Thú cưng trong editor SQL Query (Settings → Thú cưng...): 1 con, 2 kiểu ----------
+  // 'follow' = chạy / bay theo chuột, đứng lệch dưới-phải mũi chuột — chữ I giữ nguyên; canvas nhỏ position:fixed, pointer-events:none, dời bằng transform.
+  // 'cursor' = con trỏ chuột trong vùng chữ thành hình con thú (ảnh CSS cursor ≤ 32 px; chấm đỏ ở mũi = điểm bấm).
+  // Dùng: var ep = StatusPets.editor(hostElement, applyCursor); ep.set({ editorStyle, editorKind, editorScale }).
+  // applyCursor(css) — bên gọi gán chuỗi CSS cursor cho vùng chữ ('' = trả con trỏ gốc). Không đụng tới editor, không chạy khi gõ phím.
+  // Bản native tương đương: Controls/StatusPets.Editor.cs (cùng tên hàm, cùng con số).
+  var NOSE = { bee: [17.4, 9.5], butterfly: [16, 9.5], bird: [20, 7], ladybug: [14, 7], cat: [23, 8.6], snail: [17.5, 3] };   // mũi (hình quay phải)
+  var FOLLOW = { bee: 420, butterfly: 300, bird: 520, ladybug: 160, cat: 360, snail: 60 };   // tốc độ tối đa khi theo chuột (px thiết kế / giây)
+  var REST = { bee: 'rest', butterfly: 'rest', bird: 'hop', ladybug: 'idle', cat: 'sit', snail: 'idle' };
+  var CUR = 32;    // cỡ ảnh con trỏ (px CSS) — Chromium bỏ con trỏ ảnh > 32 px khi ở sát mép
+  var PAD = 20;    // lề quanh con thú trên canvas 'follow' (chỗ cho tim / zZ)
+
+  function editorPet(host, applyCursor) {
+    var core = create(document.createElement('div'));   // chỉ mượn drawPet, không bật
+    var cv = document.createElement('canvas');
+    cv.style.cssText = 'position:fixed;left:0;top:0;pointer-events:none;z-index:60;display:none;will-change:transform';
+    document.body.appendChild(cv);
+    var g = cv.getContext('2d');
+    var cc = document.createElement('canvas'), cg = cc.getContext('2d');   // ảnh con trỏ
+    var S = { editorStyle: 'off', editorKind: 'cat', editorScale: 150 };
+    var p = null, parts = [], t = 0, last = 0, raf = 0, tmr = 0, lastCss = '', rect = null, imgSet = null;
+    var mouse = null, mouseAt = -100, inside = false;
+
+    function style() { return S.editorStyle === 'follow' || S.editorStyle === 'cursor' ? S.editorStyle : 'off'; }
+    function scale() { return clamp(+S.editorScale || 150, 100, 250) / 100; }
+    function hostRect() { if (!rect) rect = host.getBoundingClientRect(); return rect; }
+    window.addEventListener('resize', function () { rect = null; });
+    window.addEventListener('scroll', function () { rect = null; }, true);   // trang có vùng cuộn (cửa sổ cài đặt)
+    if (window.ResizeObserver) new ResizeObserver(function () { rect = null; }).observe(host);
+
+    // Bắt chuột ở pha capture của window: editor có chặn lan truyền / giữ chuột khi bôi chọn thì vẫn nhận được.
+    window.addEventListener('pointermove', function (e) {
+      if (style() === 'off') return;
+      var r = hostRect(), x = e.clientX, y = e.clientY;
+      if (x < r.left || x >= r.right || y < r.top || y >= r.bottom) { inside = false; return; }
+      if (mouse && p) {
+        p.accX += x - mouse.x;
+        if (Math.abs(p.accX) > 6) { if (style() === 'cursor') p.face = p.accX > 0 ? 1 : -1; p.accX = 0; }
+      }
+      if (!mouse || Math.abs(x - mouse.x) + Math.abs(y - mouse.y) > 0.5) mouseAt = t;
+      mouse = { x: x, y: y }; inside = true;
+      kick();
+    }, true);
+    document.documentElement.addEventListener('mouseleave', function () { inside = false; });
+    document.addEventListener('visibilitychange', kick);
+
+    function kick() { if (!raf && !tmr && p && style() !== 'off' && !document.hidden) { last = 0; raf = requestAnimationFrame(frame); } }
+
+    function newPet() {
+      var kind = S.editorKind, sz = SIZE[kind], r = hostRect(), k = scale();
+      var c = kind === 'butterfly' ? pick(BFLY) : kind === 'bird' ? pick(BIRD) : kind === 'cat' ? pick(CAT) : null;
+      p = { kind: kind, w: sz[0], h: sz[1], vx: 0, vy: 0, face: -1, mode: REST[kind], ph: rnd(0, 10), tilt: 0, moving: false, rest: 1, cd: 0, peck: 0, accX: 0,
+        x: mouse ? mouse.x + 10 : r.right - sz[0] * k - 30, y: mouse ? mouse.y + 12 : r.bottom - sz[1] * k - 8,
+        c1: c ? c[0] : '', c2: c ? c[1] : '', eye: c && c[2] ? c[2] : '' };
+      parts = [];
+    }
+
+    function sleepZ(dt, bw) {
+      p.cd -= dt;
+      if (p.cd <= 0) { p.cd = 1.1; parts.push({ k: 'z', x: p.x + (p.face > 0 ? bw - 4 : 4), y: p.y + 6, vx: p.face * 3, vy: -6, life: 2, max: 2 }); }
+    }
+    function birdIdle(dt) {
+      if (p.kind !== 'bird' || p.mode !== 'hop') return;
+      p.cd -= dt;
+      if (p.cd <= 0) { p.cd = rnd(0.8, 2.2); p.peck = 0.25; }
+      if (p.peck > 0) { p.peck -= dt; p.tilt = 0.5; }
+    }
+
+    // Theo chuột: đích = lệch dưới-phải mũi chuột (chừa chữ I), kẹp trong editor (chừa thanh cuộn dọc).
+    function stepFollow(dt) {
+      var k = scale(), bw = p.w * k, bh = p.h * k, r = hostRect(), idle = t - mouseAt;
+      var tx = mouse ? mouse.x + 10 : p.x, ty = mouse ? mouse.y + 12 : p.y;
+      tx = clamp(tx, r.left, Math.max(r.left, r.right - bw - 14)); ty = clamp(ty, r.top, Math.max(r.top, r.bottom - bh - 2));
+      var dx = tx - p.x, dy = ty - p.y, dist = Math.hypot(dx, dy), walker = !(p.kind in FLIER_KINDS);
+      if (p.mode === 'sleep') {
+        if (idle > 0.3) { sleepZ(dt, bw); return; }
+        p.mode = 'wake'; p.cd = 0.5;
+        parts.push({ k: 'heart', x: p.x + bw / 2, y: p.y, vx: 0, vy: -14, life: 1.2, max: 1.2 });
+      }
+      if (p.mode === 'wake') { p.cd -= dt; if (p.cd > 0) return; p.mode = REST[p.kind]; }
+      if (!p.moving && dist > 8 * k) p.moving = true;
+      if (p.moving && dist < 2 * k && (walker || Math.hypot(p.vx, p.vy) < 40 * k)) { p.moving = false; p.rest = 0; }
+      if (p.moving) {
+        var max = FOLLOW[p.kind] * k;
+        p.mode = p.kind === 'cat' ? (dist > 40 * k ? 'chase' : 'walk')
+          : p.kind === 'ladybug' ? (dist > 120 * k || (p.mode === 'air' && dist > 10 * k) ? 'air' : 'walk')
+          : p.kind === 'snail' ? 'walk' : 'fly';
+        if (p.mode === 'fly' || p.mode === 'air') {   // lò xo hơi lố + rung nhẹ (như flyTo)
+          var wob = Math.sin((t + p.ph) * 5) * 2 * k;
+          p.vx += (dx * 9 - p.vx * 4.5) * dt; p.vy += ((dy + wob) * 9 - p.vy * 4.5) * dt;
+          var sp = Math.hypot(p.vx, p.vy);
+          if (sp > max) { p.vx *= max / sp; p.vy *= max / sp; }
+          p.x += p.vx * dt; p.y += p.vy * dt;
+          p.tilt = clamp(Math.atan2(p.vy, Math.abs(p.vx) + 20 * k), -0.45, 0.45);
+          if (Math.abs(p.vx) > 10 * k) p.face = p.vx > 0 ? 1 : -1;
+        } else {                                       // bò / chạy thẳng tới đích
+          var s = Math.min(dist, max * dt);
+          p.vx = dx / dist * max; p.vy = dy / dist * max;
+          p.x += dx / dist * s; p.y += dy / dist * s; p.tilt = 0;
+          if (Math.abs(dx) > 1) p.face = dx > 0 ? 1 : -1;
+        }
+        return;
+      }
+      p.vx = p.vy = 0; p.tilt = 0; p.rest += dt;
+      if (p.rest > 0.5 && p.mode !== 'sleep') {
+        if (p.mode === 'fly' || p.mode === 'air' || p.mode === 'walk' || p.mode === 'chase') p.mode = REST[p.kind];
+        if (mouse) p.face = mouse.x < p.x + bw / 2 ? -1 : 1;   // ngoảnh về phía chuột
+      }
+      if (p.kind === 'cat' && p.mode === 'sit' && idle > 20) { p.mode = 'sleep'; p.cd = 0.5; }
+      birdIdle(dt);
+    }
+
+    // Thay con trỏ: chuột vừa di chuyển = chạy / bay, đứng yên = nghỉ, lâu = mèo ngủ.
+    function stepCursor(dt) {
+      var idle = t - mouseAt;
+      p.moving = idle < 0.25; p.tilt = 0;
+      if (p.moving) { p.mode = p.kind === 'cat' ? 'chase' : p.kind === 'ladybug' || p.kind === 'snail' ? 'walk' : 'fly'; p.rest = 0; return; }
+      p.rest += dt;
+      p.mode = p.kind === 'cat' && idle > 20 ? 'sleep' : REST[p.kind];
+      birdIdle(dt);
+    }
+
+    function stepParts(dt) {
+      for (var i = parts.length - 1; i >= 0; i--) {
+        var q = parts[i];
+        q.life -= dt;
+        if (q.life <= 0) { parts.splice(i, 1); continue; }
+        q.x += q.vx * dt; q.y += q.vy * dt;
+      }
+    }
+
+    function drawBody(ctx, x, y, k) {
+      var bob = p.mode === 'rest' ? Math.sin(t * 9) * 0.3 * k : 0;
+      ctx.save();
+      ctx.translate(x + p.w * k / 2, y + p.h * k / 2 + bob);
+      ctx.rotate(p.tilt * p.face);
+      ctx.scale(p.face * k, k);
+      ctx.translate(-p.w / 2, -p.h / 2);
+      core.drawPet(ctx, p, t);
+      ctx.restore();
+    }
+
+    function drawFollow() {
+      var k = scale(), bw = p.w * k, bh = p.h * k, dpr = window.devicePixelRatio || 1;
+      var cw = Math.ceil(bw + PAD * 2), ch = Math.ceil(bh + PAD * 2);
+      if (cv.width !== Math.round(cw * dpr) || cv.height !== Math.round(ch * dpr)) {
+        cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr); cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+      }
+      var ox = Math.round(p.x - PAD), oy = Math.round(p.y - PAD);
+      cv.style.transform = 'translate(' + ox + 'px,' + oy + 'px)';
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, cw, ch);
+      parts.forEach(function (q) {
+        g.globalAlpha = Math.min(1, q.life / q.max * 2);
+        g.fillStyle = q.k === 'heart' ? '#ff5a8a' : '#8aa0b8';
+        g.font = q.k === 'heart' ? '12px sans-serif' : 'bold 10px sans-serif';
+        g.textAlign = 'center';
+        g.fillText(q.k === 'heart' ? '♥' : 'z', q.x - ox, q.y - oy);
+      });
+      g.globalAlpha = 1;
+      drawBody(g, p.x - ox, p.y - oy, k);
+    }
+
+    // Ảnh con trỏ: mũi con thú = điểm bấm (hotspot), quay theo hướng rê chuột; image-set cho màn hình phóng to (DPI).
+    function drawCursor() {
+      if (imgSet === null) {
+        var css = window.CSS && CSS.supports ? CSS.supports.bind(CSS) : function () { return false; };
+        imgSet = css('cursor', 'image-set(url("a.png") 1x) 0 0, text') ? 'image-set' : css('cursor', '-webkit-image-set(url("a.png") 1x) 0 0, text') ? '-webkit-image-set' : '';
+      }
+      var dpr = imgSet ? clamp(Math.round((window.devicePixelRatio || 1) * 4) / 4, 1, 3) : 1;
+      var k = Math.min(scale(), (CUR - 2) / p.w, (CUR - 2) / p.h), px = Math.round(CUR * dpr);
+      if (cc.width !== px) { cc.width = px; cc.height = px; }
+      cg.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cg.clearRect(0, 0, CUR, CUR);
+      var bw = p.w * k, bh = p.h * k, nose = NOSE[p.kind];
+      var ox = p.face > 0 ? CUR - 1 - bw : 1, oy = (CUR - bh) / 2;
+      var hx = Math.round(clamp(ox + (p.face > 0 ? nose[0] : p.w - nose[0]) * k, 1, CUR - 2));
+      var hy = Math.round(clamp(oy + nose[1] * k, 1, CUR - 2));
+      drawBody(cg, ox, oy, k);
+      cg.beginPath(); cg.arc(hx + 0.5, hy + 0.5, 2, 0, Math.PI * 2); cg.fillStyle = '#ffffff'; cg.fill();
+      cg.beginPath(); cg.arc(hx + 0.5, hy + 0.5, 1.2, 0, Math.PI * 2); cg.fillStyle = '#e0262b'; cg.fill();
+      var url = 'url("' + cc.toDataURL('image/png') + '")';
+      var cur = (imgSet ? imgSet + '(' + url + ' ' + dpr + 'x)' : url) + ' ' + hx + ' ' + hy + ', text';
+      if (cur !== lastCss) { lastCss = cur; applyCursor(cur); }
+    }
+
+    function frame(now) {
+      raf = 0;
+      var st = style();
+      if (st === 'off' || !p || document.hidden) return;
+      var dt = last ? Math.min((now - last) / 1000, st === 'cursor' ? 0.4 : 0.05) : 0;
+      last = now; t += dt;
+      stepParts(dt);
+      if (st === 'follow') { stepFollow(dt); drawFollow(); raf = requestAnimationFrame(frame); return; }
+      stepCursor(dt);
+      drawCursor();
+      if (!inside && t - mouseAt > 1) return;   // chuột ra khỏi editor: nghỉ, chờ chuột vào lại (pointermove → kick)
+      tmr = setTimeout(function () { tmr = 0; raf = requestAnimationFrame(frame); }, p.moving ? 90 : 240);
+    }
+
+    return {
+      set: function (s) {
+        S = Object.assign({ editorStyle: 'off', editorKind: 'cat', editorScale: 150 }, s || {});
+        if (!SIZE[S.editorKind]) S.editorKind = 'cat';
+        var st = style();
+        cv.style.display = st === 'follow' ? 'block' : 'none';
+        if (st !== 'cursor' && lastCss) { lastCss = ''; applyCursor(''); }
+        if (st === 'off') {
+          p = null; parts = [];
+          if (raf) cancelAnimationFrame(raf);
+          clearTimeout(tmr); raf = 0; tmr = 0;
+          return;
+        }
+        if (!p || p.kind !== S.editorKind) newPet();
+        lastCss = '';
+        if (st === 'cursor' && p) { clearTimeout(tmr); tmr = 0; }
+        kick();
+      },
+    };
+  }
+  var FLIER_KINDS = { bee: 1, butterfly: 1, bird: 1 };
+
+  window.StatusPets = { create: create, editor: editorPet };
 })();

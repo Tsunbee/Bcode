@@ -23,4 +23,9 @@
   <ItemGroup>
     <None Include="Web\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Dùng chung với game Giải lao: mật khẩu phòng (challenge–response) + DPAPI cho mật khẩu nhớ trong watch-lan.json -->
+    <Compile Include="..\Shared\RoomAuth.cs" Link="Shared\RoomAuth.cs" />
+    <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
+  </ItemGroup>
 </Project>

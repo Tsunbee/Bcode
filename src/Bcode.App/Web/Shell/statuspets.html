@@ -22,6 +22,11 @@
   .preview { position: relative; overflow: hidden; height: 26px; margin-top: 6px; border: 1px solid var(--border); border-radius: 4px;
     background: var(--panel-alt); color: var(--text-muted); font-size: 12px; display: flex; align-items: center; padding: 0 10px; }
   .disabled { opacity: .5; pointer-events: none; }
+  .ed-styles { display: flex; gap: 14px; flex-wrap: wrap; }
+  .ed-styles .chk { margin: 2px 0; }
+  .edprev { position: relative; height: 120px; margin-top: 6px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+    background: var(--panel-alt); padding: 6px 10px; font: 12px/18px Consolas, 'Courier New', monospace; white-space: pre; color: var(--text); cursor: text; user-select: text; }
+  .edprev .kw { color: #569cd6; } .edprev .str { color: #ce9178; } .edprev .cm { color: #6a9955; }
 </style>
 </head>
 <body>
@@ -38,7 +43,18 @@
   </div>
   <div class="sec">Xem trước <span class="hint" style="font-weight:normal">— rê chuột vào đây để thử</span></div>
   <div class="preview" id="preview">Workspace: … — Server: …</div>
-  <div class="hint">Thay đổi áp dụng ngay lên thanh trạng thái; bấm Hủy để trả lại như cũ.</div>
+  <div class="sec" style="margin-top:22px">Trong editor SQL Query</div>
+  <div class="ed-styles" id="edStyles"></div>
+  <div class="row" id="edOpts" style="margin-top:6px">
+    <span>Con vật</span><select id="edKind"></select>
+    <span>Cỡ</span><select id="edScale"></select>
+  </div>
+  <div class="hint" id="edHint"></div>
+  <div class="edprev" id="edPreview"><span class="cm">-- rê chuột / bôi chọn ở đây để thử</span>
+<span class="kw">select</span> ma_vt, ten_vt, sum(so_luong) <span class="kw">as</span> sl
+<span class="kw">from</span> dmvt <span class="kw">where</span> ma_vt <span class="kw">like</span> <span class="str">'A%'</span>
+<span class="kw">group by</span> ma_vt, ten_vt</div>
+  <div class="hint">Thay đổi áp dụng ngay lên thanh trạng thái và các tab SQL Query; bấm Hủy để trả lại như cũ.</div>
 </div>
 <div class="dlg-bar"><button id="bDefault">Mặc định</button><span class="grow"></span><button id="bCancel">Hủy</button><button id="bOk" class="primary">OK</button></div>
 <script>
@@ -46,7 +62,14 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const preview = StatusPets.create($('preview'));
-  let S = null, kinds = [], max = 5;
+  const edPreview = StatusPets.editor($('edPreview'), (css) => { $('edPreview').style.cursor = css || ''; });
+  const SCALES = [100, 125, 150, 175, 200, 250];
+  const ED_HINT = {
+    off: 'Tắt: editor SQL Query giữ con trỏ chuột bình thường.',
+    follow: 'Con thú chạy / bay theo chuột, đứng lệch dưới-phải mũi chuột; chữ I giữ nguyên nên đặt con trỏ / bôi chọn vẫn chính xác. Chuột đứng yên thì nghỉ (mèo ngủ zZ).',
+    cursor: 'Con trỏ chuột trong vùng chữ thành hình con thú; chấm đỏ ở mũi là điểm bấm. Lề số dòng / thanh cuộn vẫn dùng con trỏ thường.',
+  };
+  let S = null, kinds = [], max = 5, styles = [];
 
   function value() { return JSON.parse(JSON.stringify(S)); }
   function changed() { render(); post('change', { value: value() }); }
@@ -57,6 +80,11 @@
     $('mouse').checked = !!S.mouse; $('flowers').checked = !!S.flowers; $('trail').checked = !!S.trail;
     kinds.forEach((k) => { const el = $('n_' + k.key); if (el) el.textContent = S.counts[k.key] || 0; });
     preview.set(Object.assign(value(), { enabled: true }));   // khung xem trước luôn chạy
+    document.querySelectorAll('input[name=edStyle]').forEach((r) => { r.checked = r.value === S.editorStyle; });
+    $('edKind').value = S.editorKind; $('edScale').value = String(S.editorScale);
+    $('edOpts').classList.toggle('disabled', S.editorStyle === 'off');
+    $('edHint').textContent = ED_HINT[S.editorStyle] || '';
+    edPreview.set(value());
   }
   function build() {
     $('kinds').innerHTML = '';
@@ -72,6 +100,18 @@
       st.append(minus, n, plus);
       $('kinds').append(lbl, h, st);
     });
+    $('edStyles').innerHTML = '';
+    styles.forEach((s) => {
+      const l = document.createElement('label'); l.className = 'chk';
+      const r = document.createElement('input'); r.type = 'radio'; r.name = 'edStyle'; r.value = s.key;
+      r.onchange = () => { if (r.checked) { S.editorStyle = s.key; changed(); } };
+      l.append(r, ' ' + s.label);
+      $('edStyles').append(l);
+    });
+    $('edKind').innerHTML = '';
+    kinds.forEach((k) => { const o = document.createElement('option'); o.value = k.key; o.textContent = k.label; $('edKind').append(o); });
+    $('edScale').innerHTML = '';
+    SCALES.forEach((v) => { const o = document.createElement('option'); o.value = String(v); o.textContent = v + '%'; $('edScale').append(o); });
   }
 
   $('enabled').onchange = (e) => { S.enabled = e.target.checked; changed(); };
@@ -79,15 +119,19 @@
   $('mouse').onchange = (e) => { S.mouse = e.target.checked; changed(); };
   $('flowers').onchange = (e) => { S.flowers = e.target.checked; changed(); };
   $('trail').onchange = (e) => { S.trail = e.target.checked; changed(); };
-  $('bDefault').onclick = () => { S = { enabled: S.enabled, counts: { bee: 1 }, speed: 100, mouse: true, flowers: true, trail: true }; changed(); };
+  $('edKind').onchange = (e) => { S.editorKind = e.target.value; changed(); };
+  $('edScale').onchange = (e) => { S.editorScale = +e.target.value; changed(); };
+  // Mặc định: trả các tuỳ chọn thanh trạng thái về gốc, giữ nguyên 2 công tắc bật/tắt (thanh trạng thái, editor) + loài / cỡ trong editor.
+  $('bDefault').onclick = () => { S = { enabled: S.enabled, counts: { bee: 1 }, speed: 100, mouse: true, flowers: true, trail: true,
+    editorStyle: S.editorStyle, editorKind: S.editorKind, editorScale: S.editorScale }; changed(); };
   $('bOk').onclick = () => post('ok', { value: value() });
   $('bCancel').onclick = () => post('cancel');
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); });
 
   window.pets = {
     init(d) {
-      kinds = d.kinds || []; max = d.max || 5;
-      S = Object.assign({ enabled: false, counts: {}, speed: 100, mouse: true, flowers: true, trail: true }, d.settings || {});
+      kinds = d.kinds || []; max = d.max || 5; styles = d.styles || [];
+      S = Object.assign({ enabled: false, counts: {}, speed: 100, mouse: true, flowers: true, trail: true, editorStyle: 'off', editorKind: 'cat', editorScale: 150 }, d.settings || {});
       S.counts = Object.assign({}, S.counts);
       build(); render();
     },

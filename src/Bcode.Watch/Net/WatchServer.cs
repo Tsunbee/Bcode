@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using Bcode.Shared;
 
 namespace Bcode.Watch.Net;
 
@@ -30,6 +31,9 @@ public sealed class WatchServer : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly object _lock = new();
     private readonly List<Viewer> _viewers = new();
+    /// <summary>Mọi kết nối đang mở, kể cả chưa vào phòng (đang chào hỏi / đang hỏi mật khẩu) — đóng phòng thì báo + cắt hết.</summary>
+    private readonly HashSet<FramedConnection> _conns = new();
+    private bool _disposed;
     private readonly List<Item> _queue = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly System.Threading.Timer _heartbeat;
@@ -59,19 +63,24 @@ public sealed class WatchServer : IDisposable
         public DateTime LastChat;
     }
 
-    private WatchServer(TcpListener listener, int port, string roomName, IPAddress bind)
+    /// <summary>Phòng có mật khẩu: khách (trừ chủ phòng) phải trả lời đúng challenge mới được vào — xem Shared/RoomAuth.cs. null = phòng mở.</summary>
+    private readonly RoomGate<string>? _gate;
+    public bool Locked => _gate is not null;
+
+    private WatchServer(TcpListener listener, int port, string roomName, IPAddress bind, string? password)
     {
         _listener = listener;
         Port = port;
         RoomName = roomName;
-        try { _beacon = new RoomBeacon(bind, () => new RoomInfo(Wire.Protocol, RoomName, Environment.MachineName, Port, ViewerCount, MaxViewers, NowTitle())); }
+        _gate = RoomGate<string>.Create(password, Wire.Protocol);
+        try { _beacon = new RoomBeacon(bind, () => new RoomInfo(Wire.Protocol, RoomName, Environment.MachineName, Port, ViewerCount, MaxViewers, NowTitle(), Lock: _gate is not null)); }
         catch (SocketException ex) { BeaconError = $"Không mở được cổng UDP {Wire.DiscoveryPort} để người khác tìm thấy phòng ({ex.SocketErrorCode}) — người xem vẫn vào được bằng cách gõ IP."; }
         _ = Task.Run(AcceptLoop);
         _heartbeat = new System.Threading.Timer(_ => { lock (_lock) if (_playing) BroadcastState(); }, null, 3000, 3000);
     }
 
-    /// <summary>Mở phòng ở cổng <paramref name="port"/> (bận thì thử 10 cổng kế tiếp).</summary>
-    public static WatchServer Start(string roomName, int port, bool loopbackOnly)
+    /// <summary>Mở phòng ở cổng <paramref name="port"/> (bận thì thử 10 cổng kế tiếp). <paramref name="password"/> rỗng = phòng mở.</summary>
+    public static WatchServer Start(string roomName, int port, bool loopbackOnly, string? password = null)
     {
         SocketException? last = null;
         var bind = loopbackOnly ? IPAddress.Loopback : IPAddress.Any;
@@ -81,7 +90,7 @@ public sealed class WatchServer : IDisposable
             l.Server.ExclusiveAddressUse = true;
             try { l.Start(); }
             catch (SocketException ex) { last = ex; continue; }
-            return new WatchServer(l, p, roomName, bind);
+            return new WatchServer(l, p, roomName, bind, password);
         }
         throw new InvalidOperationException(last?.SocketErrorCode == SocketError.AccessDenied
             ? $"Windows không cho mở cổng {port} (AccessDenied) — có thể do chính sách tường lửa / phần mềm bảo mật."
@@ -99,11 +108,23 @@ public sealed class WatchServer : IDisposable
         {
             TcpClient tcp;
             try { tcp = await _listener.AcceptTcpClientAsync(_cts.Token); }
+            catch (SocketException) when (!_cts.IsCancellationRequested)
+            {
+                // Lỗi lẻ của 1 kết nối (vd khách ngắt trước khi kịp nhận — ConnectionReset): bỏ qua, nhận tiếp. Trước đây thoát vòng lặp
+                // → cổng vẫn mở (hệ điều hành vẫn bắt tay), gói tìm phòng vẫn trả lời, nhưng không ai đọc "hello" → người vào bị treo.
+                await Task.Delay(100);
+                continue;
+            }
             catch { break; }
             var conn = new FramedConnection(tcp);
             var greeted = false;
             conn.Received += data => { greeted = true; OnMessage(conn, data); };
             conn.Closed += _ => OnClosed(conn);
+            lock (_lock)
+            {
+                if (_disposed) { tcp.Dispose(); break; }
+                _conns.Add(conn);
+            }
             conn.Start();
             _ = Task.Delay(5000).ContinueWith(_ => { if (!greeted) conn.Close("Không chào hỏi"); });
         }
@@ -122,10 +143,12 @@ public sealed class WatchServer : IDisposable
         var t = (string?)m["t"];
         lock (_lock)
         {
+            if (_disposed) return;
             var v = _viewers.FirstOrDefault(x => x.Conn == conn);
             if (v is null)
             {
                 if (t == "hello") Hello(conn, m);
+                else if (t == "auth") Auth(conn, m);
                 return;
             }
             try { Handle(v, t, m); }
@@ -137,11 +160,40 @@ public sealed class WatchServer : IDisposable
     {
         if ((string?)m["proto"] != Wire.Protocol) { conn.Send(new { t = "reject", text = "Khác phiên bản Xem chung — cập nhật Bcode cho giống chủ phòng." }); conn.Close("Khác phiên bản"); return; }
         if (_viewers.Count >= MaxViewers) { conn.Send(new { t = "reject", text = $"Phòng đã đủ {MaxViewers} người." }); conn.Close("Đầy"); return; }
+        if (_gate is not null && _gate.IsPending(conn)) return;   // đang chờ trả lời mật khẩu: hello lặp lại không cấp nonce mới
         var name = Clean((string?)m["name"], 24);
         if (name.Length == 0) name = "Khách";
+        var isHost = (string?)m["token"] == HostToken && !_viewers.Any(x => x.Host);
+        if (_gate is not null && !isHost)
+        {
+            if (!RoomAuth.Supports((string?)m["auth"])) { conn.Send(new { t = "reject", text = RoomAuth.OldClientText }); _ = Task.Delay(300).ContinueWith(_ => conn.Close("Bản cũ, phòng có mật khẩu")); return; }
+            _gate.Challenge(conn, conn.Send, conn.Close, RoomName, name);
+            return;
+        }
+        Admit(conn, name, isHost);
+    }
+
+    /// <summary>Khách trả lời challenge mật khẩu.</summary>
+    private void Auth(FramedConnection conn, JsonObject m)
+    {
+        if (_gate is null) return;
+        switch (_gate.Answer(conn, (string?)m["proof"], conn.Send, RoomName, out var name))
+        {
+            case GateResult.Ok:
+                if (_viewers.Count >= MaxViewers) { conn.Send(new { t = "reject", text = $"Phòng đã đủ {MaxViewers} người." }); conn.Close("Đầy"); return; }
+                Admit(conn, name!, false);
+                break;
+            case GateResult.TooMany:
+                conn.Send(new { t = "reject", text = $"Sai mật khẩu {RoomGate<string>.MaxTries} lần — đã bị ngắt. Hỏi lại chủ phòng rồi vào lại." });
+                _ = Task.Delay(300).ContinueWith(_ => conn.Close("Sai mật khẩu nhiều lần"));
+                break;
+        }
+    }
+
+    private void Admit(FramedConnection conn, string name, bool isHost)
+    {
         var baseName = name;
         for (var k = 2; _viewers.Any(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase)); k++) name = $"{baseName} ({k})";
-        var isHost = (string?)m["token"] == HostToken && !_viewers.Any(x => x.Host);
         var used = _viewers.Select(x => x.Seat).ToHashSet();
         var seat = Enumerable.Range(0, MaxViewers).First(i => !used.Contains(i));
         var usedColors = _viewers.Select(x => x.Color).ToHashSet();
@@ -157,10 +209,12 @@ public sealed class WatchServer : IDisposable
 
     private void OnClosed(FramedConnection conn)
     {
+        _gate?.Drop(conn);
         lock (_lock)
         {
+            _conns.Remove(conn);
             var v = _viewers.FirstOrDefault(x => x.Conn == conn);
-            if (v is null) return;
+            if (v is null || _disposed) return;
             _viewers.Remove(v);
             BroadcastViewers();
             Sys($"{v.Name} đã rời phòng.");
@@ -300,11 +354,13 @@ public sealed class WatchServer : IDisposable
                 break;
             }
             case "ended":
-                // Chỉ tin trình phát của chủ phòng báo hết bài → sang bài kế (đề xuất chưa duyệt thì bỏ qua); hết danh sách thì dừng ở cuối.
+                // Chỉ tin trình phát của chủ phòng báo hết bài → sang mục kế trong danh sách (theo thứ tự chủ phòng xếp); hết danh sách thì dừng ở cuối.
+                // Mục người xem đề xuất cũng chiếu luôn (Select tự duyệt) — trước đây bỏ qua đề xuất chưa duyệt nên link YouTube người xem dán
+                // không bao giờ tự chuyển tới (file 📂 chỉ chủ phòng thêm nên không bị). Không muốn chiếu đề xuất nào thì chủ phòng xoá ✕.
                 if ((string?)m["id"] != _cur) return;
                 {
                     var idx = _queue.FindIndex(i => i.Id == _cur);
-                    var next = _queue.Skip(idx + 1).FirstOrDefault(i => !i.Suggested);
+                    var next = idx >= 0 && idx + 1 < _queue.Count ? _queue[idx + 1] : null;
                     if (next != null) Select(next.Id);
                     else { _pos = Position; _playing = false; BroadcastState(); }
                 }
@@ -439,20 +495,28 @@ public sealed class WatchServer : IDisposable
         return s.Length > max ? s[..max] : s;
     }
 
+    /// <summary>Xong khi mọi người đã nhận tin "kết thúc buổi chiếu" và bị ngắt (tối đa ~1,5 s) — đóng hẳn chương trình thì chờ cái này,
+    /// không thì tiến trình thoát trước khi tin kịp gửi, người xem chỉ thấy "Mất kết nối".</summary>
+    public Task Closing { get; private set; } = Task.CompletedTask;
+
     public void Dispose()
     {
         _cts.Cancel();
         _heartbeat.Dispose();
-        try { _listener.Stop(); } catch { }
+        // tắt tìm phòng + cổng TCP TRƯỚC — máy khác thôi thấy phòng ngay (danh sách bỏ phòng sau ≤ 5 s không trả lời)
         _beacon?.Dispose();
-        List<Viewer> left;
+        try { _listener.Stop(); } catch { }
+        List<FramedConnection> all;
         lock (_lock)
         {
-            Broadcast(new { t = "reject", text = "Chủ phòng đã kết thúc buổi chiếu." });
-            left = _viewers.ToList();
+            if (_disposed) return;
+            _disposed = true;
+            all = _conns.ToList();
+            _conns.Clear();
         }
-        // chờ tin trên kịp gửi đi rồi mới cắt kết nối
-        _ = Task.Delay(400).ContinueWith(_ => { foreach (var v in left) v.Conn.Close("Chủ phòng đã đóng phòng"); });
+        var bye = Wire.Encode(new { t = "reject", text = "Chủ phòng đã kết thúc buổi chiếu." });
+        foreach (var c in all) c.SendRaw(bye);
+        Closing = Task.WhenAll(all.Select(c => c.CloseAfterFlush("Chủ phòng đã đóng phòng", 1500)));
     }
 }
 
@@ -460,10 +524,14 @@ public sealed class WatchServer : IDisposable
 public sealed class WatchClient : IDisposable
 {
     private FramedConnection? _conn;
+    private RoomKeyClient? _key;
     public event Action<byte[]>? Message;
     public event Action<string>? Closed;
+    /// <summary>Phòng có mật khẩu mà chưa có / sai mật khẩu: (lời báo hoặc null, tên phòng) — trang hỏi người dùng rồi gọi <see cref="SubmitPassword"/>.</summary>
+    public event Action<string?, string>? NeedPassword { add => _key!.NeedPassword += value; remove => _key!.NeedPassword -= value; }
 
-    public static async Task<WatchClient> ConnectAsync(string host, int port, string name, string? hostToken, int timeoutMs = 4000)
+    /// <param name="password">Mật khẩu biết trước (null = chờ phòng hỏi thì báo <see cref="NeedPassword"/>).</param>
+    public static async Task<WatchClient> ConnectAsync(string host, int port, string name, string? hostToken, string? password = null, int timeoutMs = 4000)
     {
         var tcp = new TcpClient();
         using var cts = new CancellationTokenSource(timeoutMs);
@@ -486,14 +554,16 @@ public sealed class WatchClient : IDisposable
         }
         var c = new WatchClient();
         var conn = new FramedConnection(tcp);
-        conn.Received += d => c.Message?.Invoke(d);
+        var key = c._key = new RoomKeyClient(Wire.Protocol, password, conn.Send);
+        conn.Received += d => { if (!key.Intercept(d)) c.Message?.Invoke(d); };
         conn.Closed += r => c.Closed?.Invoke(r);
         c._conn = conn;
         conn.Start();
-        conn.Send(new { t = "hello", proto = Wire.Protocol, name, token = hostToken });
+        conn.Send(new { t = "hello", proto = Wire.Protocol, name, token = hostToken, auth = RoomAuth.Cap });
         return c;
     }
 
+    public void SubmitPassword(string password) => _key?.Submit(password);
     public void SendRaw(byte[] json) => _conn?.SendRaw(json);
     public void Dispose() => _conn?.Close("Đã rời phòng");
 }

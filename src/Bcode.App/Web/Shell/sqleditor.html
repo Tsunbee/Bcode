@@ -1622,6 +1622,31 @@
             applyLineHeight();
         };
 
+        // Thú cưng trong editor (Settings → "Thú cưng (thanh trạng thái, SQL Query)..."; RawSqlControl.PushEditorPet):
+        // { editorStyle: 'off'|'follow'|'cursor', editorKind, editorScale }. statuspets.js chỉ nạp khi bật lần đầu — tắt thì không tốn gì.
+        // Kiểu 'cursor' gán CSS cursor (ảnh con thú) lên vùng chữ .view-lines của editor chính; lề số dòng / thanh cuộn giữ con trỏ gốc.
+        window.setEditorPet = function (s) {
+            var on = !!s && (s.editorStyle === 'follow' || s.editorStyle === 'cursor');
+            if (!window.StatusPets || !window.StatusPets.editor) {
+                window.__petPending = s;
+                if (!on || window.__petLoading) return;
+                window.__petLoading = true;
+                var sc = document.createElement('script');
+                sc.src = 'statuspets.js'; sc.charset = 'utf-8';
+                sc.onload = function () { if (window.StatusPets && window.StatusPets.editor) window.setEditorPet(window.__petPending); };
+                document.head.appendChild(sc);
+                return;
+            }
+            if (!window.__editorPet) {
+                var host = document.getElementById('editor-container');
+                window.__editorPet = StatusPets.editor(host, function (css) {
+                    var els = host.querySelectorAll('.view-lines');
+                    for (var i = 0; i < els.length; i++) els[i].style.cursor = css;
+                });
+            }
+            window.__editorPet.set(s);
+        };
+
         window.setWordWrap = function (wrap) {
             if (editor) {
                 editor.updateOptions({ wordWrap: wrap ? 'on' : 'off' });

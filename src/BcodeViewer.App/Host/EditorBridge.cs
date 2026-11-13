@@ -837,8 +837,10 @@ public class EditorBridge
     private static Encoding EncodingFor(string path) =>
         FileEncodings.TryGetValue(EncodingKeyFor(path), out var enc) ? enc : new UTF8Encoding(false);
 
+    // NGOẠI LỆ cho file nguồn Fast (.xml/.f/.ent): ghi như FCode — UTF-8 CÓ BOM + <?xml ... encoding="utf-8"?>. Fast đọc file không BOM theo
+    // UTF-16 nên biên dịch .xml → .f ra chữ Trung Quốc, và chỉ biên dịch đúng với UTF-8 (xem Bcode.Core.FastFileEncoding). File khác giữ bảng mã cũ như trên.
     private static void WriteFileKeepEncoding(string path, string content) =>
-        File.WriteAllText(path, content, EncodingFor(path));
+        File.WriteAllText(path, Bcode.Core.FastFileEncoding.PrepareText(path, content), Bcode.Core.FastFileEncoding.ForWrite(path, EncodingFor(path)));
 
     /// <summary>
     /// The save path used by the editor (see editor.js's saveActive/saveActiveAs). Copies

@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Bcode.Game.Data;
 using Bcode.Game.Net;
+using Bcode.Shared;
 
 namespace Bcode.Game.Logic;
 
@@ -50,9 +51,15 @@ public sealed partial class GameRoom : IDisposable
     public int PlayerCount { get; private set; }
     public event Action<string>? Log;
 
-    public GameRoom(string roomName, int minPlayers = 5)
+    /// <summary>Phòng có mật khẩu: khách (trừ chủ phòng) phải trả lời đúng challenge mới được vào — xem Shared/RoomAuth.cs. null = phòng mở.
+    /// Giữ tên người chơi trong lúc chờ trả lời.</summary>
+    private readonly RoomGate<string>? _gate;
+    public bool Locked => _gate is not null;
+
+    public GameRoom(string roomName, int minPlayers = 5, string? password = null)
     {
         RoomName = roomName;
+        _gate = RoomGate<string>.Create(password, Wire.Protocol);
         MinPlayers = Math.Clamp(minPlayers, 1, MaxPlayers);
         _thread = new Thread(Run) { IsBackground = true, Name = "GameRoom tick" };
         _thread.Start();
@@ -99,6 +106,7 @@ public sealed partial class GameRoom : IDisposable
         if (data is null)
         {
             if (p is not null) Disconnected(p);
+            else _gate?.Drop(conn);
             return;
         }
         JsonElement m;
@@ -108,6 +116,7 @@ public sealed partial class GameRoom : IDisposable
         if (p is null)
         {
             if (t == "hello") Hello(conn, m);
+            else if (t == "auth") Auth(conn, m);
             return;
         }
         try { Handle(p, t, m); }
@@ -119,7 +128,39 @@ public sealed partial class GameRoom : IDisposable
         if (Str(m, "proto") != Wire.Protocol) { conn.Send(new { t = "reject", reason = "Khác phiên bản game — cập nhật Bcode để chơi cùng." }); conn.Close("proto"); return; }
         if (Phase != Phase.Lobby) { conn.Send(new { t = "reject", reason = "Phòng đang chơi ván khác — chờ hết ván rồi vào lại." }); conn.Close("busy"); return; }
         if (_players.Count >= MaxPlayers) { conn.Send(new { t = "reject", reason = "Phòng đã đủ 8 người." }); conn.Close("full"); return; }
+        if (_gate is not null && _gate.IsPending(conn)) return;   // đang chờ trả lời mật khẩu: hello lặp lại không cấp nonce mới
         var name = CleanName(Str(m, "name"));
+        var isHost = Str(m, "token") == HostToken;
+        if (_gate is not null && !isHost)
+        {
+            if (!RoomAuth.Supports(Str(m, "auth"))) { conn.Send(new { t = "reject", reason = RoomAuth.OldClientText }); _ = Task.Delay(300).ContinueWith(_ => conn.Close("old")); return; }
+            _gate.Challenge(conn, conn.Send, conn.Close, RoomName, name);
+            return;
+        }
+        Admit(conn, name, isHost);
+    }
+
+    /// <summary>Khách trả lời challenge mật khẩu (luồng tick).</summary>
+    private void Auth(FramedConnection conn, JsonElement m)
+    {
+        if (_gate is null) return;
+        switch (_gate.Answer(conn, Str(m, "proof"), conn.Send, RoomName, out var name))
+        {
+            case GateResult.Ok:
+                // trong lúc gõ mật khẩu phòng có thể đã vào ván / đủ người
+                if (Phase != Phase.Lobby) { conn.Send(new { t = "reject", reason = "Phòng đang chơi ván khác — chờ hết ván rồi vào lại." }); conn.Close("busy"); return; }
+                if (_players.Count >= MaxPlayers) { conn.Send(new { t = "reject", reason = "Phòng đã đủ 8 người." }); conn.Close("full"); return; }
+                Admit(conn, name!, false);
+                break;
+            case GateResult.TooMany:
+                conn.Send(new { t = "reject", reason = $"Sai mật khẩu {RoomGate<string>.MaxTries} lần — đã bị ngắt. Hỏi lại chủ phòng rồi vào lại." });
+                _ = Task.Delay(300).ContinueWith(_ => conn.Close("badpass"));
+                break;
+        }
+    }
+
+    private void Admit(FramedConnection conn, string name, bool isHost)
+    {
         var baseName = name; var k = 2;
         while (_players.Any(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase))) name = $"{baseName} {k++}";
         var used = _players.Select(x => x.Color).ToHashSet();
@@ -127,7 +168,7 @@ public sealed partial class GameRoom : IDisposable
         {
             Id = _nextId++, Name = name, Conn = conn,
             Color = Enumerable.Range(0, MaxPlayers).First(c => !used.Contains(c)),
-            IsHost = Str(m, "token") == HostToken,
+            IsHost = isHost,
         };
         _players.Add(p);
         _byConn[conn] = p;

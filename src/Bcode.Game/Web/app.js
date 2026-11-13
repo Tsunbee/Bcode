@@ -49,7 +49,7 @@ function renderRooms(rooms, error) {
   if (!rooms.length) ul.innerHTML = `<li class="muted">Chưa thấy phòng nào… (đang tìm)</li>`;
   rooms.forEach((r, i) => {
     const li = document.createElement("li");
-    li.innerHTML = `<div><div class="rn">${esc(r.name)}</div><div class="rm">${esc(r.host)} · ${esc(r.ip)}:${r.port} · ${r.players}/${r.max} người · ${r.state === "lobby" ? "đang chờ" : "đang chơi"}</div></div>`;
+    li.innerHTML = `<div><div class="rn">${r.lock ? `<span class="lock" title="Phòng có mật khẩu">🔒</span>` : ""}${esc(r.name)}</div><div class="rm">${esc(r.host)} · ${esc(r.ip)}:${r.port} · ${r.players}/${r.max} người · ${r.state === "lobby" ? "đang chờ" : "đang chơi"}</div></div>`;
     const b = document.createElement("button");
     b.textContent = "Vào"; b.disabled = r.state !== "lobby" || r.players >= r.max;
     b.onclick = () => join(`${r.ip}:${r.port}`);
@@ -63,7 +63,32 @@ function join(ip) { $("homeErr").textContent = ""; S.name = $("inName").value.tr
 
 $("btnJoinIp").onclick = () => join($("inIp").value);
 $("inIp").onkeydown = (e) => { if (e.key === "Enter") join($("inIp").value); };
-$("btnHost").onclick = () => { $("homeErr").textContent = ""; S.name = $("inName").value.trim(); post({ t: "ui.host", name: S.name, room: $("inRoom").value }); };
+$("btnHost").onclick = () => { $("homeErr").textContent = ""; S.name = $("inName").value.trim(); post({ t: "ui.host", name: S.name, room: $("inRoom").value, pass: $("inRoomPass").value }); };
+$("inRoomPass").onkeydown = (e) => { if (e.key === "Enter") $("btnHost").click(); };
+
+// ───────────── Mật khẩu phòng ─────────────
+// Vào phòng có khoá: C# báo "ui.needpass" (lần đầu text = null, sai thì text = lời báo) → hỏi ở hộp passBox → "ui.pass".
+// C# tự tính HMAC trên nonce chủ phòng gửi — trang không giữ mật khẩu sau khi gửi.
+function showPass(room, text) {
+  $("passRoom").textContent = room || "Phòng có mật khẩu";
+  $("passErr").textContent = text || "";
+  $("passOk").disabled = false; $("passOk").textContent = "Vào phòng";
+  $("passBox").classList.remove("hidden");
+  $("inPass").value = "";
+  setTimeout(() => $("inPass").focus(), 0);
+}
+function hidePass() { $("passBox").classList.add("hidden"); $("inPass").value = ""; }
+$("passForm").onsubmit = (e) => {
+  e.preventDefault();
+  const pass = $("inPass").value;
+  if (!pass) { $("passErr").textContent = "Nhập mật khẩu."; return; }
+  $("passOk").disabled = true; $("passOk").textContent = "Đang kiểm tra…";
+  post({ t: "ui.pass", pass });
+  $("inPass").value = "";
+};
+$("passCancel").onclick = () => { hidePass(); post({ t: "ui.leave" }); };
+$("inPass").onkeydown = (e) => { if (e.key === "Escape") $("passCancel").click(); };
+
 for (const id of ["btnRules", "btnRules2"]) $(id).onclick = () => $("rules").classList.remove("hidden");
 $("rulesX").onclick = () => $("rules").classList.add("hidden");
 $("rules").onclick = (e) => { if (e.target.id === "rules") $("rules").classList.add("hidden"); };
@@ -628,19 +653,21 @@ function handle(m) {
     case "ui.init":
       S.name = m.name;
       $("inName").value = m.name; $("inRoom").value = m.room; $("inIp").value = m.lastIp || "";
+      $("inRoomPass").value = m.roomPass || "";
       S.ips = m.ips;
       $("ver").textContent = `Đêm Go-Live v${m.version} · máy ${m.machine} · IP: ${m.ips.join(", ") || "?"}`;
-      if (m.auto === "host") post({ t: "ui.host", name: m.name, room: m.autoRoom || m.room });
+      if (m.auto === "host") post({ t: "ui.host", name: m.name, room: m.autoRoom || m.room, pass: m.roomPass || "" });
       else if (m.auto === "join") post({ t: "ui.join", name: m.name, ip: m.autoJoin });
       else post({ t: "ui.find" });
       break;
     case "ui.rooms": renderRooms(m.rooms || [], m.error); break;
+    case "ui.needpass": showPass(m.room, m.text); break;
     case "ui.error":
       if (S.screen === "lobby") $("lbErr").textContent = m.text; else $("homeErr").textContent = m.text;
       break;
     case "ui.hosted":
       S.port = m.port; S.ips = m.ips;
-      $("lbAddr").textContent = `Người khác vào bằng danh sách phòng, hoặc gõ IP: ${m.ips.map((ip) => ip + (m.port !== 47811 ? ":" + m.port : "")).join("  ·  ") || "(không có IP LAN)"}`;
+      $("lbAddr").textContent = `Người khác vào bằng danh sách phòng, hoặc gõ IP: ${m.ips.map((ip) => ip + (m.port !== 47811 ? ":" + m.port : "")).join("  ·  ") || "(không có IP LAN)"}${m.locked ? "  ·  🔒 có mật khẩu" : ""}`;
       if (m.warn) $("lbErr").textContent = m.warn;
       $("lbFw").classList.add("hidden");
       break;
@@ -657,20 +684,24 @@ function handle(m) {
       else $("lbErr").textContent = "";
       break;
     case "ui.left":
+      hidePass();
       closeGame(); S.host = false; S.port = 0; show("home");
       break;
     case "ui.closed":
+      hidePass();
       closeGame(); S.host = false; show("home");
       $("homeErr").textContent = S.rejected || "Mất kết nối với phòng: " + m.reason;
       S.rejected = null;
       break;
     case "welcome":
+      hidePass();
       S.me = m.id; S.host = m.host; S.name = m.name;
       if (!S.host) { $("lbAddr").textContent = ""; $("lbFw").classList.add("hidden"); }
       $("lbChat").innerHTML = ""; $("lbErr").textContent = "";
       show("lobby");
       break;
     case "reject":
+      hidePass();
       closeGame(); show("home");
       $("homeErr").textContent = S.rejected = m.reason;
       break;

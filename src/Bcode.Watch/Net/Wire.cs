@@ -60,6 +60,7 @@ public sealed class FramedConnection : IDisposable
     private readonly Channel<byte[]> _out = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(512) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
     private readonly CancellationTokenSource _cts = new();
     private int _closed;
+    private Task? _writer;
 
     public string Remote { get; }
     public event Action<byte[]>? Received;
@@ -76,7 +77,7 @@ public sealed class FramedConnection : IDisposable
     public void Start()
     {
         _ = Task.Run(ReadLoop);
-        _ = Task.Run(WriteLoop);
+        _writer = Task.Run(WriteLoop);
     }
 
     public void Send(object msg) => SendRaw(Wire.Encode(msg));
@@ -115,6 +116,16 @@ public sealed class FramedConnection : IDisposable
                 await _stream.WriteAsync(frame, _cts.Token);
         }
         catch { Close("Mất kết nối khi gửi"); }
+    }
+
+    /// <summary>Gửi nốt các tin đang chờ (tối đa <paramref name="timeoutMs"/>) rồi mới đóng — <see cref="Close"/> huỷ luôn cả tin đã Send mà chưa kịp ghi.
+    /// Dùng khi chủ phòng đóng phòng: tin "Chủ phòng đã kết thúc buổi chiếu" phải tới được người xem.</summary>
+    public async Task CloseAfterFlush(string reason, int timeoutMs)
+    {
+        if (_closed != 0) return;
+        _out.Writer.TryComplete();   // không nhận tin mới; WriteLoop ghi hết hàng đợi rồi tự kết thúc
+        if (_writer is { } w) await Task.WhenAny(w, Task.Delay(timeoutMs)).ConfigureAwait(false);
+        Close(reason);
     }
 
     public void Close(string reason)

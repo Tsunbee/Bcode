@@ -264,6 +264,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         WindowState = FormWindowState.Maximized;
         if (Bcode.App.UI.AppIcons.AppIcon is { } appIcon) Icon = appIcon;
 
+        EditorPets.Apply(_settings.StatusPets ?? new StatusPetSettings());   // thú cưng trong editor SQL Query (tab mở sau đọc từ đây)
         if (Bcode.App.UI.UiMode.IsNative)
         {
             _topNative = new NativeTopBar();
@@ -301,7 +302,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
             .Add("Cây SQL / Object: bấm 1 lần nạp vào tab đang dùng (tắt = mỗi object 1 tab)", ToggleSqlObjectOpenInCurrentTab, @checked: _settings.SqlObjectOpenInCurrentTab)
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
-            .Add("Thú cưng trên thanh trạng thái 🐝🦋🐱...", () => BeginInvoke(new Action(OpenStatusPets)))
+            .Add("Thú cưng (thanh trạng thái, SQL Query) 🐝🦋🐱...", () => BeginInvoke(new Action(OpenStatusPets)))
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .AddSub("Kiểu giao diện (bo góc, mật độ)", sub => { foreach (var pr in Bcode.App.UI.NativeSkin.Presets) { var id = pr.Id; sub.Add(pr.Label, () => Bcode.App.UI.NativeSkin.ApplyPreset(id), @checked: Bcode.App.UI.NativeSkin.IsPreset(id)); } })
             .Add($"Chế độ giao diện: {Bcode.App.UI.UiMode.Label(Bcode.App.UI.UiMode.Current)} — đổi...", () => BeginInvoke(new Action(ChangeUiMode)))
@@ -1619,7 +1620,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                         }
                         try
                         {
-                            File.WriteAllText(outPath, text, new System.Text.UTF8Encoding(false));
+                            // .xml cho Fast biên dịch: ghi như FCode — UTF-8 có BOM + encoding="utf-8" (Bcode.Core.FastFileEncoding)
+                            File.WriteAllText(outPath, Bcode.Core.FastFileEncoding.NormalizeDeclaration(text), Bcode.Core.FastFileEncoding.Utf8Bom);
                             MessageBox.Show(this, "Đã tạo:\r\n" + outPath, "Xuất XML", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         }
                         catch (Exception ex) { MessageBox.Show(this, "Không ghi được file .xml:\r\n" + ex.Message, "Xuất XML", MessageBoxButtons.OK, MessageBoxIcon.Error); }
@@ -1762,7 +1764,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
     }
 
-    /// <summary>Settings → "Thú cưng trên thanh trạng thái...": đổi là áp ngay lên thanh trạng thái; Hủy thì trả lại như cũ.</summary>
+    /// <summary>Settings → "Thú cưng (thanh trạng thái, SQL Query)...": đổi là áp ngay lên thanh trạng thái + editor SQL Query; Hủy thì trả lại như cũ.</summary>
     private void OpenStatusPets()
     {
         var before = (_settings.StatusPets ?? new StatusPetSettings()).Clone();
@@ -1780,6 +1782,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>Đẩy cài đặt thú cưng xuống thanh trạng thái (web: window.setPets; native: NativeStatusBar.SetPets).</summary>
     private void PushPets(StatusPetSettings s)
     {
+        EditorPets.Apply(s);   // thú cưng trong editor SQL Query — đổi thì các tab SQL Query áp ngay (EditorPets.Changed)
         if (_statusNative is not null) { _statusNative.SetPets(s); return; }
         if (_statusBarWeb.CoreWebView2 is null) return;
         var json = System.Text.Json.JsonSerializer.Serialize(s, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });

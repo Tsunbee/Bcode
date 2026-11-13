@@ -209,6 +209,7 @@ public class RawSqlControl : UserControl, ISqlTab
         _curtainTimer.Start();
 
         Bcode.App.UI.ThemeManager.ThemeChanged += PushThemeToAll;
+        EditorPets.Changed += PushEditorPet;
         EditorFontSizeChanged += OnEditorFontSizeChanged;
         SqlBarLayout.Changed += OnBarLayoutChanged;
 
@@ -225,6 +226,7 @@ public class RawSqlControl : UserControl, ISqlTab
             _curtainTimer.Dispose();
             DisposePersistentConnection();
             Bcode.App.UI.ThemeManager.ThemeChanged -= PushThemeToAll;
+            EditorPets.Changed -= PushEditorPet;
             EditorFontSizeChanged -= OnEditorFontSizeChanged;
             SqlBarLayout.Changed -= OnBarLayoutChanged;
         };
@@ -417,6 +419,7 @@ public class RawSqlControl : UserControl, ISqlTab
                 if (_mergeBarEditor && _edPage is { IsReady: false }) { _editorReadyDeferred = true; break; }
                 _editorReady = true;
                 PushCopilotAuto();
+                PushEditorPet();
                 if (!_deferTables) _ = LoadTablesForEditorAsync();
                 PushThemeToAll();
                 if (_pendingScriptText is { } pendingText)
@@ -884,6 +887,20 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
         _settings.SyncEditorFlagsFromDisk();
         PushCopilotAuto();
     }
+
+    /// <summary>Thú cưng trong editor (Settings → "Thú cưng (thanh trạng thái, SQL Query)...") → sqleditor.html window.setEditorPet.
+    /// Chưa từng bật thì không gọi xuống trang (trang cũng không nạp statuspets.js). Cài đặt chung: <see cref="EditorPets.Settings"/>.</summary>
+    private void PushEditorPet()
+    {
+        if (IsDisposed || !_editorReady) return;
+        if (InvokeRequired) { BeginInvoke(new Action(PushEditorPet)); return; }
+        if (!EdAlive) return;
+        var s = EditorPets.Settings;
+        if (!s.EditorOn && !_editorPetPushed) return;
+        _editorPetPushed = true;
+        _ = EdExec($"window.setEditorPet && window.setEditorPet({{editorStyle:'{s.EditorStyle}',editorKind:'{s.EditorKind}',editorScale:{s.EditorScale}}})");
+    }
+    private bool _editorPetPushed;
 
     private void PushCopilotAuto()
     {

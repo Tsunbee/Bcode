@@ -239,6 +239,13 @@ internal sealed class FgFile
 
     public byte[] Bytes()
     {
+        // File nguồn Fast (.xml/.f/.ent): ghi như FCode — UTF-8 có BOM + <?xml ... encoding="utf-8"?>. Thiếu BOM thì Fast biên dịch .xml → .f
+        // ra chữ Trung Quốc (Bcode.Core.FastFileEncoding). File khác (mảnh include .txt…) giữ bảng mã / BOM như lúc đọc.
+        if (Bcode.Core.FastFileEncoding.IsFastSource(Path))
+        {
+            var utf8 = Bcode.Core.FastFileEncoding.Utf8Bom;
+            return [.. utf8.GetPreamble(), .. utf8.GetBytes(Bcode.Core.FastFileEncoding.NormalizeDeclaration(Text))];
+        }
         var body = Encoding.GetBytes(Text);
         if (Preamble.Length == 0) return body;
         var all = new byte[Preamble.Length + body.Length];

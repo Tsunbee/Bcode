@@ -51,6 +51,10 @@ public sealed class UpdatePlan
 /// <summary>Kết quả lần cập nhật / quay lại vừa chạy (script ghi update\result.json, Bcode đọc lúc mở lại rồi xoá).</summary>
 public sealed record UpdateResult(bool Ok, string Mode, string From, string To, string Message);
 
+/// <summary>Bản phát hành bị thay (đang chép đè / vừa phát hành lại) trong lúc tải — đọc lại dấu phiên bản + manifest rồi tải lại là hết
+/// (hộp Cập nhật tự chờ rồi thử lại, xem UpdateDialogLogic.DownloadAsync). Khác lỗi "bản phát hành lệch manifest" — cái đó thử lại không hết.</summary>
+public sealed class ReleaseChangedException(string message) : InvalidOperationException(message);
+
 /// <summary>Bản trước còn giữ (thư mục update\backup) để "Quay lại bản trước".</summary>
 public sealed record BackupInfo(string From, string To, DateTime At, List<string> Added);
 
@@ -550,7 +554,7 @@ public static class UpdateCheckService
         {
             ct.ThrowIfCancellationRequested();
             var fi = new FileInfo(Path.Combine(src, need[i].Rel));
-            if (!fi.Exists) throw new InvalidOperationException($"Bản phát hành thiếu file {need[i].Rel} — có thể đang được chép dở. Thử lại sau ít phút.");
+            if (!fi.Exists) throw new ReleaseChangedException($"Bản phát hành thiếu file {need[i].Rel} — có thể đang được chép dở. Thử lại sau ít phút.");
             sizes[i] = fi.Length; total += fi.Length;
         }
         long done = 0;
@@ -572,10 +576,15 @@ public static class UpdateCheckService
                 {
                     // 2 lần tải ra CÙNG một hash sai = file trên server đứng yên nhưng lệch bcode-manifest.json (manifest sinh trước khi file được build lại —
                     // v2.3-beta build 475: BcodeNote.dll) → Thử lại không hết, phải phát hành lại. Hash khác nhau = file đang bị chép đè.
+                    // NHƯNG cùng hash sai cũng xảy ra khi bản phát hành đang được thay bằng bản build mới (13/11/2026, build 506: FDecrypt\Bcode.FSystem.dll —
+                    // file mới đã chép xong, dấu phiên bản + manifest chép SAU CÙNG nên vẫn là bản cũ; file qua ConfuserEx mỗi lần build ra hash khác)
+                    // → kiểm xem bản phát hành có đang đổi không trước khi kết luận "lệch".
+                    if (got == prevGot && ReleaseMoved(src, rel, hash, remote) is { } why)
+                        throw new ReleaseChangedException($"Bản phát hành đang được thay bằng bản mới ({why}) — đọc lại rồi tải lại.");
                     if (got == prevGot)
                         throw new InvalidOperationException($"File {rel} trên thư mục phát hành không khớp mã kiểm tra (SHA-256) ghi trong bcode-manifest.json — "
                             + "bản phát hành bị lệch, Thử lại sẽ không hết. Báo người phát hành chạy lại tools\\publish-release.ps1 (script kiểm lại manifest trước khi chép).");
-                    throw new InvalidOperationException($"File {rel} tải về sai mã kiểm tra (SHA-256) — bản phát hành có thể đang được chép dở. Thử lại sau ít phút.");
+                    throw new ReleaseChangedException($"File {rel} tải về sai mã kiểm tra (SHA-256) — bản phát hành có thể đang được chép dở. Thử lại sau ít phút.");
                 }
                 prevGot = got;
             }
@@ -605,11 +614,27 @@ public static class UpdateCheckService
         }
         var again = Read(Path.Combine(Staging, StampFileName));
         if (again is null || again.BuiltUtc != remote.BuiltUtc)
-            throw new InvalidOperationException("Bản phát hành vừa thay đổi trong lúc tải — bấm Thử lại để tải bản mới nhất.");
+            throw new ReleaseChangedException("Bản phát hành vừa thay đổi trong lúc tải — bấm Thử lại để tải bản mới nhất.");
 
         Report(new UpdateProgress("download", need.Count, need.Count, total, total, ""), force: true);
         File.WriteAllText(PlanPath, JsonSerializer.Serialize(plan));
         return plan;
+    }
+
+    /// <summary>Bản phát hành có đang đổi so với lúc bắt đầu tải không — null = không (file lệch manifest thật). Dấu hiệu, theo thứ tự:
+    /// dấu phiên bản đã khác; manifest đã ghi hash khác cho file này; file trên server mới hơn dấu phiên bản (publish-release chép file trước,
+    /// dấu + manifest sau cùng, giữ giờ sửa lúc build → file của bản build sau có giờ sửa muộn hơn dấu của bản đang tải).</summary>
+    private static string? ReleaseMoved(string src, string rel, string hash, BuildStamp remote)
+    {
+        try
+        {
+            var now = Read(Path.Combine(src, StampFileName));
+            if (now is null || now.BuiltUtc != remote.BuiltUtc) return "dấu phiên bản đã đổi";
+            if (ReadManifest(Path.Combine(src, ManifestFileName)) is { } man && man.TryGetValue(rel, out var h) && h != hash) return "manifest đã đổi";
+            if (File.GetLastWriteTimeUtc(Path.Combine(src, rel)) > remote.BuiltUtc.AddSeconds(30)) return "có file mới hơn bản đang tải";
+        }
+        catch { /* không đọc được thư mục phát hành lúc này → coi như đang đổi, để thử lại */ return "không đọc lại được thư mục phát hành"; }
+        return null;
     }
 
     private static string CopyWithHash(string from, string to, Action<long> onBytes, CancellationToken ct)

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="shell.css" />
+<link rel="stylesheet" href="dialog.css" />
+<script src="statuspets.js"></script>
+<style>
+  .dlg-main { overflow: auto; }
+  .chk { display: flex; align-items: center; gap: 8px; margin: 4px 0; cursor: pointer; }
+  .chk input { margin: 0; }
+  .sec { margin: 14px 0 6px; font-weight: 600; }
+  .kinds { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px; align-items: center; }
+  .kinds .lbl { white-space: nowrap; }
+  .kinds .h { color: var(--text-muted); font-size: 12px; }
+  .stepper { display: inline-flex; align-items: center; gap: 4px; }
+  .stepper button { width: 24px; height: 22px; padding: 0; line-height: 1; }
+  .stepper span { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #speed { flex: 1; min-width: 140px; }
+  .preview { position: relative; overflow: hidden; height: 26px; margin-top: 6px; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--panel-alt); color: var(--text-muted); font-size: 12px; display: flex; align-items: center; padding: 0 10px; }
+  .disabled { opacity: .5; pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="dlg-main">
+  <label class="chk"><input type="checkbox" id="enabled"> <b>Bật thú cưng trên thanh trạng thái</b></label>
+  <div id="opts">
+    <div class="sec">Con vật (số con mỗi loại)</div>
+    <div class="kinds" id="kinds"></div>
+    <div class="sec">Tuỳ chọn</div>
+    <div class="row"><span>Tốc độ</span><input type="range" id="speed" min="25" max="300" step="25"><span id="speedLbl"></span></div>
+    <label class="chk"><input type="checkbox" id="mouse"> Phản ứng với chuột (rê chuột trên thanh trạng thái: ong/bướm bay theo, mèo vồ, chim bay mất, ốc rụt vỏ)</label>
+    <label class="chk"><input type="checkbox" id="flowers"> Mọc hoa cho ong / bướm hút mật</label>
+    <label class="chk"><input type="checkbox" id="trail"> Vệt phấn hoa / vệt nhớt</label>
+  </div>
+  <div class="sec">Xem trước <span class="hint" style="font-weight:normal">— rê chuột vào đây để thử</span></div>
+  <div class="preview" id="preview">Workspace: … — Server: …</div>
+  <div class="hint">Thay đổi áp dụng ngay lên thanh trạng thái; bấm Hủy để trả lại như cũ.</div>
+</div>
+<div class="dlg-bar"><button id="bDefault">Mặc định</button><span class="grow"></span><button id="bCancel">Hủy</button><button id="bOk" class="primary">OK</button></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
+  const preview = StatusPets.create($('preview'));
+  let S = null, kinds = [], max = 5;
+
+  function value() { return JSON.parse(JSON.stringify(S)); }
+  function changed() { render(); post('change', { value: value() }); }
+  function render() {
+    $('enabled').checked = !!S.enabled;
+    $('opts').classList.toggle('disabled', !S.enabled);
+    $('speed').value = S.speed; $('speedLbl').textContent = S.speed + '%';
+    $('mouse').checked = !!S.mouse; $('flowers').checked = !!S.flowers; $('trail').checked = !!S.trail;
+    kinds.forEach((k) => { const el = $('n_' + k.key); if (el) el.textContent = S.counts[k.key] || 0; });
+    preview.set(Object.assign(value(), { enabled: true }));   // khung xem trước luôn chạy
+  }
+  function build() {
+    $('kinds').innerHTML = '';
+    kinds.forEach((k) => {
+      const lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = k.label;
+      const h = document.createElement('span'); h.className = 'h'; h.textContent = k.hint;
+      const st = document.createElement('span'); st.className = 'stepper';
+      const minus = document.createElement('button'); minus.className = 'btn'; minus.textContent = '−';
+      const n = document.createElement('span'); n.id = 'n_' + k.key;
+      const plus = document.createElement('button'); plus.className = 'btn'; plus.textContent = '+';
+      const bump = (d) => { S.counts[k.key] = Math.max(0, Math.min(max, (S.counts[k.key] || 0) + d)); changed(); };
+      minus.onclick = () => bump(-1); plus.onclick = () => bump(1);
+      st.append(minus, n, plus);
+      $('kinds').append(lbl, h, st);
+    });
+  }
+
+  $('enabled').onchange = (e) => { S.enabled = e.target.checked; changed(); };
+  $('speed').oninput = (e) => { S.speed = +e.target.value; changed(); };
+  $('mouse').onchange = (e) => { S.mouse = e.target.checked; changed(); };
+  $('flowers').onchange = (e) => { S.flowers = e.target.checked; changed(); };
+  $('trail').onchange = (e) => { S.trail = e.target.checked; changed(); };
+  $('bDefault').onclick = () => { S = { enabled: S.enabled, counts: { bee: 1 }, speed: 100, mouse: true, flowers: true, trail: true }; changed(); };
+  $('bOk').onclick = () => post('ok', { value: value() });
+  $('bCancel').onclick = () => post('cancel');
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') post('cancel'); });
+
+  window.pets = {
+    init(d) {
+      kinds = d.kinds || []; max = d.max || 5;
+      S = Object.assign({ enabled: false, counts: {}, speed: 100, mouse: true, flowers: true, trail: true }, d.settings || {});
+      S.counts = Object.assign({}, S.counts);
+      build(); render();
+    },
+  };
+  window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  post('ready');
+})();
+</script>
+</body>
+</html>

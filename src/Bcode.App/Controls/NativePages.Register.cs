@@ -8,6 +8,7 @@ internal static class Pages
         NativePages.Register("comparestructure.html", () => new CompareStructurePage());
         NativePages.Register("wcommandduplicate.html", () => new DuplicateMenuPage());
         NativePages.Register("uiscale.html", () => new UiScalePage());
+        NativePages.Register("statuspets.html", () => new StatusPetsPage());
         NativePages.Register("listeditor.html", () => new ListEditorPage());
         NativePages.Register("rowdetail.html", () => new RowDetailPage());
         NativePages.Register("partitioncheck.html", () => new PartitionCheckPage());

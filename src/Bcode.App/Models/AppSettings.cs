@@ -31,6 +31,9 @@ public class AppSettings
     /// object chưa sửa); false = cách cũ, mỗi object một tab riêng, bấm đúp mới mở. Đổi ở Settings.</summary>
     public bool SqlObjectOpenInCurrentTab { get; set; } = true;
 
+    /// <summary>Thú cưng trên thanh trạng thái (ong, bướm, chim, mèo…) — trang trí, mặc định tắt. Đổi ở Settings → "Thú cưng trên thanh trạng thái...".</summary>
+    public StatusPetSettings StatusPets { get; set; } = new();
+
     /// <summary>Số giây giữa hai lần tự lưu phiên (tab + nội dung SQL) — chỉnh ở Settings.</summary>
     public int SessionSaveSeconds { get; set; } = 4;
 

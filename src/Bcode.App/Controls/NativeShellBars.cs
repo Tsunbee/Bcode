@@ -343,6 +343,19 @@ public sealed class NativeStatusBar : Panel
         ThemeManager.ThemeChanged += Recolor;
         Disposed += (_, _) => ThemeManager.ThemeChanged -= Recolor;
         Recolor();
+        _pets = new StatusPets(this);
+        Disposed += (_, _) => _pets.Dispose();
+    }
+
+    // ---- Thú cưng (Settings → "Thú cưng trên thanh trạng thái...", mặc định tắt) — Controls/StatusPets.cs, tương đương statuspets.js. ----
+    private readonly StatusPets _pets;
+
+    public void SetPets(Bcode.App.Models.StatusPetSettings s) => _pets.Set(s);
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        _pets.Paint(e.Graphics);   // hiện xuyên qua các label nền trong suốt
     }
 
     private void Recolor()

@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="shell.css" />
+<script src="statuspets.js"></script>
 <style>
   body {
     display: flex;
@@ -25,6 +26,8 @@
   #statusLinks { flex: 0 0 auto; display: none; gap: 10px; margin-left: 10px; white-space: nowrap; }
   #statusLinks a { color: var(--accent); cursor: pointer; text-decoration: none; }
   #statusLinks a:hover { text-decoration: underline; }
+  /* Thú cưng (statuspets.js) vẽ trên canvas phủ lên thanh — không chặn chuột. */
+  body { position: relative; overflow: hidden; }
 </style>
 </head>
 <body data-area="status">
@@ -66,6 +69,10 @@
     var r = e.currentTarget.getBoundingClientRect();
     post({ action: 'project-menu', x: r.left, y: r.top });
   });
+
+  // ---- Thú cưng (Settings → "Thú cưng trên thanh trạng thái...", mặc định tắt) — gọi từ C# (MainForm.PushPets) ----
+  var pets = StatusPets.create(document.body);
+  window.setPets = function (s) { pets.set(s); };
 
   window.setTheme = function (isDark) {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

@@ -268,6 +268,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         {
             _topNative = new NativeTopBar();
             _statusNative = new NativeStatusBar();
+            _statusNative.SetPets(_settings.StatusPets ?? new StatusPetSettings());
             _railNative = new IconRailControl();
             _railNative.AddItem("sql_object", Bcode.App.UI.IconGlyph.Database, "SQL Object — procedure / function / view / bảng");
             _railNative.AddItem("wcommand", Bcode.App.UI.IconGlyph.MenuTree, "Cây menu Fast (WCommand)");
@@ -300,6 +301,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             .Add($"Tự lưu phiên mỗi {_settings.SessionSaveSeconds} giây...", () => BeginInvoke(new Action(ChooseSessionSaveInterval)))
             .Add("Cây SQL / Object: bấm 1 lần nạp vào tab đang dùng (tắt = mỗi object 1 tab)", ToggleSqlObjectOpenInCurrentTab, @checked: _settings.SqlObjectOpenInCurrentTab)
             .Add("Claude/Gemini nhúng vào tab SQL Query (tắt = tab riêng)", () => AppSettings.AiEmbedded = !AppSettings.AiEmbedded, @checked: AppSettings.AiEmbedded)
+            .Add("Thú cưng trên thanh trạng thái 🐝🦋🐱...", () => BeginInvoke(new Action(OpenStatusPets)))
             .Add("Giao diện (Template)...", () => BeginInvoke(new Action(OpenUiTemplate)))
             .AddSub("Kiểu giao diện (bo góc, mật độ)", sub => { foreach (var pr in Bcode.App.UI.NativeSkin.Presets) { var id = pr.Id; sub.Add(pr.Label, () => Bcode.App.UI.NativeSkin.ApplyPreset(id), @checked: Bcode.App.UI.NativeSkin.IsPreset(id)); } })
             .Add($"Chế độ giao diện: {Bcode.App.UI.UiMode.Label(Bcode.App.UI.UiMode.Current)} — đổi...", () => BeginInvoke(new Action(ChangeUiMode)))
@@ -626,6 +628,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 {
                     PushThemeToShell();
                     PushProjectInfo();
+                    PushPets();
                     if (_connections.Current is { } cur) PushStatus(WorkspaceStatusLine(cur));
                     if (Bcode.App.UI.WebViewEnvironment.TempProfileNote is { } wvNote) PushStatus(wvNote);   // báo lúc tạo môi trường thì thanh trạng thái chưa nạp xong
                     if (_pendingNotice is { } note) { _pendingNotice = null; PushNotice(note); }   // vd "Đã cập nhật Bcode lên ..." báo lúc mở
@@ -1757,6 +1760,30 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     {
         _settings.RestoreSession = !_settings.RestoreSession;
         try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+    }
+
+    /// <summary>Settings → "Thú cưng trên thanh trạng thái...": đổi là áp ngay lên thanh trạng thái; Hủy thì trả lại như cũ.</summary>
+    private void OpenStatusPets()
+    {
+        var before = (_settings.StatusPets ?? new StatusPetSettings()).Clone();
+        using var dlg = new StatusPetsForm(before, PushPets);
+        if (dlg.ShowDialog(this) == DialogResult.OK)
+        {
+            _settings.StatusPets = dlg.Result;
+            try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
+        }
+        PushPets(_settings.StatusPets ?? before);
+    }
+
+    private void PushPets() => PushPets(_settings.StatusPets ?? new StatusPetSettings());
+
+    /// <summary>Đẩy cài đặt thú cưng xuống thanh trạng thái (web: window.setPets; native: NativeStatusBar.SetPets).</summary>
+    private void PushPets(StatusPetSettings s)
+    {
+        if (_statusNative is not null) { _statusNative.SetPets(s); return; }
+        if (_statusBarWeb.CoreWebView2 is null) return;
+        var json = System.Text.Json.JsonSerializer.Serialize(s, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+        _ = _statusBarWeb.CoreWebView2.ExecuteScriptAsync($"window.setPets && window.setPets({json})");
     }
 
     private void ToggleSqlObjectOpenInCurrentTab()

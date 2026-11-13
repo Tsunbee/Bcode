@@ -124,6 +124,7 @@ public partial class MainForm
     {
         if (_pendingUpdate is not { Relaunch: true }) return;
         _pendingUpdate = null;
+        UpdateCheckService.ReleaseLock();   // thả khoá cài (update\apply.lock) để cửa sổ khác cài được
         UpdateNotice("Chưa cài vì BcodeViewer chưa đóng. Mở lại Help → Cập nhật BcodeViewer khi sẵn sàng.");
     }
 

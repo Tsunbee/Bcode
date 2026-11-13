@@ -23,6 +23,12 @@ public partial class MainForm
         UpdateCheckService.Configure("Bcode", "update", BcodePaths.AppData, "Bcode.exe", "", "ScreenDesigner");
         FormClosed += (_, _) => RunPendingUpdate();
         ReportLastUpdate();
+        // cửa sổ Bcode khác đã hẹn cài / trình cài đang chờ: đọc update\apply.lock mỗi 3 giây (không có file = gần như không tốn gì)
+        var lockTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+        lockTimer.Tick += (_, _) => { if (!IsDisposed) WatchInstallLock(); };
+        Disposed += (_, _) => lockTimer.Dispose();
+        lockTimer.Start();
+        WatchInstallLock();
         if (string.IsNullOrWhiteSpace(ReleaseFolder)) return;
         var timer = new System.Windows.Forms.Timer { Interval = 20_000 };
         timer.Tick += async (_, _) =>
@@ -51,9 +57,28 @@ public partial class MainForm
 
     private void ShowUpdateToast()
     {
-        if (_newBuild is not { } b || _pendingUpdate is not null) return;
+        if (_newBuild is not { } b || _pendingUpdate is not null || _installWaiting is not null) return;
         var (t, d) = UpdateToastText(b);
         UpdateToast.Show(t, d);
+    }
+
+    /// <summary>Khoá cài của cửa sổ Bcode khác (UpdateCheckService.OtherLock) — có thì thay thông báo "Có bản mới" bằng "Đang chờ đóng Bcode để cài bản mới".</summary>
+    private UpdateCheckService.InstallLock? _installWaiting;
+
+    private void WatchInstallLock()
+    {
+        var l = UpdateCheckService.OtherLock();
+        if (l is null)
+        {
+            if (_installWaiting is null) return;
+            _installWaiting = null;   // bên kia huỷ hẹn / đã xong
+            _updateToast?.Clear();
+            ShowUpdateToast();
+            return;
+        }
+        var changed = _installWaiting is null || _installWaiting.Pid != l.Pid || _installWaiting.State != l.State;
+        _installWaiting = l;
+        if (changed) UpdateToast.Show("Đang chờ đóng Bcode để cài bản mới", UpdateCheckService.WaitingText(l));
     }
 
     /// <summary>Lần cập nhật / quay lại vừa chạy (trước khi mở Bcode này): thành công → thanh trạng thái; lỗi → hộp báo kèm đường dẫn nhật ký.</summary>
@@ -73,7 +98,8 @@ public partial class MainForm
 
     /// <summary>Mục menu Settings: nhãn đổi theo kết quả kiểm tra.</summary>
     private string UpdateMenuLabel =>
-        _pendingUpdate is { Relaunch: false } ? "Cập nhật Bcode — sẽ cài khi đóng Bcode..."
+        _installWaiting is not null ? "Cập nhật Bcode — đang chờ đóng Bcode để cài bản mới..."
+        : _pendingUpdate is { Relaunch: false } ? "Cập nhật Bcode — sẽ cài khi đóng Bcode..."
         : _newBuild is { } b ? $"Cập nhật Bcode — có bản mới {b.Label}..." : "Kiểm tra bản Bcode mới...";
 
     private void CheckForUpdateInteractive()
@@ -95,7 +121,7 @@ public partial class MainForm
                 _pendingUpdate = (f.Plan, null, f.OverwriteModified, true);
                 PushStatus("Đang đóng Bcode để cài bản mới...");
                 Close();
-                if (!IsDisposed && Visible) { _pendingUpdate = null; PushNotice("Chưa cài bản mới vì Bcode chưa đóng. Mở lại Settings → Cập nhật Bcode khi sẵn sàng."); }
+                if (!IsDisposed && Visible) { _pendingUpdate = null; UpdateCheckService.ReleaseLock(); PushNotice("Chưa cài bản mới vì Bcode chưa đóng. Mở lại Settings → Cập nhật Bcode khi sẵn sàng."); }
                 break;
             case UpdateDialogLogic.Outcome.ApplyOnClose when f.Plan is not null:
                 _pendingUpdate = (f.Plan, null, f.OverwriteModified, false);
@@ -105,7 +131,7 @@ public partial class MainForm
                 _pendingUpdate = (null, f.Backup, false, true);
                 PushStatus("Đang đóng Bcode để quay lại bản trước...");
                 Close();
-                if (!IsDisposed && Visible) { _pendingUpdate = null; PushNotice("Chưa quay lại bản trước vì Bcode chưa đóng."); }
+                if (!IsDisposed && Visible) { _pendingUpdate = null; UpdateCheckService.ReleaseLock(); PushNotice("Chưa quay lại bản trước vì Bcode chưa đóng."); }
                 break;
         }
     }

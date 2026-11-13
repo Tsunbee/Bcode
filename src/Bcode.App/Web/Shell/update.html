@@ -290,6 +290,12 @@
           + (s.publishApp ? ' -App ' + s.publishApp : '') + ' -Dest "<thư mục này>". Nếu bản build nằm ở thư mục con, bấm Đổi… để trỏ đúng thư mục chứa ' + (s.exe || A + '.exe') + '.');
         buttons(['bRetry']); $('bRetry').textContent = 'Kiểm tra lại'; $('bLater').textContent = 'Đóng';
         break;
+      case 'waiting':
+        // cửa sổ khác đã hẹn cài / trình cài đang chạy (khoá update\apply.lock) — không cho tải / cài từ cửa sổ này
+        hero('down', '', 'Đang chờ đóng ' + A + ' để cài bản mới', 'Bản mới sẽ được cài khi mọi cửa sổ ' + A + ' đã đóng.');
+        note('info', s.message);
+        buttons(['bRetry']); $('bRetry').textContent = 'Kiểm tra lại'; $('bLater').textContent = 'Đóng';
+        break;
       case 'latest':
         hero('check', 'ok', A + ' đang là bản mới nhất', s.remote ? 'Bản phát hành: ' + s.remote.label : '');
         buttons(['bRetry']); $('bRetry').textContent = 'Kiểm tra lại'; $('bLater').textContent = 'Đóng';
@@ -350,7 +356,7 @@
     }
 
     // bản trước
-    show('bakC', !!s.backup && s.phase !== 'downloading');
+    show('bakC', !!s.backup && s.phase !== 'downloading' && s.phase !== 'waiting');
     if (s.backup) $('bakT').textContent = 'Bản trước (' + (s.backup.from || '?') + ') được giữ lại từ lần cập nhật ' + s.backup.at + '. Bản mới có lỗi thì quay lại được.';
     disarm();
   }

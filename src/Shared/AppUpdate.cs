@@ -61,6 +61,8 @@ public sealed record BackupInfo(string From, string To, DateTime At, List<string
 /// (bản phát hành đổi giữa chừng thì báo thử lại). Cài (<see cref="StartApply"/>): 1 script PowerShell tách riêng chờ mọi tiến trình chạy từ thư mục Bcode
 /// thoát, sao file sắp ghi đè vào update\backup, chép từ staging (chỉ ổ local — vài giây), lỗi giữa chừng thì chép trả bản cũ; ghi update\result.json,
 /// mở lại Bcode. Backup giữ 1 bản để "Quay lại bản trước". Dữ liệu người dùng ở %AppData%\Bcode không bị đụng.
+/// Nhiều cửa sổ Bcode (nhiều tiến trình): chỉ 1 lượt cài được chạy — khoá update\apply.lock (<see cref="HoldLock"/>, <see cref="OtherLock"/>);
+/// cửa sổ khác thấy khoá thì hiện "Đang chờ đóng Bcode để cài bản mới" thay cho nút cập nhật.
 /// </summary>
 public static class UpdateCheckService
 {
@@ -481,6 +483,10 @@ public static class UpdateCheckService
         var oldMan = ReadManifest(Path.Combine(dst, ManifestFileName));
         var nested = NestedApps(dst);   // thư mục con là app khác tự cập nhật riêng (Bcode: ScreenDesigner) — không đụng
 
+        // staging đang được dùng cho 1 lượt cài đã hẹn (cửa sổ khác, hoặc chính cửa sổ này) → không được xoá / tải lại
+        if (OtherLock() is { } other) throw new InvalidOperationException("Đang chờ đóng " + AppName + " để cài bản mới. " + WaitingText(other));
+        if (HoldsLock) throw new InvalidOperationException("Đã hẹn cài bản mới khi đóng " + AppName + " — huỷ hẹn trước khi tải lại.");
+
         // Danh sách file của bản mới: theo manifest; không có thì liệt kê thư mục (cỡ + giờ sửa lấy luôn từ danh sách — không hỏi mạng từng file)
         List<(string Rel, string? Hash, FileInfo? Info)> files;
         if (newMan is not null) files = newMan.Where(kv => !InNested(kv.Key, nested)).Select(kv => (kv.Key, (string?)kv.Value, (FileInfo?)null)).ToList();
@@ -663,6 +669,108 @@ public static class UpdateCheckService
         catch { try { File.Delete(ResultPath); } catch { } return null; }
     }
 
+    // ---------------------------------------------------------------- khoá cài (update\apply.lock)
+    // Mỗi cửa sổ Bcode là 1 tiến trình riêng. Trước đây 2 cửa sổ cùng hẹn cài → 2 script cùng chờ, cùng chạy một lúc trên cùng staging + cùng
+    // thư mục backup: script này xoá staging / backup của script kia → "Cannot find path ...\staging\Bcode.Core.dll" rồi chép trả lẫn lộn.
+    // Giờ chỉ 1 bên được giữ khoá: cửa sổ hẹn cài giữ từ lúc chọn cài tới lúc chạy script, script giữ suốt lúc chờ + chép.
+    // Khoá = file mở độc quyền ghi (FileShare.Read) + DeleteOnClose: tiến trình giữ chết / bị kill → Windows đóng handle, file tự mất → không kẹt.
+    // Sót file (mất điện) thì không ai đang mở nên lấy lại được ngay; bên đọc còn xét PID + giờ khởi động tiến trình ghi trong file.
+
+    /// <summary>Người đang giữ khoá cài. By = "app" (cửa sổ đã hẹn cài) / "script" (trình cài); State = scheduled / waiting / installing.</summary>
+    public sealed record InstallLock(int Pid, string By, string State, string Mode, string To, DateTime AtUtc);
+
+    public static string LockPath => Path.Combine(UpdateRoot, "apply.lock");
+    private static FileStream? _held;
+    private static readonly object LockGate = new();
+
+    /// <summary>Cửa sổ này đang giữ khoá (đã hẹn cài / quay lại).</summary>
+    public static bool HoldsLock { get { lock (LockGate) return _held is not null; } }
+
+    /// <summary>Giữ khoá cài cho cửa sổ này (lúc chọn "Khởi động lại &amp; cập nhật" / "Cài khi đóng" / "Quay lại bản trước").
+    /// false = tiến trình khác (cửa sổ / trình cài khác) đang giữ.</summary>
+    public static bool HoldLock(string mode, string to)
+    {
+        lock (LockGate)
+        {
+            if (_held is null)
+            {
+                if (OtherLock() is not null) return false;
+                Directory.CreateDirectory(UpdateRoot);
+                for (var i = 0; ; i++)
+                {
+                    try { _held = new FileStream(LockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.DeleteOnClose); break; }
+                    catch (IOException) { return false; }                          // tiến trình khác đang giữ
+                    catch (UnauthorizedAccessException) when (i < 10) { Thread.Sleep(100); }   // bên giữ vừa thả, file đang chờ xoá
+                    catch (UnauthorizedAccessException) { return false; }
+                }
+            }
+            WriteLock(_held, "app", "scheduled", mode, to);
+            return true;
+        }
+    }
+
+    /// <summary>Thả khoá (huỷ hẹn, đóng bị huỷ, hoặc đã giao cho script).</summary>
+    public static void ReleaseLock()
+    {
+        lock (LockGate) { try { _held?.Dispose(); } catch { } _held = null; }
+    }
+
+    private static void WriteLock(FileStream fs, string by, string state, string mode, string to)
+    {
+        long start;
+        using (var me = Process.GetCurrentProcess()) start = me.StartTime.ToUniversalTime().Ticks;
+        var json = JsonSerializer.Serialize(new { pid = Environment.ProcessId, start, by, state, mode, to, at = DateTime.UtcNow.ToString("o") });
+        var bytes = new UTF8Encoding(false).GetBytes(json);
+        fs.SetLength(0); fs.Write(bytes, 0, bytes.Length); fs.Flush(true);
+    }
+
+    /// <summary>Khoá cài do tiến trình KHÁC (còn sống) đang giữ — null = không có / của chính cửa sổ này / khoá sót của tiến trình đã chết.
+    /// Chỉ mở đọc (không chặn ai lấy khoá); không có file thì gần như không tốn gì — gọi định kỳ được.</summary>
+    public static InstallLock? OtherLock()
+    {
+        try
+        {
+            if (!File.Exists(LockPath)) return null;
+            string text;
+            using (var fs = new FileStream(LockPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var sr = new StreamReader(fs, Encoding.UTF8)) text = sr.ReadToEnd();
+            using var doc = JsonDocument.Parse(text);
+            var r = doc.RootElement;
+            string S(string n) => r.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
+            var pid = r.GetProperty("pid").GetInt32();
+            var start = r.GetProperty("start").GetInt64();
+            if (pid == Environment.ProcessId || !ProcessAlive(pid, start)) return null;
+            var at = DateTime.TryParse(S("at"), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var d) ? d.ToUniversalTime() : DateTime.UtcNow;
+            return new InstallLock(pid, S("by"), S("state"), S("mode"), S("to"), at);
+        }
+        catch { return null; }   // đang được ghi / đang chờ xoá / hỏng → coi như không có
+    }
+
+    /// <summary>Tiến trình <paramref name="pid"/> còn chạy và đúng là tiến trình đã ghi khoá (giờ khởi động khớp — PID bị tái dùng thì không khớp).</summary>
+    private static bool ProcessAlive(int pid, long startTicks)
+    {
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            if (p.HasExited) return false;
+            try { return Math.Abs(p.StartTime.ToUniversalTime().Ticks - startTicks) < TimeSpan.FromSeconds(2).Ticks; }
+            catch { return true; }   // không đọc được giờ khởi động (khác quyền) → coi như còn
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Câu giải thích cho cửa sổ khác thấy khoá: "Đang chờ đóng Bcode để cài bản mới" + chi tiết.</summary>
+    public static string WaitingText(InstallLock l)
+    {
+        var what = l.Mode == "rollback" ? "quay lại bản trước" : "cài bản mới" + (l.To.Length > 0 ? " " + l.To : "");
+        return l.State switch
+        {
+            "installing" => $"Đang {what}...",
+            "waiting" => $"Trình cài đang chờ đóng hết các cửa sổ {AppName} để {what}. Lưu các tab đang sửa rồi đóng {AppName} — xong sẽ tự mở lại nếu đã chọn \"Khởi động lại & cập nhật\".",
+            _ => $"Một cửa sổ {AppName} khác (PID {l.Pid}) đã hẹn {what}: sẽ cài khi đóng hết các cửa sổ {AppName}.",
+        };
+    }
+
     // ---------------------------------------------------------------- cài / quay lại
 
     /// <summary>Chạy script cài bản đã chuẩn bị (tiến trình riêng, ẩn) — gọi lúc Bcode ĐÃ đóng (MainForm.FormClosed).</summary>
@@ -671,10 +779,11 @@ public static class UpdateCheckService
     public static void StartApply(UpdatePlan plan, bool overwriteModified, bool relaunch)
     {
         var copy = overwriteModified ? plan.Copy.Concat(plan.Modified).ToList() : plan.Copy;
+        // undo = backup.new: bản sao file cũ của LẦN NÀY; chỉ khi cài xong mới thay backup cũ (keep) — cài lỗi thì "Quay lại bản trước" cũ vẫn còn
         RunScript(new
         {
             mode = "update", src = Staging, dst = plan.Target, copy, delete = plan.Delete,
-            undo = BackupDir, cleanup = Staging, from = plan.FromLabel, to = plan.ToLabel, relaunch,
+            undo = Path.Combine(UpdateRoot, "backup.new"), keep = BackupDir, cleanup = Staging, from = plan.FromLabel, to = plan.ToLabel, relaunch,
         });
     }
 
@@ -686,36 +795,54 @@ public static class UpdateCheckService
         RunScript(new
         {
             mode = "rollback", src = files, dst = Full(ExeDir), copy, delete = backup.Added,
-            undo = Path.Combine(UpdateRoot, "undo"), cleanup = BackupDir, from = Local.Label, to = backup.From, relaunch,
+            undo = Path.Combine(UpdateRoot, "undo"), keep = "", cleanup = BackupDir, from = Local.Label, to = backup.From, relaunch,
         });
     }
+
+    /// <summary>Nội dung apply.ps1 (để harness thử chạy script với job + thư mục giả, không cần cài thật).</summary>
+    public static string ScriptText => ApplyScript;
 
     private static void RunScript(object job)
     {
-        Directory.CreateDirectory(UpdateRoot);
-        Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
-        try { File.Delete(ResultPath); } catch { }
-        var full = JsonSerializer.SerializeToElement(job);
-        var dict = full.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value);
-        dict["exe"] = Environment.ProcessPath ?? Path.Combine(ExeDir, ExeName);
-        dict["log"] = LogPath;
-        dict["result"] = ResultPath;
-        var jobPath = Path.Combine(UpdateRoot, "job.json");
-        var ps1 = Path.Combine(UpdateRoot, "apply.ps1");
-        File.WriteAllText(jobPath, JsonSerializer.Serialize(dict), new UTF8Encoding(false));
-        File.WriteAllText(ps1, ApplyScript, new UTF8Encoding(true));   // BOM: PowerShell 5.1 đọc đúng tiếng Việt
-        Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1}\" \"{jobPath}\"")
+        try
         {
-            UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = UpdateRoot,
-        });
+            Directory.CreateDirectory(UpdateRoot);
+            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+            try { File.Delete(ResultPath); } catch { }
+            var full = JsonSerializer.SerializeToElement(job);
+            var dict = full.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value);
+            dict["exe"] = Environment.ProcessPath ?? Path.Combine(ExeDir, ExeName);
+            dict["log"] = LogPath;
+            dict["result"] = ResultPath;
+            dict["lock"] = LockPath;
+            dict["journal"] = Path.Combine(UpdateRoot, "inprogress.json");
+            dict["owner"] = Environment.ProcessId;   // script chờ cửa sổ này thả khoá (thoát) rồi giữ tiếp; khoá của tiến trình khác → bỏ lượt
+            // job riêng mỗi lượt: 2 cửa sổ chạy script gần như cùng lúc không ghi đè job.json của nhau
+            var jobPath = Path.Combine(UpdateRoot, $"job-{Environment.ProcessId}.json");
+            var ps1 = Path.Combine(UpdateRoot, "apply.ps1");
+            File.WriteAllText(jobPath, JsonSerializer.Serialize(dict), new UTF8Encoding(false));
+            try { File.WriteAllText(ps1, ApplyScript, new UTF8Encoding(true)); }   // BOM: PowerShell 5.1 đọc đúng tiếng Việt
+            catch (IOException) when (File.Exists(ps1)) { /* script khác đang đọc apply.ps1 — cùng nội dung, dùng luôn */ }
+            Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1}\" \"{jobPath}\"")
+            {
+                UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = UpdateRoot,
+            });
+        }
+        finally { ReleaseLock(); }   // script lấy khoá ngay khi cửa sổ này thả (chờ được tới 15 phút nếu cửa sổ chưa thoát hẳn)
     }
 
-    /// <summary>Script cài: chờ mọi tiến trình chạy từ thư mục Bcode thoát (tối đa 15 phút) → sao file sắp ghi đè / xoá vào thư mục undo → chép từ src →
-    /// lỗi bất kỳ thì chép trả bản cũ + xoá file mới thêm. Ghi result.json + update.log, dọn thư mục tạm, mở lại Bcode nếu cần.</summary>
+    /// <summary>Script cài. Thứ tự:
+    /// 1) Lấy khoá update\apply.lock (độc quyền + DeleteOnClose). Tiến trình khác còn sống giữ → ghi nhật ký "bỏ qua" và thoát, KHÔNG đụng file nào.
+    ///    Người giữ là cửa sổ đã gọi script (owner) → chờ nó thoát. Người giữ đã chết → khoá tự hết hiệu lực.
+    /// 2) Chờ mọi tiến trình chạy từ thư mục cài thoát (tối đa 15 phút).
+    /// 3) Lượt trước bị dừng giữa chừng (còn inprogress.json) → chép trả theo nhật ký của lượt đó trước.
+    /// 4) Kiểm đủ mọi file nguồn (staging) — thiếu file thì dừng, chưa đụng gì, bản đang dùng giữ nguyên.
+    /// 5) Sao file sắp ghi đè / xoá vào undo (ghi nhật ký từng file) → chép. Lỗi giữa chừng → chép trả bản cũ + xoá file mới thêm.
+    /// 6) Xong: backup.new thay backup cũ (chỉ lúc này) → ghi result.json + update.log → thả khoá → mở lại Bcode nếu cần.</summary>
     private const string ApplyScript = """
 $ErrorActionPreference = 'Stop'
 $job = Get-Content -LiteralPath $args[0] -Raw -Encoding UTF8 | ConvertFrom-Json
-function L($m) { try { Add-Content -LiteralPath $job.log -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '  ' + $m) -Encoding UTF8 } catch {} }
+function L($m) { try { Add-Content -LiteralPath $job.log -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + '  [' + $PID + '] ' + $m) -Encoding UTF8 } catch {} }
 function Done($ok, $msg) {
   $r = [ordered]@{ ok = $ok; mode = $job.mode; from = $job.from; to = $job.to; message = $msg; at = (Get-Date).ToString('o') }
   try { ($r | ConvertTo-Json) | Set-Content -LiteralPath $job.result -Encoding UTF8 } catch {}
@@ -724,51 +851,173 @@ function CopyRetry($from, $to) {
   $dir = Split-Path -Parent $to
   if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
   for ($i = 1; ; $i++) {
+    # thiếu file nguồn: thử lại không ích gì (trước đây mỗi file thiếu tốn ~7 giây) — chỉ thử lại khi file bị khoá / đang dùng
+    if (-not (Test-Path -LiteralPath $from -PathType Leaf)) { throw ('Không có file ' + $from) }
     try { Copy-Item -LiteralPath $from -Destination $to -Force; return }
     catch { if ($i -ge 10) { throw }; Start-Sleep -Milliseconds 700 }
   }
 }
+function Relaunch { if ($job.relaunch) { try { Start-Process -FilePath $job.exe } catch { L ('Không mở lại được ' + $job.exe + ': ' + $_.Exception.Message) } } }
+
+# ---- 1) khoá: chỉ 1 lượt cài / quay lại chạy một lúc
+function LockHolder {
+  # người đang giữ khoá (còn sống, đúng giờ khởi động) — $null nếu không có / đã chết / đang ghi dở
+  try {
+    $fs = New-Object IO.FileStream($job.lock, [IO.FileMode]::Open, [IO.FileAccess]::Read, ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    try { $t = (New-Object IO.StreamReader($fs, [Text.Encoding]::UTF8)).ReadToEnd() } finally { $fs.Dispose() }
+    $h = $t | ConvertFrom-Json
+    $p = Get-Process -Id ([int]$h.pid) -ErrorAction Stop
+    try { if ([math]::Abs($p.StartTime.ToUniversalTime().Ticks - [long]$h.start) -gt 20000000) { return $null } } catch {}
+    return $h
+  } catch { return $null }
+}
+function SetLock($state) {
+  try {
+    $o = [ordered]@{ pid = $PID; start = (Get-Process -Id $PID).StartTime.ToUniversalTime().Ticks; by = 'script'; state = $state; mode = $job.mode; to = $job.to; at = (Get-Date).ToUniversalTime().ToString('o') }
+    $b = (New-Object Text.UTF8Encoding($false)).GetBytes(($o | ConvertTo-Json -Compress))
+    $script:lock.SetLength(0); $script:lock.Write($b, 0, $b.Length); $script:lock.Flush()
+  } catch {}
+}
+$lock = $null
+$deadline = (Get-Date).AddMinutes(15)
+$stuck = $null
+New-Item -ItemType Directory -Path (Split-Path -Parent $job.lock) -Force | Out-Null
+while ($true) {
+  try { $lock = New-Object IO.FileStream($job.lock, [IO.FileMode]::OpenOrCreate, [IO.FileAccess]::ReadWrite, [IO.FileShare]::Read, 4096, [IO.FileOptions]::DeleteOnClose); break } catch {}
+  $h = LockHolder
+  if ($h -and [int]$h.pid -ne [int]$job.owner) {
+    L ('Bỏ qua ' + $job.mode + ' -> ' + $job.to + ': đã có lượt cài khác đang giữ khoá (PID ' + $h.pid + ', ' + $h.by + '/' + $h.state + '). Không đụng file nào.')
+    exit 0
+  }
+  if ($h) { $stuck = $null } elseif (-not $stuck) { $stuck = (Get-Date).AddSeconds(20) }
+  if ((Get-Date) -gt $deadline -or ($stuck -and (Get-Date) -gt $stuck)) {
+    $m = 'Không lấy được khoá cài ' + $job.lock + '. Chưa cài gì, bản đang dùng giữ nguyên.'
+    L $m; Done $false $m; exit 1
+  }
+  Start-Sleep -Milliseconds 300
+}
+SetLock 'waiting'
 L ('Bắt đầu ' + $job.mode + ': ' + $job.from + ' -> ' + $job.to + ' (' + @($job.copy).Count + ' file chép, ' + @($job.delete).Count + ' file xoá)')
 
-$deadline = (Get-Date).AddMinutes(15)
+# ---- 2) chờ mọi tiến trình chạy từ thư mục cài thoát
 do {
   $busy = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($job.dst + '\', [StringComparison]::OrdinalIgnoreCase) })
   if ($busy.Count -gt 0) { Start-Sleep -Seconds 1 }
 } while ($busy.Count -gt 0 -and (Get-Date) -lt $deadline)
 if ($busy.Count -gt 0) {
   $m = 'Hết 15 phút chờ — còn mở: ' + (($busy | ForEach-Object { $_.ProcessName } | Select-Object -Unique) -join ', ') + '. Chưa cài gì, bản cũ giữ nguyên.'
-  L $m; Done $false $m; exit 1
+  L $m; Done $false $m; $lock.Dispose(); exit 1
+}
+SetLock 'installing'
+
+# chép trả: file đã sao (S) lấy lại từ undo\files, file mới thêm (A) xoá. Trả về số file không khôi phục được.
+function Restore($undoDir, $dst, $savedList, $addedList) {
+  $bad = 0
+  foreach ($rel in $savedList) { try { CopyRetry (Join-Path (Join-Path $undoDir 'files') $rel) (Join-Path $dst $rel) } catch { $bad++; L ('  không khôi phục được ' + $rel + ': ' + $_.Exception.Message) } }
+  foreach ($rel in $addedList) { try { $p = Join-Path $dst $rel; if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Force } } catch { $bad++; L ('  không xoá được file mới ' + $rel) } }
+  return $bad
+}
+function ReadJournal($undoDir) {
+  $s = New-Object System.Collections.Generic.List[string]; $a = New-Object System.Collections.Generic.List[string]
+  $jf = Join-Path $undoDir 'journal.txt'
+  if (Test-Path -LiteralPath $jf) {
+    foreach ($line in (Get-Content -LiteralPath $jf -Encoding UTF8)) {
+      if ($line.Length -lt 3) { continue }
+      if ($line[0] -eq 'S') { $s.Add($line.Substring(2)) } elseif ($line[0] -eq 'A') { $a.Add($line.Substring(2)) }
+    }
+  }
+  return ,@($s, $a)
 }
 
+# ---- 3) lượt trước bị dừng giữa chừng (tiến trình chết / tắt máy): đưa thư mục cài về như trước lượt đó
+if (Test-Path -LiteralPath $job.journal) {
+  try {
+    $ip = Get-Content -LiteralPath $job.journal -Raw -Encoding UTF8 | ConvertFrom-Json
+    $sa = ReadJournal $ip.undo
+    L ('Lượt ' + $ip.mode + ' trước (PID ' + $ip.pid + ') bị dừng giữa chừng — chép trả ' + $sa[0].Count + ' file, xoá ' + $sa[1].Count + ' file mới thêm...')
+    $bad = Restore $ip.undo $ip.dst $sa[0] $sa[1]
+    if ($bad -gt 0) { throw ('còn ' + $bad + ' file chưa khôi phục được') }
+    try { Remove-Item -LiteralPath $ip.undo -Recurse -Force } catch {}
+    Remove-Item -LiteralPath $job.journal -Force
+    L '  đã khôi phục xong.'
+  } catch {
+    $m = 'Lượt cài trước bị dừng giữa chừng và chưa khôi phục được (' + $_.Exception.Message + '). Chưa cài gì thêm — xem nhật ký.'
+    L $m; Done $false $m; $lock.Dispose(); exit 1
+  }
+}
+
+# ---- 4) kiểm đủ file nguồn TRƯỚC khi đụng vào thư mục cài
+$missing = @(@($job.copy) | Where-Object { -not (Test-Path -LiteralPath (Join-Path $job.src $_) -PathType Leaf) })
+if ($missing.Count -gt 0) {
+  $m = 'Thư mục bản mới ' + $job.src + ' thiếu ' + $missing.Count + ' file (vd ' + $missing[0] + ') — chưa cài gì, bản đang dùng giữ nguyên. Mở lại Cập nhật để tải lại.'
+  L $m; Done $false $m; $lock.Dispose(); Relaunch; exit 1
+}
+
+# ---- 5) sao lưu + chép (nhật ký từng file trong undo\journal.txt để lượt sau khôi phục được nếu lượt này chết giữa chừng)
 $undo = $job.undo
 $saved = New-Object System.Collections.Generic.List[string]
 $added = New-Object System.Collections.Generic.List[string]
+$jf = Join-Path $undo 'journal.txt'
+function J($kind, $rel) {
+  # antivirus / trình lập chỉ mục có thể đang mở journal.txt → thử lại vài lần thay vì hỏng cả lượt cài
+  for ($i = 1; ; $i++) {
+    try { Add-Content -LiteralPath $jf -Value ($kind + '|' + $rel) -Encoding UTF8; return }
+    catch { if ($i -ge 30) { throw }; Start-Sleep -Milliseconds 100 }
+  }
+}
 try {
   if (Test-Path -LiteralPath $undo) { Remove-Item -LiteralPath $undo -Recurse -Force }
   New-Item -ItemType Directory -Path (Join-Path $undo 'files') -Force | Out-Null
+  New-Item -ItemType File -Path $jf -Force | Out-Null
+  ([ordered]@{ pid = $PID; mode = $job.mode; undo = $undo; dst = $job.dst; at = (Get-Date).ToString('o') } | ConvertTo-Json) | Set-Content -LiteralPath $job.journal -Encoding UTF8
   foreach ($rel in @($job.copy)) {
     $d = Join-Path $job.dst $rel
-    if (Test-Path -LiteralPath $d) { CopyRetry $d (Join-Path (Join-Path $undo 'files') $rel); $saved.Add($rel) } else { $added.Add($rel) }
+    if (Test-Path -LiteralPath $d) { CopyRetry $d (Join-Path (Join-Path $undo 'files') $rel); J 'S' $rel; $saved.Add($rel) } else { J 'A' $rel; $added.Add($rel) }
     CopyRetry (Join-Path $job.src $rel) $d
   }
   foreach ($rel in @($job.delete)) {
     $d = Join-Path $job.dst $rel
-    if (Test-Path -LiteralPath $d) { CopyRetry $d (Join-Path (Join-Path $undo 'files') $rel); $saved.Add($rel); Remove-Item -LiteralPath $d -Force }
+    if (Test-Path -LiteralPath $d) { CopyRetry $d (Join-Path (Join-Path $undo 'files') $rel); J 'S' $rel; $saved.Add($rel); Remove-Item -LiteralPath $d -Force }
   }
   $info = [ordered]@{ from = $job.from; to = $job.to; dst = $job.dst; at = (Get-Date).ToString('o'); added = @($added) }
   ($info | ConvertTo-Json -Depth 3) | Set-Content -LiteralPath (Join-Path $undo 'backup.json') -Encoding UTF8
-  L ('Xong: ' + $job.to)
-  Done $true ''
-  try { Remove-Item -LiteralPath $job.cleanup -Recurse -Force } catch {}
-  if ($job.mode -ne 'update') { try { Remove-Item -LiteralPath $undo -Recurse -Force } catch {} }
 } catch {
   $err = $_.Exception.Message
   L ('Lỗi: ' + $err + ' — chép trả bản cũ...')
-  foreach ($rel in $saved) { try { CopyRetry (Join-Path (Join-Path $undo 'files') $rel) (Join-Path $job.dst $rel) } catch { L ('  không khôi phục được ' + $rel) } }
-  foreach ($rel in $added) { try { Remove-Item -LiteralPath (Join-Path $job.dst $rel) -Force -ErrorAction SilentlyContinue } catch {} }
-  try { Remove-Item -LiteralPath $undo -Recurse -Force } catch {}
-  Done $false $err
+  $bad = Restore $undo $job.dst $saved $added
+  if ($bad -eq 0) {
+    try { Remove-Item -LiteralPath $job.journal -Force -ErrorAction SilentlyContinue } catch {}
+    try { Remove-Item -LiteralPath $undo -Recurse -Force } catch {}
+    L '  đã chép trả bản cũ.'
+    Done $false $err
+  } else {
+    # giữ undo + inprogress.json: lần cài sau khôi phục tiếp trước khi làm gì khác
+    Done $false ($err + ' — còn ' + $bad + ' file chưa khôi phục được, bản sao ở ' + $undo + '. Xem nhật ký.')
+  }
+  $lock.Dispose(); Relaunch; exit 1
 }
-if ($job.relaunch) { Start-Process -FilePath $job.exe }
+
+# ---- 6) hoàn tất. Thứ tự để chết ở bước nào lượt sau cũng ra trạng thái đúng:
+#  update: backup cũ đổi tên .old → undo thành backup → xoá inprogress.json (undo đã dời đi = nhật ký rỗng, lượt sau không chép trả gì) → xoá .old
+#  rollback: xoá inprogress.json TRƯỚC rồi mới xoá undo (xoá dở undo mà còn inprogress thì lượt sau chép trả nửa vời)
+L ('Xong: ' + $job.to)
+if ($job.keep) {
+  $old = $job.keep + '.old'
+  try {
+    if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Recurse -Force }
+    if (Test-Path -LiteralPath $job.keep) { Move-Item -LiteralPath $job.keep -Destination $old }
+    Move-Item -LiteralPath $undo -Destination $job.keep
+  } catch { L ('  không thay được bản sao lưu ' + $job.keep + ': ' + $_.Exception.Message) }
+  try { Remove-Item -LiteralPath $job.journal -Force } catch {}
+  try { if (Test-Path -LiteralPath $old) { Remove-Item -LiteralPath $old -Recurse -Force } } catch {}
+} else {
+  try { Remove-Item -LiteralPath $job.journal -Force } catch {}
+  try { Remove-Item -LiteralPath $undo -Recurse -Force } catch {}
+}
+Done $true ''
+try { Remove-Item -LiteralPath $job.cleanup -Recurse -Force } catch {}
+try { Remove-Item -LiteralPath $args[0] -Force } catch {}
+$lock.Dispose()
+Relaunch
 """;
 }

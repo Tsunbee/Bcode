@@ -82,10 +82,19 @@ public sealed class UpdateDialogLogic
         _js($"window.update && window.update.set({JsonSerializer.Serialize(state, JsonOpts)})");
     }
 
+    /// <summary>Cửa sổ khác đã hẹn cài / trình cài đang chạy → hiện "Đang chờ đóng ... để cài bản mới" thay cho nút cập nhật. true = đã hiện.</summary>
+    private bool PushIfWaiting()
+    {
+        if (UpdateCheckService.OtherLock() is not { } l) return false;
+        Push("waiting", UpdateCheckService.WaitingText(l));
+        return true;
+    }
+
     private async Task CheckAsync()
     {
         _cts?.Cancel();
         Plan = null; _remote = null; _changes = new();
+        if (PushIfWaiting()) return;
         var folder = _folder();
         if (string.IsNullOrWhiteSpace(folder)) { Push("nofolder"); return; }
         Push("checking");
@@ -108,7 +117,7 @@ public sealed class UpdateDialogLogic
 
     private async Task DownloadAsync()
     {
-        if (_remote is null) return;
+        if (_remote is null || PushIfWaiting()) return;
         var folder = _folder();
         _cts?.Cancel();
         var cts = _cts = new CancellationTokenSource();
@@ -145,16 +154,20 @@ public sealed class UpdateDialogLogic
                 break;
             case "apply":
                 if (Plan is null) return;
+                // giữ khoá cài ngay lúc chọn: cửa sổ khác không hẹn cài / tải lại staging được nữa (thả khi huỷ hẹn, đóng bị huỷ, hoặc giao cho script)
+                if (!UpdateCheckService.HoldLock("update", Plan.ToLabel)) { PushIfWaiting(); return; }
                 OverwriteModified = msg.TryGetProperty("overwrite", out var o) && o.ValueKind == JsonValueKind.True;
                 Decision = msg.TryGetProperty("when", out var w) && w.GetString() == "close" ? Outcome.ApplyOnClose : Outcome.ApplyNow;
                 _close(DialogResult.OK);
                 break;
             case "unschedule":
                 Decision = Outcome.None;
+                UpdateCheckService.ReleaseLock();
                 _close(DialogResult.Abort);   // cửa sổ chính: Abort = huỷ hẹn cài khi đóng
                 break;
             case "rollback":
                 if (Backup is null) return;
+                if (!UpdateCheckService.HoldLock("rollback", Backup.From)) { PushIfWaiting(); return; }
                 Decision = Outcome.Rollback;
                 _close(DialogResult.OK);
                 break;

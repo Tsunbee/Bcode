@@ -37,6 +37,10 @@ public class Tk2HelpForm : Bcode.App.UI.DpiForm
     private bool _loginPending;
     // Trang đang xem lúc tự chuyển sang trang đăng nhập (Forum dạng khách) — đăng nhập xong quay lại đây.
     private string? _returnUrl;
+    // window.APP_BASE của trang TK2 Help ("/TK2_HELP"; null = chưa đọc được → lấy đoạn đầu đường dẫn) — xem Tk2HelpUrls.
+    private string? _pageBase;
+
+    private const string AppBaseScript = "(typeof window.APP_BASE==='string'?window.APP_BASE:null)";
 
     /// <summary>Tên người đang đăng nhập theo trang TK2 Help (JSON trong &lt;script id="__ctx__"&gt;): "" = khách; null = trang không có thông tin này.</summary>
     private const string GuestCheckScript =
@@ -51,7 +55,8 @@ public class Tk2HelpForm : Bcode.App.UI.DpiForm
     public Tk2HelpForm(AppSettings settings, string startUrl, bool popup = false)
     {
         _settings = settings;
-        _startUrl = string.IsNullOrWhiteSpace(startUrl) ? AppSettings.Tk2HelpDefaultUrl : startUrl.Trim();
+        // Bỏ "/" cuối, thêm http:// nếu thiếu (Tk2HelpUrls.Normalize) — "/TK2_HELP/forum/" ở Template thì server báo 404.
+        _startUrl = string.IsNullOrWhiteSpace(startUrl) ? AppSettings.Tk2HelpDefaultUrl : Tk2HelpUrls.Normalize(startUrl);
         _popup = popup;
         Text = "TK2 Help";
         Width = 1400;
@@ -199,9 +204,24 @@ public class Tk2HelpForm : Bcode.App.UI.DpiForm
         core.Settings.IsWebMessageEnabled = false;
         core.Settings.IsScriptEnabled = true;
         core.SourceChanged += (_, _) => { if (!_txtUrl.Focused) _txtUrl.Text = core.Source; };
+        // Chốt chặn: URL lặp thư mục ứng dụng ("/TK2_HELP/TK2_HELP/forum" — vd server ghép next sai) → đi thẳng URL đúng.
+        core.NavigationStarting += (_, e) =>
+        {
+            if (Tk2HelpUrls.FixRepeatedBase(e.Uri, CurrentAppBase(e.Uri)) is not { } fixedUrl) return;
+            e.Cancel = true;
+            BeginInvoke(new Action(() => Go(fixedUrl)));
+        };
         core.NavigationCompleted += async (_, e) =>
         {
             if (!_txtUrl.Focused) _txtUrl.Text = core.Source;
+            if (!e.IsSuccess && _loginPending && _returnUrl is { } back && !IsLoginPage(core.Source))
+            {
+                // Vừa đăng nhập xong mà trang server chuyển tới lỗi (404…) → quay về trang đang xem trước khi đăng nhập.
+                _loginPending = false; _returnUrl = null; SetLoginBar(false);
+                SetStatus("Đã đăng nhập TK2 Help.");
+                if (!string.Equals(core.Source, back, StringComparison.OrdinalIgnoreCase)) Go(back);
+                return;
+            }
             if (!e.IsSuccess)
             {
                 SetStatus($"Không mở được trang ({e.WebErrorStatus}) — kiểm tra mạng nội bộ / đường dẫn ở Settings → Template → Đường dẫn → TK2 Help.");
@@ -241,9 +261,27 @@ public class Tk2HelpForm : Bcode.App.UI.DpiForm
     private static bool IsLoginPage(string? url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var u) && u.AbsolutePath.TrimEnd('/').EndsWith("/login", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Thư mục ứng dụng TK2 Help của <paramref name="url"/>: APP_BASE đọc từ trang (cùng site với trang mở đầu), không thì đoạn đầu của đường dẫn trang mở đầu.</summary>
+    private string CurrentAppBase(string? url)
+    {
+        if (!Uri.TryCreate(_startUrl, UriKind.Absolute, out var start)) return "";
+        if (Uri.TryCreate(url, UriKind.Absolute, out var u) && !string.Equals(u.Authority, start.Authority, StringComparison.OrdinalIgnoreCase)) return "";
+        return Tk2HelpUrls.AppBase(start, _pageBase);
+    }
+
     private async Task OnPageLoadedAsync()
     {
         var src = _web.CoreWebView2?.Source;
+        if (_web.CoreWebView2 is { } c0 && Uri.TryCreate(src, UriKind.Absolute, out var s0) && Uri.TryCreate(_startUrl, UriKind.Absolute, out var st0)
+            && string.Equals(s0.Authority, st0.Authority, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var b = await c0.ExecuteScriptAsync(AppBaseScript);
+                if (b != "null") _pageBase = JsonSerializer.Deserialize<string>(b);
+            }
+            catch { /* giữ giá trị cũ */ }
+        }
         if (!IsLoginPage(src))
         {
             if (_loginPending)
@@ -264,7 +302,7 @@ public class Tk2HelpForm : Bcode.App.UI.DpiForm
             if (who != "\"\"" || !Uri.TryCreate(src, UriKind.Absolute, out var cur)) return;   // đã đăng nhập, hoặc trang không phải TK2 Help (không có __ctx__)
             _returnUrl = src;
             SetStatus("Chưa đăng nhập — tự đăng nhập TK2 Help bằng tài khoản đã nhớ...");
-            Go(LoginUrlFor(src) + "?next=" + Uri.EscapeDataString(cur.PathAndQuery));
+            Go(LoginUrlWithNext(cur));
             return;
         }
         if (_loginPending)
@@ -303,21 +341,35 @@ public class Tk2HelpForm : Bcode.App.UI.DpiForm
             // vì _autoLoginDone — nên cho phép 1 lần tự điền nữa cho lượt bấm này).
             _autoLoginDone = false;
             var src = _web.CoreWebView2.Source;
-            if (Uri.TryCreate(src, UriKind.Absolute, out var cur)) { _returnUrl = src; Go(LoginUrlFor(src) + "?next=" + Uri.EscapeDataString(cur.PathAndQuery)); }
+            if (Uri.TryCreate(src, UriKind.Absolute, out var cur)) { _returnUrl = src; Go(LoginUrlWithNext(cur)); }
             else Go(LoginUrlFor(src));
             return;
         }
         await SubmitLoginAsync(user, pass);
     }
 
-    /// <summary>Trang đăng nhập cùng site với <paramref name="url"/>: thư mục ứng dụng đầu tiên (/TK2_HELP) + "/login".</summary>
+    /// <summary>Trang đăng nhập cùng site với <paramref name="url"/>: thư mục ứng dụng (/TK2_HELP) + "/login".</summary>
     private string LoginUrlFor(string? url)
     {
         if (IsLoginPage(_startUrl)) return _startUrl.Split('?')[0];
         if (!Uri.TryCreate(url ?? _startUrl, UriKind.Absolute, out var u)) return AppSettings.Tk2HelpDefaultUrl;
-        var seg = u.AbsolutePath.Trim('/').Split('/')[0];
-        return u.GetLeftPart(UriPartial.Authority) + (seg.Length > 0 ? "/" + seg : "") + "/login";
+        return Tk2HelpUrls.LoginUrl(u, PageAppBase(u));
     }
+
+    /// <summary>Trang đăng nhập kèm "?next=" — next TƯƠNG ĐỐI với thư mục ứng dụng ("/forum", server tự thêm "/TK2_HELP").
+    /// Gửi nguyên "/TK2_HELP/forum" thì đăng nhập xong server chuyển tới "/TK2_HELP/TK2_HELP/forum" → Not Found.</summary>
+    private string LoginUrlWithNext(Uri page)
+    {
+        var appBase = PageAppBase(page);
+        var next = Tk2HelpUrls.NextFor(page, appBase);
+        return LoginUrlFor(page.AbsoluteUri) + "?next=" + Uri.EscapeDataString(next);
+    }
+
+    /// <summary>Thư mục ứng dụng của trang <paramref name="u"/>: APP_BASE đã đọc nếu cùng site với trang mở đầu, không thì đoạn đầu đường dẫn.</summary>
+    private string PageAppBase(Uri u) =>
+        Uri.TryCreate(_startUrl, UriKind.Absolute, out var start) && string.Equals(u.Authority, start.Authority, StringComparison.OrdinalIgnoreCase)
+            ? Tk2HelpUrls.AppBase(u, _pageBase)
+            : Tk2HelpUrls.AppBase(u, null);
 
     private void RememberCredentials(string user, string pass)
     {

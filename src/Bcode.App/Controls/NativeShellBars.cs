@@ -6,7 +6,8 @@ namespace Bcode.App.Controls;
 internal sealed class BarFlow : FlowLayoutPanel
 {
     public BarFlow() { DoubleBuffered = true; }
-    protected override void OnPaintBackground(PaintEventArgs e) { using var b = new SolidBrush(PeachTheme.BarOr(this, AppColors.PanelAlt)); e.Graphics.FillRectangle(b, ClientRectangle); }   // trong thanh trên + bật hoa đào: hồng đào
+    protected override void OnPaintBackground(PaintEventArgs e) => PeachTheme.PaintBarOr(e.Graphics, this, ClientRectangle, AppColors.PanelAlt);   // trong thanh trên + bật hoa đào: nền hoa đào
+    protected override void OnLocationChanged(EventArgs e) { base.OnLocationChanged(e); PeachTheme.Moved(this); }   // nền neo theo form: đổi chỗ thì tô lại
 }
 
 /// <summary>Label luôn dùng màu chữ phụ của theme (ThemeManager.Apply đặt ForeColor = Text cho mọi Label nên phải chặn ở đây).
@@ -149,6 +150,8 @@ public sealed class NativeTopBar : Panel, PeachTheme.IBar   // IBar: nhuốm h�
 
         Controls.Add(_left);
         Controls.Add(_right);
+        // Đánh dấu là thanh: nền hoa đào phủ cả cụm thanh tính cả chiều cao thanh này; đổi chỗ / cỡ thì tô lại (UI/PeachTheme.cs).
+        PeachTheme.MarkBar(this);
         ThemeManager.ThemeChanged += OnTheme;
         Disposed += (_, _) => ThemeManager.ThemeChanged -= OnTheme;
         RenderDb();
@@ -172,8 +175,7 @@ public sealed class NativeTopBar : Panel, PeachTheme.IBar   // IBar: nhuốm h�
 
     protected override void OnPaintBackground(PaintEventArgs e)
     {
-        using var b = new SolidBrush(PeachTheme.BarOr(this, AppColors.PanelAlt));
-        e.Graphics.FillRectangle(b, ClientRectangle);
+        PeachTheme.PaintBarOr(e.Graphics, this, ClientRectangle, AppColors.PanelAlt);   // bật hoa đào: nền chuyển màu cong hồng – trắng (UI/PeachTheme.cs)
         using var p = new Pen(PeachTheme.Applies(this) ? PeachTheme.Line : AppColors.Border);
         e.Graphics.DrawLine(p, 0, Height - 1, Width, Height - 1);
     }
@@ -250,7 +252,7 @@ public sealed class NativeTopBar : Panel, PeachTheme.IBar   // IBar: nhuốm h�
         protected override void OnPaint(PaintEventArgs e)
         {
             var g = e.Graphics;
-            using (var bg = new SolidBrush(PeachTheme.BarOr(this, AppColors.PanelAlt))) g.FillRectangle(bg, ClientRectangle);
+            PeachTheme.PaintBarOr(g, this, ClientRectangle, AppColors.PanelAlt);
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using var f = SmallFont();
             var th = TextRenderer.MeasureText("Ag", f, Size.Empty, TextFormatFlags.NoPadding).Height;

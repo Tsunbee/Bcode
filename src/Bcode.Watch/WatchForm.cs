@@ -111,6 +111,13 @@ public sealed class WatchForm : Form
                     try { Process.Start(new ProcessStartInfo(u.AbsoluteUri) { UseShellExecute = true }); } catch { }
             };
             core.ContainsFullScreenElementChanged += (_, _) => SetFullScreen(core.ContainsFullScreenElement);
+            // Chat voice: micro chỉ mở khi người dùng bấm 🎧 / 🎙 trong rạp → cho phép luôn với trang của rạp (khỏi hộp hỏi của WebView2 mỗi lần mở).
+            // Trang khác (khung YouTube…) xin micro / camera thì từ chối.
+            core.PermissionRequested += (_, e) =>
+            {
+                if (e.PermissionKind != CoreWebView2PermissionKind.Microphone) return;
+                e.State = Uri.TryCreate(e.Uri, UriKind.Absolute, out var pu) && pu.Host == VirtualHost ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
+            };
             if (_opts.ContainsKey("muted")) core.IsMuted = true;
             core.Navigate($"http://{VirtualHost}/index.html");
         }
@@ -166,6 +173,8 @@ public sealed class WatchForm : Form
                     autoJoin = _opts.GetValueOrDefault("join"), autoRoom = _opts.GetValueOrDefault("room"),
                     volume = _prefs.Volume, mode = _prefs.Mode, side = _prefs.Side, autoNext = _prefs.AutoNext,
                     fakeShare = _opts.ContainsKey("fakeshare") ? true : (bool?)null,
+                    fakeMic = _opts.TryGetValue("fakemic", out var fm) ? fm : null,
+                    noise = _prefs.Noise, micId = _prefs.MicId,
                 });
                 break;
             case "ui.find":
@@ -203,6 +212,8 @@ public sealed class WatchForm : Form
                 if ((string?)m["mode"] is "theater" or "screen") _prefs.Mode = (string)m["mode"]!;
                 if ((bool?)m["side"] is bool side) _prefs.Side = side;
                 if ((bool?)m["autoNext"] is bool an) _prefs.AutoNext = an;
+                if ((string?)m["noise"] is "strong" or "basic" or "off") _prefs.Noise = (string)m["noise"]!;
+                if ((string?)m["micId"] is { Length: < 300 } mic) _prefs.MicId = mic;
                 _prefs.Save();
                 break;
             case "ui.open":
@@ -436,6 +447,10 @@ internal sealed class Prefs
     public bool Side { get; set; } = true;
     /// <summary>Chủ phòng: hết danh sách mà bài cuối là YouTube thì tự phát tiếp video liên quan (như "Tự phát" của YouTube).</summary>
     public bool AutoNext { get; set; } = true;
+    /// <summary>Chat voice — lọc tạp âm: strong (RNNoise, như Discord) | basic (bộ lọc sẵn của trình duyệt) | off.</summary>
+    public string Noise { get; set; } = "strong";
+    /// <summary>Micro đã chọn (deviceId của trình duyệt; rỗng = micro mặc định của Windows).</summary>
+    public string MicId { get; set; } = "";
     private string _path = "";
 
     public static Prefs Load(string? dir)

@@ -5,6 +5,7 @@
 const Theater = (() => {
   const ROWS = 3, COLS = 8;
   const fx = new Map();      // viewerId → { bubble:{text,until}, pops:[{e,t0}], bounce:t0 }
+  let speaking = new Set();  // chat voice: id người đang nói
   let L = null;              // bố cục lần vẽ gần nhất
 
   function layout(W, H) {
@@ -134,6 +135,11 @@ const Theater = (() => {
     if (style === 2) { rr(c, x - 13 * s, hy, 26 * s, 20 * s, 6 * s); c.fill(); }                                                   // tóc dài
     if (style === 3) { c.beginPath(); c.arc(x, hy - 12 * s, 5 * s, 0, Math.PI * 2); c.fill(); }                                     // búi
     c.fillStyle = "rgba(255,255,255,.07)"; c.beginPath(); c.ellipse(x - 4 * s, hy - 6 * s, 5 * s, 3 * s, -0.5, 0, Math.PI * 2); c.fill();
+    // chat voice: đang nói → viền xanh nhấp nháy quanh đầu (như ô sáng của Google Meet)
+    if (speaking.has(v.id)) {
+      c.strokeStyle = `rgba(76,195,138,${0.65 + 0.35 * Math.sin(t / 90)})`; c.lineWidth = 2.6 * s;
+      c.beginPath(); c.ellipse(x, hy, 17 * s, 18 * s, 0, 0, Math.PI * 2); c.stroke();
+    }
     if (isMe) {
       c.fillStyle = "#ffc94a";
       c.beginPath(); c.moveTo(x, hy - 22 * s); c.lineTo(x - 5 * s, hy - 30 * s); c.lineTo(x + 5 * s, hy - 30 * s); c.closePath(); c.fill();
@@ -144,7 +150,7 @@ const Theater = (() => {
     c.font = `${Math.max(10, 11 * s)}px "Segoe UI", sans-serif`;
     c.textAlign = "center"; c.textBaseline = "top";
     c.fillStyle = "rgba(230,220,240,.72)";
-    c.fillText((v.host ? "★ " : "") + v.name, x, y + 24 * s, 64 * s);
+    c.fillText((v.voice === 2 ? "🎙" : v.voice === 1 ? "🔇" : "") + (v.host ? "★ " : "") + v.name, x, y + 24 * s, 64 * s);
   }
 
   function wrap(c, text, maxW) {
@@ -231,5 +237,7 @@ const Theater = (() => {
     say(id, text) { st(id).bubble = { text, until: performance.now() + Math.min(9000, 3500 + text.length * 60) }; },
     pop(id, e) { const s = st(id); s.pops.push({ e, t0: performance.now(), dx: Math.random() * 6 }); s.bounce = performance.now(); },
     forget(id) { fx.delete(id); },
+    /** Chat voice (voice.js): tập id người đang nói. */
+    setSpeaking(set) { speaking = set; },
   };
 })();

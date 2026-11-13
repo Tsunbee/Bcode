@@ -59,6 +59,10 @@ public sealed class WatchServer : IDisposable
     private sealed class Viewer
     {
         public int Id; public string Name = ""; public string Color = ""; public int Seat; public bool Host;
+        /// <summary>Chat voice: 0 = không vào voice, 1 = trong voice (tắt mic — chỉ nghe), 2 = trong voice, mic bật.</summary>
+        public int Voice;
+        /// <summary>Bị chủ phòng mời ra — lúc ngắt không báo thêm "đã rời phòng".</summary>
+        public bool Kicked;
         public FramedConnection Conn = null!;
         public DateTime LastChat;
     }
@@ -158,12 +162,19 @@ public sealed class WatchServer : IDisposable
 
     private void Hello(FramedConnection conn, JsonObject m)
     {
-        if ((string?)m["proto"] != Wire.Protocol) { conn.Send(new { t = "reject", text = "Khác phiên bản Xem chung — cập nhật Bcode cho giống chủ phòng." }); conn.Close("Khác phiên bản"); return; }
-        if (_viewers.Count >= MaxViewers) { conn.Send(new { t = "reject", text = $"Phòng đã đủ {MaxViewers} người." }); conn.Close("Đầy"); return; }
+        // reject rồi CloseAfterFlush: Close ngay thì huỷ luôn tin reject chưa kịp ghi → khách chỉ thấy "Mất kết nối"
+        if ((string?)m["proto"] != Wire.Protocol) { conn.Send(new { t = "reject", text = "Khác phiên bản Xem chung — cập nhật Bcode cho giống chủ phòng." }); _ = conn.CloseAfterFlush("Khác phiên bản", 1000); return; }
+        if (_viewers.Count >= MaxViewers) { conn.Send(new { t = "reject", text = $"Phòng đã đủ {MaxViewers} người." }); _ = conn.CloseAfterFlush("Đầy", 1000); return; }
         if (_gate is not null && _gate.IsPending(conn)) return;   // đang chờ trả lời mật khẩu: hello lặp lại không cấp nonce mới
         var name = Clean((string?)m["name"], 24);
         if (name.Length == 0) name = "Khách";
         var isHost = (string?)m["token"] == HostToken && !_viewers.Any(x => x.Host);
+        if (!isHost && BannedFor(conn, name) is { } wait)
+        {
+            conn.Send(new { t = "reject", text = $"Chủ phòng vừa mời bạn ra khỏi phòng — thử vào lại sau {wait} giây." });
+            _ = conn.CloseAfterFlush("Bị mời ra", 1000);
+            return;
+        }
         if (_gate is not null && !isHost)
         {
             if (!RoomAuth.Supports((string?)m["auth"])) { conn.Send(new { t = "reject", text = RoomAuth.OldClientText }); _ = Task.Delay(300).ContinueWith(_ => conn.Close("Bản cũ, phòng có mật khẩu")); return; }
@@ -217,7 +228,7 @@ public sealed class WatchServer : IDisposable
             if (v is null || _disposed) return;
             _viewers.Remove(v);
             BroadcastViewers();
-            Sys($"{v.Name} đã rời phòng.");
+            if (!v.Kicked) Sys($"{v.Name} đã rời phòng.");
             if (_sharer == v.Id) StopShare(null, v.Name);
         }
     }
@@ -293,6 +304,28 @@ public sealed class WatchServer : IDisposable
                 if (_sharer != v.Id && !v.Host) { v.Conn.Send(new { t = "error", text = "Chỉ người đang chia sẻ hoặc chủ phòng tắt được." }); return; }
                 StopShare(_sharer == v.Id ? null : v.Name);
                 return;
+            case "voice":
+            {
+                // vào / rời voice, bật / tắt mic — ai cũng được (không cần chủ phòng)
+                var vs = Math.Clamp((int?)m["v"] ?? 0, 0, 2);
+                if (vs == v.Voice) return;
+                var was = v.Voice;
+                v.Voice = vs;
+                BroadcastViewers();
+                if (was == 0 && vs > 0) Sys($"🎧 {v.Name} đã vào voice.");
+                else if (was > 0 && vs == 0) Sys($"🎧 {v.Name} đã rời voice.");
+                return;
+            }
+            case "vc":
+            {
+                // Chat voice: tiếng đi THẲNG máy-máy (WebRTC, mỗi cặp người trong voice 1 kết nối); máy chủ phòng chỉ chuyển tin bắt tay
+                // (offer / answer / ice) giữa 2 người ĐỀU đang trong voice — không cho dùng làm kênh nhắn riêng.
+                var to = (int?)m["to"] ?? 0;
+                var target = _viewers.FirstOrDefault(x => x.Id == to);
+                if (v.Voice == 0 || target is null || target == v || target.Voice == 0 || m["data"] is not JsonObject data) return;
+                target.Conn.Send(new { t = "vc", from = v.Id, data });
+                return;
+            }
             case "rtc":
             {
                 // Chuyển tin bắt tay WebRTC — chỉ giữa người đang chia sẻ và người xem (không cho dùng làm kênh nhắn riêng).
@@ -394,10 +427,48 @@ public sealed class WatchServer : IDisposable
                 BroadcastState();
                 break;
             }
+            case "kick":
+            {
+                // Chủ phòng mời 1 người ra khỏi phòng: báo cho họ (về sảnh, thấy lời báo) rồi ngắt; chặn vào lại 2 phút (theo IP máy,
+                // cùng máy chủ phòng / 127.0.0.1 thì theo tên) — bấm Vào xem lại ngay không được.
+                var target = _viewers.FirstOrDefault(x => x.Id == ((int?)m["id"] ?? 0));
+                if (target is null || target.Host) return;
+                _banned[BanKey(target.Conn, target.Name)] = DateTime.UtcNow.AddMinutes(2);
+                target.Kicked = true;
+                target.Conn.Send(new { t = "reject", text = $"Chủ phòng {v.Name} đã mời bạn ra khỏi phòng." });
+                _ = target.Conn.CloseAfterFlush("Bị mời ra", 1500);
+                Sys($"⛔ {v.Name} đã mời {target.Name} ra khỏi phòng.");
+                break;
+            }
+            case "mute":
+            {
+                // Chủ phòng tắt mic người khác (như Google Meet): máy kia tự dừng micro; họ bật lại được khi muốn nói.
+                var target = _viewers.FirstOrDefault(x => x.Id == ((int?)m["id"] ?? 0));
+                if (target is null || target == v || target.Voice != 2) return;
+                target.Voice = 1;
+                target.Conn.Send(new { t = "vcmute", by = v.Name });
+                BroadcastViewers();
+                Sys($"🔇 {v.Name} đã tắt mic của {target.Name}.");
+                break;
+            }
             case "clearchat":
                 Broadcast(new { t = "clearchat" });
                 break;
         }
+    }
+
+    /// <summary>Người bị chủ phòng mời ra: khoá → hết hạn (UTC).</summary>
+    private readonly Dictionary<string, DateTime> _banned = new();
+
+    /// <summary>Khoá chặn vào lại: IP máy người đó; cùng máy (127.0.0.1 — thử nhiều bản trên 1 máy) thì theo tên.</summary>
+    private static string BanKey(FramedConnection conn, string name) =>
+        IPEndPoint.TryParse(conn.Remote, out var ep) && !IPAddress.IsLoopback(ep.Address) ? "ip:" + ep.Address : "name:" + name.ToLowerInvariant();
+
+    /// <summary>Số giây còn bị chặn, null = vào được.</summary>
+    private int? BannedFor(FramedConnection conn, string name)
+    {
+        foreach (var k in _banned.Where(kv => kv.Value <= DateTime.UtcNow).Select(kv => kv.Key).ToList()) _banned.Remove(k);
+        return _banned.TryGetValue(BanKey(conn, name), out var until) ? (int)Math.Ceiling((until - DateTime.UtcNow).TotalSeconds) : null;
     }
 
     private void Select(string id)
@@ -480,7 +551,7 @@ public sealed class WatchServer : IDisposable
     }
 
     private void BroadcastViewers() =>
-        Broadcast(new { t = "viewers", list = _viewers.OrderBy(x => x.Seat).Select(x => new { x.Id, x.Name, x.Color, x.Seat, x.Host }).ToList() });
+        Broadcast(new { t = "viewers", list = _viewers.OrderBy(x => x.Seat).Select(x => new { x.Id, x.Name, x.Color, x.Seat, x.Host, x.Voice }).ToList() });
 
     private void Sys(string text) => Broadcast(new { t = "chat", sys = true, text });
 

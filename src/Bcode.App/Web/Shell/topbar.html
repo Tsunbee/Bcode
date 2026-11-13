@@ -212,6 +212,13 @@
     var st = document.body.style, vars = { '--panel-alt': 'bar', '--button-back': 'hover', '--input': 'button', '--border': 'line',
       '--accent': 'accent', '--accent-hover': 'accentHover', '--on-accent': 'onAccent' };
     Object.keys(vars).forEach(function (k) { if (c) st.setProperty(k, c[vars[k]]); else st.removeProperty(k); });
+    // Nền chuyển màu cong hồng – trắng: ảnh PNG do C# cắt từ tấm nền chung (PeachTheme.CanvasPngBase64 — cùng hình với dải công cụ
+    // native ngay dưới nên liền mạch); C# gửi lại khi cửa sổ đổi cỡ. Nút thường vốn nền trong suốt nên nền hiện qua.
+    var w = c && c.wave;
+    st.backgroundImage = w ? 'url("' + w.url + '")' : '';
+    st.backgroundSize = w ? w.w + 'px ' + w.h + 'px' : '';
+    st.backgroundPosition = w ? w.x + 'px ' + w.y + 'px' : '';
+    st.backgroundRepeat = w ? 'no-repeat' : '';
   };
 
   window.setTheme = function (isDark) {

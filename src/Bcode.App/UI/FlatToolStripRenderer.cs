@@ -120,13 +120,12 @@ public class FlatToolStripRenderer : ToolStripProfessionalRenderer
         // no extra border line — keeps the flat look
     }
 
-    /// <summary>Thanh được đánh dấu (PeachTheme.MarkBar — dải công cụ của MainForm) lúc bật hoa đào: nền hồng đào thay PanelAlt.</summary>
+    /// <summary>Thanh được đánh dấu (PeachTheme.MarkBar — dải công cụ của MainForm) lúc bật hoa đào: nền chuyển màu cong hồng – trắng thay PanelAlt.</summary>
     protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e)
     {
         if (e.ToolStrip is not ToolStripDropDown && PeachTheme.Applies(e.ToolStrip))
         {
-            using var b = new SolidBrush(PeachTheme.Bar);
-            e.Graphics.FillRectangle(b, e.AffectedBounds);
+            PeachTheme.PaintWaves(e.Graphics, e.ToolStrip, e.AffectedBounds);   // nền chuyển màu cong hồng – trắng, liền mạch với thanh trên
             using var p = new Pen(PeachTheme.Line);
             e.Graphics.DrawLine(p, 0, e.ToolStrip.Height - 1, e.ToolStrip.Width, e.ToolStrip.Height - 1);
             return;

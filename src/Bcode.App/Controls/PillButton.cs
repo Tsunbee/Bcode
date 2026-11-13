@@ -89,6 +89,9 @@ public class PillButton : Button
         AutoSize = false;
     }
 
+    // Nền hoa đào neo theo form: nút đổi chỗ (thanh xuống dòng / nhóm phải trượt) thì vẽ lại, không giữ điểm ảnh cũ Windows chép sang.
+    protected override void OnLocationChanged(EventArgs e) { base.OnLocationChanged(e); Bcode.App.UI.PeachTheme.Moved(this); }
+
     protected override void OnMouseEnter(EventArgs e) { base.OnMouseEnter(e); _hovered = true; Invalidate(); }
     protected override void OnMouseLeave(EventArgs e) { base.OnMouseLeave(e); _hovered = false; _pressed = false; Invalidate(); }
     protected override void OnMouseDown(MouseEventArgs mevent) { base.OnMouseDown(mevent); _pressed = true; Invalidate(); }
@@ -129,6 +132,7 @@ public class PillButton : Button
 
         // Tô nền dưới góc bo trước: control tự vẽ hoàn toàn nên nếu không, 4 góc giữ lại rác của lần vẽ trước (vết viền màu ở góc nút).
         if (Bcode.App.UI.UiMode.IsNative && !OnPanelAlt && Parent is { } host && PaintParentUnder(g, host)) { }
+        else if (OnPanelAlt && Bcode.App.UI.PeachTheme.Applies(this)) Bcode.App.UI.PeachTheme.PaintWaves(g, this, ClientRectangle);   // nền hoa đào hồng – trắng, neo theo form nên liền với thanh
         else using (var under = new SolidBrush(OnPanelAlt ? Bcode.App.UI.PeachTheme.BarOr(this, Bcode.App.UI.AppColors.PanelAlt) : (Parent?.BackColor ?? BackColor))) g.FillRectangle(under, ClientRectangle);
         var bounds = new Rectangle(0, 0, Width - 1, Height - 1);
         var radius = CornerRadius is null ? Height / 2 : Bcode.App.UI.UiMode.IsNative ? Bcode.App.UI.NativeSkin.ButtonRadius(this) : CornerRadius.Value;   // chế độ App: bo góc theo Template giao diện
@@ -147,8 +151,9 @@ public class PillButton : Button
         if (peach)
         {
             var pa = Bcode.App.UI.PeachTheme.Accent;
+            // Nút thường: lớp kính trong mờ trên nền hoa đào (nền vẫn hiện qua, chữ rõ trên cả dải hồng lẫn dải trắng); rê chuột = hồng đào đặc.
             fill = IsPrimary ? (_hovered && !_pressed ? Bcode.App.UI.PeachTheme.AccentHover : pa)
-                : (_pressed ? Bcode.App.UI.PeachTheme.Hover : _hovered ? Bcode.App.UI.PeachTheme.Hover : Bcode.App.UI.PeachTheme.Button);
+                : (_pressed || _hovered ? Bcode.App.UI.PeachTheme.Hover : OnPanelAlt ? Bcode.App.UI.PeachTheme.ButtonGlass : Bcode.App.UI.PeachTheme.Button);
             borderColor = IsPrimary || _hovered ? pa : Bcode.App.UI.PeachTheme.Line;
         }
         var textColor = IsPrimary ? (peach ? Color.White : Bcode.App.UI.AppColors.OnAccent) : Bcode.App.UI.AppColors.Text;

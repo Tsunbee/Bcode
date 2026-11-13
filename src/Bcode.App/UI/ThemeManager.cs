@@ -80,7 +80,9 @@ public static class ThemeManager
             if (IsWin11)
             {
                 static int Ref(Color c) => c.R | (c.G << 8) | (c.B << 16);   // COLORREF = 0x00BBGGRR
-                int caption = Ref(AppColors.PanelAlt), text = Ref(AppColors.Text), border = Ref(AppColors.Border);
+                // Bật hoa đào: thanh tiêu đề cửa sổ chính lấy hồng phấn nhạt hài hoà với nền (Windows chỉ tô được 1 màu phẳng — UI/PeachTheme.cs).
+                var peach = PeachTheme.On && PeachTheme.TitleForm == f;
+                int caption = Ref(peach ? PeachTheme.Caption : AppColors.PanelAlt), text = Ref(AppColors.Text), border = Ref(peach ? PeachTheme.Line : AppColors.Border);
                 DwmSetWindowAttribute(f.Handle, DWMWA_CAPTION_COLOR, ref caption, sizeof(int));
                 DwmSetWindowAttribute(f.Handle, DWMWA_TEXT_COLOR, ref text, sizeof(int));
                 DwmSetWindowAttribute(f.Handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
@@ -90,6 +92,27 @@ public static class ThemeManager
         }
         catch { /* dwmapi không có / không hỗ trợ: giữ thanh tiêu đề mặc định */ }
     }
+    /// <summary>Bật / tắt hoa đào: tô lại thanh tiêu đề cửa sổ chính. Chế độ App áp lại đủ theme; chế độ Web (vốn giữ thanh tiêu đề mặc định)
+    /// chỉ tô màu hồng lúc bật và trả về màu mặc định của Windows lúc tắt. Chỉ Windows 11 tô được màu thanh tiêu đề.</summary>
+    public static void ApplyPeachTitleBar(Form f)
+    {
+        if (UiMode.IsNative) { ApplyTitleBar(f); return; }
+        if (!IsWin11 || f.IsDisposed || !f.IsHandleCreated) return;
+        try
+        {
+            static int Ref(Color c) => c.R | (c.G << 8) | (c.B << 16);
+            const int Default = unchecked((int)0xFFFFFFFF);   // DWMWA_COLOR_DEFAULT
+            var on = PeachTheme.On && PeachTheme.TitleForm == f;
+            int caption = on ? Ref(PeachTheme.Caption) : Default, text = on ? Ref(AppColors.Text) : Default, border = on ? Ref(PeachTheme.Line) : Default;
+            var dark = on && AppColors.IsDark ? 1 : 0;   // nút thu nhỏ / phóng to / đóng sáng màu trên nền hồng tối
+            DwmSetWindowAttribute(f.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
+            DwmSetWindowAttribute(f.Handle, DWMWA_CAPTION_COLOR, ref caption, sizeof(int));
+            DwmSetWindowAttribute(f.Handle, DWMWA_TEXT_COLOR, ref text, sizeof(int));
+            DwmSetWindowAttribute(f.Handle, DWMWA_BORDER_COLOR, ref border, sizeof(int));
+        }
+        catch { /* dwmapi không hỗ trợ */ }
+    }
+
     public static readonly Font MonoFont = new("Consolas", 10f);
 
     // Tab controls opted into a ✕ close button per tab (e.g. MainForm's document

@@ -208,6 +208,80 @@ ORDER BY ORDINAL_POSITION;";
         }
     }
 
+    private string? _vouchersJson;
+
+    /// <summary>Mã chứng từ cho tooltip rê chuột lên 'HD1' (như FCode / Bcode.App VoucherCodeHints): JSON
+    /// {"HD1": ["Hóa đơn dịch vụ", "C: c21$", "M: m21$", "D: d21$", "I: i21$", "URL: …"]} từ dmct (ten_ct) + dmct9 (c$, m$, d$, i$, url)
+    /// của App Data. Đọc 1 lần cho cả tiến trình, chỉ SELECT; "{}" khi tắt SQL completion / không kết nối / không có dmct.</summary>
+    public async Task<string> GetVoucherCodesJsonAsync()
+    {
+        if (!_settings.EnableSqlCompletion) return "{}";
+        lock (_cacheLock)
+        {
+            if (_vouchersJson is not null) return _vouchersJson;
+            if (DateTime.UtcNow < _unavailableUntil) return "{}";
+        }
+
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            lock (_cacheLock)
+            {
+                if (_vouchersJson is not null) return _vouchersJson;
+                if (DateTime.UtcNow < _unavailableUntil) return "{}";
+            }
+            var connectionString = BuildConnectionString();
+            if (connectionString is null) return "{}";
+
+            // dmct9 có từ bản FBO; bản cũ thiếu bảng / cột → câu dự phòng chỉ có tên chứng từ.
+            const string full = """
+                SET NOCOUNT ON;
+                IF OBJECT_ID('dbo.dmct') IS NULL RETURN;
+                IF OBJECT_ID('dbo.dmct9') IS NOT NULL
+                    EXEC('SELECT a.ma_ct, a.ten_ct, b.[c$], b.[m$], b.[d$], b.[i$], b.url FROM dbo.dmct a LEFT JOIN dbo.dmct9 b ON b.ma_ct = a.ma_ct')
+                ELSE
+                    SELECT ma_ct, ten_ct, NULL, NULL, NULL, NULL, NULL FROM dbo.dmct
+                """;
+            const string basic = "SET NOCOUNT ON; IF OBJECT_ID('dbo.dmct') IS NOT NULL SELECT ma_ct, ten_ct, NULL, NULL, NULL, NULL, NULL FROM dbo.dmct";
+            await using var conn = new SqlConnection(connectionString);
+            await conn.OpenAsync().ConfigureAwait(false);
+            Dictionary<string, string[]> map;
+            try { map = await ReadVouchersAsync(conn, full).ConfigureAwait(false); }
+            catch (SqlException) { map = await ReadVouchersAsync(conn, basic).ConfigureAwait(false); }
+
+            var json = JsonSerializer.Serialize(map);
+            lock (_cacheLock) _vouchersJson = json;
+            return json;
+        }
+        catch (Exception ex)
+        {
+            MarkUnavailable(ex);
+            return "{}";
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private static async Task<Dictionary<string, string[]>> ReadVouchersAsync(SqlConnection conn, string sql)
+    {
+        var map = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 15 };
+        await using var r = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+        string S(int i) => r.IsDBNull(i) ? "" : Convert.ToString(r.GetValue(i))?.Trim() ?? "";
+        while (await r.ReadAsync().ConfigureAwait(false))
+        {
+            var code = S(0).ToUpperInvariant();
+            if (code.Length == 0 || map.ContainsKey(code)) continue;
+            var lines = new List<string> { S(1).Length > 0 ? S(1) : code };
+            foreach (var (label, i) in new[] { ("C: ", 2), ("M: ", 3), ("D: ", 4), ("I: ", 5), ("URL: ", 6) })
+                if (S(i) is { Length: > 0 } v) lines.Add(label + v);
+            map[code] = lines.ToArray();
+        }
+        return map;
+    }
+
     /// <summary>Drops the cached schema so the next request re-queries — for the Hint Code /
     /// settings round trip where someone just pointed Bcode.App at a different workspace.</summary>
     public void Invalidate()
@@ -215,6 +289,7 @@ ORDER BY ORDINAL_POSITION;";
         lock (_cacheLock)
         {
             _tablesJson = null;
+            _vouchersJson = null;
             _columnCache.Clear();
             _unavailableUntil = DateTime.MinValue;
         }

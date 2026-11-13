@@ -297,11 +297,13 @@ function pPause() { if (P.kind === "yt") P.yt.pauseVideo(); else V.pause(); }
 function pSeek(t) { P.seekGuard = performance.now() + 1500; if (P.kind === "yt") P.yt.seekTo(t, true); else V.currentTime = t; }
 function pRate(r) { if (P.kind === "media" && Math.abs(V.playbackRate - r) > 0.001) V.playbackRate = r; }
 function applyVolume() {
-  const v = S.muted ? 0 : S.volume;
+  const base = S.muted ? 0 : S.volume;
+  // chat voice: người khác đang nói → tiếng phim nhỏ còn 35% cho dễ nghe (voice.js)
+  const v = base * (typeof Voice !== "undefined" && Voice.duck() ? 0.35 : 1);
   V.volume = v; V.muted = S.muted;
   if (SH.id !== S.me) { SV.volume = v; SV.muted = S.muted; }   // màn hình người khác chia sẻ (của mình thì luôn tắt tiếng)
   if (P.yt && P.ytReady) { P.yt.setVolume(Math.round(v * 100)); if (S.muted) P.yt.mute(); else P.yt.unMute(); }
-  $("btnMute").textContent = S.muted || v === 0 ? "🔇" : v < 0.4 ? "🔉" : "🔊";
+  $("btnMute").textContent = S.muted || base === 0 ? "🔇" : base < 0.4 ? "🔉" : "🔊";
 }
 $("needClick").onclick = () => { P.needClick = false; $("needClick").classList.add("hidden"); pPlay(); };
 
@@ -367,7 +369,25 @@ $("seek").addEventListener("change", () => {
 });
 $("btnPlay").onclick = () => send({ t: S.st?.playing ? "pause" : "play" });
 $("btnPrev").onclick = () => send({ t: "prev" });
-$("btnNext").onclick = () => send({ t: "next" });
+// ⏭ ở mục cuối danh sách mà đang chiếu YouTube: như nút "Tiếp" của YouTube — thêm 1 video liên quan (Mix) rồi chuyển sang luôn
+// (không phụ thuộc ô 🔁 Tự phát tiếp: bấm ⏭ là muốn bài kế). Mục khác / không lấy được video thì ⏭ như cũ.
+let nextBusy = false;
+$("btnNext").onclick = () => {
+  const it = curItem(), q = S.st?.queue || [];
+  const last = it && q.length && q[q.length - 1].id === it.id;
+  if (!S.host || !last || it.kind !== "yt" || sharing()) { send({ t: "next" }); return; }
+  if (nextBusy) return;
+  nextBusy = true;
+  $("btnNext").disabled = true;
+  toast("Đang tìm video liên quan trên YouTube…", 2000);
+  autoPick(it).then((vid) => {
+    if (S.st?.cur !== it.id) return;   // chủ phòng đã chọn bài khác trong lúc chờ
+    if (!vid) { toast("Không tìm được video liên quan — dán link vào tab 📃 Danh sách.", 4000); return; }
+    AUTO.seen.add(vid);
+    send({ t: "add", url: vid, auto: true });
+    send({ t: "next" });
+  }).finally(() => { nextBusy = false; $("btnNext").disabled = false; });
+};
 $("btnSync").onclick = () => { if (P.item && P.ready) { pSeek(expected()); toast("Đã đồng bộ lại với chủ phòng."); } };
 $("vol").oninput = () => { S.volume = $("vol").value / 100; S.muted = false; applyVolume(); };
 $("vol").onchange = () => post({ t: "ui.prefs", volume: S.volume });
@@ -776,7 +796,20 @@ function addChat(m) {
 
 function renderPeople() {
   $("pCount").textContent = S.viewers.length;
-  $("people").innerHTML = S.viewers.map((v) => `<li class="${v.id === S.me ? "me" : ""}"><span class="dot" style="background:${esc(v.color)}"></span><span>${v.host ? "★ " : ""}${esc(v.name)}${v.id === S.me ? " <span class='muted'>(bạn)</span>" : ""}</span><span class="seat">ghế ${seatName(v.seat)}</span></li>`).join("");
+  // chat voice: 🎙 / 🔇 (sáng lên khi đang nói) + thanh âm lượng riêng từng người (chỉ khi mình cũng trong voice)
+  const vol = (v) => v.voice && v.id !== S.me && Voice.on ? `<input type="range" class="pvol" data-id="${v.id}" min="0" max="100" value="${Math.round(Voice.peerVolumeOf(v.id) * 100)}" title="Âm lượng voice của ${esc(v.name)}">` : "";
+  // chủ phòng: 🔇 tắt mic người đang nói trong voice, ⛔ mời ra khỏi phòng (2 phút không vào lại được)
+  const acts = (v) => !S.host || v.id === S.me ? "" :
+    (v.voice === 2 ? `<button class="pact" data-a="mute" data-id="${v.id}" title="Tắt mic của ${esc(v.name)} (họ tự bật lại được)">🔇</button>` : "") +
+    (!v.host ? `<button class="pact" data-a="kick" data-id="${v.id}" title="Mời ${esc(v.name)} ra khỏi phòng — 2 phút không vào lại được">⛔</button>` : "");
+  $("people").innerHTML = S.viewers.map((v) => `<li class="${v.id === S.me ? "me" : ""}"><span class="dot" style="background:${esc(v.color)}"></span>${Voice.badge(v)}<span>${v.host ? "★ " : ""}${esc(v.name)}${v.id === S.me ? " <span class='muted'>(bạn)</span>" : ""}</span>${vol(v)}<span class="seat">ghế ${seatName(v.seat)}</span>${acts(v)}</li>`).join("");
+  $("people").querySelectorAll(".pvol").forEach((r) => r.oninput = () => Voice.peerVolume(+r.dataset.id, r.value / 100));
+  $("people").querySelectorAll(".pact").forEach((b) => b.onclick = () => {
+    const id = +b.dataset.id, who = S.viewers.find((x) => x.id === id);
+    if (!who) return;
+    if (b.dataset.a === "kick" && !confirm(`Mời ${who.name} ra khỏi phòng?\n(2 phút sau họ mới vào lại được)`)) return;
+    send({ t: b.dataset.a, id });
+  });
 }
 
 function renderQueue() {
@@ -848,6 +881,7 @@ document.addEventListener("keydown", (e) => {
   else if (k === "t") setMode(S.mode === "theater" ? "screen" : "theater");
   else if (k === "m") $("btnMute").click();
   else if (k === "c") $("btnSide").click();
+  else if (k === "v" && Voice.on) Voice.toggleMic();
   else if (e.key === "Enter" || e.code === "Enter") {
     e.preventDefault();
     if (document.fullscreenElement) { $("fsChat").classList.remove("hidden"); $("fsInput").focus(); }
@@ -881,6 +915,7 @@ function handle(m) {
       S.side = m.side !== false;
       setAutoNext(m.autoNext !== false, false);
       SH.fake = !!m.fakeShare;
+      Voice.init(m);
       $("ver").textContent = `Rạp Bcode v${m.version} · máy ${m.machine} · IP: ${m.ips.join(", ") || "?"}`;
       show("home");
       if (m.auto === "host") post({ t: "ui.host", name: m.name, room: m.autoRoom || m.room, pass: m.roomPass || "" });
@@ -915,11 +950,11 @@ function handle(m) {
       break;
     case "ui.left":
       hidePass();
-      unload(); resetShare(); S.st = null; S.viewers = []; show("home");
+      unload(); resetShare(); Voice.reset(); S.st = null; S.viewers = []; show("home");
       break;
     case "ui.closed":
       hidePass();
-      unload(); resetShare(); S.st = null; S.viewers = []; show("home");
+      unload(); resetShare(); Voice.reset(); S.st = null; S.viewers = []; show("home");
       $("homeErr").textContent = S.rejected || "Mất kết nối với phòng: " + m.reason;
       S.rejected = null;
       break;
@@ -934,6 +969,8 @@ function handle(m) {
       break;
     case "share": onShare(m); syncTick(); break;
     case "rtc": onRtc(m.from, m.data); break;
+    case "vc": Voice.onVc(m.from, m.data); break;
+    case "vcmute": Voice.forceMute(m.by); break;
     case "reject": S.rejected = m.text; break;
     case "state":
       S.st = m; S.recv = performance.now();
@@ -946,6 +983,7 @@ function handle(m) {
       for (const id of old) if (!m.list.some((v) => v.id === id)) Theater.forget(id);
       renderPeople();
       sharePeersGone();
+      Voice.sync();
       break;
     }
     case "chat":

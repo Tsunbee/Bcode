@@ -908,6 +908,7 @@ class BcodeCompletion {
     this._regionCache = null;             // per-model embedded-region map — see regionAt
     this.sqlTables = null;                // null = not fetched yet, [] = unavailable
     this.columnCache = new Map();         // table (lowercase) -> column array
+    this._voucherP = null;                // Promise<{MA_CT: [dòng tooltip]}> — xem voucherCodesMap
     this.aiCache = new Map();             // prefix tail -> suggestion, so re-triggers are free
     this._lastAiGhost = null; // { text, offset } — gợi ý AI vừa hiện, để phát hiện lúc Tab-accept
     this._aiGhostPrefix = null; // { text, prefix } — để gõ tiếp vẫn dùng lại được, xem reuseGhost
@@ -1022,6 +1023,7 @@ class BcodeCompletion {
     // hadn't worked.
     this.sqlTables = null;
     this.columnCache.clear();
+    this._voucherP = null;
     this.aiCache.clear();
     this._aiGhostPrefix = null;
     clearTimeout(this._aiTimer);
@@ -1077,6 +1079,39 @@ class BcodeCompletion {
       provideHover: (model, position, token) =>
         window.bcodeEntity ? window.bcodeEntity.provideHover(model, position, token) : null,
     });
+
+    // Rê chuột lên mã chứng từ trong chuỗi '...' (vd ma_ct = 'HD1' trong SQL / script) → tên + bảng C/M/D/I + URL
+    // từ dmct/dmct9 của App Data (như FCode, cùng cách với editor SQL Query của Bcode). Không có trong dmct → không hiện.
+    monaco.languages.registerHoverProvider(FCODE_LANGUAGES, {
+      provideHover: (model, position) => this.provideVoucherHover(model, position),
+    });
+  }
+
+  /// Bảng mã chứng từ của workspace, hỏi host 1 lần (lần rê chuột đầu tiên). Rỗng (chưa kết nối được) thì 2 phút sau hỏi lại.
+  voucherCodesMap() {
+    if (!this._voucherP) {
+      const p = window.bcodeHost.call('BeginGetVoucherCodes')
+        .then((j) => JSON.parse(j || '{}') || {})
+        .catch(() => ({}))
+        .then((m) => { if (!Object.keys(m).length) setTimeout(() => { if (this._voucherP === p) this._voucherP = null; }, 120000); return m; });
+      this._voucherP = p;
+    }
+    return this._voucherP;
+  }
+
+  async provideVoucherHover(model, position) {
+    if (this.config.sqlCompletion === false || !window.bcodeHost) return null;
+    const w = model.getWordAtPosition(position);
+    if (!w || !/^[A-Za-z0-9]{2,8}$/.test(w.word)) return null;
+    const before = model.getLineContent(position.lineNumber).substring(0, w.startColumn - 1);
+    if (((before.match(/'/g) || []).length % 2) !== 1) return null;   // chỉ khi nằm trong chuỗi '...'
+    const lines = (await this.voucherCodesMap())[w.word.toUpperCase()];
+    if (!lines || !lines.length) return null;
+    const esc = (s) => String(s).replace(/[\\`*_{}\[\]()#+\-.!|<>~]/g, '\\$&');
+    return {
+      range: new monaco.Range(position.lineNumber, w.startColumn, position.lineNumber, w.endColumn),
+      contents: [{ value: '**' + esc(lines[0]) + '**' + (lines.length > 1 ? '  \n' + lines.slice(1).map(esc).join('  \n') : '') }],
+    };
   }
 
   /// Danh sách mẫu "f.xxx": bảng viết tay trước (sortText '0', thắng khi trùng tên + controller + key), rồi từ điển

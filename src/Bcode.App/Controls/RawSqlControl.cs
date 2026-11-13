@@ -517,6 +517,22 @@ public class RawSqlControl : UserControl, ISqlTab
                 BeginInvoke(ToggleFastGhostLong);
                 break;
 
+            // Rê chuột lên mã chứng từ trong chuỗi ('HD1') → tooltip tên + bảng C/M/D/I + URL từ dmct/dmct9 của App Data (như FCode).
+            case "voucher-hover":
+            {
+                var vid = root.GetProperty("reqId").GetInt32();
+                var code = root.GetProperty("code").GetString() ?? "";
+                string[]? lines = null;
+                try
+                {
+                    var info = await VoucherCodeHints.FindAsync(_service.CurrentStamp(false), () => _service.CreateConnection(false), code);
+                    lines = info?.Lines().ToArray();
+                }
+                catch { /* chưa chọn WS… → không hiện */ }
+                _ = EdExec($"window.voucherHoverDone && window.voucherHoverDone({vid}, {System.Text.Json.JsonSerializer.Serialize(lines)})");
+                break;
+            }
+
             case "close-context-menu":
                 this.BeginInvoke(() => WebMenu.CloseActive());
                 break;
@@ -1478,6 +1494,7 @@ WHERE c.object_id = OBJECT_ID(@n) ORDER BY c.column_id", conn);
     public void RefreshSchema()
     {
         lock (_schemaCache) _schemaCache.Clear();   // cấu trúc bảng gửi cho AI
+        VoucherCodeHints.Forget(_service.CurrentStamp(false));   // mã chứng từ (dmct) cho tooltip
         if (_deferTables || !_editorReady) return;   // tab dựng sẵn / editor chưa sẵn sàng: lúc dùng sẽ tự nạp
         PostToEditorUi(() => { if (EdAlive) _ = EdExec("window.BcodeHints && (BcodeHints.cols = {});"); });   // cột đã hỏi trong trang
         _ = LoadTablesForEditorAsync();   // danh sách bảng + chữ ký procedure/function

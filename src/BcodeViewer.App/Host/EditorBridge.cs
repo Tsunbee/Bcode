@@ -1520,6 +1520,10 @@ public class EditorBridge
     public void BeginGetSqlTables(string requestId) =>
         _async.Begin(requestId, null, _ => _sqlSchema.GetTablesJsonAsync());
 
+    /// <summary>Mã chứng từ (dmct + dmct9) cho tooltip rê chuột lên 'HD1' — xem SqlSchemaService.GetVoucherCodesJsonAsync.</summary>
+    public void BeginGetVoucherCodes(string requestId) =>
+        _async.Begin(requestId, null, _ => _sqlSchema.GetVoucherCodesJsonAsync());
+
     /// <summary>Columns of one table, fetched the first time a query references it.</summary>
     public void BeginGetSqlColumns(string requestId, string table) =>
         _async.Begin(requestId, null, _ => _sqlSchema.GetColumnsJsonAsync(table));

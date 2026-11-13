@@ -16,6 +16,8 @@
     <Description>Rạp Bcode — xem chung video / nhạc qua LAN văn phòng, đồng bộ theo chủ phòng.</Description>
     <Version>1.0.0</Version>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- Logo Rạp: dựng từ Web\logo.svg (40–256 px) + Web\logo-small.svg (16–32 px) — WatchForm lấy icon cửa sổ từ exe -->
+    <ApplicationIcon>watch.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />

@@ -682,6 +682,33 @@
                 }
             });
 
+            // 2b. RÊ CHUỘT LÊN MÃ CHỨNG TỪ TRONG CHUỖI ('HD1') → tên + bảng C/M/D/I + URL từ dmct/dmct9 (như FCode).
+            // C# tra (VoucherCodeHints, đọc 1 lần / database); không có trong dmct → không hiện gì.
+            var _vhReq = 0, _vhResolvers = {};
+            window.voucherHoverDone = function (id, lines) { var r = _vhResolvers[id]; if (r) { delete _vhResolvers[id]; r(lines || null); } };
+            function mdEscape(s) { return String(s).replace(/[\\`*_{}\[\]()#+\-.!|<>~]/g, '\\$&'); }
+            monaco.languages.registerHoverProvider('sql', {
+                provideHover: function (model, position) {
+                    if (!window.chrome || !window.chrome.webview) return null;
+                    var w = model.getWordAtPosition(position);
+                    if (!w || w.word.length < 2 || w.word.length > 8 || !/^[A-Za-z0-9]+$/.test(w.word)) return null;
+                    var before = model.getLineContent(position.lineNumber).substring(0, w.startColumn - 1);
+                    if (((before.match(/'/g) || []).length % 2) !== 1) return null;   // chỉ khi nằm trong chuỗi '...'
+                    return new Promise(function (resolve) {
+                        var id = ++_vhReq; _vhResolvers[id] = resolve;
+                        window.chrome.webview.postMessage(JSON.stringify({ action: 'voucher-hover', reqId: id, code: w.word }));
+                        setTimeout(function () { if (_vhResolvers[id]) { delete _vhResolvers[id]; resolve(null); } }, 4000);
+                    }).then(function (lines) {
+                        if (!lines || !lines.length) return null;
+                        var md = '**' + mdEscape(lines[0]) + '**' + (lines.length > 1 ? '  \n' + lines.slice(1).map(mdEscape).join('  \n') : '');
+                        return {
+                            range: new monaco.Range(position.lineNumber, w.startColumn, position.lineNumber, w.endColumn),
+                            contents: [{ value: md }]
+                        };
+                    });
+                }
+            });
+
             // 3. GỢI Ý COPILOT GHOST TEXT (FILL-IN-THE-MIDDLE CHO PROCEDURE / FUNCTION)
             // Ghost text theo cấu trúc Fast (C# FastGhostRules, không AI): hỏi trước, có gợi ý thì hiện ngay — không thì mới tới AI.
             var _fastReq = 0, _fastResolvers = {};

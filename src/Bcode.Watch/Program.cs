@@ -16,7 +16,8 @@ internal static class Program
     ///   --loopback                 phòng chỉ nghe 127.0.0.1 (thử trên 1 máy, không bật hộp hỏi tường lửa)
     ///   --muted                     tắt tiếng (thử tự động)
     ///   --fakeshare                 nút chia sẻ màn hình phát hình vẽ thử (canvas + tiếng bíp) thay vì chụp màn hình thật (thử WebRTC tự động)
-    ///   bcwatch://join/ip:cổng      (không có --) link mời: vào thẳng phòng như --join. Mỗi lần mở thường (không --hidden / --data) đăng ký giao thức này cho tài khoản Windows.
+    ///   --fakemic voice|noise|fan|keys|tone  chat voice dùng micro giả (giọng tổng hợp / ồn trắng / quạt / gõ phím / bíp) thay micro thật (thử tự động)
+    ///   bcwatch://join/ip:cổng     (không có --) link mời: vào thẳng phòng như --join. Mỗi lần mở thường (không --hidden / --data) đăng ký giao thức này cho tài khoản Windows.
     /// </summary>
     [STAThread]
     private static void Main(string[] args)

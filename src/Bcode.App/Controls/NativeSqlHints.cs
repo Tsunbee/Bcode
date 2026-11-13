@@ -54,7 +54,7 @@ internal sealed class NativeSqlHints : IDisposable
         _ed.MouseDown += (_, _) => Hide();
         _ed.LostFocus += (_, _) => Hide();
         _ed.DwellStart += OnDwell;
-        _ed.DwellEnd += (_, _) => { if (_ed.CallTipActive) _ed.CallTipCancel(); };
+        _ed.DwellEnd += (_, _) => { _dwellSeq++; if (_ed.CallTipActive) _ed.CallTipCancel(); };
         _ed.MouseDwellTime = 400;
         _ed.Indicators[LintIndicator].Style = IndicatorStyle.Squiggle;
         ApplyTheme();
@@ -127,7 +127,11 @@ internal sealed class NativeSqlHints : IDisposable
     private string Key() => (_hasConnection() ? "ws" : "none") + (_useSys() ? "|sys" : "|app") + "|" + _objects.Connections.CurrentStamp(_useSys());
 
     /// <summary>Nút Refresh database: quên chữ ký procedure/function đã nạp — lần gợi ý sau hỏi lại (SqlHintService đã bỏ cache chung).</summary>
-    public void ResetCache() => _routines.Clear();
+    public void ResetCache()
+    {
+        _routines.Clear();
+        try { VoucherCodeHints.Forget(_objects.Connections.CurrentStamp(false)); } catch { /* chưa chọn WS */ }   // mã chứng từ (dmct) cho tooltip
+    }
 
     private async Task<string> RoutinesAsync(bool sys)
     {
@@ -350,17 +354,42 @@ internal sealed class NativeSqlHints : IDisposable
         return (sb, sb + Encoding.UTF8.GetByteCount(original.AsSpan(a, b - a)));
     }
 
+    private int _dwellSeq;
+
     private void OnDwell(object? sender, DwellEventArgs e)
     {
-        if (_issues.Count == 0 || (_ed.Text ?? "") != _lintText) return;
-        foreach (var i in _issues)
-        {
-            var (s, en) = ToByteRange(_lintText, i.Offset, i.Length);
-            if (e.Position >= s && e.Position <= en)
+        var seq = ++_dwellSeq;
+        if (e.Position < 0 || _disposed) return;
+        if (_issues.Count > 0 && (_ed.Text ?? "") == _lintText)
+            foreach (var i in _issues)
             {
-                _ed.CallTipShow(e.Position, i.Name + " được dùng nhưng chưa khai báo (không có trong tham số, cũng không DECLARE).");
-                return;
+                var (s, en) = ToByteRange(_lintText, i.Offset, i.Length);
+                if (e.Position >= s && e.Position <= en)
+                {
+                    _ed.CallTipShow(e.Position, i.Name + " được dùng nhưng chưa khai báo (không có trong tham số, cũng không DECLARE).");
+                    return;
+                }
             }
+        _ = VoucherTipAsync(e.Position, seq);
+    }
+
+    /// <summary>Rê chuột lên mã chứng từ trong chuỗi ('HD1') → tên + bảng C/M/D/I + URL từ dmct/dmct9 của App Data (như FCode). Không có trong dmct → không hiện.</summary>
+    private async Task VoucherTipAsync(int pos, int seq)
+    {
+        try
+        {
+            var conns = _objects.Connections;
+            if (conns.Current is null) return;
+            int ws = _ed.WordStartPosition(pos, true), we = _ed.WordEndPosition(pos, true);
+            if (we <= ws) return;
+            var word = _ed.GetTextRange(ws, we - ws);
+            if (!VoucherCodeHints.LooksLikeCode(word)) return;
+            var lineStart = _ed.Lines[_ed.LineFromPosition(ws)].Position;
+            if (!VoucherCodeHints.InsideStringLiteral(_ed.GetTextRange(lineStart, ws - lineStart), ws - lineStart)) return;
+            var info = await VoucherCodeHints.FindAsync(conns.CurrentStamp(false), () => conns.CreateConnection(false), word);
+            if (info is null || _disposed || _ed.IsDisposed || seq != _dwellSeq) return;   // chuột đã rời đi
+            _ed.CallTipShow(ws, info.Tooltip);
         }
+        catch { /* chưa chọn WS / mất kết nối → không hiện */ }
     }
 }

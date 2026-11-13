@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rạp Bcode</title>
+<link rel="icon" href="logo-small.svg" type="image/svg+xml">
 <link rel="stylesheet" href="watch.css">
 </head>
 <body>
@@ -12,7 +13,7 @@
 <section id="scrHome" class="screen">
   <div class="home">
     <header class="brand">
-      <div class="logo"><span class="reel"></span><span class="beam"></span></div>
+      <img class="logo" src="logo.svg" alt="" draggable="false">
       <div>
         <h1>RẠP BCODE</h1>
         <p class="sub">Xem chung video / nhạc qua mạng LAN văn phòng — YouTube, link MP4 / MP3, hoặc file trên máy chủ phòng</p>
@@ -102,6 +103,17 @@
         <span id="tDur" class="time">0:00</span>
         <span id="nowTitle" class="now-title"></span>
         <div class="spacer"></div>
+        <div class="vc-box">
+          <button id="btnVoice" title="Vào voice: nói chuyện với cả phòng qua mạng LAN (như Google Meet)">🎧 Voice</button>
+          <button id="btnMic" class="icon hidden" title="Bật / tắt mic (V)">🎙</button>
+          <span id="micLevel" class="mic-level hidden" title="Mức tiếng mic của bạn (sau lọc ồn)"><i></i></span>
+          <select id="selNoise" class="hidden" title="Lọc tạp âm cho mic của bạn">
+            <option value="strong">✨ Lọc ồn: Mạnh (AI)</option>
+            <option value="basic">Lọc ồn: Cơ bản</option>
+            <option value="off">Lọc ồn: Tắt</option>
+          </select>
+          <select id="selMic" class="hidden" title="Chọn micro"></select>
+        </div>
         <button id="btnMute" class="icon" title="Tắt / bật tiếng (M)">🔊</button>
         <input type="range" id="vol" min="0" max="100" value="80" aria-label="Âm lượng" class="vol">
         <button id="btnDanmaku" class="icon" title="Bình luận bay trên màn hình">💬</button>
@@ -155,5 +167,6 @@
 
 <script src="theater.js"></script>
 <script src="watch.js"></script>
+<script src="voice.js"></script>
 </body>
 </html>

@@ -36,9 +36,7 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 .brand { display: flex; align-items: center; gap: 18px; }
 .brand h1 { font-size: 2.3rem; letter-spacing: .1em; }
 .brand .sub { margin: 4px 0 0; color: var(--muted); }
-.logo { width: 64px; height: 64px; border-radius: 16px; background: linear-gradient(160deg, #3b1420, #0b090e); position: relative; border: 1px solid var(--line); overflow: hidden; }
-.logo .reel { position: absolute; left: 10px; top: 10px; width: 26px; height: 26px; border-radius: 50%; border: 4px solid #e9dcc3; box-shadow: inset 0 0 0 4px #3b1420, inset 0 0 0 8px #e9dcc3; }
-.logo .beam { position: absolute; right: -6px; bottom: 6px; width: 40px; height: 26px; background: linear-gradient(90deg, rgba(255, 233, 160, .75), rgba(255, 233, 160, 0)); clip-path: polygon(0 40%, 100% 0, 100% 100%, 0 60%); }
+.logo { width: 72px; height: 72px; display: block; filter: drop-shadow(0 6px 18px rgba(140, 29, 44, .45)); }
 .name-row { display: flex; align-items: center; gap: 12px; margin: 26px 0 16px; }
 .name-row input { width: 260px; font-size: 1.05rem; }
 .cards { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
@@ -171,3 +169,17 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 .auto-next input { width: auto; margin: 0; accent-color: #ffc94a; }
 /* trình phát ẩn chỉ để lấy danh sách Mix của YouTube (Tự phát tiếp) */
 .yt-mix { position: fixed; left: -10000px; top: 0; width: 160px; height: 90px; overflow: hidden; pointer-events: none; opacity: 0; }
+/* chat voice (voice.js) */
+.vc-box { display: flex; align-items: center; gap: 6px; }
+#btnVoice.on { background: var(--good); color: #06150d; border-color: var(--good); font-weight: 600; }
+.vc-box select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 6px; font-size: .82rem; max-width: 170px; }
+.mic-level { width: 46px; height: 6px; border-radius: 3px; background: #2a2431; overflow: hidden; }
+.mic-level i { display: block; height: 100%; width: 0; background: var(--good); transition: width .1s linear; }
+.vc-audio { display: none; }
+.vc-badge { font-size: .85rem; opacity: .75; }
+.vc-badge.talk { opacity: 1; filter: drop-shadow(0 0 4px var(--good)); }
+.people .pvol { width: 70px; accent-color: var(--good); }
+.vc-box button { white-space: nowrap; }
+.people .pact { background: transparent; border: 1px solid transparent; padding: 2px 5px; font-size: .85rem; border-radius: 6px; cursor: pointer; }
+.people .pact:hover { border-color: var(--bad); }
+.people .seat { white-space: nowrap; }

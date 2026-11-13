@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Logo Rạp Bcode: ô nhung đỏ của rạp, cuộn phim vàng, luồng sáng máy chiếu có ▶, hàng ghế phía dưới.
+       Bản cỡ nhỏ (16–32 px, ít chi tiết) ở logo-small.svg. Icon exe (watch.ico) dựng từ 2 file này: 16–32 px từ bản nhỏ, 40–256 px từ bản này. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8e1f36"/>
+      <stop offset=".5" stop-color="#43101f"/>
+      <stop offset="1" stop-color="#14080f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe49a"/>
+      <stop offset="1" stop-color="#eaa323"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffe8a8" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#ffe8a8" stop-opacity=".05"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".3" cy=".42" r=".55">
+      <stop offset="0" stop-color="#ffcf6a" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#ffcf6a" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="tile"><rect width="256" height="256" rx="56"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="256" height="256" fill="url(#bg)"/>
+    <!-- nếp rèm nhung -->
+    <g fill="#000" opacity=".13">
+      <path d="M22 0 Q30 120 18 256 H0 V0Z"/>
+      <path d="M62 0 Q54 60 64 120 Q70 180 58 256 H44 Q56 180 50 120 Q42 60 50 0Z"/>
+      <path d="M234 0 Q226 120 238 256 H256 V0Z"/>
+    </g>
+    <rect width="256" height="256" fill="url(#glow)"/>
+    <!-- luồng sáng máy chiếu + ▶ trên màn -->
+    <path d="M134 104 L256 44 L256 206 L134 126 Z" fill="url(#beam)"/>
+    <path d="M176 100 L176 152 L218 126 Z" fill="#fff6dc"/>
+    <!-- cuộn phim -->
+    <circle cx="82" cy="115" r="58" fill="#2b0a16" opacity=".55"/>
+    <circle cx="80" cy="113" r="56" fill="url(#gold)"/>
+    <circle cx="80" cy="113" r="49" fill="none" stroke="#b9791a" stroke-width="2.5" opacity=".6"/>
+    <g fill="#2e0b18">
+      <circle cx="80" cy="81" r="13"/>
+      <circle cx="110.4" cy="103.1" r="13"/>
+      <circle cx="98.8" cy="138.9" r="13"/>
+      <circle cx="61.2" cy="138.9" r="13"/>
+      <circle cx="49.6" cy="103.1" r="13"/>
+      <circle cx="80" cy="113" r="8"/>
+    </g>
+    <circle cx="80" cy="113" r="3.5" fill="#ffe49a"/>
+    <!-- hàng ghế rạp -->
+    <g id="seat">
+      <rect x="24" y="198" width="54" height="64" rx="16" fill="#7a1a2c" stroke="#2a0910" stroke-width="3"/>
+      <rect x="31" y="204" width="40" height="22" rx="10" fill="#9b2a3e" opacity=".7"/>
+      <rect x="15" y="230" width="14" height="30" rx="6" fill="#4a0f1c" stroke="#2a0910" stroke-width="2"/>
+      <rect x="73" y="230" width="14" height="30" rx="6" fill="#4a0f1c" stroke="#2a0910" stroke-width="2"/>
+    </g>
+    <use href="#seat" x="77"/>
+    <use href="#seat" x="154"/>
+  </g>
+  <rect x="1.5" y="1.5" width="253" height="253" rx="55" fill="none" stroke="#ffffff" stroke-opacity=".08" stroke-width="3"/>
+</svg>

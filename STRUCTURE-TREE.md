@@ -44,7 +44,7 @@ Bcode.App/
 │   ├── HintPopup.cs  155
 │   ├── IconRailControl.cs  218
 │   ├── IncludeCheckControl.cs  200
-│   ├── ISqlTab.cs  64
+│   ├── ISqlTab.cs  66
 │   ├── IWebPage.cs  31
 │   ├── LookupControl.cs  204
 │   ├── MonacoPreviewControl.cs  294
@@ -88,22 +88,23 @@ Bcode.App/
 │   ├── NativePages.Register.cs  54
 │   ├── NativePages.RptSchema.cs  186
 │   ├── NativePages.SqlHistory.cs  315
-│   ├── NativePages.StatusPets.cs  205
+│   ├── NativePages.StatusPets.cs  313
 │   ├── NativePages.Usages.cs  132
 │   ├── NativeQueryHistoryControl.cs  351
 │   ├── NativeResultPane.cs  474
-│   ├── NativeShellBars.cs  397
-│   ├── NativeSqlControl.cs  2529
-│   ├── NativeSqlHints.cs  366
+│   ├── NativeShellBars.cs  428
+│   ├── NativeSqlControl.cs  2532
+│   ├── NativeSqlHints.cs  395
 │   ├── NativeStringBeautyControl.cs  168
 │   ├── NativeStructPanel.cs  204
 │   ├── NativeTableBar.cs  288
 │   ├── NativeWeeklyMailControl.cs  681
 │   ├── NoteControl.cs  79
-│   ├── PillButton.cs  190
+│   ├── PetalRain.cs  338
+│   ├── PillButton.cs  204
 │   ├── QueryHistoryControl.cs  163
 │   ├── QuickReportControl.cs  533
-│   ├── RawSqlControl.cs  2922
+│   ├── RawSqlControl.cs  2942
 │   ├── RelativeTablesControl.cs  145
 │   ├── ResultExport.cs  146
 │   ├── ResultGridMenu.cs  682
@@ -124,8 +125,8 @@ Bcode.App/
 │   ├── SqlTabSnapshot.cs  19
 │   ├── SqlWatchControl.cs  185
 │   ├── SqlWatchControl.Form.cs  39
-│   ├── StatusPets.cs  655
-│   ├── StatusPets.Editor.cs  560
+│   ├── StatusPets.cs  1055
+│   ├── StatusPets.Editor.cs  562
 │   ├── StringBeautyControl.cs  95
 │   ├── SuggestPopup.cs  170
 │   ├── TableEditControl.cs  2361
@@ -172,10 +173,11 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  108
-│   ├── MainForm.cs  5137
+│   ├── MainForm.cs  5148
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  112
 │   ├── MainForm.Hibernate.cs  64
+│   ├── MainForm.Pets.cs  255
 │   ├── MainForm.Session.cs  372
 │   ├── MainForm.ToolGroups.cs  101
 │   ├── MainForm.Update.cs  191
@@ -199,7 +201,7 @@ Bcode.App/
 │   ├── SourceViewForm.cs  226
 │   ├── SqlAiEditForm.cs  108
 │   ├── SqlHistoryForm.cs  364
-│   ├── StatusPetsForm.cs  40
+│   ├── StatusPetsForm.cs  54
 │   ├── StepParamsForm.cs  134
 │   ├── StringBeautyForm.cs  170
 │   ├── StubForm.cs  91
@@ -208,7 +210,7 @@ Bcode.App/
 │   ├── Tk2HelpUrls.cs  78
 │   ├── UiModeChooserForm.cs  62
 │   ├── UiScaleForm.cs  35
-│   ├── UiTemplateForm.cs  956
+│   ├── UiTemplateForm.cs  981
 │   ├── UpdateForm.cs  32
 │   ├── VoucherCloneForm.cs  536
 │   ├── VoucherPreviewForm.cs  64
@@ -226,7 +228,7 @@ Bcode.App/
 │   ├── Snippet.cs  15
 │   ├── SqlBarLayout.cs  40
 │   ├── SqlObjectInfo.cs  20
-│   ├── StatusPetSettings.cs  79
+│   ├── StatusPetSettings.cs  212
 │   ├── ToolBarGroup.cs  17
 │   ├── WCommandItem.cs  45
 │   ├── WeeklyMailSent.cs  68
@@ -385,6 +387,7 @@ Bcode.App/
 │   ├── ViewerControlServer.cs  76
 │   ├── ViewerLauncher.cs  51
 │   ├── VoucherCloneService.cs  1367
+│   ├── VoucherCodeHints.cs  99
 │   ├── VoucherOverlay.cs  62
 │   ├── VoucherSqlScriptService.cs  427
 │   ├── WCommandService.cs  985
@@ -402,7 +405,7 @@ Bcode.App/
 │   ├── DpiForm.cs  112
 │   ├── ErrorReporter.cs  302
 │   ├── FastGhostLearnUi.cs  32
-│   ├── FlatToolStripRenderer.cs  120
+│   ├── FlatToolStripRenderer.cs  144
 │   ├── GridDisplayHelper.cs  255
 │   ├── GridDragScroll.cs  67
 │   ├── IconGlyphs.cs  321
@@ -411,11 +414,12 @@ Bcode.App/
 │   ├── MousePointer.cs  55
 │   ├── NativeAppLauncher.cs  42
 │   ├── NativeSkin.cs  58
+│   ├── PeachTheme.cs  215
 │   ├── PerformanceProfile.cs  75
 │   ├── ShortcutRegistry.cs  366
 │   ├── ThemedForm.cs  11
 │   ├── ThemedMessageBox.cs  99
-│   ├── ThemeManager.cs  837
+│   ├── ThemeManager.cs  860
 │   ├── TreeColorOptions.cs  98
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
@@ -494,7 +498,7 @@ Bcode.App/
 │       ├── searchbox.html  187
 │       ├── setupeinvoice.html  195
 │       ├── shell.css  249
-│       ├── sqleditor.html  1766
+│       ├── sqleditor.html  1793
 │       ├── sqlhints-help.html  109
 │       ├── sqlhints.js  624
 │       ├── sqlhistory.html  330
@@ -504,18 +508,18 @@ Bcode.App/
 │       ├── sqlprofilerbar.html  170
 │       ├── sqlquerybar.html  415
 │       ├── sqlresulttabs.html  53
-│       ├── statusbar.html  82
-│       ├── statuspets.html  144
-│       ├── statuspets.js  695
+│       ├── statusbar.html  85
+│       ├── statuspets.html  215
+│       ├── statuspets.js  995
 │       ├── stepparams.html  43
 │       ├── stringbeauty.html  189
 │       ├── tablebar.html  326
 │       ├── tablestruct.html  139
 │       ├── teamnotes.html  275
-│       ├── topbar.html  215
+│       ├── topbar.html  230
 │       ├── ui-designer.js  446
 │       ├── uiscale.html  33
-│       ├── uitemplate.html  1351
+│       ├── uitemplate.html  1368
 │       ├── update.html  403
 │       ├── usages.html  133
 │       ├── vouchercopy.html  836
@@ -560,12 +564,13 @@ BcodeViewer.App/
 │   ├── BrowserTabLauncher.cs  342
 │   ├── CaptionTranslator.cs  225
 │   ├── ClaudeChatService.cs  693
-│   ├── EditorBridge.cs  1696
+│   ├── EditorBridge.cs  1704
 │   ├── IncludeTree.cs  190
 │   ├── MenuLauncher.cs  115
 │   ├── SearchFileCache.cs  139
 │   ├── SqlRunnerService.cs  568
-│   ├── SqlSchemaService.cs  261
+│   ├── SqlSchemaService.cs  336
+│   ├── ViewerPets.cs  87
 │   ├── WorkspaceConnection.cs  346
 │   └── WorkspaceSearchService.cs  338
 ├── Settings/
@@ -597,7 +602,7 @@ BcodeViewer.App/
 │   ├── autoview.js  188
 │   ├── chat.js  83
 │   ├── checkfield.js  641
-│   ├── completion.js  2758
+│   ├── completion.js  2793
 │   ├── contextmenu.js  1139
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
@@ -612,7 +617,7 @@ BcodeViewer.App/
 │   ├── hint-editor.html  74
 │   ├── history.js  525
 │   ├── hostcall.js  106
-│   ├── index.html  242
+│   ├── index.html  244
 │   ├── keys.js  226
 │   ├── mailpreview.js  833
 │   ├── outline.js  239
@@ -631,9 +636,10 @@ BcodeViewer.App/
 │   ├── theme.js  277
 │   ├── toolbar.js  599
 │   ├── ui.js  134
+│   ├── viewerpets.js  43
 │   └── zoombar.js  102
 ├── BcodePaths.cs  45
-├── BcodeViewer.App.csproj  110
+├── BcodeViewer.App.csproj  114
 ├── HintCodeForm.cs  520
 ├── MainForm.cs  2886
 ├── MainForm.Update.cs  156

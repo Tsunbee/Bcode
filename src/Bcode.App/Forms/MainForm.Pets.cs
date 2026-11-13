@@ -42,6 +42,10 @@ public partial class MainForm
             try { _settings.Save(); } catch { /* chỉ áp cho phiên này */ }
         }
         Bcode.App.UI.PeachTheme.MarkBar(_toolsBar);   // dải công cụ dưới thanh trên cũng nhuốm hồng đào
+        Bcode.App.UI.PeachTheme.TitleForm = this;     // thanh tiêu đề cửa sổ chính lấy màu dải hồng
+        if (!Bcode.App.UI.UiMode.IsNative) Bcode.App.UI.PeachTheme.MarkBar(_topBarWeb);   // bản Web: ô topbar.html cũng là thanh — nền hoa đào phủ cả nó
+        Bcode.App.UI.PeachTheme.CanvasChanged += OnPeachCanvasChanged;
+        Disposed += (_, _) => { Bcode.App.UI.PeachTheme.CanvasChanged -= OnPeachCanvasChanged; _peachPushTimer?.Dispose(); };
         Bcode.App.UI.ThemeManager.ThemeChanged += () => { if (Bcode.App.UI.PeachTheme.On) PushPeach(); };   // đổi sáng / tối: pha lại màu
         _petalRain = new PetalRain(this);   // hoa đào rơi 2 bên (Controls/PetalRain.cs) — bật / tắt theo StatusPetSettings.PetalRain
         Disposed += (_, _) => _petalRain?.Dispose();
@@ -162,18 +166,43 @@ public partial class MainForm
         PushPetsEnv();
     }
 
-    /// <summary>Thanh trên màu hoa đào: bản App tự vẽ lại theo PeachTheme.Changed; bản Web gửi màu xuống topbar.html (window.setPeach), dải công cụ (ToolStrip) vẽ lại.</summary>
+    /// <summary>Tấm nền hoa đào đổi cỡ (kéo rộng / hẹp cửa sổ) → gửi lại ảnh nền cho topbar.html, gom lại sau 150 ms cho khỏi gửi liên tục lúc kéo.</summary>
+    private System.Windows.Forms.Timer? _peachPushTimer;
+
+    private void OnPeachCanvasChanged(Form f)
+    {
+        if (f != this || Bcode.App.UI.UiMode.IsNative) return;
+        _peachPushTimer ??= new System.Windows.Forms.Timer { Interval = 150 };
+        _peachPushTimer.Tick -= PeachPushTick; _peachPushTimer.Tick += PeachPushTick;
+        _peachPushTimer.Stop(); _peachPushTimer.Start();
+    }
+
+    private void PeachPushTick(object? sender, EventArgs e) { _peachPushTimer?.Stop(); if (Bcode.App.UI.PeachTheme.On) PushPeach(); }
+
+    /// <summary>Thanh trên màu hoa đào: bản App tự vẽ lại theo PeachTheme.Changed; bản Web gửi màu + ảnh nền (phần tấm nền ứng với ô topbar)
+    /// xuống topbar.html (window.setPeach), dải công cụ (ToolStrip) vẽ lại, thanh tiêu đề đổi màu.</summary>
     private void PushPeach()
     {
         _toolsBar.Invalidate();
         TopBarControl.Invalidate(true);
+        Bcode.App.UI.ThemeManager.ApplyPeachTitleBar(this);
         if (_topBarWeb?.CoreWebView2 is not { } wv) return;
         string Hex(Color c) => $"#{c.R:x2}{c.G:x2}{c.B:x2}";
         var P = Bcode.App.UI.PeachTheme.On;
+        object? wave = null;
+        if (P && _topBarWeb.Width > 0 && _topBarWeb.Height > 0)
+        {
+            // Cắt đúng phần tấm nền nằm dưới ô WebView (cùng hình với bản GDI+ của dải công cụ ngay dưới → liền mạch);
+            // CSS px = px màn hình / (dpi × ZoomFactor).
+            var css = _topBarWeb.DeviceDpi / 96f * (float)(_topBarWeb.ZoomFactor > 0 ? _topBarWeb.ZoomFactor : 1);
+            var png = Bcode.App.UI.PeachTheme.CanvasPngBase64(_topBarWeb, out var size);
+            wave = new { url = "data:image/png;base64," + png, w = size.Width / css, h = size.Height / css, x = 0, y = 0 };
+        }
         var json = !P ? "null" : System.Text.Json.JsonSerializer.Serialize(new
         {
             bar = Hex(Bcode.App.UI.PeachTheme.Bar), button = Hex(Bcode.App.UI.PeachTheme.Button), hover = Hex(Bcode.App.UI.PeachTheme.Hover),
             line = Hex(Bcode.App.UI.PeachTheme.Line), accent = Hex(Bcode.App.UI.PeachTheme.Accent), accentHover = Hex(Bcode.App.UI.PeachTheme.AccentHover), onAccent = "#ffffff",
+            wave,
         });
         _ = wv.ExecuteScriptAsync($"window.setPeach && window.setPeach({json})");
     }

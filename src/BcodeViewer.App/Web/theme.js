@@ -40,6 +40,20 @@ const FALLBACK = {
   rules: [],
 };
 
+/// Tỉ lệ tương phản WCAG giữa 2 màu #rgb / #rrggbb / #rrggbbaa (bỏ qua alpha); màu không đọc được → 0.
+function contrastRatio(a, b) {
+  const lum = (hex) => {
+    let h = String(hex || '').trim().replace('#', '');
+    if (h.length === 3 || h.length === 4) h = h.slice(0, 3).split('').map((c) => c + c).join('');
+    if (!/^[0-9a-f]{6}/i.test(h)) return null;
+    const ch = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  };
+  const x = lum(a), y = lum(b);
+  if (x === null || y === null) return 0;
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
 class BcodeTheme {
   constructor() {
     this.theme = FALLBACK;
@@ -181,6 +195,8 @@ class BcodeTheme {
 
     // Đánh dấu chỗ trùng tên (double-click / đứng trên một tên → mọi chỗ cùng tên): đè lên cả theme nhập từ VS Code.
     this.applyMatchHighlight(theme, set);
+    // Ngoặc tương ứng (đứng cạnh / bấm vào ( [ { → tô cặp của nó): màu gốc của Monaco và của đa số theme nhập quá nhạt.
+    this.applyBracketMatch(theme, editorColors);
 
     // Dấu mở/đóng CDATA (<![CDATA[ và ]]>): theme Fcode tô cùng màu với chuỗi; các theme khác không có luật riêng nên để trắng như chữ thường.
     // Gán theo màu "string" của chính theme (hoặc màu chuỗi mặc định của Dark+/Light+) trừ khi theme tự khai báo delimiter.cdata.
@@ -189,6 +205,7 @@ class BcodeTheme {
       if (r.fontStyle) rule.fontStyle = r.fontStyle;
       return rule;
     });
+    this.applyFcodeAliasRules(rules);
     if (!rules.some((r) => r.token === 'delimiter.cdata')) {
       const strRule = rules.find((r) => r.token === 'string' || r.token === 'attribute.value');
       rules.push({ token: 'delimiter.cdata', foreground: ((strRule && strRule.foreground) || (theme.isDark ? 'CE9178' : 'A31515')).replace('#', '') });
@@ -204,6 +221,39 @@ class BcodeTheme {
       rules,
       colors: editorColors,
     };
+  }
+
+  /// Token mà fcode-language.js đặt tên khác đi chỉ để Monaco biết đó là chú thích / chuỗi / regex (bỏ qua ngoặc bên trong khi ghép cặp),
+  /// màu phải y như trước: chú thích "//" khớp mục KeywordStart kwN (comment.kwN.fcdata = màu kwN.fcdata), regex JS trong theme Fcode
+  /// (regex.fcdata = chữ thường), cụm ]]>&Entity;<![CDATA[ đọc xuyên trong vùng nhúng (delimiter.cdata.string / string.escape.entity =
+  /// màu delimiter.cdata / string.escape mà phần XML vẫn dùng). Theme không khai báo các màu gốc thì không thêm gì.
+  applyFcodeAliasRules(rules) {
+    // Cùng 1 token có thể khai 2 lần (phần theme VS Code + phần lexer Fcode): Monaco dùng luật SAU CÙNG, nên lấy luật cuối.
+    const find = (token) => { for (let i = rules.length - 1; i >= 0; i--) if (rules[i].token === token) return rules[i]; return null; };
+    const alias = (from, to) => {
+      const r = find(from);
+      if (r && !find(to)) rules.push(Object.assign({}, r, { token: to }));
+    };
+    for (const r of rules.slice()) {
+      const m = /^(kw\d+)\.fcdata$/.exec(r.token || '');
+      if (m) alias(r.token, `comment.${m[1]}.fcdata`);
+    }
+    alias('text.fcdata', 'regex.fcdata');
+    alias('text.fcdata', 'comment.text.fcdata');   // begin tran, @end... (SQL không mở/đóng khối, xem fcode-language.js SQL_WORD_BRACKETS)
+    alias('delimiter.cdata.fcode', 'delimiter.cdata.string');
+    alias('string.escape.fcode', 'string.escape.entity');
+  }
+
+  /// Ngoặc tương ứng (matchBrackets): nền + viền rõ trên mọi theme. Nền luôn là màu riêng (xanh lá, khác màu cam của "Đánh dấu từ trùng"
+  /// và màu xanh dương của vùng chọn) vì nền mặc định của Monaco / VS Code (#0064001a) gần như không thấy. Viền: giữ màu theme khai báo
+  /// (vd màu Brace của theme Fcode) nếu đủ tương phản với nền editor, không thì dùng màu riêng — theme Fcode sáng có Brace trắng trên nền trắng.
+  applyBracketMatch(theme, editorColors) {
+    const isDark = theme.isDark !== false;
+    const bg = editorColors['editor.background'] || (theme.colors && theme.colors.background) || (isDark ? '#1e1e1e' : '#ffffff');
+    const own = isDark ? '#3fb950' : '#1a7f37';
+    const themed = editorColors['editorBracketMatch.border'];
+    editorColors['editorBracketMatch.background'] = own + (isDark ? '59' : '40');   // ~35% tối / 25% sáng: chữ vẫn đọc được
+    editorColors['editorBracketMatch.border'] = themed && contrastRatio(themed, bg) >= 3 ? themed : own;
   }
 
   /// Màu nền + viền của các chỗ trùng tên với từ đang chọn (selectionHighlight, khi double-click) hoặc từ con trỏ đang đứng

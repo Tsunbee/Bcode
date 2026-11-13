@@ -572,7 +572,7 @@ public class AdvanceNoteService
         return copy;
     }
 
-    private static readonly HashSet<string> NotPackages =new(StringComparer.OrdinalIgnoreCase) { "App_Data", "Main", "SQL", "Script", "Web", "Bin", "AdvanceNotes" };
+    private static readonly HashSet<string> NotPackages =new(StringComparer.OrdinalIgnoreCase) { "App_Data", "Main", "SQL", "Script", "Web", "Mobile", "Bin", "AdvanceNotes" };
 
     /// <summary>1 gói update có trong thư mục update của dự án (do bất kỳ ai gen / kéo về).</summary>
     public record PackageEntry(string Name, string Path, DateTime Modified, bool IsFolder, string? Description, string? Note);

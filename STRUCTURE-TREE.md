@@ -36,9 +36,9 @@ Bcode.App/
 │   ├── FileLookupControl.Rename.cs  317
 │   ├── FileReferenceControl.cs  195
 │   ├── FlatTabControl.cs  274
-│   ├── FolderCompareControl.cs  213
+│   ├── FolderCompareControl.cs  242
 │   ├── FsgRequirementReportControl.cs  351
-│   ├── GenUpdatePackageControl.cs  546
+│   ├── GenUpdatePackageControl.cs  567
 │   ├── GoToBox.cs  288
 │   ├── HelpControl.cs  90
 │   ├── HintPopup.cs  155
@@ -169,9 +169,9 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  108
-│   ├── MainForm.cs  5098
+│   ├── MainForm.cs  5106
 │   ├── MainForm.ErrorReport.cs  77
-│   ├── MainForm.FsgNotify.cs  105
+│   ├── MainForm.FsgNotify.cs  112
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Session.cs  372
 │   ├── MainForm.ToolGroups.cs  101
@@ -214,7 +214,7 @@ Bcode.App/
 ├── Models/
 │   ├── ApiDeclarationModel.cs  14
 │   ├── ApiProject.cs  86
-│   ├── AppSettings.cs  484
+│   ├── AppSettings.cs  505
 │   ├── DebugCandidate.cs  13
 │   ├── DiffLine.cs  22
 │   ├── PeriodTableInfo.cs  13
@@ -313,10 +313,10 @@ Bcode.App/
 │   ├── FileParseCache.cs  408
 │   ├── FileReferenceService.cs  46
 │   ├── FolderCompareService.cs  279
-│   ├── FsgNotifyService.cs  662
+│   ├── FsgNotifyService.cs  684
 │   ├── FsgProjectLookupService.cs  679
 │   ├── FSourceDecryptService.cs  83
-│   ├── GenAllService.cs  877
+│   ├── GenAllService.cs  895
 │   ├── GenAllService.Delivery.cs  117
 │   ├── GenAllService.Suggest.cs  287
 │   ├── GenInsertService.cs  47
@@ -455,9 +455,9 @@ Bcode.App/
 │       ├── filepreview.html  249
 │       ├── filereference.html  108
 │       ├── findbar.html  60
-│       ├── foldercompare.html  432
+│       ├── foldercompare.html  453
 │       ├── framehost.html  55
-│       ├── fsgnotify.html  151
+│       ├── fsgnotify.html  153
 │       ├── fsgreq.html  765
 │       ├── genupdate.html  636
 │       ├── grantsource.html  132
@@ -594,16 +594,17 @@ BcodeViewer.App/
 │   ├── dirpreview.js  1257
 │   ├── dirview.js  437
 │   ├── dock.js  162
-│   ├── editor.js  1980
+│   ├── editor.js  1984
 │   ├── entity.js  2027
 │   ├── fastask.js  356
-│   ├── fcode-language.js  508
+│   ├── fcode-language.js  561
+│   ├── fcodecomment.js  330
 │   ├── fieldnotes.js  291
 │   ├── goto.js  296
 │   ├── hint-editor.html  74
 │   ├── history.js  489
 │   ├── hostcall.js  106
-│   ├── index.html  241
+│   ├── index.html  242
 │   ├── keys.js  226
 │   ├── mailpreview.js  833
 │   ├── outline.js  239
@@ -619,7 +620,7 @@ BcodeViewer.App/
 │   ├── tabs.js  253
 │   ├── tabswitcher.js  228
 │   ├── templates.js  433
-│   ├── theme.js  227
+│   ├── theme.js  275
 │   ├── toolbar.js  599
 │   ├── ui.js  134
 │   └── zoombar.js  102

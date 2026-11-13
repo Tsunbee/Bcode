@@ -720,7 +720,7 @@ Mở: biểu tượng **Mobile** ở cột icon trái (phím `left.mobile`, chư
 - Thanh lọc, ô **(C)**, đổi tên Bar/Bar2 giống cây WCommand.
 - Chuột phải: New · Edit · Delete · Mở File Lookup mới · Gen Script Menu · Menu Name · Refresh. (Không có Run, Thiết kế màn hình, Check WCommand.) New / Edit / Delete / Gen Script **chỉ sửa dvcommand**, không đụng bảng command.
 - Form **DVCOMMAND - Edit** giống COMMAND - Edit, thêm ô Table Dir (bảng m) / Bảng d (Grid) và nút 🌐 Dịch cho Bar2.
-- **Double-click** menu → tab "File Lookup · Mobile · {sysid}" — tìm file trong `App_Data\Controllers\Mobile\{Dir,Filter,Grid,Include}` của thư mục **Mobile Path**; `F4` mở thêm tab riêng.
+- **Double-click** menu → tab "File Lookup · Mobile · {sysid}" — tìm file trong `App_Data\Controllers\Mobile\{Dir,Filter,Grid,Include}` của thư mục **Mobile Path**; `F4` mở thêm tab riêng. Đang mở tab **Gen Update** thì double-click nạp file của menu vào khung **Source File** của Gen Update (không chuyển sang File Lookup); tick rồi **＋ Add** thì file vào gói dưới `Mobile\...`.
 
 > **Lưu ý:** Mobile Path trống thì Bcode đoán `<thư mục cha của Source Path>\MobileService`, rồi `Source Path\MobileService`. Không thấy → báo "chưa khai báo Mobile Path (Edit Project)…". Không có bảng dvcommand → cây hiện "(Không có bảng dvcommand ở Sys Data của workspace này, hoặc bảng rỗng)".
 
@@ -881,7 +881,7 @@ Mở: nút **Gen Update** (`Ctrl+Shift+G`). Cần Source Path.
    - Double-click 1 menu ở cây WCommand bên trái → WMenu ID được điền sẵn vào ô.
    - **☰ Chọn menu…**: mở hộp cây WCommand có ô lọc — gõ tên menu (không dấu cũng được, vd `phieu thu`), WMenu ID, link hoặc SysId; tick nhiều menu (tick nhóm = cả nhóm đang hiện) → **Gen Script Menu (N)** là gen luôn, ô nhận danh sách WMenu ID đã chọn. Phím: `↓` từ ô lọc xuống cây, `Space` tick / bỏ, `Enter` hoặc double-click 1 menu = gen ngay (chưa tick gì thì lấy menu đang đứng), `Esc` đóng. WMenu ID đang có trong ô được tick sẵn, ô lọc nhớ lần trước. Hộp lấy cây WCommand đã nạp ở bên trái (chưa có menu thì mở / `F5` cây WCommand trước); chỉ có menu bảng `wcommand`.
 3. **Gen nhanh Table**: gõ Controller/SysId → **Tải table**, hoặc gõ tên bảng → **＋ Thêm**. Mỗi bảng chọn DB, **Cấu trúc**, **Dữ liệu**, Where → **Gen Script** (gộp vào APP_Script.sql). Hơn 50.000 dòng bắt buộc nhập Where. Table **không bao giờ** bị DROP.
-4. **Source File**: double-click menu ở cây WCommand (hoặc gõ tên → **Tìm**) → chọn nhóm (Web_Dir, Web_Grid, Web_Filter, Web_Report…), tick file → **＋ Add**. Khi nạp theo menu, Grid / Filter / Dir chỉ lấy file `.f`. Ô **Lọc trong cây** chỉ ẩn bớt file — file đã tick vẫn giữ tick (và vẫn được Add) khi lọc / xoá lọc; **Check All** và `Ctrl+A` (bấm vào cây trước) tick / bỏ tick cả cây.
+4. **Source File**: double-click menu ở cây WCommand hoặc cây **Mobile** (hoặc gõ tên → **Tìm**) → chọn nhóm (Web_Dir, Web_Grid, Web_Filter, Web_Report…), tick file → **＋ Add**. Khi nạp theo menu, Grid / Filter / Dir chỉ lấy file `.f`. Ô **Lọc trong cây** chỉ ẩn bớt file — file đã tick vẫn giữ tick (và vẫn được Add) khi lọc / xoá lọc; **Check All** và `Ctrl+A` (bấm vào cây trước) tick / bỏ tick cả cây.
 5. **File đã thêm vào gói update**: kiểm tra danh sách (Bỏ file đã chọn / Xoá hết; bỏ 1 file: nút ✕ trên dòng ở chế độ Web, `Delete` hoặc chuột phải → **Bỏ khỏi gói** ở chế độ App; `Ctrl+A` chọn hết) → **⚙ Create Update File** → "✔ Đã tạo N file tại: …" (Copy link / Mở thư mục).
 
 Hai tuỳ chọn ở thẻ **Đường dẫn & kết nối** (nhớ cho lần sau, dùng chung với Note (New) và BcodeNote):
@@ -897,6 +897,8 @@ Cấu trúc gói:
   Script\app\APP_Script.sql
   Script\sys\SYS_Script.sql
   Web\App_Data\...   Web\Main\...   (giữ đường dẫn tương đối so với site)
+  Mobile\App_Data\Controllers\Mobile\...   (file trong Mobile Path — giữ thư mục Dir / Grid / Filter như FCode;
+                                            Gen Update và ô File Path của Note (New) / BcodeNote đều vậy)
   description.txt
   note.txt          (chỉ Note (New) / BcodeNote, khi yêu cầu có 📝 Note)
 ```
@@ -1110,6 +1112,8 @@ Khi tester / triển khai ghi chú hay ghi lỗi vào y/c trên QLYC (FSG), Bcod
 - **⚙ Cài đặt** (ngay trên khung): Bật thông báo · ô **Lập trình** · Kiểm tra mỗi … phút · loại thay đổi cần báo (Ghi chú mới / Đổi trạng thái / Y/c mới giao cho mình / Đổi hạn hoàn thành / **Lỗi mới**) · Báo cả y/c mình là triển khai · **Hiện thông báo Windows khi Bcode không ở trước** (bấm vào thông báo Windows để mở khung) · Xoá thông báo đã xem.
 - Phím tắt mở / đóng khung: mục “Mở / đóng khung Thông báo y/c FSG” ở Template → Phím tắt (mặc định chưa gán). Cần key bản quyền như Báo cáo yêu cầu FSG.
 - “Y/c mới giao” = y/c của bạn mà Bcode **chưa từng thấy** ở các lần kiểm tra trước (Bcode tự nhớ danh sách này, không phụ thuộc điều kiện lọc của lần “Kéo về”), và chưa xong — y/c ở trạng thái UP / OK / KL không bao giờ báo “mới giao”. Lần kiểm tra đầu tiên của mỗi dự án chỉ ghi nhớ, không báo.
+- **Y/c chuyển sang người khác:** Bcode chỉ theo dõi theo lập trình **hiện tại** trên FSG. Khi y/c của bạn được chuyển cho lập trình khác, Bcode báo **một lần** dòng **Đã chuyển** (“Đã chuyển lập trình BẠN → NGƯỜI MỚI — thôi theo dõi y/c này”, đi theo ô **Y/c mới giao cho mình**), sau đó không báo trạng thái, ghi chú, hạn hay lỗi của y/c đó nữa. Thông báo cũ của y/c đó vẫn nằm trong danh sách (xoá bằng “Xoá thông báo đã xem” nếu muốn).
+- **Đổi ô Lập trình:** có hiệu lực cho **mọi cửa sổ Bcode** đang mở ngay ở lần kiểm tra kế tiếp. Thông báo phát hiện khi ô Lập trình còn là tên khác được ghi chú **(của TÊN CŨ)** trên dòng.
 - Lần đầu theo dõi: dự án lưu từ bản Bcode chưa lấy ghi chú thì không so ghi chú — tránh báo ồ ạt. Lịch sử + cài đặt lưu ở `%AppData%\Bcode\fsg-notify.json` (giữ 500 thông báo gần nhất).
 
 <a id="mail-da-gui"></a>
@@ -1249,10 +1253,12 @@ Mở ở **Tool mở rộng ▾ → So sánh thư mục** (hoặc Command Palett
 
 Cách so: khác cỡ = **khác**; cùng cỡ và cùng giờ sửa = **giống** (không đọc file). Cùng cỡ nhưng khác giờ sửa: nếu tick **So nội dung khi khác giờ sửa** thì Bcode đọc so nội dung 2 bên — file build lại y hệt sẽ là *giống (chỉ khác giờ sửa)*; bỏ tick thì coi là khác (nhanh hơn với thư mục trên mạng).
 
-Kết quả chia 4 nhóm **Khác nhau / Chỉ có ở A / Chỉ có ở B / Giống nhau** (+ **Tất cả**, xếp theo tên). Lưới 2 bên đối xứng: bên trái là A, bên phải là B, mỗi bên có Tên · Sửa lúc · Cỡ · **Version** (file `.dll` / `.exe`) · Thư mục con. Cột giữa: **→** chỉ có ở A, **←** chỉ có ở B, **⇄** khác nhau, trống = giống; rê chuột vào mũi tên xem lý do. Bên không có file ghi **Missing** (đỏ); giờ sửa mới hơn in đậm, cỡ / version khác tô màu nhấn. Ô **Lọc** (`Ctrl+F`) lọc theo tên / đường dẫn.
+Kết quả chia 4 nhóm **Khác nhau / Chỉ có ở A / Chỉ có ở B / Giống nhau** (+ **Tất cả**, xếp theo tên). Lưới 2 bên đối xứng: bên trái là A, bên phải là B, mỗi bên có Tên · Sửa lúc · Cỡ · **Version** (file `.dll` / `.exe`) · Thư mục con. Cột giữa: **→** chỉ có ở A, **←** chỉ có ở B, **⇄** khác nhau, trống = giống; rê chuột vào mũi tên xem lý do. Bên không có file ghi **Missing** (đỏ). Giờ sửa 2 bên lệch nhau: bên **mới hơn** (bên đã đổi) tô **đỏ đậm**, bên gốc chữ sáng (trắng ở nền tối); cỡ / version khác tô màu nhấn. Ô **Lọc** (`Ctrl+F`) lọc theo tên / đường dẫn.
 
 - **Nháy đúp** (hoặc Enter) vào file chữ khác nhau (`.config`, `.json`, `.xml`, `.html`, `.f`…) → mở tab **Compare Text** so sẵn 2 bản. File khác (dll, exe…) → mở Explorer tới file đó.
-- **Chuột phải**: So sánh nội dung · Tick / Bỏ tick · Mở thư mục chứa file (A / B) · Chép đường dẫn tương đối / đầy đủ · **Chép danh sách đang hiện** (dán được vào Excel).
+- **Bấm chữ ở cột Thư mục con A / B** (chữ xanh, gạch chân khi rê chuột) → mở thẳng thư mục đó trong Explorer. Thư mục đã bị xoá / đổi tên sau lần so → mở thư mục cha gần nhất còn có và ghi một dòng báo ở thanh trạng thái.
+- **Chuột phải** (ở bất kỳ cột nào, bên A hay bên B): So sánh nội dung (Compare Text) · Tick / Bỏ tick · Mở thư mục chứa file (A / B) · Chép đường dẫn tương đối / đầy đủ · **Chép danh sách đang hiện** (dán được vào Excel). Mục của bên **thiếu file** bị mờ, cạnh mục ghi lý do (vd "B không có file") — dòng *Chỉ có ở A* thì các mục (B) mờ là đúng.
+- **So sánh nội dung (Compare Text)** từ chuột phải: mở tab Compare Text mới, nạp **file A bên trái, file B bên phải** và so luôn. Dùng được cho dòng *Khác nhau* là file chữ và dòng *Giống nhau* (file chữ); dòng chỉ có ở 1 bên hoặc file nhị phân (dll, exe…) thì mục này mờ.
 
 **Chép A → B**: tick các file cần chép ở cột checkbox (chỉ file **Khác nhau** và **Chỉ có ở A** mới tick được). `Space` tick dòng đang chọn rồi xuống dòng; ô tick ở tiêu đề = tick / bỏ tick mọi file đang hiện; **Tick hết** = mọi file chép được theo nhóm + ô lọc đang chọn; **Bỏ tick** = bỏ hết. Bấm **Chép A → B (n)**: Bcode hỏi xác nhận (số file thêm mới / ghi đè, dung lượng), rồi chép — file ở B bị ghi đè được **sao lưu** trước vào `%LocalAppData%\Bcode\foldercompare-backup\<ngày-giờ>\`, giờ sửa giữ như bên A, file chỉ có ở B không bị đụng. File không chép được (đang bị chương trình khác mở, chỉ đọc, thiếu quyền) được liệt kê, các file khác vẫn chép. Xong Bcode tự so lại.
 
@@ -1817,7 +1823,7 @@ Mở: **File → Settings…** (hoặc **File → Phím tắt…** để vào th
 
 | Trang | Nội dung chính |
 |---|---|
-| **Giao diện** | Phông chữ editor · Kiểu theme Fcode (.xml) · **Đánh dấu từ trùng** — double-click (hoặc đứng con trỏ trên) một tên thì mọi chỗ cùng tên được tô nền + viền và có vạch trên thanh cuộn: Đậm vàng cam (mặc định) / Đậm màu tự chọn / Nhạt theo theme · minimap · tự thu nhỏ cỡ chữ khi khung hẹp (cỡ nhỏ nhất) · Wrap · **Tự chèn dấu `'` đóng** — mặc định tắt: gõ `'` chỉ ra một dấu (cả trong thuộc tính XML lẫn SQL / JS trong CDATA); tick thì gõ `'` ra `''` như Monaco gốc. Ngoặc `( ) [ ] { }` và nháy kép `"` không bị ảnh hưởng; bôi đen rồi gõ `'` vẫn bọc hai đầu · **Chế độ nhẹ (máy yếu)** Tự động / Bật / Tắt · vị trí khung Claude / Gemini (phải / dưới / trên) |
+| **Giao diện** | Phông chữ editor · Kiểu theme Fcode (.xml) · **Đánh dấu từ trùng** — double-click (hoặc đứng con trỏ trên) một tên thì mọi chỗ cùng tên được tô nền + viền và có vạch trên thanh cuộn: Đậm vàng cam (mặc định) / Đậm màu tự chọn / Nhạt theo theme · minimap · tự thu nhỏ cỡ chữ khi khung hẹp (cỡ nhỏ nhất) · Wrap · **Tự chèn dấu `'` đóng** — mặc định tắt: gõ `'` chỉ ra một dấu (cả trong thuộc tính XML lẫn SQL / JS trong CDATA); tick thì gõ `'` ra `''` như Monaco gốc. Ngoặc `( ) [ ] { }` và nháy kép `"` không bị ảnh hưởng; bôi đen rồi gõ `'` vẫn bọc hai đầu · **Chế độ nhẹ (máy yếu)** Tự động / Bật / Tắt — tắt tô màu ngoặc theo cấp, tô từ trùng, đường gióng; **tô ngoặc tương ứng** (đặt con trỏ / bấm cạnh `(` `[` `{` hoặc ngoặc đóng → ngoặc cặp của nó có nền + viền xanh lá; trong SQL bấm vào `begin` / `case` / `end` cũng thấy chữ cặp của nó — `begin tran`, `end conversation`, `@end`, `[end]` không tính) luôn giữ, ngoặc trong chuỗi / chú thích không tính · vị trí khung Claude / Gemini (phải / dưới / trên) |
 | **Bố cục** | Ẩn / hiện thanh menu, thanh công cụ, đường dẫn, thanh tab · **Ctrl+Tab bấm nhanh** · vị trí và độ rộng cây file · thanh công cụ: vị trí (trên / cùng hàng menu / dưới), kiểu nút (chữ / icon + chữ / chỉ icon), sắp xếp / ghim / nhóm / thêm nút (kéo ☰, "+ Nhóm mới", "+ Vạch ngăn", "+ Thêm nút") · đưa về mặc định |
 | **Phím tắt** | Bảng mọi lệnh: **Đổi** (bấm tổ hợp mới, `Esc` huỷ) · **Xoá phím** · **Mặc định**; ô lọc theo tên / phím; "Đưa TẤT CẢ phím tắt về mặc định" |
 | **Gợi ý & Hỏi Fast** | Gợi ý theo cấu trúc Fast khi gõ (bật mặc định) · Gợi ý Fast dài · Khai field xong tự sinh dòng view (tắt mặc định — xem [IntelliSense](#viewer-intellisense)) · thư mục source Fast các phiên bản + **Học lại ngay** — xem [Hỏi Fast trong BcodeViewer](#viewer-hoi-fast) |

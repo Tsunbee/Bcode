@@ -28,7 +28,7 @@ public static class FolderCompareService
     /// <summary>Mẫu bỏ qua mặc định cho thư mục bin.</summary>
     public const string DefaultIgnore = "*.pdb; obj\\; *.WebView2\\; *.log";
 
-    private const long MaxTextBytes = 20L << 20;   // Compare Text: file lớn hơn 20 MB coi như không mở được
+    public const long MaxTextBytes = 20L << 20;   // Compare Text: file lớn hơn 20 MB coi như không mở được
 
     public static Task<Result> CompareAsync(string folderA, string folderB, bool exact, string ignore, IProgress<Progress>? progress, CancellationToken ct)
         => Task.Run(() => Compare(folderA, folderB, exact, ignore, progress, ct), ct);

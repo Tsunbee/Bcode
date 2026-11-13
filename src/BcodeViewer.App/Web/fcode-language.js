@@ -76,7 +76,36 @@ const entityDeclRule = [/(<!)(ENTITY)(\s+%?\s*)(@qualifiedName)/,
 // mới đổi màu. Ở DOCTYPE: "<!ENTITY" và " SYSTEM ..." theo màu KeywordStart, tên entity là chữ thường. Các token
 // *.entity / fcode-cdata / fcode-entity dưới đây có màu riêng do ThemeCatalog đặt (VsCodeThemeImporter.FcodeLexerFor).
 const FCODE_CDATA_LANGUAGE_ID = 'fcode-cdata';
+/// Biến thể của fcode-cdata cho CDATA JavaScript (<script>/<clientScript>, khối có dấu <flatten type="Javascript">): cùng màu theo
+/// <KeywordStart>, chỉ khác phần CHÚ THÍCH / REGEX mà ghép cặp ngoặc dựa vào — trong JS "--" là phép giảm (i--), không phải chú thích
+/// (trước đây "i--) {" biến cả phần sau thành chú thích nên ngoặc ) { bị bỏ qua, cả khối hàm ghép lệch cặp); "//" mới là chú thích;
+/// /\(/g là regex. Màu giữ như Fcode: xem theme.js applyFcodeAliasRules.
+const FCODE_CDATA_JS_LANGUAGE_ID = 'fcode-cdata-js';
 const FCODE_ENTITY_LANGUAGE_ID = 'fcode-entity';
+
+// Fast hay cắt một khối SQL/JS bằng entity: `... where ma_kh = ']]>&Customer.Code;<![CDATA[' and ...` — chuỗi '...' mở ở khối CDATA trước,
+// đóng ở khối sau. Trước đây ]]> luôn kết thúc vùng nhúng nên tokenizer SQL/JS bắt đầu LẠI từ đầu ở khối sau: dấu ' đóng bị hiểu là ' mở
+// → từ đó tới hết khối bị coi là chuỗi (sai màu, ngoặc trong đó không ghép cặp được, ngoặc ngoài lại ghép lệch). Giờ cụm
+// ]]>&A;&B;<![CDATA[ nằm trên CÙNG một dòng KHÔNG kết thúc vùng nhúng: tokenizer nhúng đọc tiếp và tự coi cụm đó là 1 token kiểu chuỗi
+// (CDATA_SPLIT_RULE) — đứng trong chuỗi thì chuỗi vẫn tiếp tục, đứng ngoài chuỗi thì các dấu [ ] < > của cụm không bị tính là ngoặc.
+const CDATA_SPLIT_LOOKAHEAD = '(?:&[A-Za-z_][\\w.:$-]*;)+<!\\[CDATA\\[';
+/// Tên token: có chữ "string" để Monaco xếp vào loại chuỗi (bỏ qua ngoặc bên trong); màu theo delimiter.cdata / string.escape như cũ.
+const CDATA_SPLIT_RULE = [/(\]\]>)((?:&[A-Za-z_][\w.:$-]*;)+)(<!\[CDATA\[)/, ['delimiter.cdata.string', 'string.escape.entity', 'delimiter.cdata.string']];
+// SQL: begin ↔ end và case ↔ end ghép cặp như ngoặc (đứng / bấm vào begin thấy end của nó). Chỉ để ghép cặp + tô ngoặc tương ứng,
+// KHÔNG tô màu theo cấp (colorizedBracketPairs chỉ có ( ) [ ] { }) — từ khoá giữ màu từ khoá.
+// Monaco tìm "ngoặc chữ" bằng \bend\b trên chữ của mọi token loại thường, nên những chỗ KHÔNG mở/đóng khối phải nằm trong token loại
+// chuỗi (tên token có chữ "string"; màu vẫn theo phần đầu tên): begin tran / begin distributed tran / begin dialog / begin conversation /
+// end conversation (không có end / begin tương ứng), tên dính @ # $ (@end, #begin, on$End, @$case$x) và tên trong [ ] / " ".
+// begin try / end try, begin catch / end catch vẫn ghép cặp (begin ↔ end) như khối thường.
+const SQL_WORD_BRACKETS = [['begin', 'end'], ['case', 'end']];
+const SQL_BLOCK_WORD = '(?:begin|end|case)';
+/// Tên (chuỗi [\w@#$]+) có chứa begin/end/case dính @ # $ — vd @end, x$End, #begin_tmp không tính (_ là chữ), @$case$x.
+const SQL_WORD_IN_NAME = `[\\w@#$]*(?:[@#$]${SQL_BLOCK_WORD}(?!\\w)|${SQL_BLOCK_WORD}[@#$])[\\w@#$]*`;
+/// [tên] / "tên" có chứa từ begin/end/case.
+const SQL_WORD_IN_BRACKET_NAME = `\\[[^\\]\\n]*?\\b${SQL_BLOCK_WORD}\\b[^\\]\\n]*\\]`;
+
+/// Regex JS: cùng cách nhận của tokenizer javascript của Monaco — / ... / rồi cờ, theo sau là . ; , ) ] } hoặc hết dòng.
+const JS_REGEX_LITERAL = /\/(?![*\/])(?:[^\\\/\[\n]|\\.|\[(?:[^\]\\\n]|\\.)*\])+\/[dgimsuy]*(?=\s*(?:[.;,)\]}]|$))/;
 const fcodeEntityDeclRule = [/(<!)(ENTITY)(\s+%?\s*)(@qualifiedName)/,
   ['delimiter.entity', 'metatag.entity', '', { token: 'attribute.name.entity', next: '@entityDecl' }]];
 const fcodeEntityStates = {
@@ -108,13 +137,27 @@ const fcodeEntityStates = {
   ],
 };
 
+/// Phần còn lại của chuỗi '...' / "..." (đã qua dấu mở) có chứa ]: hết ở dấu đóng hoặc ở cuối dòng (như Fcode: chuỗi chỉ trên 1 dòng);
+/// gặp ]]>&Entity;<![CDATA[ thì tô cụm đó riêng rồi đọc tiếp chuỗi.
+function fcodeStringState(quote, token) {
+  const q = quote === "'" ? "'" : '"';
+  return [
+    CDATA_SPLIT_RULE,
+    [new RegExp(`(?:[^${q}\\\\\\]]|\\\\.)*${q}`), { token, next: '@pop' }],
+    [new RegExp(`(?:[^${q}\\\\\\]]|\\\\.)*$`), { token, next: '@pop' }],
+    [new RegExp(`(?:[^${q}\\\\\\]]|\\\\.)+`), token],
+    [/\]/, token],
+  ];
+}
+
 /// Tokenizer cho phần trong CDATA (postfix .fcdata) / giá trị entity (.fcent) theo <KeywordStart> của theme Fcode.
 /// Mỗi mục "a~b~c" của 1 <Keyword>: là danh sách TỪ nếu chỉ gồm chữ/số/_ $ @ # (vd "select", "$func", "len sum avg"),
 /// còn lại là REGEX (vd "@[@\w-\$]+[ )(+*/\-=',]*", "FastBusiness[\$\w]+\s"). Phần đuôi Fcode dùng làm ranh giới
 /// (\s, [ )(...]*, [(\s]) được bỏ để không tô luôn khoảng trắng/dấu ngoặc phía sau. Regex thử trước, rồi tới comment
 /// (-- và /* */, màu XcComment), rồi từ. Chuỗi '...' / "..." thử TRƯỚC hết nên từ khoá trong chuỗi giữ màu chuỗi (như Fcode);
 /// chữ còn lại là "text" (màu chữ editor; giá trị entity: DoubleString).
-function buildFcodeLexerTokenizer(lexer, postfix) {
+/// js = true: biến thể cho CDATA JavaScript (FCODE_CDATA_JS_LANGUAGE_ID) — "//" là chú thích, "--" không phải, có regex /.../.
+function buildFcodeLexerTokenizer(lexer, postfix, js = false) {
   const patterns = [];
   const words = {};
   for (const rule of lexer || []) {
@@ -135,27 +178,55 @@ function buildFcodeLexerTokenizer(lexer, postfix) {
     }
   }
 
+  // SQL (không phải JS): những chỗ begin/end/case KHÔNG mở/đóng khối → token loại chú thích (comment.<màu cũ>, theme.js gán cùng màu),
+  // xem SQL_WORD_BRACKETS. Màu từng từ giữ như luật từ thường bên dưới (cùng danh sách từ của theme).
+  const commentWord = { cases: Object.assign({}, ...Object.keys(words).map((t) => ({ ['@w_' + t]: 'comment.' + t })), { '@default': 'comment.text' }) };
+  const sqlNonBlock = js ? [] : [
+    [/(begin)(\s+)(distributed)(\s+)(tran|transaction)\b/, [commentWord, 'text', commentWord, 'text', commentWord]],
+    [/(begin)(\s+)(tran|transaction|dialog|conversation)\b/, [commentWord, 'text', commentWord]],
+    [/(end)(\s+)(conversation)\b/, [commentWord, 'text', commentWord]],
+    ...patterns.map(([re, token]) => [new RegExp(`(?=${SQL_WORD_IN_NAME}|${SQL_WORD_IN_BRACKET_NAME})(?:${re.source})`, 'i'), 'comment.' + token]),
+    [new RegExp(SQL_WORD_IN_NAME), 'comment.text'],
+    [new RegExp(SQL_WORD_IN_BRACKET_NAME), 'comment.text'],
+  ];
+
   const language = {
     defaultToken: 'text',
     tokenPostfix: postfix,
     ignoreCase: true,
     tokenizer: {
       root: [
-        // Chuỗi trên 1 dòng (\' thoát được như JS; chưa đóng thì hết dòng là hết chuỗi).
-        [/'(?:[^'\\]|\\.)*'?/, 'string'],
-        [/"(?:[^"\\]|\\.)*"?/, 'string.double'],
+        CDATA_SPLIT_RULE,
+        // Chuỗi trên 1 dòng (\' thoát được như JS; chưa đóng thì hết dòng là hết chuỗi). Chuỗi không chứa ] đọc 1 lần như trước; có ] thì
+        // đi qua trạng thái @sq/@dq để cụm ]]>&Entity;<![CDATA[ giữa chuỗi vẫn giữ màu riêng (delimiter.cdata / entity) mà chuỗi không đứt.
+        [/'(?:[^'\\\]]|\\.)*'/, 'string'],
+        [/'(?:[^'\\\]]|\\.)*$/, 'string'],
+        [/'/, { token: 'string', next: '@sq' }],
+        [/"(?:[^"\\\]]|\\.)*"/, 'string.double'],
+        [/"(?:[^"\\\]]|\\.)*$/, 'string.double'],
+        [/"/, { token: 'string.double', next: '@dq' }],
+        ...sqlNonBlock,
+        // JS: chú thích "//" — nếu theme có mục KeywordStart khớp ở đó (vd "//.+") thì giữ màu của mục đó, token đổi thành
+        // comment.<kwN> (theme.js gán cùng màu) để Monaco biết đây là chú thích và bỏ qua ngoặc bên trong.
+        ...(js ? patterns.map(([re, token]) => [new RegExp('(?=\\/\\/)(?:' + re.source + ')', 'i'), 'comment.' + token]) : []),
+        ...(js ? [[/\/\/.*$/, 'comment'], [JS_REGEX_LITERAL, 'regex']] : []),
         ...patterns,
-        [/--.*$/, 'comment'],
+        ...(js ? [] : [[/--.*$/, 'comment']]),
         [/\/\*/, { token: 'comment', next: '@comment' }],
         [/[\w$@#]+/, { cases: Object.assign({}, ...Object.keys(words).map((t) => ({ ['@w_' + t]: t })), { '@default': 'text' }) }],
-        [/[^\w$@#\-\/'"]+/, 'text'], // dừng ở dấu nháy để luật chuỗi bắt được
+        // dừng ở dấu nháy để luật chuỗi bắt được, ở ]]>&Entity;<![CDATA[ để CDATA_SPLIT_RULE bắt được, ở [tên có begin/end/case] để
+        // sqlNonBlock bắt được ([ ] thường vẫn gộp như cũ)
+        [new RegExp('(?:[^\\w$@#\\-\\/\'"\\[\\]]|\\[(?!' + SQL_WORD_IN_BRACKET_NAME.slice(2) + ')|\\](?!\\]>' + CDATA_SPLIT_LOOKAHEAD + '))+'), 'text'],
         [/./, 'text'],
       ],
       comment: [
+        CDATA_SPLIT_RULE,
         [/\*\//, { token: 'comment', next: '@pop' }],
-        [/[^*]+/, 'comment'],
+        [/[^*\]]+/, 'comment'],
         [/./, 'comment'],
       ],
+      sq: fcodeStringState("'", 'string'),
+      dq: fcodeStringState('"', 'string.double'),
     },
   };
   for (const [t, list] of Object.entries(words)) language['w_' + t] = list;
@@ -196,7 +267,8 @@ const entityStates = {
 
 function buildFcodeTokenizer(rootCdataLanguage = null, fcodeMode = false) {
   // Theme Fcode: mọi CDATA (SQL/JS/CSS) và giá trị entity giao cho tokenizer theo <KeywordStart> của theme.
-  const cdataLanguage = (language) => (fcodeMode ? FCODE_CDATA_LANGUAGE_ID : language);
+  // CDATA JavaScript có biến thể riêng (chú thích // và regex khác SQL — xem FCODE_CDATA_JS_LANGUAGE_ID).
+  const cdataLanguage = (language) => (fcodeMode ? (language === 'javascript' ? FCODE_CDATA_JS_LANGUAGE_ID : FCODE_CDATA_LANGUAGE_ID) : language);
   // Rules shared by the document root and by the inside of an embedding section: both
   // contain ordinary markup, and the section bodies really do hold child elements
   // (<text>), comments and entity references.
@@ -235,16 +307,20 @@ function buildFcodeTokenizer(rootCdataLanguage = null, fcodeMode = false) {
   // The flatten marker must be tried before the plain CDATA rule, or a JavaScript command
   // would be tokenized as SQL.
   const cdataInto = (language, state) => [
-    ...(fcodeMode ? [] : [[/(<!\[CDATA\[)(\s*\/\*\s*<flatten\s+type="Javascript"\s*>\s*\*\/)/,
-      [{ token: 'delimiter.cdata' },
-       { token: 'comment', next: '@cdataJs', nextEmbedded: 'javascript' }]]]),
+    // Theme Fcode: dấu <flatten> do chính tokenizer CDATA tô (chú thích /* */ như Fcode) — chỉ chọn biến thể JS cho khối này.
+    ...(fcodeMode
+      ? [[/<!\[CDATA\[(?=\s*\/\*\s*<flatten\s+type="Javascript")/, { token: 'delimiter.cdata', next: '@cdataJs', nextEmbedded: FCODE_CDATA_JS_LANGUAGE_ID }]]
+      : [[/(<!\[CDATA\[)(\s*\/\*\s*<flatten\s+type="Javascript"\s*>\s*\*\/)/,
+        [{ token: 'delimiter.cdata' },
+         { token: 'comment', next: '@cdataJs', nextEmbedded: 'javascript' }]]]),
     [/<!\[CDATA\[/, { token: 'delimiter.cdata', next: '@' + state, nextEmbedded: cdataLanguage(language) }],
   ];
 
   // Leaving an embedded block: @rematch hands ']]>' back to the enclosing state (which has
   // a rule to consume it) after both the state stack and the embedded tokenizer are popped.
+  // ]]>&Entity;<![CDATA[ trên cùng dòng thì KHÔNG rời: khối sau là phần tiếp của cùng đoạn code (xem CDATA_SPLIT_RULE).
   const embedded = [
-    [/\]\]>/, { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }],
+    [new RegExp('\\]\\]>(?!' + CDATA_SPLIT_LOOKAHEAD + ')'), { token: '@rematch', next: '@pop', nextEmbedded: '@pop' }],
     [/[^\]]+/, ''],
     [/\]/, ''],
   ];
@@ -350,6 +426,48 @@ async function preloadEmbeddedLanguages() {
   }));
 }
 
+/// Tokenizer sql/javascript/css của Monaco + CDATA_SPLIT_RULE ở đầu MỌI trạng thái (cả trong chuỗi / chú thích), để vùng nhúng đọc
+/// xuyên qua ]]>&Entity;<![CDATA[ mà vẫn giữ trạng thái (xem ghi chú ở CDATA_SPLIT_LOOKAHEAD). Chỉ thay tokenizer, giữ nguyên id ngôn ngữ
+/// và cấu hình (ngoặc, chú thích, tự đóng ' ...) nên các phần khác dựa vào 'sql'/'javascript' không đổi; file .sql/.js mở riêng không
+/// bao giờ có cụm đó nên tô y như cũ. Gọi sau preloadEmbeddedLanguages (tokenizer gốc đã nạp) để bản này đè lên bản gốc.
+async function patchEmbeddedTokenizers() {
+  await Promise.all(EMBEDDED_LANGUAGES.map(async (id) => {
+    try {
+      const mod = await loadBasicLanguageModule(id);
+      const base = mod && mod.language;
+      if (!base || !base.tokenizer) return;
+      const tokenizer = {};
+      for (const [state, rules] of Object.entries(base.tokenizer)) tokenizer[state] = [CDATA_SPLIT_RULE, ...rules];
+      if (id === 'sql') {
+        // begin/end không mở/đóng khối → token loại chuỗi, màu giữ theo phần đầu tên (keyword.sql / identifier.sql) — xem SQL_WORD_BRACKETS.
+        // Đặt TRƯỚC @scopes của Monaco (luật /END\b/ của nó bắt cả "End" trong End$x).
+        // Từ sau begin/end (dialog, conversation) lấy màu theo đúng luật từ của Monaco (keyword / identifier...) như trước.
+        const wordRule = base.tokenizer.root.find((r) => Array.isArray(r) && String(r[0]) === String(/[\w@#$]+/));
+        const word = (wordRule && wordRule[1]) || 'identifier';
+        tokenizer.root.splice(1, 0,
+          [/BEGIN\s+(?:DISTRIBUTED\s+)?TRAN(?:SACTION)?\b/, 'keyword.sql.string'],   // Monaco tô cả cụm là 1 token keyword
+          [/(BEGIN)(\s+)(DIALOG|CONVERSATION)\b/, ['keyword.block.sql.string', 'white', word]],
+          [/(END)(\s+)(CONVERSATION)\b/, ['keyword.block.sql.string', 'white', word]],
+          [new RegExp(SQL_WORD_IN_NAME), 'identifier.sql.string']);
+        if (tokenizer.bracketedIdentifier) tokenizer.bracketedIdentifier.splice(1, 0, [new RegExp(`[^\\]]*\\b${SQL_BLOCK_WORD}\\b[^\\]]*`), 'identifier.sql.string']);
+        if (tokenizer.quotedIdentifier) tokenizer.quotedIdentifier.splice(1, 0, [new RegExp(`[^"]*\\b${SQL_BLOCK_WORD}\\b[^"]*`), 'identifier.sql.string']);
+      }
+      monaco.languages.setMonarchTokensProvider(id, Object.assign({}, base, { tokenizer }));
+    } catch { /* giữ tokenizer gốc: chỉ mất phần đọc xuyên entity */ }
+  }));
+}
+
+/// Thêm begin ↔ end, case ↔ end vào ngoặc của 'sql' (file .sql và SQL nhúng trong CDATA / entity). Cấu hình gốc của Monaco chỉ đăng ký
+/// khi LẦN ĐẦU gặp ngôn ngữ (có thể sau lần gọi này) và cấu hình đăng ký sau thắng, nên hookSingleQuoteLanguages gọi lại sau khi gốc
+/// đăng ký. colorizedBracketPairs = ngoặc gốc: begin/end không bị tô màu theo cấp.
+let sqlWordBracketOverride = null;
+async function applySqlWordBrackets() {
+  const conf = await loadBasicLanguageConf('sql');
+  const base = (conf && conf.brackets) || [['{', '}'], ['[', ']'], ['(', ')']];
+  if (sqlWordBracketOverride) { try { sqlWordBracketOverride.dispose(); } catch { /* đã huỷ */ } }
+  sqlWordBracketOverride = monaco.languages.setLanguageConfiguration('sql', { brackets: [...base, ...SQL_WORD_BRACKETS], colorizedBracketPairs: base });
+}
+
 const FCODE_VARIANTS = [
   [FCODE_LANGUAGE_ID, 'FCode XML', null],
   [FCODE_JS_LANGUAGE_ID, 'FCode XML (JS include)', 'javascript'],
@@ -369,6 +487,7 @@ function applyFcodeTokenizers() {
   try {
     if (fcodeMode) {
       monaco.languages.setMonarchTokensProvider(FCODE_CDATA_LANGUAGE_ID, buildFcodeLexerTokenizer(fcodeLexer, '.fcdata'));
+      monaco.languages.setMonarchTokensProvider(FCODE_CDATA_JS_LANGUAGE_ID, buildFcodeLexerTokenizer(fcodeLexer, '.fcdata', true));
       monaco.languages.setMonarchTokensProvider(FCODE_ENTITY_LANGUAGE_ID, buildFcodeLexerTokenizer(fcodeLexer, '.fcent'));
     }
     for (const [id, , rootLanguage] of FCODE_VARIANTS) {
@@ -398,11 +517,14 @@ async function registerFcodeLanguage() {
 
   try {
     await preloadEmbeddedLanguages();
+    await patchEmbeddedTokenizers();
+    try { await applySqlWordBrackets(); } catch { /* chỉ mất ghép cặp begin/end */ }
     for (const [id, alias] of FCODE_VARIANTS) {
       monaco.languages.register({ id, aliases: [alias] });
       monaco.languages.setLanguageConfiguration(id, FCODE_LANGUAGE_CONF);
     }
     monaco.languages.register({ id: FCODE_CDATA_LANGUAGE_ID, aliases: ['FCode CDATA'] });
+    monaco.languages.register({ id: FCODE_CDATA_JS_LANGUAGE_ID, aliases: ['FCode CDATA (JS)'] });
     monaco.languages.register({ id: FCODE_ENTITY_LANGUAGE_ID, aliases: ['FCode entity'] });
     // Theme nhập từ Fcode: CDATA và giá trị <!ENTITY> do HAI ngôn ngữ này lo (không phải sql/javascript nhúng) — nên chính chúng phải khai báo
     // các cặp ngoặc, nếu không ( ) [ ] { } trong đó không được ghép cặp / tô màu theo cấp / highlight ngoặc tương ứng.
@@ -413,7 +535,9 @@ async function registerFcodeLanguage() {
       autoClosingPairs: [{ open: '(', close: ')' }, { open: '[', close: ']' }, { open: '{', close: '}' }],
       surroundingPairs: [{ open: '(', close: ')' }, { open: '[', close: ']' }, { open: '{', close: '}' }, { open: "'", close: "'" }, { open: '"', close: '"' }],
     };
-    monaco.languages.setLanguageConfiguration(FCODE_CDATA_LANGUAGE_ID, embeddedCodeConf);
+    // CDATA SQL theo theme Fcode cũng ghép begin/end, case/end (giá trị entity và CDATA JS thì không: có thể là JS, mà JS có case:).
+    monaco.languages.setLanguageConfiguration(FCODE_CDATA_LANGUAGE_ID, Object.assign({}, embeddedCodeConf, { brackets: [...embeddedCodeConf.brackets, ...SQL_WORD_BRACKETS] }));
+    monaco.languages.setLanguageConfiguration(FCODE_CDATA_JS_LANGUAGE_ID, Object.assign({}, embeddedCodeConf, { comments: { lineComment: '//', blockComment: ['/*', '*/'] } }));
     monaco.languages.setLanguageConfiguration(FCODE_ENTITY_LANGUAGE_ID, embeddedCodeConf);
     fcodeLanguagesRegistered = true;
     try { hookSingleQuoteLanguages(); } catch { /* chỉ mất tuỳ chọn tắt tự đóng ' của sql/js/css/xml/html */ }
@@ -460,10 +584,14 @@ let singleQuoteAutoCloseOn = false;   // theo ViewerSettings.AutoCloseSingleQuot
 
 const isSingleQuotePair = (p) => (Array.isArray(p) ? p[0] : p && p.open) === "'";
 
-function loadBasicLanguageConf(id) {
+function loadBasicLanguageModule(id) {
   return new Promise((resolve) => {
-    try { window.require([`vs/basic-languages/${id}/${id}`], (m) => resolve(m && m.conf), () => resolve(null)); } catch { resolve(null); }
+    try { window.require([`vs/basic-languages/${id}/${id}`], (m) => resolve(m || null), () => resolve(null)); } catch { resolve(null); }
   });
+}
+
+function loadBasicLanguageConf(id) {
+  return loadBasicLanguageModule(id).then((m) => m && m.conf);
 }
 
 /// Huỷ hết cấu hình đè rồi (nếu đang tắt tự đóng ') đăng ký lại — luôn đứng SAU mọi cấu hình gốc đã có.
@@ -489,6 +617,7 @@ function hookSingleQuoteLanguages() {
       await new Promise((r) => setTimeout(r, 0));
       basicQuoteConfs.set(id, conf);
       rebuildSingleQuoteOverrides();
+      if (id === 'sql') { try { await applySqlWordBrackets(); } catch { /* chỉ mất ghép cặp begin/end */ } }
     });
   }
 }

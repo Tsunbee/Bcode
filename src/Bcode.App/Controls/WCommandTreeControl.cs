@@ -24,7 +24,6 @@ public class WCommandTreeControl : UserControl
     // — same chrome-vs-content split used throughout: this bar is static/low-data, the tree
     // below (~1600 wcommand rows, lazily materialized — see BeforeExpand) stays 100% native.
     private readonly Microsoft.Web.WebView2.WinForms.WebView2 _barWeb = new();
-    private string _filterText = "";
     private readonly WCommandService _service;
     private readonly FileLookupService _fileLookupService;
     private readonly Func<Workspace?> _getCurrentWorkspace;
@@ -262,9 +261,10 @@ public class WCommandTreeControl : UserControl
                     var root = doc.RootElement;
                     if (root.GetProperty("action").GetString() == "reload")
                     {
-                        _filterText = root.GetProperty("filter").GetString() ?? "";
-                        _customOnly = root.TryGetProperty("custom", out var cu) && cu.ValueKind == System.Text.Json.JsonValueKind.True;
-                        await ReloadAsync();
+                        var text = root.GetProperty("filter").GetString() ?? "";
+                        var custom = root.TryGetProperty("custom", out var cu) && cu.ValueKind == System.Text.Json.JsonValueKind.True;
+                        var refresh = root.TryGetProperty("src", out var src) && src.GetString() == "refresh";
+                        await SetViewAsync(text, custom, refresh);
                     }
                 };
 
@@ -299,9 +299,9 @@ public class WCommandTreeControl : UserControl
         var custom = NK.Check("(C)");
         custom.Dock = DockStyle.Right; custom.AutoSize = true; custom.Padding = new Padding(4, 0, 0, 0);
         NK.Tip(custom, "Chỉ hiện menu customize (tên có (C) hoặc (*))");
-        async void Go() { _filterText = _nativeFilter.Text; _customOnly = custom.Checked; await ReloadAsync(); }
+        async void Go(bool refreshClick = false) => await SetViewAsync(_nativeFilter.Text, custom.Checked, refreshClick);
         custom.CheckedChanged += (_, _) => Go();
-        refresh.Click += (_, _) => Go();
+        refresh.Click += (_, _) => Go(true);
         _nativeFilter.InputKeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.Handled = e.SuppressKeyPress = true; Go(); } };
         panel.Controls.Add(_nativeFilter);
         panel.Controls.Add(custom);
@@ -314,16 +314,62 @@ public class WCommandTreeControl : UserControl
     // chồng nhau; lần cũ về sau trước đây vẫn thêm node vào cây → menu bị nhân đôi / lẫn menu WS cũ.
     private int _reloadVersion;
 
+    // ---- Chế độ xem của thanh lọc: chữ tìm + ô (C). Lọc làm trên cây đã nạp (_rootsAll), không đọc lại database ----
+    // Trước đây mỗi lần đổi (C) / chữ tìm đều nạp lại cả cây rồi chụp trạng thái của cây ĐANG LỌC (bung hết) làm trạng thái
+    // của cây đầy đủ → bỏ tick (C) / xoá chữ tìm là cây đầy đủ bung hết các nhánh đã hiện lúc lọc. Giờ nhớ riêng trạng thái
+    // cây đầy đủ lúc RỜI nó (_plainState) và trả lại đúng như thế khi quay về; cây (C) không chữ tìm cũng được nhớ khi
+    // chuyển sang tìm chữ trong (C) (_customState) để xoá chữ tìm là về lại đúng cây (C) trước đó.
+    private string? _viewText;      // chữ tìm đã chuẩn hoá (Trim), null = không lọc chữ
+    private bool _customOnly;       // ô "(C)": chỉ menu customize (tên có (C) / (*)) kèm menu cha
+    private TreeState? _plainState, _customState;
+    private string? _emptyNote;     // cây Mobile: bảng menu không có / rỗng → 1 dòng ghi chú xám
+
+    private sealed class TreeState
+    {
+        public readonly HashSet<string> Expanded = new(StringComparer.Ordinal);
+        public string? Selected, Top;
+    }
+
+    private bool IsPlainView => _viewText is null && !_customOnly;
+    private bool HasData => _rootsAll.Count > 0 && ReferenceEquals(_getCurrentWorkspace(), _stateWorkspace);
+
+    /// <summary>Thanh lọc đổi chữ tìm / ô (C) / bấm Refresh. Không đổi gì (Enter lại cùng chữ, Refresh) = nạp lại như trước;
+    /// đổi chế độ = lọc tại chỗ trên cây đã nạp, nhớ trạng thái chế độ cũ. <paramref name="refresh"/> (nút Refresh) thì lọc xong vẫn nạp lại.</summary>
+    private async Task SetViewAsync(string? text, bool custom, bool refresh)
+    {
+        var t = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+        if (t == _viewText && custom == _customOnly) { await ReloadAsync(); return; }
+
+        if (HasData && _tree.Nodes.Count > 0)
+        {
+            if (IsPlainView) _plainState = CaptureState();
+            else if (_viewText is null && _customOnly) _customState = (custom && t is not null) ? CaptureState() : null;
+        }
+        if (!custom) _customState = null;
+        _viewText = t; _customOnly = custom;
+
+        if (HasData) RenderView(StoredState());
+        else _tree.Nodes.Clear();
+        if (refresh || !HasData) await ReloadAsync();
+    }
+
+    /// <summary>Trạng thái đã nhớ của chế độ đang xem: cây đầy đủ → lúc rời nó; cây (C) → lúc chuyển sang tìm chữ trong (C); tìm chữ → không (bung hết).</summary>
+    private TreeState? StoredState() => IsPlainView ? _plainState : (_viewText is null ? _customState : null);
+
     public async Task ReloadAsync(bool force = false)
     {
         var version = ++_reloadVersion;
-        var filter = string.IsNullOrWhiteSpace(_filterText) ? null : _filterText.Trim();
         // Nhớ các nhánh đang bung / menu đang chọn / dòng đầu đang xem để dựng lại y như cũ (trước đây mỗi lần quay lại mục Menu là cây gập hết).
         // Đổi workspace thì bỏ (cây của dự án khác).
+        TreeState? keep;
         var wsNow = _getCurrentWorkspace();
-        if (!ReferenceEquals(wsNow, _stateWorkspace)) { _expanded.Clear(); _selectedKey = _topKey = null; _stateWorkspace = wsNow; }
-        else if (_tree.Nodes.Count > 0 && _stateFilter == filter) CaptureTreeState();
-        _stateFilter = filter;
+        if (!ReferenceEquals(wsNow, _stateWorkspace))
+        {
+            _plainState = _customState = null; keep = null;
+            _rootsAll = new();
+            _stateWorkspace = wsNow;
+        }
+        else keep = _tree.Nodes.Count > 0 ? CaptureState() : StoredState();
         _tree.Nodes.Clear();
 
         if (_menuTable is not null)
@@ -338,22 +384,19 @@ public class WCommandTreeControl : UserControl
                 return;
             }
             if (version != _reloadVersion) return;
-            var tableRoots = WCommandService.BuildTree(flat, filter, inferParent: false);
-            if (filter is null) _rootsAll = tableRoots;
-            if (flat.Count == 0) _tree.Nodes.Add(new TreeNode($"(Không có bảng {_menuTable.Spec.Table} ở Sys Data của workspace này, hoặc bảng rỗng)") { ForeColor = Color.Gray });
-            RenderRoots(Shown(tableRoots), ExpandKey(filter));
+            _rootsAll = WCommandService.BuildTree(flat, null, inferParent: false);
+            _emptyNote = flat.Count == 0 ? $"(Không có bảng {_menuTable.Spec.Table} ở Sys Data của workspace này, hoặc bảng rỗng)" : null;
+            RenderView(keep);
             return;
         }
 
-        // Có bản lưu trên máy (và đang không lọc): hiện cây NGAY từ đó, rồi hỏi database ngầm — giống nhau thì giữ nguyên, khác (hoặc database không với tới được) thì xử lý bên dưới.
-        var cachedFlat = filter is null ? _service.LoadCachedFlat() : null;
+        // Có bản lưu trên máy: hiện cây NGAY từ đó, rồi hỏi database ngầm — giống nhau thì giữ nguyên, khác (hoặc database không với tới được) thì xử lý bên dưới.
+        var cachedFlat = _service.LoadCachedFlat();
         var cacheSignature = cachedFlat is { Count: > 0 } ? WCommandService.SignatureOf(cachedFlat) : null;
         if (cacheSignature is not null)
         {
-            var cachedRoots = _service.TreeFromFlat(cachedFlat!);
-            _rootsAll = cachedRoots;
-            RenderRoots(Shown(cachedRoots), ExpandKey(null));
-            RestoreTreeState();
+            _rootsAll = _service.TreeFromFlat(cachedFlat!);
+            RenderView(keep);
         }
 
         // Bản lưu còn đúng (chữ ký nhẹ do database tính trùng) → giữ cây đang hiện, khỏi tải cả bảng wcommand.
@@ -363,7 +406,7 @@ public class WCommandTreeControl : UserControl
         List<WCommandItem> roots;
         try
         {
-            roots = await _service.LoadTreeAsync(filter);
+            roots = await _service.LoadTreeAsync();
         }
         catch (Exception ex)
         {
@@ -376,84 +419,76 @@ public class WCommandTreeControl : UserControl
         }
         if (version != _reloadVersion) return;
         if (cacheSignature is not null && _service.LastSignature == cacheSignature) return;   // database giống bản lưu — cây đang hiện đã đúng
-        if (cacheSignature is not null) { CaptureTreeState(); _tree.Nodes.Clear(); }           // khác: dựng lại theo bản mới (giữ nhánh đang bung)
-        if (filter is null) _rootsAll = roots;   // bản đầy đủ (không lọc) — Command Palette tìm menu trong đây
-        RenderRoots(Shown(roots), ExpandKey(filter));
-        if (filter is null) RestoreTreeState();
+        if (cacheSignature is not null) keep = CaptureState();                                  // khác: dựng lại theo bản mới (giữ nhánh đang bung)
+        _rootsAll = roots;   // bản đầy đủ (không lọc) — Command Palette tìm menu trong đây; lọc chữ / (C) làm trên bản sao
+        RenderView(keep);
     }
 
-    private readonly HashSet<string> _expanded = new(StringComparer.Ordinal);
-    private string? _selectedKey, _topKey, _stateFilter;
     private Workspace? _stateWorkspace;
 
     private static string NodeKey(TreeNode n) => n.Tag is WCommandItem w ? w.WMenuId + "\u0001" + w.Bar : n.Text;
 
-    private void CaptureTreeState()
+    private TreeState CaptureState()
     {
-        if (_tree.Nodes.Count == 0) return;
-        _expanded.Clear();
+        var s = new TreeState();
         void Walk(TreeNodeCollection nodes)
         {
             foreach (TreeNode n in nodes)
             {
                 if (!n.IsExpanded) continue;
-                _expanded.Add(NodeKey(n));
+                s.Expanded.Add(NodeKey(n));
                 Walk(n.Nodes);
             }
         }
         Walk(_tree.Nodes);
-        _selectedKey = _tree.SelectedNode is { } sel ? NodeKey(sel) : null;
-        _topKey = _tree.TopNode is { } top ? NodeKey(top) : null;
+        s.Selected = _tree.SelectedNode is { } sel ? NodeKey(sel) : null;
+        s.Top = _tree.TopNode is { } top ? NodeKey(top) : null;
+        return s;
     }
 
-    private void RestoreTreeState()
+    /// <summary>Bung lại các nhánh / chọn lại menu đã nhớ; trả node dòng đầu cần cuộn tới (đặt TopNode sau EndUpdate). Gọi trong BeginUpdate.</summary>
+    private TreeNode? ApplyState(TreeState s)
     {
-        if (_expanded.Count == 0 && _selectedKey is null) return;
         TreeNode? selected = null, top = null;
-        _tree.BeginUpdate();
-        try
+        void Walk(TreeNodeCollection nodes)
         {
-            void Walk(TreeNodeCollection nodes)
+            foreach (TreeNode n in nodes)
             {
-                foreach (TreeNode n in nodes)
-                {
-                    var key = NodeKey(n);
-                    if (key == _selectedKey) selected = n;
-                    if (key == _topKey) top = n;
-                    if (!_expanded.Contains(key)) continue;
-                    n.Expand();          // tạo node con thật (BeforeExpand) rồi đi tiếp xuống
-                    Walk(n.Nodes);
-                }
+                var key = NodeKey(n);
+                if (key == s.Selected) selected = n;
+                if (key == s.Top) top = n;
+                if (!s.Expanded.Contains(key)) continue;
+                n.Expand();          // tạo node con thật (BeforeExpand) rồi đi tiếp xuống
+                Walk(n.Nodes);
             }
-            Walk(_tree.Nodes);
-            if (selected is not null) _tree.SelectedNode = selected;
         }
-        finally { _tree.EndUpdate(); }
-        if (top is not null) { try { _tree.TopNode = top; } catch { /* node chưa hiện */ } }
+        Walk(_tree.Nodes);
+        if (selected is not null) _tree.SelectedNode = selected;
+        return top;
     }
 
-    // Nút "(C)" của thanh lọc: chỉ hiện menu customize (tên có (C) / (*)) kèm menu cha — lọc trên bản sao, cây đầy đủ (_rootsAll) giữ nguyên.
-    private bool _customOnly;
-    private List<WCommandItem> Shown(List<WCommandItem> roots) => _customOnly ? WCommandService.FilterCustom(roots) : roots;
-    private string? ExpandKey(string? filter) => filter ?? (_customOnly ? "(C)" : null);   // đang lọc (C) thì bung hết như khi lọc chữ
-
-    private void RenderRoots(List<WCommandItem> roots, string? filter)
+    /// <summary>Dựng lại cây theo chế độ đang xem (chữ tìm + (C)) từ <see cref="_rootsAll"/>. Có <paramref name="restore"/> thì trả đúng các nhánh
+    /// bung / menu chọn / vị trí cuộn đó; không có thì cây đầy đủ gập hết (cấp con nạp lười), cây đang lọc bung hết cho thấy ngay menu khớp.</summary>
+    private void RenderView(TreeState? restore)
     {
+        var shown = _rootsAll;
+        if (_viewText is not null) shown = WCommandService.FilterText(shown, _viewText);
+        if (_customOnly) shown = WCommandService.FilterCustom(shown);
 
+        TreeNode? top = null;
         _tree.BeginUpdate();
         try
         {
-            foreach (var root in roots)
+            _tree.Nodes.Clear();
+            if (_rootsAll.Count == 0 && _emptyNote is not null) _tree.Nodes.Add(new TreeNode(_emptyNote) { ForeColor = Color.Gray });
+            foreach (var root in shown)
                 _tree.Nodes.Add(ToTreeNode(root));
 
-            // Không có filter (đang xem toàn bộ ~1600 dòng wcommand): giữ nguyên hành vi cũ
-            // — chỉ hiện node cha, gấp lại với placeholder "...", cấp con nạp lười khi người
-            // dùng tự bấm mở (xem BeforeExpand) để khỏi treo UI.
-            //
-            // CÓ filter (đang xem kết quả tìm theo tên/ID — tập đã được WCommandService.
-            // FilterTree lọc gọn sẵn, chỉ còn đúng các nhánh khớp): bung hết luôn cho thấy
-            // ngay menu con khớp nằm ở đâu, khỏi phải tự tay bung từng cấp.
-            if (filter is not null)
+            // Không lọc (đang xem toàn bộ ~1600 dòng wcommand): chỉ hiện node cha, gấp lại với placeholder "...",
+            // cấp con nạp lười khi người dùng tự bấm mở (xem BeforeExpand) để khỏi treo UI.
+            // CÓ lọc (tập đã gọn, chỉ còn đúng các nhánh khớp): bung hết luôn cho thấy ngay menu con khớp nằm ở đâu.
+            if (restore is not null) top = ApplyState(restore);
+            else if (!IsPlainView)
             {
                 foreach (TreeNode root in _tree.Nodes)
                     ExpandRecursive(root);
@@ -464,6 +499,7 @@ public class WCommandTreeControl : UserControl
         {
             _tree.EndUpdate();
         }
+        if (top is not null) { try { _tree.TopNode = top; } catch { /* node chưa hiện */ } }
     }
 
     /// <summary>Bung một node và toàn bộ cây con của nó. Expand() kích hoạt BeforeExpand
@@ -499,8 +535,8 @@ public class WCommandTreeControl : UserControl
     /// <summary>Mở các nhánh cha và chọn đúng menu <paramref name="target"/> trong cây (dùng cho Command Palette). Đang lọc thì bỏ lọc, nạp lại cây đầy đủ.</summary>
     public async Task RevealAsync(WCommandItem target)
     {
-        _filterText = ""; if (_nativeFilter is not null) _nativeFilter.Text = "";
-        await ReloadAsync();
+        if (_nativeFilter is not null) _nativeFilter.Text = "";
+        await SetViewAsync("", _customOnly, refresh: false);
         var path = new List<WCommandItem>();
         bool Find(IEnumerable<WCommandItem> level)
         {

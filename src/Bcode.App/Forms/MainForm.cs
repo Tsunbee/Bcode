@@ -3931,6 +3931,14 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return;
         }
 
+        // Đang mở tab Gen Update: nạp file của menu mobile vào khung Source File (như cây WCommand ở OpenWCommandItem), không nhảy sang File Lookup.
+        if (!newTab && _genUpdatePackageTabPage is not null && _documentTabs.SelectedTab == _genUpdatePackageTabPage
+            && _genUpdatePackageControl is not null)
+        {
+            _genUpdatePackageControl.LoadForMobileItem(item, root);
+            return;
+        }
+
         FileLookupControl control;
         if (!newTab && _mobileLookup is { IsDisposed: false } open && open.Parent is TabPage page && _documentTabs.TabPages.Contains(page))
         {

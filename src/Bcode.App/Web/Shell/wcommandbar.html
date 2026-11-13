@@ -26,9 +26,9 @@
 <script>
   function post(obj) { window.chrome.webview.postMessage(JSON.stringify(obj)); }
 
-  function reload() { post({ action: 'reload', filter: document.getElementById('filterInput').value, custom: document.getElementById('customOnly').checked }); }
+  function reload(src) { post({ action: 'reload', src: typeof src === 'string' ? src : '', filter: document.getElementById('filterInput').value, custom: document.getElementById('customOnly').checked }); }
 
-  document.getElementById('btnRefresh').addEventListener('click', reload);
+  document.getElementById('btnRefresh').addEventListener('click', function () { reload('refresh'); });
   document.getElementById('customOnly').addEventListener('change', reload);
   document.getElementById('filterInput').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') reload();

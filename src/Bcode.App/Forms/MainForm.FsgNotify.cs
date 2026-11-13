@@ -17,7 +17,7 @@ public partial class MainForm
     private void InitFsgNotify()
     {
         if (_fsgNotify is not null) return;
-        _fsgNotify = new FsgNotifyService(() => _settings.NoteProgrammer ?? "", () => LicenseService.IsUnlocked);
+        _fsgNotify = new FsgNotifyService(FsgProgrammer, () => LicenseService.IsUnlocked);
         _fsgNotify.Changed += () => UiPost(PushNotifyCount);
         _fsgNotify.NewItems += items => UiPost(() => ShowFsgToast(items));
         _fsgNotify.Start();
@@ -45,7 +45,7 @@ public partial class MainForm
     {
         InitFsgNotify();
         if (_fsgNotifyForm is { IsDisposed: false } open) { open.Close(); return; }
-        var f = new FsgNotifyForm(_fsgNotify!, () => _settings.NoteProgrammer ?? "", SetNoteProgrammer);
+        var f = new FsgNotifyForm(_fsgNotify!, FsgProgrammer, SetNoteProgrammer);
         f.OpenRequested += OpenFsgRequirementFromNotify;
         f.FormClosed += (_, _) => { if (_fsgNotifyForm == f) _fsgNotifyForm = null; };
         var top = PointToScreen(new Point(0, _headerContainer?.Bottom ?? 0));
@@ -56,6 +56,13 @@ public partial class MainForm
         f.Location = new Point(Math.Max(work.Left, Math.Min(right - f.Width - 12, work.Right - f.Width)), Math.Max(work.Top, Math.Min(top.Y + 4, work.Bottom - f.Height)));
         _fsgNotifyForm = f;
         f.Show(this);
+    }
+
+    /// <summary>Tên lập trình đang theo dõi — luôn theo settings.json mới nhất (cửa sổ Bcode khác có thể vừa đổi ô "Lập trình"; kéo ngầm có thể chạy ở cửa sổ này).</summary>
+    private string FsgProgrammer()
+    {
+        _settings.SyncNoteProgrammerFromDisk();
+        return _settings.NoteProgrammer ?? "";
     }
 
     private void SetNoteProgrammer(string programmer)
@@ -74,7 +81,7 @@ public partial class MainForm
         if (_fsgReqTab is not null && FindDescendant<FsgRequirementReportControl>(_fsgReqTab) is { } fsg) fsg.ShowRequirement(maDa, fcode1);
     }
 
-    private static readonly Dictionary<string, string> FsgKindText = new() { ["note"] = "Ghi chú mới", ["status"] = "Đổi trạng thái", ["new"] = "Y/c mới giao", ["due"] = "Đổi hạn HT", ["error"] = "Lỗi" };
+    private static readonly Dictionary<string, string> FsgKindText = new() { ["note"] = "Ghi chú mới", ["status"] = "Đổi trạng thái", ["new"] = "Y/c mới giao", ["due"] = "Đổi hạn HT", ["error"] = "Lỗi", ["moved"] = "Đã chuyển" };
 
     /// <summary>Toast Windows (balloon của NotifyIcon — Windows 10/11 hiện thành thông báo) khi Bcode không ở trước; bấm = mở khung Thông báo.</summary>
     private void ShowFsgToast(IReadOnlyList<FsgNotifyService.Item> items)

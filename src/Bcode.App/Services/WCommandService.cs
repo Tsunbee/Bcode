@@ -276,13 +276,37 @@ public class WCommandService
             if (IsCustom(node)) { result.Add(node); continue; }
             var kids = FilterCustom(node.Children);
             if (kids.Count == 0) continue;
-            var copy = new WCommandItem();
-            foreach (var p in typeof(WCommandItem).GetProperties())
-                if (p.CanWrite) p.SetValue(copy, p.GetValue(node));
+            var copy = CopyNode(node);
             copy.Children.AddRange(kids);
             result.Add(copy);
         }
         return result;
+    }
+
+    /// <summary>Lọc cây theo chữ như <see cref="FilterTree"/> nhưng KHÔNG sửa cây gốc (node giữ lại được chép ra node mới) — cây đã nạp
+    /// (WCommandTreeControl.RootsAll) lọc tại chỗ mỗi lần gõ, không đọc lại database.</summary>
+    public static List<WCommandItem> FilterText(IEnumerable<WCommandItem> nodes, string filter)
+    {
+        var result = new List<WCommandItem>();
+        foreach (var node in nodes)
+        {
+            var kids = FilterText(node.Children, filter);
+            if (kids.Count == 0 && !Matches(node, filter)) continue;
+            var copy = CopyNode(node);
+            copy.Children.AddRange(kids);
+            result.Add(copy);
+        }
+        return result;
+    }
+
+    private static readonly System.Reflection.PropertyInfo[] CopyProps = typeof(WCommandItem).GetProperties().Where(p => p.CanWrite && p.CanRead).ToArray();
+
+    /// <summary>Bản sao nông của 1 menu, chưa có menu con (Children chỉ-đọc nên không chép).</summary>
+    private static WCommandItem CopyNode(WCommandItem node)
+    {
+        var copy = new WCommandItem();
+        foreach (var p in CopyProps) p.SetValue(copy, p.GetValue(node));
+        return copy;
     }
 
     /// <summary>So theo chữ đã chuẩn hoá (<see cref="SearchText"/>): gõ "ngân hàng" bằng bộ gõ Unicode tổ hợp (NFD) hay thừa dấu cách vẫn khớp

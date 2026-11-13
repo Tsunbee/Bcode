@@ -56,11 +56,19 @@
   td.no { text-align: right; color: var(--text-muted); font-size: .8rem; font-variant-numeric: tabular-nums; border-right: 1px solid var(--border); }
   td.nm { font-size: .92rem; }
   td.t { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: .88rem; }
-  td.t.new { color: var(--text); font-weight: 700; }
+  /* giờ sửa 2 bên lệch nhau: bên mới hơn (bên đã đổi) đỏ đậm, bên gốc màu chữ chính (trắng ở nền tối) — dễ thấy hơn xám mờ */
+  td.t.new { color: #e05a52; font-weight: 700; }
+  td.t.old { color: var(--text); }
+  tbody tr.sel td.t.new { color: #fff; background: #c0392b; }   /* dòng đang chọn (nền cam): chữ đỏ khó đọc → ô nền đỏ chữ trắng */
   td.num { font-variant-numeric: tabular-nums; }
   td.num.hi, td.ver.hi { color: var(--accent); font-weight: 600; }
   td.ver { font-family: Consolas, 'Cascadia Mono', monospace; font-size: .82rem; color: var(--text-muted); }
   td.sub { color: var(--text-muted); font-size: .84rem; }
+  /* chữ Thư mục con = link: bấm mở thư mục đó trong Explorer */
+  td.sub .lnk { cursor: pointer; color: #5aa9e6; }   /* xanh kiểu link — xám mờ cũ nhìn chìm */
+  [data-theme="light"] td.sub .lnk { color: #1f6fb2; }
+  tbody tr.sel td.sub .lnk { color: #fff; }
+  td.sub .lnk:hover { color: var(--accent); text-decoration: underline; }
   td.miss { color: #e05a52; }
   td.arw { text-align: center; font-size: 1.05rem; line-height: 1; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
   td.arw.onlyA, td.arw.onlyB { color: #e8892a; }
@@ -90,6 +98,8 @@
   #menu div { padding: .35rem 1rem; cursor: pointer; white-space: nowrap; }
   #menu div:hover { background: var(--selection); }
   #menu div.off { opacity: .45; pointer-events: none; }
+  #menu div { display: flex; gap: 1.2rem; }
+  #menu div .k { margin-left: auto; color: var(--text-muted); font-size: .85em; }   /* phím tắt / lý do mục bị tắt */
   #menu hr { border: 0; border-top: 1px solid var(--border); margin: .25rem 0; }
 </style>
 </head>
@@ -202,21 +212,21 @@
       const both = e.status === 'diff' || e.status === 'same';
       const sizeHi = both && e.sizeA !== e.sizeB, verHi = both && e.verA && e.verB && e.verA !== e.verB;
       const newer = both && e.timeA !== e.timeB ? (e.timeA > e.timeB ? 'a' : 'b') : '';
-      const side = (has, time, size, ver, isNew) => has
+      const side = (has, time, size, ver, isNew, s) => has
         ? '<td class="nm" title="' + esc(e.rel) + '">' + file + '</td>'
-          + '<td class="t' + (isNew ? ' new' : '') + '">' + fmtT(time) + '</td>'
+          + '<td class="t' + (isNew ? ' new' : newer ? ' old' : '') + '">' + fmtT(time) + '</td>'
           + '<td class="num' + (sizeHi ? ' hi' : '') + '" title="' + (size ?? '') + ' byte">' + fmtB(size) + '</td>'
           + '<td class="ver' + (verHi ? ' hi' : '') + '">' + esc(ver || '') + '</td>'
-          + '<td class="sub" title="' + sub + '">' + sub + '</td>'
+          + '<td class="sub">' + (sub ? '<span class="lnk" data-side="' + s + '" title="Bấm để mở thư mục ' + s.toUpperCase() + ': ' + sub + '">' + sub + '</span>' : '') + '</td>'
         : '<td class="nm miss">Missing</td><td></td><td></td><td></td><td></td>';
       const tip = LABEL[e.status] + (e.reason ? ' — ' + e.reason : '') + (e.text ? ' · nháy đúp: so nội dung' : '');
       const ck = canCopy(e)
         ? '<td class="ck"><input type="checkbox" class="pk"' + (picked.has(e.rel) ? ' checked' : '') + ' title="Tick để chép file này từ A sang B" /></td>'
         : '<td class="ck"></td>';
       rows.push('<tr data-i="' + i + '"' + (i === sel ? ' class="sel"' : '') + '><td class="no">' + (i + 1) + '</td>' + ck
-        + side(e.status !== 'onlyB', e.timeA, e.sizeA, e.verA, newer === 'a')
+        + side(e.status !== 'onlyB', e.timeA, e.sizeA, e.verA, newer === 'a', 'a')
         + '<td class="arw ' + e.status + '" title="' + esc(tip) + '">' + ARROW[e.status] + '</td>'
-        + side(e.status !== 'onlyA', e.timeB, e.sizeB, e.verB, newer === 'b') + '</tr>');
+        + side(e.status !== 'onlyA', e.timeB, e.sizeB, e.verB, newer === 'b', 'b') + '</tr>');
     });
     const cols = (n) => '<th>Tên ' + n + '</th><th>Sửa lúc ' + n + '</th><th>Cỡ ' + n + '</th><th>Version ' + n + '</th><th>Thư mục con ' + n + '</th>';
     main.innerHTML = '<table><colgroup><col style="width:3%"><col style="width:2.4%">'
@@ -262,14 +272,20 @@
   }
 
   // ---------------------------------------------------------------- menu chuột phải
+  // Compare Text: cần file ở CẢ 2 bên. Khác nhau → chỉ file chữ (≤ 20 MB, dịch vụ đã xét); Giống nhau → C# xét lại khi bấm (lúc so không đọc nội dung).
+  // Dòng chỉ có ở 1 bên: tắt (không so với nội dung rỗng), ghi lý do ngay trên mục.
+  const textWhy = (e) => e.status === 'onlyA' ? 'B không có file' : e.status === 'onlyB' ? 'A không có file'
+    : e.status === 'diff' && !e.text ? 'không phải file chữ' : '';
   function showMenu(x, y, e) {
     const m = $('menu');
+    const hasA = e.status !== 'onlyB', hasB = e.status !== 'onlyA';
+    // mục của bên thiếu file bị tắt (đúng như trước) — ghi lý do ngay trên mục cho khỏi tưởng chuột phải không ăn
     const items = [
-      ['So sánh nội dung (Compare Text)', () => post('diff', { rel: e.rel }), e.status === 'diff' && e.text],
-      [picked.has(e.rel) ? 'Bỏ tick' : 'Tick để chép A → B', () => { toggle(e); render(); }, canCopy(e)],
+      ['So sánh nội dung (Compare Text)', () => post('diff', { rel: e.rel }), !textWhy(e), textWhy(e) || (e.status === 'diff' ? 'Enter' : '')],
+      [picked.has(e.rel) ? 'Bỏ tick' : 'Tick để chép A → B', () => { toggle(e); render(); }, canCopy(e), 'Space'],
       null,
-      ['Mở thư mục chứa file (A)', () => post('reveal', { rel: e.rel, side: 'a' }), e.status !== 'onlyB'],
-      ['Mở thư mục chứa file (B)', () => post('reveal', { rel: e.rel, side: 'b' }), e.status !== 'onlyA'],
+      ['Mở thư mục chứa file (A)', () => post('reveal', { rel: e.rel, side: 'a' }), hasA, hasA ? '' : 'A không có file'],
+      ['Mở thư mục chứa file (B)', () => post('reveal', { rel: e.rel, side: 'b' }), hasB, hasB ? '' : 'B không có file'],
       null,
       ['Chép đường dẫn tương đối', () => post('copy', { text: e.rel }), true],
       ['Chép đường dẫn đầy đủ (A)', () => post('copy', { text: data.a + '\\' + e.rel }), e.status !== 'onlyB'],
@@ -279,7 +295,9 @@
     m.innerHTML = '';
     items.forEach((it) => {
       if (!it) { m.appendChild(document.createElement('hr')); return; }
-      const d = document.createElement('div'); d.textContent = it[0];
+      const d = document.createElement('div');
+      const t = document.createElement('span'); t.textContent = it[0]; d.appendChild(t);
+      if (it[3]) { const k = document.createElement('span'); k.className = 'k'; k.textContent = it[3]; d.appendChild(k); }
       if (!it[2]) d.className = 'off';
       d.onclick = () => { hideMenu(); it[1](); };
       m.appendChild(d);
@@ -338,8 +356,10 @@
     const i = rowOf(ev); if (i < 0) return;
     if (ev.target.classList.contains('pk')) { toggle(view[i], ev.target.checked); updatePicked(); return; }
     select(i);
+    const lnk = ev.target.closest('.lnk');   // chữ Thư mục con A / B → mở thư mục đó
+    if (lnk) post('openDir', { rel: view[i].rel, side: lnk.dataset.side });
   });
-  main.addEventListener('dblclick', (ev) => { if (ev.target.classList.contains('pk')) return; const i = rowOf(ev); if (i >= 0) openDiff(view[i]); });
+  main.addEventListener('dblclick', (ev) => { if (ev.target.classList.contains('pk') || ev.target.closest('.lnk')) return; const i = rowOf(ev); if (i >= 0) openDiff(view[i]); });
   main.addEventListener('contextmenu', (ev) => { ev.preventDefault(); const i = rowOf(ev); if (i < 0) return; select(i); showMenu(ev.clientX, ev.clientY, view[i]); });
   document.addEventListener('mousedown', (ev) => { if (!$('menu').contains(ev.target)) hideMenu(); });
   document.addEventListener('keydown', (ev) => {
@@ -424,6 +444,7 @@
       post('compare', { a: data.a, b: data.b, exact: $('exact').checked, ignore: $('ignore').value });
     },
     error(msg) { setRunning(false); status(msg, true); },
+    note(msg) { if (!running) status(msg); },   // báo nhẹ (thư mục không còn, file không phải chữ...) — không phải lỗi
   };
   window.setTheme = (dark) => document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
 })();

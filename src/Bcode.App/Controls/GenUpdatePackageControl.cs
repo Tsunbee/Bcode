@@ -263,6 +263,26 @@ public class GenUpdatePackageControl : UserControl
         if (!string.IsNullOrWhiteSpace(item.WMenuId)) Js($"genUpdate.onMenu({J(item.WMenuId)})");
     }
 
+    /// <summary>Double-click 1 menu ở cây Mobile (dvcommand) lúc tab này đang mở — cây Source File = file của sysid trong Mobile Path
+    /// (<paramref name="mobileRoot"/>, cùng cách tab "File Lookup · Mobile" dựng cây). Tick + Add thì file vào gói dưới Mobile\.
+    /// Không điền ô Gen nhanh Menu: ô đó sinh script wcommand, còn WMenu ID ở đây là của dvcommand.</summary>
+    public void LoadForMobileItem(WCommandItem item, string mobileRoot)
+    {
+        if (string.IsNullOrWhiteSpace(item.SysId))
+        {
+            Js($"genUpdate.onError({J($"Menu \"{item.Bar}\" không có sysid gắn với source (có thể là mục nhóm/menu cha).")})");
+            return;
+        }
+        var title = "Mobile · " + (string.IsNullOrWhiteSpace(item.Bar) ? item.SysId : item.Bar);
+        _ = Task.Run(() => _fileLookupService.BuildTreeForMenuItem(mobileRoot, "", item.SysId, onlyFInGridFilterDir: true))
+            .ContinueWith(t =>
+            {
+                if (IsDisposed) return;
+                if (t.Exception is { } ex) Js($"genUpdate.onError({J("Không đọc được Mobile Path: " + ex.GetBaseException().Message)})");
+                else PushTree(t.Result, title);
+            }, SynchronizationContext.Current is null ? TaskScheduler.Default : TaskScheduler.FromCurrentSynchronizationContext());
+    }
+
     private async Task SearchAsync(string category, string name)
     {
         if (_sourceRoot is null)
@@ -314,7 +334,8 @@ public class GenUpdatePackageControl : UserControl
                         var path = el.GetString();
                         if (string.IsNullOrEmpty(path) || _sourceRoot is null || File.Exists(path) == false) continue;
                         if (_batch.Any(b => string.Equals(b.SourceFilePath, path, StringComparison.OrdinalIgnoreCase))) continue;
-                        var relative = PackageLayout.Web(Path.GetRelativePath(_sourceRoot, path));
+                        // File của Mobile Path (cây nạp từ menu Mobile) → Mobile\...; còn lại Web\... như cũ.
+                        var relative = PackageLayout.ForFile(_workspace, path) ?? PackageLayout.Web(Path.GetRelativePath(_sourceRoot, path));
                         _batch.Add(new BatchItem { DisplayName = Path.GetFileName(path), RelativeDestPath = relative, SourceFilePath = path });
                         added++;
                     }

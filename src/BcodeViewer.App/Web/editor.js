@@ -967,7 +967,7 @@ class BcodeEditor {
     // (theme Fcode vốn đã tắt đường gióng thụt lề; minimap có thể đã tắt sẵn; các tô phụ chỉ hiện khi bấm vào từ / đặt con trỏ cạnh ngoặc).
     if (liteBefore !== null && liteBefore !== !!window.bcodeLiteActive) {
       this.showToast(window.bcodeLiteActive
-        ? 'Chế độ nhẹ: BẬT — đã tắt tô cặp ngoặc theo cấp, tô từ trùng, tô ngoặc tương ứng, đường gióng thụt lề và minimap.'
+        ? 'Chế độ nhẹ: BẬT — đã tắt tô cặp ngoặc theo cấp, tô từ trùng, đường gióng thụt lề và minimap (tô ngoặc tương ứng vẫn giữ).'
         : 'Chế độ nhẹ: TẮT — đã bật lại các tô phụ của editor.', 4000);
     }
     this._viewConfigLoaded = true;
@@ -986,14 +986,16 @@ class BcodeEditor {
     return mode === 'on' || (mode === 'auto' && BcodeEditor.isWeakMachine());
   }
 
-  /// Áp các tuỳ chọn nặng vẽ của Monaco cho 1 editor theo chế độ nhẹ: tắt tô cặp ngoặc theo cấp, tô từ trùng / chọn trùng, tô ngoặc tương ứng, đường gióng thụt lề
+  /// Áp các tuỳ chọn nặng vẽ của Monaco cho 1 editor theo chế độ nhẹ: tắt tô cặp ngoặc theo cấp, tô từ trùng / chọn trùng, đường gióng thụt lề
   /// (và minimap của editor chính). Tắt chế độ nhẹ thì trả về đúng mặc định cũ của BcodeViewer.
+  /// Tô ngoặc tương ứng (matchBrackets) KHÔNG tắt ở chế độ nhẹ: nó chỉ tính 1 cặp khi con trỏ đứng cạnh ngoặc (rẻ), mà chế độ nhẹ TỰ bật
+  /// trên máy ≤ 4 luồng / ≤ 4 GB — trước đây chính vì thế có máy bấm vào ngoặc không thấy ngoặc tương ứng.
   applyLiteTo(ed) {
     if (!ed) return;
     const lite = this.isLiteActive();
     const indentGuides = !lite && !(window.bcodeTheme && window.bcodeTheme.theme && window.bcodeTheme.theme.indentGuides === false);
     const opts = lite
-      ? { bracketPairColorization: { enabled: false }, occurrencesHighlight: 'off', selectionHighlight: false, matchBrackets: 'never', guides: { indentation: false, bracketPairs: false, highlightActiveIndentation: false } }
+      ? { bracketPairColorization: { enabled: false }, occurrencesHighlight: 'off', selectionHighlight: false, matchBrackets: 'always', guides: { indentation: false, bracketPairs: false, highlightActiveIndentation: false } }
       : { bracketPairColorization: { enabled: true }, occurrencesHighlight: 'singleFile', selectionHighlight: true, matchBrackets: 'always', guides: { indentation: indentGuides, bracketPairs: false, highlightActiveIndentation: true } };
     // Minimap theo đúng ô tick trong Settings. Chế độ nhẹ TỰ ĐỘNG (máy ≤ 4 luồng / ≤ 4 GB) không được tự tắt nó — trước đây máy yếu tick minimap rồi vẫn không thấy; chỉ khi chọn "Bật" chế độ nhẹ thủ công mới tắt.
     if (ed === this.editor) opts.minimap = { enabled: !!(this.viewConfig && this.viewConfig.showMinimap) && !(lite && this.viewConfig.lightMode === 'on') };

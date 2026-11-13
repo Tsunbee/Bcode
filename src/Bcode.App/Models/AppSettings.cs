@@ -457,6 +457,27 @@ public class AppSettings
         return fresh;
     }
 
+    private DateTime _noteProgrammerStamp;
+
+    /// <summary>
+    /// Đồng bộ <see cref="NoteProgrammer"/> theo settings.json (chỉ đọc lại khi file đổi). Mỗi cửa sổ Bcode là 1 tiến trình giữ bản AppSettings nạp lúc mở:
+    /// đổi ô "Lập trình" ở cửa sổ này thì cửa sổ khác vẫn giữ tên cũ — kéo ngầm của chuông 🔔 (chỉ 1 tiến trình kéo mỗi lượt, ghi chung fsg-notify.json)
+    /// chạy ở cửa sổ đó sẽ theo dõi và báo y/c của tên CŨ. Gọi trước khi dùng tên. Không đọc được file thì giữ nguyên.
+    /// </summary>
+    public void SyncNoteProgrammerFromDisk()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath)) return;
+            var stamp = File.GetLastWriteTimeUtc(SettingsPath);
+            if (stamp == _noteProgrammerStamp) return;
+            if (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) is not { } disk) return;
+            _noteProgrammerStamp = stamp;
+            NoteProgrammer = disk.NoteProgrammer ?? "";
+        }
+        catch { /* file đang ghi dở / hỏng → giữ tên đang có */ }
+    }
+
     /// <summary>Đồng bộ các tuỳ chọn editor SQL (gợi ý khi gõ, ghost Fast, engine Claude / Gemini, API key) của bản này theo settings.json.</summary>
     public void SyncEditorFlagsFromDisk()
     {

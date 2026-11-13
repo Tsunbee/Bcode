@@ -47,9 +47,12 @@ public sealed class FsgNotifyService : IDisposable
         return from <= to ? tod >= from && tod < to : tod >= from || tod < to;   // giờ qua đêm (vd 20:00 → 06:00)
     }
 
-    /// <summary>1 thông báo. Kind: note | status | new | due | error. Role: lt (mình là lập trình) | nv (mình là triển khai).</summary>
+    /// <summary>1 thông báo. Kind: note | status | new | due | error | moved (y/c đã chuyển khỏi mình — báo 1 lần rồi thôi theo dõi).
+    /// Role: lt (mình là lập trình) | nv (mình là triển khai).</summary>
     public sealed class Item
     {
+        /// <summary>Tên lập trình (ô "Lập trình") lúc phát hiện — khung Thông báo ghi chú các thông báo của tên cũ sau khi đổi tên. "" = bản cũ chưa ghi.</summary>
+        public string For { get; set; } = "";
         public string Id { get; set; } = "";
         public string At { get; set; } = "";
         public string MaDa { get; set; } = "";
@@ -552,15 +555,34 @@ public sealed class FsgNotifyService : IDisposable
             var map = Pair(ol, fl, Mine);
             for (var i = 0; i < fl.Count; i++) pairs.Add((fl[i], map[i] >= 0 ? ol[map[i]] : null));
         }
+        Item MakeFor(Req n, string role, string kind, string who, string text) => new()
+        {
+            Id = DateTime.Now.ToString("yyyyMMddHHmmssfff") + "-" + (seq++) + "-" + kind,
+            At = now, MaDa = n.MaDa ?? "", Fcode1 = n.Fcode1 ?? "", MenuId = n.MenuId ?? "", TenMenu = n.TenMenuNgan ?? "",
+            Kind = kind, Who = who, Text = text.Length > 1500 ? text[..1500] + "…" : text, Role = role, For = me.Trim(),
+        };
+
+        // Y/c CHUYỂN KHỎI mình: bản lưu ghi mình là lập trình (/ triển khai), lần kéo này thấy đã là người khác → chỉ báo 1 lần "đã chuyển", không báo
+        // trạng thái / ghi chú / hạn / lỗi nữa (từ đây chỉ theo dõi theo lập trình HIỆN TẠI). Lần sau bản lưu đã ghi người mới → không báo lại.
+        // Chỉ xét khoá có đúng 1 dòng cũ + 1 dòng mới: khoá trùng (ma_da + fcode1 lặp ở các y/c khác nhau) không đoán được dòng nào chuyển.
+        // Kéo theo mốc mới thấy (kéo cả y/c người khác); kéo đủ chỉ lấy y/c của mình nên y/c đã chuyển im lặng biến khỏi danh sách theo dõi.
+        if (s.New)
+            foreach (var g in fetched.Where(n => before.Projects.ContainsKey((n.MaDa ?? "").Trim())).GroupBy(Key))
+            {
+                var fl = g.ToList();
+                if (fl.Count != 1 || Mine(fl[0]) || IsDone(fl[0].TrangThai)) continue;
+                if (!oldByKey.TryGetValue(g.Key, out var ol) || ol.Count != 1 || !Mine(ol[0])) continue;
+                var (n, o) = (fl[0], ol[0]);
+                var wasLt = Eq(o.MaLt1, me);
+                var to = ((wasLt ? n.MaLt1 : n.MaNv1) ?? "").Trim();
+                items.Add(MakeFor(n, wasLt ? "lt" : "nv", "moved", "",
+                    (wasLt ? "Đã chuyển lập trình" : "Đã đổi triển khai") + $" {me.Trim().ToUpperInvariant()} → {(to.Length > 0 ? to : "(trống)")} — thôi theo dõi y/c này"));
+            }
+
         foreach (var (n, o) in pairs)
         {
             var role = Eq(n.MaLt1, me) ? "lt" : "nv";
-            Item Make(string kind, string who, string text) => new()
-            {
-                Id = DateTime.Now.ToString("yyyyMMddHHmmssfff") + "-" + (seq++) + "-" + kind,
-                At = now, MaDa = n.MaDa ?? "", Fcode1 = n.Fcode1 ?? "", MenuId = n.MenuId ?? "", TenMenu = n.TenMenuNgan ?? "",
-                Kind = kind, Who = who, Text = text.Length > 1500 ? text[..1500] + "…" : text, Role = role,
-            };
+            Item Make(string kind, string who, string text) => MakeFor(n, role, kind, who, text);
 
             if (o is null || !Mine(o))
             {

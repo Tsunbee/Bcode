@@ -16,6 +16,22 @@ public static class PackageLayout
 
     /// <summary>Đường dẫn file source (tương đối so với gốc site: App_Data\..., Main\...) → trong gói nằm dưới Web\.</summary>
     public static string Web(string relativeToSiteRoot) => Path.Combine("Web", relativeToSiteRoot);
+
+    /// <summary>File source của app mobile (tương đối so với Mobile Path: App_Data\Controllers\Mobile\Dir\...) → trong gói nằm dưới Mobile\ (như FCode: Mobile_All).</summary>
+    public static string Mobile(string relativeToMobileRoot) => Path.Combine("Mobile", relativeToMobileRoot);
+
+    /// <summary>Chỗ của 1 file source trong gói: dưới Source Path → Web\&lt;tương đối&gt;, dưới Mobile Path (<see cref="MobilePathService.Resolve"/>) → Mobile\&lt;tương đối&gt;;
+    /// thuộc cả hai (MobileService nằm trong Source Path) thì lấy gốc sâu hơn. Không thuộc gốc nào → null.</summary>
+    public static string? ForFile(Workspace? ws, string file)
+    {
+        var src = (ws?.SourcePath ?? "").Trim();
+        var mobile = (MobilePathService.Resolve(ws) ?? "").Trim();
+        var inSrc = src.Length > 0 && GenAllService.IsUnder(src, file);
+        var inMobile = mobile.Length > 0 && GenAllService.IsUnder(mobile, file);
+        if (inMobile && (!inSrc || mobile.TrimEnd('\\', '/').Length > src.TrimEnd('\\', '/').Length))
+            return Mobile(Path.GetRelativePath(mobile, file));
+        return inSrc ? Web(Path.GetRelativePath(src, file)) : null;
+    }
 }
 
 public sealed class PackageItem
@@ -741,14 +757,16 @@ public partial class GenAllService
 
     private static void AddFile(Workspace ws, string file, string origin, GenAllResult result)
     {
-        // File nằm trong site (App_Data\..., Main\...) → Web\<tương đối>; file ngoài site thì để riêng ở "other\" cho khỏi lẫn vào Web.
-        var relative = !string.IsNullOrWhiteSpace(ws.SourcePath) && IsUnder(ws.SourcePath, file)
-            ? PackageLayout.Web(Path.GetRelativePath(ws.SourcePath, file))
-            : Path.Combine("other", Path.GetFileName(file));
-        result.Add(new PackageItem { Origin = origin, RelativeDestPath = relative, SourceFilePath = file });
+        // File nằm trong site (App_Data\..., Main\...) → Web\<tương đối>; trong Mobile Path → Mobile\<tương đối> (giữ Dir/Grid/Filter — trước đây file mobile
+        // rơi vào "other\<tên>" nên Dir\X.f, Grid\X.f, Filter\X.f trùng đích và chỉ còn 1 file); file ngoài cả hai thì để riêng ở "other\" cho khỏi lẫn vào Web.
+        var relative = PackageLayout.ForFile(ws, file) ?? Path.Combine("other", Path.GetFileName(file));
+        if (!result.Add(new PackageItem { Origin = origin, RelativeDestPath = relative, SourceFilePath = file })
+            && result.Items.FirstOrDefault(i => string.Equals(i.RelativeDestPath, relative, StringComparison.OrdinalIgnoreCase)) is { SourceFilePath: { } kept }
+            && !string.Equals(Path.GetFullPath(kept), Path.GetFullPath(file), StringComparison.OrdinalIgnoreCase))
+            result.Warnings.Add($"{origin} \"{file}\": trùng chỗ trong gói với \"{kept}\" ({relative}) — bỏ qua.");
     }
 
-    private static bool IsUnder(string root, string path)
+    internal static bool IsUnder(string root, string path)
     {
         try
         {

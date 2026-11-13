@@ -158,7 +158,7 @@ public class ViewerSettings
     /// <summary>Cỡ chữ nhỏ nhất mà tự thu nhỏ được phép dùng (chữ lớn nhất là 15).</summary>
     public int AutoFitMinFont { get; set; } = 9;
 
-    /// <summary>Chế độ nhẹ cho máy cấu hình yếu (tắt tô cặp ngoặc theo cấp, minimap, tô từ trùng, matchBrackets, đường gióng thụt lề):
+    /// <summary>Chế độ nhẹ cho máy cấu hình yếu (tắt tô cặp ngoặc theo cấp, minimap, tô từ trùng, đường gióng thụt lề; tô ngoặc tương ứng vẫn giữ):
     /// "auto" (mặc định) = tự bật khi máy ≤ 4 luồng CPU hoặc ≤ 4 GB RAM; "on" = luôn bật; "off" = luôn tắt.</summary>
     public string LightMode { get; set; } = "auto";
 

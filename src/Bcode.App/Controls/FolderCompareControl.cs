@@ -50,21 +50,20 @@ public sealed class FolderCompareControl : UserControl
             case "stop":
                 _cts?.Cancel();
                 break;
-            case "diff":
-                if (Paths(S("rel")) is { } pair && File.Exists(pair.A) && File.Exists(pair.B)) CompareFilesRequested?.Invoke(pair.A, pair.B);
-                break;
-            case "reveal":   // mở Explorer chọn sẵn file (bên A / B)
+            case "diff":   // Compare Text: nạp file A (trái) + file B (phải)
             {
-                if (Paths(S("rel")) is not { } p) break;
-                var path = S("side") == "b" ? p.B : p.A;
-                try
-                {
-                    if (File.Exists(path)) Process.Start("explorer.exe", $"/select,\"{path}\"");
-                    else if (Path.GetDirectoryName(path) is { } dir && Directory.Exists(dir)) Process.Start("explorer.exe", $"\"{dir}\"");
-                }
-                catch { /* không mở được Explorer */ }
+                if (Paths(S("rel")) is not { } pair) break;
+                if (!File.Exists(pair.A) || !File.Exists(pair.B)) { Note($"Không so được: {(File.Exists(pair.A) ? "B" : "A")} không còn file {S("rel")} (bấm So sánh để làm mới)."); break; }
+                if (!IsTextFile(pair.A) || !IsTextFile(pair.B)) { Note($"{S("rel")}: không phải file chữ (hoặc lớn hơn 20 MB) — không mở bằng Compare Text."); break; }
+                CompareFilesRequested?.Invoke(pair.A, pair.B);
                 break;
             }
+            case "reveal":   // mở Explorer chọn sẵn file (bên A / B); bên đó thiếu file → mở thư mục tương ứng
+                OpenFolder(S("rel"), S("side") == "b", selectFile: true);
+                break;
+            case "openDir":   // bấm chữ ở cột Thư mục con A / B
+                OpenFolder(S("rel"), S("side") == "b", selectFile: false);
+                break;
             case "copyAB":
             {
                 var rels = root.TryGetProperty("rels", out var arr) && arr.ValueKind == JsonValueKind.Array
@@ -84,6 +83,36 @@ public sealed class FolderCompareControl : UserControl
     {
         if (rel.Length == 0 || _lastA.Length == 0 || rel.Contains("..")) return null;
         return (Path.Combine(_lastA, rel), Path.Combine(_lastB, rel));
+    }
+
+    private void Note(string msg) => _web.Call($"window.fc.note({WebBarHost.Json(msg)})");
+
+    private static bool IsTextFile(string path)
+    {
+        try { return new FileInfo(path).Length <= FolderCompareService.MaxTextBytes && FolderCompareService.IsText(path); }
+        catch { return false; }
+    }
+
+    /// <summary>Mở Explorer ở thư mục chứa file <paramref name="rel"/> bên A / B (<paramref name="selectFile"/> = chọn sẵn file nếu có).
+    /// Bên đó không có file / thư mục (dòng "Chỉ có ở A/B", hoặc đã bị xoá sau khi so) → mở thư mục cha gần nhất còn có, không vượt khỏi gốc A / B, và báo nhẹ.</summary>
+    private void OpenFolder(string rel, bool sideB, bool selectFile)
+    {
+        if (Paths(rel) is not { } p) return;
+        var root = sideB ? _lastB : _lastA;
+        var file = sideB ? p.B : p.A;
+        var label = sideB ? "B" : "A";
+        try
+        {
+            if (selectFile && File.Exists(file)) { Process.Start("explorer.exe", $"/select,\"{file}\""); return; }
+            var want = Path.GetDirectoryName(file) ?? root;
+            var open = want;
+            while (open.Length > root.Length && !Directory.Exists(open)) open = Path.GetDirectoryName(open) ?? root;
+            if (!Directory.Exists(open)) { Note($"Thư mục {label} không còn: {root}"); return; }
+            Process.Start("explorer.exe", $"\"{open}\"");
+            if (!string.Equals(open, want, StringComparison.OrdinalIgnoreCase))
+                Note($"{label} không có thư mục {Path.GetRelativePath(root, want)} — đã mở thư mục gần nhất: {open}");
+        }
+        catch (Exception ex) { Note("Không mở được Explorer: " + ex.Message); }
     }
 
     private async Task RunAsync(string a, string b, bool exact, string ignore)

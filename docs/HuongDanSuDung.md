@@ -702,6 +702,12 @@ Form không chặn (vẫn bấm được cây): chọn menu khác trên cây là
   - New ở một nhóm (`07.00.00`), id đang gõ không đúng dạng `GG.SS.LL`, hoặc đổi menu cha sang nhóm khác → gợi ý theo menu cha như cũ (nhóm mới `GG.00.00` / `GG.SS.01` kế tiếp).
 - **Tên menu**: Bar (tên tiếng Việt), Bar2 (English name) + chọn ngôn ngữ + **🌐 Dịch** (Google dịch Bar sang Bar2 — nhớ kiểm tra lại rồi Save).
 - **Liên kết**: Link, Parameter, Target. **Hệ thống (bảng command)**: Sysid, Syscode, Type, Msys, Xtype, Edition. **Bảng dữ liệu**: bảng m / d đọc từ file Dir (chỉ xem). **Biểu tượng**: Icon, Expl Icon (0-255), Icon Url.
+- **Mở nhanh bảng m / d** (như link *Open Table* / *d$ Table* của FCode): nút **Mở ↗** cạnh ô **Bảng m** và **Bảng d** (hoặc nhấp đúp vào ô) → mở **tab Table** mới với bảng đó, nạp dữ liệu luôn.
+  - Bảng kỳ `m81$000000` được gộp mọi kỳ như khi gõ tên đó ở tab Table.
+  - Bảng có cột `ma_ct` thì ô **Where** điền sẵn `ma_ct = '<Syscode>'`, vd `ma_ct = 'HDA'`, để chỉ hiện chứng từ của menu này. Muốn lọc khác thì sửa ô Where rồi **Load**; xoá ô Where để xem hết.
+  - File Dir khai nhiều bảng d thì bấm **Mở ↗** sẽ hiện danh sách để chọn bảng.
+  - Nút mờ khi ô bảng trống (Dir không khai) hoặc bảng không có trong database đang chọn. Di chuột lên nút để xem lý do.
+  - Form vẫn mở sau khi bấm. Tab Table mở ở cửa sổ chính, phía sau form.
 - Nút **Save** · **Delete** · **Close**. Save ghi cả `wcommand` và `command` trong một transaction. Save (New hoặc Edit) xong, Bcode tự **sync menu sang QLYC** chạy ngầm — giống **Actions > Create Menu** cho dự án đang chọn; không chờ, lỗi thì bỏ qua (không báo).
 
 > **Lưu ý:** "WMenu Id '…' đã tồn tại" → bấm **Suggest** lấy id khác. Menu Id đã có → Bcode hỏi trước vì Save sẽ **ghi đè** dòng command cũ.

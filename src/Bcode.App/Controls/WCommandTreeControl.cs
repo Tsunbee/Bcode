@@ -57,6 +57,8 @@ public class WCommandTreeControl : UserControl
 
     /// <summary>Menu "View Relative Tables" (như FCode): mở tab liệt kê các bảng liên quan tới chứng từ đang chọn (theo syscode). Chỉ hiện khi node có syscode.</summary>
     public event Action<WCommandItem>? RelativeTablesRequested;
+    /// <summary>Nút "Mở" cạnh Bảng m / Bảng d của hộp WCOMMAND - Edit: (sys, bảng, where) → MainForm mở tab Table.</summary>
+    public event Action<bool, string, string>? OpenTableRequested;
 
     private void RequestRequirements()
     {
@@ -672,6 +674,7 @@ public class WCommandTreeControl : UserControl
             return;
         }
         var form = new WCommandEditForm(_service, existing, template, sourcePath: _getCurrentWorkspace()?.SourcePath);
+        if (OpenTableRequested is not null) form.OpenTableHandler = (sys, table, where) => OpenTableRequested?.Invoke(sys, table, where);
         _editForm = form;
         form.FormClosed += async (_, _) =>
         {

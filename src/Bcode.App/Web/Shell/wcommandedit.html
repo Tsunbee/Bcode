@@ -25,7 +25,7 @@
   input[type="number"]:focus { outline: none; border-color: var(--accent); }
   input.invalid { border-color: var(--danger) !important; }
   .ctl select { flex: 0 0 auto; width: 108px; font-family: inherit; font-size: 12px; color: var(--text); background: var(--input); border: 1px solid var(--border); border-radius: 4px; padding: 6px 4px; }
-  .ctl #btnTr { white-space: nowrap; }
+  .ctl #btnTr, .ctl .open-tbl { white-space: nowrap; }
   .hint { font-size: 11.5px; margin-top: 3px; min-height: 14px; color: var(--text-muted); }
   .hint.err { color: var(--danger); } .hint.warn { color: var(--warning); } .hint.ok { color: var(--success); }
   footer { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--panel-alt); border-top: 1px solid var(--border); }
@@ -104,8 +104,8 @@
   <section>
     <h3>Bảng dữ liệu (đọc từ file Dir)</h3>
     <div class="grid">
-      <div><label for="tableM">Bảng m (master)</label><div class="ctl"><input type="text" id="tableM" readonly /></div></div>
-      <div><label for="tableD">Bảng d (detail)</label><div class="ctl"><input type="text" id="tableD" readonly /></div></div>
+      <div><label for="tableM">Bảng m (master)</label><div class="ctl"><input type="text" id="tableM" readonly /><button class="btn btn-border open-tbl" id="openM" disabled>Mở ↗</button></div></div>
+      <div><label for="tableD">Bảng d (detail)</label><div class="ctl"><input type="text" id="tableD" readonly /><button class="btn btn-border open-tbl" id="openD" disabled>Mở ↗</button></div></div>
       <div class="full"><div class="hint" id="hintT"></div></div>
     </div>
   </section>
@@ -142,6 +142,7 @@
     FIELDS.forEach(f => { $(f).value = state.item[f] ?? ''; });
     $('btnDelete').style.display = isNew ? 'none' : '';
     $('sugW').style.display = isNew ? '' : 'none';
+    document.querySelectorAll('.open-tbl').forEach(b => { b.style.display = state.canOpenTable ? '' : 'none'; });
     (isNew ? $('bar') : $('bar')).focus();
   };
   window.setFieldValue = (id, v) => { $(id).value = v; };
@@ -150,7 +151,17 @@
   window.setStatus = (text, level) => { const s = $('statusMsg'); s.textContent = text || ''; s.className = 'grow ' + (level || ''); };
   window.setBusy = b => { busy = b; ['btnSave','btnDelete','sugW','sugM'].forEach(i => $(i).disabled = b); };
   window.setInvalid = id => { $(id).classList.add('invalid'); $(id).focus(); };
-  window.setTables = (m, d, note) => { $('tableM').value = m || ''; $('tableD').value = d || ''; $('hintT').textContent = note || ''; };
+  window.setTables = (m, d, note) => {
+    $('tableM').value = m || ''; $('tableD').value = d || ''; $('hintT').textContent = note || '';
+    ['openM', 'openD'].forEach(i => { $(i).disabled = true; $(i).title = 'Đang kiểm bảng trong database…'; });
+  };
+  // Nút "Mở" cạnh Bảng m / Bảng d (như Open Table / d$ Table của FCode): C# dò bảng có trong database rồi bật / mờ kèm chú thích.
+  window.setTableState = st => [['openM', st.m], ['openD', st.d]].forEach(([i, s]) => { $(i).disabled = !(s && s.ok); $(i).title = (s && s.tip) || ''; });
+  const openTable = kind => { const b = $(kind === 'd' ? 'openD' : 'openM'); if (!b.disabled && b.style.display !== 'none') post('open-table', { kind, sysCode: $('sysCode').value }); };
+  $('openM').onclick = () => openTable('m');
+  $('openD').onclick = () => openTable('d');
+  $('tableM').addEventListener('dblclick', () => openTable('m'));
+  $('tableD').addEventListener('dblclick', () => openTable('d'));
   let tblTimer = 0;
   $('sysId').addEventListener('input', () => { clearTimeout(tblTimer); tblTimer = setTimeout(() => post('lookup-tables', { sysId: $('sysId').value }), 400); });
   window.setTheme = isDark => document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

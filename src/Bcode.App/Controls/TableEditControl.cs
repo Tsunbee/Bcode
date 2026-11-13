@@ -179,7 +179,22 @@ public class TableEditControl : UserControl
                 _ = GetTableNamesAsync(_dbIndex);
             };
         else
-            HandleCreated += (_, _) => BeginInvoke(new Action(() => { _barNative!.FocusTable(); _ = GetTableNamesAsync(_dbIndex); }));
+        {
+            // Chế độ App: handle được tạo ngay trong MainForm.AddDocumentTab, TRƯỚC khi tab được chọn; chọn tab xong MainForm mới xếp hàng
+            // RestoreContentFocus (SelectedIndexChanged → BeginInvoke của MainForm) → focus về control đầu tiên của tab (danh sách cột bên trái),
+            // đè lên FocusTable. BeginInvoke lồng trên chính control này không giúp (cùng lượt xả hàng đợi của control) → đặt focus ở lần
+            // Application.Idle đầu tiên: hàng đợi đã trống, mọi việc trả focus khi đổi tab đã chạy xong — như Web đặt focus lúc trang Ready.
+            HandleCreated += (_, _) =>
+            {
+                BeginInvoke(new Action(() => _ = GetTableNamesAsync(_dbIndex)));
+                void FocusWhenIdle(object? s, EventArgs e)
+                {
+                    Application.Idle -= FocusWhenIdle;
+                    if (!IsDisposed && IsHandleCreated) _barNative!.FocusTable();
+                }
+                Application.Idle += FocusWhenIdle;
+            };
+        }
         VisibleChanged += (_, _) => { if (!Visible) HideTableSuggest(); };
         Disposed += (_, _) => { _tableSuggest?.Dispose(); _colSuggest?.Dispose(); };
 

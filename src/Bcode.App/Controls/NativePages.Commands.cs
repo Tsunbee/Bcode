@@ -14,7 +14,7 @@ internal sealed class WCommandEditPage : DialogPage
     private readonly RoundedInput _tableM = NK.Input(""), _tableD = NK.Input("");
     private readonly Label _hintW = NK.Muted(""), _hintM = NK.Muted(""), _hintT = NK.Muted(""), _mode = new AccentLabel { AutoSize = true, BackColor = Color.Transparent };
     private readonly DropDownButton _lang = new() { Width = NativeSkin.S(150) };
-    private readonly PillButton _sugW, _sugM, _tr, _save, _del;
+    private readonly PillButton _sugW, _sugM, _tr, _save, _del, _openM, _openD;
     private readonly System.Windows.Forms.Timer _tblTimer = new() { Interval = 400 };
     private bool _isNew = true, _busy, _loading;
 
@@ -42,7 +42,12 @@ internal sealed class WCommandEditPage : DialogPage
         var c4 = new CardPanel("Hệ thống (bảng command)") { Dock = DockStyle.Top };
         c4.Body.Controls.Add(NK.FormGrid(180, ("Sysid", _f["sysId"]), ("Syscode", _f["sysCode"]), ("Type", _f["type"]), ("Msys", _f["msys"]), ("Xtype", _f["xtype"]), ("Edition", _f["edition"])));
         var c5 = new CardPanel("Bảng dữ liệu (đọc từ file Dir)") { Dock = DockStyle.Top };
-        c5.Body.Controls.Add(NK.FormGrid(180, ("Bảng m (master)", _tableM), ("Bảng d (detail)", _tableD), ("", _hintT)));
+        // Nút "Mở" cạnh Bảng m / Bảng d (như Open Table / d$ Table của FCode) → action open-table; C# bật / mờ qua window.setTableState.
+        _openM = NK.Button("Mở ↗", () => OpenTable("m"), tip: "Đang kiểm bảng trong database…");
+        _openD = NK.Button("Mở ↗", () => OpenTable("d"), tip: "Đang kiểm bảng trong database…");
+        _openM.Enabled = _openD.Enabled = false;
+        Panel TablePanel(RoundedInput i, PillButton b) { var p = new Panel { Height = NativeSkin.RowHeight(this, 28) }; b.Dock = DockStyle.Right; i.Dock = DockStyle.Fill; p.Controls.Add(i); p.Controls.Add(b); i.Inner.DoubleClick += (_, _) => { if (b.Enabled && b.Visible) b.PerformClick(); }; return p; }
+        c5.Body.Controls.Add(NK.FormGrid(180, ("Bảng m (master)", TablePanel(_tableM, _openM)), ("Bảng d (detail)", TablePanel(_tableD, _openD)), ("", _hintT)));
         var c6 = new CardPanel("Biểu tượng") { Dock = DockStyle.Top };
         c6.Body.Controls.Add(NK.FormGrid(180, ("Icon", _f["icon"]), ("Expl Icon (0-255)", _f["explIcon"]), ("Icon Url", _f["iconUrl"])));
 
@@ -81,6 +86,8 @@ internal sealed class WCommandEditPage : DialogPage
         Post(new { action = "translate", data = new { text, lang = Langs[Math.Max(0, _lang.SelectedIndex)].Code } });
     }
 
+    private void OpenTable(string kind) => Post(new { action = "open-table", data = new { kind, sysCode = _f["sysCode"].Text } });
+
     private void SetBusy(bool b) { _busy = b; _save.Enabled = _del.Enabled = _sugW.Enabled = _sugM.Enabled = !b; }
 
     protected override bool HandleKey(Keys k)
@@ -105,6 +112,7 @@ internal sealed class WCommandEditPage : DialogPage
                 foreach (var k in Fields) _f[k].Text = P(item, k);
                 _loading = false;
                 _del.Visible = !_isNew; _sugW.Visible = _isNew;
+                _openM.Visible = _openD.Visible = PB(s, "canOpenTable");
                 _f["bar"].Inner.Focus();
                 break;
             }
@@ -119,7 +127,16 @@ internal sealed class WCommandEditPage : DialogPage
             case "window.setStatus": Say(Str(a, 0), Str(a, 1)); break;
             case "window.setBusy": SetBusy(Bool(a, 0)); break;
             case "window.setInvalid": { if (_f.TryGetValue(Str(a, 0), out var i)) { i.Inner.ForeColor = AppColors.Danger; i.Inner.Focus(); } break; }
-            case "window.setTables": _tableM.Text = Str(a, 0); _tableD.Text = Str(a, 1); _hintT.Text = Str(a, 2); break;
+            case "window.setTables":
+                _tableM.Text = Str(a, 0); _tableD.Text = Str(a, 1); _hintT.Text = Str(a, 2);
+                foreach (var b in new[] { _openM, _openD }) { b.Enabled = false; NK.Tip(b, "Đang kiểm bảng trong database…"); }
+                break;
+            case "window.setTableState":
+            {
+                var st = Arg(a, 0);
+                foreach (var (b, k) in new[] { (_openM, "m"), (_openD, "d") }) { var o = PO(st, k); b.Enabled = PB(o, "ok"); NK.Tip(b, P(o, "tip")); }
+                break;
+            }
             case "window.setTranslated":
                 _tr.Enabled = true;
                 if (a.Count > 1 && a[1].ValueKind == JsonValueKind.String) { Say(a[1].GetString() ?? "", "err"); break; }

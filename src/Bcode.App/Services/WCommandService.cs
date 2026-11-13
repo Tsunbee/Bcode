@@ -441,6 +441,33 @@ public class WCommandService
         return (wExists, inCommand, inWc);
     }
 
+    /// <summary>Bảng dữ liệu của menu (bảng m / d đọc từ file Dir, vd m81$000000) có trong database không — cho nút "Mở" ở hộp WCOMMAND - Edit.
+    /// Tìm App Data trước rồi Sys Data; bảng kỳ xxx$000000 tính là có khi có bảng thật đó hoặc một bảng kỳ xxx$dddddd (tab Table tự gộp kỳ).
+    /// HasMaCt = bảng (hoặc bảng kỳ cùng tiền tố) có cột ma_ct — để lọc sẵn theo Syscode như View Relative Tables.</summary>
+    public async Task<(bool Exists, bool Sys, bool HasMaCt)> ProbeDataTableAsync(string table, CancellationToken ct = default)
+    {
+        table = (table ?? "").Trim();
+        if (table.Length == 0) return (false, false, false);
+        var dollar = table.IndexOf('$');
+        // '_' / '[' / '%' trong LIKE là ký tự đặc biệt → bọc [] cho đúng tên.
+        static string Esc(string s) => s.Replace("[", "[[]").Replace("_", "[_]").Replace("%", "[%]");
+        var pattern = dollar > 0 ? Esc(table[..(dollar + 1)]) + "[0-9]%" : "";
+        const string sql =
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.objects o WHERE o.type IN ('U','V') AND (o.name = @t OR (@p <> '' AND o.name LIKE @p))) THEN 1 ELSE 0 END, " +
+            "CASE WHEN EXISTS (SELECT 1 FROM sys.columns c JOIN sys.objects o ON o.object_id = c.object_id WHERE o.type IN ('U','V') AND c.name = 'ma_ct' AND (o.name = @t OR (@p <> '' AND o.name LIKE @p))) THEN 1 ELSE 0 END";
+        foreach (var sys in new[] { false, true })
+        {
+            await using var conn = _connections.CreateConnection(useSysDatabase: sys);
+            await conn.OpenAsync(ct);
+            await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 30 };
+            cmd.Parameters.AddWithValue("@t", table);
+            cmd.Parameters.AddWithValue("@p", pattern);
+            await using var r = await cmd.ExecuteReaderAsync(ct);
+            if (await r.ReadAsync(ct) && r.GetInt32(0) == 1) return (true, sys, r.GetInt32(1) == 1);
+        }
+        return (false, false, false);
+    }
+
     /// <summary>
     /// Gợi ý <c>menu_id</c> chưa có ở cả <c>command</c> lẫn <c>wcommand</c>.
     /// Cột là char(8) nên luôn đúng dạng <c>GG.SS.LL</c> (2 ký tự mỗi đoạn): <c>GG</c> = nhóm,

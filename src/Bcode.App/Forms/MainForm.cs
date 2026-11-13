@@ -438,6 +438,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         wcommandTree.ApiDeclareRequested += item => _ = OpenApiFromStructureAsync(item, null, declare: true);
         wcommandTree.QuickGenRequested += item => _ = LaunchBcodeNoteAsync(item);
         wcommandTree.RelativeTablesRequested += item => OpenRelativeTablesTab(item);
+        wcommandTree.OpenTableRequested += OpenTableFiltered;   // hộp WCOMMAND - Edit: nút "Mở" bảng m / d
         _wcommandTree = wcommandTree;
 
         var mobilePanel = new WCommandTreeControl(_wcommandService, _fileLookupService, () => _connections.Current, _settings,

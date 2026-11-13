@@ -18,8 +18,9 @@ namespace Bcode.App.Forms;
 /// values and posts <c>{action, data}</c> messages (ready / suggest-wmenu / suggest-menu /
 /// save / delete / close), and C# answers with window.* calls (init, setValue, setHint, ...).
 ///
-/// Deliberately narrower than FCode's real dialog: no "Table Dir"/"Report Form"/"File" tabs
-/// (not part of the wcommand row itself).
+/// Deliberately narrower than FCode's real dialog: no "Report Form"/"File" tabs (not part of the
+/// wcommand row itself). Bảng m / d đọc từ file Dir (chỉ xem) kèm nút "Mở" → tab Table (<see cref="OpenTableHandler"/>),
+/// như link "Open Table" / "d$ Table" của FCode.
 /// </summary>
 public class WCommandEditForm : ThemedForm
 {
@@ -31,6 +32,12 @@ public class WCommandEditForm : ThemedForm
     private bool _ready;
     private readonly string? _sourcePath;
     private int _tableVersion;
+    /// <summary>Bảng m / d đã dò trong database (theo lần đọc file Dir gần nhất) — cho nút "Mở" cạnh 2 ô bảng.</summary>
+    private List<(string Table, bool Sys, bool HasMaCt)> _openM = new(), _openD = new();
+
+    /// <summary>Mở bảng sang tab Table của Bcode: (sys, bảng, where). Null = ẩn nút "Mở" (vd hộp mở từ Tạo báo cáo).
+    /// Đặt trước khi Show; hộp vẫn mở sau khi bấm (không chặn — tab Table mở ở cửa sổ chính phía sau).</summary>
+    public Action<bool, string, string>? OpenTableHandler { get; set; }
 
     /// <param name="existing">Non-null = Edit mode (Delete enabled, Save deletes this row's own
     /// id before inserting). Null = New mode.</param>
@@ -96,6 +103,7 @@ public class WCommandEditForm : ThemedForm
                 case "delete": await DeleteAsync(); break;
                 case "translate": await TranslateBarAsync(Get(Read(data), "text"), Get(Read(data), "lang")); break;
                 case "lookup-tables": await LookupTablesAsync(Get(Read(data), "sysId")); break;
+                case "open-table": await OpenTableAsync(Get(Read(data), "kind"), Get(Read(data), "sysCode")); break;
                 case "close": Close(); break;
             }
         }
@@ -128,6 +136,7 @@ public class WCommandEditForm : ThemedForm
         var state = new
         {
             isNew = _existing is null,
+            canOpenTable = OpenTableHandler is not null,
             item = new Dictionary<string, string>
             {
                 ["wmenuId"] = s?.WMenuId ?? "",
@@ -168,6 +177,7 @@ public class WCommandEditForm : ThemedForm
     private async Task LookupTablesAsync(string sysId)
     {
         var version = ++_tableVersion;
+        _openM = new(); _openD = new();
         if (string.IsNullOrWhiteSpace(_sourcePath))
         {
             await Js("window.setTables('', '', 'Chưa chọn workspace có đường dẫn source.')");
@@ -177,6 +187,68 @@ public class WCommandEditForm : ThemedForm
         var result = await Task.Run(() => Services.CommandTableService.Resolve(_sourcePath, sysId));
         if (version != _tableVersion || IsDisposed) return; // đã gõ Sysid khác trong lúc đọc
         await Js($"window.setTables({Json(result.Master)}, {Json(string.Join(", ", result.Details))}, {Json(result.Note)})");
+        await ProbeTablesAsync(version, result.Master, result.Details);
+    }
+
+    /// <summary>Dò bảng m / d có trong database không (App rồi Sys, bảng kỳ $000000 tính cả các kỳ) → bật / mờ nút "Mở" kèm chú thích.</summary>
+    private async Task ProbeTablesAsync(int version, string master, List<string> details)
+    {
+        _openM = new(); _openD = new();
+        if (OpenTableHandler is null) return;
+        async Task<(List<(string Table, bool Sys, bool HasMaCt)> Found, string Tip)> Probe(IEnumerable<string> names, string kind)
+        {
+            var list = names.Select(n => (n ?? "").Trim()).Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (list.Count == 0) return (new(), $"File Dir không khai bảng {kind}.");
+            var found = new List<(string Table, bool Sys, bool HasMaCt)>();
+            var missing = new List<string>();
+            foreach (var n in list)
+            {
+                var (exists, sys, maCt) = await _service.ProbeDataTableAsync(n);
+                if (exists) found.Add((n, sys, maCt)); else missing.Add(n);
+            }
+            var tip = found.Count == 0
+                ? $"Không có bảng {string.Join(", ", missing)} trong database đang chọn."
+                : "Mở tab Table: " + string.Join(", ", found.Select(f => f.Table + (f.Sys ? " (Sys)" : "")))
+                  + (missing.Count > 0 ? $" — không có: {string.Join(", ", missing)}" : "");
+            return (found, tip);
+        }
+        object m, d;
+        try
+        {
+            var pm = await Probe(new[] { master }, "m");
+            var pd = await Probe(details, "d");
+            if (version != _tableVersion || IsDisposed) return;
+            _openM = pm.Found; _openD = pd.Found;
+            m = new { ok = pm.Found.Count > 0, tip = pm.Tip };
+            d = new { ok = pd.Found.Count > 0, tip = pd.Tip };
+        }
+        catch (Exception ex)
+        {
+            if (version != _tableVersion || IsDisposed) return;
+            var tip = "Không kiểm được bảng trong database: " + ex.Message;
+            m = new { ok = false, tip }; d = new { ok = false, tip };
+        }
+        await Js($"window.setTableState({JsonSerializer.Serialize(new { m, d })})");
+    }
+
+    /// <summary>Nút "Mở" cạnh ô Bảng m / Bảng d: mở tab Table với bảng đó (nhiều bảng d → chọn trong menu). Bảng có cột ma_ct
+    /// (kể cả các bảng kỳ) và ô Syscode có giá trị → điền sẵn Where ma_ct = Syscode như View Relative Tables; xoá ô Where ở tab Table để xem hết.</summary>
+    private async Task OpenTableAsync(string kind, string sysCode)
+    {
+        if (OpenTableHandler is not { } open) return;
+        var list = kind == "d" ? _openD : _openM;
+        if (list.Count == 0) return;
+        sysCode = sysCode.Trim();
+        async Task OpenOne((string Table, bool Sys, bool HasMaCt) t)
+        {
+            var where = t.HasMaCt && sysCode.Length > 0 ? "ma_ct = '" + sysCode.Replace("'", "''") + "'" : "";
+            open(t.Sys, t.Table, where);
+            await Js($"window.setStatus({Json("Đã mở tab Table: " + t.Table + (where.Length > 0 ? " — lọc sẵn " + where : ""))}, 'ok')");
+        }
+        if (list.Count == 1) { await OpenOne(list[0]); return; }
+        var menu = new Bcode.App.Controls.WebMenu();
+        foreach (var t in list) { var x = t; menu.Add(x.Table + (x.Sys ? " (Sys)" : ""), () => _ = OpenOne(x)); }
+        menu.Show(this, Cursor.Position);
     }
 
     // ---------------------------------------------------------------- suggestions

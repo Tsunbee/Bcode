@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bhoo</title>
+<link rel="stylesheet" href="retro.css">
+<style>
+  body { background: linear-gradient(180deg, #fbfaf5 0%, #ece9d8 100%); }
+  .menubar { display: flex; gap: 2px; padding: 2px 4px; border-bottom: 1px solid #fff; background: var(--face); }
+  .menubar span { padding: 2px 6px; }
+  .menubar span:hover { background: var(--sel); color: #fff; }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 22px 26px 10px; gap: 7px; overflow: auto; }
+  .logo-big { width: 190px; height: auto; margin-bottom: 14px; filter: drop-shadow(1px 2px 1px rgba(0,0,0,.18)); }
+  .logo-big.spin { animation: bob 1s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-5px) rotate(-2deg); } }
+  form { width: 100%; max-width: 220px; display: flex; flex-direction: column; gap: 6px; }
+  label.cap { margin-top: 4px; }
+  .combo { display: flex; }
+  .combo input { flex: 1; min-width: 0; height: 22px; }
+  .combo button { width: 18px; border: 1px solid var(--line); border-left: 0; background: linear-gradient(#fff, #dcdacd); font-size: 8px; }
+  .checks { display: flex; flex-direction: column; gap: 3px; margin: 6px 0 4px; }
+  .checks label { display: flex; align-items: center; gap: 5px; }
+  .go { align-self: center; min-width: 96px; justify-content: center; margin-top: 6px; }
+  .err { color: #c0281c; min-height: 28px; text-align: center; user-select: text; }
+  .hint { color: var(--muted); text-align: center; line-height: 1.45; }
+  .signing { display: none; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+  body.busy form, body.busy .hint { display: none; }
+  body.busy .signing { display: flex; }
+  .dots::after { content: ''; animation: dots 1.2s steps(4) infinite; }
+  @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+  footer { text-align: center; padding: 6px; color: var(--muted); font-size: 10px; }
+</style>
+</head>
+<body>
+<div class="menubar"><span id="mBhoo">Bhoo</span><span id="mHelp">Trợ giúp</span></div>
+<main>
+  <div id="logo"></div>
+  <form id="f" autocomplete="off">
+    <label class="cap" for="nick"><u>B</u>hoo ID:</label>
+    <div class="combo"><input id="nick" maxlength="32" spellcheck="false" accesskey="b"><button type="button" id="pick" title="ID đã dùng trên máy này">▼</button></div>
+    <div class="checks">
+      <label><input type="checkbox" id="remember"> Nhớ Bhoo ID của tôi</label>
+      <label><input type="checkbox" id="auto"> Tự động đăng nhập</label>
+      <label><input type="checkbox" id="invisible"> Đăng nhập ẩn (mọi người thấy offline)</label>
+    </div>
+    <button class="btn go primary" id="go" type="submit"><span><u>Đ</u>ăng nhập</span></button>
+    <div class="err" id="err"></div>
+  </form>
+  <div class="signing">
+    <div>Đang đăng nhập bằng<br><b id="sNick"></b><span class="dots"></span></div>
+    <div class="muted">Đang hỏi các máy trong LAN…</div>
+  </div>
+  <div class="hint" id="hint">Không cần máy chủ, không cần mật khẩu.<br>Chọn 1 nickname — bạn bè trong cùng mạng LAN sẽ thấy bạn.</div>
+</main>
+<footer id="ver"></footer>
+<script src="common.js"></script>
+<script>
+'use strict';
+let ids = [], rule = '';
+$('#logo').innerHTML = logoSvg(true);
+const err = t => { $('#err').textContent = t || ''; document.body.classList.remove('busy'); $('.logo-big').classList.remove('spin'); };
+
+onHost(m => {
+  switch (m.t) {
+    case 'init':
+      ids = m.ids || []; rule = m.rule;
+      $('#nick').value = m.last || ids[0] || '';
+      $('#remember').checked = !!m.remember; $('#auto').checked = !!m.auto; $('#invisible').checked = !!m.invisible;
+      $('#auto').disabled = !m.remember;
+      $('#ver').textContent = 'Bhoo ' + (m.version || '');
+      $('#nick').focus(); $('#nick').select();
+      break;
+    case 'signing':
+      document.body.classList.add('busy'); $('.logo-big').classList.add('spin'); $('#sNick').textContent = m.nick;
+      break;
+    case 'error': err(m.text); break;
+  }
+});
+
+$('#remember').onchange = () => { $('#auto').disabled = !$('#remember').checked; if (!$('#remember').checked) $('#auto').checked = false; };
+$('#f').onsubmit = e => {
+  e.preventDefault();
+  const nick = $('#nick').value.trim();
+  if (!/^[A-Za-z][A-Za-z0-9_.]{2,31}$/.test(nick)) { err(rule || 'Bhoo ID không hợp lệ.'); $('#nick').focus(); return; }
+  err('');
+  send('signin', { nick, remember: $('#remember').checked, auto: $('#auto').checked, invisible: $('#invisible').checked });
+};
+$('#pick').onclick = e => {
+  const r = $('.combo').getBoundingClientRect();
+  if (!ids.length) { showMenu(r.left, r.bottom, [{ label: 'Chưa có ID nào được nhớ', dis: true }]); return; }
+  showMenu(r.left, r.bottom, ids.map(id => ({ label: id, on: () => { $('#nick').value = id; $('#go').focus(); } }))
+    .concat(['-', { label: 'Quên ID đang chọn', on: () => { const v = $('#nick').value.trim(); ids = ids.filter(x => x.toLowerCase() !== v.toLowerCase()); send('forget', { nick: v }); $('#nick').value = ''; } }]));
+};
+$('#mBhoo').onclick = e => showMenu(e.clientX, e.clientY + 8, [{ label: 'Thoát', on: () => send('quit') }]);
+$('#mHelp').onclick = e => dialog('Bhoo — giới thiệu', `
+  <div style="text-align:center">${logoSvg(false)}</div>
+  <p><b>Bhoo</b> là chat LAN của Bcode: nhắn tin, BUZZ!, chat nhóm, gửi file với đồng nghiệp trong cùng mạng — không cần máy chủ Internet.</p>
+  <p>• Bhoo ID là nickname của bạn. Nick đang có người online trong LAN thì không dùng được.<br>
+  • Không có mật khẩu: ai ngồi máy này cũng mở được nick đã nhớ.<br>
+  • Tin nhắn đi thẳng giữa các máy, dạng chữ thường (không mã hoá) — đừng gửi mật khẩu / thông tin nhạy cảm.</p>`, [{ label: 'OK', primary: true }]);
+
+send('ui.init');
+</script>
+</body>
+</html>

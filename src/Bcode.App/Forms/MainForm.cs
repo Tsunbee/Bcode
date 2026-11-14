@@ -366,6 +366,7 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("open_ssms", "Mở SSMS", null, (_, _) => _ = OpenSsmsAsync()));
         _toolSpecs.Add(("giai_lao", "Giải lao (game LAN)", null, (_, _) => LaunchGame()));
         _toolSpecs.Add(("xem_chung", "Xem chung (rạp phim LAN)", null, (_, _) => LaunchWatch()));
+        _toolSpecs.Add(("bhoo", "Bhoo (chat LAN)", null, (_, _) => LaunchBhoo()));
         // Hộp modal có WebView2: phải Dispose sau ShowDialog — các đăng ký sự kiện tĩnh (ThemeChanged, UiScale, UiTemplate.BindWeb) chỉ gỡ ở Disposed,
         // không using thì form + WebView2 sống tới khi thoát Bcode, cộng dồn mỗi lần mở.
         _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) { using var f = new ApiDeclarationForm(_settings.Workspaces, _connections.Current); f.ShowDialog(this); } }));
@@ -1319,8 +1320,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     // Menu "Tool mở rộng" (cạnh "Triển khai"): các công cụ phụ, cũng không hiện riêng ở thanh công cụ / Quick Access.
     private static readonly string[] ExtToolKeys = { "check_include", "report_builder", "quick_list", "voucher_clone", "bcode_note", "team_notes", "open_ssms", "folder_compare" };
 
-    // Menu "Giải trí" (thanh trên, giữa Gemini và Trợ giúp): game LAN + rạp phim xem chung — exe riêng, Bcode chỉ mở tiến trình.
-    private static readonly string[] FunToolKeys = { "giai_lao", "xem_chung" };
+    // Menu "Giải trí" (thanh trên, giữa Gemini và Trợ giúp): game LAN + rạp phim xem chung + chat LAN Bhoo — exe riêng, Bcode chỉ mở tiến trình.
+    private static readonly string[] FunToolKeys = { "giai_lao", "xem_chung", "bhoo" };
 
     // Claude / Gemini / Trợ giúp: nút riêng ngay trên thanh trên, cùng hàng với "Tool mở rộng" (xem topbar.html) — không hiện ở thanh công cụ.
     private static readonly string[] TopBarToolKeys = { "claude_web", "gemini_web", "help" };
@@ -2554,11 +2555,16 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>"Xem chung" (Tool mở rộng): phòng chiếu phim qua LAN — exe riêng src/Bcode.Watch, build tự chép ra Watch\ cạnh Bcode.exe.</summary>
     private void LaunchWatch() => LaunchSideApp("Watch", "BcodeWatch.exe", "Bcode.Watch", "Xem chung");
 
+    /// <summary>"Bhoo" (Giải trí): chat LAN kiểu messenger ngày xưa — exe riêng src/Bcode.Chat, build tự chép ra Bhoo\ cạnh Bcode.exe.
+    /// Đang chạy thì Bhoo tự hiện cửa sổ của bản đó (1 bản / tài khoản Windows).</summary>
+    private void LaunchBhoo() => LaunchSideApp("Bhoo", "Bhoo.exe", "Bcode.Chat", "Bhoo");
+
     /// <summary>Tool của menu Giải trí → exe riêng (để menu biết thiếu file mà làm mờ mục, xem <see cref="ShowToolMenu"/>).</summary>
     private static readonly Dictionary<string, (string Folder, string Exe, string Project)> SideApps = new()
     {
         ["giai_lao"] = ("Game", "BcodeGame.exe", "Bcode.Game"),
         ["xem_chung"] = ("Watch", "BcodeWatch.exe", "Bcode.Watch"),
+        ["bhoo"] = ("Bhoo", "Bhoo.exe", "Bcode.Chat"),
     };
 
     /// <summary>Exe riêng build kèm Bcode: &lt;thư mục&gt;\&lt;exe&gt; cạnh Bcode.exe, cạnh Bcode.exe, rồi bin của project (bản dev); null = không có.</summary>
@@ -5178,4 +5184,4 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
 
         return menu;
     }
-}
+}

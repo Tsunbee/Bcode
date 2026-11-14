@@ -714,6 +714,31 @@ Shared/
 └── WebViewProfileCleanup.cs  37
 ```
 ```
+Bcode.Chat/
+├── Net/
+│   ├── Accounts.cs  49
+│   ├── ChatNode.cs  846
+│   ├── ChatStore.cs  166
+│   ├── Firewall.cs  110
+│   ├── Models.cs  101
+│   ├── SelfTest.cs  118
+│   └── Wire.cs  142
+├── Web/
+│   ├── buddy.html  76
+│   ├── buddy.js  251
+│   ├── common.js  176
+│   ├── im.html  104
+│   ├── im.js  324
+│   ├── login.html  105
+│   └── retro.css  127
+├── Bcode.Chat.csproj  30
+├── ChatApp.cs  199
+├── Forms.cs  421
+├── Program.cs  51
+├── Session.cs  240
+└── Sounds.cs  103
+```
+```
 Bcode.Core/
 ├── Bcode.Core.csproj  11
 ├── FastFileEncoding.cs  63

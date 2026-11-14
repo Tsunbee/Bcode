@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bhoo</title>
+<link rel="stylesheet" href="retro.css">
+<style>
+  .menubar { display: flex; gap: 1px; padding: 2px 3px; background: var(--face); border-bottom: 1px solid #fff; }
+  .menubar span { padding: 2px 6px; }
+  .menubar span:hover, .menubar span.on { background: var(--sel); color: #fff; }
+  .me { display: flex; gap: 8px; padding: 8px; align-items: flex-start; }
+  .avatar {
+    width: 48px; height: 48px; flex: none; border: 1px solid #0f2a52; display: flex; align-items: center; justify-content: center;
+    color: #fff; font: bold 24px Tahoma; text-shadow: 0 1px 1px rgba(0,0,0,.45); box-shadow: 0 0 0 2px #fff, 1px 1px 3px 2px rgba(0,0,0,.35); cursor: pointer;
+  }
+  .meinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .myrow { display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 1px 2px; border-radius: 2px; }
+  .myrow:hover { background: rgba(255,255,255,.18); }
+  .myname { font-weight: bold; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .myrow .arrow { font-size: 8px; opacity: .85; }
+  #myText { width: 100%; background: rgba(255,255,255,.92); border-color: #0f2a52; color: #222; font-style: italic; }
+  #myText:focus { font-style: normal; }
+  .tabs { display: flex; padding: 0 6px; gap: 2px; background: var(--face); border-bottom: 1px solid var(--dark); padding-top: 5px; }
+  .tab { padding: 4px 12px 3px; border: 1px solid var(--dark); border-bottom: 0; border-radius: 4px 4px 0 0; background: linear-gradient(#fff, #e3e0d0); margin-bottom: -1px; }
+  .tab.on { background: #fff; font-weight: bold; border-top: 2px solid var(--accent); padding-top: 3px; }
+  .tools { display: flex; align-items: center; gap: 2px; padding: 3px 4px; background: #fff; border-bottom: 1px solid #e3e0d0; }
+  .tools input { flex: 1; min-width: 0; height: 20px; }
+  #tree { flex: 1; overflow: auto; background: #fff; padding: 3px 0 10px; }
+  .grp { display: flex; align-items: center; gap: 4px; padding: 4px 6px 3px; font-weight: bold; color: #1f4882; cursor: pointer; }
+  .grp:hover { text-decoration: underline; }
+  .grp .tw { width: 10px; font-size: 8px; color: #555; }
+  .row { display: flex; align-items: center; gap: 5px; padding: 2px 6px 2px 20px; cursor: default; min-height: 22px; }
+  .row:hover { background: #eef3fb; }
+  .row.sel { background: var(--sel); color: #fff; }
+  .row.sel .stx, .row.sel .muted { color: #dfe8f7; }
+  .row .nm { white-space: nowrap; }
+  .row .stx { color: #6d6a5d; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+  .row.off .nm { color: #9a9a9a; }
+  .row .badge { margin-left: auto; flex: none; background: var(--accent); color: #000; border-radius: 8px; padding: 0 5px; font-size: 10px; }
+  .room-ic { width: 16px; height: 16px; flex: none; border-radius: 3px; background: linear-gradient(#5c8fcf, #2b5a9a); color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+  .empty { padding: 14px 16px; color: var(--muted); line-height: 1.5; user-select: text; }
+  .warn { margin: 4px 6px; padding: 5px 7px; background: #ffffe1; border: 1px solid #c9b45a; line-height: 1.4; user-select: text; }
+  .warn.bad { background: #fde4e0; border-color: #d27b6f; }
+  .warn button { margin-top: 4px; }
+  .bottom { padding: 5px 6px; display: flex; flex-direction: column; gap: 3px; border-top: 1px solid var(--shadow); }
+  .bottom .ad { height: 46px; display: flex; align-items: center; gap: 8px; padding: 0 8px; border-radius: 3px;
+    background: linear-gradient(135deg, #1f4882, #2f6db5 60%, #e8a400 160%); color: #fff; overflow: hidden; }
+  .bottom .ad svg { width: 70px; flex: none; }
+  .bottom .ad div { font-size: 10px; line-height: 1.3; }
+</style>
+</head>
+<body>
+<div class="menubar"><span data-m="bhoo">Bhoo</span><span data-m="contacts">Bạn bè</span><span data-m="actions">Hành động</span><span data-m="help">Trợ giúp</span></div>
+<div class="band me">
+  <div class="avatar" id="avatar" title="Bấm để đổi màu ảnh đại diện"></div>
+  <div class="meinfo">
+    <div class="myrow" id="myRow" title="Đổi trạng thái"><span id="mySt"></span><span class="myname" id="myName"></span><span class="arrow">▼</span></div>
+    <input id="myText" maxlength="100" placeholder="Bạn đang nghĩ gì?…" spellcheck="false" title="Dòng trạng thái — Enter để lưu">
+  </div>
+</div>
+<div class="tabs"><div class="tab on">Bạn bè</div></div>
+<div class="tools">
+  <button class="tb row" id="bNewRoom" title="Mở phòng chat nhóm"><span class="ic">👥</span></button>
+  <button class="tb row" id="bAddIp" title="Thêm máy bằng IP (máy khác mạng con)"><span class="ic">➕</span></button>
+  <input id="search" placeholder="Tìm bạn…" spellcheck="false">
+</div>
+<div id="warns"></div>
+<div id="tree"></div>
+<div class="bottom">
+  <div class="ad" id="ad"></div>
+</div>
+<div class="statusbar"><span class="grow" id="sb"></span><span id="fw" title="Tường lửa"></span></div>
+<script src="common.js"></script>
+<script src="buddy.js"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Bhoo</title>
+<link rel="stylesheet" href="retro.css">
+<style>
+  .menubar { display: flex; gap: 1px; padding: 2px 3px; background: var(--face); border-bottom: 1px solid #fff; }
+  .menubar span { padding: 2px 6px; }
+  .menubar span:hover { background: var(--sel); color: #fff; }
+  .toolbar { display: flex; gap: 2px; padding: 3px 6px; border-bottom: 1px solid var(--shadow); background: linear-gradient(#fbfaf5, #ece9d8); }
+  .toolbar .tb { min-width: 52px; height: 42px; }
+  .toolbar .tb .ic { font-size: 19px; }
+  .toolbar .sp { flex: 1; }
+  .info { display: flex; align-items: center; gap: 5px; padding: 4px 8px; min-height: 24px; white-space: nowrap; overflow: hidden; }
+  .info b { font-size: 12px; }
+  .info .stx { color: #dfe8f7; font-style: italic; overflow: hidden; text-overflow: ellipsis; }
+  .wrap { flex: 1; display: flex; gap: 6px; padding: 6px 6px 0; min-height: 0; }
+  #log { flex: 1; overflow-y: auto; padding: 6px 8px; user-select: text; font-size: 12px; line-height: 1.45; word-wrap: break-word; }
+  #log a { color: #0645ad; }
+  .ln { margin: 1px 0 3px; }
+  .ln .who { font-weight: bold; }
+  .ln .who.me { color: var(--me); }
+  .ln .who.them { color: var(--them); }
+  .ln .tm { color: #9a978a; font-size: 10px; font-weight: normal; }
+  .ln .pend { color: #b07800; font-size: 10px; margin-left: 4px; cursor: help; }
+  .ln .ok { color: #3c9a3c; font-size: 10px; margin-left: 3px; }
+  .ln .sm { width: 19px; height: 19px; }
+  .sys { color: #6d6a5d; font-style: italic; margin: 4px 0; font-size: 11px; }
+  .day { text-align: center; color: #8a877a; font-size: 10px; margin: 8px 0 4px; display: flex; align-items: center; gap: 6px; }
+  .day::before, .day::after { content: ''; flex: 1; height: 1px; background: #e2dfd0; }
+  .buzz { font: bold 20px 'Arial Black', Tahoma; color: #d4141e; letter-spacing: 1px; text-shadow: 1px 1px 0 #ffd400; margin: 4px 0; }
+  .buzz small { font: 11px Tahoma; color: #6d6a5d; letter-spacing: 0; text-shadow: none; }
+  .filecard { display: inline-flex; gap: 8px; align-items: center; margin: 3px 0 3px 2px; padding: 5px 8px; border: 1px solid #b7c9e4; background: #f3f7fd; border-radius: 3px; max-width: 100%; }
+  .filecard .fi { font-size: 22px; }
+  .filecard .fn { font-weight: bold; word-break: break-all; }
+  .filecard .fs { color: #6d6a5d; font-size: 10px; }
+  .filecard .acts { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+  .filecard .bar { height: 8px; width: 140px; border: 1px solid #7f9db9; background: #fff; margin-top: 3px; padding: 1px; }
+  .filecard .bar i { display: block; height: 100%; background: repeating-linear-gradient(90deg, #36b836 0 7px, transparent 7px 9px); width: 0; }
+  .side { width: 150px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+  .side .hd { padding: 3px 5px; border: 1px solid var(--line); background: linear-gradient(#fff, #e3e0d0); font-weight: bold; }
+  #members { flex: 1; overflow: auto; padding: 2px 0; }
+  #members .mrow { display: flex; align-items: center; gap: 5px; padding: 2px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #members .mrow:hover { background: #eef3fb; }
+  #members .mrow.offl { color: #9a9a9a; }
+  .pics { display: flex; flex-direction: column; justify-content: space-between; height: 100%; gap: 6px; }
+  .pic { width: 100%; aspect-ratio: 1; max-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff;
+    font: bold 46px Tahoma; text-shadow: 0 2px 2px rgba(0,0,0,.4); border: 1px solid #0f2a52; box-shadow: 0 0 0 2px #fff, 1px 1px 3px 2px rgba(0,0,0,.3); position: relative; }
+  .pic span { position: absolute; bottom: 3px; font: 10px Tahoma; text-shadow: none; background: rgba(0,0,0,.35); padding: 0 4px; border-radius: 2px; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fmt { display: flex; align-items: center; gap: 2px; padding: 4px 6px 3px; }
+  .fmt .tb.row { height: 24px; }
+  .fmt .sepv { width: 1px; height: 18px; background: var(--shadow); box-shadow: 1px 0 #fff; margin: 0 3px; }
+  .fmt select { height: 22px; padding: 0 2px; }
+  .fmt .buzzbtn { font: bold 11px 'Arial Black', Tahoma; color: #d4141e; letter-spacing: .5px; padding: 0 6px; }
+  #fg { width: 24px; height: 22px; padding: 0 1px; border: 1px solid var(--line); background: #fff; }
+  .compose { display: flex; gap: 6px; padding: 0 6px 6px; height: 74px; }
+  #inp { flex: 1; resize: none; height: 100%; user-select: text; font-size: 13px; }
+  #sendBtn { width: 78px; height: 100%; justify-content: center; font-size: 13px; }
+  .smgrid { position: fixed; z-index: 50; background: #fff; border: 1px solid #8d8b81; box-shadow: 2px 2px 3px rgba(0,0,0,.3); padding: 4px; display: grid; grid-template-columns: repeat(5, 30px); gap: 2px; }
+  .smgrid div { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid transparent; }
+  .smgrid div:hover { border-color: #316ac5; background: #e8eef8; }
+  .smgrid .sm { width: 22px; height: 22px; }
+  .smgrid .cap { grid-column: 1 / -1; height: auto; padding: 2px; color: #6d6a5d; font-size: 10px; justify-content: flex-start; border: 0; background: none !important; }
+  body.shake #log { animation: flashred .6s ease-out; }
+  @keyframes flashred { 0% { background: #ffe0e0; } 100% { background: #fff; } }
+  body.drop::after { content: 'Thả file vào đây để gửi'; position: fixed; inset: 6px; border: 3px dashed #316ac5; background: rgba(232,238,248,.85); display: flex; align-items: center; justify-content: center; font: bold 16px Tahoma; color: #1f4882; z-index: 30; }
+  @media (max-width: 470px) { .side { display: none; } .toolbar .tb .lb { display: none; } .toolbar .tb { min-width: 34px; } }
+</style>
+</head>
+<body>
+<div class="menubar"><span data-m="conv">Hội thoại</span><span data-m="edit">Sửa</span><span data-m="view">Xem</span><span data-m="actions">Hành động</span></div>
+<div class="toolbar">
+  <button class="tb" id="tBuzz" title="BUZZ! — rung cửa sổ của bạn"><span class="ic">📳</span><span class="lb">BUZZ!</span></button>
+  <button class="tb" id="tFile" title="Gửi file"><span class="ic">📎</span><span class="lb">Gửi file</span></button>
+  <button class="tb" id="tInvite" title="Mời thêm bạn vào cuộc chat"><span class="ic">👥</span><span class="lb">Mời bạn</span></button>
+  <div class="sp"></div>
+  <button class="tb" id="tClear" title="Xoá lịch sử cuộc chat này trên máy bạn"><span class="ic">🧹</span><span class="lb">Xoá lịch sử</span></button>
+</div>
+<div class="band info" id="info"></div>
+<div class="wrap">
+  <div id="log" class="sunken"></div>
+  <div class="side" id="side"></div>
+</div>
+<div class="fmt">
+  <button class="tb row" id="fSm" title="Mặt cười"><span id="fSmIc"></span><span style="font-size:8px">▼</span></button>
+  <div class="sepv"></div>
+  <button class="tb row" id="fB" title="Đậm (Ctrl+B)"><b>B</b></button>
+  <button class="tb row" id="fI" title="Nghiêng (Ctrl+I)"><i style="font-family:Georgia">I</i></button>
+  <button class="tb row" id="fU" title="Gạch chân (Ctrl+U)"><u>U</u></button>
+  <input type="color" id="fg" title="Màu chữ">
+  <select id="fSize" title="Cỡ chữ"><option>10</option><option>11</option><option>12</option><option selected>13</option><option>14</option><option>16</option><option>18</option><option>20</option></select>
+  <div class="sepv"></div>
+  <button class="tb row buzzbtn" id="fBuzz" title="BUZZ! (Ctrl+G)">BUZZ!</button>
+</div>
+<div class="compose">
+  <textarea id="inp" maxlength="4000" placeholder="Gõ tin nhắn… (Enter gửi, Shift+Enter xuống dòng)"></textarea>
+  <button class="btn primary" id="sendBtn"><span><u>G</u>ửi</span></button>
+</div>
+<div class="statusbar"><span class="grow" id="sb"></span><span id="clock"></span></div>
+<script src="common.js"></script>
+<script src="im.js"></script>
+</body>
+</html>

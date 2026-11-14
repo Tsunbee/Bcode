@@ -1,0 +1,421 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Bcode.Chat.Net;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.WinForms;
+
+namespace Bcode.Chat;
+
+/// <summary>Cửa sổ có 1 WebView2 chạy 1 trang trong Web\ (https://chat.local/...). Trang nói với C# bằng postMessage {t:...};
+/// C# đẩy xuống bằng <see cref="Post"/>. Tin gửi trước khi trang sẵn sàng thì bỏ (trang tự xin lại khi "ui.init").</summary>
+internal abstract class WebForm : Form
+{
+    protected const string Host = "chat.local";
+    protected readonly ChatApp App;
+    protected readonly WebView2 Web = new() { Dock = DockStyle.Fill };
+    protected CoreWebView2? Core;
+    private readonly bool _noActivate;
+
+    protected WebForm(ChatApp app, bool noActivate = false)
+    {
+        App = app;
+        _noActivate = noActivate;
+        Icon = app.AppIcon;
+        BackColor = Color.FromArgb(236, 233, 216);
+        Font = new Font("Tahoma", 8.25f);
+        Controls.Add(Web);
+        Load += async (_, _) => await InitAsync();
+        FormClosed += (_, _) => { try { Web.Dispose(); } catch { } };
+    }
+
+    protected override bool ShowWithoutActivation => _noActivate;
+
+    protected abstract string Page { get; }
+    protected abstract void OnPage(JsonObject m, CoreWebView2WebMessageReceivedEventArgs e);
+
+    private async Task InitAsync()
+    {
+        try
+        {
+            await Web.EnsureCoreWebView2Async(await App.WebEnv());
+            var core = Core = Web.CoreWebView2;
+            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+            core.Settings.IsStatusBarEnabled = false;
+            core.Settings.IsZoomControlEnabled = false;
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.SetVirtualHostNameToFolderMapping(Host, Path.Combine(AppContext.BaseDirectory, "Web"), CoreWebView2HostResourceAccessKind.Allow);
+            core.WebMessageReceived += (_, e) =>
+            {
+                try { if (JsonNode.Parse(e.WebMessageAsJson) is JsonObject m) OnPage(m, e); }
+                catch (Exception ex) { Post(new { t = "error", text = ex.Message }); }
+            };
+            core.NewWindowRequested += (_, e) =>
+            {
+                // link trong tin nhắn → trình duyệt mặc định
+                e.Handled = true;
+                OpenUrl(e.Uri);
+            };
+            core.NavigationStarting += (_, e) =>
+            {
+                if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var u) && u.Host == Host) return;
+                e.Cancel = true;   // không cho trang đi chỗ khác (thả file vào → trình duyệt mở file)
+                OpenUrl(e.Uri);
+            };
+            core.Navigate($"https://{Host}/{Page}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Không khởi tạo được WebView2:\n" + ex.Message + "\n\nCần cài Microsoft Edge WebView2 Runtime.", "Bhoo", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    protected static void OpenUrl(string url)
+    {
+        if (Uri.TryCreate(url, UriKind.Absolute, out var u) && (u.Scheme == "https" || u.Scheme == "http"))
+            try { Process.Start(new ProcessStartInfo(u.AbsoluteUri) { UseShellExecute = true }); } catch { }
+    }
+
+    public void Post(object msg)
+    {
+        if (Core is null || IsDisposed) return;
+        try { Core.PostWebMessageAsJson(JsonSerializer.Serialize(msg, Wire.Json)); } catch { }
+    }
+
+    // ───────────── Nháy taskbar ─────────────
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FLASHWINFO { public uint cbSize; public IntPtr hwnd; public uint dwFlags; public uint uCount; public uint dwTimeout; }
+
+    [DllImport("user32.dll")] private static extern bool FlashWindowEx(ref FLASHWINFO pwfi);
+
+    /// <summary>Nháy nút trên taskbar tới khi người dùng bấm vào cửa sổ.</summary>
+    public void Flash()
+    {
+        if (!IsHandleCreated) return;
+        var fi = new FLASHWINFO { cbSize = (uint)Marshal.SizeOf<FLASHWINFO>(), hwnd = Handle, dwFlags = 3 | 12, uCount = 0, dwTimeout = 0 };   // ALL | TIMERNOFG
+        FlashWindowEx(ref fi);
+    }
+}
+
+/// <summary>Cửa sổ danh sách bạn (Web\buddy.html) — dọc, hẹp như messenger cũ. Bấm X thì thu xuống khay (tuỳ chọn).</summary>
+internal sealed class BuddyForm : WebForm
+{
+    public bool AllowClose { get; set; }
+    protected override string Page => "buddy.html";
+
+    private readonly Session S;
+
+    public BuddyForm(Session s) : base(s.App)
+    {
+        S = s;
+        Text = "Bhoo";
+        Width = 300; Height = 620;
+        MinimumSize = new Size(240, 380);
+        StartPosition = FormStartPosition.Manual;
+        var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 800);
+        Location = new Point(wa.Right - Width - 24, wa.Top + 40);
+        if (s.Store.Prefs.ListBounds is { Length: 4 } r)
+        {
+            var rect = new Rectangle(r[0], r[1], Math.Max(240, r[2]), Math.Max(380, r[3]));
+            if (Screen.AllScreens.Any(s => s.WorkingArea.IntersectsWith(rect))) Bounds = rect;
+        }
+        FormClosing += (_, e) =>
+        {
+            if (WindowState == FormWindowState.Normal) { s.Store.Prefs.ListBounds = new[] { Left, Top, Width, Height }; s.Store.SavePrefs(); }
+            if (AllowClose || s.App.Quitting) return;
+            e.Cancel = true;
+            if (s.Store.Prefs.CloseToTray) Hide();
+            else BeginInvoke(s.App.Quit);   // không gọi Quit ngay trong FormClosing (Quit tự đóng lại form này)
+        };
+    }
+
+    protected override void OnPage(JsonObject m, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        var node = S.Node;
+        switch ((string?)m["t"])
+        {
+            case "ui.init":
+                Post(new { t = "init", me = S.Me(), list = S.BuddyList(), groups = node.Groups() });
+                _ = CheckFirewall();
+                break;
+            case "me.set":
+                node.SetMe((string?)m["name"], (string?)m["status"], (string?)m["text"], (string?)m["color"]);
+                S.Broadcast(new { t = "me", me = S.Me() });
+                break;
+            case "status":
+                S.SetMyStatus((string?)m["status"] ?? Status.Online);
+                break;
+            case "open":
+                if ((string?)m["conv"] is { Length: > 2 } conv) S.OpenIm(conv, activate: true);
+                break;
+            case "group.new":
+                var ids = (m["ids"] as JsonArray)?.Select(x => (string?)x ?? "").Where(x => x.Length > 0).ToList() ?? new();
+                if (ids.Count == 0) { Post(new { t = "error", text = "Chọn ít nhất 1 người để mở phòng chat." }); break; }
+                var g = node.CreateGroup((string?)m["title"] ?? "", ids);
+                S.OpenIm("g:" + g.Gid, activate: true);
+                break;
+            case "peer.add":
+                try { node.AddManualPeer((string?)m["ip"] ?? ""); S.Broadcast(new { t = "me", me = S.Me() }); }
+                catch (Exception ex) { Post(new { t = "error", text = ex.Message }); }
+                break;
+            case "peer.del":
+                node.RemoveManualPeer((string?)m["ip"] ?? "");
+                S.Broadcast(new { t = "me", me = S.Me() });
+                break;
+            case "buddy.group":
+                node.SetBuddyGroup((string?)m["id"] ?? "", (string?)m["group"] ?? "");
+                break;
+            case "buddy.hide":
+                node.HideBuddy((string?)m["id"] ?? "", (bool?)m["hidden"] ?? true);
+                break;
+            case "prefs":
+                S.SetPrefs(m);
+                break;
+            case "fw.check":
+                _ = CheckFirewall();
+                break;
+            case "fw.open":
+                _ = OpenFirewall();
+                break;
+            case "signout":
+                S.App.SignOut();
+                break;
+            case "quit":
+                S.App.Quit();
+                break;
+        }
+    }
+
+    private async Task CheckFirewall() => Post(await S.FirewallStatus());
+    private async Task OpenFirewall() => Post(await S.OpenFirewall());
+}
+
+/// <summary>Cửa sổ 1 cuộc chat (Web\im.html?c=conv): 1-1 hoặc phòng nhóm. BUZZ = rung cửa sổ + kêu.</summary>
+internal sealed class ImForm : WebForm
+{
+    public string Conv { get; }
+    private readonly System.Windows.Forms.Timer _shake = new() { Interval = 16 };
+    private int _shakeStep;
+    private Point _shakeOrigin;
+    private long _lastShake;
+    protected override string Page => "im.html?c=" + Uri.EscapeDataString(Conv);
+
+    private readonly Session S;
+
+    public ImForm(Session s, string conv, bool activate) : base(s.App, noActivate: !activate)
+    {
+        S = s;
+        Conv = conv;
+        Width = 560; Height = 500;
+        MinimumSize = new Size(400, 360);
+        StartPosition = FormStartPosition.Manual;
+        var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 800);
+        var offset = (Application.OpenForms.OfType<ImForm>().Count() % 6) * 26;
+        Location = new Point(Math.Max(wa.Left, wa.Right - 300 - Width - 40 - offset), wa.Top + 80 + offset);
+        UpdateTitle();
+        _shake.Tick += (_, _) => ShakeTick();
+        Activated += (_, _) => Post(new { t = "focus" });
+    }
+
+    public void UpdateTitle()
+    {
+        var title = S.Title(Conv);
+        Text = (Conv.StartsWith("g:") ? "Phòng chat: " : "") + title + " — Bhoo";
+        Post(new { t = "title", title, group = Conv.StartsWith("g:") ? S.Node.FindGroup(Conv[2..]) : null });
+    }
+
+    /// <summary>BUZZ: hiện cửa sổ lên trên cùng rồi rung ~0,6 s. Hai lần BUZZ cách nhau &lt; 1,5 s thì chỉ rung 1 lần.</summary>
+    public void Shake()
+    {
+        var now = Environment.TickCount64;
+        if (now - _lastShake < 1500 || _shake.Enabled) return;
+        _lastShake = now;
+        if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+        if (!Visible) Show();
+        TopMost = true;
+        BringToFront();
+        _shakeOrigin = Location;
+        _shakeStep = 0;
+        _shake.Start();
+        Post(new { t = "buzzfx" });
+    }
+
+    private void ShakeTick()
+    {
+        const int steps = 36;
+        if (_shakeStep >= steps)
+        {
+            _shake.Stop();
+            Location = _shakeOrigin;
+            TopMost = false;
+            if (!ContainsFocus) Flash();
+            return;
+        }
+        var amp = 12 * (1 - (double)_shakeStep / steps);
+        var dx = (int)(amp * Math.Sin(_shakeStep * 2.3));
+        var dy = (int)(amp * 0.7 * Math.Cos(_shakeStep * 3.1));
+        Location = new Point(_shakeOrigin.X + dx, _shakeOrigin.Y + dy);
+        _shakeStep++;
+    }
+
+    protected override void OnPage(JsonObject m, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        var node = S.Node;
+        switch ((string?)m["t"])
+        {
+            case "ui.init":
+                Post(new
+                {
+                    t = "init", conv = Conv, me = S.Me(), title = S.Title(Conv), list = S.BuddyList(),
+                    group = Conv.StartsWith("g:") ? node.FindGroup(Conv[2..]) : null,
+                    history = S.History(Conv),
+                });
+                break;
+            case "send":
+            {
+                var text = ((string?)m["text"] ?? "").TrimEnd();
+                if (text.Trim().Length == 0) break;
+                var size = m["size"] is JsonValue sv && sv.TryGetValue<int>(out var si) ? si : (int?)null;
+                Send(() => node.Send(Conv, "text", text, (string?)m["style"], (string?)m["fg"], size));
+                Sounds.Play("send");
+                break;
+            }
+            case "buzz":
+                Send(() => node.Send(Conv, "buzz", "BUZZ!!!"));
+                // người gửi cũng thấy cửa sổ mình rung nhẹ — như ngày xưa
+                Shake();
+                Sounds.Play("buzz");
+                break;
+            case "typing":
+                node.SendTyping(Conv);
+                break;
+            case "file.pick":
+            {
+                using var dlg = new OpenFileDialog { Title = "Chọn file gửi qua Bhoo", Multiselect = true };
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                    foreach (var p in dlg.FileNames) SendFile(p);
+                break;
+            }
+            case "file.drop":
+                // thả file từ Explorer vào cửa sổ: trang gửi kèm File objects → đường dẫn thật
+                if (e.AdditionalObjects is { } objs)
+                    foreach (var o in objs)
+                        if (o is CoreWebView2File f && File.Exists(f.Path)) SendFile(f.Path);
+                break;
+            case "file.get":
+            {
+                var mid = (string?)m["mid"] ?? "";
+                var msg = S.Store.LoadHistory(Conv, 2000).LastOrDefault(x => x.Mid == mid);
+                if (msg?.File is null) { Post(new { t = "error", text = "Không thấy tin có file này nữa." }); break; }
+                _ = node.DownloadAsync(msg);
+                break;
+            }
+            case "file.open":
+                if ((string?)m["path"] is { Length: > 0 } fp && File.Exists(fp))
+                    try { Process.Start(new ProcessStartInfo(fp) { UseShellExecute = true }); } catch (Exception ex) { Post(new { t = "error", text = ex.Message }); }
+                break;
+            case "file.folder":
+                if ((string?)m["path"] is { Length: > 0 } fp2 && File.Exists(fp2))
+                    try { Process.Start("explorer.exe", "/select,\"" + fp2 + "\""); } catch { }
+                break;
+            case "font":
+                S.SaveFont((string?)m["style"], (string?)m["fg"], m["size"] is JsonValue fs && fs.TryGetValue<int>(out var fsi) ? fsi : null);
+                break;
+            case "group.invite":
+            {
+                var ids = (m["ids"] as JsonArray)?.Select(x => (string?)x ?? "").Where(x => x.Length > 0).ToList() ?? new();
+                if (Conv.StartsWith("u:"))
+                {
+                    // từ cửa sổ 1-1 mời thêm người → mở phòng nhóm mới gồm cả người đang chat (như "mời vào hội thoại" ngày xưa)
+                    ids.Add(Conv[2..]);
+                    var g = node.CreateGroup((string?)m["title"] ?? "", ids);
+                    S.OpenIm("g:" + g.Gid, activate: true);
+                }
+                else Send(() => node.InviteToGroup(Conv[2..], ids));
+                break;
+            }
+            case "group.rename":
+                if (Conv.StartsWith("g:")) Send(() => node.RenameGroup(Conv[2..], (string?)m["title"] ?? ""));
+                break;
+            case "group.leave":
+                if (Conv.StartsWith("g:"))
+                {
+                    node.LeaveGroup(Conv[2..]);
+                    S.Broadcast(new { t = "groups", list = node.Groups() });
+                    Close();
+                }
+                break;
+            case "history.clear":
+                S.Store.ClearHistory(Conv);
+                break;
+            case "open.buddy":
+                if ((string?)m["id"] is { Length: > 0 } bid && bid != node.MyId) S.OpenIm("u:" + bid, activate: true);
+                break;
+            case "close":
+                Close();
+                break;
+        }
+    }
+
+    private void SendFile(string path)
+    {
+        try
+        {
+            S.Node.OfferFile(Conv, path);
+        }
+        catch (Exception ex) { Post(new { t = "error", text = "Không gửi được file: " + ex.Message }); }
+    }
+
+    /// <summary>Gửi tin / đổi phòng — tin của mình hiện lên trang qua <see cref="ChatNode.Sent"/> (ChatApp); lỗi thì báo xuống trang.</summary>
+    private void Send(Action f)
+    {
+        try { f(); }
+        catch (Exception ex) { Post(new { t = "error", text = ex.Message }); }
+    }
+}
+
+/// <summary>Màn đăng nhập Bhoo (Web\login.html): Bhoo ID (nickname) + nhớ ID / tự đăng nhập / đăng nhập ẩn. Không có mật khẩu (không có máy chủ).</summary>
+internal sealed class LoginForm : WebForm
+{
+    public bool AllowClose { get; set; }
+    protected override string Page => "login.html";
+
+    public LoginForm(ChatApp app) : base(app)
+    {
+        Text = "Bhoo";
+        Width = 300; Height = 560;
+        MinimumSize = new Size(260, 460);
+        StartPosition = FormStartPosition.Manual;
+        var wa = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1280, 800);
+        Location = new Point(wa.Right - Width - 24, wa.Top + 40);
+        FormClosing += (_, e) =>
+        {
+            if (AllowClose || app.Quitting) return;
+            e.Cancel = true;
+            BeginInvoke(app.Quit);   // chưa đăng nhập mà đóng màn đăng nhập = thoát hẳn
+        };
+    }
+
+    protected override void OnPage(JsonObject m, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        switch ((string?)m["t"])
+        {
+            case "ui.init":
+                var l = App.Login;
+                Post(new { t = "init", ids = l.Ids, last = l.LastId, remember = l.Remember, auto = l.AutoLogin, invisible = l.Invisible, rule = Nick.Rule, version = Application.ProductVersion.Split('+')[0] });
+                break;
+            case "signin":
+                _ = App.SignInAsync((string?)m["nick"] ?? "", (bool?)m["invisible"] ?? false, (bool?)m["remember"] ?? true, (bool?)m["auto"] ?? false);
+                break;
+            case "forget":
+                App.Login.Ids.RemoveAll(x => string.Equals(x, (string?)m["nick"], StringComparison.OrdinalIgnoreCase));
+                App.Login.Save();
+                break;
+            case "quit":
+                App.Quit();
+                break;
+        }
+    }
+}

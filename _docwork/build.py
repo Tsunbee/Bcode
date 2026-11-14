@@ -13,7 +13,7 @@ from docx.oxml import OxmlElement
 WORK = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(WORK)
 SRC = os.path.join(ROOT, 'src')
-EX = {'bin', 'obj', 'node_modules', 'vs', 'Libs', '.vs'}
+EX = {'bin', 'obj', 'node_modules', 'vs', 'Libs', '.vs', '.git'}   # .git: src/ExcelToFrx là repo git lồng
 
 
 # ------------------------------------------------------------ cây thư mục tự sinh
@@ -58,7 +58,11 @@ def tree_lines(proj, summarize=('Templates',)):
     return out
 
 
-TREES = {p: tree_lines(p) for p in ['Bcode.App', 'BcodeViewer.App', 'Bcode.ScreenDesigner', 'Bcode.ReportBuilder', 'Bcode.KeyGen', 'Shared']}
+# Cây chi tiết cho MỌI project trong src/ (6 project chính trước, còn lại theo tên) — project mới thêm tự có cây, không phải sửa danh sách.
+_MAIN_TREES = ['Bcode.App', 'BcodeViewer.App', 'Bcode.ScreenDesigner', 'Bcode.ReportBuilder', 'Bcode.KeyGen', 'Shared']
+TREE_PROJECTS = _MAIN_TREES + sorted((d for d in os.listdir(SRC)
+                                      if os.path.isdir(os.path.join(SRC, d)) and d not in _MAIN_TREES and d not in EX), key=str.lower)
+TREES = {p: tree_lines(p) for p in TREE_PROJECTS}
 
 
 # ------------------------------------------------------------ docx helpers
@@ -228,9 +232,8 @@ doc.add_page_break()
 # ---- E (cây thư mục)
 doc.add_heading('E. Cây cấu trúc thư mục', 1)
 para(doc, 'Tự sinh từ ổ đĩa ngày ' + TODAY + '. Số cuối dòng = số dòng file. Đã bỏ bin/, obj/, Libs/ (DLL) và Web/vs/ (Monaco vendor); thư mục có >60 file chỉ ghi số lượng.', 9)
-for proj, label in (('Bcode.App', 'Bcode.App/'), ('BcodeViewer.App', 'BcodeViewer.App/'), ('Bcode.ScreenDesigner', 'Bcode.ScreenDesigner/'),
-                    ('Bcode.ReportBuilder', 'Bcode.ReportBuilder/'), ('Bcode.KeyGen', 'Bcode.KeyGen/'), ('Shared', 'Shared/')):
-    doc.add_heading(label, 2)
+for proj in TREE_PROJECTS:
+    doc.add_heading(proj + '/', 2)
     code_block(doc, TREES[proj], 6.5)
 doc.add_page_break()
 
@@ -327,7 +330,7 @@ for s in TRAPS:
 md.append('\n(Cây thư mục đầy đủ: STRUCTURE-TREE.md)\n')
 open(os.path.join(ROOT, 'STRUCTURE.md'), 'w', encoding='utf-8').write('\n'.join(md) + '\n')
 md = ['# Cây thư mục Bcode (số cuối = số dòng file; tự sinh ' + TODAY + ')\n']
-for proj in ('Bcode.App', 'BcodeViewer.App', 'Bcode.ScreenDesigner', 'Bcode.ReportBuilder', 'Bcode.KeyGen', 'Shared'):
+for proj in TREE_PROJECTS:
     md.append('```')
     md.extend(TREES[proj])
     md.append('```')

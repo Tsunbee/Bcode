@@ -1213,6 +1213,8 @@ Nút **Giải trí ▾** trên thanh trên (giữa **Gemini** và **Trợ giúp*
 | **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–8 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
 | **Xem chung (rạp phim LAN)** | Mở **Rạp Bcode** — xem chung YouTube / MP4 / MP3 với cả phòng qua mạng LAN, hoặc **chia sẻ màn hình** cho cả phòng xem (như Discord), có bình luận. Xem [Xem chung](#xem-chung). |
 
+> Mục **mờ** kèm chữ "thiếu Game\BcodeGame.exe" / "thiếu Watch\BcodeWatch.exe" = thư mục Bcode thiếu chương trình đó → cập nhật lại Bcode. Bấm **Giải trí ▾** mà không bung gì: mở **Ctrl+P**, gõ `Giải lao` / `Xem chung` để mở thẳng; nếu Ctrl+P cũng không có thì Bcode trên máy đang lệch bản → **Settings → Cập nhật Bcode**, tick **Ghi đè cả các file này** rồi cập nhật. Điều khiển máy qua UltraViewer / TeamViewer: kéo thanh công cụ nhỏ của chương trình điều khiển ra chỗ khác, kẻo nó che nút.
+
 <a id="giai-lao"></a>
 ### Giải lao — game LAN "Đêm Go-Live"
 
@@ -1255,12 +1257,13 @@ Xem chung video / nhạc với cả phòng qua mạng LAN văn phòng: mọi má
 4. **🔗 Link mời** (nút trên thanh đầu rạp — ai trong phòng cũng bấm được): chép link dạng `http://192.168.1.20:47841/join` vào clipboard — dán vào Zalo / Teams / mail. Người cùng mạng LAN bấm link → trang nhỏ của máy chủ phòng hiện tên phòng và nút **▶ Mở Rạp Bcode và vào phòng** → Rạp mở ra và vào thẳng phòng. Nút chỉ chạy ở máy đã có Bcode và đã mở **Xem chung** ít nhất một lần (lần mở đầu Rạp đăng ký link `bcwatch://` cho tài khoản Windows, không cần quyền admin); không thì mở Xem chung, dán link vào ô **IP chủ phòng** → **Vào**. Link hết dùng được khi chủ phòng đóng phòng.
 5. **Rời phòng / đóng cửa sổ** của chủ phòng = **kết thúc buổi chiếu**: người xem được báo "Chủ phòng đã kết thúc buổi chiếu" và về sảnh, phòng biến khỏi danh sách của máy khác sau vài giây. Vào phòng mà máy chủ phòng không trả lời thì sau 8 giây rạp báo rõ, không đứng im.
 6. **Phòng có mật khẩu**: lúc mở phòng gõ vào ô **🔒 Mật khẩu phòng** (để trống = ai cũng vào được). Phòng có khoá hiện **🔒** trong danh sách; người vào nhập mật khẩu ở hộp hiện ra, sai thì chủ phòng từ chối và cho nhập lại (sai 5 lần bị ngắt). Mật khẩu không đi trên mạng (kiểm bằng challenge–response, như [Giải lao](#giai-lao)); rạp nhớ mật khẩu phòng lần trước của chủ phòng trong `watch-lan.json`, mã hoá DPAPI. Lưu ý: mật khẩu chỉ chặn **vào phòng** — nội dung chiếu / bình luận trong LAN vẫn không mã hoá.
+7. **💾 Phòng đã lưu** (ở sảnh, dưới ô Mở phòng): mỗi phòng bạn đã mở được lưu trên máy bạn (tối đa 20 phòng) — tên, mật khẩu (DPAPI) và **danh sách chiếu đã khai báo**. Danh sách tự lưu mỗi khi chủ phòng thêm / xoá / xếp lại / có tên bài; không lưu đề xuất chưa duyệt và video 🔁 Tự phát tiếp. Lần sau bấm **Mở lại** (hoặc gõ đúng tên phòng đó → **Mở phòng**) là có sẵn danh sách, chưa tự chiếu — bấm ▶ khi sẵn sàng. File trên máy lưu theo đường dẫn: file đã xoá / đổi chỗ thì bị bỏ, rạp báo số file bỏ. **✕** xoá phòng khỏi máy. Lưu trong `%AppData%\Bcode\watch-lan.json`.
 
 **Chiếu gì** (tab **📃 Danh sách** ở cột bên phải)
 
 | Nguồn | Cách thêm | Ghi chú |
 |---|---|---|
-| YouTube | Dán link (`youtube.com/watch?v=…`, `youtu.be/…`, `shorts/…`) → **Thêm** | Mỗi máy tự tải từ YouTube — máy nào cũng cần Internet. Video chủ kênh tắt "cho phép nhúng" thì không phát được (hiện nút **Mở bằng trình duyệt**). |
+| YouTube / YouTube Music | Dán link (`youtube.com/watch?v=…`, `youtu.be/…`, `shorts/…`, `music.youtube.com/watch?v=…`) → **Thêm**. Link **danh sách phát / album** (`youtube.com/playlist?list=…`, `music.youtube.com/playlist?list=…`) → thêm **cả danh sách** theo thứ tự để cả phòng cùng nghe (tối đa 200 mục; đọc trang đầu ~100 bài; người xem dán thì thành đề xuất) | Mỗi máy tự tải từ YouTube — máy nào cũng cần Internet. Video chủ kênh tắt "cho phép nhúng" thì không phát được (hiện nút **Mở bằng trình duyệt**). |
 | Link MP4 / MP3 / WebM trên mạng | Dán link `http(s)://…` → **Thêm** | Mỗi máy tự tải. MKV / AVI / HEVC thường không phát được — dùng MP4 (H.264) hoặc WebM. |
 | File trên máy chủ phòng | **📂 Chiếu file trên máy…** (chọn được nhiều file) | Máy chủ phòng phát qua LAN cho cả phòng (tua được). File trên ổ chung cũng chọn được. |
 

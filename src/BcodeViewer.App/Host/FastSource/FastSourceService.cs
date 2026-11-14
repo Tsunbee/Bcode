@@ -150,7 +150,10 @@ public sealed partial class FastSourceService
             SourceGhost? g = null;
             if (!force && File.Exists(file) && File.Exists(askFile) && (DateTime.Now - File.GetLastWriteTime(file)).TotalDays < 7)
             {
-                g = SourceGhost.FromJson(JsonDocument.Parse(File.ReadAllText(file)).RootElement);
+                // Dự án đã nằm trong kiến thức chung (_shared) thì GhostFor không dùng bản riêng → khỏi đọc (file ~35 MB = ~2 s, ~700 MB cấp phát,
+                // ~100–170 MB giữ mãi). Chưa có trong _shared thì đọc như cũ để gộp lớp dự án.
+                if (!_sharedProjects.Contains(ViewerKnowledge.SafeName(project)))
+                    g = SourceGhost.FromJson(JsonDocument.Parse(File.ReadAllText(file)).RootElement);
                 _projectDocs[project] = SourceAsk.FromJson(File.ReadAllText(askFile));
                 LoadSiblingIndex(project);
             }
@@ -172,7 +175,8 @@ public sealed partial class FastSourceService
                 _projectDocs[project] = docs;
                 Status = $"Đã học source dự án {project}: {files.Count} file";
             }
-            _projectGhost[project] = g;
+            // giữ khoá (null) để không học lại; bản riêng chỉ giữ khi dự án chưa có trong _shared (ComposeBase bỏ khi dự án vào _shared)
+            _projectGhost[project] = _sharedProjects.Contains(ViewerKnowledge.SafeName(project)) ? null : g;
             if (!_sharedProjects.Contains(ViewerKnowledge.SafeName(project))) MergeShared();   // học từ trước nhưng chưa có trong _shared (vd _shared của bản cũ)
             _merged.Clear();
             _askCache = null;

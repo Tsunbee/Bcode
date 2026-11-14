@@ -52,6 +52,9 @@ public sealed class MediaServer : IDisposable
         return id;
     }
 
+    /// <summary>Đường dẫn file của mã <paramref name="id"/> (null = không có) — để lưu danh sách chiếu của phòng (file lưu theo đường dẫn, mã đổi mỗi lần mở).</summary>
+    public string? PathOf(string id) => _files.TryGetValue(id, out var p) ? p : null;
+
     private async Task AcceptLoop()
     {
         while (!_cts.IsCancellationRequested)

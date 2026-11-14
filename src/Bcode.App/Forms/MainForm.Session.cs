@@ -25,6 +25,7 @@ public partial class MainForm
     private readonly System.Windows.Forms.Timer _sessionTimer = new() { Interval = 4000 };
     private readonly ConditionalWeakTable<ISqlTab, TextBox> _sessionText = new();
     private string? _lastSessionJson;
+    private long _lastSessionSig = long.MinValue;   // dấu của trạng thái đã ghi / đã so ở lượt tick trước (SessionSignature)
     private int _sessionWriting;
     private bool _sessionArmed, _sessionRestoring;
     private TabPage? _prevSelectedPage;
@@ -220,20 +221,39 @@ public partial class MainForm
             SessionStore.Save(state);
             return;
         }
-        // Tick định kỳ: dựng JSON (có thể hàng MB) + so sánh + ghi file đều ở luồng nền; mỗi lúc chỉ một lượt để không chồng nhau.
+        // Tick định kỳ (4 s, chạy cả khi thu nhỏ): dấu nhận biết rẻ trước — không đổi gì so với lượt đã ghi / đã so thì khỏi dựng JSON
+        // (có thể hàng MB mỗi lượt). Đổi thì như cũ: dựng JSON + so sánh + ghi file ở luồng nền; mỗi lúc chỉ một lượt để không chồng nhau.
+        var sig = SessionSignature(state);
+        if (sig == Volatile.Read(ref _lastSessionSig)) return;
         if (Interlocked.Exchange(ref _sessionWriting, 1) == 1) return;
         _ = Task.Run(() =>
         {
             try
             {
                 var json = SessionStore.Serialize(state);
-                if (json == _lastSessionJson) return;
+                if (json == _lastSessionJson) { Volatile.Write(ref _lastSessionSig, sig); return; }
                 _lastSessionJson = json;
-                SessionStore.Save(state);
+                if (SessionStore.Save(state)) Volatile.Write(ref _lastSessionSig, sig);
             }
             catch { /* không ghi được phiên thì thôi */ }
             finally { Volatile.Write(ref _sessionWriting, 0); }
         });
+    }
+
+    /// <summary>Dấu nhận biết rẻ của trạng thái phiên (mọi trường được ghi trừ SavedAt). Nội dung SQL dài so theo đối tượng chuỗi + độ dài —
+    /// chuỗi bất biến, gõ thêm là CaptureSessionTextAsync thay chuỗi mới nên dấu đổi; chuỗi ngắn (bộ lọc Table…) so theo nội dung.</summary>
+    private static long SessionSignature(SessionState s)
+    {
+        var h = new HashCode();
+        h.Add(s.Workspace); h.Add(s.Selected); h.Add(s.Tabs.Count);
+        foreach (var t in s.Tabs)
+        {
+            h.Add(t.Kind); h.Add(t.Title); h.Add(t.Key); h.Add(t.Sys); h.Add(t.Pinned);
+            if (t.Text is null) h.Add(-1);
+            else if (t.Text.Length <= 4096) h.Add(t.Text);
+            else { h.Add(t.Text.Length); h.Add(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(t.Text)); }
+        }
+        return ((long)h.ToHashCode() << 32) | (uint)s.Tabs.Sum(t => t.Text?.Length ?? 0);
     }
 
     private SessionState BuildSessionState(string workspace)

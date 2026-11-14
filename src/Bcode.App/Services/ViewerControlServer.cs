@@ -14,7 +14,9 @@ namespace Bcode.App.Services;
 /// </summary>
 public sealed class ViewerControlServer : IDisposable
 {
-    public static string PipeName => $"Bcode.Control.{Process.GetCurrentProcess().SessionId}";
+    public static string PipeName => _pipeName;
+    private static readonly string _pipeName = CurrentPipeName();
+    private static string CurrentPipeName() { using var p = Process.GetCurrentProcess(); return $"Bcode.Control.{p.SessionId}"; }
 
     /// <summary>(đường dẫn file, tên project hoặc ""). Bắn ở thread nền — người nhận tự marshal về UI.</summary>
     public event Action<string, string>? RunMenuRequested;
@@ -33,12 +35,29 @@ public sealed class ViewerControlServer : IDisposable
 
     private async Task LoopAsync()
     {
+        // Cửa sổ Bcode thứ 2 trở đi: pipe (1 instance) đang do cửa sổ đầu giữ → tạo pipe ném IOException "All pipe instances are busy".
+        // Trước đây thử lại mỗi 500 ms mãi mãi (exception 2 lần/s vào vòng đệm ErrorLog). Nay lùi dần tới 5 s; cửa sổ đầu đóng thì
+        // cửa sổ này nhận pipe chậm nhất ~5 s.
+        var busyDelay = 500;
         while (!_cts.IsCancellationRequested)
         {
+            NamedPipeServerStream server;
             try
             {
-                await using var server = new NamedPipeServerStream(
+                server = new NamedPipeServerStream(
                     PipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                busyDelay = 500;
+            }
+            catch (IOException)
+            {
+                try { await Task.Delay(busyDelay, _cts.Token); } catch (OperationCanceledException) { return; }
+                busyDelay = Math.Min(busyDelay * 2, 5000);
+                continue;
+            }
+            catch { await Task.Delay(500); continue; }
+            try
+            {
+                await using var owned = server;   // đóng pipe sau mỗi lượt như trước
                 await server.WaitForConnectionAsync(_cts.Token);
                 using var reader = new StreamReader(server, Encoding.UTF8);
                 var line = await reader.ReadLineAsync(_cts.Token);

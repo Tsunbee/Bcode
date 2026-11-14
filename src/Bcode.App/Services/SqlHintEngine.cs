@@ -27,6 +27,7 @@ public sealed class SqlHintEngine
     private Engine? _engine;
     private string _routinesKey = "";
     private string _userJson = "";
+    private IReadOnlyList<string>? _tablesSent;   // danh sách tên bảng đang nạp trong engine (so tham chiếu)
     private Func<string, string>? _columns;
 
     public bool Available { get; private set; } = true;
@@ -50,7 +51,8 @@ public sealed class SqlHintEngine
 
     /// <summary>Gắn dữ liệu theo database/workspace: danh sách procedure/function + options (JSON của <see cref="SqlHintService"/>), tên bảng, snippet Library (đã lọc dự án).
     /// Đổi <paramref name="key"/> (workspace + Sys/App) thì bộ nhớ đệm cột bị xoá.</summary>
-    private void Prepare(string key, string routinesJson, IReadOnlyList<string> dbTables, string userJson, Func<string, string> columns)
+    /// <param name="dbTables">null = giữ danh sách đang nạp trong engine (gợi ý chữ ký không dùng tên bảng).</param>
+    private void Prepare(string key, string routinesJson, IReadOnlyList<string>? dbTables, string userJson, Func<string, string> columns)
     {
         var e = Ensure();
         _columns = columns;
@@ -59,7 +61,13 @@ public sealed class SqlHintEngine
             _routinesKey = key;
             e.Execute("BcodeHints.cols = {}; BcodeHints.setRoutines(" + (string.IsNullOrEmpty(routinesJson) ? "{r:[],o:[]}" : routinesJson) + ");");
         }
-        e.Execute("window._dbTables = " + JsonSerializer.Serialize(dbTables.Select(n => new { name = n })) + ";");
+        // Chỉ nạp lại khi danh sách khác lần trước (NativeSqlControl thay CẢ List khi nạp lại tên bảng; mỗi tab / database 1 List riêng):
+        // 15k bảng = JSON ~380 KB + Jint parse ≈ 75 ms + 19 MB rác — trước đây chạy mỗi lần hỏi gợi ý (mỗi phím).
+        if (dbTables is not null && !ReferenceEquals(dbTables, _tablesSent))
+        {
+            e.Execute("window._dbTables = " + JsonSerializer.Serialize(dbTables.Select(n => new { name = n })) + ";");
+            _tablesSent = dbTables;
+        }
         if (userJson != _userJson) { _userJson = userJson; e.Execute("BcodeHints.user = " + (userJson.Length == 0 ? "[]" : userJson) + ";"); }
     }
 
@@ -95,7 +103,7 @@ public sealed class SqlHintEngine
         {
             try
             {
-                Prepare(key, routinesJson, Array.Empty<string>(), _userJson, _columns ?? (_ => "[]"));
+                Prepare(key, routinesJson, null, _userJson, _columns ?? (_ => "[]"));
                 var r = _engine!.Evaluate($"__signature({JsonSerializer.Serialize(text)}, {offset})");
                 if (r.IsNull() || r.IsUndefined()) return null;
                 using var doc = JsonDocument.Parse(r.ToString());

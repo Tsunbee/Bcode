@@ -47,6 +47,17 @@ function renderRooms(rooms, error) {
   ul.innerHTML = rooms.map((r, i) => `<li><div class="ri"><div class="rn">${r.lock ? `<span class="lock" title="Phòng có mật khẩu">🔒</span>` : ""}${esc(r.name)}</div><div class="rm">${esc(r.host)} · ${esc(r.ip)}${r.port !== 47831 ? ":" + r.port : ""} · ${r.players}/${r.max} người · ${esc(r.state)}</div></div><button data-i="${i}">Vào xem</button></li>`).join("");
   ul.querySelectorAll("button").forEach((b) => b.onclick = () => { const r = rooms[+b.dataset.i]; join(r.ip + (r.port !== 47831 ? ":" + r.port : "")); });
 }
+// Phòng đã lưu trên máy (C# Prefs.SavedRooms): mở lại = có sẵn danh sách chiếu + mật khẩu (mật khẩu không xuống trang).
+function renderSaved(rooms) {
+  rooms = rooms || [];
+  $("savedBox").classList.toggle("hidden", !rooms.length);
+  $("savedList").innerHTML = rooms.map((r, i) => `<li><div class="ri"><div class="rn">${r.lock ? `<span class="lock" title="Phòng có mật khẩu">🔒</span>` : ""}${esc(r.name)}</div><div class="rm">${r.count} mục trong danh sách · lưu ${esc(r.saved)}</div></div><button data-i="${i}" class="primary">Mở lại</button><button data-d="${i}" class="ghost-btn small" title="Xoá phòng này khỏi máy (cả danh sách đã lưu)">✕</button></li>`).join("");
+  $("savedList").querySelectorAll("button[data-i]").forEach((b) => b.onclick = () => { $("homeErr").textContent = ""; post({ t: "ui.hostsaved", name: $("inName").value, room: rooms[+b.dataset.i].name }); });
+  $("savedList").querySelectorAll("button[data-d]").forEach((b) => b.onclick = () => {
+    const r = rooms[+b.dataset.d];
+    if (confirm(`Xoá phòng đã lưu “${r.name}” (${r.count} mục) khỏi máy này?`)) post({ t: "ui.delroom", room: r.name });
+  });
+}
 function join(ip) { $("homeErr").textContent = ""; post({ t: "ui.join", name: $("inName").value, ip }); }
 $("btnJoinIp").onclick = () => join($("inIp").value);
 $("inIp").onkeydown = (e) => { if (e.key === "Enter") join($("inIp").value); };
@@ -917,11 +928,14 @@ function handle(m) {
       SH.fake = !!m.fakeShare;
       Voice.init(m);
       $("ver").textContent = `Rạp Bcode v${m.version} · máy ${m.machine} · IP: ${m.ips.join(", ") || "?"}`;
+      renderSaved(m.savedRooms);
       show("home");
       if (m.auto === "host") post({ t: "ui.host", name: m.name, room: m.autoRoom || m.room, pass: m.roomPass || "" });
       else if (m.auto === "join") post({ t: "ui.join", name: m.name, ip: m.autoJoin });
       break;
     case "ui.rooms": renderRooms(m.rooms || [], m.error); break;
+    case "ui.savedrooms": renderSaved(m.rooms); break;
+    case "ui.restored": toast(m.text, 5000); break;
     case "ui.needpass": showPass(m.room, m.text); break;
     case "ui.error":
       if (S.screen === "room") { $("qErr").textContent = m.text; toast(m.text, 4000); } else $("homeErr").textContent = m.text;

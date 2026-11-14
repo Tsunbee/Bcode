@@ -175,9 +175,24 @@ public sealed class WatchForm : Form
                     fakeShare = _opts.ContainsKey("fakeshare") ? true : (bool?)null,
                     fakeMic = _opts.TryGetValue("fakemic", out var fm) ? fm : null,
                     noise = _prefs.Noise, micId = _prefs.MicId,
+                    savedRooms = SavedRoomsInfo(),
                 });
                 break;
+            case "ui.hostsaved":
+                // Mở lại phòng đã lưu: tên + mật khẩu (DPAPI, không đưa xuống trang) + danh sách chiếu lấy từ máy
+                if (_prefs.FindRoom((string?)m["room"]) is { } sr)
+                    _ = HostAsync((string?)m["name"], sr.Name, sr.Pass);
+                break;
+            case "ui.delroom":
+                if (_prefs.FindRoom((string?)m["room"]) is { } del)
+                {
+                    _prefs.SavedRooms.Remove(del);
+                    _prefs.Save();
+                }
+                Post(new { t = "ui.savedrooms", rooms = SavedRoomsInfo() });
+                break;
             case "ui.find":
+                Post(new { t = "ui.savedrooms", rooms = SavedRoomsInfo() });   // về sảnh: số mục của phòng vừa chiếu đã đổi
                 if (_finder is null)
                 {
                     try
@@ -280,14 +295,69 @@ public sealed class WatchForm : Form
         _server.Log += s => Debug.WriteLine(s);
         var srv = _server;
         _media.Invite = () => new MediaServer.InviteInfo(srv.RoomName, Environment.MachineName, srv.Port, srv.Locked);
+        // Phòng đã lưu trên máy (cùng tên): nạp lại danh sách chiếu; rồi lưu phòng + tự lưu danh sách mỗi lần đổi
+        var restored = RestoreSavedQueue(srv, _media!, pass);
+        srv.QueueChanged += () => UI(() => { if (_server == srv) SaveRoomQueue(srv, _media); });
         var inviteIp = loop ? "127.0.0.1" : RoomFinder.PrimaryIPv4();
         var invite = inviteIp is null ? null : MediaServer.InviteUrl(inviteIp, _media.Port, _server.Port);
         Post(new { t = "ui.hosted", port = _server.Port, ips = RoomFinder.LocalIPv4(), warn = _server.BeaconError, locked = _server.Locked, invite });
         await ConnectAsync("127.0.0.1", _server.Port, _server.HostToken);
+        if (restored is { } note) Post(new { t = "ui.restored", text = note });
         if (!loop) _ = CheckFirewallAsync();
         // --file <đường dẫn>: chiếu luôn file trên máy (thử tự động — hộp chọn file không bấm được khi chạy ngầm)
         if (_opts.TryGetValue("file", out var f) && File.Exists(f) && _media != null && _client != null)
             _client.SendRaw(Wire.Encode(new { t = "addfile", media = _media.Register(f), title = Path.GetFileName(f) }));
+    }
+
+    // ───────────────────────── Phòng đã lưu ─────────────────────────
+
+    private object SavedRoomsInfo() => _prefs.SavedRooms.OrderByDescending(r => r.Saved)
+        .Select(r => new { name = r.Name, @lock = r.PassStored.Length > 0, count = r.Items.Count, saved = r.Saved.ToLocalTime().ToString("dd/MM HH:mm") }).ToList();
+
+    /// <summary>Mở phòng trùng tên phòng đã lưu → thêm lại danh sách chiếu đã lưu (file trên máy: đăng ký lại theo đường dẫn, mất file thì bỏ).
+    /// Lưu luôn phòng này (tên + mật khẩu) vào danh sách. Trả lời báo cho trang, null = không có gì để nạp.</summary>
+    private string? RestoreSavedQueue(WatchServer srv, MediaServer media, string pass)
+    {
+        var sr = _prefs.FindRoom(srv.RoomName);
+        string? note = null;
+        if (sr is { Items.Count: > 0 })
+        {
+            var missing = 0;
+            var items = new List<Item>();
+            foreach (var s in sr.Items)
+            {
+                if (s.Kind == "file")
+                {
+                    if (string.IsNullOrEmpty(s.Path) || !File.Exists(s.Path)) { missing++; continue; }
+                    items.Add(new Item { Kind = "file", Src = media.Register(s.Path), Title = s.Title, Dur = s.Dur });
+                }
+                else items.Add(new Item { Kind = s.Kind, Src = s.Src, Title = s.Title, Dur = s.Dur });
+            }
+            srv.Restore(items, _prefs.Name);
+            note = $"Đã nạp lại {items.Count} mục đã lưu của phòng “{sr.Name}”" + (missing > 0 ? $" (bỏ {missing} file không còn trên máy)" : "") + " — bấm ▶ để chiếu.";
+        }
+        sr ??= new SavedRoom { Name = srv.RoomName };
+        if (!_prefs.SavedRooms.Contains(sr)) _prefs.SavedRooms.Add(sr);
+        sr.Pass = pass;
+        sr.Saved = DateTime.UtcNow;
+        _prefs.TrimRooms();
+        _prefs.Save();
+        return note;
+    }
+
+    /// <summary>Danh sách chiếu của phòng đang mở → phòng đã lưu (cùng tên).</summary>
+    private void SaveRoomQueue(WatchServer srv, MediaServer? media)
+    {
+        var sr = _prefs.FindRoom(srv.RoomName);
+        if (sr is null) { sr = new SavedRoom { Name = srv.RoomName }; _prefs.SavedRooms.Add(sr); }
+        sr.Items = srv.Snapshot().Select(i => new SavedItem
+        {
+            Kind = i.Kind, Title = i.Title, Dur = Math.Round(i.Dur, 1),
+            Src = i.Kind == "file" ? "" : i.Src,
+            Path = i.Kind == "file" ? media?.PathOf(i.Src) ?? "" : "",
+        }).Where(i => i.Kind != "file" || i.Path.Length > 0).ToList();
+        sr.Saved = DateTime.UtcNow;
+        _prefs.Save();
     }
 
     private async Task JoinAsync(string? name, string? ip)
@@ -430,9 +500,39 @@ public sealed class WatchForm : Form
     }
 }
 
-/// <summary>Lựa chọn nhớ giữa các lần mở: %AppData%\Bcode\watch-lan.json (hoặc --data). Không lưu danh sách chiếu hay bình luận.</summary>
+/// <summary>Phòng đã lưu trên máy chủ phòng: tên, mật khẩu (DPAPI), danh sách chiếu đã khai báo — mở lại phòng là có sẵn danh sách.</summary>
+internal sealed class SavedRoom
+{
+    public string Name { get; set; } = "";
+    private readonly ProtectedText _pass = new();
+    [JsonIgnore] public string Pass { get => _pass.Plain; set => _pass.Plain = value; }
+    [JsonPropertyName("Pass")] public string PassStored { get => _pass.Stored; set => _pass.Stored = value; }
+    public DateTime Saved { get; set; }
+    public List<SavedItem> Items { get; set; } = new();
+}
+
+/// <summary>1 mục đã lưu: yt (Src = mã video) | url (Src = link) | file (Path = đường dẫn trên máy chủ phòng).</summary>
+internal sealed class SavedItem
+{
+    public string Kind { get; set; } = "";
+    public string Src { get; set; } = "";
+    public string Path { get; set; } = "";
+    public string Title { get; set; } = "";
+    public double Dur { get; set; }
+}
+
+/// <summary>Lựa chọn nhớ giữa các lần mở: %AppData%\Bcode\watch-lan.json (hoặc --data). Lưu cả các phòng đã mở (<see cref="SavedRooms"/>) kèm danh sách chiếu;
+/// không lưu bình luận.</summary>
 internal sealed class Prefs
 {
+    public const int MaxSavedRooms = 20;
+    public List<SavedRoom> SavedRooms { get; set; } = new();
+    public SavedRoom? FindRoom(string? name) => SavedRooms.FirstOrDefault(r => string.Equals(r.Name, (name ?? "").Trim(), StringComparison.OrdinalIgnoreCase));
+    /// <summary>Giữ tối đa <see cref="MaxSavedRooms"/> phòng — bỏ phòng lâu không mở nhất.</summary>
+    public void TrimRooms()
+    {
+        while (SavedRooms.Count > MaxSavedRooms) SavedRooms.Remove(SavedRooms.OrderBy(r => r.Saved).First());
+    }
     public string Name { get; set; } = Environment.UserName;
     public string Room { get; set; } = "Rạp của " + Environment.UserName;
     public string LastIp { get; set; } = "";

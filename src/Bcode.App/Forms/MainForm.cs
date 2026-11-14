@@ -356,8 +356,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("decrypt_sql_object", "Decrypt SQL Object", null, (_, _) => OpenDecryptSqlTab()));
         _toolSpecs.Add(("setup_einvoice", "Setup eInvoice (FE)", null, (_, _) => OpenSetupEInvoiceTab()));
         _toolSpecs.Add(("create_rpt_xlsx", "Create *.rpt, *.xlsx", null, (_, _) => OpenCreateRptTab()));
-        _toolSpecs.Add(("report_builder", "Tạo báo cáo", null, (_, _) => OpenReportBuilderTab()));        _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => new CompareStructureForm(_settings).ShowDialog(this)));
-        _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => new ViewRptInFecForm().ShowDialog(this)));
+        _toolSpecs.Add(("report_builder", "Tạo báo cáo", null, (_, _) => OpenReportBuilderTab()));        _toolSpecs.Add(("compare_structure", "Compare Structure", null, (_, _) => { using var f = new CompareStructureForm(_settings); f.ShowDialog(this); }));
+        _toolSpecs.Add(("view_rpt_fec", "View Rpt in FEC", null, (_, _) => { using var f = new ViewRptInFecForm(); f.ShowDialog(this); }));
         _toolSpecs.Add(("fsg_crawler", "FSG Yêu cầu", null, (_, _) => OpenFsgCrawlerTab()));
         _toolSpecs.Add(("tk2_help", "TK2 Help", null, (_, _) => OpenTk2HelpTab(forum: false)));
         _toolSpecs.Add(("tk2_forum", "Forum TK2 Help", null, (_, _) => OpenTk2HelpTab(forum: true)));
@@ -366,9 +366,11 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         _toolSpecs.Add(("open_ssms", "Mở SSMS", null, (_, _) => _ = OpenSsmsAsync()));
         _toolSpecs.Add(("giai_lao", "Giải lao (game LAN)", null, (_, _) => LaunchGame()));
         _toolSpecs.Add(("xem_chung", "Xem chung (rạp phim LAN)", null, (_, _) => LaunchWatch()));
-        _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) new ApiDeclarationForm(_settings.Workspaces, _connections.Current).ShowDialog(this); }));
-        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, _connections.Current, _tableMenu).ShowDialog(this); }));
-        _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections).ShowDialog(this); }));
+        // Hộp modal có WebView2: phải Dispose sau ShowDialog — các đăng ký sự kiện tĩnh (ThemeChanged, UiScale, UiTemplate.BindWeb) chỉ gỡ ở Disposed,
+        // không using thì form + WebView2 sống tới khi thoát Bcode, cộng dồn mỗi lần mở.
+        _toolSpecs.Add(("api_config", "Khai báo API", null, (_, _) => { if (RequireLicense("Khai báo API")) { using var f = new ApiDeclarationForm(_settings.Workspaces, _connections.Current); f.ShowDialog(this); } }));
+        _toolSpecs.Add(("api_schema_builder", "Tạo cấu trúc API", null, (_, _) => { if (RequireLicense("Tạo cấu trúc API")) { using var f = new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, _connections.Current, _tableMenu); f.ShowDialog(this); } }));
+        _toolSpecs.Add(("catalog_clone", "Clone danh mục", null, (_, _) => { if (RequireLicense("Clone danh mục")) { using var f = new CatalogCloneForm(_sqlObjectService, _tableDataService, _connections); f.ShowDialog(this); } }));
         _toolSpecs.Add(("quick_list", "Tạo nhanh danh mục", null, (_, _) => OpenQuickList()));
         _toolSpecs.Add(("bcode_note", "Note (New) nhiều dự án", null, (_, _) => _ = LaunchBcodeNoteAsync()));
         _toolSpecs.Add(("team_notes", "Note & update cả nhóm", null, (_, _) => OpenTeamNotesTab()));
@@ -724,6 +726,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 var actionsMenu = BuildActionsMenu();
                 WebMenu.Track(actionsMenu); // tự đóng khi bấm ra ngoài (kể cả trên WebView2)
                 actionsMenu.Show(bar, 100, bar.Height); // Tọa độ x=100 tạm tính để thả xuống đúng chỗ nút Actions
+                break;
+            default:
+                // Trang thanh trên (Web\Shell\topbar.html) gửi lệnh mà Bcode.dll này không biết = Web và dll lệch bản (vd cập nhật giữ lại Bcode.dll
+                // "đã sửa ở máy" nhưng thay Web) → trước đây bấm nút im lặng (lỗi menu Giải trí 14/11/2026). Báo rõ thay vì im.
+                if (!action.StartsWith("__", StringComparison.Ordinal))
+                    PushNotice($"Nút này (lệnh \"{action}\") chưa được Bcode.dll đang chạy hỗ trợ — thư mục Bcode có thể đang lệch bản (Web mới, dll cũ). "
+                               + "Mở Settings → Cập nhật Bcode, tick \"Ghi đè cả các file này\" rồi cập nhật lại.");
                 break;
         }
     }
@@ -1337,6 +1346,12 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             if (spec.key is null) continue;
             var combo = Bcode.App.UI.ShortcutRegistry.Display("tool:" + key);
             var handler = spec.action;
+            // Giải trí: exe riêng (Game\ / Watch\ cạnh Bcode.exe) — thiếu thì mục mờ kèm lý do thay vì bấm rồi mới báo.
+            if (SideApps.TryGetValue(key, out var side) && FindSideAppExe(side.Folder, side.Exe, side.Project) is null)
+            {
+                menu.Add($"{spec.label} — thiếu {side.Folder}\\{side.Exe} cạnh Bcode.exe", () => { }, enabled: false);
+                continue;
+            }
             menu.Add(spec.label, () => handler(this, EventArgs.Empty), shortcut: combo.Length > 0 ? combo : null);
         }
         menu.Show(this, Cursor.Position);   // nút "Triển khai ▾" nằm ở thanh trên, cạnh Copy Script (xem topbar.html)
@@ -2539,8 +2554,15 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
     /// <summary>"Xem chung" (Tool mở rộng): phòng chiếu phim qua LAN — exe riêng src/Bcode.Watch, build tự chép ra Watch\ cạnh Bcode.exe.</summary>
     private void LaunchWatch() => LaunchSideApp("Watch", "BcodeWatch.exe", "Bcode.Watch", "Xem chung");
 
-    /// <summary>Mở exe riêng build kèm Bcode: &lt;thư mục&gt;\&lt;exe&gt; cạnh Bcode.exe, cạnh Bcode.exe, rồi bin của project (bản dev).</summary>
-    private void LaunchSideApp(string folder, string exeName, string project, string title)
+    /// <summary>Tool của menu Giải trí → exe riêng (để menu biết thiếu file mà làm mờ mục, xem <see cref="ShowToolMenu"/>).</summary>
+    private static readonly Dictionary<string, (string Folder, string Exe, string Project)> SideApps = new()
+    {
+        ["giai_lao"] = ("Game", "BcodeGame.exe", "Bcode.Game"),
+        ["xem_chung"] = ("Watch", "BcodeWatch.exe", "Bcode.Watch"),
+    };
+
+    /// <summary>Exe riêng build kèm Bcode: &lt;thư mục&gt;\&lt;exe&gt; cạnh Bcode.exe, cạnh Bcode.exe, rồi bin của project (bản dev); null = không có.</summary>
+    private static string? FindSideAppExe(string folder, string exeName, string project)
     {
         var exe = new[] { Path.Combine(AppContext.BaseDirectory, folder, exeName), Path.Combine(AppContext.BaseDirectory, exeName) }.FirstOrDefault(File.Exists);
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); exe is null && dir != null; dir = dir.Parent)
@@ -2549,6 +2571,13 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
                 var c = Path.Combine(dir.FullName, "src", project, "bin", cfg, "net8.0-windows", exeName);
                 if (File.Exists(c)) { exe = c; break; }
             }
+        return exe;
+    }
+
+    /// <summary>Mở exe riêng build kèm Bcode (<see cref="FindSideAppExe"/>).</summary>
+    private void LaunchSideApp(string folder, string exeName, string project, string title)
+    {
+        var exe = FindSideAppExe(folder, exeName, project);
         if (exe is null)
         {
             MessageBox.Show(this, $"Chưa thấy {exeName} (thư mục {folder}\\ cạnh Bcode.exe). Build lại Bcode (hoặc project src\\{project}) rồi thử lại.", "Bcode — " + title);
@@ -2631,8 +2660,8 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
         var cols = r.Schema.Columns.Count;
         PushStatus($"{title}: {r.Schema.Func} — {r.Schema.Tables.Count} bảng, {cols} cột.");
         var note = $"{r.Schema.Func}: {r.Schema.Tables.Count} bảng · {cols} cột" + (notes.Count > 0 ? " ⚠ " + string.Join(" ", notes) : "");
-        if (declare) new ApiDeclarationForm(_settings.Workspaces, ws, r.Form, note).ShowDialog(this);
-        else new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, ws, _tableMenu, note).ShowDialog(this);
+        if (declare) { using var f = new ApiDeclarationForm(_settings.Workspaces, ws, r.Form, note); f.ShowDialog(this); }
+        else { using var f = new ApiSchemaBuilderForm(_sqlObjectService, _tableDataService, ws, _tableMenu, note); f.ShowDialog(this); }
     }
 
     private TabPage? _includeCheckTabPage;

@@ -207,17 +207,44 @@ public static class ShortcutRegistry
 
     /// <summary>Đăng ký các nút công cụ (key, chữ, phím mặc định hoặc null) — id phím = "tool:&lt;key&gt;".</summary>
     public static void SetTools(IEnumerable<(string Key, string Label, string? DefaultCombo)> tools)
-        => _tools = tools.Select(t => new ShortcutDef("tool:" + t.Key, t.Label, "Công cụ (mở tab / hộp thoại)", ShortcutScope.App,
+    {
+        _tools = tools.Select(t => new ShortcutDef("tool:" + t.Key, t.Label, "Công cụ (mở tab / hộp thoại)", ShortcutScope.App,
                 Normalize(t.DefaultCombo) ?? "")).ToList();
+        _sorted = null;
+    }
 
-    public static IEnumerable<ShortcutDef> All => _tools.Concat(_fixed).OrderBy(d => d.Scope).ThenBy(d => GroupOrder(d.Group)).ToList();
+    // Bộ nhớ đệm: AppIdFor chạy MỖI phím KeyDown trong mọi WebView2 (AcceleratorKeyPressed) + ProcessCmdKey; trước đây mỗi lần Get lại sắp xếp
+    // cả bảng (~110 lần / phím ≈ 1 ms + 0,5 MB rác). Danh sách đã sắp chỉ đổi ở SetTools; bản đồ tổ hợp → id dựng lại khi bảng phím người dùng
+    // (UiTemplate.Current.Shortcuts — đổi qua Template là thay cả Dictionary) hoặc chế độ Web/App khác lần dựng.
+    private static List<ShortcutDef>? _sorted;
+    private static Dictionary<string, ShortcutDef>? _byId;
+    private sealed record AppCombos(List<ShortcutDef> Sorted, Dictionary<string, string> Shortcuts, bool Native, Dictionary<string, string> IdByCombo);
+    private static AppCombos? _appCombos;
+
+    private static List<ShortcutDef> Sorted()
+    {
+        var s = _sorted;
+        if (s is not null) return s;
+        s = _tools.Concat(_fixed).OrderBy(d => d.Scope).ThenBy(d => GroupOrder(d.Group)).ToList();
+        var byId = new Dictionary<string, ShortcutDef>();
+        foreach (var d in s) byId.TryAdd(d.Id, d);   // trùng id: giữ mục đầu như FirstOrDefault trước đây
+        _byId = byId;
+        _sorted = s;
+        return s;
+    }
+
+    public static IEnumerable<ShortcutDef> All => Sorted().ToList();
 
     private static int GroupOrder(string g) => g switch
     {
         "Công cụ (mở tab / hộp thoại)" => 0, "Cửa sổ" => 1, "Tab" => 2, "Database & Script" => 3, "Project & kết nối" => 4, "Editor SQL" => 5, "Debug từng bước" => 6, "Lưới Table" => 7, "Cây menu WCommand" => 8, "Cây file File Lookup" => 9, _ => 10,
     };
 
-    public static ShortcutDef? Find(string id) => All.FirstOrDefault(d => d.Id == id);
+    public static ShortcutDef? Find(string id)
+    {
+        var s = Sorted();
+        return _byId is { } m && ReferenceEquals(_sorted, s) ? m.GetValueOrDefault(id) : s.FirstOrDefault(d => d.Id == id);
+    }
 
     /// <summary>Phím hiện hành của <paramref name="id"/> ("" = không có phím): bản người dùng khai báo, không có thì mặc định.</summary>
     public static string Get(string id)
@@ -240,9 +267,19 @@ public static class ShortcutRegistry
     {
         var c = Normalize(combo);
         if (c is null) return null;
-        foreach (var d in All)
-            if (d.Scope == ShortcutScope.App && !SelfHandled.Contains(d.Id) && Get(d.Id) == c) return d.Id;
-        return null;
+        var sorted = Sorted();
+        var shortcuts = UiTemplate.Current.Shortcuts;
+        var native = UiMode.IsNative;
+        var cache = _appCombos;
+        if (cache is null || !ReferenceEquals(cache.Sorted, sorted) || !ReferenceEquals(cache.Shortcuts, shortcuts) || cache.Native != native)
+        {
+            // Giữ đúng thứ tự ưu tiên cũ: mục ĐẦU TIÊN (theo thứ tự đã sắp) mang tổ hợp đó thắng.
+            var map = new Dictionary<string, string>();
+            foreach (var d in sorted)
+                if (d.Scope == ShortcutScope.App && !SelfHandled.Contains(d.Id) && Get(d.Id) is { Length: > 0 } k) map.TryAdd(k, d.Id);
+            _appCombos = cache = new AppCombos(sorted, shortcuts, native, map);
+        }
+        return cache.IdByCombo.GetValueOrDefault(c);
     }
 
     /// <summary>Mọi tổ hợp phạm vi App đang dùng — đẩy xuống các trang WebView2 để bắt phím ngay cả khi con trỏ nằm trong trang.</summary>

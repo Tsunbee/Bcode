@@ -46,17 +46,20 @@ public partial class ApiSchemaBuilderForm : ThemedForm
         Load += async (_, _) =>
         {
             var shellDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Web", "Shell");
-            var env = await CoreWebView2Environment.CreateAsync();
+            // Môi trường WebView2 dùng chung với các trang Bcode (trước đây CreateAsync() mặc định = thêm 1 bộ tiến trình Edge ~80–150 MB
+            // + thư mục Bcode.exe.WebView2 cạnh exe). Trang không dùng localStorage nên đổi thư mục dữ liệu không mất gì.
+            var env = await Bcode.App.UI.WebViewEnvironment.GetAsync();
             await _web.EnsureCoreWebView2Async(env);
             Bcode.App.UI.UiScale.BindZoom(_web);
 
+            // host bcode.shell như mọi trang Bcode: có luật host-resolver nên không chờ DNS mỗi lần điều hướng
             _web.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                "app.bcode",
+                Bcode.App.UI.WebViewEnvironment.Host,
                 shellDir,
                 CoreWebView2HostResourceAccessKind.Allow);
 
             _web.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
-            _web.CoreWebView2.Navigate("https://app.bcode/apischema.html");
+            _web.CoreWebView2.Navigate($"https://{Bcode.App.UI.WebViewEnvironment.Host}/apischema.html");
 
             _web.CoreWebView2.NavigationCompleted += async (_, _) =>
             {

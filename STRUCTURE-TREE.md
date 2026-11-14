@@ -712,3 +712,179 @@ Shared/
 ├── PipeProtocol.cs  44
 └── RoomAuth.cs  211
 ```
+```
+Bcode.Core/
+├── Bcode.Core.csproj  11
+├── FastFileEncoding.cs  63
+└── WatermarkService.cs  74
+```
+```
+Bcode.FDecrypt/
+├── Bcode.FDecrypt.csproj  27
+└── Program.cs  70
+```
+```
+Bcode.FSystem/
+├── Bcode.FSystem.csproj  38
+├── FEngine.cs  335
+├── FEngine.Empty.cs  17
+└── README.md  20
+```
+```
+Bcode.Game/
+├── Data/
+│   ├── QuestionBank.cs  95
+│   └── XlsxReader.cs  142
+├── Logic/
+│   ├── GameMap.cs  151
+│   ├── GameRoom.cs  435
+│   ├── GameRoom.Rules.cs  523
+│   └── Model.cs  130
+├── Net/
+│   ├── Discovery.cs  170
+│   ├── Firewall.cs  110
+│   ├── GameServer.cs  122
+│   └── Wire.cs  128
+├── Web/
+│   ├── app.js  751
+│   ├── game.css  191
+│   ├── index.html  201
+│   ├── render.js  241
+│   └── sfx.js  46
+├── Bcode.Game.csproj  32
+├── GameForm.cs  359
+└── Program.cs  32
+```
+```
+Bcode.Ocr/
+├── Bcode.Ocr.csproj  15
+└── Program.cs  125
+```
+```
+Bcode.Watch/
+├── Net/
+│   ├── Discovery.cs  194
+│   ├── Firewall.cs  110
+│   ├── MediaServer.cs  238
+│   ├── WatchServer.cs  642
+│   └── Wire.cs  141
+├── Web/
+│   ├── vendor/
+│   │   └── rnnoise/
+│   │       ├── LICENSE-jitsi-rnnoise-wasm.txt  219
+│   │       ├── README.txt  10
+│   ├── index.html  172
+│   ├── theater.js  243
+│   ├── voice-worklet.js  102
+│   ├── voice.js  415
+│   ├── watch.css  185
+│   └── watch.js  1012
+├── Bcode.Watch.csproj  33
+├── Invite.cs  49
+├── make-icon.js  49
+├── Program.cs  40
+└── WatchForm.cs  476
+```
+```
+BcodeNote.App/
+├── Web/
+│   ├── notehub.html  248
+│   └── notesuggest.html  147
+├── BcodeNote.App.csproj  70
+├── BcodePipe.cs  34
+├── HubPrefs.cs  34
+├── MenuSuggestForm.cs  34
+├── NoteHubForm.cs  377
+└── Program.cs  32
+```
+```
+ExcelToFrx/
+├── .vscode/
+│   └── settings.json  1
+├── assets/
+│   └── Templates/  (28 file — không liệt kê)
+├── docs/
+│   └── GAN_VAO_BCODE.md  154
+├── samples/
+│   └── ExcelToFrx.DemoHost/
+├── src/
+│   ├── ExcelToFrx/
+│   │   ├── Hosting/
+│   │   │   └── ExcelToFrxSession.cs  630
+│   │   ├── Parsing/
+│   │   │   ├── CellSyntax.cs  258
+│   │   │   ├── ExcelStyle.cs  280
+│   │   │   ├── FormulaSuggest.cs  380
+│   │   │   ├── J.cs  80
+│   │   │   ├── LayoutParser.cs  1301
+│   │   │   └── Py.cs  88
+│   │   ├── Services/
+│   │   │   ├── FrxGeneratorRunner.cs  69
+│   │   │   ├── FrxTemplates.cs  102
+│   │   │   ├── ReportXmlReader.cs  107
+│   │   │   └── XsdFieldReader.cs  94
+│   │   ├── Web/
+│   │   │   └── index.html  4746
+│   │   ├── Xlsx/
+│   │   │   ├── NumberFormats.cs  97
+│   │   │   ├── XlsxModel.cs  118
+│   │   │   └── XlsxReader.cs  755
+│   │   ├── ExcelToFrx.csproj  94
+│   │   ├── ExcelToFrxControl.cs  280
+│   │   └── ExcelToFrxOptions.cs  92
+│   ├── FrxGenerator/
+│   │   ├── libs/
+│   │   ├── FrxBuilder.cs  2076
+│   │   ├── FrxGenerator.csproj  36
+│   │   ├── Layout.cs  263
+│   │   ├── LayoutPrep.cs  316
+│   │   ├── Matrix.cs  291
+│   │   ├── Preview.cs  292
+│   │   ├── Program.cs  137
+│   │   ├── Report.xml  347
+│   │   └── ReportOptions.cs  67
+│   ├── RptGenerator/
+│   │   ├── CrossTab/
+│   │   │   ├── CrossTab1.json  5
+│   │   │   ├── CrossTab2.json  5
+│   │   ├── CrossTabRdc.cs  442
+│   │   ├── CrystalRuntime.cs  147
+│   │   ├── Probe.cs  90
+│   │   ├── Program.cs  229
+│   │   ├── RptBuilder.cs  3476
+│   │   ├── RptGenerator.csproj  45
+│   │   └── Stats.cs  710
+│   ├── RptGenerator64/
+│   │   └── RptGenerator64.csproj  40
+│   └── RptToFrx/
+│       ├── libs/
+│       ├── CrystalFormula.cs  438
+│       ├── Dump.cs  126
+│       ├── Program.cs  64
+│       ├── RptConverter.cs  1366
+│       └── RptToFrx.csproj  38
+├── tests/
+│   └── ExcelToFrx.Tests/
+├── tools/
+│   └── ExcelToFrx.Cli/
+├── COPY_SANG_BCODE.md  24
+└── README.md  240
+```
+```
+Setup HDDT/
+├── My Project/
+```
+```
+SqlWatch/
+├── BcodeCatalog.cs  80
+├── MainForm.cs  1492
+├── Palette.cs  42
+├── ProcCalls.cs  197
+├── Program.cs  70
+├── README.md  100
+├── SelfTest.cs  86
+├── SqlLogin.cs  7
+├── SqlWatch.csproj  15
+├── TraceWatcher.cs  723
+└── WatchFilters.cs  5
+```

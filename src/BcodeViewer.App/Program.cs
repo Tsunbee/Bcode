@@ -43,6 +43,8 @@ internal static class Program
         // which is indistinguishable from "the app didn't start" and leaves nothing to
         // investigate afterwards.
         InstallCrashHandlers();
+        // Nhiều mẫu regex gọi qua Regex.X(tĩnh) (FastSource, gợi ý…); bộ đệm mặc định chỉ 15 mẫu → tràn là dựng lại mẫu mỗi lần gọi.
+        System.Text.RegularExpressions.Regex.CacheSize = 512;
         // Thuỷ ấn truy nguồn (Bcode.Core): "muối" = key gốc bản quyền (Secrets/LocalSecrets.cs; bản rỗng = Viewer không có dấu bí mật). Ghi dấu vào log để truy nguồn.
         Bcode.Core.WatermarkService.SaltProvider = () => Bcode.App.Secrets.LocalSecrets.LicenseKey;
         try

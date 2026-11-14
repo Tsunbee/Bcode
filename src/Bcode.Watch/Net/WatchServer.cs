@@ -262,6 +262,14 @@ public sealed class WatchServer : IDisposable
             }
             case "add":
             {
+                // Link danh sách phát (YouTube / YouTube Music: …/playlist?list=…) → thêm cả danh sách, đọc ở nền (cần Internet ở máy chủ phòng)
+                if (PlaylistId((string?)m["url"]) is { } listId)
+                {
+                    if (_queue.Count >= 200) { v.Conn.Send(new { t = "error", text = "Danh sách đã đủ 200 mục." }); return; }
+                    v.Conn.Send(new { t = "chat", sys = true, text = "Đang đọc danh sách phát YouTube…" });
+                    _ = AddPlaylistAsync(listId, v);
+                    return;
+                }
                 var item = Parse((string?)m["url"], v.Name, out var err);
                 if (item is null) { v.Conn.Send(new { t = "error", text = err }); return; }
                 if (_queue.Count >= 200) { v.Conn.Send(new { t = "error", text = "Danh sách đã đủ 200 mục." }); return; }
@@ -506,6 +514,120 @@ public sealed class WatchServer : IDisposable
         return new Item { Id = "i" + _nextItem++, Kind = "url", Src = u.AbsoluteUri, Title = name.Length > 0 ? name : u.Host, By = by };
     }
 
+    private static readonly Regex PlaylistRx = new(@"^(?:https?://)?(?:www\.|m\.|music\.)?youtube\.com/playlist\?(?:.*&)?list=([A-Za-z0-9_-]{10,64})", RegexOptions.IgnoreCase);
+
+    /// <summary>Mã danh sách phát nếu <paramref name="raw"/> là link trang danh sách phát YouTube / YouTube Music (…/playlist?list=…), không thì null.
+    /// Link 1 bài có kèm &amp;list= (watch?v=…&amp;list=…) vẫn là 1 bài như cũ.</summary>
+    internal static string? PlaylistId(string? raw)
+    {
+        var mm = PlaylistRx.Match((raw ?? "").Trim());
+        return mm.Success ? mm.Groups[1].Value : null;
+    }
+
+    private static readonly HttpClient YtPage = CreateYtPage();
+
+    private static HttpClient CreateYtPage()
+    {
+        var h = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        h.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36");
+        h.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "vi,en;q=0.8");
+        return h;
+    }
+
+    /// <summary>Mã các bài (theo thứ tự) + tên danh sách phát, đọc từ trang youtube.com/playlist?list=… (album YouTube Music "OLAK5uy_…" cũng mở được ở đây).
+    /// Trang mới: mỗi bài là lockupViewModel có "contentId"; trang cũ: "playlistVideoRenderer":{"videoId". Chỉ trang đầu (~100 bài). Lỗi → danh sách rỗng.</summary>
+    internal static async Task<(List<string> Ids, string Title)> ReadPlaylistAsync(string listId)
+    {
+        var ids = new List<string>();
+        var title = "";
+        try
+        {
+            var html = await YtPage.GetStringAsync("https://www.youtube.com/playlist?list=" + listId);
+            ParsePlaylistPage(html, ids, out title);
+        }
+        catch { }
+        return (ids, title);
+    }
+
+    internal static void ParsePlaylistPage(string html, List<string> ids, out string title)
+    {
+        foreach (var rx in new[] { "\"playlistVideoRenderer\":\\{\"videoId\":\"([A-Za-z0-9_-]{11})\"", "\"contentId\":\"([A-Za-z0-9_-]{11})\"" })
+        {
+            foreach (Match x in Regex.Matches(html, rx))
+                if (!ids.Contains(x.Groups[1].Value)) ids.Add(x.Groups[1].Value);
+            if (ids.Count > 0) break;
+        }
+        var t = Regex.Match(html, "<meta property=\"og:title\" content=\"([^\"]*)\"");
+        title = Clean(WebUtility.HtmlDecode(t.Success ? t.Groups[1].Value : ""), 120);
+    }
+
+    /// <summary>Thêm cả danh sách phát vào danh sách chiếu (tối đa tới 200 mục). Người xem thêm = đề xuất như link lẻ. Tên bài lấy dần qua oEmbed.</summary>
+    private async Task AddPlaylistAsync(string listId, Viewer v)
+    {
+        var (ids, title) = await ReadPlaylistAsync(listId);
+        var added = new List<Item>();
+        lock (_lock)
+        {
+            if (_disposed || !_viewers.Contains(v)) return;
+            if (ids.Count == 0)
+            {
+                v.Conn.Send(new { t = "error", text = "Không đọc được danh sách phát — danh sách riêng tư, hoặc máy chủ phòng không vào được YouTube. Thử dán link từng bài." });
+                return;
+            }
+            foreach (var id in ids)
+            {
+                if (_queue.Count >= 200) break;
+                var item = new Item { Id = "i" + _nextItem++, Kind = "yt", Src = id, Title = "YouTube " + id, By = v.Name, Suggested = !v.Host };
+                _queue.Add(item);
+                added.Add(item);
+            }
+            var name = title.Length > 0 ? $"“{title}”" : "danh sách phát";
+            var cut = added.Count < ids.Count ? $" (bỏ {ids.Count - added.Count} bài — danh sách tối đa 200 mục)" : "";
+            Sys((v.Host ? $"{v.Name} đã thêm {name}" : $"{v.Name} đề xuất {name}") + $" — {added.Count} bài{cut}.");
+            if (v.Host && _cur is null && _sharer == 0 && added.Count > 0) Select(added[0].Id);
+            else BroadcastState();
+        }
+        // tên bài: oEmbed từng bài, mỗi lúc 4 yêu cầu
+        using var gate = new SemaphoreSlim(4);
+        await Task.WhenAll(added.Select(async it =>
+        {
+            await gate.WaitAsync();
+            try { await FetchYoutubeTitleAsync(it, null); } finally { gate.Release(); }
+        }));
+    }
+
+    // ───────────────────────── lưu / nạp danh sách chiếu (phòng đã lưu trên máy chủ phòng) ─────────────────────────
+
+    /// <summary>Danh sách chiếu vừa đổi (thêm / xoá / đổi thứ tự / có tên bài) — WatchForm lưu lại vào "phòng đã lưu".</summary>
+    public event Action? QueueChanged;
+    private string _queueSig = "";
+
+    /// <summary>Mục đã "khai báo" của danh sách để lưu: bỏ đề xuất chưa duyệt và video Tự phát tiếp tự thêm.</summary>
+    public List<Item> Snapshot()
+    {
+        lock (_lock)
+            return _queue.Where(i => !i.Suggested && !i.By.StartsWith("🔁"))
+                .Select(i => new Item { Id = i.Id, Kind = i.Kind, Src = i.Src, Title = i.Title, By = i.By, Dur = i.Dur }).ToList();
+    }
+
+    /// <summary>Nạp lại danh sách đã lưu vào phòng vừa mở (chưa chiếu — chủ phòng bấm chiếu khi muốn). Mục file: Src là mã đã đăng ký lại ở MediaServer.</summary>
+    public void Restore(IEnumerable<Item> items, string by)
+    {
+        lock (_lock)
+        {
+            foreach (var s in items)
+            {
+                if (_queue.Count >= 200) break;
+                if (s.Kind is not ("yt" or "url" or "file") || s.Src.Length == 0) continue;
+                _queue.Add(new Item { Id = "i" + _nextItem++, Kind = s.Kind, Src = s.Src, Title = s.Title, By = by, Dur = s.Dur });
+            }
+            _queueSig = QueueSig();
+            BroadcastState();
+        }
+    }
+
+    private string QueueSig() => string.Join("\n", _queue.Select(i => $"{i.Kind}|{i.Src}|{i.Title}|{Math.Round(i.Dur)}|{i.Suggested}|{i.By}"));
+
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
 
     /// <summary>Tên video YouTube qua oEmbed (công khai, không cần khoá) — máy chủ phòng không vào được Internet thì giữ "YouTube &lt;mã&gt;",
@@ -534,7 +656,15 @@ public sealed class WatchServer : IDisposable
         queue = _queue.Select(i => new { i.Id, i.Kind, i.Src, i.Title, i.By, dur = Math.Round(i.Dur, 1), sug = i.Suggested }).ToList(),
     };
 
-    private void BroadcastState() => Broadcast(StateMsg());
+    private void BroadcastState()
+    {
+        Broadcast(StateMsg());
+        var sig = QueueSig();   // ≤ 200 mục — rẻ; nhịp 3 s lúc đang chiếu không đổi danh sách thì không báo
+        if (sig == _queueSig) return;
+        _queueSig = sig;
+        var h = QueueChanged;
+        if (h != null) ThreadPool.QueueUserWorkItem(_ => h());   // ra ngoài khoá
+    }
 
     private string SharerName() => _viewers.FirstOrDefault(x => x.Id == _sharer)?.Name ?? "Người khác";
 

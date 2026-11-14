@@ -8,6 +8,9 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        // ~570 mẫu regex khác nhau gọi qua Regex.IsMatch/Match/Replace(tĩnh); bộ đệm mặc định chỉ 15 mẫu → tràn là dựng lại mẫu
+        // mỗi lần gọi (đo: chậm 7–10×, ~6–10 KB rác/lần). Kết quả regex không đổi.
+        System.Text.RegularExpressions.Regex.CacheSize = 512;
         ApplicationConfiguration.Initialize();
         // Log lỗi tập trung (error.log trong thư mục dữ liệu) + theo dõi hộp lỗi + phím Gửi lỗi (F1) — trước khi có form nào.
         Bcode.App.Services.ErrorLog.Install();

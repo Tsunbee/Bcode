@@ -14,6 +14,7 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        System.Text.RegularExpressions.Regex.CacheSize = 512;   // như Bcode.exe: dùng chung service có nhiều mẫu regex tĩnh
         ApplicationConfiguration.Initialize();
         UiThemes.ApplyPalettes();
         UiMode.Set(UiModeKind.Web);   // màn Note (New) là trang WebView2 (advnote.html) — giống chế độ Web của Bcode

@@ -47,6 +47,10 @@ h2 { font-size: 1.05rem; margin-bottom: 10px; }
 .room-list .rn { font-weight: 600; } .room-list .rm { color: var(--muted); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-list .ri { min-width: 0; }
 .room-list button { margin-left: auto; }
+.room-list button + button { margin-left: 0; }
+.saved { margin-top: 14px; border-top: 1px solid var(--line, rgba(255,255,255,.08)); padding-top: 10px; }
+.saved h3 { margin: 0 0 8px; font-size: .95rem; }
+.saved .room-list { max-height: 200px; }
 
 /* ── Rạp ── */
 .room { position: absolute; inset: 0; display: flex; }

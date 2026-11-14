@@ -46,6 +46,9 @@ public sealed partial class FastSourceService
             _sharedProjects = projects;
             _base = b;
             _merged.Clear();
+            // dự án đã vào _shared: bản riêng không còn được dùng (GhostFor trả nền) → nhả RAM, giữ khoá để khỏi học lại
+            foreach (var k in _projectGhost.Keys)
+                if (projects.Contains(ViewerKnowledge.SafeName(k))) _projectGhost[k] = null;
             KnowledgeChanged?.Invoke();
         }, oneShot: true);
     }
@@ -109,7 +112,9 @@ public sealed partial class FastSourceService
     // ---------------------------------------------------------------- phản hồi
 
     /// <summary>Gợi ý đã trả cho trang (id → ô ma trận + kiến thức đã dùng) — chờ trang báo nhận / bỏ qua.</summary>
-    private readonly ConcurrentDictionary<string, (SourceGhost G, SourceGhost.Cell? Cell, string Stat, string Text)> _shown = new();
+    // Tham chiếu YẾU tới bộ kiến thức đã sinh gợi ý: giữ mạnh thì mỗi lần thay _base / _merged (2–3 lần lúc mở) bản cũ (~200+ MB) sống tới khi
+    // đủ 300 gợi ý mới. Bản cũ đã bị thu hồi thì phản hồi áp vào nền hiện tại (vẫn ghi đủ vào file phản hồi).
+    private readonly ConcurrentDictionary<string, (WeakReference<SourceGhost> G, SourceGhost.Cell? Cell, string Stat, string Text)> _shown = new();
     private readonly object _fbLock = new();
     /// <summary>Phản hồi của máy này: "D|khoá" → cách viết → cộng thêm ("" = phần khác); thống kê "loại@vùng" → [hiện, nhận].</summary>
     private Dictionary<string, Dictionary<string, int>>? _myCells;
@@ -154,7 +159,7 @@ public sealed partial class FastSourceService
     {
         if (_shown.Count > 300) _shown.Clear();
         var id = Guid.NewGuid().ToString("N")[..12];
-        _shown[id] = (g, ghost.Cell, stat, ghost.Text);
+        _shown[id] = (new WeakReference<SourceGhost>(g), ghost.Cell, stat, ghost.Text);
         return id;
     }
 
@@ -168,7 +173,8 @@ public sealed partial class FastSourceService
             var st = _myStats!.TryGetValue(s.Stat, out var a) ? a : _myStats[s.Stat] = new int[2];
             st[0]++;
             if (accepted) st[1]++;
-            if (s.Cell is { } c && s.G.Table(c.Dict) is { } table)
+            var g = s.G.TryGetTarget(out var shownOn) ? shownOn : _base;
+            if (s.Cell is { } c && g?.Table(c.Dict) is { } table)
             {
                 // độ lớn theo cỡ ô: ô gặp hàng trăm lần thì 1 lần nhận / bỏ cũng phải thấy tác dụng
                 var total = table.TryGetValue(c.Key, out var d) ? d.Values.Sum() : 0;
@@ -177,7 +183,7 @@ public sealed partial class FastSourceService
                 // bỏ qua ≠ chắc chắn sai (có khi chỉ viết khác mà vẫn đúng) và 1 người không được tắt gợi ý của cả nhóm → cần vài lần bỏ qua mới tắt hẳn
                 if (accepted) opt = Math.Max(1, (int)Math.Round(total * (full ? 0.10 : 0.05)));
                 else other = Math.Max(1, (int)Math.Round(total * 0.12));
-                s.G.Adjust(c.Dict, c.Key, c.Option, opt, other);   // có tác dụng ngay trong phiên này
+                g.Adjust(c.Dict, c.Key, c.Option, opt, other);   // có tác dụng ngay trong phiên này
                 var cellKey = c.Dict + "|" + c.Key;
                 if (!_myCells!.TryGetValue(cellKey, out var mc)) _myCells[cellKey] = mc = new(StringComparer.Ordinal);
                 if (opt != 0) mc[c.Option.TrimStart()] = mc.GetValueOrDefault(c.Option.TrimStart()) + opt;

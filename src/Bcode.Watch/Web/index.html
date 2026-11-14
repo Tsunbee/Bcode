@@ -38,6 +38,11 @@
         <h2>🎬 Mở phòng chiếu</h2>
         <div class="row"><input id="inRoom" maxlength="28" spellcheck="false"><button id="btnHost" class="primary">Mở phòng</button></div>
         <div class="pass-row"><input id="inRoomPass" type="password" maxlength="64" autocomplete="new-password" spellcheck="false" placeholder="🔒 Mật khẩu phòng (để trống = ai cũng vào được)"></div>
+        <div id="savedBox" class="saved hidden">
+          <h3>💾 Phòng đã lưu trên máy bạn</h3>
+          <ul id="savedList" class="room-list"></ul>
+          <p class="hint">Mở lại là có sẵn danh sách chiếu đã khai báo lần trước (và mật khẩu phòng). Danh sách tự lưu mỗi khi bạn thêm / xoá / xếp lại.</p>
+        </div>
         <p class="hint"><b>Chỉ chủ phòng điều khiển</b>: chiếu, dừng, tua, chuyển bài. Người xem bình luận, thả cảm xúc, đổi ghế và đề xuất link.</p>
         <p class="hint">YouTube / link trên mạng: mỗi máy tự tải (cần Internet). File trên máy chủ phòng: phát qua LAN cho cả phòng.</p>
         <p class="hint">Trang web không có link video thẳng (web phim…)? Mở trên máy bạn rồi bấm <b>📡 Chia sẻ màn hình</b> trong phòng — cả phòng xem qua LAN.</p>
@@ -136,7 +141,7 @@
       </div>
 
       <div class="panel hidden" id="tab-queue">
-        <div class="row"><input id="addIn" placeholder="Dán link YouTube hoặc link MP4 / MP3…" spellcheck="false"><button id="btnAdd" class="primary">Thêm</button></div>
+        <div class="row"><input id="addIn" placeholder="Dán link YouTube / YouTube Music (cả playlist, album) hoặc link MP4 / MP3…" spellcheck="false"><button id="btnAdd" class="primary">Thêm</button></div>
         <div class="row host-only"><button id="btnFile" class="wide">📂 Chiếu file trên máy…</button></div>
         <label class="host-only auto-next" title="Hết danh sách mà bài cuối là YouTube: tự thêm và chiếu tiếp video liên quan (danh sách Mix của YouTube) cho cả phòng — như nút Tự phát của YouTube"><input type="checkbox" id="chkAutoNext"> 🔁 Tự phát tiếp video liên quan khi hết danh sách (YouTube)</label>
         <p id="qErr" class="err"></p>

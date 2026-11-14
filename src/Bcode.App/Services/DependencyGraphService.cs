@@ -233,7 +233,9 @@ public sealed class DependencyGraphService
     {
         string key;
         try { key = _browser.CacheId(false) + "|" + _browser.CacheId(true); } catch { return new(StringComparer.OrdinalIgnoreCase); }
-        var sig = key + "|" + (_browser.LoadCache(false)?.Signature ?? "") + "|" + (_browser.LoadCache(true)?.Signature ?? "");
+        // Chữ ký = dấu file cache (giờ ghi + cỡ) thay vì đọc + Deserialize cả 2 file chỉ để lấy Signature: hàm này chạy cho TỪNG file trong vòng
+        // ObjectsInFilesAsync (≤300 file / menu) — trước đây ~12 ms + 7 MB / lần ⇒ ~3,6 s + 2 GB rác mỗi menu. File cache chỉ đổi khi ghi lại.
+        var sig = key + "|" + FileStamp(_browser.CacheId(false)) + "|" + FileStamp(_browser.CacheId(true));
         if (_names is { } n && n.Key == sig) return n.ByName;
         var map = new Dictionary<string, List<SqlObjectInfo>>(StringComparer.OrdinalIgnoreCase);
         foreach (var sys in new[] { false, true })
@@ -245,6 +247,12 @@ public sealed class DependencyGraphService
             }
         _names = (sig, map);
         return map;
+    }
+
+    private static string FileStamp(string path)
+    {
+        try { var f = new FileInfo(path); return f.Exists ? f.LastWriteTimeUtc.Ticks + ":" + f.Length : "-"; }
+        catch { return "?"; }
     }
 
     /// <summary>Tên object database xuất hiện trong văn bản (theo ranh giới từ). Cùng tên ở cả 2 database: ưu tiên database <paramref name="preferSys"/>.</summary>

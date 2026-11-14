@@ -46,6 +46,8 @@
   <ItemGroup>
     <!-- Đọc include theo lô / cả cây (entity.js BeginReadFiles / BeginReadIncludeTree) — dùng LẠI code của BcodeViewer. -->
     <Compile Include="..\BcodeViewer.App\Host\IncludeTree.cs" Link="Shared\IncludeTree.cs" />
+    <!-- Dọn hồ sơ WebView2 theo pid của lần chạy cũ trong %TEMP% (trước đây không bao giờ xoá) -->
+    <Compile Include="..\Shared\WebViewProfileCleanup.cs" Link="Shared\WebViewProfileCleanup.cs" />
     <!-- Key bản quyền: chạy thẳng BcodeScreenDesigner.exe (không qua Bcode) cũng phải có key như khi mở từ Bcode. -->
     <Compile Include="..\Bcode.App\Services\LicenseService.cs" Link="Shared\LicenseService.cs" />
     <!-- Key gốc + cách ghép key Decrypt nằm ở Secrets/LocalSecrets.cs (gitignore) — LicenseSecret.cs chỉ tham chiếu. Thiếu file thì dùng bản rỗng. -->

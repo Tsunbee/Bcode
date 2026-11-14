@@ -295,6 +295,12 @@ function setAutoNext(on, save) {
   if (save) { post({ t: "ui.prefs", autoNext: on }); toast(on ? "Bật tự phát tiếp: hết danh sách sẽ chiếu tiếp video YouTube liên quan." : "Tắt tự phát tiếp: hết danh sách thì dừng."); }
 }
 $("chkAutoNext").onchange = () => setAutoNext($("chkAutoNext").checked, true);
+// Chủ phòng cho người xem thêm thẳng (máy chủ phòng giữ cờ, gửi trong "state.openAdd"; C# nhớ cho lần mở phòng sau)
+$("chkOpenAdd").onchange = () => {
+  const on = $("chkOpenAdd").checked;
+  send({ t: "openadd", on });
+  post({ t: "ui.prefs", openAdd: on });
+};
 
 const pTime = () => P.kind === "yt" ? (P.ytReady ? P.yt.getCurrentTime() || 0 : 0) : V.currentTime || 0;
 const pDur = () => P.kind === "yt" ? (P.ytReady ? P.yt.getDuration() || 0 : 0) : (isFinite(V.duration) ? V.duration : 0);
@@ -826,7 +832,9 @@ function renderPeople() {
 function renderQueue() {
   const q = S.st?.queue || [];
   $("qCount").textContent = q.length;
-  $("btnAdd").textContent = S.host ? "Thêm" : "Đề xuất";
+  const open = !!S.st?.openAdd;
+  $("btnAdd").textContent = S.host || open ? "Thêm" : "Đề xuất";
+  $("chkOpenAdd").checked = open;
   const ul = $("queue");
   if (!q.length) { ul.innerHTML = `<li class="muted" style="background:transparent">Danh sách trống.</li>`; return; }
   ul.innerHTML = q.map((it, i) => {
@@ -856,7 +864,7 @@ function addLink() {
   $("qErr").textContent = "";
   send({ t: "add", url });
   $("addIn").value = "";
-  if (!S.host) toast("Đã gửi đề xuất cho chủ phòng.");
+  if (!S.host) toast(S.st?.openAdd ? "Đã thêm vào danh sách." : "Đã gửi đề xuất cho chủ phòng.");
 }
 $("btnAdd").onclick = addLink;
 $("addIn").onkeydown = (e) => { if (e.key === "Enter" || e.code === "Enter") addLink(); };

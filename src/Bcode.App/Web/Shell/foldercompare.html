@@ -152,6 +152,7 @@
   const $ = (id) => document.getElementById(id);
   const post = (action, extra) => window.chrome.webview.postMessage(JSON.stringify(Object.assign({ action }, extra || {})));
   const LABEL = { diff: 'Khác nhau', onlyA: 'Chỉ có ở A', onlyB: 'Chỉ có ở B', same: 'Giống nhau' };
+  const VI_BASE = new Intl.Collator('vi', { sensitivity: 'base' });   // dựng 1 lần — localeCompare có options dựng lại mỗi phép so (~40× chậm hơn)
   const PAGE = 1500;   // số dòng vẽ mỗi lượt (thư mục lớn: bấm "Hiện thêm")
 
   let cfg = { recent: [], exact: true, ignore: '', defaultIgnore: '' };
@@ -196,7 +197,7 @@
     if (!data) return;
     const q = $('q').value.trim().toLowerCase();
     view = data.entries.filter((e) => (kind === 'all' || e.status === kind) && (!q || e.rel.toLowerCase().includes(q)));
-    if (kind === 'all') view.sort((x, y) => x.rel.localeCompare(y.rel, 'vi', { sensitivity: 'base' }));   // Tất cả: theo tên như cây thư mục
+    if (kind === 'all') view.sort((x, y) => VI_BASE.compare(x.rel, y.rel));   // Tất cả: theo tên như cây thư mục
     sel = Math.min(sel, view.length - 1);
     if (!view.length) {
       main.innerHTML = '<div class="msg">' + (q ? 'Không có file nào khớp "' + esc(q) + '".' : kind === 'diff' ? '✓ Không có file nào khác nhau.' : 'Không có file nào.') + '</div>';

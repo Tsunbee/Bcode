@@ -146,7 +146,7 @@ internal sealed class RptSchemaPage : DialogPage
 
     private void ShowRows(JsonElement d)
     {
-        _grid.SuspendLayout(); _grid.Controls.Clear(); _grid.RowStyles.Clear(); _rows.Clear();
+        _grid.SuspendLayout(); NK.ClearDispose(_grid); _grid.RowStyles.Clear(); _rows.Clear();
         var notes = new List<Action>();
         if (d.ValueKind == JsonValueKind.Object)
         {

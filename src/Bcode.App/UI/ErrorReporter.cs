@@ -13,6 +13,9 @@ namespace Bcode.App.UI;
 /// - Phím "Gửi lỗi gần nhất" (ShortcutRegistry "error.send", mặc định F1, đổi ở Template → Phím tắt): CHỈ bắt phím khi vừa có lỗi chưa gửi
 ///   (<see cref="ErrorLog.HasPending"/>) — ngoài lúc đó F1 đi tiếp như cũ (lưới Table: chi tiết dòng, Monaco...). Bắt ở 3 chỗ: IMessageFilter (mọi cửa sổ
 ///   WinForms, kể cả hộp thoại modal / hộp lỗi chưa xử lý), WH_MSGFILTER (đang mở MessageBox), WebViewEnvironment.AcceleratorKeyPressed (focus trong trang web).
+/// - Lúc KHÔNG có lỗi chờ gửi, cùng phím = "tự báo lỗi" (lỗi phát sinh ngoài Bcode): mở link Google Sheet để nhập tay (<see cref="ReportManual"/>) — nhưng chỉ
+///   khi chỗ đang focus không dùng phím đó: WinForms bắt ở cuối MainForm.ProcessCmdKey (lưới Table đã bắt F1 ở ProcessCmdKey của nó trước),
+///   trang web bắt ở keydown pha nổi của window khi phím chưa bị preventDefault (Monaco F1 đã chặn trước) — script GlobalShortcutScript → "__error-report".
 /// - Gửi: URL Apps Script (…/exec) → POST; chỉ có link Google Sheet → chép 1 dòng lỗi vào clipboard + mở sheet để dán. Luôn hỏi lại kèm nội dung trước khi gửi.
 /// </summary>
 public static class ErrorReporter
@@ -56,6 +59,50 @@ public static class ErrorReporter
     }
 
     private static bool _queued;
+    private static long _lastManual;
+
+    /// <summary>Phím Gửi lỗi lúc KHÔNG có lỗi chờ gửi, đã đi hết chuỗi xử lý phím mà không control nào dùng (gọi ở cuối MainForm.ProcessCmdKey):
+    /// đúng phím thì mở chỗ tự nhập lỗi và trả true.</summary>
+    public static bool TryHandleManualKey(Keys keys, Form owner, IntPtr focusHwnd)
+    {
+        if (ErrorLog.HasPending || _queued || _sending) return false;   // có lỗi chờ gửi: đường TryHandleKey lo
+        var combo = ShortcutRegistry.FromKeys(keys);
+        if (combo is null) return false;
+        var mine = ShortcutRegistry.Get(ShortcutId);
+        if (mine.Length == 0 || combo != mine) return false;
+        // Focus ở 1 lưới (lưới Table đang tải / chưa có dữ liệu thì chưa nhận F1 chi tiết dòng): không mở sheet bất ngờ, phím đi tiếp như cũ.
+        for (var c = Control.FromChildHandle(focusHwnd); c is not null; c = c.Parent)
+            if (c is DataGridView) return false;
+        Post(() => ReportManual(owner));
+        return true;
+    }
+
+    /// <summary>Trang web báo phím Gửi lỗi tới window mà không phần tử nào dùng ("__error-report", xem WebViewEnvironment.GlobalShortcutScript).
+    /// Gọi trong callback WebMessageReceived — mở trình duyệt / hộp thoại sau khi callback trả về.</summary>
+    public static void ReportManualFromPage()
+    {
+        if (ErrorLog.HasPending) { if (!_queued && !_sending) { _queued = true; Post(() => SendLast(null, force: false)); } return; }
+        Post(() => ReportManual(null));
+    }
+
+    /// <summary>Tự báo lỗi (lỗi phát sinh ngoài Bcode, không có trong error.log): mở link Google Sheet đã khai (Template → Đường dẫn → Báo lỗi) để nhập tay.
+    /// Không đụng clipboard — người dùng thường vừa chép thông báo lỗi của chương trình khác để dán vào sheet.</summary>
+    public static void ReportManual(Form? owner)
+    {
+        // Giữ phím (lặp phím) / bấm liền 2 lần: chỉ mở 1 lần.
+        var now = Environment.TickCount64;
+        if (now - _lastManual < 1500) return;
+        _lastManual = now;
+        var sheet = AppSettings.ErrorSheetUrl;
+        if (sheet.Length == 0)
+        {
+            Box(Owner(owner), "Chưa khai link Google Sheet để nhập lỗi: Template → Đường dẫn → Báo lỗi.\n\n" +
+                              "(Phím này mở sheet để tự nhập lỗi phát sinh bên ngoài Bcode; khi Bcode vừa có lỗi thì phím gửi lỗi đó.)",
+                "Báo lỗi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        OpenUrl(sheet);
+    }
 
     private static void Post(Action a)
     {
@@ -95,7 +142,7 @@ public static class ErrorReporter
         var e = ErrorLog.Last;
         if (e is null || (!force && !ErrorLog.HasPending))
         {
-            Box(owner, "Chưa có lỗi nào được ghi trong phiên này.\n\nFile log: " + ErrorLog.FilePath, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ReportManual(owner);   // chưa có lỗi nào để gửi → mở chỗ tự nhập lỗi (lỗi phát sinh bên ngoài)
             return;
         }
         var sheet = AppSettings.ErrorSheetUrl;

@@ -111,6 +111,21 @@ public sealed class CardPanel : Panel
 /// <summary>Đồ nghề dựng nhanh giao diện native cho các tool (tránh lặp code tạo nhãn / nút / ô nhập / lưới).</summary>
 internal static class NK
 {
+    /// <summary>Gỡ MỌI control con của <paramref name="host"/> rồi Dispose chúng — dùng thay <c>host.Controls.Clear()</c> khi dựng lại danh sách nút / thẻ / ô.
+    /// Clear() không Dispose: control bị gỡ vẫn giữ handle, và CardPanel / RoundedInput / DarkScroll / NK.Tip (đăng ký ThemeManager.ThemeChanged TĨNH,
+    /// chỉ gỡ ở Disposed) sống tới khi thoát Bcode. Không viết <c>foreach (Control c in host.Controls) c.Dispose()</c>: Dispose gỡ khỏi collection
+    /// nên vòng lặp bỏ sót một nửa (đo: 5/10). Dispose hoãn qua BeginInvoke vì thường đang ở trong Click của chính một nút con (nút bấm dựng lại danh sách).</summary>
+    public static void ClearDispose(Control host)
+    {
+        var n = host.Controls.Count;
+        if (n == 0) return;
+        var old = new Control[n];
+        host.Controls.CopyTo(old, 0);
+        host.Controls.Clear();
+        void Free() { foreach (var c in old) if (!c.IsDisposed) c.Dispose(); }
+        if (host.IsHandleCreated && !host.IsDisposed) host.BeginInvoke((Action)Free); else Free();
+    }
+
     /// <summary>Nhãn chữ phụ. <paramref name="wrap"/> = true: tự xuống dòng theo bề rộng được cấp và tự cao theo số dòng (<see cref="WrapLabel"/>) — trước đây là
     /// Label AutoSize=false giữ nguyên chiều cao 1 dòng nên chú thích dài bị cắt cụt.</summary>
     public static Label Muted(string text, bool wrap = false) => wrap

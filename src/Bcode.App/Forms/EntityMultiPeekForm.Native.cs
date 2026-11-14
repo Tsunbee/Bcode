@@ -98,7 +98,7 @@ public sealed partial class EntityMultiPeekForm
             _nTitle.Text = $"{it.Title}   ({_idx + 1}/{_items.Count})"; _nSub.Text = it.Subtitle;
             _nCounter.Text = $"{_idx + 1} / {_items.Count}";
             _bPrev.Enabled = _idx > 0; _bNext.Enabled = _idx < _items.Count - 1;
-            _chips.Controls.Clear();
+            NK.ClearDispose(_chips);
             for (var i = 0; i < _items.Count; i++)
             {
                 var x = _items[i]; var at = i;

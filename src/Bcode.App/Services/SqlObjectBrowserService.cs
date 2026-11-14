@@ -147,8 +147,9 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
         try
         {
             var path = CachePath(useSys);
-            if (!File.Exists(path)) return null;
-            var file = System.Text.Json.JsonSerializer.Deserialize<CacheFile>(File.ReadAllText(path));
+            var fi = new FileInfo(path);
+            if (!fi.Exists) return null;
+            var file = ReadCacheFile(path, fi);
             if (file is null) return null;
             if (file.Rows.Count > 0 && file.Rows.All(r => r.M == 0)) return null;   // cache bản cũ (chưa lưu ngày sửa) → hỏi lại database 1 lần
             return new ObjectCache(file.Signature, file.Rows.Select(r => new SqlObjectInfo
@@ -158,6 +159,26 @@ WHERE o.type IN ('U','V','P','FN','IF','TF','TR') AND o.is_ms_shipped = 0
         }
         catch (InvalidOperationException) { throw; } // chưa chọn workspace
         catch { return null; /* cache hỏng — coi như chưa có */ }
+    }
+
+    // Bản đã giải của file cache (CacheRow bất biến) theo (đường dẫn, giờ ghi, cỡ): Ctrl+P, cây SQL Object, Sơ đồ phụ thuộc gọi LoadCache nhiều lần —
+    // trước đây mỗi lần ReadAllText + Deserialize cả file (~370 KB, ~12 ms + 7 MB rác / 2 database). LoadCache vẫn dựng List<SqlObjectInfo> MỚI mỗi lần
+    // như cũ (bên gọi có thể sửa danh sách / object). File đổi (SaveCache, Bcode khác ghi) thì giờ ghi / cỡ khác → đọc lại.
+    private static readonly Dictionary<string, (long Ticks, long Length, CacheFile File)> CacheFileMemo = new(StringComparer.OrdinalIgnoreCase);
+
+    private static CacheFile? ReadCacheFile(string path, FileInfo fi)
+    {
+        var (ticks, len) = (fi.LastWriteTimeUtc.Ticks, fi.Length);
+        lock (CacheFileMemo)
+            if (CacheFileMemo.TryGetValue(path, out var m) && m.Ticks == ticks && m.Length == len) return m.File;
+        var file = System.Text.Json.JsonSerializer.Deserialize<CacheFile>(File.ReadAllText(path));
+        if (file is null) return null;
+        lock (CacheFileMemo)
+        {
+            if (CacheFileMemo.Count >= 8 && !CacheFileMemo.ContainsKey(path)) CacheFileMemo.Clear();   // nhiều dự án / database: giữ gọn
+            CacheFileMemo[path] = (ticks, len, file);
+        }
+        return file;
     }
 
     public void SaveCache(bool useSys, string signature, List<SqlObjectInfo> items)

@@ -283,7 +283,7 @@ internal sealed class AppCommandEditPage : DialogPage
                 var values = PO(st, "values");
                 string? Val(string n) => values.ValueKind == JsonValueKind.Object && values.TryGetProperty(n, out var v) && v.ValueKind != JsonValueKind.Null ? (v.ValueKind == JsonValueKind.String ? v.GetString() : v.ToString()) : null;
                 _loading = true;
-                foreach (var g in new[] { _topGrid, _restGrid }) { g.SuspendLayout(); g.Controls.Clear(); g.RowStyles.Clear(); }
+                foreach (var g in new[] { _topGrid, _restGrid }) { g.SuspendLayout(); NK.ClearDispose(g); g.RowStyles.Clear(); }
                 _fields.Clear();
                 var slot = 0;
                 foreach (var n in _top) { var c = cols.FirstOrDefault(x => x.Name.Equals(n, StringComparison.OrdinalIgnoreCase)); if (c is null) continue; _fields.Add(c); AddField(_topGrid, slot++, c, Val(c.Name)); }

@@ -399,6 +399,17 @@ internal static class WebViewEnvironment
       window.chrome.webview.postMessage(JSON.stringify({ action: '__global-shortcut', key: combo }));
     }
   }, true);
+  // Phím Gửi lỗi (error.send, mặc định F1 — window.__bcodeReportKey) lúc không có lỗi chờ gửi: C# để phím tới trang. Pha nổi ở window, chưa bị
+  // preventDefault (Monaco F1, phím editor... đã chặn trước) tức không chỗ nào trong trang dùng phím → báo C# mở chỗ tự nhập lỗi.
+  // Xét lại sau khi sự kiện đi hết (setTimeout): handler keydown của trang gắn ở window sau script này vẫn kịp chặn.
+  window.addEventListener('keydown', function (e) {
+    var rk = window.__bcodeReportKey;
+    if (!rk || e.defaultPrevented || e.repeat || e.isComposing || window.__bcodeNoGlobalKeys) return;
+    if (window.__bcodeCombo(e) !== rk) return;
+    setTimeout(function () {
+      if (!e.defaultPrevented) window.chrome.webview.postMessage(JSON.stringify({ action: '__error-report' }));
+    }, 0);
+  });
 })();";
 
     private static void InstallGlobalShortcuts(Microsoft.Web.WebView2.Core.CoreWebView2 core)
@@ -417,6 +428,8 @@ internal static class WebViewEnvironment
                 if (action == "__keys-suspend") SuspendAccelerators = doc.RootElement.TryGetProperty("data", out var sv) && sv.ValueKind == System.Text.Json.JsonValueKind.True;
                 else if (action == "__global-shortcut" && doc.RootElement.TryGetProperty("key", out var k))
                     GlobalShortcut?.Invoke(k.GetString() ?? "");
+                else if (action == "__error-report")
+                    ErrorReporter.ReportManualFromPage();
                 else if (action.StartsWith("__ui-", StringComparison.Ordinal))
                     UiOverrides.HandleMessage(action, doc.RootElement.Clone());
             }

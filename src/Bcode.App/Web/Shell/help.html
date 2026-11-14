@@ -118,7 +118,14 @@
   var post = function (o) { try { window.chrome.webview.postMessage(JSON.stringify(o)); } catch (e) { } };
 
   // Bỏ dấu từng ký tự (độ dài giữ nguyên) để tìm "phim tat" ra "phím tắt" và tô đúng vị trí.
-  function foldCh(c) { if (c === 'đ' || c === 'Đ') return 'd'; var f = c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); return f.length === 1 ? f : c.toLowerCase(); }
+  // ASCII đi thẳng, ký tự khác nhớ kết quả (trước: normalize + regex cho MỖI ký tự của cả file ~400k ký tự mỗi lần nạp / tìm). Kết quả y như cũ.
+  var foldMemo = new Map();
+  function foldSlow(c) { if (c === 'đ' || c === 'Đ') return 'd'; var f = c.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); return f.length === 1 ? f : c.toLowerCase(); }
+  function foldCh(c) {
+    var k = c.charCodeAt(0);
+    if (k < 128) return k >= 65 && k <= 90 ? String.fromCharCode(k + 32) : c;
+    var f = foldMemo.get(c); if (f === undefined) { f = foldSlow(c); foldMemo.set(c, f); } return f;
+  }
   function fold(s) { var o = ''; for (var i = 0; i < s.length; i++) o += foldCh(s[i]); return o; }
 
   // ---- Đọc file Markdown thành các mục -------------------------------------------------------------
@@ -359,11 +366,14 @@
   }
   // Ảnh nằm trong Help\images cạnh exe: trang xin C# đọc từng ảnh khi bài được mở (help.img trả data URL), nhớ lại cho lần sau.
   // Chạy ngoài Bcode (xem thử trong trình duyệt) thì dùng thẳng đường dẫn tương đối.
-  var imgCache = {};
+  // Chỉ nhớ IMG_KEEP ảnh gần nhất (data URL base64 ~1,3× ảnh, chuỗi JS UTF-16 ×2): trước đây nhớ mãi mọi ảnh đã xem (29 ảnh ≈ 14 MB chuỗi).
+  var imgCache = new Map(), IMG_KEEP = 12;
+  function cacheImg(src, dataUrl) { imgCache.delete(src); imgCache.set(src, dataUrl); while (imgCache.size > IMG_KEEP) imgCache.delete(imgCache.keys().next().value); }
   function loadImages() {
     $('doc').querySelectorAll('img[data-src]').forEach(function (img) {
       var src = img.getAttribute('data-src');
-      if (imgCache[src]) { img.src = imgCache[src]; return; }
+      var hit = imgCache.get(src);
+      if (hit) { cacheImg(src, hit); img.src = hit; return; }
       if (window.chrome && window.chrome.webview) post({ action: 'img', src: src });
       else img.src = src;
     });
@@ -397,12 +407,17 @@
     document.addEventListener('mouseup', function () { if (!drag) return; drag = false; sp.classList.remove('drag'); try { localStorage.setItem('help.sideWidth', side.style.width); } catch (e) { } });
   })();
 
+  // Ngủ đông (tab Trợ giúp ẩn lâu → WebView2 bị huỷ, xem WebBarHost.Sleepable): nhớ bài đang xem; dậy thì C# nạp lại help.init rồi gọi bcodeSetState.
+  window.bcodeGetState = function () { return { id: curId }; };
+  var initTopic = false;   // help.init vừa mở một mục cụ thể (Ctrl+F1 lúc tab đang ngủ) → ưu tiên mục đó, không quay lại bài cũ
+  window.bcodeSetState = function (s) { if (!initTopic && s && s.id && s.id !== curId) show(s.id); };
+
   // ---- C# gọi xuống ----------------------------------------------------------------------------------
   window.help = {
     // data: { md, topic, error }
     init: function (data) {
       if (data.error) { $('doc').innerHTML = '<div class="tip"><p>' + esc(data.error) + '</p></div>'; $('toc').innerHTML = ''; return; }
-      var keep = curId;
+      var keep = curId; initTopic = !!data.topic;
       parse(data.md || '');
       buildToc();
       if ($('paneIdx').classList.contains('on')) buildIdx();
@@ -411,7 +426,7 @@
     show: function (topic) { go(topic || curId); },
     // Ảnh C# đọc xong (dataUrl rỗng = không đọc được → hiện chữ chú thích thay ảnh).
     img: function (src, dataUrl) {
-      if (dataUrl) imgCache[src] = dataUrl;
+      if (dataUrl) cacheImg(src, dataUrl);
       $('doc').querySelectorAll('img[data-src]').forEach(function (img) {
         if (img.getAttribute('data-src') !== src) return;
         if (dataUrl) img.src = dataUrl; else { img.alt = '(thiếu ảnh ' + src + ')'; img.style.cursor = 'default'; }

@@ -50,7 +50,7 @@ public static class ShortcutRegistry
             new("app.settingsMenu", "Mở menu Settings (bánh răng)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.template", "Mở màn Giao diện (Template)", "Cửa sổ", ShortcutScope.App, ""),
             new("app.customUi", "Bật / tắt tuỳ chỉnh giao diện web (chế độ an toàn)", "Cửa sổ", ShortcutScope.App, ""),
-            new(ErrorReporter.ShortcutId, "Gửi lỗi gần nhất lên Google Sheet / forum TK2 Help (Template → Đường dẫn → Báo lỗi) — phím chỉ có tác dụng khi vừa có lỗi chưa gửi (15 phút); lúc khác phím đi tiếp như cũ (vd F1 ở lưới Table)", "Cửa sổ", ShortcutScope.App, "F1"),
+            new(ErrorReporter.ShortcutId, "Báo lỗi: vừa có lỗi chưa gửi (15 phút) → gửi lỗi đó lên Google Sheet / forum TK2 Help; lúc khác → mở Google Sheet để tự nhập lỗi phát sinh bên ngoài (Template → Đường dẫn → Báo lỗi). Chỗ đang focus dùng phím này thì phím đi tiếp như cũ (vd F1 ở lưới Table, Monaco)", "Cửa sổ", ShortcutScope.App, "F1"),
 
             // ---- Tab ----
             new("tab.next", "Chuyển sang tab kế", "Tab", ShortcutScope.App, "Ctrl+Tab"),
@@ -258,8 +258,9 @@ public static class ShortcutRegistry
     /// <summary>Chữ hiển thị trên menu/tooltip ("Ctrl+Shift+Q"), rỗng nếu chưa gán phím.</summary>
     public static string Display(string id) => Get(id);
 
-    /// <summary>Phím phạm vi App tự bắt có điều kiện (không qua <see cref="AppIdFor"/>, không đẩy xuống trang): "error.send" chỉ bắt khi vừa có lỗi
-    /// (UI/ErrorReporter.TryHandleKey) — lúc khác cùng phím (F1) đi tiếp tới lưới Table / editor như cũ. Vẫn hiện ở Template → Phím tắt và Command Palette.</summary>
+    /// <summary>Phím phạm vi App tự bắt có điều kiện (không qua <see cref="AppIdFor"/>, không đẩy xuống trang): "error.send" bắt trước khi vừa có lỗi
+    /// (UI/ErrorReporter.TryHandleKey); lúc khác cùng phím (F1) đi tiếp tới lưới Table / editor như cũ, không ai dùng mới mở chỗ tự nhập lỗi
+    /// (cuối MainForm.ProcessCmdKey / trang báo "__error-report"). Vẫn hiện ở Template → Phím tắt và Command Palette.</summary>
     public static readonly HashSet<string> SelfHandled = new() { ErrorReporter.ShortcutId };
 
     /// <summary>Id chức năng (phạm vi App) đang gắn với tổ hợp <paramref name="combo"/>, hoặc null.</summary>

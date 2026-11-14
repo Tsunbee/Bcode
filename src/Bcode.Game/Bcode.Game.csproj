@@ -28,5 +28,7 @@
     <!-- Dùng chung với Xem chung: mật khẩu phòng (challenge–response) + DPAPI cho mật khẩu nhớ trong game-lan.json -->
     <Compile Include="..\Shared\RoomAuth.cs" Link="Shared\RoomAuth.cs" />
     <Compile Include="..\Shared\DpapiText.cs" Link="Shared\DpapiText.cs" />
+    <!-- Dọn hồ sơ WebView2 theo pid của lần chạy cũ trong %TEMP% (trước đây không bao giờ xoá) -->
+    <Compile Include="..\Shared\WebViewProfileCleanup.cs" Link="Shared\WebViewProfileCleanup.cs" />
   </ItemGroup>
 </Project>

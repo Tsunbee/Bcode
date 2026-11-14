@@ -270,7 +270,7 @@ internal sealed class SqlHistoryPage : DialogPage
 
         public void SetState(JsonElement st)
         {
-            _list.Controls.Clear();
+            NK.ClearDispose(_list);
             if (st.ValueKind != JsonValueKind.Object) { _list.Controls.Add(NK.Muted("Đang kiểm tra...")); return; }
             string S(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
             bool B(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;

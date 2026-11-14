@@ -1,8 +1,9 @@
 // Vẽ "Đêm Go-Live" bằng canvas 2D: bản đồ văn phòng, bàn / máy, nhân vật nhân viên văn phòng (hình khối tự vẽ), sương tầm nhìn, bản đồ nhỏ.
 (function () {
-  const COLORS = ["#e5484d", "#3e9bff", "#30a46c", "#f5a524", "#a46cf5", "#ff7ab8", "#2ec4c4", "#c9ced6"];
-  const COLOR_NAMES = ["Đỏ", "Xanh dương", "Xanh lá", "Cam", "Tím", "Hồng", "Ngọc", "Bạc"];
-  const HAIR = ["#2b1d14", "#16120f", "#5a3a22", "#1b1b22", "#3b2a1a", "#6b4a2b", "#111", "#4a4a52"];
+  // 10 màu = GameRoom.MaxPlayers (máy chủ cấp màu 0..9 không trùng)
+  const COLORS = ["#e5484d", "#3e9bff", "#30a46c", "#f5a524", "#a46cf5", "#ff7ab8", "#2ec4c4", "#c9ced6", "#f0e04a", "#a8703f"];
+  const COLOR_NAMES = ["Đỏ", "Xanh dương", "Xanh lá", "Cam", "Tím", "Hồng", "Ngọc", "Bạc", "Vàng", "Nâu"];
+  const HAIR = ["#2b1d14", "#16120f", "#5a3a22", "#1b1b22", "#3b2a1a", "#6b4a2b", "#111", "#4a4a52", "#3a2414", "#1a1a1a"];
   const FLOOR = { module: "#202838", dev: "#1b2a29", test: "#271f33", meet: "#2a2620", hall: "#171d28" };
   const LABEL = { module: "#8fb4ff", dev: "#58d6a0", test: "#c9a2ff", meet: "#ffcc4d" };
 
@@ -233,7 +234,7 @@
       const label = room.kind === "module" ? room.name.split(/[.\s]/)[0] || room.name : room.kind === "dev" ? "DEV" : room.kind === "test" ? "TEST" : "HỌP";
       c.fillText(label, x + w / 2, y + h / 2 + 24);
     }
-    c.fillStyle = COLORS[v.me.color % 8]; c.strokeStyle = "#fff"; c.lineWidth = 14;
+    c.fillStyle = COLORS[v.me.color % COLORS.length]; c.strokeStyle = "#fff"; c.lineWidth = 14;
     c.beginPath(); c.arc(v.me.x, v.me.y, 42, 0, Math.PI * 2); c.fill(); c.stroke();
   }
 

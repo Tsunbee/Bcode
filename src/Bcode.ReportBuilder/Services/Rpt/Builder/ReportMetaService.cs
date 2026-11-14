@@ -61,6 +61,38 @@ WHERE c.object_id = OBJECT_ID(@t) ORDER BY c.column_id;";
         return cols;
     }
 
+    /// <summary>Cột của NHIỀU bảng trong 1 lần hỏi database (cùng kết quả như gọi <see cref="GetColumnsAsync"/> từng bảng). Trước đây mỗi bảng 1 kết nối
+    /// + 1 câu — qua VPN 10–30 bảng × 50–150 ms ≈ 1–4 s mỗi lần mở báo cáo / gợi ý nối. Bảng không có (OBJECT_ID null) trả danh sách rỗng.</summary>
+    public async Task<Dictionary<(string Table, bool Partitioned), List<MetaColumn>>> GetColumnsManyAsync(IEnumerable<(string Table, bool Partitioned)> tables, CancellationToken ct = default)
+    {
+        var list = tables.Distinct().ToList();
+        var result = list.ToDictionary(t => t, _ => new List<MetaColumn>());
+        if (list.Count == 0) return result;
+        await using var conn = _connect(false);
+        await conn.OpenAsync(ct);
+        const int Chunk = 500;   // giới hạn 2.100 tham số / câu của SQL Server
+        for (var start = 0; start < list.Count; start += Chunk)
+        {
+            var part = list.Skip(start).Take(Chunk).ToList();
+            await using var cmd = new SqlCommand { Connection = conn, CommandTimeout = 60 };
+            var values = string.Join(", ", part.Select((_, i) => $"({i}, OBJECT_ID(@t{i}))"));
+            cmd.CommandText = $@"
+SELECT v.i, c.name, ty.name, c.max_length,
+       CASE WHEN EXISTS (SELECT 1 FROM sys.index_columns ic JOIN sys.indexes i ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+                         WHERE i.is_primary_key = 1 AND ic.object_id = c.object_id AND ic.column_id = c.column_id) THEN 1 ELSE 0 END
+FROM (VALUES {values}) v(i, oid)
+JOIN sys.columns c ON c.object_id = v.oid
+JOIN sys.types ty ON ty.user_type_id = c.user_type_id
+ORDER BY v.i, c.column_id;";
+            for (var i = 0; i < part.Count; i++)
+                cmd.Parameters.AddWithValue("@t" + i, "dbo." + (part[i].Partitioned ? part[i].Table + "$000000" : part[i].Table));
+            await using var r = await cmd.ExecuteReaderAsync(ct);
+            while (await r.ReadAsync(ct))
+                result[part[r.GetInt32(0)]].Add(new MetaColumn(r.GetString(1), r.GetString(2), r.GetInt16(3), r.GetInt32(4) == 1));
+        }
+        return result;
+    }
+
     /// <summary>Gợi ý nối: với mỗi cột của bảng chính, tìm bảng danh mục dm* có CỘT ĐẦU TIÊN trùng tên (vd ma_kh ↔ dmkh.ma_kh) và có cột ten_… để hiển thị.</summary>
     public async Task<List<JoinSuggestion>> SuggestJoinsAsync(IEnumerable<string> mainColumns, CancellationToken ct = default)
     {
@@ -81,9 +113,10 @@ WHERE o.type = 'U' AND o.is_ms_shipped = 0 AND o.name LIKE 'dm%' AND o.name NOT 
             foreach (var (t, fc) in firstCol)
                 if (fc.Equals(col, StringComparison.OrdinalIgnoreCase)) matches.Add((col, t));
         var result = new List<JoinSuggestion>();
+        var colsOf = await GetColumnsManyAsync(matches.Select(m => (m.Table, false)), ct);   // 1 câu cho mọi bảng danh mục khớp
         foreach (var (col, table) in matches)
         {
-            var cols = await GetColumnsAsync(table, false, ct);
+            var cols = colsOf[(table, false)];
             var nameCol = cols.FirstOrDefault(c => c.Name.StartsWith("ten_", StringComparison.OrdinalIgnoreCase) && !c.Name.EndsWith("2") && !c.Name.StartsWith("ten_ngan", StringComparison.OrdinalIgnoreCase))?.Name ?? "";
             var nameCol2 = nameCol.Length > 0 && cols.Any(c => c.Name.Equals(nameCol + "2", StringComparison.OrdinalIgnoreCase)) ? nameCol + "2" : "";
             result.Add(new JoinSuggestion(col, table, col, nameCol.Length > 0, nameCol, nameCol2));

@@ -3905,6 +3905,10 @@ public partial class MainForm : Bcode.App.UI.ThemedForm
             return true;
         if (HandleGlobalShortcut(keyData))
             return true;
+        // Phím Gửi lỗi (F1) lúc không có lỗi chờ gửi: tới được đây tức control đang focus không dùng phím này (lưới Table bắt F1 ở ProcessCmdKey
+        // của nó trước) → mở chỗ tự nhập lỗi phát sinh bên ngoài. Có lỗi chờ gửi thì ErrorReporter đã bắt từ IMessageFilter.
+        if (Bcode.App.UI.ErrorReporter.TryHandleManualKey(keyData, this, msg.HWnd))
+            return true;
 
         return base.ProcessCmdKey(ref msg, keyData);
     }

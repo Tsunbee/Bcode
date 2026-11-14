@@ -841,7 +841,7 @@ internal sealed class ApiDeclarationPage : DialogPage
         _rReq.Text = (P(r, "requestHead") is { Length: > 0 } head ? head.Replace("\n", "\r\n") : "POST " + P(r, "url")) + (P(r, "requestBody").Length > 0 ? "\r\n\r\n" + Pretty(P(r, "requestBody")).Replace("\n", "\r\n") : "");
         _rHdrs.Rows.Clear();
         foreach (var line in P(r, "responseHeaders").Split('\n', StringSplitOptions.RemoveEmptyEntries)) { var i = line.IndexOf(':'); _rHdrs.Rows.Add(i < 0 ? line : line[..i], i < 0 ? "" : line[(i + 1)..].Trim()); }
-        _rTables.Controls.Clear();
+        NK.ClearDispose(_rTables);   // mỗi lần Gửi dựng lưới mới — Clear() không Dispose thì lưới cũ (≤500 dòng) ở lại RAM
         var tables = PA(r, "tables").ToList();
         if (tables.Count == 0) _rTables.Controls.Add(new Label { Text = "Response không có dữ liệu dạng bảng — xem tab Body.", AutoSize = true, ForeColor = Ink.Hint, BackColor = Color.Transparent, Dock = DockStyle.Top });
         foreach (var t in Enumerable.Reverse(tables))

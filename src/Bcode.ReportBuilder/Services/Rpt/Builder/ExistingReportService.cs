@@ -159,9 +159,13 @@ public sealed class ExistingReportService
         var refs = FindTables(text);
         var schema = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         var firstCol = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var t in refs.Select(r => (r.Table, r.Partitioned)).Distinct())
+        var tablePairs = refs.Select(r => (r.Table, r.Partitioned)).Distinct().ToList();
+        // Cột mọi bảng trong 1 câu (trước: 1 kết nối + 1 câu / bảng — 10–30 lượt qua VPN). Lỗi thì lùi về hỏi từng bảng như cũ.
+        Dictionary<(string Table, bool Partitioned), List<MetaColumn>>? many = null;
+        try { many = await _meta.GetColumnsManyAsync(tablePairs, ct); } catch { /* hỏi từng bảng bên dưới */ }
+        foreach (var t in tablePairs)
         {
-            try { var cl = await _meta.GetColumnsAsync(t.Table, t.Partitioned, ct); schema[t.Table] = cl.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase); if (cl.Count > 0) firstCol[t.Table] = cl[0].Name; }
+            try { var cl = many is not null ? many[t] : await _meta.GetColumnsAsync(t.Table, t.Partitioned, ct); schema[t.Table] = cl.Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase); if (cl.Count > 0) firstCol[t.Table] = cl[0].Name; }
             catch { schema[t.Table] = new HashSet<string>(StringComparer.OrdinalIgnoreCase); }
         }
         TRef? FindRef(string alias, string? col = null) => refs.Where(r => r.Alias.Equals(alias, StringComparison.OrdinalIgnoreCase) && schema.ContainsKey(r.Table) && schema[r.Table].Count > 0)

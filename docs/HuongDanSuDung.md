@@ -1210,7 +1210,7 @@ Nút **Giải trí ▾** trên thanh trên (giữa **Gemini** và **Trợ giúp*
 
 | Mục | Dùng để |
 |---|---|
-| **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–8 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
+| **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–10 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
 | **Xem chung (rạp phim LAN)** | Mở **Rạp Bcode** — xem chung YouTube / MP4 / MP3 với cả phòng qua mạng LAN, hoặc **chia sẻ màn hình** cho cả phòng xem (như Discord), có bình luận. Xem [Xem chung](#xem-chung). |
 
 > Mục **mờ** kèm chữ "thiếu Game\BcodeGame.exe" / "thiếu Watch\BcodeWatch.exe" = thư mục Bcode thiếu chương trình đó → cập nhật lại Bcode. Bấm **Giải trí ▾** mà không bung gì: mở **Ctrl+P**, gõ `Giải lao` / `Xem chung` để mở thẳng; nếu Ctrl+P cũng không có thì Bcode trên máy đang lệch bản → **Settings → Cập nhật Bcode**, tick **Ghi đè cả các file này** rồi cập nhật. Điều khiển máy qua UltraViewer / TeamViewer: kéo thanh công cụ nhỏ của chương trình điều khiển ra chỗ khác, kẻo nó che nút.
@@ -1224,12 +1224,12 @@ Game suy luận xã hội chơi chung qua mạng LAN, chủ đề đêm trước
 
 1. **Giải trí → Giải lao (game LAN)**. Gõ tên của bạn.
 2. Một người bấm **Mở phòng** (máy này giữ toàn bộ ván: vai, đáp án, lỗi). Lần đầu Windows có thể hỏi tường lửa — chọn **cho phép trên mạng Private**, không thì máy khác không vào được.
-3. Trong phòng chờ, chủ phòng bấm **📂 Chọn file câu hỏi (Excel)**: file trắc nghiệm, mỗi sheet có cột `Câu hỏi`, `PA1..PA5`, `ĐA1..ĐA5` (1 = đúng) là một **phân hệ** (một phòng trên bản đồ); sheet không có cột "Câu hỏi" tự bỏ qua. Lần sau mở phòng game **tự nạp lại file lần trước**; máy chưa chọn bao giờ thì tự lấy file `.xlsx` đặt sẵn trong thư mục `Game\CauHoi\` (hoặc cạnh `BcodeGame.exe`), không có nữa thì lấy ở thư mục dùng chung `\\172.168.5.17\Users\HAOTN\BcodeGame\CauHoi\` trên mạng văn phòng (đổi thư mục khác bằng `"BankDir"` trong `game-lan.json`) — để file ở đó thì máy nào mở phòng cũng có câu hỏi. File chỉ đọc trên máy chủ phòng — người chơi khác **không** nhận file hay đáp án. Chỉnh hạn dự án, số nhiệm vụ, giờ thảo luận / bỏ phiếu… rồi **▶ Bắt đầu** (cần 5–8 người).
+3. Trong phòng chờ, chủ phòng bấm **📂 Chọn file câu hỏi (Excel)**: file trắc nghiệm, mỗi sheet có cột `Câu hỏi`, `PA1..PA5`, `ĐA1..ĐA5` (1 = đúng) là một **phân hệ** (một phòng trên bản đồ); sheet không có cột "Câu hỏi" tự bỏ qua. Lần sau mở phòng game **tự nạp lại file lần trước**; máy chưa chọn bao giờ thì tự lấy file `.xlsx` đặt sẵn trong thư mục `Game\CauHoi\` (hoặc cạnh `BcodeGame.exe`), không có nữa thì lấy ở thư mục dùng chung `\\172.168.5.17\Users\HAOTN\BcodeGame\CauHoi\` trên mạng văn phòng (đổi thư mục khác bằng `"BankDir"` trong `game-lan.json`) — để file ở đó thì máy nào mở phòng cũng có câu hỏi. File chỉ đọc trên máy chủ phòng — người chơi khác **không** nhận file hay đáp án. Chỉnh hạn dự án, số nhiệm vụ, giờ thảo luận / bỏ phiếu… rồi **▶ Bắt đầu** (cần 5–10 người; mọi máy phải cùng bản game — máy chạy Bcode cũ không thấy phòng trong danh sách, gõ IP thì bị báo "Khác phiên bản game" — cập nhật Bcode là được).
 4. Người khác: phòng hiện trong danh sách **Phòng trong mạng LAN** → **Vào**. Không thấy (khác VLAN / subnet) thì gõ **IP chủ phòng** (hiện ở dòng đầu phòng chờ của chủ phòng) vào ô dưới → **Vào**.
 
 **Phòng có mật khẩu**: lúc mở phòng gõ vào ô **🔒 Mật khẩu phòng** (để trống = ai cũng vào được). Phòng có khoá hiện **🔒** trong danh sách; người vào phải nhập đúng mật khẩu ở hộp hiện ra — **chủ phòng** kiểm, sai thì báo "Sai mật khẩu (còn n lần thử)" và cho nhập lại, sai 5 lần thì bị ngắt (vào lại từ đầu). Chủ phòng không phải nhập. Mật khẩu **không đi trên mạng**: gói tìm phòng chỉ báo "có khoá"; khi vào, chủ phòng gửi một số ngẫu nhiên dùng 1 lần, máy người vào trả về chữ ký HMAC-SHA256 của số đó (khoá suy từ mật khẩu bằng PBKDF2) — người nghe lén không lấy được mật khẩu, chép lại gói cũ cũng không vào được. Máy chạy bản Bcode cũ không vào được phòng có khoá (được nhắc cập nhật); phòng không khoá vẫn như cũ. Game nhớ mật khẩu phòng lần trước của chủ phòng trong `game-lan.json`, mã hoá DPAPI (chỉ tài khoản Windows đó giải được).
 
-**Vai trò** (bảng chia: 5 người = 3 Triển khai, 1 Tester, 1 Lập trình; 6 = thêm 1 Bảo hành; 7 = 4 Triển khai…; 8 = 4 Triển khai, 1 Tester, 2 Lập trình, 1 Bảo hành)
+**Vai trò** (bảng chia: 5 người = 3 Triển khai, 1 Tester, 1 Lập trình; 6 = thêm 1 Bảo hành; 7 = 4 Triển khai…; 8 = 4 Triển khai, 1 Tester, 2 Lập trình, 1 Bảo hành; 9 = 5 Triển khai, 10 = 6 Triển khai, còn lại như 8 người)
 
 | Vai | Phe | Làm gì |
 |---|---|---|
@@ -1279,7 +1279,7 @@ Trang web xem phim không có link file video thẳng (link dạng `…/xem-phim
 
 Ai trong phòng cũng chia sẻ được, mỗi lúc **một người**. Hình và tiếng đi **thẳng từ máy bạn tới từng máy** trong LAN (WebRTC) — không qua Internet, máy xem không cần vào trang web đó. Hình gửi tới **2560×1440** (màn 2K / 27 inch xem toàn màn hình `F` vẫn nét), khoảng 30 khung/giây; màn máy chia sẻ nhỏ hơn thì gửi đúng cỡ màn đó. Máy chia sẻ nén riêng cho từng người xem: phòng đông (> 8 người) rạp tự hạ chất lượng; Wi-Fi yếu có thể bị vỡ hình. Xem toàn màn hình trên màn nào thì kéo cửa sổ Rạp sang màn đó trước.
 
-**Chỉ chủ phòng điều khiển**: ⏯ chiếu / dừng (`Space`), tua (kéo thanh thời gian, `←` / `→` 10 giây), ⏮ ⏭ chuyển bài, ▶ ↑ ↓ ✕ trong danh sách; hết bài (YouTube, link hay file) tự sang mục kế theo thứ tự trong danh sách. Người xem bấm **Đề xuất** để gửi link — mục hiện "đề xuất", chủ phòng bấm ✓ duyệt hoặc ▶ chiếu luôn; tới lượt thì đề xuất cũng tự được chiếu — không muốn chiếu mục nào thì chủ phòng bấm ✕ xoá. **🔁 Tự phát tiếp** (ô tick ở tab 📃 Danh sách của chủ phòng, mặc định bật): hết danh sách mà bài cuối là YouTube thì rạp tự thêm một video liên quan (lấy từ danh sách Mix của YouTube, video không có Mix thì lấy ở mục "video liên quan" của YouTube) và chiếu tiếp cho cả phòng — như nút Tự phát của YouTube, nên chỉ chia sẻ 1 bài cũng nghe liên tục được. Mục tự thêm ghi "🔁 Tự phát tiếp"; video tự thêm mà không phát được thì tự bỏ qua (tối đa 3 lần liền). Bỏ tick thì hết danh sách là dừng; rạp nhớ lựa chọn. Bấm **⏭** khi đang ở bài YouTube cuối danh sách cũng chuyển sang video liên quan như nút Tiếp của YouTube (kể cả khi bỏ tick). Người vào giữa chừng tự nhảy tới đúng đoạn đang chiếu; máy nào lệch quá 1 giây tự tua lại (🔄 để đồng bộ ngay). Âm lượng mỗi người tự chỉnh.
+**Chỉ chủ phòng điều khiển**: ⏯ chiếu / dừng (`Space`), tua (kéo thanh thời gian, `←` / `→` 10 giây), ⏮ ⏭ chuyển bài, ▶ ↑ ↓ ✕ trong danh sách; hết bài (YouTube, link hay file) tự sang mục kế theo thứ tự trong danh sách. Người xem bấm **Đề xuất** để gửi link — mục hiện "đề xuất", chủ phòng bấm ✓ duyệt hoặc ▶ chiếu luôn; tới lượt thì đề xuất cũng tự được chiếu — không muốn chiếu mục nào thì chủ phòng bấm ✕ xoá. **➕ Cho người xem dán link thêm bài không cần duyệt** (ô tick ở tab 📃 Danh sách của chủ phòng, mặc định tắt): bật thì nút của người xem thành **Thêm**, link / playlist họ dán vào thẳng danh sách (cả phòng thấy "… đã thêm …"); chủ phòng vẫn là người duy nhất chiếu, tua, xoá, xếp lại. Rạp nhớ lựa chọn cho các lần mở phòng sau. **🔁 Tự phát tiếp** (ô tick ở tab 📃 Danh sách của chủ phòng, mặc định bật): hết danh sách mà bài cuối là YouTube thì rạp tự thêm một video liên quan (lấy từ danh sách Mix của YouTube, video không có Mix thì lấy ở mục "video liên quan" của YouTube) và chiếu tiếp cho cả phòng — như nút Tự phát của YouTube, nên chỉ chia sẻ 1 bài cũng nghe liên tục được. Mục tự thêm ghi "🔁 Tự phát tiếp"; video tự thêm mà không phát được thì tự bỏ qua (tối đa 3 lần liền). Bỏ tick thì hết danh sách là dừng; rạp nhớ lựa chọn. Bấm **⏭** khi đang ở bài YouTube cuối danh sách cũng chuyển sang video liên quan như nút Tiếp của YouTube (kể cả khi bỏ tick). Người vào giữa chừng tự nhảy tới đúng đoạn đang chiếu; máy nào lệch quá 1 giây tự tua lại (🔄 để đồng bộ ngay). Âm lượng mỗi người tự chỉnh.
 
 **🎧 Chat voice** (nút ở thanh dưới — như Google Meet / Discord)
 
@@ -1459,7 +1459,7 @@ Quy tắc: phím chữ / số / dấu phải đi cùng `Ctrl` hoặc `Alt` (ch�
 | `Ctrl+W` · `Ctrl+Shift+B` | Đóng tab · mở lại tab vừa đóng |
 | `Alt+1` … `Alt+5` | Thả menu nhóm công cụ 1…5 |
 | `Ctrl+Alt+Shift+A` · `Ctrl+Alt+Shift+V` | Add Script · View Script Cart |
-| `F1` (chỉ khi vừa có lỗi) | Gửi lỗi gần nhất lên Google Sheet / forum TK2 Help — lúc không có lỗi chờ gửi, `F1` vẫn làm việc cũ (vd chi tiết dòng ở lưới Table). Xem [Log lỗi và gửi lỗi](#bao-loi) |
+| `F1` | Báo lỗi: vừa có lỗi (15 phút, chưa gửi) → gửi lỗi đó lên Google Sheet / forum TK2 Help; lúc khác → mở Google Sheet để tự nhập lỗi phát sinh bên ngoài. Ở lưới Table / editor Monaco, `F1` vẫn làm việc cũ (chi tiết dòng, bảng lệnh editor) khi không có lỗi chờ gửi. Xem [Log lỗi và gửi lỗi](#bao-loi) |
 
 **Editor SQL**
 
@@ -1516,7 +1516,9 @@ Trạng thái: "✓ Đã kích hoạt trên máy này" / "✗ Chưa kích hoạt
 
 Không ghi: lỗi SQL của chính script bạn chạy trong khung **Message** của SQL Query (sai cú pháp, sai tên bảng…), thao tác Huỷ. Vừa ghi một lỗi thì thanh trạng thái báo `⚠ Đã ghi log lỗi: … — bấm F1 để gửi lỗi`.
 
-**Gửi lỗi — `F1`.** Trong **15 phút** sau khi có lỗi (chưa gửi), bấm `F1` ở bất kỳ đâu trong Bcode — kể cả ngay lúc hộp báo lỗi đang mở — Bcode hiện nội dung sẽ gửi (thời gian, máy, người dùng Windows, dự án, chức năng, chi tiết lỗi) và hỏi **Có / Không**. Trả lời xong (Có hay Không) hoặc quá 15 phút thì `F1` trở lại việc cũ (chi tiết dòng ở lưới Table, `F1` của editor…). Gửi lại lỗi cũ: `Ctrl+P` → "Gửi lỗi gần nhất…". Đổi phím: Template → **Phím tắt** → *Gửi lỗi gần nhất* (nhóm Cửa sổ).
+**Gửi lỗi — `F1`.** Trong **15 phút** sau khi có lỗi (chưa gửi), bấm `F1` ở bất kỳ đâu trong Bcode — kể cả ngay lúc hộp báo lỗi đang mở — Bcode hiện nội dung sẽ gửi (thời gian, máy, người dùng Windows, dự án, chức năng, chi tiết lỗi) và hỏi **Có / Không**. Trả lời xong (Có hay Không) hoặc quá 15 phút thì `F1` trở lại việc cũ (chi tiết dòng ở lưới Table, `F1` của editor…). Gửi lại lỗi cũ: `Ctrl+P` → "Báo lỗi…". Đổi phím: Template → **Phím tắt** → *Báo lỗi* (nhóm Cửa sổ).
+
+**Tự báo lỗi phát sinh bên ngoài — cũng `F1`.** Lúc **không** có lỗi chờ gửi, bấm `F1` ở chỗ không dùng phím này (cây menu, thanh công cụ, các tab / trang khác…) → Bcode **mở Google Sheet lỗi** (ô *Link Google Sheet lỗi* bên dưới) để bạn tự nhập lỗi gặp ở chỗ khác (Fast, SSMS, web khách…). Bcode không đụng clipboard, nên có thể chép thông báo lỗi của chương trình kia trước rồi dán vào sheet. `F1` vẫn giữ việc cũ ở chỗ đang dùng nó: **lưới Table** (chi tiết dòng) và **editor Monaco** (bảng lệnh của editor). Chưa khai link sheet thì Bcode nhắc khai ở Template → Đường dẫn → Báo lỗi. `Ctrl+P` → "Báo lỗi…" khi chưa có lỗi nào cũng mở sheet.
 
 **Khai nơi nhận** (⚙ Settings → Giao diện (Template) → **Đường dẫn** → *Báo lỗi*, lưu ngay, file `%AppData%\Bcode\error-report.json`):
 
@@ -1550,7 +1552,8 @@ Khai cả URL Apps Script lẫn forum thì `F1` gửi tới cả hai và báo �
 | Tính năng hỏi key bản quyền | Xem [Key bản quyền](#key-ban-quyen). |
 | Máy chậm, tốn RAM | Template → Cửa sổ → Hiệu năng = Thấp; hoặc dùng chế độ App. |
 | Gửi lỗi (`F1`) báo "Máy nhận trả về trang HTML" | Web app Apps Script chưa để *Ai có quyền truy cập: Bất kỳ ai*, hoặc URL không phải đuôi `/exec` — triển khai lại (xem [Log lỗi và gửi lỗi](#bao-loi)). |
-| `F1` ở lưới Table mở hộp "Gửi lỗi" thay vì chi tiết dòng | Vừa có lỗi chưa gửi (15 phút): trả lời Có / Không là `F1` về như cũ; hoặc đổi phím Gửi lỗi ở Template → Phím tắt. |
+| `F1` ở lưới Table mở hộp "Gửi lỗi" thay vì chi tiết dòng | Vừa có lỗi chưa gửi (15 phút): trả lời Có / Không là `F1` về như cũ; hoặc đổi phím *Báo lỗi* ở Template → Phím tắt. |
+| `F1` mở Google Sheet lỗi | Không có lỗi chờ gửi và chỗ đang focus không dùng `F1` → Bcode mở sheet để tự nhập lỗi bên ngoài. Muốn chi tiết dòng thì bấm vào lưới Table trước; không muốn thì đổi / xoá phím *Báo lỗi* ở Template → Phím tắt. |
 
 <a id="viewer"></a>
 # Phần II — BcodeViewer

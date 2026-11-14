@@ -12,7 +12,7 @@ public static class Wire
     public const int MaxFrame = 1 << 20;
     public const int DiscoveryPort = 47810;
     public const int DefaultGamePort = 47811;
-    public const string Protocol = "bcgame1";
+    public const string Protocol = "bcgame2";   // bcgame2: phòng tối đa 10 người (thêm 2 Triển khai) — bản cũ bị báo khác phiên bản
 
     public static readonly JsonSerializerOptions Json = new()
     {

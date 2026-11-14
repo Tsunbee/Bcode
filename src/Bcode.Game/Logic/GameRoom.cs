@@ -14,7 +14,7 @@ namespace Bcode.Game.Logic;
 /// vị trí người khác chỉ gửi khi trong tầm nhìn; vai mọi người chỉ lộ ở màn kết thúc.</summary>
 public sealed partial class GameRoom : IDisposable
 {
-    public const int MaxPlayers = 8;
+    public const int MaxPlayers = 10;
     public const double Tick = 0.05;
     public const float Speed = 230, Vision = 360, KillRange = 95, ReportRange = 120, UseRange = 85, ButtonRange = 120;
 
@@ -125,9 +125,9 @@ public sealed partial class GameRoom : IDisposable
 
     private void Hello(FramedConnection conn, JsonElement m)
     {
-        if (Str(m, "proto") != Wire.Protocol) { conn.Send(new { t = "reject", reason = "Khác phiên bản game — cập nhật Bcode để chơi cùng." }); conn.Close("proto"); return; }
-        if (Phase != Phase.Lobby) { conn.Send(new { t = "reject", reason = "Phòng đang chơi ván khác — chờ hết ván rồi vào lại." }); conn.Close("busy"); return; }
-        if (_players.Count >= MaxPlayers) { conn.Send(new { t = "reject", reason = "Phòng đã đủ 8 người." }); conn.Close("full"); return; }
+        if (Str(m, "proto") != Wire.Protocol) { Reject(conn, "Khác phiên bản game — cập nhật Bcode để chơi cùng.", "proto"); return; }
+        if (Phase != Phase.Lobby) { Reject(conn, "Phòng đang chơi ván khác — chờ hết ván rồi vào lại.", "busy"); return; }
+        if (_players.Count >= MaxPlayers) { Reject(conn, $"Phòng đã đủ {MaxPlayers} người.", "full"); return; }
         if (_gate is not null && _gate.IsPending(conn)) return;   // đang chờ trả lời mật khẩu: hello lặp lại không cấp nonce mới
         var name = CleanName(Str(m, "name"));
         var isHost = Str(m, "token") == HostToken;
@@ -148,8 +148,8 @@ public sealed partial class GameRoom : IDisposable
         {
             case GateResult.Ok:
                 // trong lúc gõ mật khẩu phòng có thể đã vào ván / đủ người
-                if (Phase != Phase.Lobby) { conn.Send(new { t = "reject", reason = "Phòng đang chơi ván khác — chờ hết ván rồi vào lại." }); conn.Close("busy"); return; }
-                if (_players.Count >= MaxPlayers) { conn.Send(new { t = "reject", reason = "Phòng đã đủ 8 người." }); conn.Close("full"); return; }
+                if (Phase != Phase.Lobby) { Reject(conn, "Phòng đang chơi ván khác — chờ hết ván rồi vào lại.", "busy"); return; }
+                if (_players.Count >= MaxPlayers) { Reject(conn, $"Phòng đã đủ {MaxPlayers} người.", "full"); return; }
                 Admit(conn, name!, false);
                 break;
             case GateResult.TooMany:
@@ -236,8 +236,15 @@ public sealed partial class GameRoom : IDisposable
     {
         var p = _players.FirstOrDefault(x => x.Id == id && !x.IsHost);
         if (p?.Conn is null) return;
-        p.Send(new { t = "reject", reason = "Chủ phòng đã mời bạn ra khỏi phòng." });
-        p.Conn.Close("kick");
+        Reject(p.Conn, "Chủ phòng đã mời bạn ra khỏi phòng.", "kick");
+    }
+
+    /// <summary>Gửi lời từ chối rồi mới ngắt: Send chỉ xếp hàng, đóng ngay thì tin chưa kịp đi và khách chỉ thấy "mất kết nối"
+    /// (vd bản cũ gõ IP vào không biết là khác phiên bản).</summary>
+    private static void Reject(FramedConnection conn, string reason, string tag)
+    {
+        conn.Send(new { t = "reject", reason });
+        _ = Task.Delay(300).ContinueWith(_ => conn.Close(tag));
     }
 
     private void ApplySettings(JsonElement m)

@@ -96,6 +96,7 @@ public sealed class WatchForm : Form
             try { env = await CoreWebView2Environment.CreateAsync(null, profile, new CoreWebView2EnvironmentOptions(args)); }
             catch { env = await CoreWebView2Environment.CreateAsync(userDataFolder: profile); }
             await _web.EnsureCoreWebView2Async(env);
+            Bcode.Shared.WebViewProfileCleanup.DeleteStaleInBackground(Path.GetDirectoryName(profile)!);   // hồ sơ theo pid của các lần chạy đã thoát
             var core = _core = _web.CoreWebView2;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
@@ -227,6 +228,7 @@ public sealed class WatchForm : Form
                 if ((string?)m["mode"] is "theater" or "screen") _prefs.Mode = (string)m["mode"]!;
                 if ((bool?)m["side"] is bool side) _prefs.Side = side;
                 if ((bool?)m["autoNext"] is bool an) _prefs.AutoNext = an;
+                if ((bool?)m["openAdd"] is bool oa) _prefs.OpenAdd = oa;
                 if ((string?)m["noise"] is "strong" or "basic" or "off") _prefs.Noise = (string)m["noise"]!;
                 if ((string?)m["micId"] is { Length: < 300 } mic) _prefs.MicId = mic;
                 _prefs.Save();
@@ -297,6 +299,7 @@ public sealed class WatchForm : Form
         _media.Invite = () => new MediaServer.InviteInfo(srv.RoomName, Environment.MachineName, srv.Port, srv.Locked);
         // Phòng đã lưu trên máy (cùng tên): nạp lại danh sách chiếu; rồi lưu phòng + tự lưu danh sách mỗi lần đổi
         var restored = RestoreSavedQueue(srv, _media!, pass);
+        srv.OpenAdd = _prefs.OpenAdd;   // chủ phòng lần trước cho người xem thêm thẳng → giữ
         srv.QueueChanged += () => UI(() => { if (_server == srv) SaveRoomQueue(srv, _media); });
         var inviteIp = loop ? "127.0.0.1" : RoomFinder.PrimaryIPv4();
         var invite = inviteIp is null ? null : MediaServer.InviteUrl(inviteIp, _media.Port, _server.Port);
@@ -547,6 +550,8 @@ internal sealed class Prefs
     public bool Side { get; set; } = true;
     /// <summary>Chủ phòng: hết danh sách mà bài cuối là YouTube thì tự phát tiếp video liên quan (như "Tự phát" của YouTube).</summary>
     public bool AutoNext { get; set; } = true;
+    /// <summary>Chủ phòng: người xem dán link là thêm thẳng vào danh sách, không qua duyệt (mặc định tắt = thành đề xuất).</summary>
+    public bool OpenAdd { get; set; }
     /// <summary>Chat voice — lọc tạp âm: strong (RNNoise, như Discord) | basic (bộ lọc sẵn của trình duyệt) | off.</summary>
     public string Noise { get; set; } = "strong";
     /// <summary>Micro đã chọn (deviceId của trình duyệt; rỗng = micro mặc định của Windows).</summary>

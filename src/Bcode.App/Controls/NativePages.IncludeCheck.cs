@@ -150,7 +150,7 @@ internal sealed class IncludeCheckPage : NativePage
 
     private void RenderSummary()
     {
-        _sum.Controls.Clear();
+        NK.ClearDispose(_sum);
         var baseList = Filtered(true);
         var cnt = baseList.GroupBy(f => _analyzed ? StOf(f) : "none").ToDictionary(g => g.Key, g => g.Count());
         var all = NK.Button($"{baseList.Count} Tất cả", () => { _status = ""; RenderList(); }, primary: _status.Length == 0); _sum.Controls.Add(all);
@@ -184,7 +184,7 @@ internal sealed class IncludeCheckPage : NativePage
     private void RenderDetail()
     {
         var f = _catalog.FirstOrDefault(x => x.Key == _sel);
-        _dBtns.Controls.Clear(); _fixBar.Controls.Clear(); _gridC.Rows.Clear();
+        NK.ClearDispose(_dBtns); NK.ClearDispose(_fixBar); _gridC.Rows.Clear();
         if (f is null) { _dTitle.Text = ""; _dMeta.Text = "Chọn 1 tính năng ở bên trái để xem điều kiện, giá trị hiện tại và cách sửa."; _dGuide.Text = ""; _gridC.Visible = false; _curConds = new(); return; }
         _gridC.Visible = true;
         _results.TryGetValue(f.Key, out var r);
@@ -207,7 +207,7 @@ internal sealed class IncludeCheckPage : NativePage
 
     private void UpdateFixBar()
     {
-        _fixBar.Controls.Clear();
+        NK.ClearDispose(_fixBar);
         var i = _gridC.CurrentRow?.Index ?? -1;
         if (i < 0 || i >= _curConds.Count) return;
         var c = _curConds[i];

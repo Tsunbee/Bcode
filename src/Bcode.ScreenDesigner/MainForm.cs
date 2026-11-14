@@ -35,6 +35,7 @@ public sealed partial class MainForm : Form
             var env = await CreateEnvironmentAsync(profile);
             _webEnv = env;
             await _web.EnsureCoreWebView2Async(env);
+            Bcode.Shared.WebViewProfileCleanup.DeleteStaleInBackground(Path.GetDirectoryName(profile)!);   // hồ sơ theo pid của các lần chạy đã thoát
 
             var core = _web.CoreWebView2;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;

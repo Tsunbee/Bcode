@@ -40,7 +40,7 @@ Bcode.App/
 │   ├── FsgRequirementReportControl.cs  351
 │   ├── GenUpdatePackageControl.cs  567
 │   ├── GoToBox.cs  288
-│   ├── HelpControl.cs  90
+│   ├── HelpControl.cs  97
 │   ├── HintPopup.cs  155
 │   ├── IconRailControl.cs  218
 │   ├── IncludeCheckControl.cs  200
@@ -56,7 +56,7 @@ Bcode.App/
 │   ├── NativeCompareObjectsControl.cs  279
 │   ├── NativeFindBar.cs  92
 │   ├── NativeInputs.cs  304
-│   ├── NativeKit.cs  515
+│   ├── NativeKit.cs  530
 │   ├── NativeLookupControl.cs  386
 │   ├── NativePage.cs  274
 │   ├── NativePages.Api.cs  1069
@@ -76,7 +76,7 @@ Bcode.App/
 │   ├── NativePages.FileLookup.cs  177
 │   ├── NativePages.FileTools.cs  76
 │   ├── NativePages.GenUpdate.cs  451
-│   ├── NativePages.HintsHelp.cs  123
+│   ├── NativePages.HintsHelp.cs  131
 │   ├── NativePages.IncludeCheck.cs  372
 │   ├── NativePages.MenuPicker.cs  178
 │   ├── NativePages.MsgBox.cs  270
@@ -133,7 +133,7 @@ Bcode.App/
 │   ├── TeamNotesControl.cs  196
 │   ├── UndoRedoTracker.cs  82
 │   ├── UsagesControl.cs  150
-│   ├── WCommandTreeControl.cs  1007
+│   ├── WCommandTreeControl.cs  1014
 │   ├── WebActionBar.cs  264
 │   ├── WebBarHost.cs  228
 │   ├── WebFrameHost.cs  215
@@ -143,7 +143,7 @@ Bcode.App/
 │   ├── AddSourceForm.cs  309
 │   ├── AiHistoryForm.cs  113
 │   ├── ApiDeclarationForm.cs  456
-│   ├── ApiSchemaBuilderForm.cs  364
+│   ├── ApiSchemaBuilderForm.cs  367
 │   ├── ApiSchemaBuilderForm.Native.cs  525
 │   ├── AppCommandEditForm.cs  255
 │   ├── CatalogCloneForm.cs  146
@@ -173,12 +173,12 @@ Bcode.App/
 │   ├── ListEditorForm.cs  45
 │   ├── LookupForm.cs  165
 │   ├── MainForm.BcodeFeatures.cs  108
-│   ├── MainForm.cs  5148
+│   ├── MainForm.cs  5181
 │   ├── MainForm.ErrorReport.cs  77
 │   ├── MainForm.FsgNotify.cs  112
 │   ├── MainForm.Hibernate.cs  64
 │   ├── MainForm.Pets.cs  255
-│   ├── MainForm.Session.cs  372
+│   ├── MainForm.Session.cs  392
 │   ├── MainForm.ToolGroups.cs  101
 │   ├── MainForm.Update.cs  191
 │   ├── MenuPickerForm.cs  95
@@ -291,7 +291,7 @@ Bcode.App/
 │   ├── DecryptSqlObjectConfigService.cs  73
 │   ├── DecryptSqlSecret.cs  16
 │   ├── DeletedFileBackup.cs  138
-│   ├── DependencyGraphService.cs  810
+│   ├── DependencyGraphService.cs  818
 │   ├── DesignFieldsGenerator.cs  129
 │   ├── DiffService.cs  295
 │   ├── DtdIncludeResolver.cs  233
@@ -371,12 +371,12 @@ Bcode.App/
 │   ├── SqlFieldTransform.cs  133
 │   ├── SqlFormatterService.cs  152
 │   ├── SqlHintCatalog.cs  236
-│   ├── SqlHintEngine.cs  205
+│   ├── SqlHintEngine.cs  213
 │   ├── SqlHintPopular.cs  209
 │   ├── SqlHintService.cs  222
 │   ├── SqlHistoryService.cs  310
 │   ├── SqlLineAnalyzer.cs  325
-│   ├── SqlObjectBrowserService.cs  696
+│   ├── SqlObjectBrowserService.cs  717
 │   ├── SqlQueryService.cs  100
 │   ├── SqlStepPlanner.cs  443
 │   ├── SsmsLauncher.cs  136
@@ -384,7 +384,7 @@ Bcode.App/
 │   ├── TableMenuService.cs  194
 │   ├── TextLanguageDetector.cs  71
 │   ├── UsageSearchService.cs  116
-│   ├── ViewerControlServer.cs  76
+│   ├── ViewerControlServer.cs  95
 │   ├── ViewerLauncher.cs  51
 │   ├── VoucherCloneService.cs  1367
 │   ├── VoucherCodeHints.cs  99
@@ -403,7 +403,7 @@ Bcode.App/
 │   ├── ControlPerf.cs  18
 │   ├── DevToolsDock.cs  190
 │   ├── DpiForm.cs  112
-│   ├── ErrorReporter.cs  302
+│   ├── ErrorReporter.cs  349
 │   ├── FastGhostLearnUi.cs  32
 │   ├── FlatToolStripRenderer.cs  144
 │   ├── GridDisplayHelper.cs  255
@@ -416,7 +416,7 @@ Bcode.App/
 │   ├── NativeSkin.cs  58
 │   ├── PeachTheme.cs  215
 │   ├── PerformanceProfile.cs  75
-│   ├── ShortcutRegistry.cs  366
+│   ├── ShortcutRegistry.cs  404
 │   ├── ThemedForm.cs  11
 │   ├── ThemedMessageBox.cs  99
 │   ├── ThemeManager.cs  860
@@ -424,9 +424,9 @@ Bcode.App/
 │   ├── UiMode.cs  44
 │   ├── UiOverrides.cs  410
 │   ├── UiScale.cs  69
-│   ├── UiTemplate.cs  583
+│   ├── UiTemplate.cs  584
 │   ├── UiThemes.cs  341
-│   └── WebViewEnvironment.cs  426
+│   └── WebViewEnvironment.cs  439
 ├── Web/
 │   └── Shell/
 │       ├── actionbar.html  99
@@ -443,7 +443,7 @@ Bcode.App/
 │       ├── changeowner.html  76
 │       ├── checkmail.html  218
 │       ├── columndesign.html  207
-│       ├── commandpalette.html  153
+│       ├── commandpalette.html  157
 │       ├── commandquery.html  69
 │       ├── comparebar.html  137
 │       ├── compareobjects.html  151
@@ -465,13 +465,13 @@ Bcode.App/
 │       ├── filepreview.html  249
 │       ├── filereference.html  108
 │       ├── findbar.html  60
-│       ├── foldercompare.html  453
+│       ├── foldercompare.html  454
 │       ├── framehost.html  55
 │       ├── fsgnotify.html  153
-│       ├── fsgreq.html  765
+│       ├── fsgreq.html  783
 │       ├── genupdate.html  636
 │       ├── grantsource.html  132
-│       ├── help.html  425
+│       ├── help.html  440
 │       ├── iconrail.html  112
 │       ├── includecheck.html  328
 │       ├── library.html  168
@@ -482,7 +482,7 @@ Bcode.App/
 │       ├── msgbox.html  100
 │       ├── note.html  51
 │       ├── partitioncheck.html  49
-│       ├── projects.html  115
+│       ├── projects.html  121
 │       ├── queryhistory.html  189
 │       ├── quickaccess.html  253
 │       ├── quicklist.html  1666
@@ -530,7 +530,7 @@ Bcode.App/
 │       └── weeklymail.html  556
 ├── Bcode.App.csproj  262
 ├── BcodePaths.cs  48
-└── Program.cs  45
+└── Program.cs  48
 ```
 ```
 BcodeViewer.App/
@@ -551,8 +551,8 @@ BcodeViewer.App/
 ├── Host/
 │   ├── FastSource/
 │   │   ├── FastSourceService.Ask.cs  200
-│   │   ├── FastSourceService.cs  261
-│   │   ├── FastSourceService.Shared.cs  226
+│   │   ├── FastSourceService.cs  265
+│   │   ├── FastSourceService.Shared.cs  232
 │   │   ├── FastSourceService.Siblings.cs  96
 │   │   ├── SourceAsk.cs  568
 │   │   ├── SourceGhost.cs  957
@@ -643,7 +643,7 @@ BcodeViewer.App/
 ├── HintCodeForm.cs  520
 ├── MainForm.cs  2886
 ├── MainForm.Update.cs  156
-└── Program.cs  231
+└── Program.cs  233
 ```
 ```
 Bcode.ScreenDesigner/
@@ -658,9 +658,9 @@ Bcode.ScreenDesigner/
 │   ├── designer.js  1287
 │   ├── dp.css  135
 │   └── shim.js  102
-├── Bcode.ScreenDesigner.csproj  65
+├── Bcode.ScreenDesigner.csproj  67
 ├── DesignerBridge.cs  468
-├── MainForm.cs  76
+├── MainForm.cs  77
 ├── MainForm.Update.cs  173
 └── Program.cs  28
 ```
@@ -674,13 +674,13 @@ Bcode.ReportBuilder/
 ├── Services/
 │   └── Rpt/
 │       └── Builder/
-│           ├── ExistingReportService.cs  390
+│           ├── ExistingReportService.cs  394
 │           ├── KnownRelations.cs  47
 │           ├── ReportCatalog.cs  124
 │           ├── ReportFilesDeployService.cs  111
 │           ├── ReportGenerator.cs  686
 │           ├── ReportGenerator.Templates.cs  307
-│           ├── ReportMetaService.cs  193
+│           ├── ReportMetaService.cs  226
 │           ├── ReportSpec.cs  196
 │           ├── SampleFinder.cs  73
 │           └── TemplateStore.cs  70
@@ -710,7 +710,8 @@ Shared/
 ├── KnowledgeMover.cs  166
 ├── LicenseCodec.cs  104
 ├── PipeProtocol.cs  44
-└── RoomAuth.cs  211
+├── RoomAuth.cs  211
+└── WebViewProfileCleanup.cs  37
 ```
 ```
 Bcode.Core/
@@ -751,8 +752,8 @@ Bcode.Game/
 │   ├── index.html  201
 │   ├── render.js  241
 │   └── sfx.js  46
-├── Bcode.Game.csproj  32
-├── GameForm.cs  359
+├── Bcode.Game.csproj  34
+├── GameForm.cs  360
 └── Program.cs  32
 ```
 ```
@@ -765,25 +766,25 @@ Bcode.Watch/
 ├── Net/
 │   ├── Discovery.cs  194
 │   ├── Firewall.cs  110
-│   ├── MediaServer.cs  238
-│   ├── WatchServer.cs  642
+│   ├── MediaServer.cs  241
+│   ├── WatchServer.cs  784
 │   └── Wire.cs  141
 ├── Web/
 │   ├── vendor/
 │   │   └── rnnoise/
 │   │       ├── LICENSE-jitsi-rnnoise-wasm.txt  219
 │   │       ├── README.txt  10
-│   ├── index.html  172
+│   ├── index.html  178
 │   ├── theater.js  243
 │   ├── voice-worklet.js  102
 │   ├── voice.js  415
-│   ├── watch.css  185
-│   └── watch.js  1012
-├── Bcode.Watch.csproj  33
+│   ├── watch.css  189
+│   └── watch.js  1034
+├── Bcode.Watch.csproj  35
 ├── Invite.cs  49
 ├── make-icon.js  49
 ├── Program.cs  40
-└── WatchForm.cs  476
+└── WatchForm.cs  581
 ```
 ```
 BcodeNote.App/
@@ -795,7 +796,7 @@ BcodeNote.App/
 ├── HubPrefs.cs  34
 ├── MenuSuggestForm.cs  34
 ├── NoteHubForm.cs  377
-└── Program.cs  32
+└── Program.cs  33
 ```
 ```
 ExcelToFrx/

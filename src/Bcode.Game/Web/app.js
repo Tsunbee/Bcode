@@ -36,7 +36,7 @@ function addChat(box, m) {
   const el = document.createElement("div");
   el.className = "m";
   if (m.sys) el.innerHTML = `<span class="sys">${esc(m.text)}</span>`;
-  else el.innerHTML = `<span class="who" style="color:${R.COLORS[m.color % 8]}">${m.ghost ? "👻 " : ""}${esc(m.name)}</span>${esc(m.text)}`;
+  else el.innerHTML = `<span class="who" style="color:${R.COLORS[m.color % R.COLORS.length]}">${m.ghost ? "👻 " : ""}${esc(m.name)}</span>${esc(m.text)}`;
   box.appendChild(el);
   box.scrollTop = box.scrollHeight;
 }
@@ -115,8 +115,8 @@ function renderLobby(l) {
     R.avatar(cv, p.color);
   }
   const n = l.players.length;
-  const tbl = { 5: "3 Triển khai · 1 Tester · 1 Lập trình (hệ thống tự nghiệm thu)", 6: "3 Triển khai · 1 Tester · 1 Lập trình · 1 Bảo hành", 7: "4 Triển khai · 1 Tester · 1 Lập trình · 1 Bảo hành", 8: "4 Triển khai · 1 Tester · 2 Lập trình · 1 Bảo hành" };
-  $("lbRoles").textContent = n < l.min ? `Cần ít nhất ${l.min} người (5–8).` : (tbl[n] || "Chế độ thử: 1 Lập trình, 1 Tester, còn lại Triển khai");
+  const tbl = { 5: "3 Triển khai · 1 Tester · 1 Lập trình (hệ thống tự nghiệm thu)", 6: "3 Triển khai · 1 Tester · 1 Lập trình · 1 Bảo hành", 7: "4 Triển khai · 1 Tester · 1 Lập trình · 1 Bảo hành", 8: "4 Triển khai · 1 Tester · 2 Lập trình · 1 Bảo hành", 9: "5 Triển khai · 1 Tester · 2 Lập trình · 1 Bảo hành", 10: "6 Triển khai · 1 Tester · 2 Lập trình · 1 Bảo hành" };
+  $("lbRoles").textContent = n < l.min ? `Cần ít nhất ${l.min} người (5–${l.max}).` : (tbl[n] || "Chế độ thử: 1 Lập trình, 1 Tester, còn lại Triển khai");
   const b = l.bank;
   $("bankBox").innerHTML = b
     ? `📘 <b>${esc(b.file)}</b><br>${b.total} câu (${b.multi} câu nhiều đáp án) · ${b.modules.length} phân hệ<div class="mods">${b.modules.map((m) => `${esc(m.name)}: ${m.count}`).join(" · ")}</div>`
@@ -442,7 +442,7 @@ function renderVoteGrid() {
     el.appendChild(cv);
     const nm = document.createElement("div");
     const mate = g.mates.has(p.id);
-    nm.innerHTML = `<div style="font-weight:600;${mate ? "color:var(--bad)" : ""}">${esc(p.name)}${p.id === S.me ? " (bạn)" : ""}</div><div class="muted" style="font-size:.78rem">${alive ? R.COLOR_NAMES[p.color % 8] : "đã bị loại"}</div>`;
+    nm.innerHTML = `<div style="font-weight:600;${mate ? "color:var(--bad)" : ""}">${esc(p.name)}${p.id === S.me ? " (bạn)" : ""}</div><div class="muted" style="font-size:.78rem">${alive ? R.COLOR_NAMES[p.color % R.COLOR_NAMES.length] : "đã bị loại"}</div>`;
     el.appendChild(nm);
     if (mt.voted.has(p.id)) { const vb = document.createElement("span"); vb.className = "vb"; vb.textContent = "✔ đã bầu"; el.appendChild(vb); }
     if (alive) el.onclick = () => vote(p.id);
@@ -478,7 +478,7 @@ function showResult(m) {
   $("meet").classList.add("hidden");
   const tally = new Map();
   for (const v of m.votes) { const k = v.to ?? -1; if (!tally.has(k)) tally.set(k, []); tally.get(k).push(v.from); }
-  const dots = (ids) => ids.map((id) => `<i style="background:${R.COLORS[(g.players.get(id)?.color ?? 0) % 8]}" title="${esc(g.players.get(id)?.name)}"></i>`).join("");
+  const dots = (ids) => ids.map((id) => `<i style="background:${R.COLORS[(g.players.get(id)?.color ?? 0) % R.COLORS.length]}" title="${esc(g.players.get(id)?.name)}"></i>`).join("");
   let rows = "";
   for (const [k, ids] of tally) rows += `<div class="vcard" style="cursor:default"><div>${k === -1 ? "⬜ Phiếu trắng" : esc(g.players.get(k)?.name)}</div><span class="vs">${dots(ids)}</span></div>`;
   $("resultCard").innerHTML = m.ejected != null

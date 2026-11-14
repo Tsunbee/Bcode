@@ -96,7 +96,7 @@ internal sealed class QuickAccessPage : DialogPage
     private void Render()
     {
         _zones.SuspendLayout();
-        foreach (Control c in _zones.Controls) c.Dispose();
+        NK.ClearDispose(_zones);   // trước: foreach Dispose bỏ sót nửa số thẻ (Dispose gỡ khỏi collection)
         _zones.Controls.Clear();
         _zones.Controls.Add(ZoneCard("pin"));
         for (var i = 0; i < _groups.Count; i++) _zones.Controls.Add(ZoneCard("g" + i));

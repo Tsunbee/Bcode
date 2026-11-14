@@ -540,6 +540,7 @@ public sealed class UiTemplate
 
         // Phím tắt hiện hành: danh sách tổ hợp toàn cửa sổ (trang bắt phím rồi báo C#) + bản đồ phím của editor SQL.
         sb.Append("window.__bcodeKeys=").Append(JsonSerializer.Serialize(ShortcutRegistry.ActiveAppCombos())).Append(";")
+          .Append("window.__bcodeReportKey=").Append(JsonSerializer.Serialize(ShortcutRegistry.Get(ErrorReporter.ShortcutId))).Append(";")
           .Append("window.__bcodeEditorKeys=").Append(JsonSerializer.Serialize(ShortcutRegistry.EditorKeymap())).Append(";")
           .Append("if(window.applyKeymap)window.applyKeymap();");
         sb.Append("(function(b,m){if(!b)return;var c=m[b.dataset.area]||{};var prev=(b.dataset.areaKeys||'').split(',').filter(Boolean),now=[];")

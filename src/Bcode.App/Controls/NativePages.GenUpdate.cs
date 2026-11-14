@@ -345,7 +345,7 @@ internal sealed class GenUpdatePage : NativePage
 
     private void RenderTbls()
     {
-        _tblBox.SuspendLayout(); _tblBox.Controls.Clear();
+        _tblBox.SuspendLayout(); NK.ClearDispose(_tblBox);
         _tblCount.Text = _tbls.Count > 0 ? _tbls.Count + " table" : ""; _tblCount.Visible = _tbls.Count > 0;
         foreach (var t in _tbls)
         {

@@ -22,6 +22,9 @@ internal sealed class SqlHintsHelpPage : NativePage
     private readonly RoundedInput _q = NK.Input("Tìm trong hướng dẫn (vd: rsrep, bil, options, a.)…");
     private readonly FlowLayoutPanel _main = new() { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(12, 4, 12, 12) };
     private JsonElement _model;
+    private readonly System.Windows.Forms.Timer _qTimer = new() { Interval = 200 };
+    private static readonly Dictionary<string, string> PreviewCache = new();   // Preview = 3 regex / mẫu — mẫu không đổi giữa các lần lọc
+    private Font? _hFont; private Font? _hFontBase;   // font tiêu đề mục dùng lại (trước: new Font mỗi mục mỗi lần dựng, không Dispose)
 
     public SqlHintsHelpPage()
     {
@@ -29,12 +32,16 @@ internal sealed class SqlHintsHelpPage : NativePage
         var title = new Label { Text = "Hướng dẫn gợi ý code SQL", AutoSize = true, Dock = DockStyle.Left, BackColor = Color.Transparent, Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 3, FontStyle.Bold), Padding = new Padding(0, 4, 20, 0) };
         _q.Dock = DockStyle.Fill;
         head.Controls.Add(_q); head.Controls.Add(title);
-        _q.TextChanged += (_, _) => Render();
+        // gõ liên tục: dựng lại sau 200 ms ngừng gõ (mỗi lần dựng = 5 lưới AutoSizeRows, trước đây chạy mỗi phím)
+        _qTimer.Tick += (_, _) => { _qTimer.Stop(); Render(); };
+        _q.TextChanged += (_, _) => { _qTimer.Stop(); _qTimer.Start(); };
+        Disposed += (_, _) => _qTimer.Dispose();
         _main.Resize += (_, _) => { foreach (Control c in _main.Controls) c.Width = Math.Max(300, _main.ClientSize.Width - 28); };
         Controls.Add(_main); Controls.Add(head);
     }
 
-    private static string Preview(string body) => Regex.Replace(Regex.Replace(Regex.Replace(body, @"\$\{\d+:([^}|]*)\}", "$1"), @"\$\{\d+\|([^,|]*)[^}]*\}", "$1"), @"\$\{\d+\}|\$\d", "");
+    private static string Preview(string body) { lock (PreviewCache) { if (PreviewCache.TryGetValue(body, out var p)) return p; } var r = PreviewRaw(body); lock (PreviewCache) PreviewCache[body] = r; return r; }
+    private static string PreviewRaw(string body) => Regex.Replace(Regex.Replace(Regex.Replace(body, @"\$\{\d+:([^}|]*)\}", "$1"), @"\$\{\d+\|([^,|]*)[^}]*\}", "$1"), @"\$\{\d+\}|\$\d", "");
 
     private DataGridView Table(params (string Title, int Width)[] cols)
     {
@@ -45,7 +52,7 @@ internal sealed class SqlHintsHelpPage : NativePage
         };
         g.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
         foreach (var (t, w) in cols) { var c = new DataGridViewTextBoxColumn { HeaderText = t, SortMode = DataGridViewColumnSortMode.NotSortable }; if (w > 0) c.Width = w; else c.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill; g.Columns.Add(c); }
-        g.RowsAdded += (_, _) => FitHeight(g);
+        // (bỏ RowsAdded → FitHeight: duyệt mọi dòng sau MỖI dòng thêm = O(n²); Render gọi FitHeight 1 lần sau khi nạp xong)
         g.Resize += (_, _) => FitHeight(g);
         return g;
     }
@@ -59,7 +66,8 @@ internal sealed class SqlHintsHelpPage : NativePage
 
     private void Section(string heading, string? intro, DataGridView? grid)
     {
-        var h = new Label { Text = heading, AutoSize = true, BackColor = Color.Transparent, Font = new Font(ThemeManager.BaseFont.FontFamily, ThemeManager.BaseFont.Size + 1.5f, FontStyle.Bold), Margin = new Padding(0, 14, 0, 4) };
+        if (_hFont is null || !ReferenceEquals(_hFontBase, ThemeManager.BaseFont)) { _hFontBase = ThemeManager.BaseFont; _hFont = new Font(_hFontBase.FontFamily, _hFontBase.Size + 1.5f, FontStyle.Bold); }
+        var h = new Label { Text = heading, AutoSize = true, BackColor = Color.Transparent, Font = _hFont, Margin = new Padding(0, 14, 0, 4) };
         _main.Controls.Add(h);
         if (intro is not null) { var l = NK.Muted(intro, true); l.MaximumSize = new Size(Math.Max(300, _main.ClientSize.Width - 40), 0); _main.Controls.Add(l); }
         if (grid is not null) _main.Controls.Add(grid);
@@ -70,7 +78,7 @@ internal sealed class SqlHintsHelpPage : NativePage
         var q = _q.Text.Trim().ToLowerInvariant();
         bool Hit(string s) => q.Length == 0 || s.ToLowerInvariant().Contains(q);
         _main.SuspendLayout();
-        foreach (Control c in _main.Controls) c.Dispose();
+        NK.ClearDispose(_main);   // trước: foreach Dispose bỏ sót nửa số control (Dispose gỡ khỏi collection)
         _main.Controls.Clear();
         var intro = NK.Muted("Gõ vài ký tự trong editor SQL Query để Bcode gợi ý. Tab hoặc Enter = chấp nhận; trong đoạn vừa chèn, Tab nhảy sang ô kế (chữ mờ là giá trị mặc định, gõ đè được). Esc = tắt gợi ý; Ctrl+Space = mở lại thủ công.\nDữ liệu tên procedure / function / cột / options lấy từ database đang chọn (App Data hoặc Sys Data, theo ô chọn trên thanh Execute) và được lưu cache — lần đầu có thể mất vài giây.", true);
         intro.MaximumSize = new Size(Math.Max(300, _main.ClientSize.Width - 40), 0); _main.Controls.Add(intro);

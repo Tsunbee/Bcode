@@ -191,7 +191,7 @@ public sealed class NativeQueryHistoryControl : UserControl
     private void ShowCurrent()
     {
         if (_loading) return;
-        _actions.Controls.Clear(); _params.Controls.Clear();
+        NK.ClearDispose(_actions); NK.ClearDispose(_params);   // đổi dòng là dựng lại nút — Clear() không Dispose thì mỗi lần ~14 control mồ côi
         string sql;
         switch (Current)
         {

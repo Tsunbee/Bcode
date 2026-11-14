@@ -79,6 +79,7 @@ public sealed class GameForm : Form
             try { env = await CoreWebView2Environment.CreateAsync(null, profile, new CoreWebView2EnvironmentOptions($"--host-resolver-rules=\"MAP {VirtualHost} ~NOTFOUND\" --autoplay-policy=no-user-gesture-required")); }
             catch { env = await CoreWebView2Environment.CreateAsync(userDataFolder: profile); }
             await _web.EnsureCoreWebView2Async(env);
+            Bcode.Shared.WebViewProfileCleanup.DeleteStaleInBackground(Path.GetDirectoryName(profile)!);   // hồ sơ theo pid của các lần chạy đã thoát
             var core = _core = _web.CoreWebView2;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Settings.IsStatusBarEnabled = false;

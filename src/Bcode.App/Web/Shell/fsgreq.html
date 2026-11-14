@@ -259,16 +259,19 @@
   const allOn = () => on.size === ALL_ON().size;
   const anyLocal = () => FACETS.some(([k]) => vfil[k]) || dimF.length > 0 || !!tlksF || onlyLate || !allOn() || qWords().length > 0;
   const clearLocal = () => { vfil = { maDa: '', maLt1: '', maNv1: '', trangThai: '' }; dimF = []; tlksF = ''; onlyLate = false; on = ALL_ON(); $('q').value = ''; };
-  const saveLocal = () => { try { localStorage.setItem('fsgreq.local', JSON.stringify({ vfil, on: [...on], onlyLate })); } catch { /* không có localStorage */ } };
+  let savedLocal = '';   // chỉ ghi localStorage khi bộ lọc thật sự đổi (render chạy mỗi lần lọc / gõ)
+  const saveLocal = () => { try { const j = JSON.stringify({ vfil, on: [...on], onlyLate }); if (j !== savedLocal) { localStorage.setItem('fsgreq.local', j); savedLocal = j; } } catch { /* không có localStorage */ } };
   try {
     const sv = JSON.parse(localStorage.getItem('fsgreq.local') || 'null');
     if (sv) { vfil = Object.assign(vfil, sv.vfil || {}); if (Array.isArray(sv.on) && sv.on.length) on = new Set(sv.on); onlyLate = !!sv.onlyLate; }
   } catch { /* dữ liệu nhớ hỏng — dùng mặc định */ }
   // Giá trị đang lọc không còn trong dữ liệu (vd. đổi dự án) → bỏ lọc đó, khỏi kẹt ở 0 dòng.
   const renderVf = () => { if (rows.length) FACETS.forEach(([k]) => { if (vfil[k] && !rows.some((r) => String(r[k] || '') === vfil[k])) vfil[k] = ''; }); };
+  // Collator dựng 1 lần (localeCompare có options dựng lại bộ so sánh mỗi phép so: ~40× chậm hơn), cùng kết quả sắp xếp.
+  const VI_NUM = new Intl.Collator('vi', { numeric: true });
   const visible = () => {
     let v = rows.filter((r) => passes(r, ''));
-    if (sortKey) v = v.slice().sort((a, b) => (String(a[sortKey] || '').localeCompare(String(b[sortKey] || ''), 'vi', { numeric: true })) * sortDir);
+    if (sortKey) v = v.slice().sort((a, b) => VI_NUM.compare(String(a[sortKey] || ''), String(b[sortKey] || '')) * sortDir);
     else if (mf) v = v.map((r, i) => [r, i]).sort((a, b) => menuWhy(a[0]).t - menuWhy(b[0]).t || a[1] - b[1]).map((x) => x[0]);
     return v;
   };
@@ -368,12 +371,25 @@
     if (!rows.length) { $('tbl').hidden = true; $('empty').hidden = false; return; }
     $('empty').hidden = v.length > 0; $('tbl').hidden = !v.length;
     $('empty').textContent = mf && !rows.some(mfOk) ? (mf.maDa && !rows.some((r) => idKey(r.maDa) === idKey(mf.maDa)) ? (savedSet.has(idKey(mf.maDa)) ? `FSG không có yêu cầu nào của dự án ${mf.maDa} — Mã dự án (Project ID) của project phải trùng ma_da trên FSG.` : `Chưa có dữ liệu yêu cầu đã lưu của dự án ${mf.maDa} — Bcode tự kéo (chỉ đọc); lỗi kết nối (VPN / mạng) thì xem dòng báo phía trên rồi bấm “Kéo về”.`) : `Không có yêu cầu nào của dự án ${mf.maDa} liên quan menu ${mf.bar} (${mf.id}) — đã so menu_id, tên menu và nội dung.`) : 'Không có yêu cầu nào khớp bộ lọc.';
+    // Chỉ dựng ROW_CHUNK dòng đầu; cuộn gần cuối thì dựng tiếp (moreRows) — hàng nghìn y/c dựng hết mỗi lần lọc là khựng cả giây.
     $('tbl').innerHTML = '<thead><tr>' + (mf ? '<th title="Vì sao y/c này liên quan menu đang lọc">Liên quan</th>' : '') + COLS.map(([k, t]) => `<th data-k="${k}">${t}${sortKey === k ? (sortDir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('') + '</tr></thead><tbody>'
-      + v.map((r, i) => { const s = stOf(r), d = dueOf(r); return `<tr data-i="${i}" class="${d} g-${s.group}" title="${d === 'late' ? 'Quá hạn hoàn thành' : d === 'due' ? 'Đến hạn hôm nay' : ''}">`
+      + v.slice(0, ROW_CHUNK).map(rowHtml).join('') + '</tbody>';
+    drawn = Math.min(v.length, ROW_CHUNK);
+  };
+  const ROW_CHUNK = 400;
+  let drawn = 0;
+  const moreRows = (upTo) => {   // dựng thêm dòng của `shown` (tới chỉ số upTo nếu có), giữ data-i = chỉ số trong shown như cũ
+    const end = Math.min(shown.length, Math.max(drawn + ROW_CHUNK, upTo == null ? 0 : upTo + 1));
+    if (end <= drawn) return;
+    const tb = $('tbl').tBodies[0]; if (!tb) return;
+    tb.insertAdjacentHTML('beforeend', shown.slice(drawn, end).map((r, k) => rowHtml(r, drawn + k)).join(''));
+    drawn = end;
+  };
+  $('wrap').addEventListener('scroll', () => { const w = $('wrap'); if (drawn < shown.length && w.scrollTop + w.clientHeight > w.scrollHeight - 300) moreRows(); });
+  const rowHtml = (r, i) => { const s = stOf(r), d = dueOf(r); return `<tr data-i="${i}" class="${d} g-${s.group}" title="${d === 'late' ? 'Quá hạn hoàn thành' : d === 'due' ? 'Đến hạn hôm nay' : ''}">`
         + (mf ? `<td class="nw"><span class="why${menuWhy(r).t <= 2 ? ' g' : ''}">${esc(menuWhy(r).l)}</span></td>` : '') + `<td class="nw">${esc(r.maDa)}</td><td class="nw">${esc(r.menuId)}</td><td>${esc(r.tenMenuNgan)}</td><td class="c">${esc(r.trangTlks)}</td><td class="c" title="tlks_yn = ${esc(r.tlksYn)}">${tlksOf(r) === 'yes' ? '✓' : tlksOf(r) === 'no' ? '✗' : ''}</td><td class="nw">${esc(r.bpLt)}</td><td class="nw">${hl(r.fcode1)}</td>`
         + `<td class="nd" title="${esc(r.noiDung + (r.ghiChu ? '\n\nGhi chú:\n' + r.ghiChu : ''))}">${hl(String(r.noiDung || '').replace(/\s+/g, ' '))}${r.ghiChu ? ' <span class="gc">┃ Ghi chú: ' + hl(String(r.ghiChu).replace(/\s+/g, ' ')) + '</span>' : ''}</td><td class="nw">${esc(r.maLt1)}</td><td class="nw">${esc(r.maNv1)}</td><td class="c">${esc(fmtDate(r.ngayHt))}</td>`
-        + `<td class="st nw"><span class="tag" title="${esc(s.code)}">${esc(s.label)}</span></td></tr>`; }).join('') + '</tbody>';
-  };
+        + `<td class="st nw"><span class="tag" title="${esc(s.code)}">${esc(s.label)}</span></td></tr>`; };
 
   // ---- Dashboard: tổng quan + thống kê theo bộ phận / lập trình / triển khai / dự án (bấm một dòng để xem chi tiết) ----
   const renderDash = () => {
@@ -654,7 +670,7 @@
       : esc(plain);
     $('dtModal').classList.add('show');
     document.querySelectorAll('#tbl tr.sel').forEach((x) => x.classList.remove('sel'));
-    const ix = shown.indexOf(r); if (ix >= 0) { const tr = document.querySelector('#tbl tr[data-i="' + ix + '"]'); if (tr) tr.classList.add('sel'); }
+    const ix = shown.indexOf(r); if (ix >= 0) { moreRows(ix); const tr = document.querySelector('#tbl tr[data-i="' + ix + '"]'); if (tr) tr.classList.add('sel'); }
   };
   $('tbl').addEventListener('click', (e) => { const td = e.target.closest('td.nd'); if (!td) return; const tr = td.closest('tr[data-i]'); if (tr && shown[+tr.dataset.i]) openDetail(shown[+tr.dataset.i]); });
   $('tbl').addEventListener('dblclick', (e) => { const tr = e.target.closest('tr[data-i]'); if (tr && shown[+tr.dataset.i]) openDetail(shown[+tr.dataset.i]); });
@@ -689,7 +705,9 @@
   $('dtCopy').onclick = () => { const t = $('dtBody').dataset.plain || $('dtBody').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).catch(() => { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }); $('dtCopy').textContent = 'Đã copy'; setTimeout(() => { $('dtCopy').textContent = 'Copy nội dung'; }, 1200); };
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
   $('tbl').addEventListener('click', (e) => { const th = e.target.closest('th[data-k]'); if (!th) return; if (sortKey === th.dataset.k) sortDir = -sortDir; else { sortKey = th.dataset.k; sortDir = 1; } render(); });
-  $('q').addEventListener('input', () => { render(); drawSug(); });
+  // gõ liên tục: dựng lại bảng sau 150 ms ngừng gõ (gợi ý lọc vẫn hiện ngay); Enter / chọn gợi ý gọi render() trực tiếp như cũ
+  let qTimer = 0;
+  $('q').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(render, 150); drawSug(); });
   $('q').addEventListener('blur', () => setTimeout(hideSug, 120));
   $('q').addEventListener('keydown', (e) => {
     if ($('sug').classList.contains('show')) {
@@ -740,7 +758,7 @@
       if (view !== 'list') setView('list');
       if (!visible().includes(r)) { mf = null; clearLocal(); $('q').value = String(r.fcode1 || '').trim(); render(); }
       openDetail(r);
-      const ix = shown.indexOf(r), tr = ix >= 0 && document.querySelector('#tbl tr[data-i="' + ix + '"]'); if (tr) tr.scrollIntoView({ block: 'center' });
+      const ix = shown.indexOf(r); if (ix >= 0) moreRows(ix); const tr = ix >= 0 && document.querySelector('#tbl tr[data-i="' + ix + '"]'); if (tr) tr.scrollIntoView({ block: 'center' });
     },
     init(i) { $('maDa').value = i.maDa || ''; $('bpLt').value = i.bpLt || ''; $('person').value = i.person || ''; $('lt').value = i.programmer || ''; $('nv').value = i.deployer || ''; $('fcode').value = i.fcode || ''; $('content').value = i.content || ''; renderMore(); },
     setAuto(m) { const v = String(m || 0); if (![...$('auto').options].some((o) => o.value === v)) $('auto').add(new Option(v + ' phút', v)); $('auto').value = v; },

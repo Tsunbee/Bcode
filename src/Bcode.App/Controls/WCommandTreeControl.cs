@@ -393,11 +393,18 @@ public class WCommandTreeControl : UserControl
         }
 
         // Có bản lưu trên máy: hiện cây NGAY từ đó, rồi hỏi database ngầm — giống nhau thì giữ nguyên, khác (hoặc database không với tới được) thì xử lý bên dưới.
-        var cachedFlat = _service.LoadCachedFlat();
-        var cacheSignature = cachedFlat is { Count: > 0 } ? WCommandService.SignatureOf(cachedFlat) : null;
-        if (cacheSignature is not null)
+        // Đọc + giải JSON bản lưu (~1 MB) + chữ ký + dựng cây ở luồng nền: lúc mở Bcode việc này chạy trong ctor MainForm, trước khi cửa sổ hiện
+        // (apply-timing.log đo 204–389 ms). Chỉ RenderView (TreeView) ở luồng UI.
+        var (cacheSignature, cachedRoots) = await Task.Run(() =>
         {
-            _rootsAll = _service.TreeFromFlat(cachedFlat!);
+            var flat = _service.LoadCachedFlat();
+            var sig = flat is { Count: > 0 } ? WCommandService.SignatureOf(flat) : null;
+            return (sig, sig is not null ? _service.TreeFromFlat(flat!) : null);
+        });
+        if (version != _reloadVersion) return;
+        if (cachedRoots is not null)
+        {
+            _rootsAll = cachedRoots;
             RenderView(keep);
         }
 

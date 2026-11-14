@@ -18,7 +18,7 @@ public static class Roles
 
     public static bool IsGood(Role r) => r is Role.TrienKhai or Role.Tester;
 
-    /// <summary>Bảng chia vai đã chốt (5–8 người). Ít hơn 5 chỉ dùng khi thử (--min-players): 1 Lập trình, 1 Tester, còn lại Triển khai.</summary>
+    /// <summary>Bảng chia vai đã chốt (5–10 người; 9–10 = bảng 8 người thêm 1–2 Triển khai). Ít hơn 5 chỉ dùng khi thử (--min-players): 1 Lập trình, 1 Tester, còn lại Triển khai.</summary>
     public static List<Role> Table(int n)
     {
         var (tk, tester, dev, bh) = n switch
@@ -27,6 +27,8 @@ public static class Roles
             6 => (3, 1, 1, 1),
             7 => (4, 1, 1, 1),
             8 => (4, 1, 2, 1),
+            9 => (5, 1, 2, 1),
+            10 => (6, 1, 2, 1),
             _ => (Math.Max(1, n - 2), n >= 3 ? 1 : 0, 1, 0),
         };
         var list = new List<Role>();

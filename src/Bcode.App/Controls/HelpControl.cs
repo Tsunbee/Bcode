@@ -6,10 +6,15 @@ namespace Bcode.App.Controls;
 /// <summary>Tab "Trợ giúp": cây tính năng (Nội dung / Chỉ mục / Tìm kiếm) + hướng dẫn sử dụng của tính năng đang chọn — kiểu file CHM.
 /// Trang WebView2 Web/Shell/help.html (cả chế độ App, chưa có bản native). Nội dung là file Markdown <see cref="HelpFilePath"/>
 /// (bản gốc docs/HuongDanSuDung.md, chép kèm exe lúc build): sửa file rồi bấm "Tải lại" là đổi nội dung, không cần build.</summary>
-public class HelpControl : UserControl
+public class HelpControl : UserControl, ISleepableTab
 {
-    private readonly WebBarHost _web = new("help.html") { Dock = DockStyle.Fill };
+    // Sleepable: tab Trợ giúp ẩn lâu thì huỷ WebView2 (nội dung + ảnh đã xem ~20 MB+); hiện lại thì nạp lại từ file .md, help.html tự mở lại bài đang xem.
+    private readonly WebBarHost _web = new("help.html") { Dock = DockStyle.Fill, Sleepable = true };
+
+    /// <summary>Ngủ đông khi tab ẩn lâu (xem <see cref="WebBarHost.Sleepable"/>).</summary>
+    public Task<bool> SleepAsync() => _web.SleepAsync();
     private string? _topic;
+    private bool _topicFresh = true;   // _topic chưa gửi cho trang (mở tab / ShowTopic lúc tab đang ngủ)
 
     /// <summary>File hướng dẫn cạnh Bcode.exe.</summary>
     public static string HelpFilePath => Path.Combine(AppContext.BaseDirectory, "Help", "HuongDanSuDung.md");
@@ -20,7 +25,8 @@ public class HelpControl : UserControl
         Dock = DockStyle.Fill;
         _topic = topic;
         Controls.Add(_web);
-        _web.Ready += () => Push(_topic);
+        // Mục mở sẵn chỉ gửi 1 lần (lúc mở / sau ShowTopic): tab ngủ đông dậy thì trang tự mở lại bài đang xem (bcodeSetState), không nhảy về mục cũ.
+        _web.Ready += () => { Push(_topicFresh ? _topic : null); _topicFresh = false; };
         _web.Message += OnMessage;
     }
 
@@ -29,6 +35,7 @@ public class HelpControl : UserControl
     {
         _topic = topic;
         if (_web.IsReady) _web.Call($"help.show({WebBarHost.Json(topic)})");
+        else _topicFresh = true;   // đang ngủ / chưa nạp: gửi kèm help.init khi trang sẵn sàng
     }
 
     private void Push(string? topic)

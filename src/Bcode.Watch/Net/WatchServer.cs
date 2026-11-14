@@ -43,6 +43,9 @@ public sealed class WatchServer : IDisposable
     /// <summary>Người đang chia sẻ màn hình (Id người xem, 0 = không ai). Mỗi lúc chỉ 1 người; hình / tiếng đi thẳng máy-máy bằng WebRTC,
     /// máy chủ phòng chỉ chuyển tin bắt tay ("rtc": offer / answer / ice) giữa người chia sẻ và từng người xem.</summary>
     private int _sharer;
+    /// <summary>Chủ phòng cho người xem dán link thêm thẳng vào danh sách (không thành "đề xuất" chờ duyệt). Chủ phòng bật / tắt bằng "openadd".</summary>
+    private bool _openAdd;
+    public bool OpenAdd { get { lock (_lock) return _openAdd; } set { lock (_lock) _openAdd = value; } }
     private double _pos, _anchor;   // vị trí (giây) tại thời điểm _anchor (giây của _clock)
 
     public string RoomName { get; }
@@ -273,11 +276,11 @@ public sealed class WatchServer : IDisposable
                 var item = Parse((string?)m["url"], v.Name, out var err);
                 if (item is null) { v.Conn.Send(new { t = "error", text = err }); return; }
                 if (_queue.Count >= 200) { v.Conn.Send(new { t = "error", text = "Danh sách đã đủ 200 mục." }); return; }
-                item.Suggested = !v.Host;
+                item.Suggested = !v.Host && !_openAdd;
                 // "auto": trang chủ phòng tự thêm video liên quan khi hết danh sách (Tự phát tiếp — watch.js autoNextPick)
                 if (v.Host && (bool?)m["auto"] == true && item.Kind == "yt") item.By = "🔁 Tự phát tiếp";
                 _queue.Add(item);
-                var announce = v.Host ? null : $"{v.Name} đề xuất: ";
+                var announce = v.Host ? null : _openAdd ? $"{v.Name} đã thêm: " : $"{v.Name} đề xuất: ";
                 if (item.Kind == "yt") _ = FetchYoutubeTitleAsync(item, announce);   // báo đề xuất sau khi có tên video thật
                 else if (announce != null) Sys(announce + item.Title);
                 if (v.Host && _cur is null && _sharer == 0) Select(item.Id);
@@ -459,6 +462,15 @@ public sealed class WatchServer : IDisposable
                 Sys($"🔇 {v.Name} đã tắt mic của {target.Name}.");
                 break;
             }
+            case "openadd":
+            {
+                var on = (bool?)m["on"] == true;
+                if (on == _openAdd) return;
+                _openAdd = on;
+                Sys(on ? $"➕ {v.Name} cho mọi người dán link thêm thẳng vào danh sách (không cần duyệt)." : $"{v.Name} đã tắt thêm thẳng — link người xem dán lại thành đề xuất chờ duyệt.");
+                BroadcastState();
+                break;
+            }
             case "clearchat":
                 Broadcast(new { t = "clearchat" });
                 break;
@@ -577,13 +589,13 @@ public sealed class WatchServer : IDisposable
             foreach (var id in ids)
             {
                 if (_queue.Count >= 200) break;
-                var item = new Item { Id = "i" + _nextItem++, Kind = "yt", Src = id, Title = "YouTube " + id, By = v.Name, Suggested = !v.Host };
+                var item = new Item { Id = "i" + _nextItem++, Kind = "yt", Src = id, Title = "YouTube " + id, By = v.Name, Suggested = !v.Host && !_openAdd };
                 _queue.Add(item);
                 added.Add(item);
             }
             var name = title.Length > 0 ? $"“{title}”" : "danh sách phát";
             var cut = added.Count < ids.Count ? $" (bỏ {ids.Count - added.Count} bài — danh sách tối đa 200 mục)" : "";
-            Sys((v.Host ? $"{v.Name} đã thêm {name}" : $"{v.Name} đề xuất {name}") + $" — {added.Count} bài{cut}.");
+            Sys((v.Host || _openAdd ? $"{v.Name} đã thêm {name}" : $"{v.Name} đề xuất {name}") + $" — {added.Count} bài{cut}.");
             if (v.Host && _cur is null && _sharer == 0 && added.Count > 0) Select(added[0].Id);
             else BroadcastState();
         }
@@ -652,7 +664,7 @@ public sealed class WatchServer : IDisposable
 
     private object StateMsg() => new
     {
-        t = "state", cur = _cur, playing = _playing, pos = Math.Round(Position, 3),
+        t = "state", cur = _cur, playing = _playing, pos = Math.Round(Position, 3), openAdd = _openAdd,
         queue = _queue.Select(i => new { i.Id, i.Kind, i.Src, i.Title, i.By, dur = Math.Round(i.Dur, 1), sug = i.Suggested }).ToList(),
     };
 

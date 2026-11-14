@@ -81,9 +81,9 @@ public sealed class GameMap
         Stations.Add(new Station(sid++, "test", test.X + 610, test.Y + 230, testId, 2));
         Table = (meet.Cx, meet.Cy);
         Stations.Add(new Station(sid, "button", meet.Cx, meet.Cy, meetId, 0));
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < GameRoom.MaxPlayers; i++)   // ghế quanh bàn họp = chỗ đứng đầu ván, đủ cho phòng đông nhất
         {
-            var a = Math.PI * 2 * i / 8 - Math.PI / 2;
+            var a = Math.PI * 2 * i / GameRoom.MaxPlayers - Math.PI / 2;
             Seats.Add(((float)(meet.Cx + Math.Cos(a) * 200), (float)(meet.Cy + Math.Sin(a) * 200)));
         }
     }

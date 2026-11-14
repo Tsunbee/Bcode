@@ -85,16 +85,6 @@ function dayMark(at) {
 
 function sys(text) { $('#log').append(el('div', { class: 'sys' }, esc(text))); }
 
-function msgStyle(m) {
-  const css = [];
-  const s = m.style || '';
-  if (s.includes('b')) css.push('font-weight:bold');
-  if (s.includes('i')) css.push('font-style:italic');
-  if (s.includes('u')) css.push('text-decoration:underline');
-  if (m.fg && /^#[0-9a-f]{6}$/i.test(m.fg)) css.push('color:' + m.fg);
-  if (m.size >= 10 && m.size <= 22) css.push('font-size:' + m.size + 'px');
-  return css.join(';');
-}
 
 function addMsg(m, mine, pending, saved, fromHistory) {
   if (!m || msgs.has(m.mid)) return;
@@ -321,6 +311,7 @@ $$('.menubar span').forEach(s => s.addEventListener('click', () => {
     case 'actions': showMenu(x, y, [
       { label: 'BUZZ!', on: doBuzz },
       ...(isGroup ? [{ label: 'Đổi tên phòng…', on: () => dialog('Đổi tên phòng', `<input id="nt" maxlength="60" value="${esc(title)}">`, [{ label: 'OK', primary: true, on: d => send('group.rename', { title: $('#nt', d).value }) }, { label: 'Huỷ' }]) }] : []),
+      { label: 'Xem lịch sử…', on: () => send('history.view') },
       { label: 'Xoá lịch sử…', on: () => $('#tClear').click() }]); break;
   }
 }));

@@ -164,6 +164,9 @@ internal sealed class BuddyForm : WebForm
             case "open":
                 if ((string?)m["conv"] is { Length: > 2 } conv) S.OpenIm(conv, activate: true);
                 break;
+            case "history":
+                S.OpenHistory((string?)m["conv"]);
+                break;
             case "group.new":
                 var ids = (m["ids"] as JsonArray)?.Select(x => (string?)x ?? "").Where(x => x.Length > 0).ToList() ?? new();
                 if (ids.Count == 0) { Post(new { t = "error", text = "Chọn ít nhất 1 người để mở phòng chat." }); break; }
@@ -370,6 +373,9 @@ internal sealed class ImForm : WebForm
             case "history.clear":
                 S.Store.ClearHistory(Conv);
                 break;
+            case "history.view":
+                S.OpenHistory(Conv);
+                break;
             case "open.buddy":
                 if ((string?)m["id"] is { Length: > 0 } bid && bid != node.MyId) S.OpenIm("u:" + bid, activate: true);
                 break;
@@ -435,6 +441,77 @@ internal sealed class LoginForm : WebForm
                 break;
             case "quit":
                 App.Quit();
+                break;
+        }
+    }
+}
+
+/// <summary>Cửa sổ xem lại lịch sử chat (Web\hist.html): trái = các cuộc chat, phải = tin; lọc ngày / người gửi / tìm chữ ở trang,
+/// "tìm trong mọi cuộc chat" thì C# tìm. Lưu ra .txt được.</summary>
+internal sealed class HistForm : WebForm
+{
+    private readonly Session S;
+    private readonly string? _first;
+    protected override string Page => "hist.html";
+    protected override string? AvatarDir => S.Store.AvatarDir;
+
+    public HistForm(Session s, string? conv) : base(s.App)
+    {
+        S = s;
+        _first = conv;
+        Text = "Lịch sử chat — Bhoo";
+        Width = 780; Height = 560;
+        MinimumSize = new Size(560, 380);
+        StartPosition = FormStartPosition.CenterScreen;
+    }
+
+    protected override void OnPage(JsonObject m, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        switch ((string?)m["t"])
+        {
+            case "ui.init":
+                Post(new { t = "init", me = S.Me(), convs = S.HistoryIndex(), select = _first });
+                break;
+            case "load":
+            {
+                var conv = (string?)m["conv"] ?? "";
+                if (conv.Length < 3) break;
+                Post(new { t = "msgs", conv, title = S.Title(conv), list = S.Store.LoadHistory(conv, 20000) });
+                break;
+            }
+            case "search":
+            {
+                var q = ((string?)m["q"] ?? "").Trim();
+                if (q.Length < 2) { Post(new { t = "error", text = "Gõ ít nhất 2 chữ để tìm." }); break; }
+                Post(new { t = "found", q, list = S.SearchAll(q) });
+                break;
+            }
+            case "open":
+                if ((string?)m["conv"] is { Length: > 2 } c) S.OpenIm(c, activate: true);
+                break;
+            case "export":
+            {
+                var conv = (string?)m["conv"] ?? "";
+                if (conv.Length < 3) break;
+                var title = S.Title(conv);
+                using var dlg = new SaveFileDialog { Title = "Lưu lịch sử chat", Filter = "Văn bản|*.txt", FileName = string.Concat(("Bhoo - " + title).Split(Path.GetInvalidFileNameChars())) + ".txt" };
+                if (dlg.ShowDialog(this) != DialogResult.OK) break;
+                var sb = new System.Text.StringBuilder($"Lịch sử chat Bhoo — {title}\r\n\r\n");
+                var day = "";
+                foreach (var x in S.Store.LoadHistory(conv, int.MaxValue))
+                {
+                    var at = DateTimeOffset.FromUnixTimeMilliseconds(x.At).LocalDateTime;
+                    var d = at.ToString("dd/MM/yyyy");
+                    if (d != day) { sb.Append($"\r\n——— {d} ———\r\n"); day = d; }
+                    var body = x.Kind switch { "file" => "[file] " + x.File?.Name, "buzz" => "BUZZ!!!", "env" => "[đổi khung cảnh]", _ => x.Text };
+                    sb.Append(x.Kind is "sys" or "leave" ? $"[{at:HH:mm}] * {body}\r\n" : $"[{at:HH:mm}] {x.FromName}: {body}\r\n");
+                }
+                try { File.WriteAllText(dlg.FileName, sb.ToString(), new System.Text.UTF8Encoding(true)); Post(new { t = "error", text = "Đã lưu " + Path.GetFileName(dlg.FileName) }); }
+                catch (Exception ex) { Post(new { t = "error", text = ex.Message }); }
+                break;
+            }
+            case "close":
+                Close();
                 break;
         }
     }

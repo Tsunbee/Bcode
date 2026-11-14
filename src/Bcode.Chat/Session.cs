@@ -199,6 +199,46 @@ internal sealed class Session
         Popup.Show("Tin nhắn khi offline", "Bạn có tin nhắn mới", text, null, "#e8a400", () => OpenIm(conv, activate: true));
     }
 
+    private HistForm? _hist;
+
+    /// <summary>Mở cửa sổ xem lại lịch sử (1 cái cho cả phiên), chọn sẵn cuộc chat <paramref name="conv"/> nếu có.</summary>
+    public void OpenHistory(string? conv)
+    {
+        if (_hist is null || _hist.IsDisposed) { _hist = new HistForm(this, conv); _hist.Show(); }
+        else
+        {
+            if (_hist.WindowState == FormWindowState.Minimized) _hist.WindowState = FormWindowState.Normal;
+            _hist.Activate();
+            if (conv is not null) _hist.Post(new { t = "select", conv });
+        }
+    }
+
+    /// <summary>Danh sách cuộc chat có lịch sử, mới nhất trước.</summary>
+    public List<object> HistoryIndex() => _store.HistoryIndex(_node.MyId)
+        .OrderByDescending(x => x.Modified)
+        .Select(x => (object)new
+        {
+            conv = x.Conv, title = Title(x.Conv), group = x.Conv.StartsWith("g:"),
+            modified = new DateTimeOffset(x.Modified).ToUnixTimeMilliseconds(), bytes = x.Bytes,
+            av = x.Conv.StartsWith("u:") ? _node.FindBuddy(x.Conv[2..])?.AvHash ?? "" : "",
+            color = x.Conv.StartsWith("u:") ? _node.FindBuddy(x.Conv[2..])?.Color ?? "#3a6ea5" : "#3a6ea5",
+        }).ToList();
+
+    /// <summary>Tìm chữ trong mọi cuộc chat (tối đa <paramref name="max"/> tin, mới nhất trước).</summary>
+    public List<object> SearchAll(string q, int max = 500)
+    {
+        var hits = new List<(string Conv, string Title, ChatMessage M)>();
+        foreach (var (conv, _, _) in _store.HistoryIndex(_node.MyId))
+        {
+            var t = Title(conv);
+            foreach (var m in _store.LoadHistory(conv, int.MaxValue))
+                if (m.Text.Contains(q, StringComparison.CurrentCultureIgnoreCase) || (m.File?.Name ?? "").Contains(q, StringComparison.CurrentCultureIgnoreCase))
+                    hits.Add((conv, t, m));
+        }
+        return hits.OrderByDescending(x => x.M.At).Take(max)
+            .Select(x => (object)new { conv = x.Conv, title = x.Title, m = x.M, mine = x.M.From == _node.MyId }).ToList();
+    }
+
     public ImForm? FindIm(string conv) => _ims.TryGetValue(conv, out var f) && !f.IsDisposed ? f : null;
 
     public ImForm OpenIm(string conv, bool activate)
@@ -302,6 +342,7 @@ internal sealed class Session
         _idleTimer.Stop();
         _offlineTimer.Stop();
         foreach (var f in _ims.Values.ToList()) { try { f.Close(); } catch { } }
+        try { _hist?.Close(); } catch { }
         Buddy.AllowClose = true;
         try { Buddy.Close(); } catch { }
         _node.Dispose();

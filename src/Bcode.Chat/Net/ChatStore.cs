@@ -157,6 +157,40 @@ public sealed class ChatStore
         }
     }
 
+    /// <summary>Mọi cuộc chat có lịch sử trên máy (cho cửa sổ xem lại lịch sử). Tên file đã bị "làm sạch" nên không suy ngược được —
+    /// đoán theo danh bạ / phòng hiện có, file còn lại (phòng đã rời, bạn đã xoá) thì đọc tin đầu để biết cuộc chat.</summary>
+    public List<(string Conv, DateTime Modified, long Bytes)> HistoryIndex(string myId)
+    {
+        lock (_lock)
+        {
+            var known = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var b in Prefs.Buddies) known[HistoryPath("u:" + b.Id)] = "u:" + b.Id;
+            foreach (var g in Prefs.Groups) known[HistoryPath("g:" + g.Gid)] = "g:" + g.Gid;
+            var list = new List<(string, DateTime, long)>();
+            try
+            {
+                foreach (var f in Directory.EnumerateFiles(Path.Combine(_dir, "history"), "*.jsonl"))
+                {
+                    var conv = known.TryGetValue(f, out var k) ? k : null;
+                    if (conv is null)
+                        foreach (var l in File.ReadLines(f, Encoding.UTF8).Take(50))
+                        {
+                            try
+                            {
+                                var m = JsonSerializer.Deserialize<ChatMessage>(l, Wire.Json);
+                                if (m?.Group is { Gid.Length: > 0 } g) { conv = "g:" + g.Gid; break; }
+                                if (m is not null && m.From != myId && m.From.Length > 0) { conv = "u:" + m.From; break; }
+                            }
+                            catch { }
+                        }
+                    if (conv is not null) { var fi = new FileInfo(f); list.Add((conv, fi.LastWriteTimeUtc, fi.Length)); }
+                }
+            }
+            catch { }
+            return list;
+        }
+    }
+
     public void ClearHistory(string conv)
     {
         lock (_lock) { try { File.Delete(HistoryPath(conv)); } catch { } }

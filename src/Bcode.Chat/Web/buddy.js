@@ -136,6 +136,7 @@ function bindRow(r, conv, b) {
     showMenu(e.clientX, e.clientY, [
       { label: 'Gửi tin nhắn', icon: '<span class="mic">💬</span>', on: () => send('open', { conv }) },
       { label: 'Mời vào phòng chat mới…', icon: '<span class="mic">👥</span>', on: () => newRoom([b.id]) },
+      { label: 'Xem lịch sử chat…', icon: '<span class="mic">📜</span>', on: () => send('history', { conv }) },
       '-',
       { label: 'Chuyển sang nhóm…', on: () => moveTo(b) },
       { label: 'Ẩn khỏi danh sách', on: () => send('buddy.hide', { id: b.id, hidden: true }) },
@@ -221,6 +222,7 @@ $$('.menubar span').forEach(s => s.addEventListener('click', e => {
       { label: 'Thoát Bhoo', on: () => send('quit') }]); break;
     case 'contacts': showMenu(x, y, [
       { label: 'Gửi tin nhắn', dis: !sel, on: () => send('open', { conv: sel }) },
+      { label: 'Xem lịch sử chat…', on: () => send('history', { conv: sel || null }) },
       { label: 'Thêm máy bằng IP…', on: addIp },
       { label: showOffline ? 'Ẩn bạn đang offline' : 'Hiện bạn đang offline', on: () => { showOffline = !showOffline; setPref('showOffline', showOffline); render(); } }]); break;
     case 'actions': showMenu(x, y, [

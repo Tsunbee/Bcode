@@ -184,3 +184,15 @@ function avStyle(p, mine, darker) {
   const u = avUrl(p, mine);
   return u ? `background:#fff url('${u}') center/cover no-repeat` : `background:linear-gradient(135deg, ${p.color || '#3a6ea5'}, ${darker || '#0f2a52'})`;
 }
+
+// Kiểu chữ người gửi chọn (đậm / nghiêng / gạch chân / màu / cỡ) → CSS
+function msgStyle(m) {
+  const css = [];
+  const s = m.style || '';
+  if (s.includes('b')) css.push('font-weight:bold');
+  if (s.includes('i')) css.push('font-style:italic');
+  if (s.includes('u')) css.push('text-decoration:underline');
+  if (m.fg && /^#[0-9a-f]{6}$/i.test(m.fg)) css.push('color:' + m.fg);
+  if (m.size >= 10 && m.size <= 22) css.push('font-size:' + m.size + 'px');
+  return css.join(';');
+}

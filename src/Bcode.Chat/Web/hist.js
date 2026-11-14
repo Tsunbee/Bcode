@@ -110,7 +110,7 @@ function render() {
   const list = found ? found.list : filtered().map(m => ({ m, mine: m.from === me?.id }));
   for (const x of list) {
     const d = new Date(x.m.at).toDateString();
-    if (d !== day) { day = d; log.append(el('div', { class: 'day' }, esc(fmtDay(x.m.at)))); }
+    if (d !== day) { day = d; log.append(el('div', { class: 'day' }, `<span>${esc(fmtDay(x.m.at))}</span>`)); }
     log.append(line(x.m, x.mine, found ? x.title : null, x.conv));
   }
   highlight(log, q);

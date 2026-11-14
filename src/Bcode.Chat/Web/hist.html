@@ -5,7 +5,7 @@
 <title>Lịch sử chat — Bhoo</title>
 <link rel="stylesheet" href="retro.css">
 <style>
-  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; padding: 5px 8px; border-bottom: 1px solid var(--shadow); background: linear-gradient(#fbfaf5, #ece9d8); }
+  .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; padding: 5px 8px; border-bottom: 1px solid var(--shadow); background: linear-gradient(var(--bar1), var(--bar2)); }
   .toolbar label { display: flex; align-items: center; gap: 4px; }
   .toolbar input[type=search] { width: 170px; height: 21px; }
   .toolbar input[type=date] { height: 21px; font: 11px Tahoma; }
@@ -15,7 +15,7 @@
   #convs { width: 210px; flex: none; overflow: auto; background: #fff; }
   .cv { display: flex; align-items: center; gap: 6px; padding: 4px 6px; cursor: default; border-bottom: 1px solid #f0efe8; }
   .cv:hover { background: #eef3fb; }
-  .cv.sel { background: var(--sel); color: #fff; }
+  .cv.sel { background: linear-gradient(#4a86d8, #2c63b8); color: #fff; }
   .cv.sel .d { color: #dfe8f7; }
   .cv .pic { width: 26px; height: 26px; flex: none; border: 1px solid #8a9bb5; color: #fff; font: bold 13px Tahoma; display: flex; align-items: center; justify-content: center; }
   .cv .t { flex: 1; min-width: 0; }
@@ -32,6 +32,7 @@
   .buzz { color: #d4141e; font-weight: bold; }
   .day { text-align: center; color: #8a877a; font-size: 10px; margin: 10px 0 4px; display: flex; align-items: center; gap: 6px; }
   .day::before, .day::after { content: ''; flex: 1; border-top: 1px solid #e3e0d0; }
+  .day span { padding: 1px 9px; border: 1px solid #ddd8c4; border-radius: 9px; background: #faf8ef; }
   mark { background: #ffe86b; color: inherit; padding: 0; }
   .empty { color: var(--muted); padding: 20px; text-align: center; line-height: 1.6; }
 </style>

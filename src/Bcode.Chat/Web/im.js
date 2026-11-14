@@ -72,9 +72,9 @@ function renderHead() {
   const info = $('#info'), side = $('#side');
   if (isRoom) {
     const mem = room?.members || [];
-    info.innerHTML = `<span>#</span><span>Phòng công cộng <b>"${esc(room?.t || title)}"</b></span><span class="stx">— ${mem.length} người${room?.topic ? ' · ' + esc(room.topic) : ''}</span>`;
+    info.innerHTML = `${ico('rooms')}<span>Phòng công cộng <b>"${esc(room?.t || title)}"</b></span><span class="stx">— ${mem.length} người${room?.topic ? ' · ' + esc(room.topic) : ''}</span>`;
     document.title = 'Phòng công cộng: ' + (room?.t || title);
-    side.innerHTML = '<div class="cap">Trong phòng:</div><div id="members" class="sunken"></div>';
+    side.innerHTML = `<div class="hd">Trong phòng (${mem.length})</div><div id="members" class="sunken"></div>`;
     const box = $('#members');
     mem.forEach(x => {
       const st = x.id === me.id ? me.status : (buddy(x.id)?.status || 'online');
@@ -82,10 +82,10 @@ function renderHead() {
       if (x.id !== me.id) r.ondblclick = () => send('open.buddy', { id: x.id });
       box.append(r);
     });
-    const lv = el('button', { class: 'btn' }, '🚪 Rời phòng'); lv.onclick = () => send('close'); side.append(lv);
+    const lv = el('button', { class: 'btn' }, 'Rời phòng'); lv.onclick = () => send('close'); side.append(lv);
   } else if (isGroup) {
     const mem = group?.members || [];
-    info.innerHTML = `<span>👥</span><span>Bạn đang ở phòng <b>"${esc(title)}"</b></span><span class="stx">— ${mem.length} người</span>`;
+    info.innerHTML = `${ico('invite')}<span>Bạn đang ở phòng <b>"${esc(title)}"</b></span><span class="stx">— ${mem.length} người</span>`;
     document.title = 'Phòng chat: ' + title;
     side.innerHTML = `<div class="hd">Người tham gia (${mem.length})</div><div id="members" class="sunken"></div>`;
     const box = $('#members');
@@ -95,7 +95,7 @@ function renderHead() {
       if (x.id !== me.id) r.ondblclick = () => send('open.buddy', { id: x.id });
       box.append(r);
     });
-    const inv = el('button', { class: 'btn' }, '👥 Mời thêm…'); inv.onclick = invite; side.append(inv);
+    const inv = el('button', { class: 'btn' }, ico('invite') + ' Mời thêm…'); inv.onclick = invite; side.append(inv);
   } else {
     const b = buddy(peerId()) || { name: title, status: 'offline', color: '#888', text: '' };
     const stx = b.ignored ? 'bạn đã chặn nick này — tin của họ sẽ không hiện (bỏ chặn ở Tuỳ chọn của danh sách bạn)'
@@ -112,7 +112,7 @@ function dayMark(at) {
   const d = new Date(at).toDateString();
   if (d === lastDay) return;
   lastDay = d;
-  $('#log').append(el('div', { class: 'day' }, esc(fmtDay(at))));
+  $('#log').append(el('div', { class: 'day' }, `<span>${esc(fmtDay(at))}</span>`));
 }
 
 function sys(text) { $('#log').append(el('div', { class: 'sys' }, esc(text))); }
@@ -134,7 +134,7 @@ function addMsg(m, mine, pending, saved, fromHistory) {
       const app = m.invite?.app === 'game' ? 'game' : 'watch';
       const what = app === 'game' ? 'Giải lao' : 'Xem chung';
       row = el('div', { class: 'ln' }, `<span class="who ${mine ? 'me' : 'them'}">${esc(who)}</span>${tm}:`);
-      const card = el('div', { class: 'invcard ' + app }, `<span class="iic">${app === 'game' ? '🎮' : '🎬'}</span><div><b>${mine ? 'Bạn đã rủ mọi người vào ' + what : esc(who) + ' rủ bạn vào ' + what}</b>
+      const card = el('div', { class: 'invcard ' + app }, `${ico(app === 'game' ? 'game' : 'movie', 'iic')}<div><b>${mine ? 'Bạn đã rủ mọi người vào ' + what : esc(who) + ' rủ bạn vào ' + what}</b>
         <div class="muted">${esc(m.invite?.room || '')}${mine ? ' — đã mở ' + what + ' trên máy bạn để làm chủ phòng' : ''}</div></div>`);
       if (!mine) { const b = el('button', { class: 'btn primary' }, app === 'game' ? 'Vào chơi' : 'Vào xem'); b.onclick = () => send('invite.accept', { mid: m.mid }); card.append(b); }
       row.append(card);
@@ -177,7 +177,7 @@ function renderPending(x) {
 function fileCard(m, mine) {
   const f = m.file;
   const card = el('div', { class: 'filecard', 'data-fid': f.fid },
-    `<span class="fi">📄</span><div><div class="fn">${esc(f.name)}</div><div class="fs">${fmtSize(f.size)}</div><div class="fst muted"></div><div class="acts"></div></div>`);
+    `${ico('file', 'fi')}<div><div class="fn">${esc(f.name)}</div><div class="fs">${fmtSize(f.size)}</div><div class="fst muted"></div><div class="acts"></div></div>`);
   card.dataset.mine = mine ? '1' : '';
   card.dataset.mid = m.mid;
   return card;
@@ -364,14 +364,14 @@ $('#tCall').onclick = () => {
   if (Call.active) { Call.hangup(); return; }
   const r = $('#tCall').getBoundingClientRect();
   showMenu(r.left, r.bottom, [
-    { label: 'Gọi thoại', icon: '<span class="mic">📞</span>', on: () => Call.start(false) },
-    { label: 'Gọi video (bật camera)', icon: '<span class="mic">📹</span>', on: () => Call.start(true) }]);
+    { label: 'Gọi thoại', icon: ico('call'), on: () => Call.start(false) },
+    { label: 'Gọi video (bật camera)', icon: ico('video'), on: () => Call.start(true) }]);
 };
 $('#tFun').onclick = () => {
   const r = $('#tFun').getBoundingClientRect();
   showMenu(r.left, r.bottom, [
-    { label: 'Rủ Xem chung (phim, nhạc)', icon: '<span class="mic">🎬</span>', on: () => send('invite', { app: 'watch' }) },
-    { label: 'Rủ chơi Giải lao', icon: '<span class="mic">🎮</span>', on: () => send('invite', { app: 'game' }) }]);
+    { label: 'Rủ Xem chung (phim, nhạc)', icon: ico('movie'), on: () => send('invite', { app: 'watch' }) },
+    { label: 'Rủ chơi Giải lao', icon: ico('game'), on: () => send('invite', { app: 'game' }) }]);
 };
 
 setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); }, 1000);

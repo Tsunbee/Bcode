@@ -5,9 +5,6 @@
 <title>Bhoo</title>
 <link rel="stylesheet" href="retro.css">
 <style>
-  .menubar { display: flex; gap: 1px; padding: 2px 3px; background: var(--face); border-bottom: 1px solid #fff; }
-  .menubar span { padding: 2px 6px; }
-  .menubar span:hover, .menubar span.on { background: var(--sel); color: #fff; }
   .me { display: flex; gap: 8px; padding: 8px; align-items: flex-start; }
   .avatar {
     width: 48px; height: 48px; flex: none; border: 1px solid #0f2a52; display: flex; align-items: center; justify-content: center;
@@ -22,19 +19,23 @@
   #myText:focus { font-style: normal; }
   .tabs { display: flex; padding: 0 6px; gap: 2px; background: var(--face); border-bottom: 1px solid var(--dark); padding-top: 5px; }
   .tab { padding: 4px 12px 3px; border: 1px solid var(--dark); border-bottom: 0; border-radius: 4px 4px 0 0; background: linear-gradient(#fff, #e3e0d0); margin-bottom: -1px; }
-  .tab.on { background: #fff; font-weight: bold; border-top: 2px solid var(--accent); padding-top: 3px; }
-  .tools { display: flex; align-items: center; gap: 2px; padding: 3px 4px; background: #fff; border-bottom: 1px solid #e3e0d0; }
-  .tools input { flex: 1; min-width: 0; height: 20px; }
+  .tab.on { background: linear-gradient(#fff, #fbfaf5); font-weight: bold; border-top: 2px solid var(--accent); padding-top: 3px; box-shadow: 0 -1px 2px rgba(0,0,0,.06); }
+  .tools { display: flex; align-items: center; gap: 2px; padding: 3px 5px; background: linear-gradient(#fff, #f3f1e8); border-bottom: 1px solid #dcd8c6; }
+  .tools .tb { width: 28px; min-width: 28px; padding: 0; }
+  .tools .srch { margin-left: 4px; flex: 1; min-width: 0; position: relative; display: flex; }
+  .tools .srch .ico { position: absolute; left: 5px; top: 3px; width: 14px; height: 14px; opacity: .75; }
+  .tools input { flex: 1; min-width: 0; height: 21px; padding-left: 22px; border-radius: 10px; }
   #tree { flex: 1; overflow: auto; background: #fff; padding: 3px 0 10px; }
-  .grp { display: flex; align-items: center; gap: 4px; padding: 4px 6px 3px; font-weight: bold; color: #1f4882; cursor: pointer; }
+  .grp { display: flex; align-items: center; gap: 4px; padding: 3px 6px; margin: 4px 3px 1px; font-weight: bold; color: #1f4882; cursor: pointer;
+    border-radius: 3px; background: linear-gradient(90deg, #e3ecf8, rgba(227,236,248,0)); border-left: 3px solid #5c8fcf; }
   .grp:hover { text-decoration: underline; }
   .grp .tw { width: 10px; font-size: 8px; color: #555; }
-  .row { display: flex; align-items: center; gap: 5px; padding: 2px 6px 2px 20px; cursor: default; min-height: 22px; }
-  .row:hover { background: #eef3fb; }
-  .row.sel { background: var(--sel); color: #fff; }
+  .row { display: flex; align-items: center; gap: 5px; padding: 2px 6px 2px 18px; margin: 0 3px; cursor: default; min-height: 24px; border-radius: 3px; border: 1px solid transparent; }
+  .row:hover { background: linear-gradient(#f5f9ff, #e4eefb); border-color: #c5d6ee; }
+  .row.sel { background: linear-gradient(#4a86d8, #2c63b8); border-color: #1d4f9e; color: #fff; }
   .row.sel .stx, .row.sel .muted { color: #dfe8f7; }
   .row .nm { white-space: nowrap; }
-  .row .mini { width: 18px; height: 18px; flex: none; border: 1px solid #8a9bb5; border-radius: 2px; }
+  .row .mini { width: 20px; height: 20px; flex: none; border: 1px solid #8a9bb5; border-radius: 3px; box-shadow: 0 1px 1px rgba(0,0,0,.15); }
   .row.off .mini { opacity: .45; filter: grayscale(1); }
   .row .stx { color: #6d6a5d; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
   .row.off .nm { color: #9a9a9a; }
@@ -67,10 +68,10 @@
 </div>
 <div class="tabs"><div class="tab on">Bạn bè</div></div>
 <div class="tools">
-  <button class="tb row" id="bNewRoom" title="Mở phòng chat nhóm"><span class="ic">👥</span></button>
-  <button class="tb row" id="bPub" title="Phòng chat công cộng trong LAN"><span class="ic">#</span></button>
-  <button class="tb row" id="bAddIp" title="Thêm máy bằng IP (máy khác mạng con)"><span class="ic">➕</span></button>
-  <input id="search" placeholder="Tìm bạn…" spellcheck="false">
+  <button class="tb row" id="bNewRoom" title="Mở phòng chat nhóm"><span class="ic" data-ic="newroom"></span></button>
+  <button class="tb row" id="bPub" title="Phòng chat công cộng trong LAN"><span class="ic" data-ic="rooms"></span></button>
+  <button class="tb row" id="bAddIp" title="Thêm máy bằng IP (máy khác mạng con)"><span class="ic" data-ic="addip"></span></button>
+  <div class="srch"><span class="ico" data-ic="search"></span><input id="search" placeholder="Tìm bạn…" spellcheck="false"></div>
 </div>
 <div id="warns"></div>
 <div id="tree"></div>
@@ -79,6 +80,7 @@
 </div>
 <div class="statusbar"><span class="grow" id="sb"></span><span id="fw" title="Tường lửa"></span></div>
 <script src="common.js"></script>
+<script src="icons.js"></script>
 <script src="buddy.js"></script>
 </body>
 </html>

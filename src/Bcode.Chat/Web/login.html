@@ -5,12 +5,19 @@
 <title>Bhoo</title>
 <link rel="stylesheet" href="retro.css">
 <style>
-  body { background: linear-gradient(180deg, #fbfaf5 0%, #ece9d8 100%); }
-  .menubar { display: flex; gap: 2px; padding: 2px 4px; border-bottom: 1px solid #fff; background: var(--face); }
-  .menubar span { padding: 2px 6px; }
-  .menubar span:hover { background: var(--sel); color: #fff; }
-  main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 22px 26px 10px; gap: 7px; overflow: auto; }
-  .logo-big { width: 190px; height: auto; margin-bottom: 14px; filter: drop-shadow(1px 2px 1px rgba(0,0,0,.18)); }
+  body {
+    background:
+      radial-gradient(circle at 12% 18%, rgba(92,143,207,.10) 0 38px, transparent 39px),
+      radial-gradient(circle at 88% 30%, rgba(232,164,0,.10) 0 26px, transparent 27px),
+      radial-gradient(circle at 80% 86%, rgba(92,143,207,.09) 0 46px, transparent 47px),
+      linear-gradient(180deg, #ffffff 0%, #f4f2e8 45%, #e6e2cf 100%);
+  }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 20px 18px 10px; gap: 10px; overflow: auto; }
+  .logo-big { width: 190px; height: auto; margin-bottom: 4px; filter: drop-shadow(1px 2px 1px rgba(0,0,0,.18)); }
+  .card { width: 100%; max-width: 236px; border: 1px solid #a9b9d3; border-radius: 6px; background: rgba(255,255,255,.82); box-shadow: 0 2px 6px rgba(31,72,130,.15); overflow: hidden; }
+  .card .ct { padding: 5px 10px; font-weight: bold; color: #fff; background: linear-gradient(#7aa7e0 0%, #5c8fcf 45%, #2b5a9a 55%, #24508c 100%); text-shadow: 0 1px 1px rgba(0,0,0,.4); }
+  .card form { padding: 8px 10px 4px; max-width: none; }
+  .go { min-height: 28px; font-size: 12px; }
   .logo-big.spin { animation: bob 1s ease-in-out infinite; }
   @keyframes bob { 50% { transform: translateY(-5px) rotate(-2deg); } }
   form { width: 100%; max-width: 220px; display: flex; flex-direction: column; gap: 6px; }
@@ -21,10 +28,10 @@
   .checks { display: flex; flex-direction: column; gap: 3px; margin: 6px 0 4px; }
   .checks label { display: flex; align-items: center; gap: 5px; }
   .go { align-self: center; min-width: 96px; justify-content: center; margin-top: 6px; }
-  .err { color: #c0281c; min-height: 28px; text-align: center; user-select: text; }
-  .hint { color: var(--muted); text-align: center; line-height: 1.45; }
+  .err { color: #c0281c; min-height: 16px; text-align: center; user-select: text; }
+  .hint { color: #5d5a4c; text-align: center; line-height: 1.5; max-width: 236px; padding: 6px 8px; border: 1px dashed #cfc9b0; border-radius: 5px; background: rgba(255,255,240,.6); }
   .signing { display: none; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
-  body.busy form, body.busy .hint { display: none; }
+  body.busy .card, body.busy .hint { display: none; }
   body.busy .signing { display: flex; }
   .dots::after { content: ''; animation: dots 1.2s steps(4) infinite; }
   @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
@@ -35,6 +42,7 @@
 <div class="menubar"><span id="mBhoo">Bhoo</span><span id="mHelp">Trợ giúp</span></div>
 <main>
   <div id="logo"></div>
+  <div class="card"><div class="ct">Đăng nhập Bhoo</div>
   <form id="f" autocomplete="off">
     <label class="cap" for="nick"><u>B</u>hoo ID:</label>
     <div class="combo"><input id="nick" maxlength="32" spellcheck="false" accesskey="b"><button type="button" id="pick" title="ID đã dùng trên máy này">▼</button></div>
@@ -43,9 +51,9 @@
       <label><input type="checkbox" id="auto"> Tự động đăng nhập</label>
       <label><input type="checkbox" id="invisible"> Đăng nhập ẩn (mọi người thấy offline)</label>
     </div>
-    <button class="btn go primary" id="go" type="submit"><span><u>Đ</u>ăng nhập</span></button>
+    <button class="btn go" id="go" type="submit"><span><u>Đ</u>ăng nhập</span></button>
     <div class="err" id="err"></div>
-  </form>
+  </form></div>
   <div class="signing">
     <div>Đang đăng nhập bằng<br><b id="sNick"></b><span class="dots"></span></div>
     <div class="muted">Đang hỏi các máy trong LAN…</div>

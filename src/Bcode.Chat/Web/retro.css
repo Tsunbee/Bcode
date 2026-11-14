@@ -14,6 +14,8 @@
   --sel: #316ac5;
   --muted: #7a7768;
   --ok: #2e9e3e; --busy: #d23a2a; --away: #e3a400; --off: #a8a8a8;
+  --bar1: #fdfcf7; --bar2: #e6e2cf;   /* thanh công cụ / thanh định dạng */
+  --hover1: #fffdf2; --hover2: #f5e9c4; --hover-line: #d6b25a;   /* rê chuột: ánh vàng nhẹ */
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -38,20 +40,33 @@ input:focus, textarea:focus { border-color: #3c7fb1; box-shadow: 0 0 0 1px #c5d9
   color: #000; cursor: default; white-space: nowrap;
 }
 .btn:hover { box-shadow: 0 0 0 1px #f8b330 inset, 0 0 0 2px #fbd78a inset; }
+/* Nút chính to (Gửi, Đăng nhập): bóng hổ phách như nút "gửi" của messenger ngày xưa */
+.btn.go {
+  border: 1px solid #9a6400; border-radius: 4px; font-weight: bold; color: #3a2400; justify-content: center;
+  background: linear-gradient(#fff6cf 0%, #ffe07a 42%, #f6b915 52%, #f9cf4a 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 1px 2px rgba(0,0,0,.18); text-shadow: 0 1px 0 rgba(255,255,255,.6);
+}
+.btn.go:hover { background: linear-gradient(#fffbe6 0%, #ffe991 42%, #ffc52b 52%, #ffda62 100%); box-shadow: inset 0 1px 0 #fff, 0 0 0 2px rgba(255,190,40,.35), 0 1px 2px rgba(0,0,0,.2); }
+.btn.go:active { background: linear-gradient(#f2b10f, #ffd75a); box-shadow: inset 0 1px 3px rgba(0,0,0,.25); }
 .btn:active { background: linear-gradient(#e3e0d0, #f4f3ee); }
 .btn:disabled { color: var(--shadow); border-color: var(--shadow); box-shadow: none; }
 .btn.primary { font-weight: bold; }
 
 /* Nút phẳng trên thanh công cụ: chỉ nổi khi rê chuột */
 .tb {
-  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  min-width: 34px; height: 34px; padding: 1px 4px;
-  border: 1px solid transparent; border-radius: 2px; background: none; cursor: default; color: #000;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 34px; height: 34px; padding: 1px 5px;
+  border: 1px solid transparent; border-radius: 3px; background: none; cursor: default; color: #000;
 }
 .tb.row { flex-direction: row; height: 24px; min-width: 24px; gap: 3px; }
-.tb:hover { border-color: #fff var(--dark) var(--dark) #fff; background: var(--face-hi); }
-.tb:active, .tb.on { border-color: var(--dark) #fff #fff var(--dark); background: #e0ddd0; }
-.tb .ic { font-size: 15px; line-height: 1; }
+.tb:hover { border-color: var(--hover-line); background: linear-gradient(var(--hover1), var(--hover2)); box-shadow: inset 0 1px 0 #fff; }
+.tb:active, .tb.on { border-color: #b08a35; background: linear-gradient(#f0dca6, #fbeec8); box-shadow: inset 0 1px 2px rgba(0,0,0,.18); }
+.tb .ic { font-size: 15px; line-height: 1; display: inline-flex; }
+.tb .ic svg, .ico svg { width: 100%; height: 100%; display: block; }
+.tb.row .ic { width: 18px; height: 18px; }
+.ico { display: inline-flex; width: 16px; height: 16px; flex: none; vertical-align: -3px; }
+.ico.fi { width: 30px; height: 30px; }
+.ico.iic { width: 30px; height: 30px; }
 .tb .lb { font-size: 10px; }
 .tb:disabled { opacity: .45; }
 
@@ -61,12 +76,21 @@ input:focus, textarea:focus { border-color: #3c7fb1; box-shadow: 0 0 0 1px #c5d9
 
 /* Dải tiêu đề xanh */
 .band {
-  background: linear-gradient(180deg, var(--band2), var(--band1));
-  color: #fff; padding: 6px 8px; border-bottom: 1px solid #1d3f6e;
-  text-shadow: 0 1px 0 rgba(0,0,0,.35);
+  background: linear-gradient(180deg, #7aa7e0 0%, var(--band2) 45%, var(--band1) 55%, #24508c 100%);
+  color: #fff; padding: 6px 8px; border-bottom: 1px solid #1d3f6e; border-top: 1px solid #a9c8f0;
+  text-shadow: 0 1px 1px rgba(0,0,0,.45);
+}
+/* Thanh menu chữ (Hội thoại / Sửa / Xem…) */
+.menubar { display: flex; gap: 1px; padding: 2px 3px; background: linear-gradient(#fbfaf5, var(--face)); border-bottom: 1px solid #d8d4c2; }
+.menubar span { padding: 2px 7px; border-radius: 2px; border: 1px solid transparent; }
+.menubar span:hover, .menubar span.on { background: var(--sel); color: #fff; border-color: #1d4f9e; }
+/* Tiêu đề khung nhỏ (Người tham gia, Trong phòng…) */
+.hd, .cap.hdr {
+  padding: 3px 7px; font-weight: bold; color: #1f4882; border: 1px solid #a9b9d3; border-radius: 3px 3px 0 0;
+  background: linear-gradient(#ffffff, #dde7f5); text-shadow: 0 1px 0 #fff;
 }
 .statusbar {
-  border-top: 1px solid var(--shadow); padding: 3px 6px; color: #333; background: var(--face);
+  border-top: 1px solid var(--shadow); padding: 3px 6px; color: #333; background: linear-gradient(#f3f1e6, var(--face)); box-shadow: inset 0 1px 0 #fff;
   display: flex; align-items: center; gap: 6px; min-height: 20px; white-space: nowrap; overflow: hidden;
 }
 .statusbar .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; }
@@ -81,21 +105,22 @@ input:focus, textarea:focus { border-color: #3c7fb1; box-shadow: 0 0 0 1px #c5d9
 
 /* Menu kiểu XP */
 .menu {
-  position: fixed; z-index: 50; min-width: 150px; padding: 2px;
-  background: #fff; border: 1px solid #8d8b81; box-shadow: 2px 2px 3px rgba(0,0,0,.3);
+  position: fixed; z-index: 50; min-width: 160px; padding: 2px;
+  background: linear-gradient(90deg, #eef1f8 0 24px, #fff 24px); border: 1px solid #8d8b81; box-shadow: 2px 3px 6px rgba(0,0,0,.28);
 }
-.menu .mi { padding: 4px 18px 4px 24px; position: relative; white-space: nowrap; }
+.menu .mi { padding: 4px 18px 4px 30px; position: relative; white-space: nowrap; border-radius: 2px; }
 .menu .mi:hover { background: var(--sel); color: #fff; }
 .menu .mi .st, .menu .mi .mic { position: absolute; left: 4px; top: 3px; }
+.menu .sep { margin-left: 28px !important; }
 .menu .sep { height: 1px; background: #c5c2b2; margin: 3px 2px; }
 .menu .mi.dis { color: var(--shadow); }
 .menu .mi.dis:hover { background: none; color: var(--shadow); }
 
 /* Hộp thoại trong trang (khung cửa sổ XP thu nhỏ) */
-.dlg-bg { position: fixed; inset: 0; background: rgba(0,0,0,.18); z-index: 40; display: flex; align-items: center; justify-content: center; }
+.dlg-bg { position: fixed; inset: 0; background: rgba(20,30,50,.22); z-index: 40; display: flex; align-items: center; justify-content: center; }
 .dlg {
   width: min(330px, calc(100vw - 16px)); max-height: calc(100vh - 16px); display: flex; flex-direction: column;
-  background: var(--face); border: 1px solid #0831d9; border-radius: 6px 6px 0 0; box-shadow: 3px 3px 8px rgba(0,0,0,.35); overflow: hidden;
+  background: var(--face); border: 1px solid #0831d9; border-radius: 7px 7px 2px 2px; box-shadow: 0 6px 18px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.4) inset; overflow: hidden;
 }
 .dlg .dt {
   background: linear-gradient(180deg, #0a5fd8 0%, #3c8af2 8%, #2563d6 40%, #1c4fbf 88%, #1941a5 100%);
@@ -121,7 +146,7 @@ input:focus, textarea:focus { border-color: #3c7fb1; box-shadow: 0 0 0 1px #c5d9
 
 .toast {
   position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%); z-index: 60;
-  background: #ffffe1; border: 1px solid #000; padding: 5px 9px; box-shadow: 2px 2px 3px rgba(0,0,0,.3); max-width: 90vw;
+  background: linear-gradient(#fffff0, #ffffd5); border: 1px solid #8a8460; border-radius: 4px; padding: 6px 11px; box-shadow: 2px 3px 6px rgba(0,0,0,.25); max-width: 90vw;
 }
 
 .logo { width: 120px; height: auto; }

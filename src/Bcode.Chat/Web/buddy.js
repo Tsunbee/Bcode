@@ -147,15 +147,15 @@ function bindRow(r, conv, b) {
   r.addEventListener('contextmenu', e => {
     e.preventDefault();
     sel = conv; $$('.row.sel').forEach(x => x.classList.remove('sel')); r.classList.add('sel');
-    if (!b) { showMenu(e.clientX, e.clientY, [{ label: 'Mở phòng chat', icon: '<span class="mic">💬</span>', on: () => send('open', { conv }) }]); return; }
+    if (!b) { showMenu(e.clientX, e.clientY, [{ label: 'Mở phòng chat', icon: ico('chat'), on: () => send('open', { conv }) }]); return; }
     showMenu(e.clientX, e.clientY, [
-      { label: 'Gửi tin nhắn', icon: '<span class="mic">💬</span>', on: () => send('open', { conv }) },
-      { label: 'Mời vào phòng chat mới…', icon: '<span class="mic">👥</span>', on: () => newRoom([b.id]) },
-      { label: 'Xem lịch sử chat…', icon: '<span class="mic">📜</span>', on: () => send('history', { conv }) },
+      { label: 'Gửi tin nhắn', icon: ico('chat'), on: () => send('open', { conv }) },
+      { label: 'Mời vào phòng chat mới…', icon: ico('invite'), on: () => newRoom([b.id]) },
+      { label: 'Xem lịch sử chat…', icon: ico('history'), on: () => send('history', { conv }) },
       '-',
       { label: 'Chuyển sang nhóm…', on: () => moveTo(b) },
       { label: 'Ẩn khỏi danh sách', on: () => send('buddy.hide', { id: b.id, hidden: true }) },
-      { label: 'Chặn nick này…', icon: '<span class="mic">🚫</span>', on: () => ignoreAsk(b) },
+      { label: 'Chặn nick này…', icon: ico('block'), on: () => ignoreAsk(b) },
       '-',
       { label: 'Thông tin', on: () => dialog('Thông tin — ' + b.name, `<div style="white-space:pre-line">${esc(tip(b))}</div>`) },
     ]);
@@ -289,7 +289,7 @@ $('#myRow').onclick = e => { const r = $('#myRow').getBoundingClientRect(); stat
 $('#avatar').onclick = e => {
   const r = $('#avatar').getBoundingClientRect();
   showMenu(r.left, r.bottom, [
-    { label: 'Chọn ảnh từ máy…', icon: '<span class="mic">🖼</span>', on: () => send('avatar.pick') },
+    { label: 'Chọn ảnh từ máy…', icon: ico('picture'), on: () => send('avatar.pick') },
     { label: 'Bỏ ảnh (dùng chữ cái + màu)', dis: !me.av, on: () => send('avatar.clear') }, '-']
     .concat(COLORS.map(c => ({ label: c === me.color ? 'Màu nền này ✓' : 'Màu nền này', icon: `<span class="mic" style="display:inline-block;width:14px;height:14px;background:${c};border:1px solid #000"></span>`, on: () => send('me.set', { color: c }) }))));
 };

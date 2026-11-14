@@ -131,9 +131,9 @@ public sealed class ChatNode : IDisposable
     }
 
     private Presence MyPresence(bool q = false, bool bye = false) =>
-        new(Wire.Protocol, MyId, Prefs.Name, Prefs.Status, Prefs.Text, Prefs.Color, Port, q, bye, "1");
+        new(Wire.Protocol, MyId, Prefs.Name, Prefs.Status, Prefs.Text, Prefs.Color, Port, q, bye, "1", Prefs.AvatarHash, bye ? null : RoomAds());
 
-    private object Hello() => new { t = "hello", id = MyId, name = Prefs.Name, status = Prefs.Status, text = Prefs.Text, color = Prefs.Color, port = Port };
+    private object Hello() => new { t = "hello", id = MyId, name = Prefs.Name, status = Prefs.Status, text = Prefs.Text, color = Prefs.Color, port = Port, av = Prefs.AvatarHash };
 
     // ───────────────────────── UDP: tìm bạn ─────────────────────────
 
@@ -265,9 +265,9 @@ public sealed class ChatNode : IDisposable
                     if (p.Q) try { await udp.SendAsync(Wire.Encode(MyPresence()), r.RemoteEndPoint, _cts.Token); } catch { }
                     continue;
                 }
-                if (p.Q && Prefs.Status == Net.Status.Invisible) { Seen(p.Id, p.Name, p.Status, p.Text, p.Color, r.RemoteEndPoint.Address, p.Port); continue; }
+                if (p.Q && Prefs.Status == Net.Status.Invisible) { Seen(p.Id, p.Name, p.Status, p.Text, p.Color, r.RemoteEndPoint.Address, p.Port, p.Av, p.Rooms); continue; }
                 if (p.Bye) { SetOffline(p.Id); continue; }
-                Seen(p.Id, p.Name, p.Status, p.Text, p.Color, r.RemoteEndPoint.Address, p.Port);
+                Seen(p.Id, p.Name, p.Status, p.Text, p.Color, r.RemoteEndPoint.Address, p.Port, p.Av, p.Rooms);
                 if (p.Q)
                 {
                     var reply = Wire.Encode(MyPresence());
@@ -287,14 +287,16 @@ public sealed class ChatNode : IDisposable
     private static Buddy Clone(Buddy b) => new()
     {
         Id = b.Id, Name = b.Name, Color = b.Color, Status = b.Status, Text = b.Text, Group = b.Group,
-        Ip = b.Ip, Port = b.Port, LastSeen = b.LastSeen, Hidden = b.Hidden,
+        Ip = b.Ip, Port = b.Port, LastSeen = b.LastSeen, Hidden = b.Hidden, AvHash = b.AvHash, AvWant = b.AvWant, Rooms = b.Rooms,
     };
 
     public Buddy? FindBuddy(string id) { lock (_lock) return Prefs.Buddies.FirstOrDefault(b => b.Id == id) is { } b ? Clone(b) : null; }
 
     /// <summary>Nghe thấy bạn (UDP hoặc "hello" TCP): cập nhật + nếu vừa online thì gửi các tin đang chờ.</summary>
-    private void Seen(string id, string? name, string? status, string? text, string? color, IPAddress ip, int port)
+    private void Seen(string id, string? name, string? status, string? text, string? color, IPAddress ip, int port, string? av = null, List<RoomAd>? rooms = null)
     {
+        var wantAvatar = false;
+        var roomsChanged = false;
         bool cameOnline, changed;
         Buddy snapshot;
         lock (_lock)
@@ -318,11 +320,25 @@ public sealed class ChatNode : IDisposable
             if (color is not null && System.Text.RegularExpressions.Regex.IsMatch(color, "^#[0-9a-fA-F]{6}$")) b.Color = color;
             b.Ip = ipS;
             if (port > 0) b.Port = port;
+            if (av is not null && System.Text.RegularExpressions.Regex.IsMatch(av, "^[0-9a-f]{0,16}$"))
+            {
+                b.AvWant = av;
+                if (av.Length == 0 && b.AvHash.Length > 0) { b.AvHash = ""; changed = true; try { File.Delete(AvatarPath(id)); } catch { } }
+                wantAvatar = av.Length > 0 && av != b.AvHash;
+            }
+            if (rooms is not null)
+            {
+                var clean = rooms.Where(r => r is not null && r.G.Length is > 0 and <= 32).Take(8)
+                    .Select(r => new RoomAd(r.G, Clip(r.T ?? "", 60), Clip(r.Topic ?? "", 100))).ToList();
+                if (!clean.SequenceEqual(b.Rooms)) { b.Rooms = clean; roomsChanged = true; }
+            }
             b.LastSeen = DateTime.UtcNow;
             snapshot = Clone(b);
         }
         if (changed) { _store.SavePrefs(); BuddiesChanged?.Invoke(); }
+        if (roomsChanged) RoomsChanged?.Invoke();
         if (cameOnline) { BuddyOnline?.Invoke(snapshot); Flush(id); }
+        if (wantAvatar) AskAvatar(id);
     }
 
     private void SetOffline(string id)
@@ -445,8 +461,9 @@ public sealed class ChatNode : IDisposable
         conn.PeerId = id;
         lock (_lock) _conns[id] = conn;
         var port = (int?)m["port"] ?? 0;
-        Seen(id, (string?)m["name"], (string?)m["status"], (string?)m["text"], (string?)m["color"], conn.RemoteIp ?? IPAddress.Loopback, port);
+        Seen(id, (string?)m["name"], (string?)m["status"], (string?)m["text"], (string?)m["color"], conn.RemoteIp ?? IPAddress.Loopback, port, (string?)m["av"] ?? "", null);
         Flush(id);
+        AskAvatar(id);
     }
 
     /// <summary>Nối tới bạn nếu chưa có kết nối (không chặn; xong thì tự gửi tin đang chờ).</summary>
@@ -476,6 +493,7 @@ public sealed class ChatNode : IDisposable
                 conn.Start();
                 conn.Send(Hello());
                 Flush(id);
+                AskAvatar(id);
             }
             catch (Exception ex)
             {
@@ -498,6 +516,13 @@ public sealed class ChatNode : IDisposable
         switch (t)
         {
             case "p": break;
+            case "av?":
+                if (Prefs.AvatarHash.Length > 0 && File.Exists(_store.MyAvatarPath))
+                    try { conn.Send(new { t = "av", h = Prefs.AvatarHash, d = Convert.ToBase64String(File.ReadAllBytes(_store.MyAvatarPath)) }); } catch { }
+                break;
+            case "av":
+                OnAvatar(conn.PeerId, (string?)m["h"] ?? "", (string?)m["d"] ?? "");
+                break;
             case "msg":
                 ChatMessage? msg;
                 try { msg = m["m"]?.Deserialize<ChatMessage>(Wire.Json); } catch { return; }
@@ -525,6 +550,71 @@ public sealed class ChatNode : IDisposable
                 Typing?.Invoke(gid is { Length: > 0 } ? "g:" + gid : "u:" + conn.PeerId, conn.PeerId);
                 break;
         }
+    }
+
+    // ───────────────────────── Ảnh đại diện ─────────────────────────
+
+    public const int MaxAvatarBytes = 150 * 1024;
+    public event Action? RoomsChanged;
+
+    public string AvatarPath(string id) => Path.Combine(_store.AvatarDir, id + ".jpg");
+
+    /// <summary>Phòng công cộng mình đang ngồi, gửi kèm Presence (null = không ngồi phòng nào).</summary>
+    private List<RoomAd>? RoomAds() => null;
+
+    /// <summary>Đặt ảnh đại diện (JPEG / PNG đã thu nhỏ ở giao diện; null = bỏ ảnh). Bạn bè thấy mã ảnh mới trong gói Presence / hello rồi tự hỏi tải.</summary>
+    public void SetAvatar(byte[]? image)
+    {
+        if (image is { Length: > 0 })
+        {
+            if (image.Length > MaxAvatarBytes || !LooksLikeImage(image)) throw new ArgumentException("Ảnh đại diện phải là JPEG / PNG dưới 150 KB.");
+            File.WriteAllBytes(_store.MyAvatarPath, image);
+            Prefs.AvatarHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image))[..12].ToLowerInvariant();
+        }
+        else
+        {
+            try { File.Delete(_store.MyAvatarPath); } catch { }
+            Prefs.AvatarHash = "";
+        }
+        _store.SavePrefs();
+        Announce();
+        var hello = Hello();
+        foreach (var c in Conns()) c.Send(hello);
+    }
+
+    private static bool LooksLikeImage(byte[] b) =>
+        b.Length > 8 && ((b[0] == 0xFF && b[1] == 0xD8) || (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47));
+
+    /// <summary>Bạn báo mã ảnh khác ảnh đã có → xin ảnh (nối nếu chưa có kết nối; nối xong tự hỏi lại).</summary>
+    private void AskAvatar(string id)
+    {
+        FramedConnection? c;
+        lock (_lock)
+        {
+            var b = Prefs.Buddies.FirstOrDefault(x => x.Id == id);
+            if (b is null || b.AvWant.Length == 0 || b.AvWant == b.AvHash) return;
+            _conns.TryGetValue(id, out c);
+        }
+        if (c is { IsClosed: false }) c.Send(new { t = "av?" });
+        else EnsureConnection(id);
+    }
+
+    private void OnAvatar(string id, string hash, string b64)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(hash, "^[0-9a-f]{1,16}$") || b64.Length > MaxAvatarBytes * 4 / 3 + 8) return;
+        byte[] data;
+        try { data = Convert.FromBase64String(b64); } catch { return; }
+        if (!LooksLikeImage(data)) return;
+        try
+        {
+            var tmp = AvatarPath(id) + ".tmp";
+            File.WriteAllBytes(tmp, data);
+            File.Move(tmp, AvatarPath(id), true);
+        }
+        catch { return; }
+        lock (_lock) { if (Prefs.Buddies.FirstOrDefault(x => x.Id == id) is { } b) b.AvHash = hash; }
+        _store.SavePrefs();
+        BuddiesChanged?.Invoke();
     }
 
     // ───────────────────────── Tin nhắn ─────────────────────────

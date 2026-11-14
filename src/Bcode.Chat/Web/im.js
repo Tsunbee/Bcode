@@ -70,8 +70,8 @@ function renderHead() {
     const stx = b.status === 'offline' ? 'đang offline — tin sẽ được gửi khi họ online' : (b.text || STATUS_TEXT[b.status]);
     info.innerHTML = `${stHtml(b.status)}<b>${esc(b.name)}</b><span class="stx">— ${esc(stx)}</span>`;
     document.title = b.name + ' — Bhoo';
-    const pic = (p, label) => `<div class="pic" style="background:linear-gradient(135deg, ${p.color}, #0f2a52)">${esc((p.name || '?')[0].toUpperCase())}<span>${esc(label)}</span></div>`;
-    side.innerHTML = `<div class="pics">${pic(b, b.name)}${pic(me, me.name)}</div>`;
+    const pic = (p, label, mine) => `<div class="pic" style="${avStyle(p, mine)}">${p.av ? '' : esc((p.name || '?')[0].toUpperCase())}<span>${esc(label)}</span></div>`;
+    side.innerHTML = `<div class="pics">${pic(b, b.name)}${pic(me, me.name, true)}</div>`;
   }
 }
 

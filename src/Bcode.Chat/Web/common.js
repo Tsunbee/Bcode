@@ -174,3 +174,13 @@ function logoSvg(big) {
     <text x="2" y="44" font-family="'Arial Black','Segoe UI Black',Tahoma" font-weight="900" font-size="38" fill="url(#lgB)" stroke="#7a3d00" stroke-width="1.3" letter-spacing="-1">Bhoo</text>
     <text x="4" y="60" font-family="Tahoma" font-size="8" fill="#1f4882" letter-spacing="1">CHAT LAN · BCODE</text></svg>`;
 }
+
+// Ảnh đại diện (đã tải về máy, C# phục vụ qua https://av.chat.local/). '' = chưa có ảnh → vẽ chữ cái đầu trên nền màu.
+function avUrl(p, mine) {
+  if (!p || !p.av) return '';
+  return `https://av.chat.local/${mine ? '_me' : encodeURIComponent(p.id)}.jpg?h=${encodeURIComponent(p.av)}`;
+}
+function avStyle(p, mine, darker) {
+  const u = avUrl(p, mine);
+  return u ? `background:#fff url('${u}') center/cover no-repeat` : `background:linear-gradient(135deg, ${p.color || '#3a6ea5'}, ${darker || '#0f2a52'})`;
+}

@@ -4,7 +4,11 @@ namespace Bcode.Chat.Net;
 
 /// <summary>Gói UDP "tôi đang online" (broadcast ~3 s / lần). Q = hỏi lại (máy nhận trả lời unicast gói của mình — dùng cho IP gõ tay khác mạng con).
 /// Bye = sắp thoát. Không mang gì bí mật.</summary>
-public sealed record Presence(string Proto, string Id, string Name, string Status, string Text, string Color, int Port, bool Q = false, bool Bye = false, string Ver = "");
+public sealed record Presence(string Proto, string Id, string Name, string Status, string Text, string Color, int Port, bool Q = false, bool Bye = false, string Ver = "",
+    string Av = "", List<RoomAd>? Rooms = null);
+
+/// <summary>Phòng chat công cộng mình đang ngồi — gửi kèm gói Presence để cả LAN dựng danh sách phòng (không có máy chủ giữ danh sách).</summary>
+public sealed record RoomAd(string G, string T, string Topic = "");
 
 /// <summary>Trạng thái: online | busy (Bận) | away (Vắng) | invisible (Ẩn — người khác thấy mình offline nhưng mình vẫn nhắn được).
 /// Tự chuyển away khi không đụng chuột / phím một lúc (Session).</summary>
@@ -37,6 +41,12 @@ public sealed class Buddy
     public string Ip { get; set; } = "";
     public int Port { get; set; }
     public DateTime LastSeen { get; set; }
+    /// <summary>Mã ảnh đại diện đã tải về máy (avatars\&lt;id&gt;.jpg); rỗng = chưa có / bạn không đặt ảnh.</summary>
+    public string AvHash { get; set; } = "";
+    /// <summary>Mã ảnh bạn đang báo (gói Presence / hello) — khác <see cref="AvHash"/> thì hỏi tải ảnh mới.</summary>
+    [JsonIgnore] public string AvWant { get; set; } = "";
+    /// <summary>Phòng công cộng bạn đang ngồi (từ gói Presence gần nhất).</summary>
+    [JsonIgnore] public List<RoomAd> Rooms { get; set; } = new();
     /// <summary>Đã ẩn khỏi danh sách (vẫn nhận tin nếu họ nhắn).</summary>
     public bool Hidden { get; set; }
     [JsonIgnore] public bool Online => Status != Net.Status.Offline;

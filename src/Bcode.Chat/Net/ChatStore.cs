@@ -25,6 +25,8 @@ public sealed class ChatPrefs
     public string FontStyle { get; set; } = "";
     public string FontColor { get; set; } = "#000000";
     public int FontSize { get; set; } = 13;
+    /// <summary>Mã ảnh đại diện của mình (12 ký tự hex của SHA-256 file _me.jpg); rỗng = không đặt ảnh.</summary>
+    public string AvatarHash { get; set; } = "";
     /// <summary>Vị trí cửa sổ danh sách bạn.</summary>
     public int[]? ListBounds { get; set; }
 }
@@ -43,6 +45,9 @@ public sealed class ChatStore
     public List<OutItem> Outbox { get; }
     public List<FileOffer> Offers { get; }
     public string Dir => _dir;
+    /// <summary>Ảnh đại diện: _me.jpg (của mình) + &lt;id&gt;.jpg (bạn bè, tải qua LAN). Trang đọc qua https://av.chat.local/.</summary>
+    public string AvatarDir => Path.Combine(_dir, "avatars");
+    public string MyAvatarPath => Path.Combine(AvatarDir, "_me.jpg");
 
     private static readonly JsonSerializerOptions FileJson = new(Wire.Json) { WriteIndented = true };
 
@@ -51,6 +56,7 @@ public sealed class ChatStore
         _dir = dir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Bcode", "chat");
         Directory.CreateDirectory(_dir);
         Directory.CreateDirectory(Path.Combine(_dir, "history"));
+        Directory.CreateDirectory(AvatarDir);
         Prefs = Load<ChatPrefs>("chat-lan.json") ?? new ChatPrefs();
         if (string.IsNullOrWhiteSpace(Prefs.Id)) Prefs.Id = Guid.NewGuid().ToString("N");
         foreach (var b in Prefs.Buddies) b.Status = Net.Status.Offline;   // mở lên: chưa ai online cho tới khi nghe thấy

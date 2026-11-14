@@ -24,8 +24,8 @@ onHost(m => {
 function renderMe() {
   if (!me) return;
   const av = $('#avatar');
-  av.style.background = `linear-gradient(135deg, ${me.color}, ${shade(me.color, -35)})`;
-  av.textContent = (me.name || '?')[0].toUpperCase();
+  av.setAttribute('style', avStyle(me, true, shade(me.color, -35)));
+  av.textContent = me.av ? '' : (me.name || '?')[0].toUpperCase();
   $('#myName').textContent = me.name;
   $('#mySt').innerHTML = stHtml(me.status === 'invisible' ? 'invisible' : me.status);
   $('#myRow').title = 'Trạng thái: ' + STATUS_TEXT[me.status] + ' — bấm để đổi';
@@ -94,7 +94,7 @@ function render() {
       const off = b.status === 'offline';
       const stx = off ? '' : (b.text ? b.text : (b.status !== 'online' ? STATUS_TEXT[b.status] : ''));
       const r = el('div', { class: 'row' + (off ? ' off' : ''), 'data-conv': 'u:' + b.id, title: tip(b) },
-        `${stHtml(b.status)}<span class="nm">${esc(b.name)}</span>${stx ? `<span class="stx">— ${esc(stx)}</span>` : '<span class="stx"></span>'}` +
+        `${stHtml(b.status)}${b.av ? `<span class="mini" style="${avStyle(b)}"></span>` : ''}<span class="nm">${esc(b.name)}</span>${stx ? `<span class="stx">— ${esc(stx)}</span>` : '<span class="stx"></span>'}` +
         (b.pending ? `<span class="badge" title="${b.pending} tin đang chờ ${esc(b.name)} online">✉ ${b.pending}</span>` : ''));
       bindRow(r, 'u:' + b.id, b);
       return r;
@@ -233,7 +233,10 @@ $$('.menubar span').forEach(s => s.addEventListener('click', e => {
 $('#myRow').onclick = e => { const r = $('#myRow').getBoundingClientRect(); statusMenu(r.left, r.bottom); };
 $('#avatar').onclick = e => {
   const r = $('#avatar').getBoundingClientRect();
-  showMenu(r.left, r.bottom, COLORS.map(c => ({ label: c === me.color ? 'Màu này ✓' : 'Màu này', icon: `<span class="mic" style="display:inline-block;width:14px;height:14px;background:${c};border:1px solid #000"></span>`, on: () => send('me.set', { color: c }) })));
+  showMenu(r.left, r.bottom, [
+    { label: 'Chọn ảnh từ máy…', icon: '<span class="mic">🖼</span>', on: () => send('avatar.pick') },
+    { label: 'Bỏ ảnh (dùng chữ cái + màu)', dis: !me.av, on: () => send('avatar.clear') }, '-']
+    .concat(COLORS.map(c => ({ label: c === me.color ? 'Màu nền này ✓' : 'Màu nền này', icon: `<span class="mic" style="display:inline-block;width:14px;height:14px;background:${c};border:1px solid #000"></span>`, on: () => send('me.set', { color: c }) }))));
 };
 $('#myText').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('#myText').blur(); } if (e.key === 'Escape') { $('#myText').value = me.text || ''; $('#myText').blur(); } });
 $('#myText').addEventListener('blur', () => { if (me && $('#myText').value.trim() !== (me.text || '')) send('me.set', { text: $('#myText').value.trim() }); });

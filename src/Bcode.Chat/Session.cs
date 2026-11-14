@@ -92,6 +92,7 @@ internal sealed class Session
         port = _node.Port, ips = ChatNode.LocalIPv4(), udpError = _node.UdpError, peers = _store.Prefs.ManualPeers,
         sound = _store.Prefs.Sound, closeToTray = _store.Prefs.CloseToTray, autoAway = _store.Prefs.AutoAwayMinutes,
         font = new { style = _store.Prefs.FontStyle, fg = _store.Prefs.FontColor, size = _store.Prefs.FontSize },
+        av = _store.Prefs.AvatarHash,
     };
 
     public List<object> BuddyList() => _node.Buddies().Select(b => (object)new
@@ -99,7 +100,36 @@ internal sealed class Session
         id = b.Id, name = b.Name, status = b.Status, text = b.Text, color = b.Color, group = b.Group, ip = b.Ip, hidden = b.Hidden,
         lastSeen = b.LastSeen == default ? 0 : new DateTimeOffset(DateTime.SpecifyKind(b.LastSeen, DateTimeKind.Utc)).ToUnixTimeMilliseconds(),
         pending = _node.PendingCount("u:" + b.Id),
+        av = b.AvHash,
     }).ToList();
+
+    /// <summary>Đặt ảnh đại diện từ file trên máy: cắt giữa thành hình vuông, thu về 96×96, lưu JPEG (vài KB) rồi báo cả LAN. null = bỏ ảnh.</summary>
+    public void SetAvatar(string? path)
+    {
+        byte[]? data = null;
+        if (path is not null)
+        {
+            using var src = Image.FromFile(path);
+            var side = Math.Min(src.Width, src.Height);
+            var crop = new Rectangle((src.Width - side) / 2, (src.Height - side) / 2, side, side);
+            using var bmp = new Bitmap(96, 96);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.Clear(Color.White);   // PNG trong suốt → nền trắng
+                g.DrawImage(src, new Rectangle(0, 0, 96, 96), crop, GraphicsUnit.Pixel);
+            }
+            var codec = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+            using var ep = new System.Drawing.Imaging.EncoderParameters(1);
+            ep.Param[0] = new System.Drawing.Imaging.EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 88L);
+            using var ms = new MemoryStream();
+            bmp.Save(ms, codec, ep);
+            data = ms.ToArray();
+        }
+        _node.SetAvatar(data);
+        Broadcast(new { t = "me", me = Me() });
+    }
 
     public void SetMyStatus(string status, string? text = null)
     {

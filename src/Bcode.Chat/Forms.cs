@@ -33,6 +33,8 @@ internal abstract class WebForm : Form
     protected override bool ShowWithoutActivation => _noActivate;
 
     protected abstract string Page { get; }
+    /// <summary>Thư mục ảnh đại diện, trang đọc qua https://av.chat.local/&lt;id&gt;.jpg (null = trang không cần ảnh).</summary>
+    protected virtual string? AvatarDir => null;
     protected abstract void OnPage(JsonObject m, CoreWebView2WebMessageReceivedEventArgs e);
 
     private async Task InitAsync()
@@ -46,6 +48,7 @@ internal abstract class WebForm : Form
             core.Settings.IsZoomControlEnabled = false;
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.SetVirtualHostNameToFolderMapping(Host, Path.Combine(AppContext.BaseDirectory, "Web"), CoreWebView2HostResourceAccessKind.Allow);
+            if (AvatarDir is { } avDir) core.SetVirtualHostNameToFolderMapping("av." + Host, avDir, CoreWebView2HostResourceAccessKind.Allow);
             core.WebMessageReceived += (_, e) =>
             {
                 try { if (JsonNode.Parse(e.WebMessageAsJson) is JsonObject m) OnPage(m, e); }
@@ -104,6 +107,7 @@ internal sealed class BuddyForm : WebForm
 {
     public bool AllowClose { get; set; }
     protected override string Page => "buddy.html";
+    protected override string? AvatarDir => S.Store.AvatarDir;
 
     private readonly Session S;
 
@@ -146,6 +150,16 @@ internal sealed class BuddyForm : WebForm
                 break;
             case "status":
                 S.SetMyStatus((string?)m["status"] ?? Status.Online);
+                break;
+            case "avatar.pick":
+            {
+                using var dlg = new OpenFileDialog { Title = "Chọn ảnh đại diện", Filter = "Ảnh|*.jpg;*.jpeg;*.png;*.bmp;*.gif|Mọi file|*.*" };
+                if (dlg.ShowDialog(this) == DialogResult.OK)
+                    try { S.SetAvatar(dlg.FileName); } catch (Exception ex) { Post(new { t = "error", text = "Không dùng được ảnh này: " + ex.Message }); }
+                break;
+            }
+            case "avatar.clear":
+                S.SetAvatar(null);
                 break;
             case "open":
                 if ((string?)m["conv"] is { Length: > 2 } conv) S.OpenIm(conv, activate: true);
@@ -201,6 +215,7 @@ internal sealed class ImForm : WebForm
     private Point _shakeOrigin;
     private long _lastShake;
     protected override string Page => "im.html?c=" + Uri.EscapeDataString(Conv);
+    protected override string? AvatarDir => S.Store.AvatarDir;
 
     private readonly Session S;
 

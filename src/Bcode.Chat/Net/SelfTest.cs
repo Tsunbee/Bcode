@@ -75,6 +75,16 @@ public static class SelfTest
             var bad = new ChatMessage { From = idA, FromName = "An", Kind = "file", File = new FileMeta { Fid = fm.File!.Fid, Name = "x", Size = 1, Token = "sai" } };
             Check(await b.DownloadAsync(bad, Path.Combine(root, "nhan")) is null, "Sai mã file thì bị từ chối");
 
+            // ảnh đại diện: A đặt ảnh → B tự tải về; A bỏ ảnh → B xoá
+            var jpg = new byte[3000]; new Random(7).NextBytes(jpg); jpg[0] = 0xFF; jpg[1] = 0xD8;
+            a.SetAvatar(jpg);
+            Check(await Until(() => b.FindBuddy(idA)?.AvHash == a.Prefs.AvatarHash && File.Exists(b.AvatarPath(idA))
+                && File.ReadAllBytes(b.AvatarPath(idA)).AsSpan().SequenceEqual(jpg)), "B tự tải ảnh đại diện mới của A");
+            var notImg = false; try { a.SetAvatar(new byte[200]); } catch (ArgumentException) { notImg = true; }
+            Check(notImg, "Không nhận file không phải ảnh làm ảnh đại diện");
+            a.SetAvatar(null);
+            Check(await Until(() => b.FindBuddy(idA)?.AvHash == "" && !File.Exists(b.AvatarPath(idA))), "A bỏ ảnh → B xoá ảnh cũ");
+
             // trùng nick: máy C đăng nhập bằng đúng ID của A → cả hai đều biết
             var sc = new ChatStore(Path.Combine(root, "C"));
             sc.Prefs.Id = idA; sc.Prefs.Name = "an.nguyen"; sc.Prefs.ManualPeers = new() { "127.0.0.1:" + discA };

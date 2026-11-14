@@ -90,8 +90,13 @@ public sealed class ChatMessage
     public GroupMeta? Group { get; set; }
     /// <summary>Tin trong phòng công cộng (không có Group). Không lưu lịch sử, không xếp hàng chờ người offline.</summary>
     public RoomAd? Room { get; set; }
+    /// <summary>Kind "invite": rủ vào Xem chung / Giải lao. Máy nhận nối tới IP người mời + <see cref="InviteMeta.Port"/>.</summary>
+    public InviteMeta? Invite { get; set; }
     public FileMeta? File { get; set; }
 }
+
+/// <summary>Lời mời vào ứng dụng LAN khác của Bcode. App: "watch" (Xem chung, cổng 47831) | "game" (Giải lao, cổng 47811).</summary>
+public sealed record InviteMeta(string App, int Port, string Room = "");
 
 /// <summary>Tin chờ gửi tới 1 người (họ offline / chưa nối được). Giữ trong outbox.json tới khi họ báo "ack".</summary>
 public sealed class OutItem

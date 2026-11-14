@@ -18,7 +18,7 @@
   .wrap { flex: 1; display: flex; gap: 6px; padding: 6px 6px 0; min-height: 0; }
   #scene { display: none; height: 64px; margin: 6px 6px 0; border: 1px solid #7f9db9; position: relative; overflow: hidden; }
   #scene canvas { width: 100%; height: 100%; display: block; }
-  body.pubroom #tBuzz, body.pubroom #tFile, body.pubroom #tInvite, body.pubroom #tScene, body.pubroom #fBuzz, body.pubroom #tClear { display: none; }
+  body.pubroom #tBuzz, body.pubroom #tFile, body.pubroom #tInvite, body.pubroom #tScene, body.pubroom #tFun, body.pubroom #fBuzz, body.pubroom #tClear { display: none; }
   body.has-scene #scene { display: block; }
   body.has-scene .wrap { padding-top: 4px; }
   .scgrid { display: grid; grid-template-columns: repeat(2, 156px); gap: 6px; }
@@ -36,6 +36,11 @@
   .ln .pend { color: #b07800; font-size: 10px; margin-left: 4px; cursor: help; }
   .ln .ok { color: #3c9a3c; font-size: 10px; margin-left: 3px; }
   .ln .sm { width: 19px; height: 19px; }
+  .invcard { display: flex; align-items: center; gap: 8px; margin: 3px 0 4px 10px; padding: 6px 8px; max-width: 360px; border: 1px solid #c9b45a; background: linear-gradient(#fffbe0, #fff2b8); border-radius: 3px; }
+  .invcard.game { border-color: #7fb07f; background: linear-gradient(#f0fff0, #d8f3d0); }
+  .invcard .iic { font-size: 24px; }
+  .invcard > div { flex: 1; min-width: 0; }
+  .invcard .btn { flex: none; }
   .sys { color: #6d6a5d; font-style: italic; margin: 4px 0; font-size: 11px; }
   .day { text-align: center; color: #8a877a; font-size: 10px; margin: 8px 0 4px; display: flex; align-items: center; gap: 6px; }
   .day::before, .day::after { content: ''; flex: 1; height: 1px; background: #e2dfd0; }
@@ -84,6 +89,7 @@
   <button class="tb" id="tBuzz" title="BUZZ! — rung cửa sổ của bạn"><span class="ic">📳</span><span class="lb">BUZZ!</span></button>
   <button class="tb" id="tFile" title="Gửi file"><span class="ic">📎</span><span class="lb">Gửi file</span></button>
   <button class="tb" id="tScene" title="Khung cảnh trên đầu cuộc chat (cả hai bên cùng thấy)"><span class="ic">🎨</span><span class="lb">Khung cảnh</span></button>
+  <button class="tb" id="tFun" title="Rủ Xem chung / Giải lao"><span class="ic">🎉</span><span class="lb">Rủ chơi</span></button>
   <button class="tb" id="tInvite" title="Mời thêm bạn vào cuộc chat"><span class="ic">👥</span><span class="lb">Mời bạn</span></button>
   <div class="sp"></div>
   <button class="tb" id="tClear" title="Xoá lịch sử cuộc chat này trên máy bạn"><span class="ic">🧹</span><span class="lb">Xoá lịch sử</span></button>

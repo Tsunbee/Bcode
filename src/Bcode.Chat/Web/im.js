@@ -128,6 +128,16 @@ function addMsg(m, mine, pending, saved, fromHistory) {
     case 'buzz':
       row = el('div', { class: 'buzz' }, `BUZZ!!! <small>${mine ? 'Bạn đã gửi BUZZ!' : esc(who) + ' gửi BUZZ!'} (${fmtTime(m.at)})</small>`);
       break;
+    case 'invite': {
+      const app = m.invite?.app === 'game' ? 'game' : 'watch';
+      const what = app === 'game' ? 'Giải lao' : 'Xem chung';
+      row = el('div', { class: 'ln' }, `<span class="who ${mine ? 'me' : 'them'}">${esc(who)}</span>${tm}:`);
+      const card = el('div', { class: 'invcard ' + app }, `<span class="iic">${app === 'game' ? '🎮' : '🎬'}</span><div><b>${mine ? 'Bạn đã rủ mọi người vào ' + what : esc(who) + ' rủ bạn vào ' + what}</b>
+        <div class="muted">${esc(m.invite?.room || '')}${mine ? ' — đã mở ' + what + ' trên máy bạn để làm chủ phòng' : ''}</div></div>`);
+      if (!mine) { const b = el('button', { class: 'btn primary' }, app === 'game' ? 'Vào chơi' : 'Vào xem'); b.onclick = () => send('invite.accept', { mid: m.mid }); card.append(b); }
+      row.append(card);
+      break;
+    }
     case 'env':
       Scene.set(m.text);
       row = el('div', { class: 'sys' }, `🎨 ${mine ? 'Bạn' : esc(who)} đã đổi khung cảnh: <b>${esc(SCENES[m.text]?.name || 'không có')}</b> <span class="tm">(${fmtTime(m.at)})</span>`);
@@ -348,6 +358,12 @@ $$('.menubar span').forEach(s => s.addEventListener('click', () => {
 
 function pickScene() { scenePicker(k => { if (k !== Scene.id) send('env', { scene: k }); }); }
 $('#tScene').onclick = pickScene;
+$('#tFun').onclick = () => {
+  const r = $('#tFun').getBoundingClientRect();
+  showMenu(r.left, r.bottom, [
+    { label: 'Rủ Xem chung (phim, nhạc)', icon: '<span class="mic">🎬</span>', on: () => send('invite', { app: 'watch' }) },
+    { label: 'Rủ chơi Giải lao', icon: '<span class="mic">🎮</span>', on: () => send('invite', { app: 'game' }) }]);
+};
 
 setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); }, 1000);
 send('ui.init');

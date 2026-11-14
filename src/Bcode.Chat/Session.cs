@@ -172,7 +172,7 @@ internal sealed class Session
         var f = FindIm(conv) ?? OpenIm(conv, activate: false);
         f.Post(new { t = "msg", m, mine = false });
         // tin gửi từ lúc mình còn offline, tới dồn ngay sau đăng nhập → gom lại 1 thông báo, không kêu từng tin
-        if (m.At < _startedWall - 1000 && Environment.TickCount64 - _startedAt < 60_000 && m.Kind is "text" or "file" or "buzz")
+        if (m.At < _startedWall - 1000 && Environment.TickCount64 - _startedAt < 60_000 && m.Kind is "text" or "file" or "buzz" or "invite")
         {
             _offlineMsgs.Add(m);
             _offlineTimer.Stop(); _offlineTimer.Start();
@@ -187,12 +187,12 @@ internal sealed class Session
         }
         else
         {
-            if (_store.Prefs.Status != Status.Busy) Sounds.Play(m.Kind == "file" ? "file" : "msg");   // Bận: chỉ nháy, không kêu
+            if (_store.Prefs.Status != Status.Busy) Sounds.Play(m.Kind is "file" or "invite" ? "file" : "msg");   // Bận: chỉ nháy, không kêu
             if (!f.ContainsFocus) f.Flash();
-            if (!f.ContainsFocus && _store.Prefs.Status != Status.Busy && _store.Prefs.Popups && m.Kind is "text" or "file")
+            if (!f.ContainsFocus && _store.Prefs.Status != Status.Busy && _store.Prefs.Popups && m.Kind is "text" or "file" or "invite")
             {
                 var who = _node.FindBuddy(m.From);
-                var text = m.Kind == "file" ? "gửi file " + m.File?.Name : m.Text;
+                var text = m.Kind == "file" ? "gửi file " + m.File?.Name : m.Kind == "invite" ? "🎉 " + m.Text : m.Text;
                 if (conv.StartsWith("g:")) Popup.Show("Phòng chat", Title(conv), m.FromName + ": " + text, AvatarOf(who), who?.Color ?? "#3a6ea5", () => OpenIm(conv, activate: true));
                 else Popup.Show("Tin nhắn mới", m.FromName, text, AvatarOf(who), who?.Color ?? "#3a6ea5", () => OpenIm(conv, activate: true));
             }

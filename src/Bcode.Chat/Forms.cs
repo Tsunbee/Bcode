@@ -308,7 +308,7 @@ internal sealed class ImForm : WebForm
                 Sounds.Play("send");
                 break;
             }
-            case "buzz" or "file.pick" or "file.drop" or "env" or "group.invite" or "typing" when Conv.StartsWith("r:"):
+            case "buzz" or "file.pick" or "file.drop" or "env" or "group.invite" or "typing" or "invite" when Conv.StartsWith("r:"):
                 break;   // phòng công cộng: chỉ nhắn chữ
             case "buzz":
                 Send(() => node.Send(Conv, "buzz", "BUZZ!!!"));
@@ -316,6 +316,27 @@ internal sealed class ImForm : WebForm
                 Shake();
                 Sounds.Play("buzz");
                 break;
+            case "invite":
+            {
+                // rủ Xem chung / Giải lao: mình chưa mở thì mở luôn ở chế độ làm chủ phòng, rồi gửi lời mời (kèm cổng mặc định của phòng)
+                var app = (string?)m["app"] == "game" ? "game" : "watch";
+                var room = "Phòng của " + S.Store.Prefs.Name;
+                if (!SideApps.Running(app) && SideApps.Launch(app, "--host", "--room", room) is { } err) { Post(new { t = "error", text = err }); break; }
+                var what = SideApps.Title(app);
+                Send(() => node.Send(Conv, "invite", $"mời bạn vào {what}", invite: new InviteMeta(app, SideApps.DefaultPort(app), room)));
+                break;
+            }
+            case "invite.accept":
+            {
+                var mid = (string?)m["mid"] ?? "";
+                var msg = S.Store.LoadHistory(Conv, 2000).LastOrDefault(x => x.Mid == mid);
+                if (msg?.Invite is not { } inv || inv.App is not ("watch" or "game")) { Post(new { t = "error", text = "Không thấy lời mời này nữa." }); break; }
+                var ip = node.FindBuddy(msg.From)?.Ip ?? "";
+                if (ip.Length == 0) { Post(new { t = "error", text = "Không biết IP của người mời (họ đang offline?)." }); break; }
+                var port = inv.Port is > 0 and < 65536 ? inv.Port : SideApps.DefaultPort(inv.App);
+                if (SideApps.Launch(inv.App, "--join", port == SideApps.DefaultPort(inv.App) ? ip : ip + ":" + port) is { } err2) Post(new { t = "error", text = err2 });
+                break;
+            }
             case "env":
                 // khung cảnh: gửi như 1 tin (cả cuộc chat cùng đổi, người offline mở lên vẫn thấy)
                 var scene = (string?)m["scene"] ?? "";

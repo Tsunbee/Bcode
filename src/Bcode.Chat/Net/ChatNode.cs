@@ -816,12 +816,13 @@ public sealed class ChatNode : IDisposable
     private static GroupMeta CloneGroup(GroupMeta g) => new() { Gid = g.Gid, Title = g.Title, Members = g.Members.ToList() };
 
     /// <summary>Gửi 1 tin vào cuộc chat. Ghi lịch sử của mình, vào outbox từng người nhận rồi gửi ngay ai đang online.</summary>
-    public ChatMessage Send(string conv, string kind, string text, string? style = null, string? fg = null, int? size = null, FileMeta? file = null, GroupMeta? groupOverride = null)
+    public ChatMessage Send(string conv, string kind, string text, string? style = null, string? fg = null, int? size = null, FileMeta? file = null, GroupMeta? groupOverride = null, InviteMeta? invite = null)
     {
         var msg = new ChatMessage
         {
             Mid = Guid.NewGuid().ToString("N"), From = MyId, FromName = Prefs.Name, Kind = kind, Text = Clip(text ?? "", MaxText),
             Style = style, Fg = fg, Size = size is >= 10 and <= 22 ? size : null, At = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), File = file,
+            Invite = invite,
         };
         List<string> to;
         if (conv.StartsWith("g:"))

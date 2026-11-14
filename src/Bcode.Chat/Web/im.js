@@ -3,6 +3,8 @@
 
 const conv = new URLSearchParams(location.search).get('c') || '';
 const isGroup = conv.startsWith('g:');
+const isRoom = conv.startsWith('r:');   // phòng công cộng
+let room = null;
 let me = null, title = '', group = null, buddies = [];
 const msgs = new Map();          // mid → { m, mine, pending, saved, row }
 const files = new Map();         // fid → { state, got, total, info, served: [] }
@@ -10,7 +12,7 @@ let lastDay = '', font = { style: '', fg: '#000000', size: 13 }, showTime = true
 let typingT = 0, lastTypingSent = 0, buzzLock = 0;
 
 const buddy = id => buddies.find(b => b.id === id);
-const peerId = () => isGroup ? null : conv.slice(2);
+const peerId = () => isGroup || isRoom ? null : conv.slice(2);
 const nameOf = id => id === me?.id ? me.name : (buddy(id)?.name || (group?.members || []).find(x => x.id === id)?.name || id);
 
 onHost(m => {
@@ -21,7 +23,12 @@ onHost(m => {
       applyFont();
       $('#log').innerHTML = ''; msgs.clear(); lastDay = ''; Scene.set('');
       for (const h of m.history || []) addMsg(h.m, h.mine, h.pending, h.saved, true);
-      if (!(m.history || []).length) sys(isGroup ? 'Phòng chat đã mở. Tin nhắn ở đây gửi tới mọi người trong phòng.' : `Bắt đầu trò chuyện với ${title}. Gõ :) để chèn mặt cười, bấm BUZZ! để gọi.`);
+      room = m.room || null;
+      if (isRoom) {
+        document.body.classList.add('pubroom');
+        sys(`Bạn đã vào phòng công cộng "${room?.t || title}".${room?.topic ? ' Chủ đề: ' + room.topic + '.' : ''} Tin trong phòng không được lưu lại.`);
+      }
+      else if (!(m.history || []).length) sys(isGroup ? 'Phòng chat đã mở. Tin nhắn ở đây gửi tới mọi người trong phòng.' : `Bắt đầu trò chuyện với ${title}. Gõ :) để chèn mặt cười, bấm BUZZ! để gọi.`);
       renderHead(); scrollEnd(); $('#inp').focus();
       break;
     case 'msg': addMsg(m.m, m.mine, m.pending, null); scrollEnd(); if (!m.mine) $('#sb').textContent = ''; break;
@@ -40,6 +47,15 @@ onHost(m => {
     case 'groups': if (isGroup) { const g = (m.list || []).find(x => 'g:' + x.gid === conv); if (g) { group = g; title = g.title; renderHead(); } } break;
     case 'title': title = m.title; if (m.group) group = m.group; renderHead(); break;
     case 'me': me = m.me; renderHead(); break;
+    case 'room': {
+      // ai vào / ra phòng (so với lần trước)
+      const before = new Map((room?.members || []).map(x => [x.id, x.name]));
+      const after = new Map((m.room.members || []).map(x => [x.id, x.name]));
+      for (const [id, n] of after) if (!before.has(id) && id !== me?.id) sys(`${n} đã vào phòng.`);
+      for (const [id, n] of before) if (!after.has(id) && id !== me?.id) sys(`${n} đã rời phòng.`);
+      room = m.room; renderHead(); scrollEnd();
+      break;
+    }
     case 'file': fileState(m.fid, { state: m.state, got: m.got, total: m.total, info: m.info }); break;
     case 'served': { const f = files.get(m.fid) || {}; f.served = (f.served || []).concat(m.name); files.set(m.fid, f); refreshFile(m.fid); break; }
     case 'buzzfx': document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake'); break;
@@ -52,7 +68,20 @@ onHost(m => {
 function renderHead() {
   if (!me) return;
   const info = $('#info'), side = $('#side');
-  if (isGroup) {
+  if (isRoom) {
+    const mem = room?.members || [];
+    info.innerHTML = `<span>#</span><span>Phòng công cộng <b>"${esc(room?.t || title)}"</b></span><span class="stx">— ${mem.length} người${room?.topic ? ' · ' + esc(room.topic) : ''}</span>`;
+    document.title = 'Phòng công cộng: ' + (room?.t || title);
+    side.innerHTML = '<div class="cap">Trong phòng:</div><div id="members" class="sunken"></div>';
+    const box = $('#members');
+    mem.forEach(x => {
+      const st = x.id === me.id ? me.status : (buddy(x.id)?.status || 'online');
+      const r = el('div', { class: 'mrow', title: x.id === me.id ? 'Bạn' : 'Nhấp đúp để nhắn riêng' }, `${stHtml(st)}<span>${esc(x.name)}${x.id === me.id ? ' (bạn)' : ''}</span>`);
+      if (x.id !== me.id) r.ondblclick = () => send('open.buddy', { id: x.id });
+      box.append(r);
+    });
+    const lv = el('button', { class: 'btn' }, '🚪 Rời phòng'); lv.onclick = () => send('close'); side.append(lv);
+  } else if (isGroup) {
     const mem = group?.members || [];
     info.innerHTML = `<span>👥</span><span>Bạn đang ở phòng <b>"${esc(title)}"</b></span><span class="stx">— ${mem.length} người</span>`;
     document.title = 'Phòng chat: ' + title;

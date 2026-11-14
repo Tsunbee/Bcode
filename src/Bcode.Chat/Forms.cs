@@ -141,7 +141,7 @@ internal sealed class BuddyForm : WebForm
         switch ((string?)m["t"])
         {
             case "ui.init":
-                Post(new { t = "init", me = S.Me(), list = S.BuddyList(), groups = node.Groups() });
+                Post(new { t = "init", me = S.Me(), list = S.BuddyList(), groups = node.Groups(), rooms = S.RoomList() });
                 _ = CheckFirewall();
                 break;
             case "me.set":
@@ -166,6 +166,10 @@ internal sealed class BuddyForm : WebForm
                 break;
             case "history":
                 S.OpenHistory((string?)m["conv"]);
+                break;
+            case "room.join":
+                try { S.OpenRoom((string?)m["title"] ?? "", (string?)m["topic"]); }
+                catch (Exception ex) { Post(new { t = "error", text = ex.Message }); }
                 break;
             case "group.new":
                 var ids = (m["ids"] as JsonArray)?.Select(x => (string?)x ?? "").Where(x => x.Length > 0).ToList() ?? new();
@@ -243,7 +247,7 @@ internal sealed class ImForm : WebForm
     public void UpdateTitle()
     {
         var title = S.Title(Conv);
-        Text = (Conv.StartsWith("g:") ? "Phòng chat: " : "") + title + " — Bhoo";
+        Text = (Conv.StartsWith("g:") ? "Phòng chat: " : Conv.StartsWith("r:") ? "Phòng công cộng: " : "") + title + " — Bhoo";
         Post(new { t = "title", title, group = Conv.StartsWith("g:") ? S.Node.FindGroup(Conv[2..]) : null });
     }
 
@@ -291,7 +295,8 @@ internal sealed class ImForm : WebForm
                 {
                     t = "init", conv = Conv, me = S.Me(), title = S.Title(Conv), list = S.BuddyList(),
                     group = Conv.StartsWith("g:") ? node.FindGroup(Conv[2..]) : null,
-                    history = S.History(Conv),
+                    room = Conv.StartsWith("r:") ? S.RoomInfo(Conv[2..]) : null,
+                    history = Conv.StartsWith("r:") ? new List<object>() : S.History(Conv),
                 });
                 break;
             case "send":
@@ -303,6 +308,8 @@ internal sealed class ImForm : WebForm
                 Sounds.Play("send");
                 break;
             }
+            case "buzz" or "file.pick" or "file.drop" or "env" or "group.invite" or "typing" when Conv.StartsWith("r:"):
+                break;   // phòng công cộng: chỉ nhắn chữ
             case "buzz":
                 Send(() => node.Send(Conv, "buzz", "BUZZ!!!"));
                 // người gửi cũng thấy cửa sổ mình rung nhẹ — như ngày xưa

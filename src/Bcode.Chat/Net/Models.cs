@@ -88,6 +88,8 @@ public sealed class ChatMessage
     /// <summary>Giờ gửi (ms Unix, đồng hồ máy người gửi).</summary>
     public long At { get; set; }
     public GroupMeta? Group { get; set; }
+    /// <summary>Tin trong phòng công cộng (không có Group). Không lưu lịch sử, không xếp hàng chờ người offline.</summary>
+    public RoomAd? Room { get; set; }
     public FileMeta? File { get; set; }
 }
 

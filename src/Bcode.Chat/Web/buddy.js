@@ -1,7 +1,7 @@
 // Bhoo — cửa sổ danh sách bạn.
 'use strict';
 
-let me = null, list = [], groups = [], sel = null, fw = null;
+let me = null, list = [], groups = [], pubRooms = [], sel = null, fw = null;
 const store = (() => { try { return window.localStorage; } catch { return null; } })();
 const pref = (k, d) => { try { const v = store && store.getItem('bhoo.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const setPref = (k, v) => { try { store && store.setItem('bhoo.' + k, JSON.stringify(v)); } catch { } };
@@ -11,7 +11,8 @@ const ORDER = { online: 0, busy: 1, away: 2, offline: 3 };
 
 onHost(m => {
   switch (m.t) {
-    case 'init': me = m.me; list = m.list; groups = m.groups || []; renderMe(); render(); break;
+    case 'init': me = m.me; list = m.list; groups = m.groups || []; pubRooms = m.rooms || []; renderMe(); render(); break;
+    case 'rooms': pubRooms = m.list || []; render(); if ($('#roomDlg')) roomsDialog(); break;
     case 'me': me = m.me; renderMe(); break;
     case 'buddies': list = m.list; render(); break;
     case 'groups': groups = m.list; render(); break;
@@ -79,6 +80,19 @@ function render() {
         `<span class="room-ic">👥</span><span class="nm">${esc(g.title)}</span><span class="stx">${g.members.length} người</span>`);
       bindRow(r, 'g:' + g.gid, null);
       return r;
+    }));
+  }
+
+  // Phòng công cộng đang có người trong LAN
+  const pub = pubRooms.filter(r => !q || r.t.toLowerCase().includes(q) || (r.topic || '').toLowerCase().includes(q));
+  if (pub.length) {
+    section(tree, '__pub', `Phòng công cộng (${pub.length})`, pub.map(r => {
+      const row = el('div', { class: 'row', 'data-conv': 'r:' + r.g, title: (r.topic ? r.topic + '\n' : '') + (r.joined ? 'Bạn đang ở phòng này' : 'Nhấp đúp để vào phòng') },
+        `<span class="room-ic pub">#</span><span class="nm">${esc(r.t)}</span><span class="stx">${r.count} người${r.joined ? ' · bạn đang ở đây' : ''}</span>`);
+      row.addEventListener('mousedown', () => { sel = 'r:' + r.g; $$('.row.sel').forEach(x => x.classList.remove('sel')); row.classList.add('sel'); });
+      row.addEventListener('dblclick', () => send('room.join', { title: r.t }));
+      row.addEventListener('contextmenu', e => { e.preventDefault(); showMenu(e.clientX, e.clientY, [{ label: r.joined ? 'Mở cửa sổ phòng' : 'Vào phòng', on: () => send('room.join', { title: r.t }) }]); });
+      return row;
     }));
   }
 
@@ -192,6 +206,30 @@ function ignoreAsk(b) {
     [{ label: 'Chặn', primary: true, on: () => send('buddy.ignore', { id: b.id, ignored: true }) }, { label: 'Huỷ' }]);
 }
 
+// Phòng công cộng: danh sách phòng đang có người + vài phòng gợi ý + tạo phòng mới
+const SUGGEST = [['Sảnh chung', 'Chào hỏi, tán gẫu cả công ty'], ['Cà phê chiều', 'Giải lao 15 phút'], ['Hỏi đáp kỹ thuật', 'Lỗi code, máy móc, phần mềm'], ['Game', 'Rủ nhau chơi Giải lao'], ['Nhạc', 'Chia sẻ bài hát hay']];
+function roomsDialog() {
+  const old = $('#roomDlg'); if (old) old.closest('.dlg-bg').remove();
+  const have = new Set(pubRooms.map(r => r.t.toLowerCase()));
+  const rowsHtml = pubRooms.map(r => `<div class="rrow" data-t="${esc(r.t)}"><span class="room-ic pub">#</span><b>${esc(r.t)}</b><span class="muted">${r.count} người${r.joined ? ' · bạn đang ở đây' : ''}</span><span class="muted rtopic">${esc(r.topic || '')}</span></div>`).join('')
+    + SUGGEST.filter(([t]) => !have.has(t.toLowerCase())).map(([t, tp]) => `<div class="rrow" data-t="${esc(t)}" data-topic="${esc(tp)}"><span class="room-ic pub">#</span><b>${esc(t)}</b><span class="muted">trống</span><span class="muted rtopic">${esc(tp)}</span></div>`).join('');
+  const d = dialog('Phòng chat công cộng trong LAN', `<div id="roomDlg">
+    <div class="muted" style="margin-bottom:4px">Ai trong mạng LAN cũng vào được. Tin trong phòng không lưu lại, ai vào sau không thấy tin cũ.</div>
+    <div class="pick sunken rlist">${rowsHtml}</div>
+    <div style="margin-top:6px">Hoặc mở phòng mới:</div>
+    <div style="display:flex;gap:4px;margin-top:3px"><input id="rNew" maxlength="40" placeholder="Tên phòng" style="flex:1;min-width:0"><input id="rTopic" maxlength="100" placeholder="Chủ đề (tuỳ chọn)" style="flex:1.4;min-width:0"></div></div>`,
+    [{ label: 'Vào phòng', primary: true, on: d => {
+        const t = $('#rNew', d).value.trim();
+        if (t) { send('room.join', { title: t, topic: $('#rTopic', d).value.trim() }); return; }
+        const s = $('.rrow.sel', d); if (!s) { toast('Chọn 1 phòng hoặc gõ tên phòng mới.'); return false; }
+        send('room.join', { title: s.dataset.t, topic: s.dataset.topic || '' });
+      } }, { label: 'Đóng' }]);
+  $$('.rrow', d).forEach(r => {
+    r.onclick = () => { $$('.rrow', d).forEach(x => x.classList.remove('sel')); r.classList.add('sel'); };
+    r.ondblclick = () => { send('room.join', { title: r.dataset.t, topic: r.dataset.topic || '' }); d.closest('.dlg-bg').remove(); };
+  });
+}
+
 function settings() {
   const hidden = list.filter(b => b.hidden && !b.ignored);
   const ignored = list.filter(b => b.ignored);
@@ -237,6 +275,7 @@ $$('.menubar span').forEach(s => s.addEventListener('click', e => {
       { label: showOffline ? 'Ẩn bạn đang offline' : 'Hiện bạn đang offline', on: () => { showOffline = !showOffline; setPref('showOffline', showOffline); render(); } }]); break;
     case 'actions': showMenu(x, y, [
       { label: 'Mở phòng chat nhóm…', on: () => newRoom([]) },
+      { label: 'Phòng chat công cộng…', on: roomsDialog },
       { label: 'Kiểm tra tường lửa', on: () => send('fw.check') },
       '-', { label: 'Tuỳ chọn…', on: settings }]); break;
     case 'help': showMenu(x, y, [{ label: 'Giới thiệu Bhoo', on: about }]); break;
@@ -256,6 +295,7 @@ $('#myText').addEventListener('blur', () => { if (me && $('#myText').value.trim(
 $('#search').addEventListener('input', render);
 $('#bNewRoom').onclick = () => newRoom([]);
 $('#bAddIp').onclick = addIp;
+$('#bPub').onclick = roomsDialog;
 
 // Ô "quảng cáo" kiểu cũ ở chân danh sách — chỉ là mẹo dùng Bhoo, đổi mỗi 12 giây.
 const TIPS = ['Gõ :) :D ;) :(( <3 để chèn mặt cười.', 'Bấm BUZZ! để rung cửa sổ của bạn bè.', 'Kéo thả file vào khung chat để gửi.',

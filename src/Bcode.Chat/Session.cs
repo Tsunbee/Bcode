@@ -68,6 +68,12 @@ internal sealed class Session
             Broadcast(new { t = "groups", list = _node.Groups() });
             if (FindIm("g:" + g.Gid) is { } f) f.UpdateTitle();
         });
+        _node.RoomsChanged += () => Ui(() =>
+        {
+            Buddy.Post(new { t = "rooms", list = RoomList() });
+            foreach (var (conv, f) in _ims.ToList())
+                if (conv.StartsWith("r:") && !f.IsDisposed) f.Post(new { t = "room", room = RoomInfo(conv[2..]) });
+        });
         _node.NickConflict += ip => Ui(() =>
         {
             // có máy khác đang thử dùng (hoặc cùng lúc dùng) nick của mình — chỉ báo, không đá ai ra
@@ -153,6 +159,12 @@ internal sealed class Session
 
     private void OnMessage(string conv, ChatMessage m)
     {
+        if (conv.StartsWith("r:"))
+        {
+            // phòng công cộng: nhiều người nói liên tục — chỉ nháy, không kêu / popup; đóng cửa sổ = đã rời phòng nên không tự mở lại
+            if (FindIm(conv) is { } rf) { rf.Post(new { t = "msg", m, mine = false }); if (!rf.ContainsFocus) rf.Flash(); }
+            return;
+        }
         var f = FindIm(conv) ?? OpenIm(conv, activate: false);
         f.Post(new { t = "msg", m, mine = false });
         // tin gửi từ lúc mình còn offline, tới dồn ngay sau đăng nhập → gom lại 1 thông báo, không kêu từng tin
@@ -255,14 +267,34 @@ internal sealed class Session
         }
         f = new ImForm(this, conv, activate);
         _ims[conv] = f;
-        f.FormClosed += (_, _) => { if (_ims.TryGetValue(conv, out var cur) && cur == f) _ims.Remove(conv); };
+        f.FormClosed += (_, _) =>
+        {
+            if (_ims.TryGetValue(conv, out var cur) && cur == f) _ims.Remove(conv);
+            if (conv.StartsWith("r:")) _node.LeaveRoom(conv[2..]);   // đóng cửa sổ phòng công cộng = rời phòng
+        };
         f.Show();
         if (!activate) f.Flash();
         return f;
     }
 
+    public List<object> RoomList() => _node.PublicRooms().Select(x => (object)new { g = x.Room.G, t = x.Room.T, topic = x.Room.Topic, count = x.Count, joined = x.Joined }).ToList();
+
+    public object RoomInfo(string g)
+    {
+        var r = _node.FindRoom(g);
+        return new { g, t = r?.T ?? g, topic = r?.Topic ?? "", joined = _node.InRoom(g), members = _node.RoomMembers(g) };
+    }
+
+    /// <summary>Vào phòng công cộng (chưa có thì mở mới) + mở cửa sổ phòng.</summary>
+    public void OpenRoom(string title, string? topic)
+    {
+        var g = _node.JoinRoom(title, topic);
+        OpenIm("r:" + g, activate: true);
+    }
+
     public string Title(string conv)
     {
+        if (conv.StartsWith("r:")) return _node.FindRoom(conv[2..])?.T ?? conv[2..];
         if (conv.StartsWith("g:")) return _node.FindGroup(conv[2..])?.Title ?? "Phòng chat nhóm";
         return _node.FindBuddy(conv[2..])?.Name ?? conv[2..];
     }

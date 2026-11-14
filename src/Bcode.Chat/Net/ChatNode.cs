@@ -344,15 +344,19 @@ public sealed class ChatNode : IDisposable
     private void SetOffline(string id)
     {
         FramedConnection? c;
+        bool hadRooms;
         lock (_lock)
         {
             var b = Prefs.Buddies.FirstOrDefault(x => x.Id == id);
             if (b is null || !b.Online) return;
             b.Status = Net.Status.Offline;
+            hadRooms = b.Rooms.Count > 0;
+            b.Rooms = new();
             _conns.Remove(id, out c);
         }
         c?.Close("Bạn đã offline");
         BuddiesChanged?.Invoke();
+        if (hadRooms) RoomsChanged?.Invoke();
     }
 
     public void SetBuddyGroup(string id, string group)
@@ -576,8 +580,124 @@ public sealed class ChatNode : IDisposable
 
     public string AvatarPath(string id) => Path.Combine(_store.AvatarDir, id + ".jpg");
 
-    /// <summary>Phòng công cộng mình đang ngồi, gửi kèm Presence (null = không ngồi phòng nào).</summary>
-    private List<RoomAd>? RoomAds() => null;
+    /// <summary>Phòng công cộng mình đang ngồi, gửi kèm Presence (danh sách rỗng = không ngồi phòng nào — để máy khác biết mình đã rời).</summary>
+    private List<RoomAd> RoomAds() { lock (_lock) return _rooms.Values.ToList(); }
+
+    // ───────────────────────── Phòng công cộng ─────────────────────────
+    // Không có máy chủ giữ phòng: ai đang ngồi phòng nào thì gói Presence của họ mang tên phòng đó.
+    // Danh sách phòng = gộp từ mọi người đang online; thành viên = ai đang báo ngồi phòng đó. Tin gửi thẳng tới từng thành viên,
+    // không lưu lịch sử, không chờ người offline (như phòng chat công cộng ngày xưa: vào thì thấy từ lúc vào).
+
+    private readonly Dictionary<string, RoomAd> _rooms = new();
+    private readonly List<(string To, ChatMessage Msg, DateTime At)> _roomOut = new();
+
+    /// <summary>Mã phòng từ tên: chữ thường không dấu, số, "-" (≤ 24 ký tự). "Cà phê chiều" → "ca-phe-chieu".</summary>
+    public static string RoomKey(string title)
+    {
+        var norm = (title ?? "").Trim().ToLowerInvariant().Replace('đ', 'd').Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var ch in norm)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) == System.Globalization.UnicodeCategory.NonSpacingMark) continue;
+            if (ch is >= 'a' and <= 'z' or >= '0' and <= '9') sb.Append(ch);
+            else if (sb.Length > 0 && sb[^1] != '-') sb.Append('-');
+        }
+        var k = sb.ToString().Trim('-');
+        return k.Length > 24 ? k[..24].TrimEnd('-') : k;
+    }
+
+    public static bool ValidRoomKey(string? g) => g is { Length: > 0 and <= 24 } && System.Text.RegularExpressions.Regex.IsMatch(g, "^[a-z0-9-]+$");
+
+    public bool InRoom(string g) { lock (_lock) return _rooms.ContainsKey(g); }
+
+    /// <summary>Vào phòng (chưa ai mở thì coi như mở phòng mới). Trả mã phòng.</summary>
+    public string JoinRoom(string title, string? topic = null)
+    {
+        var g = RoomKey(title);
+        if (!ValidRoomKey(g)) throw new ArgumentException("Tên phòng cần có chữ cái hoặc số.");
+        lock (_lock)
+        {
+            // phòng đã có người: dùng tên + chủ đề họ đang báo, để mọi người thấy giống nhau
+            var known = Prefs.Buddies.Where(b => b.Online).SelectMany(b => b.Rooms).FirstOrDefault(r => r.G == g);
+            _rooms[g] = known ?? new RoomAd(g, Clip(title.Trim(), 40), Clip((topic ?? "").Trim(), 100));
+        }
+        Announce();
+        RoomsChanged?.Invoke();
+        return g;
+    }
+
+    public void LeaveRoom(string g)
+    {
+        bool had;
+        lock (_lock) had = _rooms.Remove(g);
+        if (!had) return;
+        Announce();
+        RoomsChanged?.Invoke();
+    }
+
+    /// <summary>Mọi phòng đang có người (kể cả phòng mình ngồi), đông trước.</summary>
+    public List<(RoomAd Room, int Count, bool Joined)> PublicRooms()
+    {
+        lock (_lock)
+        {
+            var all = new Dictionary<string, (RoomAd R, int N)>();
+            foreach (var b in Prefs.Buddies.Where(b => b.Online && !Prefs.Ignored.Contains(b.Id)))
+                foreach (var r in b.Rooms)
+                    all[r.G] = all.TryGetValue(r.G, out var x) ? (x.R, x.N + 1) : (r, 1);
+            foreach (var r in _rooms.Values)
+                all[r.G] = all.TryGetValue(r.G, out var x) ? (r, x.N + 1) : (r, 1);
+            return all.Values.Select(x => (x.R, x.N, _rooms.ContainsKey(x.R.G))).OrderByDescending(x => x.Item2).ThenBy(x => x.R.T).ToList();
+        }
+    }
+
+    /// <summary>Ai đang ngồi phòng <paramref name="g"/> (mình đứng đầu nếu đang ngồi).</summary>
+    public List<Member> RoomMembers(string g)
+    {
+        lock (_lock)
+        {
+            var list = new List<Member>();
+            if (_rooms.ContainsKey(g)) list.Add(new Member(MyId, Prefs.Name));
+            list.AddRange(Prefs.Buddies.Where(b => b.Online && !Prefs.Ignored.Contains(b.Id) && b.Rooms.Any(r => r.G == g)).OrderBy(b => b.Name).Select(b => new Member(b.Id, b.Name)));
+            return list;
+        }
+    }
+
+    public RoomAd? FindRoom(string g)
+    {
+        lock (_lock)
+            return _rooms.TryGetValue(g, out var r) ? r : Prefs.Buddies.Where(b => b.Online).SelectMany(b => b.Rooms).FirstOrDefault(x => x.G == g);
+    }
+
+    private ChatMessage SendRoom(string g, string kind, string text, string? style, string? fg, int? size)
+    {
+        RoomAd room;
+        lock (_lock)
+        {
+            if (!_rooms.TryGetValue(g, out var r)) throw new InvalidOperationException("Bạn đã rời phòng này.");
+            room = r;
+        }
+        var msg = new ChatMessage
+        {
+            Mid = Guid.NewGuid().ToString("N"), From = MyId, FromName = Prefs.Name, Kind = kind, Text = Clip(text ?? "", MaxText),
+            Style = style, Fg = fg, Size = size is >= 10 and <= 22 ? size : null, At = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Room = room,
+        };
+        _store.MarkSeen(msg.Mid);
+        var to = RoomMembers(g).Select(x => x.Id).Where(x => x != MyId).ToList();
+        lock (_lock) foreach (var id in to) _roomOut.Add((id, msg, DateTime.UtcNow));
+        Sent?.Invoke("r:" + g, msg);
+        foreach (var id in to) Flush(id);
+        return msg;
+    }
+
+    /// <summary>Gửi tin phòng công cộng đang chờ kết nối (bỏ nếu quá 30 giây — người đó chắc đã đi).</summary>
+    private void FlushRoom(string id, FramedConnection c)
+    {
+        lock (_lock)
+        {
+            _roomOut.RemoveAll(x => DateTime.UtcNow - x.At > TimeSpan.FromSeconds(30));
+            foreach (var x in _roomOut.Where(x => x.To == id).ToList()) { c.Send(new { t = "msg", m = x.Msg }); _roomOut.Remove(x); }
+        }
+    }
 
     /// <summary>Đặt ảnh đại diện (JPEG / PNG đã thu nhỏ ở giao diện; null = bỏ ảnh). Bạn bè thấy mã ảnh mới trong gói Presence / hello rồi tự hỏi tải.</summary>
     public void SetAvatar(byte[]? image)
@@ -638,13 +758,21 @@ public sealed class ChatNode : IDisposable
 
     /// <summary>Cuộc chat của tin: nhóm → "g:gid"; 1-1 → "u:id người kia" (tin mình gửi thì người kia = người nhận).</summary>
     private string ConvOf(ChatMessage m, bool mine, string to) =>
-        m.Group is { } g ? "g:" + g.Gid : "u:" + (mine ? to : m.From);
+        m.Room is { } r ? "r:" + r.G : m.Group is { } g ? "g:" + g.Gid : "u:" + (mine ? to : m.From);
 
     private void Deliver(ChatMessage msg)
     {
         msg.Text = Clip(msg.Text, MaxText);
         msg.FromName = Clip(msg.FromName, 32);
         var conv = ConvOf(msg, mine: false, to: "");
+        if (msg.Room is { } room)
+        {
+            // phòng công cộng: chỉ nhận khi mình đang ngồi phòng đó; không lưu lịch sử
+            if (msg.Kind != "text" || !ValidRoomKey(room.G) || !InRoom(room.G)) return;
+            msg.Group = null; msg.File = null;
+            MessageReceived?.Invoke(conv, msg);
+            return;
+        }
         if (msg.Group is { } g && g.Gid.Length > 0)
         {
             GroupMeta? changed = null;
@@ -702,6 +830,7 @@ public sealed class ChatNode : IDisposable
             if (msg.Group is null) throw new InvalidOperationException("Không còn phòng chat nhóm này.");
             to = msg.Group.Members.Select(x => x.Id).Where(x => x != MyId).Distinct().ToList();
         }
+        else if (conv.StartsWith("r:")) return SendRoom(conv[2..], kind == "text" ? kind : "text", text ?? "", style, fg, size);
         else to = Recipients(conv);
         _store.MarkSeen(msg.Mid);
         _store.AppendHistory(conv, msg);
@@ -730,8 +859,10 @@ public sealed class ChatNode : IDisposable
         lock (_lock)
         {
             items = _store.Outbox.Where(o => o.To == id).ToList();
-            if (items.Count == 0) return;
+            var room = _roomOut.Any(x => x.To == id);
+            if (items.Count == 0 && !room) return;
             _conns.TryGetValue(id, out c);
+            if (room && c is { IsClosed: false }) FlushRoom(id, c);
             if (c is { IsClosed: false })
                 foreach (var o in items.Where(o => o.SentOn != c)) { o.SentOn = c; c.Send(new { t = "msg", m = o.Msg }); }
         }

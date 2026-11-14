@@ -95,6 +95,19 @@ public static class SelfTest
             var ig2 = a.Send("u:" + idB, "text", "đã bỏ chặn");
             Check(await Until(() => { lock (inB) return inB.Any(x => x.Msg.Mid == ig2.Mid); }), "Bỏ chặn: B nhận lại tin của A");
 
+            // phòng công cộng: A mở phòng → B thấy trong danh sách, vào phòng, nhận tin; không lưu lịch sử; B rời → A thấy còn 1 người
+            Check(ChatNode.RoomKey("Cà phê  chiều!") == "ca-phe-chieu" && ChatNode.RoomKey("Đá banh") == "da-banh", "Mã phòng từ tên tiếng Việt");
+            var rg = a.JoinRoom("Cà phê chiều", "Giải lao 15 phút");
+            Check(await Until(() => b.PublicRooms().Any(x => x.Room.G == rg && x.Count == 1 && x.Room.Topic == "Giải lao 15 phút")), "B thấy phòng công cộng A vừa mở");
+            b.JoinRoom("ca phe chieu");
+            Check(await Until(() => a.RoomMembers(rg).Count == 2), "A thấy B vào phòng");
+            var rm = a.Send("r:" + rg, "text", "chào cả phòng");
+            Check(await Until(() => { lock (inB) return inB.Any(x => x.Msg.Mid == rm.Mid && x.Conv == "r:" + rg); }), "B nhận tin phòng công cộng");
+            Check(!new ChatStore(dirB).LoadHistory("r:" + rg).Any() && a.Pending(rm.Mid).Count == 0, "Tin phòng công cộng không lưu lịch sử / không chờ");
+            b.LeaveRoom(rg);
+            Check(await Until(() => a.RoomMembers(rg).Count == 1), "A thấy B rời phòng");
+            a.LeaveRoom(rg);
+
             // trùng nick: máy C đăng nhập bằng đúng ID của A → cả hai đều biết
             var sc = new ChatStore(Path.Combine(root, "C"));
             sc.Prefs.Id = idA; sc.Prefs.Name = "an.nguyen"; sc.Prefs.ManualPeers = new() { "127.0.0.1:" + discA };

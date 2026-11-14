@@ -484,6 +484,16 @@ public class AdvanceNoteControl : UserControl
                     await SyncRequestsAsync(root.TryGetProperty("programmer", out var pr) ? pr.GetString() ?? "" : "");
                     break;
 
+                // Request Content của y/c chưa có nội dung (New Request rồi nhập mã y/c): lấy nội dung theo mã từ quản lý yêu cầu. Trang tự điền + lưu.
+                case "fetchContent":
+                {
+                    var fid = root.TryGetProperty("id", out var fi) ? fi.GetString() ?? "" : "";
+                    var fname = root.TryGetProperty("name", out var fn) ? fn.GetString() ?? "" : "";
+                    var (content, ferr) = await AdvancePackageBuilder.FetchContentByCodeAsync(_workspace(), fname);
+                    Js($"advNote.onContentFetched({J(new { id = fid, content, error = ferr })})");
+                    break;
+                }
+
                 case "aiCatalog":
                     AiCatalogRequested?.Invoke(root.GetProperty("name").GetString() ?? "", root.GetProperty("content").GetString() ?? "");
                     break;
@@ -640,17 +650,7 @@ public class AdvanceNoteControl : UserControl
             return;
         }
 
-        // Nội dung y/c = noi_dung kéo về, kèm 1 dòng thông tin bộ phận / nhân viên / lập trình ở cuối.
-        static string BuildContent(FsgProjectLookupService.RequestRow r)
-        {
-            var info = $"Bộ phận: {r.BpLt} | Nhân viên: {r.MaNv1} | Lập trình: {r.MaLt1}" + (string.IsNullOrWhiteSpace(r.MaXlyc) ? "" : " | Trạng thái y/c: " + r.MaXlyc.Trim());
-            // Thứ tự: Menu (ten_menu) → noi_dung → Ghi chú (ghi_chu) → dòng thông tin bộ phận / nhân viên / lập trình.
-            var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(r.TenMenu)) parts.Add("Menu: " + r.TenMenu.Trim());
-            if (!string.IsNullOrWhiteSpace(r.NoiDung)) parts.Add(r.NoiDung.Trim());
-            if (!string.IsNullOrWhiteSpace(r.GhiChu)) parts.Add("Ghi chú: " + r.GhiChu.Trim());
-            return parts.Count == 0 ? info : string.Join("\r\n\r\n", parts) + "\r\n\r\n---\r\n" + info;
-        }
+        static string BuildContent(FsgProjectLookupService.RequestRow r) => AdvancePackageBuilder.BuildRequestContent(r);
 
         // Nội dung chỉ gồm phần tự sinh (Menu: / dòng "Bộ phận: …" / gạch ngang) — chưa có nội dung người dùng viết.
         static bool IsAutoOnly(string c) =>

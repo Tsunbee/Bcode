@@ -78,8 +78,8 @@ public partial class ScriptEditorControl : UserControl
     // which is most of what F12 gets pressed on in practice.
 
     /// <summary>One &lt;!ENTITY ...&gt; declaration, either SYSTEM (Value is null, SystemPath
-    /// set) or a value entity (Value set, SystemPath is null).</summary>
-    private readonly record struct EntityDecl(string Name, bool IsSystem, string? Value, string? SystemPath, int Offset);
+    /// set) or a value entity (Value set, SystemPath is null). IsParam = khai báo tham số &lt;!ENTITY % Tên ...&gt; (công tắc khối điều kiện %Tên;).</summary>
+    private readonly record struct EntityDecl(string Name, bool IsSystem, string? Value, string? SystemPath, int Offset, bool IsParam = false);
 
     /// <summary>Result of resolving a name: which declaration it is, and the path/text of the
     /// file that actually declared it (may be a SYSTEM-included file several hops away from
@@ -656,8 +656,10 @@ public partial class ScriptEditorControl : UserControl
 
             int p = at + 8; // "<!ENTITY".Length
             while (p < text.Length && char.IsWhiteSpace(text[p])) p++;
+            bool isParam = false;
             if (p < text.Length && text[p] == '%')
             {
+                isParam = true;
                 p++;
                 while (p < text.Length && char.IsWhiteSpace(text[p])) p++;
             }
@@ -701,7 +703,8 @@ public partial class ScriptEditorControl : UserControl
                 isSystem,
                 isSystem ? null : quoted.Value.Text,
                 isSystem ? quoted.Value.Text : null,
-                at));
+                at,
+                isParam));
 
             // Resume past the value: a value holding its own "<!ENTITY" text (SQL that
             // builds a DOCTYPE, which does happen) must not be read as a second declaration.
@@ -907,7 +910,34 @@ public partial class ScriptEditorControl : UserControl
     /// peek, a message to show, or nothing at all (all null).</summary>
     internal readonly record struct F12Result(
         string? NavigatePath, string? PeekName, string? PeekValue, string? PeekDeclaringPath,
-        string? Message, bool IsWarning);
+        string? Message, bool IsWarning, int PeekDeclLine = 0);
+
+    /// <summary>Dòng (1-based) của vị trí ký tự <paramref name="offset"/> trong <paramref name="text"/>.</summary>
+    internal static int LineOf(string text, int offset)
+    {
+        var n = Math.Clamp(offset, 0, text.Length);
+        var line = 1;
+        for (var i = 0; i < n; i++) if (text[i] == '\n') line++;
+        return line;
+    }
+
+    /// <summary>Chữ [start, end) dưới con trỏ chắc chắn KHÔNG phải tên entity — như notEntityReason của BcodeViewer (entity.js): ký tự có sẵn của XML
+    /// (&amp;lt; &amp;gt; &amp;amp; &amp;quot; &amp;apos;, &amp;#123; / &amp;#x1F;) hoặc từ khoá khai báo (&lt;!ENTITY, &lt;!DOCTYPE, SYSTEM, PUBLIC...). "" = có thể là entity.</summary>
+    private static string NotEntityReason(string text, int start, int end)
+    {
+        var word = text.Substring(start, end - start);
+        int lineStart = start == 0 ? 0 : text.LastIndexOf('\n', start - 1) + 1;
+        var before = text.Substring(lineStart, start - lineStart);
+        var afterSemi = end < text.Length && text[end] == ';';
+        if (before.EndsWith('&') && BuiltinEntities.Contains(word) && afterSemi) return $"&{word}; là ký tự có sẵn của XML, không phải entity.";
+        if (Regex.IsMatch(before, @"&#x?$", RegexOptions.IgnoreCase) || (Regex.IsMatch(before + word, @"&#x?[0-9a-f]*$", RegexOptions.IgnoreCase) && afterSemi))
+            return "Đây là mã ký tự XML (&#...;), không phải entity.";
+        if (before.EndsWith("<!") && Regex.IsMatch(word, @"^(ENTITY|DOCTYPE|ELEMENT|ATTLIST|NOTATION)$"))
+            return $"<!{word} là từ khoá khai báo — đặt con trỏ lên TÊN entity hoặc đường dẫn file để F12.";
+        if (Regex.IsMatch(before, @"<!(ENTITY|DOCTYPE)\b") && Regex.IsMatch(word, @"^(SYSTEM|PUBLIC|NDATA)$"))
+            return $"{word} là từ khoá khai báo — đặt con trỏ lên TÊN entity hoặc đường dẫn file để F12.";
+        return "";
+    }
 
     /// <summary>F12 resolution on plain text, shared by this control and the Monaco preview
     /// (<see cref="MonacoPreviewControl"/>), so both resolve exactly the same way. Lines in
@@ -935,8 +965,11 @@ public partial class ScriptEditorControl : UserControl
                 return new F12Result(existing, null, null, null, null, false);
         }
 
-        var name = GetWordAt(text, caretIndex);
-        if (string.IsNullOrEmpty(name)) return default;
+        var (wordStart, wordEnd) = GetWordSpan(text, caretIndex);
+        if (wordEnd <= wordStart) return default;
+        var name = text.Substring(wordStart, wordEnd - wordStart);
+        if (NotEntityReason(text, wordStart, wordEnd) is { Length: > 0 } notEntity)
+            return new F12Result(null, null, null, null, notEntity, false);
 
         var found = LookupEntity(name, basePath, text);
         if (found is null)
@@ -945,7 +978,8 @@ public partial class ScriptEditorControl : UserControl
 
         var decl = found.Value.Decl;
         if (!decl.IsSystem)
-            return new F12Result(null, name, decl.Value ?? "", found.Value.DeclaringPath, null, false);
+            return new F12Result(null, name, decl.Value ?? "", found.Value.DeclaringPath, null, false,
+                decl.Offset >= 0 ? LineOf(found.Value.DeclaringText, decl.Offset) : 0);
 
         string fullPath;
         try
@@ -968,16 +1002,18 @@ public partial class ScriptEditorControl : UserControl
     /// entity SYSTEM / đường dẫn Include → file đó; entity giá trị → file khai báo nó; con trỏ không ở entity → chính file đang xem
     /// (<paramref name="currentPath"/>, không có trên đĩa — vd cửa sổ xem giá trị entity — thì file khai báo <paramref name="basePath"/>).
     /// null + <paramref name="message"/> = không có file để mở (F12 báo lỗi, hoặc khung không gắn với file nào).</summary>
-    internal static string? ResolveViewerTarget(string text, int caretIndex, string? basePath, string? currentPath, out string? message, out bool isWarning)
+    /// <paramref name="line"/> &gt; 0 = dòng nhảy tới trong file đó (như Ctrl+F12 của BcodeViewer): entity giá trị → dòng khai báo; chính file đang xem → dòng con trỏ.</summary>
+    internal static string? ResolveViewerTarget(string text, int caretIndex, string? basePath, string? currentPath, out string? message, out bool isWarning, out int line)
     {
         message = null;
         isWarning = false;
+        line = 0;
         var r = ResolveF12(text, caretIndex, basePath);
         if (r.NavigatePath is { } target) return target;
-        if (r.PeekName is not null && r.PeekDeclaringPath is { } declaring) return declaring;
+        if (r.PeekName is not null && r.PeekDeclaringPath is { } declaring) { line = r.PeekDeclLine; return declaring; }
         // Entity khai báo trỏ tới file không có → báo như F12. "Không tìm thấy khai báo" (con trỏ ở chữ thường) → mở chính file như dưới.
         if (r.Message is { } msg && r.IsWarning) { message = msg; isWarning = true; return null; }
-        if (!string.IsNullOrEmpty(currentPath) && File.Exists(currentPath)) return currentPath;
+        if (!string.IsNullOrEmpty(currentPath) && File.Exists(currentPath)) { line = LineOf(text, caretIndex); return currentPath; }
         if (!string.IsNullOrEmpty(basePath) && File.Exists(basePath)) return basePath;
         message = "Khung này không gắn với file nào trên đĩa — không có gì để mở bằng BcodeViewer.";
         return null;
@@ -986,8 +1022,8 @@ public partial class ScriptEditorControl : UserControl
     /// <summary>Ctrl+F12 (file.openInViewer) trong khung này: mở bằng BcodeViewer file F12 sẽ đi tới (<see cref="ResolveViewerTarget"/>).</summary>
     private void OpenInViewerAtCaret()
     {
-        var path = ResolveViewerTarget(_textBox.Text, _textBox.SelectionStart, _entityResolveBasePath, CurrentPath, out var msg, out var warn);
-        if (path is not null) Bcode.App.Services.ViewerLauncher.Open(FindForm(), path);
+        var path = ResolveViewerTarget(_textBox.Text, _textBox.SelectionStart, _entityResolveBasePath, CurrentPath, out var msg, out var warn, out var line);
+        if (path is not null) Bcode.App.Services.ViewerLauncher.Open(FindForm(), path, line);
         else if (msg is not null)
             MessageBox.Show(this, msg, "Bcode", MessageBoxButtons.OK, warn ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
     }
@@ -1016,7 +1052,14 @@ public partial class ScriptEditorControl : UserControl
     /// FastBusiness's own entity naming (see <see cref="IsEntityNameChar"/>).</summary>
     private static string GetWordAt(string text, int index)
     {
-        if (text.Length == 0) return "";
+        var (s, e) = GetWordSpan(text, index);
+        return e > s ? text.Substring(s, e - s) : "";
+    }
+
+    /// <summary>Như <see cref="GetWordAt"/> nhưng trả vị trí [start, end) — (0, 0) = không có chữ.</summary>
+    private static (int Start, int End) GetWordSpan(string text, int index)
+    {
+        if (text.Length == 0) return (0, 0);
         index = Math.Clamp(index, 0, text.Length - 1);
 
         static bool IsWordChar(char c) => IsEntityNameChar(c);
@@ -1024,14 +1067,14 @@ public partial class ScriptEditorControl : UserControl
         if (!IsWordChar(text[index]))
         {
             if (index > 0 && IsWordChar(text[index - 1])) index--;
-            else return "";
+            else return (0, 0);
         }
 
         var start = index;
         while (start > 0 && IsWordChar(text[start - 1])) start--;
         var end = index;
         while (end < text.Length - 1 && IsWordChar(text[end + 1])) end++;
-        return text.Substring(start, end - start + 1);
+        return (start, end + 1);
     }
 
     public string Content

@@ -162,20 +162,10 @@ public partial class MonacoPreviewControl : UserControl
     /// <summary>Phím file.openInViewer (mặc định Ctrl+F12): mở bằng BcodeViewer file mà F12 tại <paramref name="offset"/> sẽ đi tới
     /// (<see cref="ScriptEditorControl.ResolveViewerTarget"/>). BeginInvoke: đến từ callback của trang WebView2 — hộp chọn BcodeViewer.exe
     /// (lần đầu, chưa cài) là hộp modal, không mở ngay trong callback đó.</summary>
-    /// <summary>Số dòng (1-based) của vị trí ký tự <paramref name="offset"/> trong text.</summary>
-    private static int LineOf(string text, int offset)
-    {
-        var n = Math.Clamp(offset, 0, text.Length);
-        var line = 1;
-        for (var i = 0; i < n; i++) if (text[i] == '\n') line++;
-        return line;
-    }
-
     private void OnOpenInViewer(int offset)
     {
-        var path = ScriptEditorControl.ResolveViewerTarget(_text, offset, _entityResolveBasePath, CurrentPath, out var msg, out var warn);
-        // Mở đúng file đang xem → nhảy tới dòng con trỏ trong BcodeViewer (pipe có phiên bản). Mở file khác (đi tới entity) thì không biết dòng → mở đầu file.
-        var line = path is not null && string.Equals(path, CurrentPath, StringComparison.OrdinalIgnoreCase) ? LineOf(_text, offset) : 0;
+        // Dòng nhảy tới: chính file đang xem → dòng con trỏ; entity giá trị → dòng khai báo (như Ctrl+F12 của BcodeViewer); file include → đầu file.
+        var path = ScriptEditorControl.ResolveViewerTarget(_text, offset, _entityResolveBasePath, CurrentPath, out var msg, out var warn, out var line);
         BeginInvoke(new Action(() =>
         {
             if (path is not null) Bcode.App.Services.ViewerLauncher.Open(FindForm(), path, line);

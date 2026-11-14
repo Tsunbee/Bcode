@@ -252,15 +252,34 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
     /// Note (New) → "Sync yêu cầu": kéo danh sách yêu cầu của <paramref name="programmer"/> (cột ma_lt1) trong dự án
     /// <paramref name="maDa"/> từ bảng nvphyc, theo thứ tự xorder, stt_rec. fcode1 = mã yêu cầu, noi_dung = nội dung yêu cầu. Chỉ ĐỌC. Lỗi chỉ trả câu chung.
     /// </summary>
-    public async Task<(List<RequestRow> Rows, string? Error)> FetchRequestsAsync(string maDa, string programmer)
+    public Task<(List<RequestRow> Rows, string? Error)> FetchRequestsAsync(string maDa, string programmer)
+    {
+        programmer = (programmer ?? "").Trim();
+        if (programmer.Length == 0) return Task.FromResult<(List<RequestRow>, string?)>((new(), "Chưa khai tên lập trình."));
+        return FetchCoreAsync(maDa, programmer, byCode: false);
+    }
+
+    /// <summary>
+    /// Note (New) → y/c tạo tay, nhập mã y/c rồi bấm "Request Content": nội dung của ĐÚNG 1 mã y/c (fcode1) trong dự án <paramref name="maDa"/>
+    /// — cùng nguồn / cách dựng với Sync (nvphyc + ns_getContentInfo). null = không có mã đó trong dự án. Chỉ ĐỌC.
+    /// </summary>
+    public async Task<(RequestRow? Row, string? Error)> FetchRequestByCodeAsync(string maDa, string fcode1)
+    {
+        fcode1 = (fcode1 ?? "").Trim();
+        if (fcode1.Length == 0) return (null, "Chưa nhập mã y/c.");
+        var (rows, error) = await FetchCoreAsync(maDa, fcode1, byCode: true);
+        return (rows.FirstOrDefault(), error);
+    }
+
+    /// <summary>byCode = false: các y/c của lập trình <paramref name="key"/> (ma_lt1); true: y/c có mã <paramref name="key"/> (fcode1).</summary>
+    private async Task<(List<RequestRow> Rows, string? Error)> FetchCoreAsync(string maDa, string key, bool byCode)
     {
         maDa = (maDa ?? "").Trim();
-        programmer = (programmer ?? "").Trim();
+        var programmer = key.Trim();
         if (maDa.Length == 0) return (new(), "Chưa chọn project.");
-        if (programmer.Length == 0) return (new(), "Chưa khai tên lập trình.");
 
         // Bấm Sync liên tục (hoặc Note + Gen gói cùng lúc): trong 60 giây dùng lại kết quả vừa kéo, không gọi FSG thêm.
-        var syncKey = (maDa + "|" + programmer).ToUpperInvariant();
+        var syncKey = (byCode ? "#code|" : "") + (maDa + "|" + programmer).ToUpperInvariant();
         lock (SyncRecent)
             if (SyncRecent.TryGetValue(syncKey, out var recent) && DateTime.UtcNow - recent.At < SyncReuse) return (recent.Rows, null);
 
@@ -273,7 +292,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
             string BaseQuery(bool noteStamp) =>
                 "SELECT a.stt_rec, a.ma_da, a.bp_lt, a.ma_nv1, a.ma_lt1, a.fcode1, a.noi_dung, a.datetime2, ct.n_ct, ct.m_ct FROM nvphyc a WITH (NOLOCK) " +
                 "OUTER APPLY (SELECT COUNT(*) AS n_ct, " + (noteStamp ? "MAX(c.datetime2)" : "CAST(NULL AS datetime)") + " AS m_ct FROM nbctyc c WITH (NOLOCK) WHERE c.stt_rec = a.stt_rec) ct " +
-                "WHERE a.ma_da = @ma_da AND a.ma_lt1 = @lt AND ISNULL(a.fcode1, '') <> '' ORDER BY a.xorder, a.stt_rec";
+                "WHERE a.ma_da = @ma_da AND " + (byCode ? "a.fcode1 = @lt" : "a.ma_lt1 = @lt AND ISNULL(a.fcode1, '') <> ''") + " ORDER BY a.xorder, a.stt_rec";
             await using var cmd = new SqlCommand(BaseQuery(_noteHasStamp != false), conn) { CommandTimeout = 60 };
             cmd.Parameters.Add("@ma_da", System.Data.SqlDbType.NVarChar, 100).Value = maDa;
             cmd.Parameters.Add("@lt", System.Data.SqlDbType.NVarChar, 100).Value = programmer;
@@ -339,7 +358,7 @@ SELECT * FROM #data WHERE (@ma_da IS NULL OR ma_da = @ma_da);";
         }
         catch
         {
-            return (new(), Available ? "Không đồng bộ được yêu cầu — kiểm tra kết nối mạng hoặc quyền rồi thử lại." : MissingSecretMessage);
+            return (new(), Available ? (byCode ? "Không lấy được nội dung y/c" : "Không đồng bộ được yêu cầu") + " — kiểm tra kết nối mạng hoặc quyền rồi thử lại." : MissingSecretMessage);
         }
     }
 

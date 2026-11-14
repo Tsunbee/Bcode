@@ -1520,9 +1520,32 @@ public sealed class NativeAdvanceNoteControl : UserControl
         _fFilePaths.Text = (cur.Length > 0 ? cur + "\r\n" : "") + string.Join("\r\n", paths);
     }
 
-    private void OpenContent()
+    private async void OpenContent()
     {
         if (_cur is null) return;
+        // Y/c chưa có nội dung (New Request rồi nhập mã y/c vào Tên y/c): lấy nội dung theo mã từ quản lý yêu cầu (như Sync) rồi mới mở khung.
+        // Trước đây mở khung trống → tưởng là không xem được nội dung y/c. Không lấy được / không có mã → vẫn mở khung trống để nhập tay.
+        var code = _fName.Text.Trim();
+        if (_viewOwner is null && string.IsNullOrWhiteSpace(_cur.Content) && code.Length > 0 && !BusyGuard())
+        {
+            Flush();
+            var req = _cur;
+            SetBusy(true, $"Đang lấy nội dung y/c {code}...");
+            try
+            {
+                var (content, error) = await AdvancePackageBuilder.FetchContentByCodeAsync(_workspace(), code);
+                if (content is not null && string.IsNullOrWhiteSpace(req.Content))
+                {
+                    req.Content = content;
+                    _store.Save(_workspace(), _settings, _requests);
+                    SetStatus("Đã lấy nội dung y/c từ quản lý yêu cầu.", ok: true);
+                }
+                else if (error is not null) SetStatus(error, true);
+            }
+            catch (Exception ex) { SetStatus(ex.Message, true); }
+            finally { SetBusy(false); }
+            if (!ReferenceEquals(req, _cur)) return;   // đã chọn y/c khác trong lúc chờ
+        }
         using var dlg = new RequestContentDialog(_cur.Name, _cur.Content);
         dlg.ShowDialog(FindForm());
         if (_viewOwner is null && dlg.Text.Length >= 0 && dlg.ResultText != _cur.Content) { _cur.Content = dlg.ResultText; Dirty(); Flush(); }

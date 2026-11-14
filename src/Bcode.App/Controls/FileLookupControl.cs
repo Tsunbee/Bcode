@@ -241,7 +241,9 @@ public partial class FileLookupControl : UserControl
                 if (ApiSchemaRequested is not null) _fileContextMenu.Items.Add("Tạo cấu trúc API…", null, (_, _) => ApiSchemaRequested?.Invoke(apiFile.FullPath));
                 if (ApiDeclareRequested is not null) _fileContextMenu.Items.Add("Tạo khai báo API…", null, (_, _) => ApiDeclareRequested?.Invoke(apiFile.FullPath));
             }
-            _fileContextMenu.Items.Add("Copy path", null, (_, _) => CopyPath());
+            // Có tick file → copy đường dẫn TẤT CẢ file đã tick (mỗi dòng 1 file, như Ctrl+C); không tick = dòng đang chọn. Trước đây luôn chỉ copy 1 dòng.
+            var nChecked = CheckedFiles().Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            _fileContextMenu.Items.Add(nChecked > 0 ? $"Copy path ({nChecked} file đã tick)" : "Copy path", null, (_, _) => CopyCheckedPaths());
             _fileContextMenu.Items.Add("Get Hash Source", null, async (_, _) => await GetHashSourceAsync());
             _fileContextMenu.Items.Add("Cấp source (tự động theo phiên bản)...", null, (_, _) => BeginInvoke(new Action(ShowGrantSourceDialog)));
             _fileContextMenu.Items.Add("Cấp source thủ công (Add Source)...", null, (_, _) => ShowAddSource());

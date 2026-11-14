@@ -127,6 +127,32 @@ public static class AdvancePackageBuilder
     /// cho mỗi mã yêu cầu (fcode1) chưa có trong danh sách — y/c đã có (trùng tên, không phân biệt hoa/thường) giữ nguyên, không ghi đè.
     /// Nội dung y/c mới được điền sẵn bộ phận / mã nhân viên / người lập trình lấy về. Trả (thành công, thông báo, danh sách có thay đổi cần lưu).
     /// </summary>
+    /// <summary>Nội dung y/c dựng từ 1 dòng kéo về (dùng chung Sync / lấy theo mã): Menu (ten_menu) → noi_dung → Ghi chú (ghi_chu) → "---" + dòng
+    /// thông tin bộ phận / nhân viên / lập trình ở cuối.</summary>
+    internal static string BuildRequestContent(FsgProjectLookupService.RequestRow r)
+    {
+        var info = $"Bộ phận: {r.BpLt} | Nhân viên: {r.MaNv1} | Lập trình: {r.MaLt1}" + (string.IsNullOrWhiteSpace(r.MaXlyc) ? "" : " | Trạng thái y/c: " + r.MaXlyc.Trim());
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(r.TenMenu)) parts.Add("Menu: " + r.TenMenu.Trim());
+        if (!string.IsNullOrWhiteSpace(r.NoiDung)) parts.Add(r.NoiDung.Trim());
+        if (!string.IsNullOrWhiteSpace(r.GhiChu)) parts.Add("Ghi chú: " + r.GhiChu.Trim());
+        return parts.Count == 0 ? info : string.Join("\r\n\r\n", parts) + "\r\n\r\n---\r\n" + info;
+    }
+
+    /// <summary>Y/c tạo tay (New Request) đã nhập mã nhưng chưa có nội dung: lấy nội dung của mã <paramref name="code"/> trong dự án đang chọn
+    /// từ quản lý yêu cầu (như Sync, nhưng chỉ 1 mã, không cần tên lập trình). Content null + Error = không lấy được / không có mã đó.</summary>
+    public static async Task<(string? Content, string? Error)> FetchContentByCodeAsync(Workspace? ws, string code)
+    {
+        code = (code ?? "").Trim();
+        var maDa = ws is null ? "" : (string.IsNullOrWhiteSpace(ws.ProjectId) ? ws.Name : ws.ProjectId).Trim();
+        if (maDa.Length == 0) return (null, "Chưa chọn project.");
+        if (code.Length == 0) return (null, "Nhập mã y/c vào ô Tên y/c trước.");
+        var (row, error) = await new FsgProjectLookupService().FetchRequestByCodeAsync(maDa, code);
+        if (error is not null) return (null, error);
+        if (row is null) return (null, $"Không thấy y/c mã \"{code}\" trong dự án {maDa} (quản lý yêu cầu) — nhập nội dung tay ở khung này.");
+        return (BuildRequestContent(row), null);
+    }
+
     public static async Task<(bool Ok, string Message, bool Changed)> SyncAsync(List<AdvanceRequest> requests, Workspace? ws, string programmer)
     {
         programmer = programmer.Trim();
@@ -137,17 +163,7 @@ public static class AdvancePackageBuilder
         var (rows, error) = await new FsgProjectLookupService().FetchRequestsAsync(code, programmer);
         if (error is not null) return (false, error, false);
 
-        // Nội dung y/c = noi_dung kéo về, kèm 1 dòng thông tin bộ phận / nhân viên / lập trình ở cuối.
-        static string BuildContent(FsgProjectLookupService.RequestRow r)
-        {
-            var info = $"Bộ phận: {r.BpLt} | Nhân viên: {r.MaNv1} | Lập trình: {r.MaLt1}" + (string.IsNullOrWhiteSpace(r.MaXlyc) ? "" : " | Trạng thái y/c: " + r.MaXlyc.Trim());
-            // Thứ tự: Menu (ten_menu) → noi_dung → Ghi chú (ghi_chu) → dòng thông tin bộ phận / nhân viên / lập trình.
-            var parts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(r.TenMenu)) parts.Add("Menu: " + r.TenMenu.Trim());
-            if (!string.IsNullOrWhiteSpace(r.NoiDung)) parts.Add(r.NoiDung.Trim());
-            if (!string.IsNullOrWhiteSpace(r.GhiChu)) parts.Add("Ghi chú: " + r.GhiChu.Trim());
-            return parts.Count == 0 ? info : string.Join("\r\n\r\n", parts) + "\r\n\r\n---\r\n" + info;
-        }
+        static string BuildContent(FsgProjectLookupService.RequestRow r) => BuildRequestContent(r);
 
         // Nội dung chỉ gồm phần tự sinh (Menu: / dòng "Bộ phận: …" / gạch ngang) — chưa có nội dung người dùng viết.
         static bool IsAutoOnly(string c) =>

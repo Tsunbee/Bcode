@@ -746,7 +746,19 @@
   // ---- Khung nội dung phóng to: sửa trực tiếp, đồng bộ 2 chiều với ô Request Content (tự lưu như khi gõ ở ô nhỏ) ----
   // Khung dùng chung cho Note (nút 📝 Note → note.txt của gói): S.cField = ô ẩn đang sửa; Note chỉ sửa chữ thuần (không có Xem đẹp).
   S.cField = 'fContent';
-  function openContent() { openBox('fContent'); }
+  // Y/c chưa có nội dung (New Request rồi nhập mã y/c vào Tên y/c): lấy nội dung theo mã từ quản lý yêu cầu (như Sync) rồi mới mở khung.
+  // Trước đây mở khung trống → tưởng là không xem được nội dung y/c. Không lấy được / không có mã → vẫn mở khung trống để nhập tay.
+  function openContent() {
+    const r = cur(); if (!r) return;
+    const name = ($('fName').value || '').trim();
+    if (!S.ro && !$('fContent').value.trim() && name) {
+      flushSave();
+      setBusy(true, 'Đang lấy nội dung y/c ' + name + '...');
+      post('fetchContent', { id: r.id, name });
+      return;
+    }
+    openBox('fContent');
+  }
   function openBox(field) {
     const r = cur(); if (!r) return;
     S.cField = field;
@@ -924,6 +936,17 @@
     onViewChanged(res) { setBusy(false); setStatus(res.message, res.ok ? 'ok' : 'err'); },
     onCopied(res) { setStatus(res.message, res.ok ? 'ok' : 'err'); },
     onSynced(res) { setBusy(false); setStatus(res.message, res.ok ? 'ok' : 'err'); },
+    // Trả lời fetchContent (openContent): điền nội dung lấy theo mã vào ô Request Content (tự lưu như khi gõ) rồi mở khung.
+    onContentFetched(res) {
+      setBusy(false);
+      if (!res || res.id !== S.currentId) return;   // đã chọn y/c khác trong lúc chờ
+      if (res.content && !$('fContent').value.trim()) {
+        $('fContent').value = res.content;
+        $('fContent').dispatchEvent(new Event('input', { bubbles: true }));
+        setStatus('Đã lấy nội dung y/c từ quản lý yêu cầu.', 'ok');
+      } else if (res.error) setStatus(res.error, 'err');
+      openBox('fContent');
+    },
     setBusy(b, msg) { setBusy(b, msg); },
     addPaths(paths) {
       const el = $('fFilePaths'); const cur0 = el.value.replace(/\s+$/, '');

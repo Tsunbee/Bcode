@@ -15,6 +15,11 @@ namespace Bcode.App.Controls;
 ///
 /// Cũ/mới: nội dung file đọc được nhớ kèm giờ sửa; chỉ mục quá <see cref="RefreshAfter"/> thì lần F12 kế dùng ngay bản đang có và kiểm tra lại ở nền
 /// (chỉ đọc lại file đã đổi). Tra không thấy mà chỉ mục đã cũ quá 2 giây thì dựng lại ngay rồi tra lần nữa (vừa thêm khai báo ở tool khác vẫn ra).
+///
+/// Khối điều kiện &lt;![%Conditional.X;[ … ]]&gt; / &lt;![INCLUDE[ ]]&gt; / &lt;![IGNORE[ ]]&gt;: xử lý y như BcodeViewer (Web/entity.js applyConditionals /
+/// lookupParamValue) — khối IGNORE bị bỏ (thay bằng khoảng trắng giữ nguyên độ dài để offset không lệch), nên khai báo đứng sau khối mới là cái có hiệu lực
+/// như FBO. Công tắc %X; khai ở chính file thì tra trong file; khai ở file khác thì tra theo cây include của file GỐC (độ sâu 8, khai báo đầu thắng).
+/// Trước đây Bcode bỏ qua khối điều kiện nên F12 hay ra khai báo nằm trong khối IGNORE (khác BcodeViewer / FBO).
 /// </summary>
 public partial class ScriptEditorControl
 {
@@ -28,7 +33,72 @@ public partial class ScriptEditorControl
         public DateTime UsedAt { get; set; }
     }
 
-    private sealed record CachedFile(DateTime Stamp, string Text, List<EntityDecl> Decls);
+    /// <summary>RawDecls = mọi khai báo (kể cả trong khối IGNORE — dùng để đọc trước cả cây include); Decls = sau khi áp khối điều kiện CHỈ bằng công tắc khai
+    /// trong chính file (công tắc khai ở file khác coi như IGNORE); NeedsGlobal = có công tắc khai ở file khác → khai báo phụ thuộc file gốc, dựng lại lúc lập chỉ mục.</summary>
+    private sealed record CachedFile(DateTime Stamp, string Text, List<EntityDecl> RawDecls, List<EntityDecl> Decls, bool NeedsGlobal);
+
+    private static readonly System.Text.RegularExpressions.Regex ConditionalStartRegex =
+        new(@"<!\[\s*(?:%([A-Za-z_][\w.:$-]*);|(INCLUDE|IGNORE))\s*\[", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Chỉ cần nội dung công tắc BẮT ĐẦU bằng INCLUDE: nhiều file công tắc (vd Include\Unit.txt) có thêm rác / ký tự NULL phía sau mà FBO vẫn hiểu là INCLUDE.</summary>
+    private static readonly System.Text.RegularExpressions.Regex SwitchIncludeRegex =
+        new(@"^[\s﻿\u0000]*INCLUDE(?![A-Za-z0-9_])", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Bản C# của applyConditionals (BcodeViewer Web/entity.js): khối IGNORE → khoảng trắng (giữ '\n' và độ dài), khối INCLUDE giữ nguyên và quét tiếp bên trong.
+    /// Công tắc %X; không khai trong <paramref name="text"/> → <paramref name="lookupParam"/> (null = coi là IGNORE) và <paramref name="needsGlobal"/> = true.</summary>
+    private static string ApplyConditionals(string text, string path, Func<string, string>? lookupParam, out bool needsGlobal)
+    {
+        needsGlobal = false;
+        if (text.IndexOf("<![", StringComparison.Ordinal) < 0) return text;
+        List<EntityDecl>? parms = null;
+        char[]? buf = null;
+        var m = ConditionalStartRegex.Match(text);
+        while (m.Success)
+        {
+            // Tìm ]]> khớp, tính cả khối lồng nhau.
+            int depth = 1, i = m.Index + m.Length;
+            while (i < text.Length && depth > 0)
+            {
+                int open = text.IndexOf("<![", i, StringComparison.Ordinal);
+                int close = text.IndexOf("]]>", i, StringComparison.Ordinal);
+                if (close < 0) { i = text.Length; break; }
+                if (open >= 0 && open < close) { depth++; i = open + 3; } else { depth--; i = close + 3; }
+            }
+            int end = i;
+
+            bool include;
+            if (m.Groups[2].Success) include = m.Groups[2].Value == "INCLUDE";
+            else
+            {
+                var name = m.Groups[1].Value;
+                parms ??= ParseEntityDeclarations(text).Where(d => d.IsParam).ToList();
+                var idx = parms.FindIndex(d => d.Name == name);
+                string value = "";
+                if (idx >= 0)
+                {
+                    var d = parms[idx];
+                    value = d.IsSystem
+                        ? (IncludePath(path, d) is { } f ? ReadCached(f, restat: false)?.File.Text ?? "" : "")
+                        : d.Value ?? "";
+                }
+                else
+                {
+                    needsGlobal = true;
+                    if (lookupParam is not null) value = lookupParam(name) ?? "";
+                }
+                include = SwitchIncludeRegex.IsMatch(value);
+            }
+
+            if (include) m = ConditionalStartRegex.Match(text, m.Index + m.Length);
+            else
+            {
+                buf ??= text.ToCharArray();
+                for (int k = m.Index; k < end; k++) if (buf[k] != '\n') buf[k] = ' ';
+                m = end < text.Length ? ConditionalStartRegex.Match(text, end) : System.Text.RegularExpressions.Match.Empty;
+            }
+        }
+        return buf is null ? text : new string(buf);
+    }
 
     private static readonly TimeSpan RefreshAfter = TimeSpan.FromSeconds(20);
     private static readonly ConcurrentDictionary<string, CachedFile> FileCache = new(StringComparer.OrdinalIgnoreCase);
@@ -76,7 +146,9 @@ public partial class ScriptEditorControl
             var stamp = File.GetLastWriteTimeUtc(actual);
             if (FileCache.TryGetValue(actual, out var c) && c.Stamp == stamp) return (actual, c);
             var text = File.ReadAllText(actual);
-            var entry = new CachedFile(stamp, text, ParseEntityDeclarations(text));
+            var raw = ParseEntityDeclarations(text);
+            var applied = ApplyConditionals(text, actual, null, out var needsGlobal);
+            var entry = new CachedFile(stamp, text, raw, ReferenceEquals(applied, text) ? raw : ParseEntityDeclarations(applied), needsGlobal);
             // Giới hạn bộ nhớ: quá ~4000 file (vài chục MB) thì bỏ hết bản nhớ — chỉ mục đã dựng vẫn giữ khai báo của nó, lần dựng sau đọc lại từ đĩa.
             if (FileCache.Count > 4000) FileCache.Clear();
             FileCache[actual] = entry;
@@ -97,8 +169,9 @@ public partial class ScriptEditorControl
         var restat = FileCache.Count > 0;   // lần dựng lại: kiểm tra giờ sửa (chỉ đọc lại file đã đổi)
         // 1) Đọc cả cây include, song song theo từng tầng (ổ mạng: đọc nối tiếp 676 file mất ~2 s, song song nhanh hơn nhiều).
         var texts = new ConcurrentDictionary<string, (string Path, CachedFile File)?>(StringComparer.OrdinalIgnoreCase);
-        var rootDecls = ParseEntityDeclarations(rootText);
-        var frontier = rootDecls.Select(d => IncludePath(basePath, d)).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // Đọc theo khai báo THÔ (cả include nằm trong khối điều kiện): khối nào có hiệu lực chỉ biết sau khi tra công tắc, đọc thừa vài file không sao.
+        var rootRaw = ParseEntityDeclarations(rootText);
+        var frontier = rootRaw.Select(d => IncludePath(basePath, d)).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         while (frontier.Count > 0)
         {
             var next = new ConcurrentBag<string>();
@@ -108,13 +181,44 @@ public partial class ScriptEditorControl
                 var r = ReadCached(p, restat);
                 texts[p] = r;
                 if (r is null) return;
-                foreach (var d in r.Value.File.Decls)
+                foreach (var d in r.Value.File.RawDecls)
                     if (IncludePath(r.Value.Path, d) is { } inc && !texts.ContainsKey(inc)) next.Add(inc);
             });
             frontier = next.Distinct(StringComparer.OrdinalIgnoreCase).Where(p => !texts.ContainsKey(p)).ToList();
         }
 
-        // 2) Dựng bảng theo đúng thứ tự cũ: file trước, rồi từng include đi sâu; trùng tên → cái gặp trước thắng.
+        // 2) Công tắc %X; khai ở FILE KHÁC: tra theo cây include của file gốc như lookupParamValue của BcodeViewer — mỗi file chỉ xét khai báo đã áp
+        //    công tắc của chính nó (Decls), khai báo tham số đầu tiên gặp được thắng, độ sâu 8. Nhớ theo tên trong lần dựng này.
+        var rootNoGlobal = ParseEntityDeclarations(ApplyConditionals(rootText, basePath, null, out var rootNeedsGlobal));
+        var paramMemo = new Dictionary<string, string>(StringComparer.Ordinal);
+        string LookupParam(string name)
+        {
+            if (paramMemo.TryGetValue(name, out var v)) return v;
+            var seenP = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { basePath };
+            string? WalkParam(string path, List<EntityDecl> decls, int depth)
+            {
+                foreach (var d in decls)
+                    if (d.IsParam && d.Name == name)
+                        return d.IsSystem
+                            ? (IncludePath(path, d) is { } f ? ReadCached(f, restat: false)?.File.Text ?? "" : "")
+                            : d.Value ?? "";
+                if (depth <= 0) return null;
+                foreach (var d in decls)
+                {
+                    if (!d.IsSystem || IncludePath(path, d) is not { } inc || !seenP.Add(inc)) continue;
+                    var r = texts.TryGetValue(inc, out var t) ? t : ReadCached(inc, restat: false);
+                    if (r is null) continue;
+                    if (WalkParam(r.Value.Path, r.Value.File.Decls, depth - 1) is { } hit) return hit;
+                }
+                return null;
+            }
+            v = WalkParam(basePath, rootNoGlobal, 8) ?? "";
+            paramMemo[name] = v;
+            return v;
+        }
+        var rootDecls = rootNeedsGlobal ? ParseEntityDeclarations(ApplyConditionals(rootText, basePath, LookupParam, out _)) : rootNoGlobal;
+
+        // 3) Dựng bảng theo đúng thứ tự cũ: file trước, rồi từng include đi sâu; trùng tên → cái gặp trước thắng.
         var byName = new Dictionary<string, ResolvedEntity>(StringComparer.Ordinal);
         var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { Path.GetFullPath(basePath) };
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { basePath };
@@ -128,7 +232,7 @@ public partial class ScriptEditorControl
                 var (actual, f) = r.Value;
                 files.Add(inc); files.Add(actual);
                 if (!actual.Equals(inc, StringComparison.OrdinalIgnoreCase) && !seen.Add(actual)) continue;
-                Walk(actual, f.Text, f.Decls);
+                Walk(actual, f.Text, f.NeedsGlobal ? ParseEntityDeclarations(ApplyConditionals(f.Text, actual, LookupParam, out _)) : f.Decls);
             }
         }
         Walk(basePath, rootText, rootDecls);
@@ -140,14 +244,11 @@ public partial class ScriptEditorControl
     private static ResolvedEntity? LookupEntity(string name, string basePath, string text)
     {
         if (BuiltinEntities.Contains(name)) return null;   // &lt; &amp;... của XML: không có khai báo — khỏi dựng lại chỉ mục vô ích
-        // (1) khai báo ngay trong đoạn đang xem
-        foreach (var d in ParseEntityDeclarations(text))
-            if (string.Equals(d.Name, name, StringComparison.Ordinal)) return new ResolvedEntity(d, basePath, text);
-
-        // (2) chỉ mục của file gốc. Đoạn đang xem không phải chính file (giá trị entity đang peek) → chỉ mục dựng từ nội dung file trên đĩa.
+        // (1)+(2) chỉ mục dựng từ đoạn đang xem: khai báo của chính đoạn này đứng đầu bảng (đã áp khối điều kiện — trước đây tra thô ở đây nên ra cả khai báo
+        // trong khối IGNORE), rồi tới cây include. Đoạn đang xem không có khai báo nào (giá trị entity đang peek) → chỉ mục dựng từ nội dung file trên đĩa.
         var rootText = text;
         var onDisk = ReadCached(basePath, restat: false);
-        if (onDisk is { } od && !ReferenceEquals(od.File.Text, text) && ParseEntityDeclarations(text).Count == 0 && od.File.Decls.Count > 0) rootText = od.File.Text;
+        if (onDisk is { } od && !ReferenceEquals(od.File.Text, text) && ParseEntityDeclarations(text).Count == 0 && od.File.RawDecls.Count > 0) rootText = od.File.Text;
         EntityIndex idx;
         try { idx = GetIndexAsync(basePath, rootText, forceFresh: false).GetAwaiter().GetResult(); }
         catch { return null; }

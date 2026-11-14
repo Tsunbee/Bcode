@@ -75,6 +75,7 @@ internal sealed class Session
             foreach (var (conv, f) in _ims.ToList())
                 if (conv.StartsWith("r:") && !f.IsDisposed) f.Post(new { t = "room", room = RoomInfo(conv[2..]) });
         });
+        _node.Rtc += (from, m) => Ui(() => OnRtc(from, m));
         _node.NickConflict += ip => Ui(() =>
         {
             // có máy khác đang thử dùng (hoặc cùng lúc dùng) nick của mình — chỉ báo, không đá ai ra
@@ -345,6 +346,95 @@ internal sealed class Session
         var err = await Firewall.OpenAsync(Environment.ProcessPath ?? Application.ExecutablePath);
         if (err is not null) return new { t = "fw", level = "bad", text = err };
         return await FirewallStatus();
+    }
+
+    // ───────────── Gọi thoại / video 1-1 ─────────────
+    // Mỗi lúc chỉ 1 cuộc gọi. C# chỉ chuyển tín hiệu + nhớ đang gọi ai; WebRTC (micro, camera, kết nối) chạy trong trang im.html (call.js).
+
+    private string? _callConv, _callId;
+    private long _callStart;
+    private bool _callVideo, _callMine;
+
+    /// <summary>Trang gửi tín hiệu (op: ring | accept | decline | busy | hangup | offer | answer | ice).</summary>
+    public void CallSignal(string conv, System.Text.Json.Nodes.JsonObject m)
+    {
+        var op = (string?)m["op"] ?? "";
+        var cid = (string?)m["cid"] ?? "";
+        if (cid.Length is 0 or > 40) return;
+        var peer = conv[2..];
+        if (op == "ring")
+        {
+            if (_callConv is not null && _callConv != conv) { FindIm(conv)?.Post(new { t = "rtc", op = "error", cid, text = "Bạn đang trong cuộc gọi khác." }); return; }
+            _callConv = conv; _callId = cid; _callVideo = (bool?)m["video"] ?? false; _callMine = true; _callStart = 0;
+        }
+        else if (cid != _callId) return;
+        if (op == "accept") _callStart = Environment.TickCount64;
+        var payload = new System.Text.Json.Nodes.JsonObject { ["t"] = "rtc" };
+        foreach (var k in new[] { "op", "cid", "video", "sdp", "cand" })
+            if (m[k] is { } v) payload[k] = v.DeepClone();
+        var sent = _node.SendRtc(peer, payload);
+        if (op is "hangup" or "decline") { EndCall(conv, op == "decline" ? "đã từ chối" : null); return; }
+        if (!sent)
+        {
+            FindIm(conv)?.Post(new { t = "rtc", op = "error", cid, text = $"Chưa nối được tới {Title(conv)} — họ cần đang online. Thử lại sau vài giây." });
+            if (op == "ring") EndCall(conv, "không nối được");
+        }
+    }
+
+    private void OnRtc(string from, System.Text.Json.Nodes.JsonObject m)
+    {
+        var conv = "u:" + from;
+        var op = (string?)m["op"] ?? "";
+        var cid = (string?)m["cid"] ?? "";
+        if (cid.Length is 0 or > 40) return;
+        if (op == "ring")
+        {
+            if (_callConv is not null)
+            {
+                // đang gọi người khác (hoặc 2 bên cùng bấm gọi nhau) → báo bận
+                if (_callConv != conv || _callMine) { _node.SendRtc(from, new { t = "rtc", op = "busy", cid }); return; }
+            }
+            _callConv = conv; _callId = cid; _callVideo = (bool?)m["video"] ?? false; _callMine = false; _callStart = 0;
+            var f = FindIm(conv) ?? OpenIm(conv, activate: false);
+            f.Post(new { t = "rtc", op, cid, video = _callVideo, name = Title(conv) });
+            f.Flash();
+            var b = _node.FindBuddy(from);
+            if (_store.Prefs.Status != Status.Busy)
+                Popup.Show(_callVideo ? "Cuộc gọi video" : "Cuộc gọi thoại", Title(conv), _callVideo ? "📹 đang gọi video cho bạn…" : "📞 đang gọi cho bạn…",
+                    AvatarOf(b), b?.Color ?? "#3a6ea5", () => OpenIm(conv, activate: true));
+            return;
+        }
+        if (cid != _callId || conv != _callConv) return;
+        if (op == "accept") _callStart = Environment.TickCount64;
+        FindIm(conv)?.Post(new { t = "rtc", op, cid, sdp = m["sdp"]?.DeepClone(), cand = m["cand"]?.DeepClone(), video = (bool?)m["video"] });
+        if (op is "hangup" or "decline" or "busy")
+            EndCall(conv, op == "decline" ? "đã từ chối" : op == "busy" ? "đang bận" : null);
+    }
+
+    /// <summary>Cửa sổ chat đóng giữa cuộc gọi → gác máy.</summary>
+    public void CallWindowClosed(string conv)
+    {
+        if (_callConv != conv || _callId is null) return;
+        _node.SendRtc(conv[2..], new { t = "rtc", op = "hangup", cid = _callId });
+        EndCall(conv, null);
+    }
+
+    /// <summary>Kết thúc cuộc gọi: ghi 1 dòng vào lịch sử trên máy mình (không gửi đi).</summary>
+    private void EndCall(string conv, string? why)
+    {
+        if (_callConv != conv) return;
+        var kind = _callVideo ? "Cuộc gọi video" : "Cuộc gọi thoại";
+        string text;
+        if (_callStart > 0)
+        {
+            var sec = (Environment.TickCount64 - _callStart) / 1000;
+            text = $"📞 {kind} với {Title(conv)} — {sec / 60}:{sec % 60:00}";
+        }
+        else text = _callMine ? $"📞 {kind} tới {Title(conv)} — {why ?? "không ai nghe"}" : $"📞 Cuộc gọi nhỡ từ {Title(conv)}";
+        _callConv = _callId = null; _callStart = 0;
+        var m = new ChatMessage { Mid = Guid.NewGuid().ToString("N"), From = _node.MyId, FromName = _store.Prefs.Name, Kind = "sys", Text = text, At = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() };
+        _store.AppendHistory(conv, m);
+        FindIm(conv)?.Post(new { t = "msg", m, mine = true });
     }
 
     // ───────────── Dòng trạng thái tự động ─────────────

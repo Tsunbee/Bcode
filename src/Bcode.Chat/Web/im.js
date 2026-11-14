@@ -24,6 +24,7 @@ onHost(m => {
       $('#log').innerHTML = ''; msgs.clear(); lastDay = ''; Scene.set('');
       for (const h of m.history || []) addMsg(h.m, h.mine, h.pending, h.saved, true);
       room = m.room || null;
+      if (isGroup) document.body.classList.add('grp');
       if (isRoom) {
         document.body.classList.add('pubroom');
         sys(`Bạn đã vào phòng công cộng "${room?.t || title}".${room?.topic ? ' Chủ đề: ' + room.topic + '.' : ''} Tin trong phòng không được lưu lại.`);
@@ -58,6 +59,7 @@ onHost(m => {
     }
     case 'file': fileState(m.fid, { state: m.state, got: m.got, total: m.total, info: m.info }); break;
     case 'served': { const f = files.get(m.fid) || {}; f.served = (f.served || []).concat(m.name); files.set(m.fid, f); refreshFile(m.fid); break; }
+    case 'rtc': Call.onSignal(m).catch(e => toast('Lỗi cuộc gọi: ' + e.message, 5000)); break;
     case 'buzzfx': document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake'); break;
     case 'focus': $('#inp').focus(); break;
     case 'error': toast(m.text, 5000); break;
@@ -358,6 +360,13 @@ $$('.menubar span').forEach(s => s.addEventListener('click', () => {
 
 function pickScene() { scenePicker(k => { if (k !== Scene.id) send('env', { scene: k }); }); }
 $('#tScene').onclick = pickScene;
+$('#tCall').onclick = () => {
+  if (Call.active) { Call.hangup(); return; }
+  const r = $('#tCall').getBoundingClientRect();
+  showMenu(r.left, r.bottom, [
+    { label: 'Gọi thoại', icon: '<span class="mic">📞</span>', on: () => Call.start(false) },
+    { label: 'Gọi video (bật camera)', icon: '<span class="mic">📹</span>', on: () => Call.start(true) }]);
+};
 $('#tFun').onclick = () => {
   const r = $('#tFun').getBoundingClientRect();
   showMenu(r.left, r.bottom, [

@@ -54,6 +54,12 @@ internal abstract class WebForm : Form
                 try { if (JsonNode.Parse(e.WebMessageAsJson) is JsonObject m) OnPage(m, e); }
                 catch (Exception ex) { Post(new { t = "error", text = ex.Message }); }
             };
+            // gọi thoại / video: micro + camera chỉ mở khi người dùng bấm gọi / nghe máy → cho phép luôn với trang của Bhoo (khỏi hộp hỏi mỗi lần)
+            core.PermissionRequested += (_, e) =>
+            {
+                if (e.PermissionKind is not (CoreWebView2PermissionKind.Microphone or CoreWebView2PermissionKind.Camera)) return;
+                e.State = Uri.TryCreate(e.Uri, UriKind.Absolute, out var pu) && pu.Host == Host ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
+            };
             core.NewWindowRequested += (_, e) =>
             {
                 // link trong tin nhắn → trình duyệt mặc định
@@ -244,6 +250,13 @@ internal sealed class ImForm : WebForm
         Activated += (_, _) => Post(new { t = "focus" });
     }
 
+    /// <summary>Đang có cuộc gọi trong cửa sổ này mà đóng → báo người kia gác máy.</summary>
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        base.OnFormClosing(e);
+        if (!e.Cancel) S.CallWindowClosed(Conv);
+    }
+
     public void UpdateTitle()
     {
         var title = S.Title(Conv);
@@ -326,6 +339,10 @@ internal sealed class ImForm : WebForm
                 Send(() => node.Send(Conv, "invite", $"mời bạn vào {what}", invite: new InviteMeta(app, SideApps.DefaultPort(app), room)));
                 break;
             }
+            case "rtc":
+                // gọi thoại / video 1-1: tín hiệu (đổ chuông, SDP, ICE) đi qua kết nối Bhoo, tiếng / hình đi thẳng WebRTC giữa 2 máy
+                if (Conv.StartsWith("u:")) S.CallSignal(Conv, m);
+                break;
             case "invite.accept":
             {
                 var mid = (string?)m["mid"] ?? "";

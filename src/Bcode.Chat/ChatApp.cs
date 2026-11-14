@@ -78,7 +78,12 @@ internal sealed class ChatApp : ApplicationContext
         static async Task<CoreWebView2Environment> Create()
         {
             var profile = Path.Combine(Path.GetTempPath(), "Bhoo.WebView2", Environment.ProcessId.ToString());
-            var env = await CoreWebView2Environment.CreateAsync(userDataFolder: profile);
+            // Gọi thoại / video (WebRTC) đi thẳng máy-máy trong LAN, không máy chủ STUN / TURN: tắt việc Chromium giấu IP LAN thành tên *.local (mDNS) —
+            // mạng văn phòng hay chặn mDNS nên hai máy không thấy nhau (giống Xem chung). Phát tiếng người kia không cần bấm thêm.
+            const string args = "--autoplay-policy=no-user-gesture-required --disable-features=WebRtcHideLocalIpsWithMdns";
+            CoreWebView2Environment env;
+            try { env = await CoreWebView2Environment.CreateAsync(null, profile, new CoreWebView2EnvironmentOptions(args)); }
+            catch { env = await CoreWebView2Environment.CreateAsync(userDataFolder: profile); }
             Bcode.Shared.WebViewProfileCleanup.DeleteStaleInBackground(Path.GetDirectoryName(profile)!);
             return env;
         }

@@ -565,12 +565,31 @@ public sealed class ChatNode : IDisposable
                     Delivered?.Invoke(ConvOf(done.Msg, mine: true, to: conn.PeerId), mid, conn.PeerId);
                 }
                 break;
+            case "rtc":
+                if (IsIgnored(conn.PeerId) || f.Length > 64 * 1024) break;
+                Rtc?.Invoke(conn.PeerId, m);
+                break;
             case "typing":
                 if (IsIgnored(conn.PeerId)) break;
                 var gid = (string?)m["gid"];
                 Typing?.Invoke(gid is { Length: > 0 } ? "g:" + gid : "u:" + conn.PeerId, conn.PeerId);
                 break;
         }
+    }
+
+    // ───────────────────────── Gọi thoại / video (tín hiệu) ─────────────────────────
+
+    /// <summary>Khung "rtc" từ 1 người (đổ chuông / nghe / gác / SDP / ICE). Không xếp hàng: người kia phải đang online.</summary>
+    public event Action<string, JsonObject>? Rtc;
+
+    /// <summary>Gửi tín hiệu gọi tới <paramref name="id"/>. false = chưa có kết nối (đã thử nối — gọi lại sau vài giây).</summary>
+    public bool SendRtc(string id, object payload)
+    {
+        FramedConnection? c;
+        lock (_lock) _conns.TryGetValue(id, out c);
+        if (c is { IsClosed: false }) { c.Send(payload); return true; }
+        EnsureConnection(id);
+        return false;
     }
 
     // ───────────────────────── Ảnh đại diện ─────────────────────────

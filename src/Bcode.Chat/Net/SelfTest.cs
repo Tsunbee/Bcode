@@ -108,6 +108,11 @@ public static class SelfTest
             Check(await Until(() => a.RoomMembers(rg).Count == 1), "A thấy B rời phòng");
             a.LeaveRoom(rg);
 
+            // gọi thoại: tín hiệu "rtc" đi qua kết nối Bhoo tới đúng người
+            string? rtcFrom = null, rtcOp = null;
+            b.Rtc += (from, m) => { rtcFrom = from; rtcOp = (string?)m["op"]; };
+            Check(a.SendRtc(idB, new { t = "rtc", op = "ring", cid = "c1", video = false }) && await Until(() => rtcFrom == idA && rtcOp == "ring"), "Tín hiệu gọi thoại tới B");
+
             // trùng nick: máy C đăng nhập bằng đúng ID của A → cả hai đều biết
             var sc = new ChatStore(Path.Combine(root, "C"));
             sc.Prefs.Id = idA; sc.Prefs.Name = "an.nguyen"; sc.Prefs.ManualPeers = new() { "127.0.0.1:" + discA };

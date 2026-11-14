@@ -53,7 +53,25 @@
   .filecard .acts { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
   .filecard .bar { height: 8px; width: 140px; border: 1px solid #7f9db9; background: #fff; margin-top: 3px; padding: 1px; }
   .filecard .bar i { display: block; height: 100%; background: repeating-linear-gradient(90deg, #36b836 0 7px, transparent 7px 9px); width: 0; }
-  .side { width: 150px; flex: none; display: flex; flex-direction: column; gap: 6px; }
+  .sidecol { width: 150px; flex: none; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .side { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+  body.incall .sidecol { width: 220px; }
+  body.incall .side { display: none; }
+  body.grp #tCall, body.pubroom #tCall { display: none; }
+  #callBox { display: flex; flex-direction: column; gap: 5px; flex: 1; min-height: 0; }
+  #callBox[hidden] { display: none; }
+  #callBox .cv { position: relative; flex: 1; min-height: 140px; background: #10213f; border: 1px solid #0f2a52; box-shadow: 0 0 0 2px #fff, 1px 1px 3px 2px rgba(0,0,0,.3); overflow: hidden; }
+  #cRemote { width: 100%; height: 100%; object-fit: cover; background: #000; }
+  #callBox .cpic { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); width: 84px; height: 84px; border: 2px solid #fff; color: #fff;
+    font: bold 40px Tahoma; display: flex; align-items: center; justify-content: center; animation: cpulse 1.6s ease-in-out infinite; }
+  @keyframes cpulse { 50% { box-shadow: 0 0 0 8px rgba(255,255,255,.18); } }
+  #cLocal { position: absolute; right: 5px; bottom: 5px; width: 72px; height: 54px; object-fit: cover; border: 1px solid #fff; background: #000; transform: scaleX(-1); }
+  #callBox .cst { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; color: #fff; text-shadow: 0 1px 2px #000; font-size: 11px; pointer-events: none; }
+  #callBox .cst b { font-size: 12px; }
+  #callBox .cbtns { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; }
+  #callBox .cbtns .btn { padding: 2px 6px; }
+  #callBox .btn.ok { background: linear-gradient(#e6f8e0, #b9e6a8); }
+  #callBox .btn.bad { background: linear-gradient(#ffe2dc, #f3a99b); }
   .side .hd { padding: 3px 5px; border: 1px solid var(--line); background: linear-gradient(#fff, #e3e0d0); font-weight: bold; }
   #members { flex: 1; overflow: auto; padding: 2px 0; }
   #members .mrow { display: flex; align-items: center; gap: 5px; padding: 2px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -80,13 +98,14 @@
   body.shake #log { animation: flashred .6s ease-out; }
   @keyframes flashred { 0% { background: #ffe0e0; } 100% { background: var(--logbg, #fff); } }
   body.drop::after { content: 'Thả file vào đây để gửi'; position: fixed; inset: 6px; border: 3px dashed #316ac5; background: rgba(232,238,248,.85); display: flex; align-items: center; justify-content: center; font: bold 16px Tahoma; color: #1f4882; z-index: 30; }
-  @media (max-width: 470px) { .side { display: none; } .toolbar .tb .lb { display: none; } .toolbar .tb { min-width: 34px; } }
+  @media (max-width: 470px) { .sidecol { display: none; } body.incall .sidecol { display: flex; width: 160px; } .toolbar .tb .lb { display: none; } .toolbar .tb { min-width: 34px; } }
 </style>
 </head>
 <body>
 <div class="menubar"><span data-m="conv">Hội thoại</span><span data-m="edit">Sửa</span><span data-m="view">Xem</span><span data-m="actions">Hành động</span></div>
 <div class="toolbar">
   <button class="tb" id="tBuzz" title="BUZZ! — rung cửa sổ của bạn"><span class="ic">📳</span><span class="lb">BUZZ!</span></button>
+  <button class="tb" id="tCall" title="Gọi thoại / gọi video (trong LAN)"><span class="ic">📞</span><span class="lb">Gọi</span></button>
   <button class="tb" id="tFile" title="Gửi file"><span class="ic">📎</span><span class="lb">Gửi file</span></button>
   <button class="tb" id="tScene" title="Khung cảnh trên đầu cuộc chat (cả hai bên cùng thấy)"><span class="ic">🎨</span><span class="lb">Khung cảnh</span></button>
   <button class="tb" id="tFun" title="Rủ Xem chung / Giải lao"><span class="ic">🎉</span><span class="lb">Rủ chơi</span></button>
@@ -98,7 +117,7 @@
 <div id="scene"><canvas></canvas></div>
 <div class="wrap">
   <div id="log" class="sunken"></div>
-  <div class="side" id="side"></div>
+  <div class="sidecol"><div id="callBox" hidden></div><div class="side" id="side"></div></div>
 </div>
 <div class="fmt">
   <button class="tb row" id="fSm" title="Mặt cười"><span id="fSmIc"></span><span style="font-size:8px">▼</span></button>
@@ -118,6 +137,7 @@
 <div class="statusbar"><span class="grow" id="sb"></span><span id="clock"></span></div>
 <script src="common.js"></script>
 <script src="scene.js"></script>
+<script src="call.js"></script>
 <script src="im.js"></script>
 </body>
 </html>

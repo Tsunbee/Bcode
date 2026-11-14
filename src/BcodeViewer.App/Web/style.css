@@ -805,8 +805,18 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
 .shTreeHeader { padding: 5px 8px; font-size: 12px; font-weight: 700; color: var(--bc-text-muted); background: var(--bc-panel-alt); border-bottom: 1px solid var(--bc-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shTree { flex: 1 1 auto; overflow: auto; outline: none; padding-bottom: 8px; }
 .shRow { position: relative; display: flex; align-items: center; gap: 5px; height: 23px; padding-right: 6px; font-size: 13px; cursor: pointer; white-space: nowrap; color: var(--bc-text); }
-.shRow:hover { background: var(--bc-panel-alt); }
-.shRow.group { font-weight: 700; background: color-mix(in srgb, var(--bc-panel) 88%, var(--bc-text)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--bc-text-muted) 45%, transparent); }
+.shRow:hover { background-color: var(--bc-panel-alt); }
+/* Dòng dự án: cao hơn, chữ to + màu nhấn, ô chữ cái đầu (.shProjIcon), viền trên/dưới tách khỏi các dòng file — trước đây chỉ đậm + nền xám nhẹ, khó nhìn. */
+/* --pc = màu riêng từng dự án (shell.js BcodeShell.projectColor, băm theo tên) — mỗi dự án 1 màu để phân biệt với nhau. */
+.shRow.group { --pc0: var(--pc, var(--bc-accent)); height: 28px; font-size: 13.5px; font-weight: 700; letter-spacing: .2px; color: color-mix(in srgb, var(--pc0) 60%, var(--bc-text)); background: color-mix(in srgb, var(--pc0) 14%, var(--bc-panel-alt)); border-top: 1px solid var(--bc-border); border-bottom: 1px solid var(--bc-border); box-shadow: inset 4px 0 0 var(--pc0); }
+.shRow.group:hover { background: color-mix(in srgb, var(--pc0) 22%, var(--bc-panel-alt)); }
+.shRow.group .shTwisty { color: inherit; }
+.shProjIcon { flex: 0 0 auto; width: 17px; height: 17px; border-radius: 4px; background: var(--pc, var(--sh-mark)); color: #fff; text-shadow: 0 0 2px rgba(0,0,0,.45); font-size: 10px; font-weight: 800; line-height: 1; display: flex; align-items: center; justify-content: center; }
+/* Mọi dòng con của dự án: vạch mảnh màu dự án sát mép trái (vẫn thấy thuộc dự án nào khi dòng dự án đã cuộn khỏi màn hình). */
+.shRow.inProj { background-image: linear-gradient(to right, color-mix(in srgb, var(--pc) 70%, transparent) 0 2px, transparent 2px); }
+/* Nhóm file tự đặt (chuột phải file → Gom vào nhóm): icon ▤ màu dự án, chữ nghiêng. */
+.shRow.folder.custom .shRowLabel { font-style: italic; color: color-mix(in srgb, var(--pc, var(--bc-accent)) 55%, var(--bc-text)); }
+.shGroupIcon { flex: 0 0 auto; width: 12px; font-size: 12px; line-height: 1; color: var(--pc, var(--bc-accent)); text-align: center; }
 .shRow.folder { font-weight: 700; }
 .shRow.file { color: color-mix(in srgb, var(--bc-text-muted) 45%, var(--bc-text)); }
 /* File đang hiện trên editor: nền màu chọn + vạch trái dày + chữ đậm. Dự án / thư mục (Dir, Grid...) chứa nó: .hasActive (shell.js
@@ -814,8 +824,8 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
    Vạch / chấm pha màu nhấn với màu chữ: theme tối có màu nhấn sẫm (#0e639c) đặt trên nền --bc-selection gần như không thấy. */
 #shellSidebar { --sh-mark: color-mix(in srgb, var(--bc-accent) 60%, var(--bc-text)); }
 .shRow.file.active { background: color-mix(in srgb, var(--bc-accent) 22%, var(--bc-selection)); color: var(--bc-selection-text, var(--bc-text)); font-weight: 700; box-shadow: inset 4px 0 0 var(--sh-mark); }
-.shRow.group.hasActive { background: color-mix(in srgb, var(--bc-accent) 24%, var(--bc-panel)); box-shadow: inset 4px 0 0 var(--sh-mark); }
-.shRow.folder.hasActive { background: color-mix(in srgb, var(--bc-accent) 10%, transparent); }
+.shRow.group.hasActive { background: color-mix(in srgb, var(--pc0) 28%, var(--bc-panel)); box-shadow: inset 6px 0 0 var(--pc0); }
+.shRow.folder.hasActive { background-color: color-mix(in srgb, var(--bc-accent) 10%, transparent); }
 .shRow.file.open { color: var(--bc-text); }
 /* Icon tròn chữ cái thư mục (D/F/G/R...) + vạch dọc màu thư mục (shell.js renderRow). File đang mở (tab) / đang xem: icon tô đặc. */
 .shGuide { position: absolute; top: 0; bottom: 0; width: 2px; opacity: .5; pointer-events: none; }
@@ -825,7 +835,7 @@ body.shAutoHide #shellTop.shPeek { transform: none; }
 .shRow.file.open .shFileIcon { cursor: pointer; }   /* bấm icon đặc = bỏ đánh dấu (đóng tab) */
 .shRow.file:not(.open) .shUnmark { display: none; }
 .shCount { font-weight: 400; color: var(--bc-text-muted); }
-.shRow.group:not(:first-child) { margin-top: 3px; }
+.shRow.group:not(:first-child) { margin-top: 8px; }
 /* Kéo thả file trong cùng thư mục (shell.js beginFileDrag): vạch chỗ sẽ thả, dòng đang kéo mờ đi. */
 .shRow.dropBefore::after, .shRow.dropAfter::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; background: var(--sh-mark); pointer-events: none; z-index: 2; }
 .shRow.dropBefore::after { top: -2px; }

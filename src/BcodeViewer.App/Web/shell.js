@@ -46,6 +46,15 @@ const SHELL_TOOLBAR = [
 const BCODE_STRUCTURE_FOLDERS = ['App', 'Sys', 'Ext', 'Dir', 'Filter', 'Grid', 'Lookup'];
 
 class BcodeShell {
+  /// Màu cố định theo TÊN dự án (bỏ "(60)"): băm tên ra sắc độ, cùng tên luôn cùng màu dù thứ tự dự án trên cây đổi.
+  /// Độ sáng 55% đọc được trên cả nền sáng lẫn nền tối.
+  static projectColor(text) {
+    const name = String(text || '').replace(/\s*\(\d+\)$/, '').toLowerCase();
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+    return `hsl(${Math.abs(h) % 360} 62% 55%)`;
+  }
+
   constructor(bcode) {
     this.bcode = bcode;
     this.host = window.chrome && window.chrome.webview ? window.chrome.webview.hostObjects.host : null;
@@ -548,15 +557,18 @@ class BcodeShell {
     const open = this.openPathSet();
     // Dựng mọi dòng vào DocumentFragment (ngoài màn hình) rồi thay 1 lần — trình duyệt chỉ tính bố cục 1 lần thay vì sau từng dòng.
     const frag = document.createDocumentFragment();
-    const walk = (nodes, depth, parent) => {
+    const walk = (nodes, depth, parent, proj) => {
       for (const n of nodes) {
         const row = this.renderRow(n, depth, parent);
+        // Màu riêng của dự án (--pc): dòng dự án + vạch mảnh bên trái mọi dòng con — phân biệt dự án này với dự án khác kể cả khi đã cuộn qua dòng dự án.
+        const p = n.kind === 'group' ? n : proj;
+        if (p) { row.style.setProperty('--pc', BcodeShell.projectColor(p.text)); if (n.kind !== 'group') row.classList.add('inProj'); }
         if (parent) row.dataset.parent = parent.key;   // kéo thả file chỉ trong cùng thư mục (beginFileDrag)
         if (n.kind === 'file' && n.path && n.path.toLowerCase() === active) { row.classList.add('active'); activeRow = row; }
         if (n.kind === 'file' && n.path && open.has(n.path.toLowerCase())) row.classList.add('open');
         if (n.kind !== 'file' && chain.has(n.key)) row.classList.add('hasActive');
         frag.appendChild(row);
-        if (n.kind !== 'file' && n.expanded) walk(n.children, depth + 1, n);
+        if (n.kind !== 'file' && n.expanded) walk(n.children, depth + 1, n, p);
       }
     };
     walk(data.nodes || [], 0);
@@ -656,6 +668,47 @@ class BcodeShell {
     return { closed, total: paths.length };
   }
 
+  /// Nút cha và dự án chứa dòng có khoá <paramref name="key"/> — { parent, project } hoặc null.
+  treeParentOf(key) {
+    let out = null;
+    const walk = (nodes, parent, project) => {
+      for (const c of nodes || []) {
+        if (out) return;
+        if (c.key === key) { out = { parent, project }; return; }
+        if (c.kind !== 'file') walk(c.children, c, c.kind === 'group' ? c : project);
+      }
+    };
+    walk((this.tree && this.tree.nodes) || [], null, null);
+    return out;
+  }
+
+  /// Đường dẫn mọi file trong nhánh <paramref name="n"/>.
+  filePathsOf(n) {
+    const out = [];
+    const walk = (nodes) => { for (const c of nodes || []) { if (c.kind === 'file') { if (c.path) out.push(c.path); } else walk(c.children); } };
+    walk(n.children);
+    return out;
+  }
+
+  /// File sẽ gom nhóm khi chuột phải dòng <paramref name="n"/>: các file đã Ctrl+chọn nếu dòng này nằm trong số đó, không thì chỉ file này.
+  groupTargets(n) {
+    if (this.selKeys && this.selKeys.has(n.key) && this.selKeys.size > 1)
+      return this.selectedKeysInOrder().filter((k) => k.startsWith('N:')).map((k) => k.slice(2));
+    return [n.path];
+  }
+
+  /// Hỏi tên nhóm rồi gom file vào (host lưu ở RecentFilesStore.FileGroups). Gợi ý các nhóm đã có trong cùng dự án.
+  async askGroup(n) {
+    const paths = this.groupTargets(n);
+    const ctx = this.treeParentOf(n.key);
+    const existing = ((ctx && ctx.project && ctx.project.children) || []).filter((c) => c.custom).map((c) => c.text);
+    const msg = `Gom ${paths.length} file vào nhóm (gõ tên nhóm đã có để thêm vào nhóm đó)` + (existing.length ? `\nNhóm đang có: ${existing.join(', ')}` : '') + ':';
+    const name = ((await window.bcodeUi.prompt(msg, (ctx && ctx.parent && ctx.parent.custom) ? ctx.parent.text : (existing[0] || 'Nhóm 1'), { title: 'Gom vào nhóm' })) || '').trim();
+    if (!name) return;
+    this.cmd('tree.group', [name, ...paths].join('\n'));
+    this.clearTreeSelection();
+  }
+
   /// Các file nằm CÙNG NHÁNH (cùng nhóm trực tiếp, vd "Grid" trong dự án KOG) với <paramref name="path"/>, theo thứ tự trong cây — để đóng 1 file
   /// thì chuyển sang file kế bên trong nhánh đó trước, hết file trong nhánh mới nhảy sang nhánh khác.
   branchFiles(path) {
@@ -684,18 +737,27 @@ class BcodeShell {
     row.dataset.key = n.key;   // setActive tô dự án / thư mục chứa file đang mở (activeChain)
     if (n.kind === 'group') {
       row.appendChild(Object.assign(document.createElement('span'), { className: 'shTwisty', textContent: n.expanded ? '▾' : '▸' }));
+      // Ô vuông chữ cái đầu tên dự án: nhìn ra ngay dòng dự án giữa các dòng thư mục / file.
+      const name = String(n.text || '').replace(/\s*\(\d+\)$/, '');
+      row.appendChild(Object.assign(document.createElement('span'), { className: 'shProjIcon', textContent: (name.match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase() }));
+    } else if (n.kind === 'folder' && n.custom) {
+      // Nhóm file tự đặt: icon ▤ màu dự án, chữ nghiêng — khác dòng thư mục thật (chấm màu).
+      row.classList.add('custom');
+      row.appendChild(Object.assign(document.createElement('span'), { className: 'shGroupIcon', textContent: '▤' }));
     } else if (n.kind === 'folder') {
       const dot = document.createElement('span');
       dot.className = 'shDot';
       dot.style.background = n.color || 'var(--bc-text-muted)';
       row.appendChild(dot);
     } else if (n.kind === 'file' && parent && parent.kind === 'folder') {
-      const color = parent.color || 'var(--bc-text-muted)';
+      // File trong nhóm tự đặt: vạch dọc màu dự án, icon theo thư mục thật của file (host gửi folder / fcolor).
+      const color = parent.custom ? (n.fcolor || 'var(--bc-text-muted)') : (parent.color || 'var(--bc-text-muted)');
       const guide = document.createElement('span');
       guide.className = 'shGuide';
       guide.style.left = (6 + (depth - 1) * 14 + 3) + 'px';
-      guide.style.background = color;
-      const icon = Object.assign(document.createElement('span'), { className: 'shFileIcon', textContent: (String(parent.text || '?').match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase() });
+      guide.style.background = parent.custom ? 'var(--pc, var(--bc-text-muted))' : color;
+      const letterOf = parent.custom ? (n.folder || '?') : (parent.text || '?');
+      const icon = Object.assign(document.createElement('span'), { className: 'shFileIcon', textContent: (String(letterOf).match(/[A-Za-z0-9]/) || ['?'])[0].toUpperCase() });
       icon.style.setProperty('--ic', color);
       // Icon tô đặc = file đang mở thành tab: bấm vào icon đó = bỏ đánh dấu (đóng tab, file vẫn trong danh sách) — như nút ○ khi rê chuột.
       icon.onclick = (e) => {
@@ -713,7 +775,7 @@ class BcodeShell {
       label.textContent = count[1];
       label.appendChild(Object.assign(document.createElement('span'), { className: 'shCount', textContent: count[2] }));
     } else label.textContent = n.text + (n.dirty ? ' •' : '');
-    if (n.kind === 'folder' && n.color) label.style.color = n.color;
+    if (n.kind === 'folder' && n.color && !n.custom) label.style.color = n.color;
     row.appendChild(label);
 
     if (n.kind === 'file') {
@@ -737,7 +799,7 @@ class BcodeShell {
         const name = n.text.replace(/\s*\(\d+\)$/, ''), tabs = this.openTabsOf(n).length;
         close.title = n.kind === 'group'
           ? `Đóng dự án "${name}": đóng ${tabs} tab đang mở và bỏ mọi file của dự án khỏi danh sách (không xoá file trên đĩa)`
-          : `Đóng thư mục "${name}": đóng ${tabs} tab đang mở và bỏ các file của thư mục này khỏi danh sách (không xoá file trên đĩa)`;
+          : `Đóng ${n.custom ? 'nhóm' : 'thư mục'} "${name}": đóng ${tabs} tab đang mở và bỏ các file của ${n.custom ? 'nhóm' : 'thư mục'} này khỏi danh sách (không xoá file trên đĩa)`;
       });
       close.onclick = (e) => { e.stopPropagation(); this.closeProject(n); };
       icons.append(close);
@@ -851,7 +913,22 @@ class BcodeShell {
       ...(this.selKeys.size > 1 || (this.selKeys.size === 1 && !this.selKeys.has(n.key))
         ? [{ label: 'Copy đường dẫn ' + this.selKeys.size + ' file đã chọn', shortcut: 'Ctrl+C', run: () => this.cmd('tree.copyMany', this.selectedKeysInOrder().join('\n')) }] : []),
       { sep: true },
+      { label: 'Gom vào nhóm...' + (this.groupTargets(n).length > 1 ? ` (${this.groupTargets(n).length} file đã chọn)` : ''), run: () => this.askGroup(n) },
+      ...(this.treeParentOf(n.key)?.parent?.custom
+        ? [{ label: 'Bỏ khỏi nhóm "' + this.treeParentOf(n.key).parent.text + '" (về thư mục)', run: () => this.cmd('tree.ungroup', this.groupTargets(n).join('\n')) }] : []),
+      { sep: true },
       { label: 'Bỏ khỏi danh sách', shortcut: 'Delete', run: () => this.cmd('tree.remove', n.key) },
+    ] : n.custom ? [
+      { label: n.expanded ? 'Ẩn file nhóm này' : 'Hiện file nhóm này', run: () => this.cmd('tree.toggle', n.key) },
+      { label: 'Đổi tên nhóm...', run: async () => {
+        const name = ((await window.bcodeUi.prompt('Tên nhóm mới:', n.text, { title: 'Đổi tên nhóm' })) || '').trim();
+        if (name && name !== n.text) this.cmd('tree.group', [name, ...this.filePathsOf(n)].join('\n'));
+      } },
+      { label: 'Bỏ nhóm (trả file về thư mục Dir, Grid...)', run: () => this.cmd('tree.ungroup', this.filePathsOf(n).join('\n')) },
+      { label: 'Copy đường dẫn các file của nhóm này (.f nếu có)', run: () => this.cmd('tree.copyMany', n.key) },
+      { sep: true },
+      { label: `Đóng mọi tab đang mở của nhóm này (${this.openTabsOf(n).length})`, run: () => this.closeProjectTabs(n) },
+      { label: `Bỏ các file của "${n.text}" khỏi danh sách (như nút ✕)`, run: () => this.closeProject(n) },
     ] : n.kind === 'group' ? [
       { label: n.expanded ? 'Ẩn file của dự án này' : 'Hiện file của dự án này', run: () => this.cmd('tree.toggle', n.key) },
       { label: 'Ẩn file của TẤT CẢ dự án', run: () => this.cmd('tree.collapseAll') },

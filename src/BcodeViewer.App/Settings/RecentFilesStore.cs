@@ -26,6 +26,25 @@ public class RecentFilesStore
     /// danh sách, trước các file chưa từng kéo (những file này vẫn theo ABC) — thư mục chưa kéo lần nào giữ ABC như cũ.</summary>
     public List<string> FileOrder { get; set; } = new();
 
+    /// <summary>Nhóm file người dùng tự đặt trên cây (đường dẫn → tên nhóm): file có nhóm nằm dưới nhánh nhóm đó của dự án (trên các thư mục
+    /// Dir/Grid...) thay vì theo thư mục chứa nó. Bỏ file khỏi danh sách thì bỏ luôn khỏi nhóm.</summary>
+    public Dictionary<string, string> FileGroups { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Tên nhóm tự đặt của file, null = không có (theo thư mục).</summary>
+    public string? GroupOf(string path) => FileGroups.TryGetValue(path, out var g) && !string.IsNullOrWhiteSpace(g) ? g : null;
+
+    /// <summary>Gom <paramref name="paths"/> vào nhóm <paramref name="group"/>; null / rỗng = bỏ khỏi nhóm (về lại thư mục).</summary>
+    public void SetFileGroup(IEnumerable<string> paths, string? group)
+    {
+        group = group?.Trim();
+        foreach (var p in paths)
+        {
+            if (string.IsNullOrEmpty(group)) FileGroups.Remove(p);
+            else FileGroups[p] = group;
+        }
+        Save();
+    }
+
     private static string StorePath => Path.Combine(
         BcodePaths.AppData, "Bcode", "viewer-recent-files.json");
 
@@ -38,6 +57,8 @@ public class RecentFilesStore
                 var loaded = JsonSerializer.Deserialize<RecentFilesStore>(File.ReadAllText(StorePath));
                 if (loaded != null)
                 {
+                    // JSON dựng Dictionary với so sánh phân biệt hoa thường — đường dẫn Windows thì không.
+                    loaded.FileGroups = new Dictionary<string, string>(loaded.FileGroups ?? new(), StringComparer.OrdinalIgnoreCase);
                     // File lưu từ bản cũ chưa có ProjectOrder: chốt theo thứ tự đang hiện (gần đây nhất trước).
                     if (loaded.ProjectOrder.Count == 0)
                         loaded.ProjectOrder = loaded.Entries
@@ -134,6 +155,11 @@ public class RecentFilesStore
         {
             var paths = Entries.Select(e => e.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
             FileOrder.RemoveAll(p => !paths.Contains(p));
+        }
+        if (FileGroups.Count > 0)
+        {
+            var paths = Entries.Select(e => e.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in FileGroups.Keys.Where(p => !paths.Contains(p)).ToList()) FileGroups.Remove(p);
         }
     }
 

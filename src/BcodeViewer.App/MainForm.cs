@@ -13,6 +13,9 @@ namespace BcodeViewer.App;
 /// <summary>Tags a project-group header TreeNode — see RefreshProjectTree/BuildTreeContextMenu.</summary>
 internal sealed record ProjectGroupTag(string ProjectName);
 
+/// <summary>Nhánh "nhóm file tự đặt" trong 1 dự án (RecentFilesStore.FileGroups) — nằm cạnh các thư mục Dir/Grid...</summary>
+internal sealed record FileGroupTag(string ProjectName, string GroupName);
+
 /// <summary>
 /// Shell window: a left panel listing previously-opened files grouped by project — same
 /// layout as FCodeViewer's own ("VPMILK (2)", "VTC (3)", ... each expandable with its
@@ -1767,15 +1770,21 @@ public partial class MainForm : DpiForm
         {
             var kind = n.Tag switch { ProjectGroupTag => "group", string => "file", _ => "folder" };
             var dirty = kind == "file" && n.Text.EndsWith(" •", StringComparison.Ordinal);
+            // File trong nhóm tự đặt: icon vẫn theo thư mục thật của file (D = Dir, G = Grid...) vì nhóm có thể trộn nhiều thư mục.
+            var realFolder = kind == "file" && n.Parent?.Tag is FileGroupTag && n.Tag is string fp
+                ? Path.GetFileName(Path.GetDirectoryName(fp)) : null;
             return new
             {
                 key = TreeKey(n),
                 kind,
+                custom = n.Tag is FileGroupTag,
                 text = dirty ? n.Text[..^2] : n.Text,
                 path = n.Tag as string,
                 expanded = n.IsExpanded,
                 dirty,
-                color = kind == "folder" ? ColorTranslator.ToHtml(GetFolderColor(n.Text)) : null,
+                color = kind == "folder" && n.Tag is not FileGroupTag ? ColorTranslator.ToHtml(GetFolderColor(n.Text)) : null,
+                folder = realFolder,
+                fcolor = realFolder is { Length: > 0 } ? ColorTranslator.ToHtml(GetFolderColor(realFolder)) : null,
                 children = n.Nodes.Cast<TreeNode>().Select(Node).ToList(),
             };
         }
@@ -1854,6 +1863,19 @@ public partial class MainForm : DpiForm
                 _recentFiles.SetFileOrder(arg.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
                 RefreshProjectTree();
                 break;
+            // Nhóm file tự đặt (shell.js): "tree.group" arg = tên nhóm + "\n" + các đường dẫn (mỗi dòng 1); "tree.ungroup" arg = các đường dẫn.
+            case "tree.group":
+            case "tree.ungroup":
+            {
+                var lines = arg.Split('\n', StringSplitOptions.TrimEntries).ToList();
+                string? groupName = null;
+                if (cmd == "tree.group") { groupName = lines.Count > 0 ? lines[0] : ""; lines.RemoveAt(0); if (string.IsNullOrWhiteSpace(groupName)) break; }
+                var groupPaths = lines.Where(l => l.Length > 0).ToList();
+                if (groupPaths.Count == 0) break;
+                _recentFiles.SetFileGroup(groupPaths, groupName);
+                RefreshProjectTree();
+                break;
+            }
             case "tree.copy":
                 if (NodeOf(arg) is { Tag: string filePath })
                 {
@@ -2364,6 +2386,7 @@ public partial class MainForm : DpiForm
     private static string TreeKey(TreeNode node) => node.Tag switch
     {
         ProjectGroupTag g => "P:" + g.ProjectName,
+        FileGroupTag fg => "G:" + fg.ProjectName + "|" + fg.GroupName,
         string path => "N:" + path,
         _ => "F:" + (node.Parent?.Tag is ProjectGroupTag pg ? pg.ProjectName : "") + "|" + node.Text,
     };
@@ -2453,7 +2476,20 @@ public partial class MainForm : DpiForm
                 var groupNode = new TreeNode($"{projectName} ({files.Count})") { Tag = new ProjectGroupTag(projectName) };
                 _tree.Nodes.Add(groupNode); // gắn vào cây trước để các nút con tính được khoá theo dự án
 
+                // Nhóm tự đặt (chuột phải file → Gom vào nhóm) lên trước, theo ABC; file còn lại theo thư mục như cũ.
+                foreach (var custom in files.Where(e => _recentFiles.GroupOf(e.Path) is not null)
+                             .GroupBy(e => _recentFiles.GroupOf(e.Path)!, StringComparer.OrdinalIgnoreCase)
+                             .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+                {
+                    var customNode = new TreeNode(custom.Key) { Tag = new FileGroupTag(projectName, custom.Key) };
+                    groupNode.Nodes.Add(customNode);
+                    foreach (var entry in custom)
+                        customNode.Nodes.Add(new TreeNode(Path.GetFileName(entry.Path)) { Tag = entry.Path, ToolTipText = entry.Path });
+                    if (CollapsedSet.Contains(TreeKey(customNode))) customNode.Collapse(); else customNode.Expand();
+                }
+
                 var byFolder = files
+                    .Where(e => _recentFiles.GroupOf(e.Path) is null)
                     .GroupBy(entry => Path.GetFileName(Path.GetDirectoryName(entry.Path)) is { Length: > 0 } f ? f : "(root)")
                     .OrderBy(g => FolderRank(g.Key))
                     .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase);

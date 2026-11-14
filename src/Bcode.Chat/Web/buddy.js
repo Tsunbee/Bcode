@@ -69,7 +69,7 @@ function render() {
   const tree = $('#tree');
   const q = $('#search').value.trim().toLowerCase();
   tree.innerHTML = '';
-  const visible = list.filter(b => !b.hidden && matches(b, q));
+  const visible = list.filter(b => !b.hidden && !b.ignored && matches(b, q));
 
   // Phòng chat nhóm
   const rooms = groups.filter(g => !q || g.title.toLowerCase().includes(q));
@@ -140,6 +140,7 @@ function bindRow(r, conv, b) {
       '-',
       { label: 'Chuyển sang nhóm…', on: () => moveTo(b) },
       { label: 'Ẩn khỏi danh sách', on: () => send('buddy.hide', { id: b.id, hidden: true }) },
+      { label: 'Chặn nick này…', icon: '<span class="mic">🚫</span>', on: () => ignoreAsk(b) },
       '-',
       { label: 'Thông tin', on: () => dialog('Thông tin — ' + b.name, `<div style="white-space:pre-line">${esc(tip(b))}</div>`) },
     ]);
@@ -158,7 +159,7 @@ function moveTo(b) {
 }
 
 function newRoom(preset) {
-  const cands = list.filter(b => !b.hidden).sort((a, b) => (ORDER[a.status] ?? 3) - (ORDER[b.status] ?? 3) || a.name.localeCompare(b.name, 'vi'));
+  const cands = list.filter(b => !b.hidden && !b.ignored).sort((a, b) => (ORDER[a.status] ?? 3) - (ORDER[b.status] ?? 3) || a.name.localeCompare(b.name, 'vi'));
   if (!cands.length) { toast('Chưa có ai trong danh sách bạn để mời.'); return; }
   dialog('Mở phòng chat nhóm', `<label>Tên phòng:</label><input id="rt" maxlength="60" value="${esc('Phòng của ' + me.name)}">
     <label>Mời (người offline sẽ nhận lời mời khi online):</label>
@@ -185,21 +186,30 @@ function statusMenu(x, y) {
     { label: 'Đặt dòng trạng thái…', on: () => $('#myText').focus() }]);
 }
 
+function ignoreAsk(b) {
+  dialog('Chặn nick', `Chặn <b>${esc(b.name)}</b>?<br><br>Bạn sẽ không nhận tin, BUZZ!, file hay "đang gõ" của họ (kể cả trong phòng chat nhóm).
+    Họ không được báo là bị chặn. Bỏ chặn ở <b>Hành động → Tuỳ chọn…</b>`,
+    [{ label: 'Chặn', primary: true, on: () => send('buddy.ignore', { id: b.id, ignored: true }) }, { label: 'Huỷ' }]);
+}
+
 function settings() {
-  const hidden = list.filter(b => b.hidden);
+  const hidden = list.filter(b => b.hidden && !b.ignored);
+  const ignored = list.filter(b => b.ignored);
   dialog('Tuỳ chọn Bhoo', `
     <label class="row"><input type="checkbox" id="oSound" ${me.sound ? 'checked' : ''}> Âm báo (tin mới, BUZZ!, bạn online)</label>
     <label class="row"><input type="checkbox" id="oPop" ${me.popups ? 'checked' : ''}> Thông báo trượt ở góc màn hình (bạn online, tin mới)</label>
     <label class="row"><input type="checkbox" id="oTray" ${me.closeToTray ? 'checked' : ''}> Bấm ✕ thì thu xuống khay đồng hồ (không thoát)</label>
     <label class="row"><input type="checkbox" id="oOff" ${showOffline ? 'checked' : ''}> Hiện bạn đang offline</label>
     <label class="row">Tự chuyển "Vắng" sau <input id="oAway" type="number" min="0" max="240" value="${me.autoAway}" style="width:50px"> phút không dùng máy (0 = tắt)</label>
-    ${hidden.length ? `<div>Bạn đã ẩn (bấm để hiện lại):</div><div class="sunken" style="padding:3px">${hidden.map(b => `<div><a href="#" data-show="${esc(b.id)}">${esc(b.name)}</a></div>`).join('')}</div>` : ''}`,
+    ${hidden.length ? `<div>Bạn đã ẩn (bấm để hiện lại):</div><div class="sunken" style="padding:3px">${hidden.map(b => `<div><a href="#" data-show="${esc(b.id)}">${esc(b.name)}</a></div>`).join('')}</div>` : ''}
+    ${ignored.length ? `<div>Nick đã chặn (bấm để bỏ chặn):</div><div class="sunken" style="padding:3px">${ignored.map(b => `<div>🚫 <a href="#" data-unig="${esc(b.id)}">${esc(b.name)}</a></div>`).join('')}</div>` : ''}`,
     [{ label: 'Lưu', primary: true, on: d => {
         showOffline = $('#oOff', d).checked; setPref('showOffline', showOffline);
         send('prefs', { sound: $('#oSound', d).checked, popups: $('#oPop', d).checked, closeToTray: $('#oTray', d).checked, autoAway: parseInt($('#oAway', d).value, 10) || 0 });
         render();
       } }, { label: 'Huỷ' }]);
   $$('[data-show]').forEach(a => a.onclick = e => { e.preventDefault(); send('buddy.hide', { id: a.dataset.show, hidden: false }); a.remove(); });
+  $$('[data-unig]').forEach(a => a.onclick = e => { e.preventDefault(); send('buddy.ignore', { id: a.dataset.unig, ignored: false }); a.parentElement.remove(); });
 }
 
 function about() {

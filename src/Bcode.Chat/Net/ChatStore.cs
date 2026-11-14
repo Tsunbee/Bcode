@@ -16,6 +16,8 @@ public sealed class ChatPrefs
     public List<string> ManualPeers { get; set; } = new();
     public List<Buddy> Buddies { get; set; } = new();
     public List<GroupMeta> Groups { get; set; } = new();
+    /// <summary>Nick đã chặn (Ignore): bỏ tin / BUZZ / "đang gõ" / tải file của họ. Họ không biết mình chặn (vẫn báo "đã nhận" như thường).</summary>
+    public List<string> Ignored { get; set; } = new();
     public bool Sound { get; set; } = true;
     /// <summary>Bấm X thì thu xuống khay đồng hồ (mặc định) thay vì thoát.</summary>
     public bool CloseToTray { get; set; } = true;

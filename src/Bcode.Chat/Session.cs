@@ -104,7 +104,7 @@ internal sealed class Session
         id = b.Id, name = b.Name, status = b.Status, text = b.Text, color = b.Color, group = b.Group, ip = b.Ip, hidden = b.Hidden,
         lastSeen = b.LastSeen == default ? 0 : new DateTimeOffset(DateTime.SpecifyKind(b.LastSeen, DateTimeKind.Utc)).ToUnixTimeMilliseconds(),
         pending = _node.PendingCount("u:" + b.Id),
-        av = b.AvHash,
+        av = b.AvHash, ignored = _node.IsIgnored(b.Id),
     }).ToList();
 
     /// <summary>Đặt ảnh đại diện từ file trên máy: cắt giữa thành hình vuông, thu về 96×96, lưu JPEG (vài KB) rồi báo cả LAN. null = bỏ ảnh.</summary>
@@ -144,6 +144,7 @@ internal sealed class Session
 
     private void OnBuddyOnline(Buddy b)
     {
+        if (_node.IsIgnored(b.Id)) return;
         if (Environment.TickCount64 - _startedAt < 6000) return;   // mới đăng nhập: cả danh sách cùng "online", không kêu loạn
         Sounds.Play("online");
         if (_store.Prefs.Status != Status.Busy && _store.Prefs.Popups)

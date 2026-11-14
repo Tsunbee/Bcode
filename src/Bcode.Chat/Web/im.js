@@ -67,7 +67,8 @@ function renderHead() {
     const inv = el('button', { class: 'btn' }, '👥 Mời thêm…'); inv.onclick = invite; side.append(inv);
   } else {
     const b = buddy(peerId()) || { name: title, status: 'offline', color: '#888', text: '' };
-    const stx = b.status === 'offline' ? 'đang offline — tin sẽ được gửi khi họ online' : (b.text || STATUS_TEXT[b.status]);
+    const stx = b.ignored ? 'bạn đã chặn nick này — tin của họ sẽ không hiện (bỏ chặn ở Tuỳ chọn của danh sách bạn)'
+      : b.status === 'offline' ? 'đang offline — tin sẽ được gửi khi họ online' : (b.text || STATUS_TEXT[b.status]);
     info.innerHTML = `${stHtml(b.status)}<b>${esc(b.name)}</b><span class="stx">— ${esc(stx)}</span>`;
     document.title = b.name + ' — Bhoo';
     const pic = (p, label, mine) => `<div class="pic" style="${avStyle(p, mine)}">${p.av ? '' : esc((p.name || '?')[0].toUpperCase())}<span>${esc(label)}</span></div>`;

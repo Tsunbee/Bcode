@@ -361,6 +361,21 @@ public sealed class ChatNode : IDisposable
         _store.SavePrefs(); BuddiesChanged?.Invoke();
     }
 
+    public bool IsIgnored(string id) { lock (_lock) return Prefs.Ignored.Contains(id); }
+
+    /// <summary>Chặn / bỏ chặn 1 nick. Chặn không cắt kết nối: tin của họ vẫn được "ack" (máy họ không xếp hàng gửi lại mãi) nhưng bị bỏ.</summary>
+    public void SetIgnored(string id, bool ignored)
+    {
+        id = Nick.IdOf(id);
+        if (id.Length == 0 || id == MyId) return;
+        lock (_lock)
+        {
+            Prefs.Ignored.Remove(id);
+            if (ignored) Prefs.Ignored.Add(id);
+        }
+        _store.SavePrefs(); BuddiesChanged?.Invoke();
+    }
+
     public void HideBuddy(string id, bool hidden)
     {
         lock (_lock) { if (Prefs.Buddies.FirstOrDefault(b => b.Id == id) is { } b) b.Hidden = hidden; }
@@ -529,6 +544,7 @@ public sealed class ChatNode : IDisposable
                 if (msg is null || msg.Mid.Length == 0 || msg.Mid.Length > 64) return;
                 if (msg.From != conn.PeerId) return;   // chỉ nhận tin của chính người ở đầu kết nối
                 conn.Send(new { t = "ack", mid = msg.Mid });
+                if (IsIgnored(msg.From) && msg.Kind is not ("sys" or "leave")) return;   // đã chặn: bỏ (vẫn nhận thông báo vào / rời phòng để danh sách phòng đúng)
                 if (_store.MarkSeen(msg.Mid)) Deliver(msg);
                 break;
             case "ack":
@@ -546,6 +562,7 @@ public sealed class ChatNode : IDisposable
                 }
                 break;
             case "typing":
+                if (IsIgnored(conn.PeerId)) break;
                 var gid = (string?)m["gid"];
                 Typing?.Invoke(gid is { Length: > 0 } ? "g:" + gid : "u:" + conn.PeerId, conn.PeerId);
                 break;
@@ -822,6 +839,7 @@ public sealed class ChatNode : IDisposable
         var who = (string?)m["id"] ?? "";
         FileOffer? offer;
         lock (_lock) offer = _store.Offers.FirstOrDefault(o => o.Fid == fid);
+        if (IsIgnored(who)) offer = null;
         if (offer is null || !CryptoEquals(offer.Token, token) || !File.Exists(offer.Path))
         {
             await stream.WriteAsync(Wire.Frame(Wire.Encode(new { t = "err", text = offer is null || offer.Token != token ? "File không còn được chia sẻ." : "Người gửi đã xoá / chuyển file." })));

@@ -184,6 +184,9 @@ internal sealed class BuddyForm : WebForm
             case "buddy.group":
                 node.SetBuddyGroup((string?)m["id"] ?? "", (string?)m["group"] ?? "");
                 break;
+            case "buddy.ignore":
+                node.SetIgnored((string?)m["id"] ?? "", (bool?)m["ignored"] ?? true);
+                break;
             case "buddy.hide":
                 node.HideBuddy((string?)m["id"] ?? "", (bool?)m["hidden"] ?? true);
                 break;

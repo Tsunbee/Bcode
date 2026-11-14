@@ -85,6 +85,16 @@ public static class SelfTest
             a.SetAvatar(null);
             Check(await Until(() => b.FindBuddy(idA)?.AvHash == "" && !File.Exists(b.AvatarPath(idA))), "A bỏ ảnh → B xoá ảnh cũ");
 
+            // chặn nick: B chặn A → tin của A bị bỏ nhưng A vẫn nhận "ack"; bỏ chặn thì nhận lại bình thường
+            b.SetIgnored(idA, true);
+            var ig = a.Send("u:" + idB, "text", "tin bị chặn");
+            Check(await Until(() => { lock (delivered) return delivered.Contains(ig.Mid); }), "Bị chặn: A vẫn nhận ack (không xếp hàng gửi lại)");
+            await Task.Delay(300);
+            Check(!inB.ToArray().Any(x => x.Msg.Mid == ig.Mid), "Bị chặn: B không hiện tin của A");
+            b.SetIgnored(idA, false);
+            var ig2 = a.Send("u:" + idB, "text", "đã bỏ chặn");
+            Check(await Until(() => { lock (inB) return inB.Any(x => x.Msg.Mid == ig2.Mid); }), "Bỏ chặn: B nhận lại tin của A");
+
             // trùng nick: máy C đăng nhập bằng đúng ID của A → cả hai đều biết
             var sc = new ChatStore(Path.Combine(root, "C"));
             sc.Prefs.Id = idA; sc.Prefs.Name = "an.nguyen"; sc.Prefs.ManualPeers = new() { "127.0.0.1:" + discA };

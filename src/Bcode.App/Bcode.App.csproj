@@ -224,6 +224,16 @@
     <Copy SourceFiles="@(WatchOutput)" DestinationFiles="@(WatchOutput->'$(OutDir)Watch\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
   <ItemGroup>
+    <!-- "Bhoo" (chat LAN kiểu messenger ngày xưa): exe riêng src/Bcode.Chat — Bcode chỉ build kèm, chép ra Bhoo\ cạnh Bcode.exe và mở bằng Process.Start. -->
+    <ProjectReference Include="..\Bcode.Chat\Bcode.Chat.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <Target Name="CopyBhoo" AfterTargets="Build">
+    <ItemGroup>
+      <BhooOutput Include="..\Bcode.Chat\bin\$(Configuration)\net8.0-windows\**\*" Exclude="..\Bcode.Chat\bin\$(Configuration)\net8.0-windows\**\*.pdb" />
+    </ItemGroup>
+    <Copy SourceFiles="@(BhooOutput)" DestinationFiles="@(BhooOutput->'$(OutDir)Bhoo\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+  <ItemGroup>
     <!-- Đọc chữ trên ảnh (Tra ảnh lỗi): exe riêng src/Bcode.Ocr dùng OCR có sẵn của Windows (WinRT cần TargetFramework windows10.x) — build kèm, chép ra Ocr\. -->
     <ProjectReference Include="..\Bcode.Ocr\Bcode.Ocr.csproj" ReferenceOutputAssembly="false" Private="false" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net8.0-windows10.0.19041.0" />
   </ItemGroup>

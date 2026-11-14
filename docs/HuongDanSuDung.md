@@ -177,7 +177,7 @@ Trên ảnh: **①** ⚙ Settings · **②** Actions · **③** giỏ script: Ad
 | **Add / View / Clear / Save / Copy Script** | Giỏ script (Script Cart) — xem dưới |
 | **Triển khai ▾**, **Tool mở rộng ▾** | Các công cụ triển khai và mở rộng (xem [Menu Triển khai](#trien-khai), [Menu Tool mở rộng](#tool-mo-rong)) |
 | **Claude**, **Gemini** | Mở claude.ai / gemini trong một tab (đăng nhập bằng tài khoản web, không cần API key) |
-| **Giải trí ▾** | Game LAN **Giải lao** và rạp phim **Xem chung** (xem [Menu Giải trí](#giai-tri)) |
+| **Giải trí ▾** | Game LAN **Giải lao**, rạp phim **Xem chung** và chat LAN **Bhoo** (xem [Menu Giải trí](#giai-tri)) |
 | **Trợ giúp** | Tab hướng dẫn này — mở đúng mục của tab đang dùng (`Ctrl+F1`) |
 | **WS:** · ⟳ · **Sys / App** | Chọn database, Refresh database (xem [Chọn dự án](#du-an)) |
 | ☀/☾ | Đổi giao diện sáng / tối — Bcode nhớ lựa chọn, lần mở sau (cả chế độ App lẫn Web) vẫn đúng sáng / tối đã chọn; chưa chọn bao giờ thì mặc định tối |
@@ -1212,8 +1212,9 @@ Nút **Giải trí ▾** trên thanh trên (giữa **Gemini** và **Trợ giúp*
 |---|---|
 | **Giải lao (game LAN)** | Mở game **Đêm Go-Live** — chơi chung 5–10 người qua mạng LAN văn phòng. Xem [Giải lao](#giai-lao). |
 | **Xem chung (rạp phim LAN)** | Mở **Rạp Bcode** — xem chung YouTube / MP4 / MP3 với cả phòng qua mạng LAN, hoặc **chia sẻ màn hình** cho cả phòng xem (như Discord), có bình luận. Xem [Xem chung](#xem-chung). |
+| **Bhoo (chat LAN)** | Mở **Bhoo** — chat với đồng nghiệp trong mạng LAN kiểu messenger ngày xưa: danh sách bạn, chat 1-1 / nhóm, **BUZZ!**, gửi file, tin nhắn offline. Xem [Bhoo](#bhoo). |
 
-> Mục **mờ** kèm chữ "thiếu Game\BcodeGame.exe" / "thiếu Watch\BcodeWatch.exe" = thư mục Bcode thiếu chương trình đó → cập nhật lại Bcode. Bấm **Giải trí ▾** mà không bung gì: mở **Ctrl+P**, gõ `Giải lao` / `Xem chung` để mở thẳng; nếu Ctrl+P cũng không có thì Bcode trên máy đang lệch bản → **Settings → Cập nhật Bcode**, tick **Ghi đè cả các file này** rồi cập nhật. Điều khiển máy qua UltraViewer / TeamViewer: kéo thanh công cụ nhỏ của chương trình điều khiển ra chỗ khác, kẻo nó che nút.
+> Mục **mờ** kèm chữ "thiếu Game\BcodeGame.exe" / "thiếu Watch\BcodeWatch.exe" / "thiếu Bhoo\Bhoo.exe" = thư mục Bcode thiếu chương trình đó → cập nhật lại Bcode. Bấm **Giải trí ▾** mà không bung gì: mở **Ctrl+P**, gõ `Giải lao` / `Xem chung` / `Bhoo` để mở thẳng; nếu Ctrl+P cũng không có thì Bcode trên máy đang lệch bản → **Settings → Cập nhật Bcode**, tick **Ghi đè cả các file này** rồi cập nhật. Điều khiển máy qua UltraViewer / TeamViewer: kéo thanh công cụ nhỏ của chương trình điều khiển ra chỗ khác, kẻo nó che nút.
 
 <a id="giai-lao"></a>
 ### Giải lao — game LAN "Đêm Go-Live"
@@ -1301,6 +1302,51 @@ Người đang nói có **viền xanh quanh đầu** trong rạp và 🎙 sáng 
 **Cột bình luận**: tab **💬 Bình luận** — gõ rồi `Enter`, hàng nút cảm xúc 😂 👏 ❤️ 😮 😢 🔥 👍 🎉; mỗi bình luận kèm thời điểm trong video (chủ phòng bấm vào để tua tới đó). Tab **👥** — ai đang xem, ngồi ghế nào.
 
 **Lỗi hay gặp**: *"Không nối được … sau 4 giây"* — tường lửa máy chủ phòng chặn: chủ phòng bấm **🛡 Mở tường lửa**, hoặc đổi máy khác làm chủ phòng. *YouTube không phát* — máy đó không vào được youtube.com, hoặc video không cho nhúng. *"Đang tải lại trình phát YouTube…"* — mạng chập chờn, rạp tự thử lại 4 lần; vẫn lỗi thì bấm **Thử lại** khi mạng ổn. *File không phát* — định dạng trình duyệt không hỗ trợ (đổi sang MP4 H.264). *"Không nhận được hình từ máy …"* (chia sẻ màn hình) — hai máy không nối thẳng được: một trong hai máy bấm **🛡 Mở tường lửa** / cho phép BcodeWatch trên mạng Private, hoặc hai máy khác mạng LAN / VPN; bấm **Thử lại**. *Chia sẻ không có tiếng* — đã chọn một cửa sổ: dừng rồi chia sẻ lại bằng **Entire Screen** + **Share with system audio**. Rạp nhớ tên, IP, thư mục chọn file, âm lượng và chế độ xem ở `%AppData%\Bcode\watch-lan.json`.
+
+<a id="bhoo"></a>
+### Bhoo — chat LAN kiểu messenger ngày xưa
+
+Nhắn tin với đồng nghiệp trong cùng mạng LAN văn phòng, giao diện hoài cổ như messenger đầu những năm 2000: danh sách bạn, cửa sổ chat riêng, **BUZZ!** rung cửa sổ, mặt cười, chat nhóm, gửi file. **Không cần máy chủ Internet**: các máy tự tìm thấy nhau trong LAN. Là chương trình riêng (`Bhoo\Bhoo.exe` cạnh Bcode.exe) — Bcode chỉ mở nó; Bhoo chạy dưới khay đồng hồ, bấm ✕ chỉ thu xuống khay (đổi ở **Hành động → Tuỳ chọn**).
+
+**Đăng nhập**
+
+1. **Giải trí → Bhoo (chat LAN)**. Gõ **Bhoo ID** (nickname): 3–32 ký tự, bắt đầu bằng chữ cái, chỉ gồm chữ không dấu, số, `_` và `.` (vd `ken_2000`, `lan.anh`). Không phân biệt hoa thường.
+2. Tick **Nhớ Bhoo ID của tôi** / **Tự động đăng nhập** / **Đăng nhập ẩn** (mọi người thấy bạn offline nhưng bạn vẫn nhắn được) → **Đăng nhập**. Bhoo hỏi cả mạng LAN ~2 giây: nếu nick đang có người online thì báo trùng và không cho đăng nhập.
+3. Lần đầu Windows có thể hỏi tường lửa — chọn **cho phép trên mạng Private**. Cửa sổ danh sách bạn tự kiểm tra tường lửa; bị chặn thì bấm **🛡 Mở tường lửa** (cần quyền admin — mở cổng TCP 47861–47870, UDP 47860).
+
+Một máy dùng được nhiều Bhoo ID (mỗi ID danh bạ, lịch sử riêng). **Không có mật khẩu**: không có máy chủ để kiểm, ai ngồi máy này cũng mở được ID đã nhớ; nick chỉ được giữ khi đang online — người đó offline thì người khác vẫn đăng nhập được bằng nick đó.
+
+**Danh sách bạn**
+
+- Ai đang mở Bhoo trong cùng mạng LAN tự hiện trong nhóm **Bạn bè (online/tổng)**; người offline hiện mờ. Biểu tượng mặt cười đổi màu theo trạng thái: xanh **Online**, đỏ **Bận**, vàng **Vắng**, xám offline. Không dùng máy ~10 phút thì tự chuyển **Vắng** (đổi số phút ở Tuỳ chọn).
+- Bấm tên mình (▼) để đổi trạng thái; ô bên dưới là **dòng trạng thái** (Enter để lưu). Để trống thì Bhoo tự ghi việc bạn đang làm: *🎬 Đang Xem chung*, *🎮 Đang chơi Giải lao*, *💻 Đang làm việc trên Bcode* (tắt ở Tuỳ chọn; tên kết nối Bcode chỉ hiện khi bạn bật thêm ô *Kèm tên kết nối*).
+- **Ảnh đại diện**: bấm ô ảnh → **Chọn ảnh từ máy…** (JPG / PNG / BMP / GIF — Bhoo tự cắt vuông, thu nhỏ 96×96) hoặc **Bỏ ảnh**, hay đổi màu nền chữ cái. Bạn bè tự tải ảnh mới của bạn qua LAN; ảnh hiện nhỏ cạnh tên trong danh sách và to ở cột phải cửa sổ chat.
+- **Nhấp đúp** tên bạn để chat. Chuột phải: **Mời vào phòng chat mới**, **Xem lịch sử chat…**, **Chuyển sang nhóm…** (tự đặt nhóm như "Đồng nghiệp"), **Ẩn khỏi danh sách**, **Chặn nick này…**, **Thông tin** (IP, online lần cuối).
+- **Chặn nick (Ignore)**: không nhận tin, BUZZ!, file, "đang gõ" của người đó nữa (kể cả trong phòng nhóm); họ không được báo là bị chặn. Bỏ chặn ở **Hành động → Tuỳ chọn…**.
+- **Thông báo trượt** ở góc phải dưới màn hình khi bạn bè online, có tin mới mà cửa sổ chat không đang mở trước mặt, hay có cuộc gọi — bấm vào để mở chat (tắt ở Tuỳ chọn; trạng thái **Bận** thì không hiện). Mới đăng nhập mà có tin người ta gửi lúc bạn offline thì Bhoo gom lại 1 thông báo *"Bạn có N tin từ …"*.
+- **✉ n** cạnh tên = n tin bạn gửi đang chờ người đó online.
+- Máy khác mạng con (VLAN / Wi-Fi khác) không tự thấy nhau: bấm **➕** và gõ IP máy bạn bè (IP hiện ở dòng dưới cùng cửa sổ Bhoo của họ).
+
+**Cửa sổ chat**
+
+- Gõ rồi `Enter` để gửi (`Shift+Enter` xuống dòng). Thanh dưới: mặt cười (hoặc gõ mã `:)` `:D` `;)` `:((` `:P` `B-)` `:x` `<3`…), **B** / *I* / U, màu chữ, cỡ chữ — người nhận thấy đúng kiểu chữ bạn chọn. Link `http(s)://` bấm được.
+- **BUZZ!** (nút trên thanh công cụ hoặc `Ctrl+G`): cửa sổ chat của bạn bè bật lên trên cùng, **rung** và kêu. Mỗi lần BUZZ cách nhau ít nhất 3 giây.
+- "… đang gõ tin nhắn…" hiện ở thanh trạng thái khi bạn bè đang gõ.
+- Dấu ⏳ sau tin = người nhận đang offline, tin **tự gửi khi cả hai cùng online lại** (tin chờ được lưu trên máy bạn, tắt máy vẫn còn); ✓ = đã tới máy người nhận.
+- **Gửi file**: bấm 📎 hoặc kéo thả file từ Explorer vào cửa sổ chat. Người nhận bấm **⬇ Nhận** → file tải thẳng từ máy bạn về `Downloads\Bhoo` (máy bạn phải đang mở Bhoo lúc họ bấm Nhận). Bạn thấy "… đã nhận xong".
+- **🧹 Xoá lịch sử** chỉ xoá trên máy bạn.
+- **🎨 Khung cảnh**: dải tranh động trên đầu khung chat — Biển xanh, Mưa chiều, Tết đến, Đêm sao, Mùa đông, Vườn hoa, Phố đêm (Bhoo tự vẽ). Một người đổi thì cả cuộc chat cùng thấy.
+- **📞 Gọi** (chỉ chat 1-1): **Gọi thoại** hoặc **Gọi video** (bật camera). Bên kia thấy chuông + nút **Nghe** / **Nghe + hình** / **Từ chối**; trong cuộc gọi có **Tắt mic**, **Tắt hình**, **Gác máy**. Tiếng / hình đi thẳng giữa 2 máy trong LAN (không qua Internet), cả hai phải đang online; đóng cửa sổ chat = gác máy. Lịch sử ghi lại *Cuộc gọi … — thời lượng* hoặc *Cuộc gọi nhỡ*.
+- **🎉 Rủ chơi**: **Rủ Xem chung** / **Rủ chơi Giải lao** — Bhoo mở sẵn Xem chung / Giải lao trên máy bạn ở chế độ làm chủ phòng và gửi lời mời; người nhận bấm **Vào xem** / **Vào chơi** là vào thẳng phòng của bạn (dùng cổng mặc định của phòng; nếu không vào được thì chọn phòng trong danh sách của Xem chung / Giải lao).
+- **Xem lịch sử**: **Hành động → Xem lịch sử…** (hoặc **Bạn bè → Xem lịch sử chat…** ở danh sách bạn) mở cửa sổ lịch sử: trái là các cuộc chat, phải là tin; lọc theo chữ, người gửi, từ ngày – đến ngày; **Tìm mọi cuộc chat** tìm chữ trong toàn bộ lịch sử; **💾 Lưu .txt** lưu cuộc chat ra file.
+
+**Chat nhóm (phòng chat)**: nút **👥** ở danh sách bạn, hoặc **Mời bạn** trong cửa sổ chat 1-1 (mở phòng mới gồm cả người đang chat). Cột **Người tham gia** bên phải; nhấp đúp tên để nhắn riêng. Phòng không có chủ: tin gửi thẳng tới từng thành viên, người offline nhận khi online lại. **Hội thoại → Rời phòng** để thôi nhận tin của phòng; **Hành động → Đổi tên phòng**.
+
+**Phòng chat công cộng**: nút **#** ở danh sách bạn (hoặc **Hành động → Phòng chat công cộng…**) — chọn phòng đang có người, phòng gợi ý (Sảnh chung, Cà phê chiều, Hỏi đáp kỹ thuật…) hoặc gõ tên + chủ đề để mở phòng mới. Ai trong LAN cũng thấy và vào được; mục **Phòng công cộng** trong danh sách bạn cho biết phòng nào đang có bao nhiêu người. Trong phòng chỉ nhắn chữ, tin **không lưu lại** (ai vào sau không thấy tin cũ), đóng cửa sổ phòng = rời phòng. Đang **Ẩn** thì người khác không thấy bạn trong phòng.
+
+**Lưu ý**: tin nhắn đi thẳng giữa các máy trong LAN dạng chữ thường (**không mã hoá**) — đừng gửi mật khẩu / thông tin nhạy cảm. Không có tài khoản nên ai trong LAN cũng đặt được nick bất kỳ (khi nick đó đang không online). Dữ liệu lưu ở `%AppData%\Bcode\bhoo\`.
+
+**Lỗi hay gặp**: *Không thấy ai / người khác không thấy mình* — tường lửa (bấm **🛡 Mở tường lửa**) hoặc mạng chặn broadcast UDP 47860 (thêm IP bằng **➕**). *Tin cứ ⏳ mãi dù bạn bè đang online* — tường lửa máy họ chặn TCP 47861: họ bấm **🛡 Mở tường lửa**. *Gọi được nhưng không nghe / không thấy hình, hoặc "Mất kết nối cuộc gọi"* — tường lửa chặn UDP của WebView2 hoặc hai máy khác mạng con không đi thẳng được tới nhau (Bhoo không dùng máy chủ trung gian). Kiểm phần mạng trên 1 máy: chạy `Bhoo\Bhoo.exe --selftest`.
 
 <a id="tao-nhanh-bang-moi"></a>
 ### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script
@@ -2071,6 +2117,7 @@ Phím mặc định; cả hai chương trình đều đổi được (Bcode: ⚙
 | `%AppData%\Bcode\bcodenote.json` | BcodeNote | Dự án mở gần nhất, bố cục khung trái |
 | `%AppData%\Bcode\game-lan.json` | Giải lao (game) | Tên người chơi, tên phòng, mật khẩu phòng lần trước (mã hoá DPAPI), IP gõ tay, đường dẫn file câu hỏi lần trước |
 | `%AppData%\Bcode\watch-lan.json` | Xem chung (rạp phim) | Tên, tên phòng, mật khẩu phòng lần trước (mã hoá DPAPI), IP gõ tay, thư mục chọn file, âm lượng, chế độ xem, ẩn / hiện cột bình luận |
+| `%AppData%\Bcode\bhoo\` | Bhoo (chat LAN) | `login.json` (Bhoo ID đã nhớ, tự đăng nhập); `users\<id>\`: danh bạ, nhóm, IP gõ tay, tuỳ chọn, tin chờ gửi, lịch sử chat |
 | `%AppData%\Bcode\FileLookupCache\` | Bcode | Cache phân tích file / menu (xoá được) |
 | `%AppData%\Bcode\Backups\` | Bcode | Bản sao lưu khi "Đưa vào source" (hoặc Create RPT ghi thẳng vào site) |
 | `%AppData%\Bcode\license.key` | Bcode | Key bản quyền |

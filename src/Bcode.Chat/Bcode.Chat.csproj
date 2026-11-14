@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- "Bhoo" (chat LAN) — nhắn tin trong mạng LAN văn phòng kiểu messenger ngày xưa: danh sách bạn online, chat 1-1, chat nhóm, BUZZ!, gửi file, tin nhắn offline.
+       Exe RIÊNG như Xem chung / Giải lao: Bcode chỉ build kèm, chép ra thư mục Bhoo\ cạnh Bcode.exe, mở từ menu "Giải trí → Bhoo".
+       Không có máy chủ: mỗi máy tự báo "đang online" bằng UDP broadcast, tin đi thẳng máy-máy bằng TCP (khung 4 byte + JSON như Watch).
+       Phần mạng + lưu trữ (Net\) không dùng WinForms — chạy thử được bằng tham số selftest (Program.cs). -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bcode.Chat</RootNamespace>
+    <AssemblyName>Bhoo</AssemblyName>
+    <Product>Bhoo — chat LAN của Bcode</Product>
+    <Description>Bhoo — nhắn tin trong mạng LAN văn phòng kiểu messenger ngày xưa, không cần máy chủ.</Description>
+    <Version>1.0.0</Version>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2957.106" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Web\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Dọn hồ sơ WebView2 theo pid của lần chạy cũ trong %TEMP% -->
+    <Compile Include="..\Shared\WebViewProfileCleanup.cs" Link="Shared\WebViewProfileCleanup.cs" />
+  </ItemGroup>
+</Project>

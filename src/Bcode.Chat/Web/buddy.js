@@ -188,13 +188,14 @@ function settings() {
   const hidden = list.filter(b => b.hidden);
   dialog('Tuỳ chọn Bhoo', `
     <label class="row"><input type="checkbox" id="oSound" ${me.sound ? 'checked' : ''}> Âm báo (tin mới, BUZZ!, bạn online)</label>
+    <label class="row"><input type="checkbox" id="oPop" ${me.popups ? 'checked' : ''}> Thông báo trượt ở góc màn hình (bạn online, tin mới)</label>
     <label class="row"><input type="checkbox" id="oTray" ${me.closeToTray ? 'checked' : ''}> Bấm ✕ thì thu xuống khay đồng hồ (không thoát)</label>
     <label class="row"><input type="checkbox" id="oOff" ${showOffline ? 'checked' : ''}> Hiện bạn đang offline</label>
     <label class="row">Tự chuyển "Vắng" sau <input id="oAway" type="number" min="0" max="240" value="${me.autoAway}" style="width:50px"> phút không dùng máy (0 = tắt)</label>
     ${hidden.length ? `<div>Bạn đã ẩn (bấm để hiện lại):</div><div class="sunken" style="padding:3px">${hidden.map(b => `<div><a href="#" data-show="${esc(b.id)}">${esc(b.name)}</a></div>`).join('')}</div>` : ''}`,
     [{ label: 'Lưu', primary: true, on: d => {
         showOffline = $('#oOff', d).checked; setPref('showOffline', showOffline);
-        send('prefs', { sound: $('#oSound', d).checked, closeToTray: $('#oTray', d).checked, autoAway: parseInt($('#oAway', d).value, 10) || 0 });
+        send('prefs', { sound: $('#oSound', d).checked, popups: $('#oPop', d).checked, closeToTray: $('#oTray', d).checked, autoAway: parseInt($('#oAway', d).value, 10) || 0 });
         render();
       } }, { label: 'Huỷ' }]);
   $$('[data-show]').forEach(a => a.onclick = e => { e.preventDefault(); send('buddy.hide', { id: a.dataset.show, hidden: false }); a.remove(); });

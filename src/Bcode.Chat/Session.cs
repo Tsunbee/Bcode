@@ -17,6 +17,9 @@ internal sealed class Session
     private readonly Dictionary<string, ImForm> _ims = new();
     private readonly System.Windows.Forms.Timer _idleTimer = new() { Interval = 15000 };
     private readonly long _startedAt = Environment.TickCount64;
+    private readonly long _startedWall = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    private readonly System.Windows.Forms.Timer _offlineTimer = new() { Interval = 2500 };
+    private readonly List<ChatMessage> _offlineMsgs = new();   // tin người ta gửi lúc mình offline, tới dồn lúc vừa đăng nhập
     private readonly Dictionary<string, string> _downloaded = new();   // fid → đường dẫn đã tải (trong lần chạy này)
     private long _lastConflictWarn;
     private bool _autoAway;
@@ -71,9 +74,10 @@ internal sealed class Session
             if (Environment.TickCount64 - _lastConflictWarn < 60_000) return;
             _lastConflictWarn = Environment.TickCount64;
             Buddy.Post(new { t = "warn", text = $"Máy {ip} vừa thử đăng nhập bằng Bhoo ID của bạn." });
-            _app.Balloon("Bhoo", $"Máy {ip} vừa thử đăng nhập bằng Bhoo ID của bạn.", null);
+            Popup.Show("Cảnh báo", "Trùng Bhoo ID", $"Máy {ip} vừa thử đăng nhập bằng Bhoo ID của bạn.", null, "#c0281c", () => _app.ShowMain());
         });
 
+        _offlineTimer.Tick += (_, _) => { _offlineTimer.Stop(); ShowOfflineSummary(); };
         _idleTimer.Tick += (_, _) => CheckIdle();
         _idleTimer.Start();
     }
@@ -90,7 +94,7 @@ internal sealed class Session
     {
         id = _node.MyId, name = _store.Prefs.Name, status = _store.Prefs.Status, text = _store.Prefs.Text, color = _store.Prefs.Color,
         port = _node.Port, ips = ChatNode.LocalIPv4(), udpError = _node.UdpError, peers = _store.Prefs.ManualPeers,
-        sound = _store.Prefs.Sound, closeToTray = _store.Prefs.CloseToTray, autoAway = _store.Prefs.AutoAwayMinutes,
+        sound = _store.Prefs.Sound, popups = _store.Prefs.Popups, closeToTray = _store.Prefs.CloseToTray, autoAway = _store.Prefs.AutoAwayMinutes,
         font = new { style = _store.Prefs.FontStyle, fg = _store.Prefs.FontColor, size = _store.Prefs.FontSize },
         av = _store.Prefs.AvatarHash,
     };
@@ -142,13 +146,22 @@ internal sealed class Session
     {
         if (Environment.TickCount64 - _startedAt < 6000) return;   // mới đăng nhập: cả danh sách cùng "online", không kêu loạn
         Sounds.Play("online");
-        if (_store.Prefs.Status != Status.Busy) _app.Balloon(b.Name, "vừa online" + (b.Text.Length > 0 ? " — " + b.Text : ""), "u:" + b.Id);
+        if (_store.Prefs.Status != Status.Busy && _store.Prefs.Popups)
+            Popup.Show("Bạn bè online", b.Name, "vừa online" + (b.Text.Length > 0 ? " — " + b.Text : ""), AvatarOf(b), b.Color, () => OpenIm("u:" + b.Id, activate: true));
     }
 
     private void OnMessage(string conv, ChatMessage m)
     {
         var f = FindIm(conv) ?? OpenIm(conv, activate: false);
         f.Post(new { t = "msg", m, mine = false });
+        // tin gửi từ lúc mình còn offline, tới dồn ngay sau đăng nhập → gom lại 1 thông báo, không kêu từng tin
+        if (m.At < _startedWall - 1000 && Environment.TickCount64 - _startedAt < 60_000 && m.Kind is "text" or "file" or "buzz")
+        {
+            _offlineMsgs.Add(m);
+            _offlineTimer.Stop(); _offlineTimer.Start();
+            Buddy.Post(new { t = "buddies", list = BuddyList() });
+            return;
+        }
         if (m.Kind == "buzz")
         {
             Sounds.Play("buzz");
@@ -158,8 +171,31 @@ internal sealed class Session
         {
             if (_store.Prefs.Status != Status.Busy) Sounds.Play(m.Kind == "file" ? "file" : "msg");   // Bận: chỉ nháy, không kêu
             if (!f.ContainsFocus) f.Flash();
+            if (!f.ContainsFocus && _store.Prefs.Status != Status.Busy && _store.Prefs.Popups && m.Kind is "text" or "file")
+            {
+                var who = _node.FindBuddy(m.From);
+                var text = m.Kind == "file" ? "gửi file " + m.File?.Name : m.Text;
+                if (conv.StartsWith("g:")) Popup.Show("Phòng chat", Title(conv), m.FromName + ": " + text, AvatarOf(who), who?.Color ?? "#3a6ea5", () => OpenIm(conv, activate: true));
+                else Popup.Show("Tin nhắn mới", m.FromName, text, AvatarOf(who), who?.Color ?? "#3a6ea5", () => OpenIm(conv, activate: true));
+            }
         }
         Buddy.Post(new { t = "buddies", list = BuddyList() });
+    }
+
+    private string? AvatarOf(Buddy? b) => b is { AvHash.Length: > 0 } ? _node.AvatarPath(b.Id) : null;
+
+    /// <summary>"Bạn có N tin nhắn khi offline" — hiện 1 lần sau khi các tin chờ đã tới đủ.</summary>
+    private void ShowOfflineSummary()
+    {
+        if (_offlineMsgs.Count == 0) return;
+        var names = _offlineMsgs.Select(x => x.FromName).Distinct().ToList();
+        var first = _offlineMsgs[0];
+        var conv = first.Group is { } g ? "g:" + g.Gid : "u:" + first.From;
+        var text = $"{_offlineMsgs.Count} tin từ {string.Join(", ", names.Take(3))}{(names.Count > 3 ? $" và {names.Count - 3} người nữa" : "")}.";
+        _offlineMsgs.Clear();
+        if (_store.Prefs.Status != Status.Busy) Sounds.Play("msg");
+        foreach (var f in _ims.Values) if (!f.ContainsFocus) f.Flash();
+        Popup.Show("Tin nhắn khi offline", "Bạn có tin nhắn mới", text, null, "#e8a400", () => OpenIm(conv, activate: true));
     }
 
     public ImForm? FindIm(string conv) => _ims.TryGetValue(conv, out var f) && !f.IsDisposed ? f : null;
@@ -202,6 +238,7 @@ internal sealed class Session
         var p = _store.Prefs;
         if (m["sound"] is JsonValue s) Sounds.Enabled = p.Sound = (bool)s;
         if (m["closeToTray"] is JsonValue c) p.CloseToTray = (bool)c;
+        if (m["popups"] is JsonValue pu) p.Popups = (bool)pu;
         if (m["autoAway"] is JsonValue a) p.AutoAwayMinutes = Math.Clamp((int)a, 0, 240);
         _store.SavePrefs();
         Broadcast(new { t = "me", me = Me() });
@@ -262,6 +299,7 @@ internal sealed class Session
         if (_closed) return;
         _closed = true;
         _idleTimer.Stop();
+        _offlineTimer.Stop();
         foreach (var f in _ims.Values.ToList()) { try { f.Close(); } catch { } }
         Buddy.AllowClose = true;
         try { Buddy.Close(); } catch { }

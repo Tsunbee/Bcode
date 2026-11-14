@@ -19,6 +19,8 @@ public sealed class ChatPrefs
     public bool Sound { get; set; } = true;
     /// <summary>Bấm X thì thu xuống khay đồng hồ (mặc định) thay vì thoát.</summary>
     public bool CloseToTray { get; set; } = true;
+    /// <summary>Thông báo trượt lên ở góc màn hình (bạn online, tin mới khi cửa sổ chat không đang mở trước mặt).</summary>
+    public bool Popups { get; set; } = true;
     /// <summary>Tự chuyển "Vắng" sau N phút không đụng chuột / phím (0 = tắt).</summary>
     public int AutoAwayMinutes { get; set; } = 10;
     /// <summary>Kiểu chữ lần trước của thanh font: đậm / nghiêng / gạch chân, màu, cỡ.</summary>

@@ -717,25 +717,31 @@ Shared/
 Bcode.Chat/
 ├── Net/
 │   ├── Accounts.cs  49
-│   ├── ChatNode.cs  846
-│   ├── ChatStore.cs  166
+│   ├── ChatNode.cs  1105
+│   ├── ChatStore.cs  214
 │   ├── Firewall.cs  110
-│   ├── Models.cs  101
-│   ├── SelfTest.cs  118
+│   ├── Models.cs  118
+│   ├── SelfTest.cs  156
 │   └── Wire.cs  142
 ├── Web/
-│   ├── buddy.html  76
-│   ├── buddy.js  251
-│   ├── common.js  176
-│   ├── im.html  104
-│   ├── im.js  324
+│   ├── buddy.html  84
+│   ├── buddy.js  310
+│   ├── call.js  194
+│   ├── common.js  198
+│   ├── hist.html  58
+│   ├── hist.js  134
+│   ├── im.html  143
+│   ├── im.js  378
 │   ├── login.html  105
-│   └── retro.css  127
+│   ├── retro.css  127
+│   └── scene.js  213
 ├── Bcode.Chat.csproj  30
-├── ChatApp.cs  199
-├── Forms.cs  421
+├── ChatApp.cs  204
+├── Forms.cs  566
+├── Popup.cs  147
 ├── Program.cs  51
-├── Session.cs  240
+├── Session.cs  527
+├── SideApps.cs  54
 └── Sounds.cs  103
 ```
 ```

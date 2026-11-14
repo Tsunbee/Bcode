@@ -53,7 +53,7 @@
   .filecard .acts { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
   .filecard .bar { height: 8px; width: 140px; border: 1px solid #7f9db9; background: #fff; margin-top: 3px; padding: 1px; }
   .filecard .bar i { display: block; height: 100%; background: repeating-linear-gradient(90deg, #36b836 0 7px, transparent 7px 9px); width: 0; }
-  .sidecol { width: 150px; flex: none; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+  .sidecol { width: 150px; flex: none; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden; padding: 2px; }
   .side { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
   body.incall .sidecol { width: 220px; }
   body.incall .side { display: none; }
@@ -78,7 +78,7 @@
   #members .mrow:hover { background: #eef3fb; }
   #members .mrow.offl { color: #9a9a9a; }
   .pics { display: flex; flex-direction: column; justify-content: space-between; height: 100%; gap: 6px; }
-  .pic { width: 100%; aspect-ratio: 1; max-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff;
+  .pic { width: 100%; flex: 0 1 140px; min-height: 0; max-height: 140px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff;
     font: bold 46px Tahoma; text-shadow: 0 2px 2px rgba(0,0,0,.4); border: 1px solid #0f2a52; box-shadow: 0 0 0 2px #fff, 1px 1px 3px 2px rgba(0,0,0,.3); position: relative; }
   .pic span { position: absolute; bottom: 3px; font: 10px Tahoma; text-shadow: none; background: rgba(0,0,0,.35); padding: 0 4px; border-radius: 2px; max-width: 95%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fmt { display: flex; align-items: center; gap: 2px; padding: 4px 6px 3px; }

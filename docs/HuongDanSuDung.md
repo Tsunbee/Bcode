@@ -1319,8 +1319,11 @@ Một máy dùng được nhiều Bhoo ID (mỗi ID danh bạ, lịch sử riên
 **Danh sách bạn**
 
 - Ai đang mở Bhoo trong cùng mạng LAN tự hiện trong nhóm **Bạn bè (online/tổng)**; người offline hiện mờ. Biểu tượng mặt cười đổi màu theo trạng thái: xanh **Online**, đỏ **Bận**, vàng **Vắng**, xám offline. Không dùng máy ~10 phút thì tự chuyển **Vắng** (đổi số phút ở Tuỳ chọn).
-- Bấm tên mình (▼) để đổi trạng thái; ô bên dưới là **dòng trạng thái** (Enter để lưu); bấm ô ảnh đại diện để đổi màu.
-- **Nhấp đúp** tên bạn để chat. Chuột phải: **Mời vào phòng chat mới**, **Chuyển sang nhóm…** (tự đặt nhóm như "Đồng nghiệp"), **Ẩn khỏi danh sách**, **Thông tin** (IP, online lần cuối).
+- Bấm tên mình (▼) để đổi trạng thái; ô bên dưới là **dòng trạng thái** (Enter để lưu). Để trống thì Bhoo tự ghi việc bạn đang làm: *🎬 Đang Xem chung*, *🎮 Đang chơi Giải lao*, *💻 Đang làm việc trên Bcode* (tắt ở Tuỳ chọn; tên kết nối Bcode chỉ hiện khi bạn bật thêm ô *Kèm tên kết nối*).
+- **Ảnh đại diện**: bấm ô ảnh → **Chọn ảnh từ máy…** (JPG / PNG / BMP / GIF — Bhoo tự cắt vuông, thu nhỏ 96×96) hoặc **Bỏ ảnh**, hay đổi màu nền chữ cái. Bạn bè tự tải ảnh mới của bạn qua LAN; ảnh hiện nhỏ cạnh tên trong danh sách và to ở cột phải cửa sổ chat.
+- **Nhấp đúp** tên bạn để chat. Chuột phải: **Mời vào phòng chat mới**, **Xem lịch sử chat…**, **Chuyển sang nhóm…** (tự đặt nhóm như "Đồng nghiệp"), **Ẩn khỏi danh sách**, **Chặn nick này…**, **Thông tin** (IP, online lần cuối).
+- **Chặn nick (Ignore)**: không nhận tin, BUZZ!, file, "đang gõ" của người đó nữa (kể cả trong phòng nhóm); họ không được báo là bị chặn. Bỏ chặn ở **Hành động → Tuỳ chọn…**.
+- **Thông báo trượt** ở góc phải dưới màn hình khi bạn bè online, có tin mới mà cửa sổ chat không đang mở trước mặt, hay có cuộc gọi — bấm vào để mở chat (tắt ở Tuỳ chọn; trạng thái **Bận** thì không hiện). Mới đăng nhập mà có tin người ta gửi lúc bạn offline thì Bhoo gom lại 1 thông báo *"Bạn có N tin từ …"*.
 - **✉ n** cạnh tên = n tin bạn gửi đang chờ người đó online.
 - Máy khác mạng con (VLAN / Wi-Fi khác) không tự thấy nhau: bấm **➕** và gõ IP máy bạn bè (IP hiện ở dòng dưới cùng cửa sổ Bhoo của họ).
 
@@ -1332,12 +1335,18 @@ Một máy dùng được nhiều Bhoo ID (mỗi ID danh bạ, lịch sử riên
 - Dấu ⏳ sau tin = người nhận đang offline, tin **tự gửi khi cả hai cùng online lại** (tin chờ được lưu trên máy bạn, tắt máy vẫn còn); ✓ = đã tới máy người nhận.
 - **Gửi file**: bấm 📎 hoặc kéo thả file từ Explorer vào cửa sổ chat. Người nhận bấm **⬇ Nhận** → file tải thẳng từ máy bạn về `Downloads\Bhoo` (máy bạn phải đang mở Bhoo lúc họ bấm Nhận). Bạn thấy "… đã nhận xong".
 - **🧹 Xoá lịch sử** chỉ xoá trên máy bạn.
+- **🎨 Khung cảnh**: dải tranh động trên đầu khung chat — Biển xanh, Mưa chiều, Tết đến, Đêm sao, Mùa đông, Vườn hoa, Phố đêm (Bhoo tự vẽ). Một người đổi thì cả cuộc chat cùng thấy.
+- **📞 Gọi** (chỉ chat 1-1): **Gọi thoại** hoặc **Gọi video** (bật camera). Bên kia thấy chuông + nút **Nghe** / **Nghe + hình** / **Từ chối**; trong cuộc gọi có **Tắt mic**, **Tắt hình**, **Gác máy**. Tiếng / hình đi thẳng giữa 2 máy trong LAN (không qua Internet), cả hai phải đang online; đóng cửa sổ chat = gác máy. Lịch sử ghi lại *Cuộc gọi … — thời lượng* hoặc *Cuộc gọi nhỡ*.
+- **🎉 Rủ chơi**: **Rủ Xem chung** / **Rủ chơi Giải lao** — Bhoo mở sẵn Xem chung / Giải lao trên máy bạn ở chế độ làm chủ phòng và gửi lời mời; người nhận bấm **Vào xem** / **Vào chơi** là vào thẳng phòng của bạn (dùng cổng mặc định của phòng; nếu không vào được thì chọn phòng trong danh sách của Xem chung / Giải lao).
+- **Xem lịch sử**: **Hành động → Xem lịch sử…** (hoặc **Bạn bè → Xem lịch sử chat…** ở danh sách bạn) mở cửa sổ lịch sử: trái là các cuộc chat, phải là tin; lọc theo chữ, người gửi, từ ngày – đến ngày; **Tìm mọi cuộc chat** tìm chữ trong toàn bộ lịch sử; **💾 Lưu .txt** lưu cuộc chat ra file.
 
 **Chat nhóm (phòng chat)**: nút **👥** ở danh sách bạn, hoặc **Mời bạn** trong cửa sổ chat 1-1 (mở phòng mới gồm cả người đang chat). Cột **Người tham gia** bên phải; nhấp đúp tên để nhắn riêng. Phòng không có chủ: tin gửi thẳng tới từng thành viên, người offline nhận khi online lại. **Hội thoại → Rời phòng** để thôi nhận tin của phòng; **Hành động → Đổi tên phòng**.
 
+**Phòng chat công cộng**: nút **#** ở danh sách bạn (hoặc **Hành động → Phòng chat công cộng…**) — chọn phòng đang có người, phòng gợi ý (Sảnh chung, Cà phê chiều, Hỏi đáp kỹ thuật…) hoặc gõ tên + chủ đề để mở phòng mới. Ai trong LAN cũng thấy và vào được; mục **Phòng công cộng** trong danh sách bạn cho biết phòng nào đang có bao nhiêu người. Trong phòng chỉ nhắn chữ, tin **không lưu lại** (ai vào sau không thấy tin cũ), đóng cửa sổ phòng = rời phòng. Đang **Ẩn** thì người khác không thấy bạn trong phòng.
+
 **Lưu ý**: tin nhắn đi thẳng giữa các máy trong LAN dạng chữ thường (**không mã hoá**) — đừng gửi mật khẩu / thông tin nhạy cảm. Không có tài khoản nên ai trong LAN cũng đặt được nick bất kỳ (khi nick đó đang không online). Dữ liệu lưu ở `%AppData%\Bcode\bhoo\`.
 
-**Lỗi hay gặp**: *Không thấy ai / người khác không thấy mình* — tường lửa (bấm **🛡 Mở tường lửa**) hoặc mạng chặn broadcast UDP 47860 (thêm IP bằng **➕**). *Tin cứ ⏳ mãi dù bạn bè đang online* — tường lửa máy họ chặn TCP 47861: họ bấm **🛡 Mở tường lửa**. Kiểm phần mạng trên 1 máy: chạy `Bhoo\Bhoo.exe --selftest`.
+**Lỗi hay gặp**: *Không thấy ai / người khác không thấy mình* — tường lửa (bấm **🛡 Mở tường lửa**) hoặc mạng chặn broadcast UDP 47860 (thêm IP bằng **➕**). *Tin cứ ⏳ mãi dù bạn bè đang online* — tường lửa máy họ chặn TCP 47861: họ bấm **🛡 Mở tường lửa**. *Gọi được nhưng không nghe / không thấy hình, hoặc "Mất kết nối cuộc gọi"* — tường lửa chặn UDP của WebView2 hoặc hai máy khác mạng con không đi thẳng được tới nhau (Bhoo không dùng máy chủ trung gian). Kiểm phần mạng trên 1 máy: chạy `Bhoo\Bhoo.exe --selftest`.
 
 <a id="tao-nhanh-bang-moi"></a>
 ### Tạo nhanh danh mục: bảng mới, thêm cột, tab Script

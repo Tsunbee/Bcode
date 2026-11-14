@@ -23,6 +23,10 @@ public sealed class ChatPrefs
     public bool CloseToTray { get; set; } = true;
     /// <summary>Thông báo trượt lên ở góc màn hình (bạn online, tin mới khi cửa sổ chat không đang mở trước mặt).</summary>
     public bool Popups { get; set; } = true;
+    /// <summary>Dòng trạng thái tự động theo việc đang làm (Xem chung / Giải lao / Bcode) khi mình không tự gõ dòng trạng thái.</summary>
+    public bool AutoStatus { get; set; } = true;
+    /// <summary>Kèm tên kết nối đang mở trong Bcode ("Đang làm: KhachHangA") — mặc định tắt vì tên kết nối có thể là tên khách hàng.</summary>
+    public bool AutoStatusDetail { get; set; }
     /// <summary>Tự chuyển "Vắng" sau N phút không đụng chuột / phím (0 = tắt).</summary>
     public int AutoAwayMinutes { get; set; } = 10;
     /// <summary>Kiểu chữ lần trước của thanh font: đậm / nghiêng / gạch chân, màu, cỡ.</summary>

@@ -31,6 +31,7 @@ function renderMe() {
   $('#mySt').innerHTML = stHtml(me.status === 'invisible' ? 'invisible' : me.status);
   $('#myRow').title = 'Trạng thái: ' + STATUS_TEXT[me.status] + ' — bấm để đổi';
   if (document.activeElement !== $('#myText')) $('#myText').value = me.text || '';
+  $('#myText').title = me.autoText ? 'Dòng trạng thái tự động (theo việc đang làm) — gõ đè để đặt dòng của bạn, xoá trống để quay lại tự động' : 'Dòng trạng thái — mọi người thấy cạnh tên bạn';
   const ip = (me.ips || [])[0];
   $('#sb').textContent = ip ? `IP máy bạn: ${(me.ips || []).join(', ')} · cổng ${me.port}` : 'Chưa thấy mạng LAN';
   document.title = 'Bhoo — ' + me.name;
@@ -236,6 +237,8 @@ function settings() {
   dialog('Tuỳ chọn Bhoo', `
     <label class="row"><input type="checkbox" id="oSound" ${me.sound ? 'checked' : ''}> Âm báo (tin mới, BUZZ!, bạn online)</label>
     <label class="row"><input type="checkbox" id="oPop" ${me.popups ? 'checked' : ''}> Thông báo trượt ở góc màn hình (bạn online, tin mới)</label>
+    <label class="row"><input type="checkbox" id="oAuto" ${me.autoStatus ? 'checked' : ''}> Dòng trạng thái tự động theo việc đang làm (Xem chung, Giải lao, Bcode) khi bạn để trống</label>
+    <label class="row" style="padding-left:20px"><input type="checkbox" id="oAutoD" ${me.autoStatusDetail ? 'checked' : ''}> Kèm tên kết nối đang mở trong Bcode (mọi người trong LAN sẽ thấy)</label>
     <label class="row"><input type="checkbox" id="oTray" ${me.closeToTray ? 'checked' : ''}> Bấm ✕ thì thu xuống khay đồng hồ (không thoát)</label>
     <label class="row"><input type="checkbox" id="oOff" ${showOffline ? 'checked' : ''}> Hiện bạn đang offline</label>
     <label class="row">Tự chuyển "Vắng" sau <input id="oAway" type="number" min="0" max="240" value="${me.autoAway}" style="width:50px"> phút không dùng máy (0 = tắt)</label>
@@ -243,7 +246,7 @@ function settings() {
     ${ignored.length ? `<div>Nick đã chặn (bấm để bỏ chặn):</div><div class="sunken" style="padding:3px">${ignored.map(b => `<div>🚫 <a href="#" data-unig="${esc(b.id)}">${esc(b.name)}</a></div>`).join('')}</div>` : ''}`,
     [{ label: 'Lưu', primary: true, on: d => {
         showOffline = $('#oOff', d).checked; setPref('showOffline', showOffline);
-        send('prefs', { sound: $('#oSound', d).checked, popups: $('#oPop', d).checked, closeToTray: $('#oTray', d).checked, autoAway: parseInt($('#oAway', d).value, 10) || 0 });
+        send('prefs', { sound: $('#oSound', d).checked, popups: $('#oPop', d).checked, autoStatus: $('#oAuto', d).checked, autoStatusDetail: $('#oAutoD', d).checked, closeToTray: $('#oTray', d).checked, autoAway: parseInt($('#oAway', d).value, 10) || 0 });
         render();
       } }, { label: 'Huỷ' }]);
   $$('[data-show]').forEach(a => a.onclick = e => { e.preventDefault(); send('buddy.hide', { id: a.dataset.show, hidden: false }); a.remove(); });

@@ -23,6 +23,7 @@ internal sealed class Session
     private readonly Dictionary<string, string> _downloaded = new();   // fid → đường dẫn đã tải (trong lần chạy này)
     private long _lastConflictWarn;
     private bool _autoAway;
+    private string _autoText = "";   // dòng trạng thái tự động đang hiện (để biết dòng hiện tại là của máy đặt hay người dùng gõ)
     private bool _closed;
 
     public ChatApp App => _app;
@@ -84,8 +85,10 @@ internal sealed class Session
         });
 
         _offlineTimer.Tick += (_, _) => { _offlineTimer.Stop(); ShowOfflineSummary(); };
-        _idleTimer.Tick += (_, _) => CheckIdle();
+        if (IsAutoText(store.Prefs.Text)) _autoText = store.Prefs.Text;   // dòng tự động còn từ lần trước
+        _idleTimer.Tick += (_, _) => { CheckIdle(); CheckActivity(); };
         _idleTimer.Start();
+        CheckActivity();
     }
 
     private void Ui(Action a) => _app.Ui(() => { if (!_closed) a(); });
@@ -100,6 +103,7 @@ internal sealed class Session
     {
         id = _node.MyId, name = _store.Prefs.Name, status = _store.Prefs.Status, text = _store.Prefs.Text, color = _store.Prefs.Color,
         port = _node.Port, ips = ChatNode.LocalIPv4(), udpError = _node.UdpError, peers = _store.Prefs.ManualPeers,
+        autoStatus = _store.Prefs.AutoStatus, autoStatusDetail = _store.Prefs.AutoStatusDetail, autoText = _autoText.Length > 0 && _store.Prefs.Text == _autoText,
         sound = _store.Prefs.Sound, popups = _store.Prefs.Popups, closeToTray = _store.Prefs.CloseToTray, autoAway = _store.Prefs.AutoAwayMinutes,
         font = new { style = _store.Prefs.FontStyle, fg = _store.Prefs.FontColor, size = _store.Prefs.FontSize },
         av = _store.Prefs.AvatarHash,
@@ -313,8 +317,11 @@ internal sealed class Session
         if (m["sound"] is JsonValue s) Sounds.Enabled = p.Sound = (bool)s;
         if (m["closeToTray"] is JsonValue c) p.CloseToTray = (bool)c;
         if (m["popups"] is JsonValue pu) p.Popups = (bool)pu;
+        if (m["autoStatus"] is JsonValue au) p.AutoStatus = (bool)au;
+        if (m["autoStatusDetail"] is JsonValue ad) p.AutoStatusDetail = (bool)ad;
         if (m["autoAway"] is JsonValue a) p.AutoAwayMinutes = Math.Clamp((int)a, 0, 240);
         _store.SavePrefs();
+        CheckActivity();
         Broadcast(new { t = "me", me = Me() });
     }
 
@@ -338,6 +345,53 @@ internal sealed class Session
         var err = await Firewall.OpenAsync(Environment.ProcessPath ?? Application.ExecutablePath);
         if (err is not null) return new { t = "fw", level = "bad", text = err };
         return await FirewallStatus();
+    }
+
+    // ───────────── Dòng trạng thái tự động ─────────────
+
+    /// <summary>Việc đang làm trên máy này, đoán theo chương trình đang chạy (Xem chung / Giải lao / Bcode). "" = không thấy gì.</summary>
+    private string Activity()
+    {
+        static bool Running(string name)
+        {
+            var ps = System.Diagnostics.Process.GetProcessesByName(name);
+            try { return ps.Length > 0; } finally { foreach (var p in ps) p.Dispose(); }
+        }
+        try
+        {
+            if (Running("BcodeWatch")) return "🎬 Đang Xem chung";
+            if (Running("BcodeGame")) return "🎮 Đang chơi Giải lao";
+            var ps = System.Diagnostics.Process.GetProcessesByName("Bcode");
+            try
+            {
+                if (ps.Length == 0) return "";
+                if (_store.Prefs.AutoStatusDetail)
+                    foreach (var p in ps)
+                    {
+                        var t = p.MainWindowTitle;
+                        if (t.StartsWith("Bcode - ")) return "💻 Đang làm: " + t[8..].Trim();
+                    }
+                return "💻 Đang làm việc trên Bcode";
+            }
+            finally { foreach (var p in ps) p.Dispose(); }
+        }
+        catch { return ""; }
+    }
+
+    private static bool IsAutoText(string t) =>
+        t.StartsWith("🎬 Đang Xem chung") || t.StartsWith("🎮 Đang chơi Giải lao") || t.StartsWith("💻 Đang làm");
+
+    /// <summary>Cập nhật dòng trạng thái tự động — chỉ khi người dùng không tự gõ dòng trạng thái (đang trống hoặc đang là dòng tự động).</summary>
+    private void CheckActivity()
+    {
+        var p = _store.Prefs;
+        var mine = p.Text.Length > 0 && p.Text != _autoText;   // người dùng tự gõ → không đụng
+        if (mine) { _autoText = ""; return; }
+        var want = p.AutoStatus ? Activity() : "";
+        if (want == p.Text) { _autoText = want; return; }
+        _autoText = want;
+        _node.SetMe(text: want);
+        Broadcast(new { t = "me", me = Me() });
     }
 
     // ───────────── Tự "Vắng" khi không đụng máy ─────────────

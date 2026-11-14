@@ -162,7 +162,8 @@ internal sealed class Session
             Buddy.Post(new { t = "buddies", list = BuddyList() });
             return;
         }
-        if (m.Kind == "buzz")
+        if (m.Kind == "env") { /* đổi khung cảnh: lặng lẽ, không kêu */ }
+        else if (m.Kind == "buzz")
         {
             Sounds.Play("buzz");
             f.Shake();

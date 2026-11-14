@@ -16,7 +16,16 @@
   .info b { font-size: 12px; }
   .info .stx { color: #dfe8f7; font-style: italic; overflow: hidden; text-overflow: ellipsis; }
   .wrap { flex: 1; display: flex; gap: 6px; padding: 6px 6px 0; min-height: 0; }
-  #log { flex: 1; overflow-y: auto; padding: 6px 8px; user-select: text; font-size: 12px; line-height: 1.45; word-wrap: break-word; }
+  #scene { display: none; height: 64px; margin: 6px 6px 0; border: 1px solid #7f9db9; position: relative; overflow: hidden; }
+  #scene canvas { width: 100%; height: 100%; display: block; }
+  body.has-scene #scene { display: block; }
+  body.has-scene .wrap { padding-top: 4px; }
+  .scgrid { display: grid; grid-template-columns: repeat(2, 156px); gap: 6px; }
+  .scitem { border: 2px solid transparent; padding: 1px; cursor: pointer; text-align: center; }
+  .scitem canvas { display: block; border: 1px solid #7f9db9; }
+  .scitem:hover { border-color: #9db9e0; } .scitem.on { border-color: var(--sel); }
+  .scitem span { font-size: 11px; }
+  #log { background: var(--logbg, #fff); flex: 1; overflow-y: auto; padding: 6px 8px; user-select: text; font-size: 12px; line-height: 1.45; word-wrap: break-word; }
   #log a { color: #0645ad; }
   .ln { margin: 1px 0 3px; }
   .ln .who { font-weight: bold; }
@@ -63,7 +72,7 @@
   .smgrid .sm { width: 22px; height: 22px; }
   .smgrid .cap { grid-column: 1 / -1; height: auto; padding: 2px; color: #6d6a5d; font-size: 10px; justify-content: flex-start; border: 0; background: none !important; }
   body.shake #log { animation: flashred .6s ease-out; }
-  @keyframes flashred { 0% { background: #ffe0e0; } 100% { background: #fff; } }
+  @keyframes flashred { 0% { background: #ffe0e0; } 100% { background: var(--logbg, #fff); } }
   body.drop::after { content: 'Thả file vào đây để gửi'; position: fixed; inset: 6px; border: 3px dashed #316ac5; background: rgba(232,238,248,.85); display: flex; align-items: center; justify-content: center; font: bold 16px Tahoma; color: #1f4882; z-index: 30; }
   @media (max-width: 470px) { .side { display: none; } .toolbar .tb .lb { display: none; } .toolbar .tb { min-width: 34px; } }
 </style>
@@ -73,11 +82,13 @@
 <div class="toolbar">
   <button class="tb" id="tBuzz" title="BUZZ! — rung cửa sổ của bạn"><span class="ic">📳</span><span class="lb">BUZZ!</span></button>
   <button class="tb" id="tFile" title="Gửi file"><span class="ic">📎</span><span class="lb">Gửi file</span></button>
+  <button class="tb" id="tScene" title="Khung cảnh trên đầu cuộc chat (cả hai bên cùng thấy)"><span class="ic">🎨</span><span class="lb">Khung cảnh</span></button>
   <button class="tb" id="tInvite" title="Mời thêm bạn vào cuộc chat"><span class="ic">👥</span><span class="lb">Mời bạn</span></button>
   <div class="sp"></div>
   <button class="tb" id="tClear" title="Xoá lịch sử cuộc chat này trên máy bạn"><span class="ic">🧹</span><span class="lb">Xoá lịch sử</span></button>
 </div>
 <div class="band info" id="info"></div>
+<div id="scene"><canvas></canvas></div>
 <div class="wrap">
   <div id="log" class="sunken"></div>
   <div class="side" id="side"></div>
@@ -99,6 +110,7 @@
 </div>
 <div class="statusbar"><span class="grow" id="sb"></span><span id="clock"></span></div>
 <script src="common.js"></script>
+<script src="scene.js"></script>
 <script src="im.js"></script>
 </body>
 </html>

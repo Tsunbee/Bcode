@@ -19,7 +19,7 @@ onHost(m => {
       me = m.me; title = m.title; group = m.group; buddies = m.list || [];
       font = Object.assign(font, m.me.font || {});
       applyFont();
-      $('#log').innerHTML = ''; msgs.clear(); lastDay = '';
+      $('#log').innerHTML = ''; msgs.clear(); lastDay = ''; Scene.set('');
       for (const h of m.history || []) addMsg(h.m, h.mine, h.pending, h.saved, true);
       if (!(m.history || []).length) sys(isGroup ? 'Phòng chat đã mở. Tin nhắn ở đây gửi tới mọi người trong phòng.' : `Bắt đầu trò chuyện với ${title}. Gõ :) để chèn mặt cười, bấm BUZZ! để gọi.`);
       renderHead(); scrollEnd(); $('#inp').focus();
@@ -108,6 +108,10 @@ function addMsg(m, mine, pending, saved, fromHistory) {
     case 'buzz':
       row = el('div', { class: 'buzz' }, `BUZZ!!! <small>${mine ? 'Bạn đã gửi BUZZ!' : esc(who) + ' gửi BUZZ!'} (${fmtTime(m.at)})</small>`);
       break;
+    case 'env':
+      Scene.set(m.text);
+      row = el('div', { class: 'sys' }, `🎨 ${mine ? 'Bạn' : esc(who)} đã đổi khung cảnh: <b>${esc(SCENES[m.text]?.name || 'không có')}</b> <span class="tm">(${fmtTime(m.at)})</span>`);
+      break;
     case 'sys': case 'leave':
       row = el('div', { class: 'sys' }, esc(m.text) + ` <span class="tm">(${fmtTime(m.at)})</span>`);
       break;
@@ -121,7 +125,7 @@ function addMsg(m, mine, pending, saved, fromHistory) {
   }
   x.row = row;
   $('#log').append(row);
-  if (mine && m.kind !== 'sys') renderPending(x);
+  if (mine && m.kind !== 'sys' && m.kind !== 'env') renderPending(x);
   if (m.kind === 'file') refreshFile(m.file.fid);
 }
 
@@ -312,13 +316,17 @@ $$('.menubar span').forEach(s => s.addEventListener('click', () => {
       { label: 'Chép', on: () => document.execCommand('copy') },
       { label: 'Chọn hết khung chat', on: () => { const r2 = document.createRange(); r2.selectNodeContents($('#log')); const sl = getSelection(); sl.removeAllRanges(); sl.addRange(r2); } }]); break;
     case 'view': showMenu(x, y, [
-      { label: (showTime ? '✓ ' : '') + 'Hiện giờ gửi', on: () => { showTime = !showTime; send('ui.init'); } }]); break;
+      { label: (showTime ? '✓ ' : '') + 'Hiện giờ gửi', on: () => { showTime = !showTime; send('ui.init'); } },
+      { label: 'Khung cảnh…', on: pickScene }]); break;
     case 'actions': showMenu(x, y, [
       { label: 'BUZZ!', on: doBuzz },
       ...(isGroup ? [{ label: 'Đổi tên phòng…', on: () => dialog('Đổi tên phòng', `<input id="nt" maxlength="60" value="${esc(title)}">`, [{ label: 'OK', primary: true, on: d => send('group.rename', { title: $('#nt', d).value }) }, { label: 'Huỷ' }]) }] : []),
       { label: 'Xoá lịch sử…', on: () => $('#tClear').click() }]); break;
   }
 }));
+
+function pickScene() { scenePicker(k => { if (k !== Scene.id) send('env', { scene: k }); }); }
+$('#tScene').onclick = pickScene;
 
 setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); }, 1000);
 send('ui.init');

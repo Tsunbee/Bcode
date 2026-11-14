@@ -303,6 +303,11 @@ internal sealed class ImForm : WebForm
                 Shake();
                 Sounds.Play("buzz");
                 break;
+            case "env":
+                // khung cảnh: gửi như 1 tin (cả cuộc chat cùng đổi, người offline mở lên vẫn thấy)
+                var scene = (string?)m["scene"] ?? "";
+                if (System.Text.RegularExpressions.Regex.IsMatch(scene, "^[a-z]{0,12}$")) Send(() => node.Send(Conv, "env", scene));
+                break;
             case "typing":
                 node.SendTyping(Conv);
                 break;
